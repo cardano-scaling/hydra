@@ -1,0 +1,42 @@
+name: "Explorer"
+on:
+  workflow_run:
+    workflows: ["Docker"]
+    branches: [master]
+    types:
+      - completed
+
+jobs:
+  explorer:
+    name: "Upgrading hydra-explorer on preview"
+    runs-on: ubuntu-latest
+    steps:
+    
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    
+    - name: Set Arguments
+      id: set_args
+      run: |
+        # Prepare network arg
+        NETWORK="--testnet-magic 2"
+        echo "NETWORK=$NETWORK" >> $GITHUB_ENV
+        
+    - name: Set Latest Version
+      id: set_latest_version
+      run: |
+        # Prepare the version tag
+        VERSION="unstable"
+        
+        BUILDING_TAG=${{github.ref_type == 'tag'}}
+        echo "BUILDING_TAG=$BUILDING_TAG" >> $GITHUB_ENV
+        
+        # Determine whether we are building a tag and if yes, set a VERSION
+        [[ ${BUILDING_TAG} = true ]] && \
+          VERSION=${{github.ref_name}}
+        
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+    
+    - name: 🚬 Upgrade hydra-explorer
+      run: nix-shell --run '.github/workflows/upgrade-explorer.sh'

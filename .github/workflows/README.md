@@ -13,10 +13,31 @@ For instance on Debian:
 sudo apt install git
 ```
 
+[Install Docker](https://docs.docker.com/engine/install/debian/#install-using-the-repository) 
+and grant permissions to the user 'admin' to perform maintenance operations.
+```bash
+sudo usermod -aG docker $USER
+```
+
 Prepare the common directory for cardano database:
 ```bash
 sudo mkdir -p /srv/var/cardano
 sudo chown "$(whoami)" /srv/var/cardano
+```
+
+spin-up a passive cardano-node in preview
+```bash
+docker pull ghcr.io/input-output-hk/cardano-node:8.7.3
+docker run -d --rm \
+    --restart always \
+    -v /srv/var/cardano/state-preview:/preview \
+    -e CARDANO_SOCKET_PATH=/preview/node.socket \
+    -e CARDANO_NODE_SOCKET_PATH=/preview/node.socket \
+    ghcr.io/input-output-hk/cardano-node:8.7.3 \
+    run \
+    --config /preview/config.json \
+    --topology /preview/topology.json \
+    --database-path /preview/db
 ```
 
 # Add the server as a github runner

@@ -27,6 +27,7 @@ jobs:
           - package: hydra-plutus
           - package: hydra-tui
           - package: hydra-node
+          - package: hydra-explorer
           - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
