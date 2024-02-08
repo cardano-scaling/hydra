@@ -817,18 +817,6 @@ toArgs
       Quiet -> ["--quiet"]
       _ -> []
 
-    toArgPeer p =
-      ["--peer", show p]
-
-    toArgStartChainFrom = \case
-      Just ChainPointAtGenesis ->
-        error "ChainPointAtGenesis"
-      Just (ChainPoint (SlotNo slotNo) headerHash) ->
-        let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
-         in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
-      Nothing ->
-        []
-
     argsChainConfig = \case
       Offline
         OfflineChainConfig
@@ -850,7 +838,7 @@ toArgs
           , contestationPeriod
           } ->
           toArgNetworkId networkId
-            <> ["--node-socket", unFile nodeSocket]
+            <> toArgNodeSocket nodeSocket
             <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
@@ -863,6 +851,22 @@ toArgs
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
+
+toArgNodeSocket :: SocketPath -> [String]
+toArgNodeSocket nodeSocket = ["--node-socket", unFile nodeSocket]
+
+toArgPeer :: Host -> [String]
+toArgPeer p = ["--peer", show p]
+
+toArgStartChainFrom :: Maybe ChainPoint -> [String]
+toArgStartChainFrom = \case
+  Just ChainPointAtGenesis ->
+    error "ChainPointAtGenesis"
+  Just (ChainPoint (SlotNo slotNo) headerHash) ->
+    let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
+     in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
+  Nothing ->
+    []
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
