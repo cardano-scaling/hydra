@@ -72,9 +72,9 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
-import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (choose, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), Var, VarContext)
+import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
@@ -174,8 +174,6 @@ instance StateModel WorldState where
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
     Fanout :: Party -> Action WorldState UTxO
-    CheckFanoutUTxO :: Var UTxO -> Var UTxO -> Action WorldState ()
-    GetConfirmedUTxO :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -237,8 +235,6 @@ instance StateModel WorldState where
     isPendingCommitFrom party hydraState
   precondition WorldState{hydraState = Initial{}} Abort{} =
     True
-  precondition WorldState{hydraState = Open{}} (GetConfirmedUTxO _) =
-    True
   precondition WorldState{hydraState = Open{}} (Close _) =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
@@ -250,8 +246,6 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
-    True
-  precondition WorldState{hydraState = Final{}} (CheckFanoutUTxO _ _) =
     True
   precondition _ StopTheWorld =
     True
@@ -348,8 +342,6 @@ instance StateModel WorldState where
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
-      GetConfirmedUTxO _ -> s
-      CheckFanoutUTxO _ _ -> s
       StopTheWorld -> s
 
 instance HasVariables WorldState where
@@ -490,27 +482,22 @@ instance
   ) =>
   RunModel WorldState (RunMonad m)
   where
-  postcondition (_, _) action _l result =
+  postcondition (_, st) action _lookup result =
     case action of
-      (Commit _party expectedCommitted) ->
+      (Commit _party expectedCommitted) -> do
+        decorateFailure st action expectedCommitted result
         pure $ expectedCommitted == result
-      (CheckFanoutUTxO closedUTxO fanoutUTxO) -> pure $ closedUTxO == fanoutUTxO
-      -- TODO: revisit
+      Fanout{} ->
+        case hydraState st of
+          Final{finalUTxO} -> do
+            decorateFailure st action (toTxOuts finalUTxO) (toList result)
+            pure (toTxOuts finalUTxO == toList result)
+          _ -> pure False
       _ -> pure True
 
-  monitoring (s, s') action _l result =
-    decoratePostconditionFailure
-      . decorateTransitions
+  monitoring (s, s') _action _lookup _result =
+    decorateTransitions
    where
-    -- REVIEW: This should be part of the quickcheck-dynamic runActions
-    decoratePostconditionFailure
-      | checkOutcome s action result = id
-      | otherwise =
-          counterexample "postcondition failed"
-            . counterexample ("Action: " <> show action)
-            . counterexample ("State: " <> show s)
-            . counterexample ("Result: " <> showFromAction (show result) action)
-
     decorateTransitions =
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
@@ -531,8 +518,6 @@ instance
         performClose party
       Fanout party ->
         performFanout party
-      GetConfirmedUTxO party ->
-        performGetConfirmedUTxO party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -549,7 +534,6 @@ instance
           case find headIsOpen outputs of
             Just _ -> pure ()
             Nothing -> error "The head is not open for node"
-      CheckFanoutUTxO _ _ -> pure ()
       StopTheWorld ->
         stopTheWorld
 
@@ -624,7 +608,6 @@ performCommit parties party paymentUTxO = do
               | cp == party -> Just committedUTxO
             err@CommandFailed{} -> error $ show err
             _ -> Nothing
-
       pure $ fromUtxo observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
@@ -641,6 +624,13 @@ performCommit parties party paymentUTxO = do
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
+
+toTxOuts :: [(CardanoSigningKey, Value)] -> [TxOut CtxUTxO]
+toTxOuts payments =
+  uncurry mkTxOut <$> payments
+ where
+  mkTxOut (CardanoSigningKey sk) val =
+    TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) val TxOutDatumNone ReferenceScriptNone
 
 toRealUTxO :: [(CardanoSigningKey, Value)] -> UTxO
 toRealUTxO paymentUTxO =
@@ -728,34 +718,6 @@ performAbort party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
-performGetConfirmedUTxO :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m UTxO
-performGetConfirmedUTxO party = do
-  nodes <- gets nodes
-  let thisNode = nodes ! party
-  waitForOpen thisNode
-  eConfirmedUTxO <- lift $ getHeadUTxO thisNode
-  case eConfirmedUTxO of
-    Left _ -> error "Failed on GetUTxO"
-    Right utxo -> pure utxo
- where
-  getHeadUTxO ::
-    forall m.
-    (MonadTimer m, MonadDelay m) =>
-    TestHydraClient Tx m ->
-    m (Either () UTxO)
-  getHeadUTxO node = go 100
-   where
-    go :: Int -> m (Either () (UTxOType Tx))
-    go = \case
-      0 ->
-        pure $ Left ()
-      n -> do
-        node `send` Input.GetUTxO
-        threadDelay 0.1
-        timeout 10 (waitForNext node) >>= \case
-          Just (GetUTxOResponse _ utxo) -> pure $ Right utxo
-          _ -> go (n - 1)
-
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
@@ -778,7 +740,8 @@ performFanout party = do
 
   outputs <- lift $ serverOutputs thisNode
   case find headIsFinalized outputs of
-    Just HeadIsFinalized{utxo} -> pure utxo
+    Just HeadIsFinalized{utxo} -> do
+      pure utxo
     _ -> go (20 :: Word)
  where
   go n =
@@ -810,18 +773,24 @@ showFromAction k = \case
   Abort{} -> k
   Close{} -> k
   Fanout{} -> k
-  GetConfirmedUTxO{} -> k
-  CheckFanoutUTxO{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
   StopTheWorld -> k
   ObserveHeadIsOpen -> k
 
-checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
-checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
-  expectedCommitted == actualCommitted
-checkOutcome _ _ _ = True
+decorateFailure ::
+  (Monad m, Show expected, Show actual) =>
+  WorldState ->
+  Action WorldState a ->
+  expected ->
+  actual ->
+  PostconditionM m ()
+decorateFailure st action expected actual = do
+  counterexamplePost ("Action:   " <> show action)
+  counterexamplePost ("State:    " <> show st)
+  counterexamplePost ("Expected: " <> show expected)
+  counterexamplePost ("Actual:   " <> show actual)
 
 waitForUTxOToSpend ::
   forall m.

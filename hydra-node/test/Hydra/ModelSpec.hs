@@ -165,7 +165,7 @@ import Test.QuickCheck.StateModel (
   stateAfter,
   pattern Actions,
  )
-import Test.Util (printTrace, traceInIOSim, traceDebug)
+import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -192,10 +192,8 @@ fanoutContainsWholeConfirmedUTxO = do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
-      confirmedUTxO <- action $ Model.GetConfirmedUTxO party
-      _ <- action $ Model.Close party
-      finalUTxO <- action $ Model.Fanout party
-      action_ $ Model.CheckFanoutUTxO confirmedUTxO finalUTxO
+      action_ $ Model.Close party
+      void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld
  where
@@ -377,7 +375,7 @@ runIOSimProp p = do
   nodes =
     Nodes
       { nodes = mempty
-      , logger = traceInIOSim <> traceDebug
+      , logger = traceInIOSim
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }
