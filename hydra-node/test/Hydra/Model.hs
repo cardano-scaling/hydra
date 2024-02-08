@@ -213,10 +213,8 @@ instance StateModel WorldState where
       let party = deriveParty key
       pure . Some $ Close party
 
-    genFanout = do
-      (key, _) <- elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Fanout party
+    genFanout =
+      Some . Fanout . deriveParty . fst <$> elements hydraParties
 
     genRollbackAndForward = do
       -- TODO: investigate why choosing higher number of blocks e.g. (1, 5)
@@ -249,7 +247,10 @@ instance StateModel WorldState where
     case hydraState of
       Open{} -> True
       Closed{} -> True
-      _ -> False
+      Initial{} -> False
+      Idle{} -> False
+      Start{} -> False
+      Final{} -> False
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -320,7 +321,7 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState} -> Closed $ confirmedUTxO offChainState
+          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
           _ -> error "unexpected state"
       Fanout{} ->
         WorldState{hydraParties, hydraState = updateWithFanout hydraState}

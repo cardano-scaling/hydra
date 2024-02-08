@@ -151,7 +151,7 @@ import Test.QuickCheck.DynamicLogic (
   forAllQ,
   getModelStateDL,
   whereQ,
-  withGenQ,
+  withGenQ, Quantification,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
@@ -196,14 +196,6 @@ fanoutContainsWholeConfirmedUTxO = do
       void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld
- where
-  nonConflictingTx st =
-    withGenQ (genPayment st) (const [])
-      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
-
-  eventually a = action_ (Wait 10) >> action_ a
-
-  action_ = void . action
 
 prop_checkHeadOpensIfAllPartiesCommit :: Property
 prop_checkHeadOpensIfAllPartiesCommit =
@@ -217,7 +209,6 @@ headOpensIfAllPartiesCommit = do
   everybodyCommit
   void $ eventually ObserveHeadIsOpen
  where
-  eventually a = action (Wait 1000) >> action a
   seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
   initHead = do
     WorldState{hydraParties} <- getModelStateDL
@@ -254,14 +245,7 @@ conflictFreeLiveness = do
       eventually (ObserveConfirmedTx tx)
     _ -> pure ()
   action_ Model.StopTheWorld
- where
-  nonConflictingTx st =
-    withGenQ (genPayment st) (const [])
-      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
-  eventually a = action_ (Wait 10) >> action_ a
-
-  action_ = void . action
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
@@ -379,6 +363,17 @@ runIOSimProp p = do
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }
+
+nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
+nonConflictingTx st =
+    withGenQ (genPayment st) (const [])
+      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
+
+eventually :: Action WorldState () -> DL WorldState ()
+eventually a = action_ (Wait 10) >> action_ a
+
+action_ :: Action WorldState () -> DL WorldState ()
+action_ = void . action
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case
