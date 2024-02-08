@@ -1031,6 +1031,11 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 
+currencySymbolToHeadId :: MonadFail m => CurrencySymbol -> m HeadId
+currencySymbolToHeadId cs = do
+  policyId <- fromPlutusCurrencySymbol cs
+  pure $ mkHeadId policyId
+
 headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
 

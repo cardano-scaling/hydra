@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithT
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.HeadTokens (mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
@@ -50,6 +50,7 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Instances.Semigroup ()
+import Test.QuickCheck.Monadic (assert, monadicIO, monitor)
 import Test.QuickCheck.Property (checkCoverage)
 
 spec :: Spec
@@ -61,11 +62,18 @@ spec =
         headSeedToTxIn headSeed === Just txIn
           & counterexample (show headSeed)
 
-    describe "HeadId (cardano)" $
+    describe "HeadId (cardano)" $ do
       prop "headIdToPolicyId . mkHeadId === id" $ \pid -> do
         let headId = mkHeadId pid
         headIdToPolicyId headId === Just pid
           & counterexample (show headId)
+
+      prop "curencySymbolToHeadId . headIdToCurrencySymbol === id" $ \txIn -> monadicIO $ do
+        let headId = mkHeadId $ headPolicyId txIn
+        let cs = headIdToCurrencySymbol headId
+        headId' <- currencySymbolToHeadId cs
+        monitor (counterexample (show headId' <> " should be equal to " <> show headId))
+        assert (headId' == headId)
 
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
