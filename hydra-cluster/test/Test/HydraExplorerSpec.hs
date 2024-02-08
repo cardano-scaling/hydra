@@ -16,6 +16,7 @@ import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Explorer.Options (toArgStartChainFrom)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options qualified as Options
 import HydraNode (HydraNodeLog, input, send, waitMatch, withHydraNode)
@@ -49,7 +50,7 @@ spec = do
             seedFromFaucet_ cardanoNode bobCardanoVk 25_000_000 (contramap FromFaucet tracer)
             bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
-            withHydraExplorer cardanoNode Nothing $ \explorer -> do
+            withHydraExplorer cardanoNode (Just ChainPointAtGenesis) $ \explorer -> do
               allHeads <- getHeads explorer
               length (allHeads ^. _Array) `shouldBe` 2
               allHeads ^. nth 0 . key "headId" . _String `shouldBe` aliceHeadId
@@ -130,6 +131,6 @@ withHydraExplorer cardanoNode mStartChainFrom action =
       $ Options.toArgNodeSocket nodeSocket
         <> Options.toArgNetworkId networkId
         <> Options.toArgApiPort 9090
-        <> Options.toArgStartChainFrom mStartChainFrom
+        <> toArgStartChainFrom mStartChainFrom
 
   RunningNode{nodeSocket, networkId} = cardanoNode

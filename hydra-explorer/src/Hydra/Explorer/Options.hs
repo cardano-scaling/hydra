@@ -2,7 +2,7 @@ module Hydra.Explorer.Options where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint (..), NetworkId, SocketPath)
+import Hydra.Cardano.Api (ChainPoint (..), NetworkId, SlotNo (..), SocketPath, serialiseToRawBytesHexText)
 import Hydra.Network (PortNumber)
 import Hydra.Options (
   apiPortParser,
@@ -39,3 +39,13 @@ hydraExplorerOptions =
         <> progDesc "Explore hydra heads from chain."
         <> header "hydra-explorer"
     )
+
+toArgStartChainFrom :: Maybe ChainPoint -> [String]
+toArgStartChainFrom = \case
+  Just ChainPointAtGenesis ->
+    ["--start-chain-from", "0"]
+  Just (ChainPoint (SlotNo slotNo) headerHash) ->
+    let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
+     in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
+  Nothing ->
+    []

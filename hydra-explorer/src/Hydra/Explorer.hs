@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Chain.Direct.Tx (HeadObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
-import Hydra.Explorer.Options (Options (..), hydraExplorerOptions)
+import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
@@ -96,7 +96,7 @@ main = do
         chainObserverArgs =
           Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
-            <> Options.toArgStartChainFrom startChainFrom
+            <> toArgStartChainFrom startChainFrom
     race
       ( withArgs chainObserverArgs $
           Hydra.ChainObserver.main (observerHandler explorerState)

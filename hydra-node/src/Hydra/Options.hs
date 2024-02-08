@@ -820,6 +820,15 @@ toArgs
     toArgPeer p =
       ["--peer", show p]
 
+    toArgStartChainFrom = \case
+      Just ChainPointAtGenesis ->
+        error "ChainPointAtGenesis"
+      Just (ChainPoint (SlotNo slotNo) headerHash) ->
+        let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
+         in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
+      Nothing ->
+        []
+
     argsChainConfig = \case
       Offline
         OfflineChainConfig
@@ -860,16 +869,6 @@ toArgNodeSocket nodeSocket = ["--node-socket", unFile nodeSocket]
 
 toArgApiPort :: PortNumber -> [String]
 toArgApiPort apiPort = ["--api-port", show apiPort]
-
-toArgStartChainFrom :: Maybe ChainPoint -> [String]
-toArgStartChainFrom = \case
-  Just ChainPointAtGenesis ->
-    error "ChainPointAtGenesis"
-  Just (ChainPoint (SlotNo slotNo) headerHash) ->
-    let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
-     in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
-  Nothing ->
-    []
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
