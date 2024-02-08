@@ -72,6 +72,7 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
+import Test.Hydra.Prelude (failure)
 import Test.QuickCheck (choose, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
@@ -123,22 +124,6 @@ data GlobalState
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
-isInitialState :: GlobalState -> Bool
-isInitialState Initial{} = True
-isInitialState _ = False
-
-isOpenState :: GlobalState -> Bool
-isOpenState Open{} = True
-isOpenState _ = False
-
-isFinalState :: GlobalState -> Bool
-isFinalState Final{} = True
-isFinalState _ = False
-
-isIdleState :: GlobalState -> Bool
-isIdleState Idle{} = True
-isIdleState _ = False
-
 isPendingCommitFrom :: Party -> GlobalState -> Bool
 isPendingCommitFrom party Initial{pendingCommits} =
   party `Map.member` pendingCommits
@@ -179,6 +164,7 @@ instance StateModel WorldState where
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
+    RollbackAndForward :: Natural -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -201,8 +187,13 @@ instance StateModel WorldState where
         frequency
           [ (5, genNewTx)
           , (1, genClose)
+          , (1, genRollbackAndForward)
           ]
-      Closed{} -> genFanout
+      Closed{} ->
+        frequency
+          [ (5, genFanout)
+          , (1, genRollbackAndForward)
+          ]
       Final{} -> fmap Some genSeed
    where
     genCommit :: Uncommitted -> Gen (Any (Action WorldState))
@@ -227,6 +218,13 @@ instance StateModel WorldState where
       let party = deriveParty key
       pure . Some $ Fanout party
 
+    genRollbackAndForward = do
+      -- TODO: investigate why choosing higher number of blocks e.g. (1, 5)
+      -- causes arithmetic underflow. Maybe we need a pointer to the current
+      -- block so we don't rollback past that one?
+      numberOfBlocks <- choose (1, 2)
+      pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -247,6 +245,11 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
     True
+  precondition WorldState{hydraState} (RollbackAndForward _) =
+    case hydraState of
+      Open{} -> True
+      Closed{} -> True
+      _ -> False
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -339,6 +342,7 @@ instance StateModel WorldState where
                     }
               }
           _ -> error "unexpected state"
+      RollbackAndForward _numberOfBlocks -> s
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
@@ -533,7 +537,9 @@ instance
           outputs <- lift $ serverOutputs node
           case find headIsOpen outputs of
             Just _ -> pure ()
-            Nothing -> error "The head is not open for node"
+            Nothing -> failure "The head is not open for node"
+      RollbackAndForward numberOfBlocks ->
+        performRollbackAndForward numberOfBlocks
       StopTheWorld ->
         stopTheWorld
 
@@ -738,20 +744,25 @@ performFanout party = do
   waitForClosed thisNode
   party `sendsInput` Input.Fanout
 
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsFinalized{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
+
   outputs <- lift $ serverOutputs thisNode
   case find headIsFinalized outputs of
-    Just HeadIsFinalized{utxo} -> do
-      pure utxo
-    _ -> go (20 :: Word)
+    Just HeadIsFinalized{utxo} -> pure utxo
+    _ -> failure "Failed to perform Fanout"
  where
-  go n =
-    if n == 0
-      then error "Failed to Fanout a Head"
-      else lift (threadDelay 1) >> performFanout party
-
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
+
+performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
+performRollbackAndForward numberOfBlocks = do
+  SimulatedChainNetwork{rollbackAndForward} <- gets chain
+  lift $ rollbackAndForward numberOfBlocks
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
@@ -776,6 +787,7 @@ showFromAction k = \case
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
+  RollbackAndForward{} -> k
   StopTheWorld -> k
   ObserveHeadIsOpen -> k
 

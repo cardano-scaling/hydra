@@ -187,10 +187,7 @@ mockChainAndNetwork tr seedKeys commits = do
   blockTime = 20
 
   simulateChain nodes chain queue =
-    forever $ do
-      rollForward nodes chain queue
-      rollForward nodes chain queue
-      rollbackAndForward nodes chain 2
+    forever $ rollForward nodes chain queue
 
   rollForward nodes chain queue = do
     threadDelay blockTime
