@@ -144,6 +144,7 @@ import Hydra.Party (Party (..), deriveParty)
 import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
+  Quantification,
   action,
   anyActions_,
   forAllDL,
@@ -151,7 +152,7 @@ import Test.QuickCheck.DynamicLogic (
   forAllQ,
   getModelStateDL,
   whereQ,
-  withGenQ, Quantification,
+  withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
@@ -245,7 +246,6 @@ conflictFreeLiveness = do
       eventually (ObserveConfirmedTx tx)
     _ -> pure ()
   action_ Model.StopTheWorld
-
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
@@ -366,8 +366,8 @@ runIOSimProp p = do
 
 nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
 nonConflictingTx st =
-    withGenQ (genPayment st) (const [])
-      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
+  withGenQ (genPayment st) (const [])
+    `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 eventually :: Action WorldState () -> DL WorldState ()
 eventually a = action_ (Wait 10) >> action_ a
