@@ -3,11 +3,11 @@ module Hydra.Explorer.Options where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId, SocketPath)
-import Hydra.Network (Host)
+import Hydra.Network (PortNumber)
 import Hydra.Options (
+  apiPortParser,
   networkIdParser,
   nodeSocketParser,
-  peerParser,
   startChainFromParser,
  )
 import Options.Applicative (Parser, ParserInfo, fullDesc, header, helper, info, progDesc)
@@ -15,7 +15,7 @@ import Options.Applicative (Parser, ParserInfo, fullDesc, header, helper, info, 
 type Options :: Type
 data Options = Options
   { networkId :: NetworkId
-  , host :: Host
+  , port :: PortNumber
   , nodeSocket :: SocketPath
   , startChainFrom :: Maybe ChainPoint
   }
@@ -25,7 +25,7 @@ optionsParser :: Parser Options
 optionsParser =
   Options
     <$> networkIdParser
-    <*> peerParser
+    <*> apiPortParser
     <*> nodeSocketParser
     <*> optional startChainFromParser
 

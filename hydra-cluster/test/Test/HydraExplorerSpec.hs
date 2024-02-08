@@ -17,7 +17,6 @@ import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Network (Host (..))
 import Hydra.Options qualified as Options
 import HydraNode (HydraNodeLog, input, send, waitMatch, withHydraNode)
 import Network.HTTP.Client (responseBody)
@@ -130,7 +129,7 @@ withHydraExplorer cardanoNode mStartChainFrom action =
       "hydra-explorer"
       $ Options.toArgNodeSocket nodeSocket
         <> Options.toArgNetworkId networkId
-        <> Options.toArgPeer Host{hostname = "0.0.0.0", port = 9090}
+        <> Options.toArgApiPort 9090
         <> Options.toArgStartChainFrom mStartChainFrom
 
   RunningNode{nodeSocket, networkId} = cardanoNode

@@ -9,7 +9,6 @@ import Hydra.Chain.Direct.Tx (HeadObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
 import Hydra.Explorer.Options (Options (..), hydraExplorerOptions)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
-import Hydra.Network (Host (..))
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
@@ -88,7 +87,7 @@ main = do
     opts <- execParser hydraExplorerOptions
     let Options
           { networkId
-          , host = Host{hostname, port}
+          , port
           , nodeSocket
           , startChainFrom
           } = opts
@@ -103,16 +102,16 @@ main = do
           Hydra.ChainObserver.main (observerHandler explorerState)
       )
       ( traceWith tracer (APIServerStarted port)
-          *> Warp.runSettings (settings tracer port hostname) (httpApp tracer getHeads)
+          *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads)
       )
       >>= \case
         Left{} -> error "Something went wrong"
         Right a -> pure a
  where
-  settings tracer port hostname =
+  settings tracer port =
     Warp.defaultSettings
       & Warp.setPort (fromIntegral port)
-      & Warp.setHost (fromString . toString $ hostname)
+      & Warp.setHost "0.0.0.0"
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
 addCorsHeaders ::

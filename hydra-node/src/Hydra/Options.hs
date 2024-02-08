@@ -803,7 +803,7 @@ toArgs
       <> ["--host", show host]
       <> ["--port", show port]
       <> ["--api-host", show apiHost]
-      <> ["--api-port", show apiPort]
+      <> toArgApiPort apiPort
       <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
@@ -816,6 +816,9 @@ toArgs
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
+
+    toArgPeer p =
+      ["--peer", show p]
 
     argsChainConfig = \case
       Offline
@@ -855,8 +858,8 @@ toArgs
 toArgNodeSocket :: SocketPath -> [String]
 toArgNodeSocket nodeSocket = ["--node-socket", unFile nodeSocket]
 
-toArgPeer :: Host -> [String]
-toArgPeer p = ["--peer", show p]
+toArgApiPort :: PortNumber -> [String]
+toArgApiPort apiPort = ["--api-port", show apiPort]
 
 toArgStartChainFrom :: Maybe ChainPoint -> [String]
 toArgStartChainFrom = \case
