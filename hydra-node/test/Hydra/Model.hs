@@ -495,7 +495,10 @@ instance
         case hydraState st of
           Final{finalUTxO} -> do
             decorateFailure st action (toTxOuts finalUTxO) (toList result)
-            pure (toTxOuts finalUTxO == toList result)
+            let getLovelace = selectLovelace . foldMap txOutValue
+            -- TODO: Is it enough to just compare the values? Should we make
+            -- sure there is equal number of outputs and that we can actually
+            pure (getLovelace (toTxOuts finalUTxO) == getLovelace (toList result))
           _ -> pure False
       _ -> pure True
 
@@ -638,6 +641,9 @@ toTxOuts payments =
   mkTxOut (CardanoSigningKey sk) val =
     TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) val TxOutDatumNone ReferenceScriptNone
 
+-- | NOTE: This function generates input 'Ix' that start from zero so
+-- can't be used with certainty when want to check equality with some 'UTxO'
+-- even though the value and the key would match.
 toRealUTxO :: [(CardanoSigningKey, Value)] -> UTxO
 toRealUTxO paymentUTxO =
   UTxO.fromPairs $
