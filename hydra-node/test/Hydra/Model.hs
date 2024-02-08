@@ -495,11 +495,10 @@ instance
       Fanout{} ->
         case hydraState st of
           Final{finalUTxO} -> do
+            let sortByLovelace = sort . fmap (selectLovelace . txOutValue)
             decorateFailure st action (toTxOuts finalUTxO) (toList result)
-            let getLovelace = selectLovelace . foldMap txOutValue
-            -- TODO: Is it enough to just compare the values? Should we make
-            -- sure there is equal number of outputs and that we can actually
-            pure (getLovelace (toTxOuts finalUTxO) == getLovelace (toList result))
+            pure $
+              sortByLovelace (toTxOuts finalUTxO) == sortByLovelace (toList result)
           _ -> pure False
       _ -> pure True
 
