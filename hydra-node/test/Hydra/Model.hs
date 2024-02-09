@@ -492,10 +492,13 @@ instance
       Fanout{} ->
         case hydraState st of
           Final{finalUTxO} -> do
-            let sortByLovelace = sort . fmap (selectLovelace . txOutValue)
+            -- NOTE: Sort `[TxOut]` by the address and values. We want to make
+            -- sure that the fannout outputs match what we had in the open Head
+            -- exactly.
+            let sortByAddressAndValue = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
             decorateFailure st action (toTxOuts finalUTxO) (toList result)
             pure $
-              sortByLovelace (toTxOuts finalUTxO) == sortByLovelace (toList result)
+              sortByAddressAndValue (toTxOuts finalUTxO) == sortByAddressAndValue (toList result)
           _ -> pure False
       _ -> pure True
 
