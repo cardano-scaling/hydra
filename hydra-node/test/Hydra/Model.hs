@@ -166,6 +166,7 @@ instance StateModel WorldState where
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     RollbackAndForward :: Natural -> Action WorldState ()
+    PostCloseTx :: Party -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -186,8 +187,8 @@ instance StateModel WorldState where
           ]
       Open{} ->
         frequency
-          [ (5, genNewTx)
-          , (1, genClose)
+          [ (10, genNewTx)
+          , (1, frequency [(5, genClose), (5, genPostCloseTx)])
           , (1, genRollbackAndForward)
           ]
       Closed{} ->
@@ -202,17 +203,13 @@ instance StateModel WorldState where
       (party, commits) <- elements $ Map.toList pending
       pure . Some $ Commit party commits
 
-    genAbort = do
-      (key, _) <- elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Abort party
+    genAbort =
+      Some . Abort . deriveParty . fst <$> elements hydraParties
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
-    genClose = do
-      (key, _) <- elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Close party
+    genClose =
+      Some . Close . deriveParty . fst <$> elements hydraParties
 
     genFanout =
       Some . Fanout . deriveParty . fst <$> elements hydraParties
@@ -220,6 +217,9 @@ instance StateModel WorldState where
     genRollbackAndForward = do
       numberOfBlocks <- choose (1, 2)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
+
+    genPostCloseTx =
+      Some . PostCloseTx . deriveParty . fst <$> elements hydraParties
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -240,6 +240,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
+    True
+  precondition WorldState{hydraState = Open{}} (PostCloseTx _) =
     True
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
@@ -340,6 +342,12 @@ instance StateModel WorldState where
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
                     }
               }
+          _ -> error "unexpected state"
+      PostCloseTx _ ->
+        WorldState{hydraParties, hydraState = updateWithClose hydraState}
+       where
+        updateWithClose = \case
+          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
       Wait _ -> s
@@ -541,6 +549,8 @@ instance
           case find headIsOpen outputs of
             Just _ -> pure ()
             Nothing -> error "The head is not open for node"
+      PostCloseTx party ->
+        performCloseTx party
       RollbackAndForward numberOfBlocks ->
         performRollbackAndForward numberOfBlocks
       StopTheWorld ->
@@ -744,6 +754,18 @@ performFanout party = do
     HeadIsFinalized{} -> True
     _otherwise -> False
 
+performCloseTx :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => Party -> RunMonad m ()
+performCloseTx party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+  SimulatedChainNetwork{postCloseTx} <- gets chain
+  lift $ postCloseTx party
+  lift $
+    waitUntilMatch (toList nodes) $ \case
+      HeadIsClosed{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
 performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
 performRollbackAndForward numberOfBlocks = do
   SimulatedChainNetwork{rollbackAndForward} <- gets chain
@@ -802,6 +824,7 @@ showFromAction k = \case
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
+  PostCloseTx{} -> k
   RollbackAndForward{} -> k
   StopTheWorld -> k
   ObserveHeadIsOpen -> k

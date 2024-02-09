@@ -223,7 +223,7 @@ mockChainAndNetwork tr seedKeys commits = do
           } -> do
           hs <- atomically queryHeadState
           case hs of
-            Idle IdleState{} -> error "Cannot post Close tx when in Initial state"
+            Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> do
               let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot}
