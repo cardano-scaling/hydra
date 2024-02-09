@@ -194,6 +194,7 @@ fanoutContainsWholeConfirmedUTxO = do
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
       action_ $ Model.Close party
+      -- NOTE: The check is actually in the Model postcondition for 'Fanout'
       void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld

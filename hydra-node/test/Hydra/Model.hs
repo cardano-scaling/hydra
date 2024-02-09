@@ -692,12 +692,12 @@ waitForOpen node = do
 
 -- | Wait for the head to be closed by searching from the beginning. Note that
 -- there rollbacks or multiple life-cycles of heads are not handled here.
-waitForClosed :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
-waitForClosed node = do
+waitForReadyToFanout :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
+waitForReadyToFanout node = do
   outs <- lift $ serverOutputs node
-  unless (any headIsClosed outs) waitAndRetry
+  unless (any headIsReadyToFanout outs) waitAndRetry
  where
-  waitAndRetry = lift (threadDelay 0.1) >> waitForClosed node
+  waitAndRetry = lift (threadDelay 0.1) >> waitForReadyToFanout node
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
@@ -744,7 +744,7 @@ performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m, MonadTimer m) => Par
 performFanout party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
-  waitForClosed thisNode
+  waitForReadyToFanout thisNode
   party `sendsInput` Input.Fanout
 
   lift $
@@ -848,7 +848,7 @@ headIsOpen = \case
   HeadIsOpen{} -> True
   _otherwise -> False
 
-headIsClosed :: ServerOutput tx -> Bool
-headIsClosed = \case
-  HeadIsClosed{} -> True
+headIsReadyToFanout :: ServerOutput tx -> Bool
+headIsReadyToFanout = \case
+  ReadyToFanout{} -> True
   _otherwise -> False
