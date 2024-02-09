@@ -182,6 +182,7 @@ instance StateModel WorldState where
         frequency
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
+          , (1, genRollbackAndForward)
           ]
       Open{} ->
         frequency
@@ -240,14 +241,8 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
     True
-  precondition WorldState{hydraState} (RollbackAndForward _) =
-    case hydraState of
-      Open{} -> True
-      Closed{} -> True
-      Initial{} -> False
-      Idle{} -> False
-      Start{} -> False
-      Final{} -> False
+  precondition WorldState{} (RollbackAndForward _) =
+    True
   precondition _ StopTheWorld =
     True
   precondition _ _ =
