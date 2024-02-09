@@ -97,16 +97,13 @@ main = do
           Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
             <> toArgStartChainFrom startChainFrom
-    race
+    race_
       ( withArgs chainObserverArgs $
           Hydra.ChainObserver.main (observerHandler explorerState)
       )
       ( traceWith tracer (APIServerStarted port)
           *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads)
       )
-      >>= \case
-        Left{} -> error "Something went wrong"
-        Right a -> pure a
  where
   settings tracer port =
     Warp.defaultSettings
