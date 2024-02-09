@@ -156,6 +156,7 @@ import Test.QuickCheck.DynamicLogic (
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
+import Test.QuickCheck.Property ((===))
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions,
@@ -166,7 +167,7 @@ import Test.QuickCheck.StateModel (
   stateAfter,
   pattern Actions,
  )
-import Test.Util (printTrace, traceDebug, traceInIOSim)
+import Test.Util (printTrace, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -178,6 +179,14 @@ spec = do
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
+  -- FIXME: implement toRealUTxO correctly so the distributive property holds
+  xprop "realUTxO is distributive" $ propIsDistributive Model.toRealUTxO
+
+propIsDistributive :: (Show b, Eq b, Semigroup b) => ([a] -> b) -> [a] -> [a] -> Property
+propIsDistributive fn as bs =
+  fn as <> fn bs === fn (as <> bs)
+    & counterexample ("fn (as <> bs)   " <> show (fn (as <> bs)))
+    & counterexample ("fn as <> fn bs: " <> show (fn as <> fn bs))
 
 prop_fanoutContainsWholeConfirmedUTxO :: Property
 prop_fanoutContainsWholeConfirmedUTxO =
@@ -379,7 +388,7 @@ runIOSimProp p = do
   nodes =
     Nodes
       { nodes = mempty
-      , logger = traceInIOSim <> traceDebug
+      , logger = traceInIOSim
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }
