@@ -66,7 +66,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
-  EraEnd (EraEnd),
+  EraEnd (..),
   EraParams (..),
   EraSummary (..),
   SafeZone (..),
@@ -312,6 +312,28 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
                 , boundSlot = slotNo
                 , boundEpoch = EpochNo n
                 }
+        , eraParams
+        }
+
+  eraParams =
+    EraParams
+      { eraEpochSize = EpochSize 1
+      , eraSlotLength = mkSlotLength 1
+      , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
+        -- extend the last era accordingly in the real cardano-node
+        eraSafeZone = UnsafeIndefiniteSafeZone
+      }
+
+eraHistoryWithoutHorizon :: EraHistory
+eraHistoryWithoutHorizon  =
+  EraHistory (mkInterpreter summary)
+ where
+  summary :: Summary (CardanoEras StandardCrypto)
+  summary =
+    Summary . NonEmptyOne $
+      EraSummary
+        { eraStart = initBound
+        , eraEnd = EraUnbounded
         , eraParams
         }
 

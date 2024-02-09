@@ -70,20 +70,6 @@ instance Arbitrary TimeHandle where
     TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
     pure $ mkTimeHandle currentSlot systemStart eraHistory
 
--- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
--- This is used in our 'Model' tests and we want to make sure the tests finish before
--- the horizon is reached to prevent the 'PastHorizon' exceptions.
-fixedTimeHandleWithinHorizon :: Gen TimeHandle
-fixedTimeHandleWithinHorizon = do
-  let startSeconds = 0
-  let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
-  uptimeSeconds <- getPositive <$> arbitrary
-  let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
-      -- NOTE: we use the larger number for k here to have the era horizon far
-      -- in the future
-      safeZone = 3 * 216000 / 0.05
-      horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-  pure $ mkTimeHandle currentSlotNo (SystemStart startTime) (eraHistoryWithHorizonAt horizonSlot)
 
 -- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.

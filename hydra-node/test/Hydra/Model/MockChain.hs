@@ -24,6 +24,8 @@ import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
+import Data.Time (secondsToNominalDiffTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
@@ -42,7 +44,7 @@ import Hydra.Chain.Direct.Handlers (
  )
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, fixedTimeHandleWithinHorizon)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
@@ -54,7 +56,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -62,6 +64,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNode (..), NodeState (..))
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
+import Test.QuickCheck (getPositive)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on
@@ -126,7 +129,7 @@ mockChainAndNetwork tr seedKeys commits = do
             , ownParty
             , scriptRegistry
             }
-    let getTimeHandle = pure $ fixedTimeHandleWithinHorizon `generateWith` 42
+    let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
     let
       -- NOTE: this very simple function put the transaction in a queue for
@@ -238,6 +241,17 @@ mockChainAndNetwork tr seedKeys commits = do
                     <> "\nUTxO:\n"
                     <> show (fst <$> pairs utxo)
             Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
+
+-- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
+-- This is used in our 'Model' tests and we want to make sure the tests finish before
+-- the horizon is reached to prevent the 'PastHorizon' exceptions.
+fixedTimeHandleIndefiniteHorizon :: Gen TimeHandle
+fixedTimeHandleIndefiniteHorizon = do
+  let startSeconds = 0
+  let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
+  uptimeSeconds <- getPositive <$> arbitrary
+  let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
+  pure $ mkTimeHandle currentSlotNo (SystemStart startTime) eraHistoryWithoutHorizon
 
 -- | A trimmed down ledger whose only purpose is to validate
 -- on-chain scripts.
