@@ -70,7 +70,6 @@ instance Arbitrary TimeHandle where
     TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
     pure $ mkTimeHandle currentSlot systemStart eraHistory
 
-
 -- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.
 mkTimeHandle ::

@@ -325,7 +325,7 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
       }
 
 eraHistoryWithoutHorizon :: EraHistory
-eraHistoryWithoutHorizon  =
+eraHistoryWithoutHorizon =
   EraHistory (mkInterpreter summary)
  where
   summary :: Summary (CardanoEras StandardCrypto)
