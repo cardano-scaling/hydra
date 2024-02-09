@@ -210,9 +210,11 @@ mockChainAndNetwork tr seedKeys commits = do
         pure ()
 
   rollbackAndForward nodes chain numberOfBlocks = do
-    doRollBackward nodes chain numberOfBlocks
-    replicateM_ (fromIntegral numberOfBlocks) $
-      doRollForward nodes chain
+    (_, _, blocks, _) <- readTVarIO chain
+    when (fromIntegral numberOfBlocks < length blocks) $ do
+      doRollBackward nodes chain numberOfBlocks
+      replicateM_ (fromIntegral numberOfBlocks) $
+        doRollForward nodes chain
 
   doRollBackward nodes chain nbBlocks = do
     (slotNum, position, blocks, _) <- readTVarIO chain

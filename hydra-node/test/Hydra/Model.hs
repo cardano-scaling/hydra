@@ -217,10 +217,7 @@ instance StateModel WorldState where
       Some . Fanout . deriveParty . fst <$> elements hydraParties
 
     genRollbackAndForward = do
-      -- TODO: investigate why choosing higher number of blocks e.g. (1, 5)
-      -- causes arithmetic underflow. Maybe we need a pointer to the current
-      -- block so we don't rollback past that one?
-      numberOfBlocks <- choose (1, 2)
+      numberOfBlocks <- choose (1, 10)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
 
   precondition WorldState{hydraState = Start} Seed{} =
