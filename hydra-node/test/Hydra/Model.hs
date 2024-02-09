@@ -182,7 +182,6 @@ instance StateModel WorldState where
         frequency
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
-          , (1, genRollbackAndForward)
           ]
       Open{} ->
         frequency
@@ -218,7 +217,7 @@ instance StateModel WorldState where
       Some . Fanout . deriveParty . fst <$> elements hydraParties
 
     genRollbackAndForward = do
-      numberOfBlocks <- choose (1, 10)
+      numberOfBlocks <- choose (1, 2)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
 
   precondition WorldState{hydraState = Start} Seed{} =
@@ -241,8 +240,14 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
     True
-  precondition WorldState{} (RollbackAndForward _) =
-    True
+  precondition WorldState{hydraState} (RollbackAndForward _) =
+    case hydraState of
+      Start{} -> False
+      Idle{} -> False
+      Initial{} -> False
+      Open{} -> True
+      Closed{} -> True
+      Final{} -> False
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -532,7 +537,7 @@ instance
           outputs <- lift $ serverOutputs node
           case find headIsOpen outputs of
             Just _ -> pure ()
-            Nothing -> failure "The head is not open for node"
+            Nothing -> error "The head is not open for node"
       RollbackAndForward numberOfBlocks ->
         performRollbackAndForward numberOfBlocks
       StopTheWorld ->
