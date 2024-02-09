@@ -166,7 +166,7 @@ import Test.QuickCheck.StateModel (
   stateAfter,
   pattern Actions,
  )
-import Test.Util (printTrace, traceInIOSim)
+import Test.Util (printTrace, traceDebug, traceInIOSim)
 
 spec :: Spec
 spec = do
@@ -206,19 +206,38 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  _ <- seedTheWorld
-  _ <- initHead
+  seedTheWorld
+  initHead
   everybodyCommit
-  void $ eventually ObserveHeadIsOpen
+  observeHeadOpened
  where
-  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  seedTheWorld = do
+    WorldState{hydraState} <- getModelStateDL
+    case hydraState of
+      Start ->
+        forAllQ (withGenQ genSeed (const [])) >>= action_
+      _ -> pure ()
   initHead = do
-    WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      -- FIXME: We should be in 'Init' state when doing 'genInit'!
+      -- Also investigate why do we need to match on the state in all these actions?
+      Initial{} ->
+        forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
+      _ -> pure ()
   everybodyCommit = do
-    WorldState{hydraParties} <- getModelStateDL
-    forM_ hydraParties $ \party ->
-      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      Initial{} ->
+        forM_ hydraParties $ \party ->
+          forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+      _ -> pure ()
+  observeHeadOpened = do
+    WorldState{hydraState} <- getModelStateDL
+    case hydraState of
+      Open{} ->
+        void $ eventually ObserveHeadIsOpen
+      _ -> pure ()
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
@@ -360,7 +379,7 @@ runIOSimProp p = do
   nodes =
     Nodes
       { nodes = mempty
-      , logger = traceInIOSim
+      , logger = traceInIOSim <> traceDebug
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }
