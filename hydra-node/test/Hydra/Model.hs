@@ -740,24 +740,21 @@ performClose party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
-performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m, MonadTimer m) => Party -> RunMonad m UTxO
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForReadyToFanout thisNode
   party `sendsInput` Input.Fanout
-
-  lift $
-    waitUntilMatch (toList nodes) $ \case
-      HeadIsFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
-      _ -> False
-
-  outputs <- lift $ serverOutputs thisNode
-  case find headIsFinalized outputs of
-    Just HeadIsFinalized{utxo} -> pure utxo
-    _ -> failure "Failed to perform Fanout"
+  findInOutput thisNode (100 :: Int)
  where
+  findInOutput node n
+    | n == 0 = failure "Failed to perform Fanout"
+    | otherwise = do
+        outputs <- lift $ serverOutputs node
+        case find headIsFinalized outputs of
+          Just HeadIsFinalized{utxo} -> pure utxo
+          _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
