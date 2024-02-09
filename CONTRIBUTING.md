@@ -180,7 +180,7 @@ experiment with a pre-release version of one of our own packages. You can use a
 **only** for a short period of time, and try to get your changes released
 upstream. If that is (really) not possible, we can also release a patched
 version into CHap, see their
-[README](https://github.com/input-output-hk/cardano-haskell-packages) for
+[README](https://github.com/IntersectMBO/cardano-haskell-packages) for
 instructions.
 
 ### Versioning & Changelog
@@ -224,7 +224,7 @@ core communication processes.
 ### Weekly update
 
 At the end of each week, we provide updates to
-[cardano-updates](https://input-output-hk.github.io/cardano-updates/tags/hydra),
+[cardano-updates](https://IntersectMBO.github.io/cardano-updates/tags/hydra),
 which also serve as a basis for our monthly reports.
 
 To write such an update:
@@ -242,7 +242,7 @@ To write such an update:
    for examples and/or use an AI language model to write it.
 
 3. Create a entry blog and pull request it on
-   [cardano-updates](https://github.com/input-output-hk/cardano-updates),
+   [cardano-updates](https://github.com/IntersectMBO/cardano-updates),
    putting other Hydra contributors as reviewers.
 
    - Don't forget to add yourself as author in the `authors.yml`.
