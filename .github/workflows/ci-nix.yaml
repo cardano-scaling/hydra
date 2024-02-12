@@ -16,6 +16,13 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
+  standalone:
+    name: "Standalone job"
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
   build-test:
     name: "Build & test"
     runs-on: ubuntu-latest
@@ -29,6 +36,10 @@ jobs:
           - package: hydra-node
           - package: hydra-cluster
     steps:
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
@@ -44,6 +55,10 @@ jobs:
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -80,6 +95,10 @@ jobs:
         name: hydra-cluster-e2e-test-logs
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
+
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
 
   publish-test-results:
     name: Publish test results
@@ -226,6 +245,9 @@ jobs:
     name: "Build specification using nix"
     runs-on: ubuntu-latest
     steps:
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
@@ -252,6 +274,9 @@ jobs:
         name: hydra-spec
         path: |
           ./spec/*.pdf
+    - run: |
+        sudo df -h
+        sudo du -hs /* || true
 
   documentation:
     name: Documentation
