@@ -1,4 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Model-Based testing of Hydra Head protocol implementation.
 --
@@ -254,7 +256,7 @@ prop_checkConflictFreeLiveness =
     forAllDL conflictFreeLiveness prop_HydraModel
 
 prop_HydraModel :: Actions WorldState -> Property
-prop_HydraModel actions = property $
+prop_HydraModel actions =
   runIOSimProp $ do
     _ <- runActions actions
     assert True
@@ -299,20 +301,19 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
 prop_checkModel :: Actions WorldState -> Property
 prop_checkModel actions =
   within 30000000 $
-    property $
-      runIOSimProp $ do
-        (metadata, _symEnv) <- runActions actions
-        let WorldState{hydraParties, hydraState} = underlyingState metadata
-        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
-        -- the underlying simulated chain which produces a block every 20s. It
-        -- should be enough to ensure all nodes' threads terminate their actions
-        -- and those gets picked up by the chain
-        run $ lift waitForAMinute
-        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-        nodes <- run $ gets nodes
-        assert (parties == Map.keysSet nodes)
-        forM_ parties $ \p -> do
-          assertBalancesInOpenHeadAreConsistent hydraState nodes p
+    runIOSimProp $ do
+      (metadata, _symEnv) <- runActions actions
+      let WorldState{hydraParties, hydraState} = underlyingState metadata
+      -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
+      -- the underlying simulated chain which produces a block every 20s. It
+      -- should be enough to ensure all nodes' threads terminate their actions
+      -- and those gets picked up by the chain
+      run $ lift waitForAMinute
+      let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+      nodes <- run $ gets nodes
+      assert (parties == Map.keysSet nodes)
+      forM_ parties $ \p -> do
+        assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
   waitForAMinute = threadDelay 60
@@ -367,31 +368,49 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
 
 --
 
--- | Specialised runner similar to <runSTGen https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Monadic.html#runSTGen>.
-runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Gen Property
-runIOSimProp p = do
+-- | Specialised runner similar to <monadicST https://hackage.haskell.org/package/QuickCheck-2.14.3/docs/Test-QuickCheck-Monadic.html#v:monadicST>.
+runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Property
+runIOSimProp p = property (runRunMonadIOSimGen (monadic' p))
+
+-- | Similar to <runSTGen https://hackage.haskell.org/package/QuickCheck-2.14.3/docs/Test-QuickCheck-Monadic.html#v:runSTGen>
+--
+-- It returns `Property` rather than `Gen a`, what allows to enhance the logging
+-- in case of failures.
+runRunMonadIOSimGen ::
+  forall a.
+  Testable a =>
+  (forall s. Gen (RunMonad (IOSim s) a)) ->
+  Gen Property
+runRunMonadIOSimGen f = do
   Capture eval <- capture
-  let tr =
-        runSimTrace $
-          newTVarIO nodes
-            >>= (runReaderT (runMonad $ eval $ monadic' p) . RunState)
-      traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
-      logsOnError = counterexample ("trace:\n" <> toString traceDump)
-  case traceResult False tr of
-    Right x ->
-      pure $ logsOnError x
-    Left (FailureException (SomeException ex)) -> do
-      pure $ counterexample (show ex) $ logsOnError $ property False
-    Left ex ->
-      pure $ counterexample (show ex) $ logsOnError $ property False
+  let tr = runSimTrace (sim eval)
+  return
+    ( case traceResult False tr of
+        Right a -> logsOnError tr a
+        Left (FailureException (SomeException ex)) ->
+          counterexample (show ex) $ logsOnError tr False
+        Left ex ->
+          counterexample (show ex) $ logsOnError tr False
+    )
  where
-  nodes =
-    Nodes
-      { nodes = mempty
-      , logger = traceInIOSim
-      , threads = mempty
-      , chain = dummySimulatedChainNetwork
-      }
+  logsOnError tr = counterexample ("trace:\n" <> toString traceDump)
+   where
+    traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
+
+  sim ::
+    forall s.
+    (Gen (RunMonad (IOSim s) a) -> RunMonad (IOSim s) a) ->
+    IOSim s a
+  sim eval = do
+    v <-
+      newTVarIO
+        Nodes
+          { nodes = mempty
+          , logger = traceInIOSim
+          , threads = mempty
+          , chain = dummySimulatedChainNetwork
+          }
+    runReaderT (runMonad (eval f)) (RunState v)
 
 nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
 nonConflictingTx st =
