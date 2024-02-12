@@ -15,16 +15,14 @@ import System.FilePath ((</>))
 spec :: Spec
 spec = parallel $ do
   describe "downloadLatestSnapshotTo" $
-    forEachKnownNetwork "invokes mithril-client correctly" $ \case
-      Sanchonet -> pendingWith "not yet supported"
-      network -> do
-        (tracer, getTraces) <- captureTracer "MithrilSpec"
-        withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
-          let dbPath = tmpDir </> "db"
-          doesDirectoryExist dbPath `shouldReturn` False
-          race_
-            (downloadLatestSnapshotTo tracer network tmpDir)
-            (waitForStep 3 getTraces)
+    forEachKnownNetwork "invokes mithril-client correctly" $ \network -> do
+      (tracer, getTraces) <- captureTracer "MithrilSpec"
+      withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
+        let dbPath = tmpDir </> "db"
+        doesDirectoryExist dbPath `shouldReturn` False
+        race_
+          (downloadLatestSnapshotTo tracer network tmpDir)
+          (waitForStep 3 getTraces)
 
 -- | Wait for the 'StdOut' message that matches the given step number.
 waitForStep :: HasCallStack => Natural -> IO [Envelope MithrilLog] -> IO ()
