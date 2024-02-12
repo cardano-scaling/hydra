@@ -14,6 +14,9 @@ let
 
   cabal = pkgs.haskell-nix.cabal-install.${compiler};
 
+  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
+  cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+
   # Build HLS form our fork (see flake.nix)
   haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
     src = inputs.hls;
@@ -39,8 +42,8 @@ let
     pkgs.haskellPackages.hspec-discover
     # Formatting
     pkgs.treefmt
-    (pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0")
-    (pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9")
+    fourmolu
+    cabal-fmt
     pkgs.nixpkgs-fmt
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
@@ -145,6 +148,16 @@ let
     ];
   };
 
+  fmtShell = pkgs.mkShell {
+    name = "hydra-format-shell";
+    buildInputs = [
+      pkgs.treefmt
+      fourmolu
+      cabal-fmt
+      pkgs.nixpkgs-fmt
+    ];
+  };
+
   # If you want to modify `Python` code add `libtmux` and pyyaml to the
   # `buildInputs` then enter it and then run `Python` module directly so you
   # have fast devel cycle.
@@ -159,4 +172,5 @@ in
   cabalOnly = cabalShell;
   exes = exeShell;
   demo = demoShell;
+  fmt = fmtShell;
 }
