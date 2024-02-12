@@ -26,4 +26,4 @@ jobs:
 
     - name: 📐 Check code formatting
       run: |
-        nix develop .#ci --command treefmt --fail-on-change
+        nix develop .#fmt --command treefmt --fail-on-change
