@@ -217,38 +217,20 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  seedTheWorld
-  initHead
+  _ <- seedTheWorld
+  _ <- initHead
   everybodyCommit
-  observeHeadOpened
+  void $ eventually' ObserveHeadIsOpen
  where
-  seedTheWorld = do
-    WorldState{hydraState} <- getModelStateDL
-    case hydraState of
-      Start ->
-        forAllQ (withGenQ genSeed (const [])) >>= action_
-      _ -> pure ()
+  eventually' a = action (Wait 1000) >> action a
+  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
   initHead = do
-    WorldState{hydraParties, hydraState} <- getModelStateDL
-    case hydraState of
-      -- FIXME: We should be in 'Init' state when doing 'genInit'!
-      -- Also investigate why do we need to match on the state in all these actions?
-      Initial{} ->
-        forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
-      _ -> pure ()
+    WorldState{hydraParties} <- getModelStateDL
+    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
   everybodyCommit = do
-    WorldState{hydraParties, hydraState} <- getModelStateDL
-    case hydraState of
-      Initial{} ->
-        forM_ hydraParties $ \party ->
-          forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
-      _ -> pure ()
-  observeHeadOpened = do
-    WorldState{hydraState} <- getModelStateDL
-    case hydraState of
-      Open{} ->
-        void $ eventually ObserveHeadIsOpen
-      _ -> pure ()
+    WorldState{hydraParties} <- getModelStateDL
+    forM_ hydraParties $ \party ->
+      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
