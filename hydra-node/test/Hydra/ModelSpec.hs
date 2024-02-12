@@ -144,6 +144,7 @@ import Hydra.Party (Party (..), deriveParty)
 import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
+  Quantification,
   action,
   anyActions_,
   forAllDL,
@@ -155,6 +156,7 @@ import Test.QuickCheck.DynamicLogic (
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
 import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
+import Test.QuickCheck.Property ((===))
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions,
@@ -176,6 +178,35 @@ spec = do
   prop "implementation respects model" $ forAll arbitrary prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
+  prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
+  -- FIXME: implement toRealUTxO correctly so the distributive property holds
+  xprop "realUTxO is distributive" $ propIsDistributive Model.toRealUTxO
+
+propIsDistributive :: (Show b, Eq b, Semigroup b) => ([a] -> b) -> [a] -> [a] -> Property
+propIsDistributive fn as bs =
+  fn as <> fn bs === fn (as <> bs)
+    & counterexample ("fn (as <> bs)   " <> show (fn (as <> bs)))
+    & counterexample ("fn as <> fn bs: " <> show (fn as <> fn bs))
+
+prop_fanoutContainsWholeConfirmedUTxO :: Property
+prop_fanoutContainsWholeConfirmedUTxO =
+  forAllDL fanoutContainsWholeConfirmedUTxO prop_HydraModel
+
+-- | Given any random walk of the model, if the Head is open a NewTx getting
+-- confirmed must be part of the UTxO after finalization.
+fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
+fanoutContainsWholeConfirmedUTxO = do
+  anyActions_
+  getModelStateDL >>= \case
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+      tx <- action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx tx)
+      action_ $ Model.Close party
+      -- NOTE: The check is actually in the Model postcondition for 'Fanout'
+      void $ action $ Model.Fanout party
+    _ -> pure ()
+  action_ Model.StopTheWorld
 
 prop_checkHeadOpensIfAllPartiesCommit :: Property
 prop_checkHeadOpensIfAllPartiesCommit =
@@ -184,20 +215,38 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  _ <- seedTheWorld
-  _ <- initHead
+  seedTheWorld
+  initHead
   everybodyCommit
-  void $ eventually ObserveHeadIsOpen
+  observeHeadOpened
  where
-  eventually a = action (Wait 1000) >> action a
-  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  seedTheWorld = do
+    WorldState{hydraState} <- getModelStateDL
+    case hydraState of
+      Start ->
+        forAllQ (withGenQ genSeed (const [])) >>= action_
+      _ -> pure ()
   initHead = do
-    WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      -- FIXME: We should be in 'Init' state when doing 'genInit'!
+      -- Also investigate why do we need to match on the state in all these actions?
+      Initial{} ->
+        forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
+      _ -> pure ()
   everybodyCommit = do
-    WorldState{hydraParties} <- getModelStateDL
-    forM_ hydraParties $ \party ->
-      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      Initial{} ->
+        forM_ hydraParties $ \party ->
+          forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+      _ -> pure ()
+  observeHeadOpened = do
+    WorldState{hydraState} <- getModelStateDL
+    case hydraState of
+      Open{} ->
+        void $ eventually ObserveHeadIsOpen
+      _ -> pure ()
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
@@ -226,14 +275,6 @@ conflictFreeLiveness = do
       eventually (ObserveConfirmedTx tx)
     _ -> pure ()
   action_ Model.StopTheWorld
- where
-  nonConflictingTx st =
-    withGenQ (genPayment st) (const [])
-      `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
-
-  eventually a = action_ (Wait 10) >> action_ a
-
-  action_ = void . action
 
 prop_generateTraces :: Actions WorldState -> Property
 prop_generateTraces actions =
@@ -351,6 +392,17 @@ runIOSimProp p = do
       , threads = mempty
       , chain = dummySimulatedChainNetwork
       }
+
+nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
+nonConflictingTx st =
+  withGenQ (genPayment st) (const [])
+    `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
+
+eventually :: Action WorldState () -> DL WorldState ()
+eventually a = action_ (Wait 10) >> action_ a
+
+action_ :: Action WorldState () -> DL WorldState ()
+action_ = void . action
 
 unwrapAddress :: AddressInEra -> Text
 unwrapAddress = \case
