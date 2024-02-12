@@ -55,11 +55,11 @@ downloadLatestSnapshotTo tracer network directory = do
     Mainnet -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
     Preproduction -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
     Preview -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
-    Sanchonet -> Nothing
+    Sanchonet -> Just $ "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
 
   aggregatorEndpointForNetwork :: KnownNetwork -> Maybe String
   aggregatorEndpointForNetwork = \case
     Mainnet -> Just $ "https://aggregator.release-mainnet.api.mithril.network/aggregator"
     Preproduction -> Just $ "https://aggregator.release-preprod.api.mithril.network/aggregator"
     Preview -> Just $ "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
-    Sanchonet -> Nothing
+    Sanchonet -> Just $ "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"

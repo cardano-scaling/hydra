@@ -72,9 +72,10 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
-import Test.QuickCheck (choose, counterexample, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.Hydra.Prelude (failure)
+import Test.QuickCheck (choose, elements, frequency, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
-import Test.QuickCheck.StateModel (Any (..), HasVariables, Realized, RunModel (..), StateModel (..), Var, VarContext)
+import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
@@ -117,24 +118,11 @@ data GlobalState
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
       }
+  | Closed
+      { closedUTxO :: UTxOType Payment
+      }
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
-
-isInitialState :: GlobalState -> Bool
-isInitialState Initial{} = True
-isInitialState _ = False
-
-isOpenState :: GlobalState -> Bool
-isOpenState Open{} = True
-isOpenState _ = False
-
-isFinalState :: GlobalState -> Bool
-isFinalState Final{} = True
-isFinalState _ = False
-
-isIdleState :: GlobalState -> Bool
-isIdleState Idle{} = True
-isIdleState _ = False
 
 isPendingCommitFrom :: Party -> GlobalState -> Bool
 isPendingCommitFrom party Initial{pendingCommits} =
@@ -143,7 +131,7 @@ isPendingCommitFrom _ _ = False
 
 type Uncommitted = Map.Map Party (UTxOType Payment)
 
-data OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
+newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
@@ -170,11 +158,13 @@ instance StateModel WorldState where
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
+    Fanout :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
+    RollbackAndForward :: Natural -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -197,6 +187,12 @@ instance StateModel WorldState where
         frequency
           [ (5, genNewTx)
           , (1, genClose)
+          , (1, genRollbackAndForward)
+          ]
+      Closed{} ->
+        frequency
+          [ (5, genFanout)
+          , (1, genRollbackAndForward)
           ]
       Final{} -> fmap Some genSeed
    where
@@ -217,6 +213,13 @@ instance StateModel WorldState where
       let party = deriveParty key
       pure . Some $ Close party
 
+    genFanout =
+      Some . Fanout . deriveParty . fst <$> elements hydraParties
+
+    genRollbackAndForward = do
+      numberOfBlocks <- choose (1, 2)
+      pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{}} Init{} =
@@ -235,6 +238,16 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
+  precondition WorldState{hydraState = Closed{}} (Fanout _) =
+    True
+  precondition WorldState{hydraState} (RollbackAndForward _) =
+    case hydraState of
+      Start{} -> False
+      Idle{} -> False
+      Initial{} -> False
+      Open{} -> True
+      Closed{} -> True
+      Final{} -> False
   precondition _ StopTheWorld =
     True
   precondition _ _ =
@@ -305,7 +318,13 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState} -> Final $ confirmedUTxO offChainState
+          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
+          _ -> error "unexpected state"
+      Fanout{} ->
+        WorldState{hydraParties, hydraState = updateWithFanout hydraState}
+       where
+        updateWithFanout = \case
+          Closed{closedUTxO} -> Final closedUTxO
           _ -> error "unexpected state"
       --
       (NewTx _ tx) ->
@@ -321,6 +340,7 @@ instance StateModel WorldState where
                     }
               }
           _ -> error "unexpected state"
+      RollbackAndForward _numberOfBlocks -> s
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
@@ -353,7 +373,7 @@ genToCommit (hk, ck) = do
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
-  n <- choose (1, 10)
+  n <- choose (1, 200)
   pure $ UnsafeContestationPeriod $ wordToNatural n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
@@ -464,21 +484,27 @@ instance
   ) =>
   RunModel WorldState (RunMonad m)
   where
-  postcondition (_, st) action _l result = pure $ checkOutcome st action result
+  postcondition (_, st) action _lookup result =
+    case action of
+      (Commit _party expectedCommitted) -> do
+        decorateFailure st action expectedCommitted result
+        pure $ expectedCommitted == result
+      Fanout{} ->
+        case hydraState st of
+          Final{finalUTxO} -> do
+            -- NOTE: Sort `[TxOut]` by the address and values. We want to make
+            -- sure that the fannout outputs match what we had in the open Head
+            -- exactly.
+            let sortByAddressAndValue = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+            decorateFailure st action (toTxOuts finalUTxO) (toList result)
+            pure $
+              sortByAddressAndValue (toTxOuts finalUTxO) == sortByAddressAndValue (toList result)
+          _ -> pure False
+      _ -> pure True
 
-  monitoring (s, s') action _l result =
-    decoratePostconditionFailure
-      . decorateTransitions
+  monitoring (s, s') _action _lookup _result =
+    decorateTransitions
    where
-    -- REVIEW: This should be part of the quickcheck-dynamic runActions
-    decoratePostconditionFailure
-      | checkOutcome s action result = id
-      | otherwise =
-          counterexample "postcondition failed"
-            . counterexample ("Action: " <> show action)
-            . counterexample ("State: " <> show s)
-            . counterexample ("Result: " <> showFromAction (show result) action)
-
     decorateTransitions =
       case (hydraState s, hydraState s') of
         (st, st') -> tabulate "Transitions" [unsafeConstructorName st <> " -> " <> unsafeConstructorName st']
@@ -497,6 +523,8 @@ instance
         performAbort party
       Close party ->
         performClose party
+      Fanout party ->
+        performFanout party
       Wait delay ->
         lift $ threadDelay delay
       ObserveConfirmedTx var -> do
@@ -513,6 +541,8 @@ instance
           case find headIsOpen outputs of
             Just _ -> pure ()
             Nothing -> error "The head is not open for node"
+      RollbackAndForward numberOfBlocks ->
+        performRollbackAndForward numberOfBlocks
       StopTheWorld ->
         stopTheWorld
 
@@ -587,7 +617,6 @@ performCommit parties party paymentUTxO = do
               | cp == party -> Just committedUTxO
             err@CommandFailed{} -> error $ show err
             _ -> Nothing
-
       pure $ fromUtxo observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
@@ -605,6 +634,16 @@ performCommit parties party paymentUTxO = do
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
 
+toTxOuts :: [(CardanoSigningKey, Value)] -> [TxOut CtxUTxO]
+toTxOuts payments =
+  uncurry mkTxOut <$> payments
+ where
+  mkTxOut (CardanoSigningKey sk) val =
+    TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) val TxOutDatumNone ReferenceScriptNone
+
+-- | NOTE: This function generates input 'Ix' that start from zero so
+-- can't be used with certainty when want to check equality with some 'UTxO'
+-- even though the value and the key would match.
 toRealUTxO :: [(CardanoSigningKey, Value)] -> UTxO
 toRealUTxO paymentUTxO =
   UTxO.fromPairs $
@@ -650,10 +689,18 @@ performNewTx party tx = do
 waitForOpen :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 waitForOpen node = do
   outs <- lift $ serverOutputs node
-  unless (any headIsOpen outs) $
-    waitAndRetry
+  unless (any headIsOpen outs) waitAndRetry
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForOpen node
+
+-- | Wait for the head to be closed by searching from the beginning. Note that
+-- there rollbacks or multiple life-cycles of heads are not handled here.
+waitForReadyToFanout :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
+waitForReadyToFanout node = do
+  outs <- lift $ serverOutputs node
+  unless (any headIsReadyToFanout outs) waitAndRetry
+ where
+  waitAndRetry = lift (threadDelay 0.1) >> waitForReadyToFanout node
 
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
@@ -696,6 +743,30 @@ performClose party = do
       err@CommandFailed{} -> error $ show err
       _ -> False
 
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
+performFanout party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForReadyToFanout thisNode
+  party `sendsInput` Input.Fanout
+  findInOutput thisNode (100 :: Int)
+ where
+  findInOutput node n
+    | n == 0 = failure "Failed to perform Fanout"
+    | otherwise = do
+        outputs <- lift $ serverOutputs node
+        case find headIsFinalized outputs of
+          Just HeadIsFinalized{utxo} -> pure utxo
+          _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
+  headIsFinalized = \case
+    HeadIsFinalized{} -> True
+    _otherwise -> False
+
+performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
+performRollbackAndForward numberOfBlocks = do
+  SimulatedChainNetwork{rollbackAndForward} <- gets chain
+  lift $ rollbackAndForward numberOfBlocks
+
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
   gets threads >>= mapM_ (lift . cancel)
@@ -715,16 +786,26 @@ showFromAction k = \case
   Commit{} -> k
   Abort{} -> k
   Close{} -> k
+  Fanout{} -> k
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
+  RollbackAndForward{} -> k
   StopTheWorld -> k
   ObserveHeadIsOpen -> k
 
-checkOutcome :: WorldState -> Action WorldState a -> a -> Bool
-checkOutcome _st (Commit _party expectedCommitted) actualCommitted =
-  expectedCommitted == actualCommitted
-checkOutcome _ _ _ = True
+decorateFailure ::
+  (Monad m, Show expected, Show actual) =>
+  WorldState ->
+  Action WorldState a ->
+  expected ->
+  actual ->
+  PostconditionM m ()
+decorateFailure st action expected actual = do
+  counterexamplePost ("Action:   " <> show action)
+  counterexamplePost ("State:    " <> show st)
+  counterexamplePost ("Expected: " <> show expected)
+  counterexamplePost ("Actual:   " <> show actual)
 
 waitForUTxOToSpend ::
   forall m.
@@ -765,4 +846,9 @@ isOwned _ _ = False
 headIsOpen :: ServerOutput tx -> Bool
 headIsOpen = \case
   HeadIsOpen{} -> True
+  _otherwise -> False
+
+headIsReadyToFanout :: ServerOutput tx -> Bool
+headIsReadyToFanout = \case
+  ReadyToFanout{} -> True
   _otherwise -> False
