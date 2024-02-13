@@ -50,7 +50,7 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Monadic (assert, monadicIO, monitor)
+import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.Property (checkCoverage)
 
 spec :: Spec
@@ -72,8 +72,7 @@ spec =
         let headId = mkHeadId $ headPolicyId txIn
         let cs = headIdToCurrencySymbol headId
         headId' <- currencySymbolToHeadId cs
-        monitor (counterexample (show headId' <> " should be equal to " <> show headId))
-        assert (headId' == headId)
+        pure $ headId' === headId
 
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $

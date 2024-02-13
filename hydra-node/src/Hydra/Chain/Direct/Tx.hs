@@ -1032,9 +1032,7 @@ headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
 
 currencySymbolToHeadId :: MonadFail m => CurrencySymbol -> m HeadId
-currencySymbolToHeadId cs = do
-  policyId <- fromPlutusCurrencySymbol cs
-  pure $ mkHeadId policyId
+currencySymbolToHeadId = fmap mkHeadId . fromPlutusCurrencySymbol
 
 headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
 headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
