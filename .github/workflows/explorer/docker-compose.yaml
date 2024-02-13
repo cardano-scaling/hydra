@@ -26,5 +26,7 @@ services:
       [ "--node-socket", "/data/node.socket"
       , "--testnet-magic", "2"
       , "--api-port", "8080"
+      # NOTE: Block in which version 0.15.0 scripts were published
+      , "--start-chain-from", "37054629.76c455bac2e759fc588921a75dc48bc5c6507e1cf823f3ce872bb8eb2d829785"
       ]
     restart: always
