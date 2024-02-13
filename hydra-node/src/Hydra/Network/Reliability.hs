@@ -111,7 +111,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), NewPersistenceIncremental (..), EventSource(..), EventSink(..), putEventToSinks)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
@@ -186,10 +186,10 @@ data MessagePersistence m msg = MessagePersistence
 mkMessagePersistence ::
   (MonadThrow m, FromJSON msg, ToJSON msg) =>
   Int ->
-  PersistenceIncremental (Heartbeat msg) m ->
+  NewPersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence numberOfParties msgPersistence ackPersistence =
+mkMessagePersistence numberOfParties NewPersistenceIncremental{eventSource, eventSinks} ackPersistence =
   MessagePersistence
     { loadAcks = do
         macks <- load ackPersistence
@@ -199,9 +199,9 @@ mkMessagePersistence numberOfParties msgPersistence ackPersistence =
     , saveAcks = \acks -> do
         save ackPersistence acks
     , loadMessages = do
-        loadAll msgPersistence
+        getEvents' eventSource 
     , appendMessage = \msg -> do
-        append msgPersistence msg
+        putEventToSinks eventSinks msg
     }
 
 -- | Middleware function to handle message counters tracking and resending logic.

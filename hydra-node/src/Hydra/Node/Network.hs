@@ -83,7 +83,7 @@ import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePers
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental, createNewPersistenceIncremental)
 import System.FilePath ((</>))
 
 -- | An alias for logging messages output by network component.
@@ -149,7 +149,8 @@ configureMessagePersistence ::
   Int ->
   m (MessagePersistence m msg)
 configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
+  msgPersistence <- createNewPersistenceIncremental $ storedMessagesFile persistenceDir
+  --NOTE(Elaine): after deliberation, new persistence should be fine for network messages
   ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
   mAcks <- load
   ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
