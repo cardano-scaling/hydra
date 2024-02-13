@@ -11,19 +11,6 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 📐 Check hlint
       run: |
         nix develop .#fmt --command hlint .
