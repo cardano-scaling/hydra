@@ -25,7 +25,6 @@ jobs:
           - package: plutus-cbor
           - package: plutus-merkle-tree
           - package: hydra-plutus
-          - package: hydra-tui
           - package: hydra-node
           - package: hydra-cluster
     steps:
