@@ -36,7 +36,8 @@ import Hydra.Node (
   createNodeState,
   initEnvironment,
   loadState,
-  runHydraNode, loadStateEventSource,
+  loadStateEventSource,
+  runHydraNode,
  )
 import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
@@ -49,9 +50,9 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (NewPersistenceIncremental (..), createPersistenceIncremental, eventPairFromPersistenceIncremental, createNewPersistenceIncremental)
+import Hydra.Persistence (NewPersistenceIncremental (..), createNewPersistenceIncremental, createPersistenceIncremental, eventPairFromPersistenceIncremental)
 
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
@@ -83,7 +84,7 @@ run opts = do
 
       withCardanoLedger pparams globals $ \ledger -> do
         -- persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        --TODO(Elaine): remove in favor of eventSource/Sink directly
+        -- TODO(Elaine): remove in favor of eventSource/Sink directly
         -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
 
         -- let -- (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
@@ -103,7 +104,7 @@ run opts = do
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = enqueue $ NetworkInput defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
-          apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+          apiPersistence <- createNewPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (enqueue . ClientInput) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
