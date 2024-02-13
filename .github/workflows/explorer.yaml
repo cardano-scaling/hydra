@@ -1,7 +1,5 @@
 name: "Explorer"
 on:
-  push:
-    branches: ["upgrade-explorer-workflow"]
   workflow_run:
     workflows: ["Docker"]
     branches: ["master"]
@@ -12,9 +10,13 @@ jobs:
   explorer:
     name: "Deploy"
     runs-on: explorer
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-    - uses: actions/checkout@v4
-    - run: |
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🐳 Deploy with docker compose
+      run: |
         cd .github/workflows/explorer
         docker compose pull
         docker compose up -d
