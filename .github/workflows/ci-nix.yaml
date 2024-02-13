@@ -32,19 +32,6 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
@@ -104,19 +91,6 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 📚 Documentation (Haddock)
       run: |
         nix build .#haddocks
@@ -150,19 +124,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 📈 Benchmark
       run: |
@@ -228,19 +189,6 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Build specification PDF
       run: |
