@@ -20,7 +20,7 @@ jobs:
       matrix:
         target: [ hydra-node, hydra-tui, hydraw, hydra-explorer ]
 
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -31,19 +31,6 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v14
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 🔨 Build image using nix
       run: |

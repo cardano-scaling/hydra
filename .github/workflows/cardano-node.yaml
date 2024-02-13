@@ -9,20 +9,13 @@ on:
 jobs:
   build-executables-linux:
     name: "Build x86_64-linux static executables"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: 📥 Checkout cardano-node 8.7.2
       uses: actions/checkout@v4
       with:
         repository: IntersectMBO/cardano-node
         ref: 8.7.2
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
 
     - name: ❄ Build cardano-node static executables
       run: |
