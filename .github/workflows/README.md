@@ -6,11 +6,12 @@ an, as up to date as possible, cardano-node database.
 # prepare pre-requisites
 
 Install the following pre-requisites:
-* git
+* `git`
+* `docker`
 
 For instance on Debian:
 ```bash
-sudo apt install git
+sudo apt install git docker
 ```
 
 Prepare the common directory for cardano database:

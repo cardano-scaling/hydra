@@ -1,0 +1,22 @@
+name: "Explorer"
+on:
+  workflow_run:
+    workflows: ["Docker"]
+    branches: ["master"]
+    types:
+      - completed
+
+jobs:
+  explorer:
+    name: "Deploy"
+    runs-on: explorer
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🐳 Deploy with docker compose
+      run: |
+        cd .github/workflows/explorer
+        docker compose pull
+        docker compose up -d

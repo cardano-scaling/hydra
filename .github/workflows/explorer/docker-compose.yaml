@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  cardano-node:
+    image: ghcr.io/input-output-hk/cardano-node:8.7.3
+    volumes:
+      - /srv/var/cardano/state-preview:/data
+    environment:
+      - CARDANO_CONFIG=/data/config.json
+      - CARDANO_TOPOLOGY=/data/topology.json
+      - CARDANO_DATABASE_PATH=/data/db
+      - CARDANO_SOCKET_PATH=/data/node.socket # used by cardano-node
+      - CARDANO_NODE_SOCKET_PATH=/data/node.socket # used by cardano-cli
+      - CARDANO_LOG_DIR=/data/logs
+    command:
+      [ "run" ]
+    restart: always
+
+  hydra-explorer:
+    image: ghcr.io/input-output-hk/hydra-explorer:unstable
+    volumes:
+    - /srv/var/cardano/state-preview:/data
+    ports:
+      - "80:8080"
+    command:
+      [ "--node-socket", "/data/node.socket"
+      , "--testnet-magic", "2"
+      , "--api-port", "8080"
+      # NOTE: Block in which version 0.15.0 scripts were published
+      , "--start-chain-from", "37054629.76c455bac2e759fc588921a75dc48bc5c6507e1cf823f3ce872bb8eb2d829785"
+      ]
+    restart: always
