@@ -12,11 +12,13 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Lens ((^.), (^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, nth, _Array, _String)
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Explorer.Options (toArgStartChainFrom)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Options qualified as Options
 import HydraNode (HydraNodeLog, input, send, waitMatch, withHydraNode)
 import Network.HTTP.Client (responseBody)
 import Network.HTTP.Simple (httpJSON, parseRequestThrow)
@@ -48,7 +50,7 @@ spec = do
             seedFromFaucet_ cardanoNode bobCardanoVk 25_000_000 (contramap FromFaucet tracer)
             bobHeadId <- withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [] [2] initHead
 
-            withHydraExplorer cardanoNode $ \explorer -> do
+            withHydraExplorer cardanoNode (Just ChainPointAtGenesis) $ \explorer -> do
               allHeads <- getHeads explorer
               length (allHeads ^. _Array) `shouldBe` 2
               allHeads ^. nth 0 . key "headId" . _String `shouldBe` aliceHeadId
@@ -63,7 +65,7 @@ spec = do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs cardanoNode Faucet
-            withHydraExplorer cardanoNode $ \explorer -> do
+            withHydraExplorer cardanoNode Nothing $ \explorer -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
               seedFromFaucet_ cardanoNode aliceCardanoVk 25_000_000 (contramap FromFaucet tracer)
@@ -109,8 +111,8 @@ data HydraExplorerLog
   deriving anyclass (ToJSON)
 
 -- | Starts a 'hydra-explorer' on some Cardano network.
-withHydraExplorer :: RunningNode -> (HydraExplorerHandle -> IO ()) -> IO ()
-withHydraExplorer cardanoNode action =
+withHydraExplorer :: RunningNode -> Maybe ChainPoint -> (HydraExplorerHandle -> IO ()) -> IO ()
+withHydraExplorer cardanoNode mStartChainFrom action =
   withCreateProcess process{std_out = CreatePipe, std_err = CreatePipe} $
     \_in _stdOut err processHandle ->
       race
@@ -126,9 +128,9 @@ withHydraExplorer cardanoNode action =
   process =
     proc
       "hydra-explorer"
-      $ ["--node-socket", unFile nodeSocket]
-        <> case networkId of
-          Mainnet -> ["--mainnet"]
-          Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
+      $ Options.toArgNodeSocket nodeSocket
+        <> Options.toArgNetworkId networkId
+        <> Options.toArgApiPort 9090
+        <> toArgStartChainFrom mStartChainFrom
 
   RunningNode{nodeSocket, networkId} = cardanoNode

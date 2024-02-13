@@ -803,7 +803,7 @@ toArgs
       <> ["--host", show host]
       <> ["--port", show port]
       <> ["--api-host", show apiHost]
-      <> ["--api-port", show apiPort]
+      <> toArgApiPort apiPort
       <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
@@ -850,7 +850,7 @@ toArgs
           , contestationPeriod
           } ->
           toArgNetworkId networkId
-            <> ["--node-socket", unFile nodeSocket]
+            <> toArgNodeSocket nodeSocket
             <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
@@ -863,6 +863,12 @@ toArgs
     CardanoLedgerConfig
       { cardanoLedgerProtocolParametersFile
       } = ledgerConfig
+
+toArgNodeSocket :: SocketPath -> [String]
+toArgNodeSocket nodeSocket = ["--node-socket", unFile nodeSocket]
+
+toArgApiPort :: PortNumber -> [String]
+toArgApiPort apiPort = ["--api-port", show apiPort]
 
 toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
