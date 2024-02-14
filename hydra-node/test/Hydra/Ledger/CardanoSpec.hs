@@ -2,6 +2,7 @@
 
 module Hydra.Ledger.CardanoSpec where
 
+import Cardano.Api.UTxO (fromApi, toApi)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
@@ -56,6 +57,8 @@ spec =
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
 
+      prop "Roundtrip to and from Api" roundtripFromAndToApi
+
     describe "ProtocolParameters" $
       prop "Roundtrip JSON encoding" roundtripProtocolParameters
 
@@ -106,6 +109,10 @@ shouldParseJSONAs bs =
   case Aeson.eitherDecode bs of
     Left err -> failure err
     Right (_ :: a) -> pure ()
+
+roundtripFromAndToApi :: UTxO -> Property
+roundtripFromAndToApi utxo =
+  fromApi (toApi utxo) === utxo
 
 -- | Test that the 'ProtocolParameters' To/FromJSON instances to roundtrip. Note
 -- that we use the ledger 'PParams' type to generate values, but the cardano-api
