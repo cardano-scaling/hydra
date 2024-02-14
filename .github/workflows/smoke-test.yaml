@@ -40,11 +40,6 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
 
-    - name: 🧹 Delete cardano-node db (when using mithril)
-      if: ${{ inputs.use-mithril }}
-      run: |
-        rm -rf ${state_dir}/db
-
     - name: 🧹 Cleanup hydra-node state
       run: |
         rm -rf ${state_dir}/state-*

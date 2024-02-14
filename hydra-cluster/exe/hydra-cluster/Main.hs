@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import CardanoNode (waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
+import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardanoNodeDevnet, withCardanoNodeOnKnownNetwork)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
@@ -11,6 +11,8 @@ import Hydra.Cluster.Scenarios (EndToEndLog (..), singlePartyHeadFullLifeCycle, 
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import HydraNode (HydraClient (..))
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
+import System.Directory (removeDirectoryRecursive)
+import System.FilePath ((</>))
 import Test.Hydra.Prelude (withTempDir)
 
 main :: IO ()
@@ -23,20 +25,28 @@ run options =
     let fromCardanoNode = contramap FromCardanoNode tracer
     withStateDirectory $ \workDir ->
       case knownNetwork of
-        Just network -> do
-          when (useMithril == UseMithril) $
-            downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
-          withCardanoNodeOnKnownNetwork fromCardanoNode workDir network $ \node -> do
+        Just network ->
+          withRunningCardanoNode tracer workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
             publishOrReuseHydraScripts tracer node
               >>= singlePartyHeadFullLifeCycle tracer workDir node
-        Nothing ->
+        Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
             singlePartyOpenAHead tracer workDir node txId $ \HydraClient{} -> do
               forever (threadDelay 60) -- do nothing
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril} = options
+
+  withRunningCardanoNode tracer workDir network action =
+    findRunningCardanoNode workDir network >>= \case
+      Just node ->
+        action node
+      Nothing -> do
+        when (useMithril == UseMithril) $ do
+          removeDirectoryRecursive $ workDir </> "db"
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
   withStateDirectory action = case stateDirectory of
     Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action

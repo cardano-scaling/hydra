@@ -117,6 +117,8 @@ executable hydra-cluster
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-depends:
+    , directory
+    , filepath
     , hydra-cluster
     , hydra-node
     , hydra-prelude
