@@ -139,6 +139,8 @@ import Hydra.Model (
   genPayment,
   genSeed,
   runMonad,
+  toRealUTxO,
+  toTxOuts,
  )
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
@@ -181,14 +183,14 @@ spec = do
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
-  -- FIXME: implement toRealUTxO correctly so the distributive property holds
-  xprop "realUTxO is distributive" $ propIsDistributive Model.toRealUTxO
+  prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
+  prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
 
-propIsDistributive :: (Show b, Eq b, Semigroup b) => ([a] -> b) -> [a] -> [a] -> Property
-propIsDistributive fn as bs =
-  fn as <> fn bs === fn (as <> bs)
-    & counterexample ("fn (as <> bs)   " <> show (fn (as <> bs)))
-    & counterexample ("fn as <> fn bs: " <> show (fn as <> fn bs))
+propIsDistributive :: (Show b, Eq b, Semigroup a, Semigroup b) => (a -> b) -> a -> a -> Property
+propIsDistributive f x y =
+  f x <> f y === f (x <> y)
+    & counterexample ("f (x <> y)   " <> show (f (x <> y)))
+    & counterexample ("f x <> f y: " <> show (f x <> f y))
 
 prop_fanoutContainsWholeConfirmedUTxO :: Property
 prop_fanoutContainsWholeConfirmedUTxO =
