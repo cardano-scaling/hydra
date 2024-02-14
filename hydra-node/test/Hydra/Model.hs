@@ -616,7 +616,7 @@ performCommit parties party paymentUTxO = do
         lift $
           waitMatch actorNode $ \case
             Committed{party = cp, utxo = committedUTxO}
-              | cp == party -> Just committedUTxO
+              | cp == party, committedUTxO == realUTxO -> Just committedUTxO
             err@CommandFailed{} -> error $ show err
             _ -> Nothing
       pure $ fromUtxo observedUTxO
