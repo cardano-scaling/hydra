@@ -28,6 +28,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (Chain (..), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
@@ -52,7 +53,13 @@ import Hydra.HeadLogic (
   Event (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
+import Hydra.HeadLogic.State (
+  ClosedState (..),
+  HeadState (..),
+  IdleState (..),
+  InitialState (..),
+  OpenState (..),
+ )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
@@ -92,7 +99,7 @@ mockChainAndNetwork tr seedKeys commits = do
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes queue
+      { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
@@ -102,6 +109,7 @@ mockChainAndNetwork tr seedKeys commits = do
 
   seedInput = genTxIn `generateWith` 42
 
+  -- TODO: why not use the full 'cardanoLedger'?
   ledger = scriptLedger seedInput
 
   Ledger{applyTransactions, initUTxO} = ledger
@@ -117,7 +125,7 @@ mockChainAndNetwork tr seedKeys commits = do
     let vks = getVerificationKey . signingKey . snd <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes queue node = do
+  connectNode nodes chain queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let Environment{party = ownParty} = env node
     let vkey = fst $ findOwnCardanoKey ownParty seedKeys
@@ -130,12 +138,27 @@ mockChainAndNetwork tr seedKeys commits = do
             }
     let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-    let
-      -- NOTE: this very simple function put the transaction in a queue for
-      -- inclusion into the chain. We could want to simulate the local
-      -- submission of a transaction and the possible failures it introduces,
-      -- perhaps caused by the node lagging behind
-      submitTx = atomically . writeTQueue queue
+    -- Validate transactions on submission and queue them for inclusion if valid.
+    let submitTx tx =
+          atomically $ do
+            (_, _, _, utxo) <- readTVar chain
+            -- TODO: dry with block tx validation
+            case evaluateTx tx utxo of
+              Left err ->
+                error $
+                  unlines
+                    [ "Invalid tx submitted: " <> show err
+                    , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                    ]
+              Right report
+                | any isLeft report ->
+                    error $
+                      unlines
+                        [ "Invalid tx submitted: " <> show (lefts . toList $ report)
+                        , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                        ]
+                | otherwise ->
+                    writeTQueue queue tx
     let chainHandle =
           createMockChain
             tr
@@ -239,7 +262,8 @@ mockChainAndNetwork tr seedKeys commits = do
                     <> (show @String $ txId <$> transactions)
                     <> "\nUTxO:\n"
                     <> show (fst <$> pairs utxo)
-            Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
+            Right utxo' ->
+              (newSlot, position, blocks :|> (header, transactions, utxo'), utxo')
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
 -- This is used in our 'Model' tests and we want to make sure the tests finish before
@@ -264,19 +288,20 @@ scriptLedger seedInput =
  where
   initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
-  applyTransactions slot utxo = \case
+  applyTransactions !slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->
       case evaluateTx tx utxo of
-        Left _ ->
+        Right report
+          | all isRight report ->
+              let utxo' = adjustUTxO tx utxo
+               in applyTransactions slot utxo' txs
+        _ ->
           -- Transactions that do not apply to the current state (eg. UTxO) are
           -- silently dropped which emulates the chain behaviour that only the
           -- client is potentially witnessing the failure, and no invalid
           -- transaction will ever be included in the chain
           applyTransactions slot utxo txs
-        Right _ ->
-          let utxo' = adjustUTxO tx utxo
-           in applyTransactions slot utxo' txs
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
