@@ -219,16 +219,19 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  _ <- seedTheWorld
-  _ <- initHead
+  seedTheWorld
+  initHead
   everybodyCommit
-  void $ eventually' ObserveHeadIsOpen
+  eventually' ObserveHeadIsOpen
  where
-  eventually' a = action (Wait 1000) >> action a
-  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  eventually' a = action (Wait 1000) >> action_ a
+
+  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const [])) >>= action_
+
   initHead = do
     WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
+
   everybodyCommit = do
     WorldState{hydraParties} <- getModelStateDL
     forM_ hydraParties $ \party ->
