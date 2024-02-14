@@ -4,6 +4,10 @@
     haskellNix.url = "github:input-output-hk/haskell.nix";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-utils.url = "github:numtide/flake-utils";
+    lint-utils = {
+      url = "github:homotopic/lint-utils";
+      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
+    };
     CHaP = {
       url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
       flake = false;
@@ -33,6 +37,9 @@
       (system:
       let
         pkgs = import inputs.nixpkgs { inherit system; };
+        tools = {
+          hlint = hydraProject.pkgs.haskell-nix.tool hydraProject.compiler "hlint" "3.8";
+        };
         hydraProject = import ./nix/hydra/project.nix {
           inherit (inputs) haskellNix iohk-nix CHaP;
           inherit system nixpkgs;
@@ -58,11 +65,15 @@
             spec = import ./spec { inherit pkgs; };
           };
 
+        checks = let lu = inputs.lint-utils.linters.${system}; in {
+          hlint = lu.hlint { src = self; hlint = tools.hlint; };
+        };
+
         devShells = (import ./nix/hydra/shell.nix {
-          inherit inputs hydraProject system;
+          inherit inputs hydraProject tools system;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
-            inherit inputs hydraProject system;
+            inherit inputs hydraProject system tools;
             withoutDevTools = true;
           }).default;
         };

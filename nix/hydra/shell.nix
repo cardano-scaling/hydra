@@ -7,6 +7,7 @@
   withoutDevTools ? false
 , hydraProject
 , inputs
+, tools
 , system ? builtins.currentSystem
 }:
 let
@@ -16,7 +17,6 @@ let
 
   fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
   cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-  hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
   apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
 
   # Build HLS form our fork (see flake.nix)
@@ -47,7 +47,7 @@ let
     fourmolu
     cabal-fmt
     pkgs.nixpkgs-fmt
-    hlint
+    tools.hlint
     apply-refact
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
@@ -159,7 +159,7 @@ let
       fourmolu
       cabal-fmt
       pkgs.nixpkgs-fmt
-      hlint
+      tools.hlint
       apply-refact
     ];
   };

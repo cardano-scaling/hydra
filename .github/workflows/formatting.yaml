@@ -30,4 +30,4 @@ jobs:
 
     - name: 📐 Check hlint
       run: |
-        nix develop .#fmt --command hlint .
+        nix build .#checks.x86_64-linux.hlint
