@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -13,6 +14,7 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
+  modifyTVar,
   newTVarIO,
   stateTVar,
  )
@@ -193,7 +195,9 @@ stepHydraNode ::
 stepHydraNode tracer node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  outcome <- atomically (processNextInput node queuedItem)
+  outcome <- atomically $ do
+    nextStateChangeID <- readTVar . lastStateChangeId $ persistence node -- an event won't necessarily produce a statechange, but if it does, then this'll be its ID
+    processNextInput node queuedItem nextStateChangeID
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{events, effects} -> do
@@ -225,15 +229,30 @@ processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
+  Word64 ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeState, ledger, env} e =
+processNextInput HydraNode{nodeState, ledger, env} e nextStateChangeID =
   modifyHeadState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
   NodeState{modifyHeadState} = nodeState
 
-  computeOutcome = Logic.update env ledger
+  computeOutcome = Logic.update env ledger nextStateChangeID
+
+processNextStateChange ::
+  forall m e tx.
+  (Monad m, MonadSTM m, ToJSON (StateChanged tx)) =>
+  HydraNode tx m ->
+  NonEmpty (EventSink (StateChanged tx) m) ->
+  StateChanged tx ->
+  m ()
+processNextStateChange HydraNode{persistence} sinks sc = do
+  (putEventToSinks @m @(StateChanged tx)) sinks sc
+  atomically $ modifyTVar (lastStateChangeId persistence) (+ 1)
+
+-- FIXME(Elaine): put this whole thing in a single `atomically` call
+-- that should be possible but there's some annoying classy monad transformer types to deal with
 
 processEffects ::
   ( MonadAsync m

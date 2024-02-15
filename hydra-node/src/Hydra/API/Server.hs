@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental (..), NewPersistenceIncremental(..), EventSource(..), EventSink(..), putEventToSinks)
+import Hydra.Persistence (EventSource (..), NewPersistenceIncremental (..), putEventToSinks)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -68,7 +68,7 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerComponent tx IO ()
-withAPIServer host port party NewPersistenceIncremental{eventSource=EventSource{getEvents'}, eventSinks = sinks} tracer chain pparams callback action =
+withAPIServer host port party NewPersistenceIncremental{eventSource = EventSource{getEvents'}, eventSinks = sinks} tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     timedOutputEvents <- getEvents'

@@ -111,7 +111,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
-import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), NewPersistenceIncremental (..), EventSource(..), EventSink(..), putEventToSinks)
+import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), Persistence (..), PersistenceIncremental (..), putEventToSinks)
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg
@@ -199,7 +199,7 @@ mkMessagePersistence numberOfParties NewPersistenceIncremental{eventSource, even
     , saveAcks = \acks -> do
         save ackPersistence acks
     , loadMessages = do
-        getEvents' eventSource 
+        getEvents' eventSource
     , appendMessage = \msg -> do
         putEventToSinks eventSinks msg
     }

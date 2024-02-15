@@ -38,7 +38,7 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
-import Hydra.Persistence (PersistenceIncremental (..), NewPersistenceIncremental(..), createPersistenceIncremental, eventPairFromPersistenceIncremental)
+import Hydra.Persistence (NewPersistenceIncremental (..), PersistenceIncremental (..), createPersistenceIncremental, eventPairFromPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (Snapshot, utxo))
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
@@ -373,9 +373,9 @@ withTestAPIServer ::
 withTestAPIServer port actor persistence tracer action = do
   lastStateChangeId <- newTVarIO 0
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-      persistenceNew = NewPersistenceIncremental {eventSource, eventSinks = eventSink :| [], lastStateChangeId}
-      --FIXME(Elaine): lastStateChangeId  is technically okay for mockPersistence but elsewhere not guaranteed
-      -- still, this saves us a little bit of debug time
+      persistenceNew = NewPersistenceIncremental{eventSource, eventSinks = eventSink :| [], lastStateChangeId}
+  -- FIXME(Elaine): lastStateChangeId  is technically okay for mockPersistence but elsewhere not guaranteed
+  -- still, this saves us a little bit of debug time
   withAPIServer @SimpleTx "127.0.0.1" port actor persistenceNew tracer dummyChainHandle defaultPParams noop action
 
 -- | Connect to a websocket server running at given path. Fails if not connected

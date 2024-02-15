@@ -8,11 +8,10 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, putEvent', putEventsToSinks, getEvents')
+import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, eventPairFromPersistenceIncremental, getEvents', putEvent', putEventsToSinks)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import Hydra.Persistence (eventPairFromPersistenceIncremental)
 
 spec :: Spec
 spec = do
@@ -84,15 +83,15 @@ spec = do
               let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistEventSource
               putEventsToSinks (eventSink :| []) items
 
-              -- initialize some event sinks 
+              -- initialize some event sinks
               persistSink1 <- createPersistenceIncremental $ tmpDir <> "/data1"
               persistSink2 <- createPersistenceIncremental $ tmpDir <> "/data2"
               let (sink1Source, sink1Sink) = eventPairFromPersistenceIncremental persistSink1
                   (sink2Source, sink2Sink) = eventPairFromPersistenceIncremental persistSink2
-                  eventSinks = eventSink :| [sink1Sink, sink2Sink] 
-              
+                  eventSinks = eventSink :| [sink1Sink, sink2Sink]
+
               -- load the event source, as if we had started a node
-              --TODO(Elaine): this on its own isn't enough to ensure persistence is working end to end, make sure to test that
+              -- TODO(Elaine): this on its own isn't enough to ensure persistence is working end to end, make sure to test that
               -- but it is an okay reference point
               -- maybe in node?
               -- test for loadStateEventSource

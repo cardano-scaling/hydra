@@ -141,6 +141,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , chainState = newChainState
           , headId
           , headSeed
+          , stateChangeID = 0
           }
         <> cause (ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties})
   | otherwise =
@@ -626,9 +627,10 @@ onClosedChainContestTx ::
   SnapshotNumber ->
   -- | Contestation deadline.
   UTCTime ->
+  Word64 ->
   Outcome tx
-onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
-  newState HeadContested{chainState = newChainState, contestationDeadline}
+onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline nextStateChangeID =
+  newState HeadContested{chainState = newChainState, contestationDeadline, stateChangeID = nextStateChangeID}
     <> if
       | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
           cause notifyClients
@@ -688,12 +690,13 @@ update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
+  Word64 ->
   -- | Current HeadState to validate the command against.
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger st ev = case (st, ev) of
+update env ledger nextStateChangeID st ev = case (st, ev) of
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
@@ -742,12 +745,12 @@ update env ledger st ev = case (st, ev) of
   -- Closed
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
     | ourHeadId == headId ->
-        onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
+        onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline nextStateChangeID
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState HeadIsReadyToFanout
+        newState HeadIsReadyToFanout{stateChangeID = nextStateChangeID}
           <> cause (ClientEffect $ ServerOutput.ReadyToFanout headId)
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -965,7 +968,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  HeadIsReadyToFanout ->
+  HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -1010,7 +1013,7 @@ recoverChainStateHistory initialChainState =
     SnapshotConfirmed{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
-    HeadIsReadyToFanout -> history
+    HeadIsReadyToFanout{} -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
     ChainRolledBack{chainState} ->
       rollbackHistory (chainStateSlot chainState) history
