@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Error codes to be used in plutus scripts.
 --
 -- Define a new type and instantiate 'ToErrorCode' for error cases you want to

@@ -886,7 +886,7 @@ genDirPath = do
   pure $ intercalate "/" path
 
 genChainPoint :: Gen ChainPoint
-genChainPoint = ChainPoint <$> (SlotNo <$> arbitrary) <*> someHeaderHash
+genChainPoint = (ChainPoint . SlotNo <$> arbitrary) <*> someHeaderHash
  where
   someHeaderHash = do
     bytes <- vectorOf 32 arbitrary

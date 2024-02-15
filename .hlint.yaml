@@ -1,0 +1,2 @@
+- ignore: {name: Redundant <$>, within: [Hydra.Contract.HeadTokens]}
+- ignore: {name: Redundant compare, within: [Hydra.PartySpec]}

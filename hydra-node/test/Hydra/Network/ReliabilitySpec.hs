@@ -173,7 +173,7 @@ spec = parallel $ do
         let networkMessagesFile = tmpDir <> "/network-messages"
 
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
-        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ networkMessagesFile
+        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental networkMessagesFile
 
         let messagePersistence =
               MessagePersistence

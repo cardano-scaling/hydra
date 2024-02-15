@@ -29,9 +29,8 @@ fireForgetServerPeer ::
   Peer (FireForget msg) 'AsServer 'StIdle m a
 fireForgetServerPeer FireForgetServer{recvMsg, recvMsgDone} =
   -- In the 'StIdle' the server is awaiting a request message
-  Await (ClientAgency TokIdle) $ \msg ->
+  Await (ClientAgency TokIdle) $ \case
     -- The client got to choose between two messages and we have to handle
     -- either of them
-    case msg of
-      MsgSend payload -> Effect $ fireForgetServerPeer <$> recvMsg payload
-      MsgDone -> Effect $ Done TokDone <$> recvMsgDone
+    MsgSend payload -> Effect $ fireForgetServerPeer <$> recvMsg payload
+    MsgDone -> Effect $ Done TokDone <$> recvMsgDone

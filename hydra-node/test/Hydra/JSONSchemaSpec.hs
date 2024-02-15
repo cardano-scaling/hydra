@@ -19,12 +19,12 @@ spec = do
         validateJSON (dir </> "api.json") id Null
 
     it "fails on non-existing schema file" $
-      validateJSON ("does-not-exist.json") id Null
+      validateJSON "does-not-exist.json" id Null
         `shouldThrow` exceptionContaining @IOException "does-not-exist.json"
 
     it "fails with missing tool" $ do
       withClearedPATH $
-        validateJSON ("does-not-matter.json") id Null
+        validateJSON "does-not-matter.json" id Null
           `shouldThrow` exceptionContaining @IOException "installed"
 
     it "selects a sub-schema correctly" $

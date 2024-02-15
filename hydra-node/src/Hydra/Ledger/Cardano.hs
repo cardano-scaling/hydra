@@ -132,8 +132,8 @@ instance ToJSON Tx where
   toJSON tx =
     let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
      in object
-          [ "cborHex" .= (Aeson.String $ decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-          , "txId" .= (txId tx)
+          [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+          , "txId" .= txId tx
           , "type" .= envelopeType
           , "description" .= Aeson.String mempty
           ]
@@ -153,7 +153,7 @@ instance FromJSON Tx where
           (o .:? "txId") >>= \case
             Nothing -> pure tx
             Just txid' -> do
-              guard (txid' == (txId tx))
+              guard (txid' == txId tx)
               pure tx
 
 instance Arbitrary Tx where
@@ -362,8 +362,8 @@ genTxOut =
     `suchThat` notByronAddress
  where
   gen =
-    fmap (modifyTxOutValue (<> (lovelaceToValue $ Lovelace 10_000_000))) $
-      oneof
+    modifyTxOutValue (<> (lovelaceToValue $ Lovelace 10_000_000))
+      <$> oneof
         [ fromLedgerTxOut <$> arbitrary
         , notMultiAsset . fromLedgerTxOut <$> arbitrary
         ]
@@ -429,7 +429,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = liftA2 (<>) (pure $ lovelaceToValue $ Lovelace 10_000_000) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
+genValue = fmap ((lovelaceToValue $ Lovelace 10_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

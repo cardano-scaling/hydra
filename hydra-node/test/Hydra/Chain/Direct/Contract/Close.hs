@@ -399,11 +399,9 @@ data CloseInitialMutation
 -- right away.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
-  oneof
-    [ SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
-        mutatedDeadline <- genMutatedDeadline
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
-    ]
+  SomeMutation (Just $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
+    mutatedDeadline <- genMutatedDeadline
+    pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
 
