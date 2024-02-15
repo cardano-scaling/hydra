@@ -44,19 +44,22 @@ data StateChanged tx
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
+      , stateChangeID :: Word64
       }
   | CommittedUTxO
       { party :: Party
       , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
+      , stateChangeID :: Word64
       }
-  | HeadAborted {chainState :: ChainStateType tx}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | HeadAborted {chainState :: ChainStateType tx, stateChangeID :: Word64}
+  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx, stateChangeID :: Word64}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
+      , stateChangeID :: Word64
       }
-  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
+  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber, stateChangeID :: Word64}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.
@@ -65,17 +68,40 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
+      , stateChangeID :: Word64
       }
-  | TransactionReceived {tx :: tx}
-  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
-  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadIsReadyToFanout
-  | HeadFannedOut {chainState :: ChainStateType tx}
-  | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | TransactionReceived {tx :: tx, stateChangeID :: Word64}
+  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx), stateChangeID :: Word64}
+  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx), stateChangeID :: Word64}
+  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime, stateChangeID :: Word64}
+  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime, stateChangeID :: Word64}
+  | HeadIsReadyToFanout {stateChangeID :: Word64}
+  | HeadFannedOut {chainState :: ChainStateType tx, stateChangeID :: Word64}
+  | ChainRolledBack {chainState :: ChainStateType tx, stateChangeID :: Word64}
+  | TickObserved {chainSlot :: ChainSlot, stateChangeID :: Word64}
   deriving stock (Generic)
+
+getStateChangeID :: StateChanged tx -> Word64
+getStateChangeID = \case
+  HeadInitialized{stateChangeID} -> stateChangeID
+  CommittedUTxO{stateChangeID} -> stateChangeID
+  HeadAborted{stateChangeID} -> stateChangeID
+  HeadOpened{stateChangeID} -> stateChangeID
+  TransactionAppliedToLocalUTxO{stateChangeID} -> stateChangeID
+  SnapshotRequestDecided{stateChangeID} -> stateChangeID
+  SnapshotRequested{stateChangeID} -> stateChangeID
+  TransactionReceived{stateChangeID} -> stateChangeID
+  PartySignedSnapshot{stateChangeID} -> stateChangeID
+  SnapshotConfirmed{stateChangeID} -> stateChangeID
+  HeadClosed{stateChangeID} -> stateChangeID
+  HeadContested{stateChangeID} -> stateChangeID
+  HeadIsReadyToFanout{stateChangeID} -> stateChangeID
+  HeadFannedOut{stateChangeID} -> stateChangeID
+  ChainRolledBack{stateChangeID} -> stateChangeID
+  TickObserved{stateChangeID} -> stateChangeID
+
+-- FIXME(Elaine): these stateChangeID fields were added in an attempt to make every StateChanged keep track of its ID
+-- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent' can be kept simple, and shouldn't do harm
 
 instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary

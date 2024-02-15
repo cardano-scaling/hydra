@@ -63,7 +63,7 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (eventPairFromPersistenceIncremental, NewPersistenceIncremental(..))
+import Hydra.Persistence (NewPersistenceIncremental (..), eventPairFromPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
@@ -782,10 +782,10 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
   persistence <- createPersistenceInMemory
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
       eventSinks = eventSink :| []
-  
-  --FIXME(Elaine): initialize last state change ID
-  let persistence = NewPersistenceIncremental {eventSource, eventSinks, lastStateChangeId = error "lastStateChangeId not implemented"}
-  
+
+  -- FIXME(Elaine): initialize last state change ID
+  let persistence = NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId = error "lastStateChangeId not implemented"}
+
   connectNode chain $
     HydraNode
       { inputQueue
