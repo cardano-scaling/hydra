@@ -251,8 +251,10 @@ processNextStateChange HydraNode{persistence} sinks sc = do
   (putEventToSinks @m @(StateChanged tx)) sinks sc
   atomically $ modifyTVar (lastStateChangeId persistence) (+ 1)
 
--- FIXME(Elaine): put this whole thing in a single `atomically` call
--- that should be possible but there's some annoying classy monad transformer types to deal with
+
+--NOTE(Elaine): think you shouldnt be able to put all above into a single atomically call, the types shouldnt allow that
+-- some of the sinks won't be atomic, even if the disk-based persistence is
+-- and actually it doesn't matter if we accidentally do the same event twice because the PERSISTENCE is in charge of at-least-once semantics
 
 processEffects ::
   ( MonadAsync m
