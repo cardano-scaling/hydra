@@ -118,17 +118,33 @@ instance Arbitrary ClosedThreadOutput where
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
--- | Create a transaction metadata entry to identify Hydra transactions (for informational purposes).
+-- | The metadata label used for identifying Hydra protocol transactions. As
+-- suggested by a friendly large language model: The number most commonly
+-- associated with "Hydra" is 5, as in the mythological creature Hydra, which
+-- had multiple heads, and the number 5 often symbolizes multiplicity or
+-- diversity. However, there is no specific numerical association for Hydra
+-- smaller than 10000 beyond this mythological reference.
+hydraMetadataLabel :: Word64
+hydraMetadataLabel = 55555
+
+-- | Create a transaction metadata entry to identify Hydra transactions (for
+-- informational purposes).
 mkHydraHeadV1TxName :: Text -> TxMetadata
 mkHydraHeadV1TxName name =
-  TxMetadata $ Map.fromList [(metadataLabel, TxMetaText $ "HydraV1/" <> name)]
+  TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV1/" <> name)]
+
+-- | Get the metadata entry to identify Hydra transactions (for informational
+-- purposes).
+getHydraHeadV1TxName :: Tx -> Maybe Text
+getHydraHeadV1TxName =
+  lookupName . txMetadata . getTxBodyContent . getTxBody
  where
-  -- As suggested by a friendly large language model: The number most commonly
-  -- associated with "Hydra" is 5, as in the mythological creature Hydra, which
-  -- had multiple heads, and the number 5 often symbolizes multiplicity or
-  -- diversity. However, there is no specific numerical association for Hydra
-  -- smaller than 10000 beyond this mythological reference.
-  metadataLabel = 55555
+  lookupName = \case
+    TxMetadataNone -> Nothing
+    TxMetadataInEra (TxMetadata m) ->
+      case Map.lookup hydraMetadataLabel m of
+        Just (TxMetaText name) -> Just name
+        _ -> Nothing
 
 -- * Create Hydra Head transactions
 
