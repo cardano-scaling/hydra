@@ -118,6 +118,18 @@ instance Arbitrary ClosedThreadOutput where
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 
+-- | Create a transaction metadata entry to identify Hydra transactions (for informational purposes).
+mkHydraHeadV1TxName :: Text -> TxMetadata
+mkHydraHeadV1TxName name =
+  TxMetadata $ Map.fromList [(metadataLabel, TxMetaText $ "HydraV1/" <> name)]
+ where
+  -- As suggested by a friendly large language model: The number most commonly
+  -- associated with "Hydra" is 5, as in the mythological creature Hydra, which
+  -- had multiple heads, and the number 5 often symbolizes multiplicity or
+  -- diversity. However, there is no specific numerical association for Hydra
+  -- smaller than 10000 beyond this mythological reference.
+  metadataLabel = 55555
+
 -- * Create Hydra Head transactions
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -139,6 +151,7 @@ initTx networkId seedTxIn participants parameters =
             : map (mkInitialOutput networkId seedTxIn) participants
         )
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "InitTx")
  where
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
@@ -202,6 +215,7 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
       & addInputs committedTxIns
       & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CommitTx")
  where
   initialWitness =
     BuildTxWith $
@@ -273,6 +287,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
       & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CollectComTx")
  where
   HeadParameters{parties, contestationPeriod} = headParameters
 
@@ -360,6 +375,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityLowerBound startSlotNo
       & setValidityUpperBound endSlotNo
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore)
@@ -452,6 +468,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
       & addOutputs [headOutputAfter]
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityUpperBound slotNo
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -528,6 +545,7 @@ fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScr
       & addOutputs orderedTxOutsToFanout
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
  where
   headWitness =
     BuildTxWith $
