@@ -6,7 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (fromPairs, pairs)
-import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   MonadSTM (newTVarIO, writeTVar),
@@ -333,12 +332,6 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
         ctx
         chainState
         submitTx
-
-mkMockTxIn :: VerificationKey PaymentKey -> Word -> TxIn
-mkMockTxIn vk ix = TxIn (TxId tid) (TxIx ix)
- where
-  -- NOTE: Ugly, works because both binary representations are 32-byte long.
-  tid = unsafeDeserialize' (serialize' vk)
 
 -- NOTE: This is a workaround until the upstream PR is merged:
 -- https://github.com/input-output-hk/io-sim/issues/133

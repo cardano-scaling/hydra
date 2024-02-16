@@ -17,15 +17,20 @@ import Test.QuickCheck.StateModel (HasVariables)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
+-- NOTE: New type wrapper to add Ord and Eq instances to signing keys
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
 
 instance Show CardanoSigningKey where
   show CardanoSigningKey{signingKey} =
     show . mkVkAddress @Era testNetworkId . getVerificationKey $ signingKey
 
--- NOTE: We need this orphan instance in order to lookup keys in lists.
+instance Ord CardanoSigningKey where
+  CardanoSigningKey ska <= CardanoSigningKey skb =
+    verificationKeyHash (getVerificationKey ska) <= verificationKeyHash (getVerificationKey skb)
+
 instance Eq CardanoSigningKey where
-  CardanoSigningKey (PaymentSigningKey skd) == CardanoSigningKey (PaymentSigningKey skd') = skd == skd'
+  CardanoSigningKey ska == CardanoSigningKey skb =
+    verificationKeyHash (getVerificationKey ska) == verificationKeyHash (getVerificationKey skb)
 
 instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"

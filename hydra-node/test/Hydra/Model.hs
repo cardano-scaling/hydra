@@ -22,6 +22,7 @@ import Hydra.Prelude hiding (Any, label, lookup)
 
 import Cardano.Api.UTxO (pairs)
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTQueueIO,
@@ -67,7 +68,7 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Model.MockChain (mkMockTxIn, mockChainAndNetwork)
+import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (createNodeState, runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
@@ -484,21 +485,22 @@ instance
   ) =>
   RunModel WorldState (RunMonad m)
   where
-  postcondition (_, st) action _lookup result =
+  postcondition (_, st) action _lookup result = do
+    counterexamplePost "Postcondition failed"
+    counterexamplePost ("Action:   " <> show action)
+    counterexamplePost ("State:    " <> show st)
+
     case action of
-      (Commit _party expectedCommitted) -> do
-        decorateFailure st action expectedCommitted result
-        pure $ expectedCommitted == result
+      (Commit _party expectedCommitted) ->
+        expectedCommitted === result
       Fanout{} ->
         case hydraState st of
           Final{finalUTxO} -> do
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
-            -- sure that the fannout outputs match what we had in the open Head
+            -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
-            let sortByAddressAndValue = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
-            decorateFailure st action (toTxOuts finalUTxO) (toList result)
-            pure $
-              sortByAddressAndValue (toTxOuts finalUTxO) == sortByAddressAndValue (toList result)
+            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
+            sorted (toTxOuts finalUTxO) === sorted (toList result)
           _ -> pure False
       _ -> pure True
 
@@ -634,25 +636,6 @@ performCommit parties party paymentUTxO = do
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
 
-toTxOuts :: [(CardanoSigningKey, Value)] -> [TxOut CtxUTxO]
-toTxOuts payments =
-  uncurry mkTxOut <$> payments
- where
-  mkTxOut (CardanoSigningKey sk) val =
-    TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) val TxOutDatumNone ReferenceScriptNone
-
--- | NOTE: This function generates input 'Ix' that start from zero so
--- can't be used with certainty when want to check equality with some 'UTxO'
--- even though the value and the key would match.
-toRealUTxO :: [(CardanoSigningKey, Value)] -> UTxO
-toRealUTxO paymentUTxO =
-  UTxO.fromPairs $
-    [ (mkMockTxIn vk ix, txOut)
-    | (ix, (CardanoSigningKey sk, val)) <- zip [0 ..] paymentUTxO
-    , let vk = getVerificationKey sk
-    , let txOut = TxOut (mkVkAddress testNetworkId vk) val TxOutDatumNone ReferenceScriptNone
-    ]
-
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
   Party ->
@@ -773,6 +756,36 @@ stopTheWorld =
 
 -- ** Utility functions
 
+-- | Convert payment-style utxos into transaction outputs.
+toTxOuts :: [(CardanoSigningKey, Value)] -> [TxOut CtxUTxO]
+toTxOuts payments =
+  uncurry mkTxOut <$> payments
+
+-- | Convert payment-style utxos into real utxos. The 'Payment' tx domain is
+-- smaller than UTxO and we map every unique signer + value entry to a mocked
+-- 'TxIn' on the real cardano domain.
+toRealUTxO :: UTxOType Payment -> UTxOType Tx
+toRealUTxO paymentUTxO =
+  UTxO.fromPairs $
+    [ (mkMockTxIn sk ix, mkTxOut sk val)
+    | (sk, vals) <- Map.toList skMap
+    , (ix, val) <- zip [0 ..] vals
+    ]
+ where
+  skMap = foldMap (\(sk, v) -> Map.singleton sk [v]) paymentUTxO
+
+mkTxOut :: CardanoSigningKey -> Value -> TxOut CtxUTxO
+mkTxOut (CardanoSigningKey sk) val =
+  TxOut (mkVkAddress testNetworkId (getVerificationKey sk)) val TxOutDatumNone ReferenceScriptNone
+
+mkMockTxIn :: CardanoSigningKey -> Word -> TxIn
+mkMockTxIn (CardanoSigningKey sk) ix =
+  TxIn (TxId tid) (TxIx ix)
+ where
+  vk = getVerificationKey sk
+  -- NOTE: Ugly, works because both binary representations are 32-byte long.
+  tid = unsafeDeserialize' (serialize' vk)
+
 -- | Bring `Show` instance in scope drawing it from the `Action` type.
 --
 -- This is a neat trick to provide `show`able results from action in a context where
@@ -794,18 +807,15 @@ showFromAction k = \case
   StopTheWorld -> k
   ObserveHeadIsOpen -> k
 
-decorateFailure ::
-  (Monad m, Show expected, Show actual) =>
-  WorldState ->
-  Action WorldState a ->
-  expected ->
-  actual ->
-  PostconditionM m ()
-decorateFailure st action expected actual = do
-  counterexamplePost ("Action:   " <> show action)
-  counterexamplePost ("State:    " <> show st)
-  counterexamplePost ("Expected: " <> show expected)
-  counterexamplePost ("Actual:   " <> show actual)
+-- | Like '===', but works in PostconditionM.
+(===) :: (Eq a, Show a, Monad m) => a -> a -> PostconditionM m Bool
+x === y = do
+  counterexamplePost (show x <> "\n" <> interpret res <> "\n" <> show y)
+  pure res
+ where
+  res = x == y
+  interpret True = "=="
+  interpret False = "/="
 
 waitForUTxOToSpend ::
   forall m.
