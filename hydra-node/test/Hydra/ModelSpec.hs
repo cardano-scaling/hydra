@@ -145,7 +145,7 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAll, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -179,7 +179,7 @@ spec = do
   -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
   prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
-  prop "implementation respects model" $ forAll arbitrary prop_checkModel
+  prop "implementation respects model" prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
@@ -285,22 +285,23 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
-prop_checkModel :: Actions WorldState -> Property
-prop_checkModel actions =
+prop_checkModel :: Property
+prop_checkModel =
   within 30000000 $
-    runIOSimProp $ do
-      (metadata, _symEnv) <- runActions actions
-      let WorldState{hydraParties, hydraState} = underlyingState metadata
-      -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
-      -- the underlying simulated chain which produces a block every 20s. It
-      -- should be enough to ensure all nodes' threads terminate their actions
-      -- and those gets picked up by the chain
-      run $ lift waitForAMinute
-      let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-      nodes <- run $ gets nodes
-      assert (parties == Map.keysSet nodes)
-      forM_ parties $ \p -> do
-        assertBalancesInOpenHeadAreConsistent hydraState nodes p
+    forAllShrink arbitrary shrink $ \actions ->
+      runIOSimProp $ do
+        (metadata, _symEnv) <- runActions actions
+        let WorldState{hydraParties, hydraState} = underlyingState metadata
+        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
+        -- the underlying simulated chain which produces a block every 20s. It
+        -- should be enough to ensure all nodes' threads terminate their actions
+        -- and those gets picked up by the chain
+        run $ lift waitForAMinute
+        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+        nodes <- run $ gets nodes
+        assert (parties == Map.keysSet nodes)
+        forM_ parties $ \p -> do
+          assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
   waitForAMinute = threadDelay 60

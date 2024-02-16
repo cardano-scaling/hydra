@@ -223,12 +223,12 @@ instance StateModel WorldState where
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
-  precondition WorldState{hydraState = Idle{}} Init{} =
-    True
-  precondition WorldState{hydraState = hydraState@Initial{}} (Commit party _) =
-    isPendingCommitFrom party hydraState
-  precondition WorldState{hydraState = Initial{}} Abort{} =
-    True
+  precondition WorldState{hydraState = Idle{idleParties}} (Init p) =
+    p `elem` idleParties
+  precondition WorldState{hydraState = Initial{pendingCommits}} (Commit party _) =
+    party `Map.member` pendingCommits
+  precondition WorldState{hydraState = Initial{commits, pendingCommits}} (Abort party) =
+    party `Set.member` (Map.keysSet pendingCommits <> Map.keysSet commits)
   precondition WorldState{hydraState = Open{}} (Close _) =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
@@ -346,6 +346,14 @@ instance StateModel WorldState where
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
       StopTheWorld -> s
+
+  shrinkAction _ctx _st = \case
+    seed@Seed{seedKeys, toCommit} ->
+      [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
+      | seedKeys' <- shrink seedKeys
+      , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
+      ]
+    _other -> []
 
 instance HasVariables WorldState where
   getAllVariables _ = mempty
