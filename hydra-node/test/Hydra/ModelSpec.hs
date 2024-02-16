@@ -145,7 +145,7 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, Testable, counterexample, forAll, forAllShrink, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,

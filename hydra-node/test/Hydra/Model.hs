@@ -617,17 +617,18 @@ performCommit parties party paymentUTxO = do
   SimulatedChainNetwork{simulateCommit} <- gets chain
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
-    Just actorNode -> do
+    Just{} -> do
       let realUTxO = toRealUTxO paymentUTxO
       lift $ simulateCommit (party, realUTxO)
       observedUTxO <-
         lift $
-          waitMatch actorNode $ \case
-            Committed{party = cp, utxo = committedUTxO}
-              | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-            err@CommandFailed{} -> error $ show err
-            _ -> Nothing
-      pure $ fromUtxo observedUTxO
+          forM nodes $ \n ->
+            waitMatch n $ \case
+              Committed{party = cp, utxo = committedUTxO}
+                | cp == party, committedUTxO == realUTxO -> Just committedUTxO
+              err@CommandFailed{} -> error $ show err
+              _ -> Nothing
+      pure $ fromUtxo $ List.head $ toList observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
   fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
