@@ -66,3 +66,10 @@ data KnownNetwork
   | Sanchonet
   deriving stock (Generic, Show, Eq, Enum, Bounded)
   deriving anyclass (ToJSON, FromJSON)
+
+toNetworkId :: KnownNetwork -> NetworkId
+toNetworkId = \case
+  Mainnet -> Api.Mainnet
+  Preproduction -> Api.Testnet (Api.NetworkMagic 1)
+  Preview -> Api.Testnet (Api.NetworkMagic 2)
+  Sanchonet -> Api.Testnet (Api.NetworkMagic 4)

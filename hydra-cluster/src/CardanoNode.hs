@@ -5,7 +5,7 @@ module CardanoNode where
 import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
-import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, querySystemStart, queryTipSlotNo)
+import CardanoClient (QueryPoint (QueryTip), RunningNode (..), queryEraHistory, queryGenesisParameters, querySystemStart, queryTipSlotNo)
 import Control.Lens ((?~), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
@@ -17,6 +17,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
+  GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
   PaymentKey,
@@ -28,7 +29,7 @@ import Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
@@ -125,6 +126,32 @@ getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =
   readProcess "cardano-node" ["--version"] ""
 
+-- | Tries to find an communicate with an existing cardano-node running in given
+-- work directory. NOTE: This is using the default node socket name as defined
+-- by 'defaultCardanoNodeArgs'.
+findRunningCardanoNode :: FilePath -> KnownNetwork -> IO (Maybe RunningNode)
+findRunningCardanoNode workDir knownNetwork = do
+  try (queryGenesisParameters knownNetworkId socketPath QueryTip) >>= \case
+    Left (_ :: SomeException) ->
+      pure Nothing
+    Right GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} ->
+      pure $
+        Just
+          RunningNode
+            { networkId = knownNetworkId
+            , nodeSocket = socketPath
+            , blockTime =
+                computeBlockTime
+                  protocolParamSlotLength
+                  protocolParamActiveSlotsCoefficient
+            }
+ where
+  knownNetworkId = toNetworkId knownNetwork
+
+  socketPath = File $ workDir </> nodeSocket
+
+  CardanoNodeArgs{nodeSocket} = defaultCardanoNodeArgs
+
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive
 -- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
@@ -147,9 +174,9 @@ withCardanoNodeOnKnownNetwork ::
   KnownNetwork ->
   (RunningNode -> IO a) ->
   IO a
-withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
+withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
   copyKnownNetworkFiles
-  withCardanoNode tracer workDir args action
+  withCardanoNode tracer stateDirectory args action
  where
   args =
     defaultCardanoNodeArgs
@@ -172,9 +199,9 @@ withCardanoNodeOnKnownNetwork tracer workDir knownNetwork action = do
       , "conway-genesis.json"
       ]
       $ \fn -> do
-        createDirectoryIfMissing True $ workDir </> takeDirectory fn
+        createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
-          >>= writeFileBS (workDir </> fn)
+          >>= writeFileBS (stateDirectory </> fn)
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
@@ -277,7 +304,7 @@ withCardanoNode tr stateDirectory args action = do
               Left{} -> error "should never been reached"
               Right a -> pure a
  where
-  CardanoNodeArgs{nodeSocket, nodeShelleyGenesisFile} = args
+  CardanoNodeArgs{nodeSocket} = args
 
   process = cardanoNodeProcess (Just stateDirectory) args
 
@@ -290,17 +317,22 @@ withCardanoNode tr stateDirectory args action = do
     traceWith tr $ MsgNodeStarting{stateDirectory}
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
-    shelleyGenesis :: Aeson.Value <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile
+    shelleyGenesis <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile args
     action
       RunningNode
-        { nodeSocket = nodeSocketPath
+        { nodeSocket = File (stateDirectory </> nodeSocket)
         , networkId = getShelleyGenesisNetworkId shelleyGenesis
         , blockTime = getShelleyGenesisBlockTime shelleyGenesis
         }
 
+  cleanupSocketFile =
+    whenM (doesFileExist socketPath) $
+      removeFile socketPath
+
   readShelleyGenesisJSON = readFileBS >=> unsafeDecodeJson
 
   -- Read 'NetworkId' from shelley genesis JSON file
+  getShelleyGenesisNetworkId :: Value -> NetworkId
   getShelleyGenesisNetworkId json = do
     if json ^?! key "networkId" == "Mainnet"
       then Api.Mainnet
@@ -309,14 +341,17 @@ withCardanoNode tr stateDirectory args action = do
         Api.Testnet (Api.NetworkMagic $ truncate magic)
 
   -- Read expected time between blocks from shelley genesis
+  getShelleyGenesisBlockTime :: Value -> NominalDiffTime
   getShelleyGenesisBlockTime json = do
     let slotLength = json ^?! key "slotLength" . _Number
     let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
-    realToFrac $ slotLength / activeSlotsCoeff
+    computeBlockTime (realToFrac slotLength) (toRational activeSlotsCoeff)
 
-  cleanupSocketFile =
-    whenM (doesFileExist socketPath) $
-      removeFile socketPath
+-- | Compute the block time (expected time between blocks) given a slot length
+-- as diff time and active slot coefficient.
+computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
+computeBlockTime slotLength activeSlotsCoeff =
+  slotLength / realToFrac activeSlotsCoeff
 
 -- | Wait until the node is fully caught up with the network. This can take a
 -- while!
