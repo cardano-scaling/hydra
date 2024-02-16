@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTQueueIO,
   newTVarIO,
   readTVarIO,
+  throwSTM,
   tryReadTQueue,
   writeTQueue,
   writeTVar,
@@ -25,6 +26,7 @@ import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.IO.Exception (userError)
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
@@ -145,17 +147,19 @@ mockChainAndNetwork tr seedKeys commits = do
             -- TODO: dry with block tx validation
             case evaluateTx tx utxo of
               Left err ->
-                error $
+                throwSTM . userError . toString $
                   unlines
-                    [ "Invalid tx submitted: " <> show err
+                    [ "Invalid tx submitted"
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                    , "Error: " <> show err
                     ]
               Right report
                 | any isLeft report ->
-                    error $
+                    throwSTM . userError . toString $
                       unlines
-                        [ "Invalid tx submitted: " <> show (lefts . toList $ report)
+                        [ "Invalid tx submitted"
                         , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                        , "Error: " <> show (lefts . toList $ report)
                         ]
                 | otherwise ->
                     writeTQueue queue tx
@@ -225,9 +229,13 @@ mockChainAndNetwork tr seedKeys commits = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
+        let position' = position + 1
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        -- NOTE: Need to reset the mocked chain ledger to this utxo before
+        -- calling the node handlers (as they might submit transactions
+        -- directly).
+        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (\h -> onRollForward h header txs)
-        atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
         pure ()
 
@@ -240,10 +248,11 @@ mockChainAndNetwork tr seedKeys commits = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
       Just (header, _, utxo) -> do
+        let position' = position - nbBlocks + 1
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = getChainPoint header
+        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
       Nothing ->
         pure ()
 
@@ -263,6 +272,8 @@ mockChainAndNetwork tr seedKeys commits = do
                     <> "\nUTxO:\n"
                     <> show (fst <$> pairs utxo)
             Right utxo' ->
+              -- FIXME: this includes all transactions even if only one of them
+              -- would apply (e.g. concurrent collect transactions in Hydra)
               (newSlot, position, blocks :|> (header, transactions, utxo'), utxo')
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
