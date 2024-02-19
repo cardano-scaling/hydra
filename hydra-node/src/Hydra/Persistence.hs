@@ -212,8 +212,6 @@ createNewPersistenceIncrementalGeneric getID fp = do
               threadId <- myThreadId
               isEventNew <- atomically $ do
                 let stateChangeID = getID a
-                -- FIXME(Elaine): we need to put getStateChangeID into a typeclass and add that constraint to a, in the EventSink type
-                -- or we can have separate versions of this for StateChanged, and for network functionality etc
 
                 let outgoingStateChangeId = stateChangeID
                 -- outgoingStateChangeId <- readTVar $ stateChangeID -- this is the ID of the state change we just got from the node

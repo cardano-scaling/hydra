@@ -189,7 +189,7 @@ mkMessagePersistence ::
   NewPersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence numberOfParties NewPersistenceIncremental{eventSource, eventSinks} ackPersistence =
+mkMessagePersistence numberOfParties (eventSource, eventSinks) ackPersistence =
   MessagePersistence
     { loadAcks = do
         macks <- load ackPersistence
