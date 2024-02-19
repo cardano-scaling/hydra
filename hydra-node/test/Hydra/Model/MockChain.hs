@@ -61,7 +61,6 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.State (
   ClosedState (..),
-  CoordinatedHeadState (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
@@ -78,6 +77,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNode (..), NodeState (..))
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (getPositive)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
@@ -111,7 +111,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
-      , postCloseTx = postCloseTx nodes
+      , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
   initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
@@ -162,6 +162,7 @@ mockChainAndNetwork tr seedKeys commits = do
                 throwSTM . userError . toString $
                   unlines
                     [ "MockChain: Invalid tx submitted"
+                    , "Slot: " <> show slot
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
                     , "Error: " <> show err
                     ]
@@ -213,10 +214,10 @@ mockChainAndNetwork tr seedKeys commits = do
             Left e -> throwIO e
             Right tx -> submitTx tx
 
-  postCloseTx nodes party = do
+  closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
-      Nothing -> error "postCloseTx: Could not find matching HydraNode"
+      Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
       Just
         MockHydraNode
           { node = HydraNode{oc = Chain{postTx}, nodeState = NodeState{queryHeadState}}
@@ -225,8 +226,10 @@ mockChainAndNetwork tr seedKeys commits = do
           case hs of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
-            Open OpenState{headId = openHeadId, parameters = headParameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> do
-              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot}
+            Open OpenState{headId = openHeadId, parameters = headParameters} -> do
+              let initialSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+
+              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot}
               postTx closeTx
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 

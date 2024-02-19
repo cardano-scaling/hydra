@@ -548,7 +548,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateCommit :: (Party, UTxOType tx) -> m ()
-  , postCloseTx :: Party -> m ()
+  , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
   }
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
@@ -558,7 +558,7 @@ dummySimulatedChainNetwork =
     , tickThread = error "tickThread"
     , rollbackAndForward = \_ -> error "rollbackAndForward"
     , simulateCommit = \_ -> error "simulateCommit"
-    , postCloseTx = \_ -> error "postCloseTx"
+    , closeWithInitialSnapshot = \(_, _) -> error "closeWithInitialSnapshot"
     }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
@@ -624,7 +624,7 @@ simulatedChainAndNetwork initialChainState = do
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
           createAndYieldEvent nodes history localChainState $ OnCommitTx{headId = testHeadId, party, committed}
-      , postCloseTx = error "unexpected call to postCloseTx"
+      , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
   -- seconds

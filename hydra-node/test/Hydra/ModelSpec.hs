@@ -186,12 +186,32 @@ spec = do
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
   prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
   prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
+  prop "parties contest to wrong closed snapshot" prop_partyContestsToWrongClosedSnapshot
 
 propIsDistributive :: (Show b, Eq b, Semigroup a, Semigroup b) => (a -> b) -> a -> a -> Property
 propIsDistributive f x y =
   f x <> f y === f (x <> y)
     & counterexample ("f (x <> y)   " <> show (f (x <> y)))
     & counterexample ("f x <> f y: " <> show (f x <> f y))
+
+prop_partyContestsToWrongClosedSnapshot :: Property
+prop_partyContestsToWrongClosedSnapshot =
+  forAllDL partyContestsToWrongClosedSnapshot prop_HydraModel
+
+-- | Expect to see contestations when trying to close with
+-- an old snapshot
+partyContestsToWrongClosedSnapshot :: DL WorldState ()
+partyContestsToWrongClosedSnapshot = do
+  headOpensIfAllPartiesCommit
+  getModelStateDL >>= \case
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+      tx <- action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx tx)
+      action_ $ Model.CloseWithInitialSnapshot party
+      void $ action $ Model.Fanout party
+    _ -> pure ()
+  action_ Model.StopTheWorld
 
 prop_fanoutContainsWholeConfirmedUTxO :: Property
 prop_fanoutContainsWholeConfirmedUTxO =
