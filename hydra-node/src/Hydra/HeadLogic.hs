@@ -129,8 +129,9 @@ onIdleChainInitTx ::
   HeadSeed ->
   HeadParameters ->
   [OnChainId] ->
+  Word64 ->
   Outcome tx
-onIdleChainInitTx env newChainState headId headSeed headParameters participants
+onIdleChainInitTx env newChainState headId headSeed headParameters participants nextStateChangeID
   | configuredParties == initializedParties
       && party `member` initializedParties
       && configuredContestationPeriod == contestationPeriod
@@ -141,7 +142,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , chainState = newChainState
           , headId
           , headSeed
-          , stateChangeID = 0
+          , stateChangeID = nextStateChangeID
           }
         <> cause (ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties})
   | otherwise =
@@ -181,9 +182,10 @@ onInitialChainCommitTx ::
   Party ->
   -- | Committed UTxO
   UTxOType tx ->
+  Word64 ->
   Outcome tx
-onInitialChainCommitTx st newChainState pt utxo =
-  newState CommittedUTxO{party = pt, committedUTxO = utxo, chainState = newChainState}
+onInitialChainCommitTx st newChainState pt utxo nextStateChangeID =
+  newState CommittedUTxO{party = pt, committedUTxO = utxo, chainState = newChainState, stateChangeID = nextStateChangeID}
     <> causes
       ( notifyClient
           : [postCollectCom | canCollectCom]
@@ -232,9 +234,10 @@ onInitialChainAbortTx ::
   ChainStateType tx ->
   Committed tx ->
   HeadId ->
+  Word64 ->
   Outcome tx
-onInitialChainAbortTx newChainState committed headId =
-  newState HeadAborted{chainState = newChainState}
+onInitialChainAbortTx newChainState committed headId nextStateChangeID =
+  newState HeadAborted{chainState = newChainState, stateChangeID = nextStateChangeID}
     <> cause (ClientEffect $ ServerOutput.HeadIsAborted{headId, utxo = fold committed})
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
@@ -247,9 +250,10 @@ onInitialChainCollectTx ::
   InitialState tx ->
   -- | New chain state
   ChainStateType tx ->
+  Word64 ->
   Outcome tx
-onInitialChainCollectTx st newChainState =
-  newState HeadOpened{chainState = newChainState, initialUTxO = u0}
+onInitialChainCollectTx st newChainState nextStateChangeID =
+  newState HeadOpened{chainState = newChainState, initialUTxO = u0, stateChangeID = nextStateChangeID}
     <> cause (ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0})
  where
   u0 = fold committed
@@ -287,23 +291,24 @@ onOpenNetworkReqTx ::
   TTL ->
   -- | The transaction to be submitted to the head.
   tx ->
+  Word64 ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
+onOpenNetworkReqTx env ledger st ttl tx nextStateChangeID =
   -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
-  (newState TransactionReceived{tx} <>) $
+  (newState TransactionReceived{tx, stateChangeID = nextStateChangeID} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
     waitApplyTx $ \newLocalUTxO ->
       -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
       ( if not snapshotInFlight && isLeader parameters party nextSn
           then
-            newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO}
+            newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO, stateChangeID = nextStateChangeID}
               <>
               -- XXX: This state update has no equivalence in the
               -- spec. Do we really need to store that we have
               -- requested a snapshot? If yes, should update spec.
-              newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              newState SnapshotRequestDecided{snapshotNumber = nextSn, stateChangeID = nextStateChangeID}
               <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs'))
-          else newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
+          else newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO, stateChangeID = nextStateChangeID}
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
  where
@@ -369,8 +374,9 @@ onOpenNetworkReqSn ::
   SnapshotNumber ->
   -- | List of transactions to snapshot.
   [TxIdType tx] ->
+  Word64 ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
+onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds nextStateChangeID =
   -- TODO: Verify the request is signed by (?) / comes from the leader
   -- (Can we prove a message comes from a given peer, without signature?)
 
@@ -399,6 +405,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds =
                   , requestedTxIds
                   , newLocalUTxO
                   , newLocalTxs
+                  , stateChangeID = nextStateChangeID
                   }
  where
   requireReqSn continue
@@ -480,8 +487,9 @@ onOpenNetworkAckSn ::
   Signature (Snapshot tx) ->
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
+  Word64 ->
   Outcome tx
-onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn =
+onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn nextStateChangeID =
   -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
@@ -494,7 +502,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           let multisig = aggregateInOrder sigs' parties
           requireVerifiedMultisignature multisig snapshot $
             do
-              newState SnapshotConfirmed{snapshot, signatures = multisig}
+              newState SnapshotConfirmed{snapshot, signatures = multisig, stateChangeID = nextStateChangeID}
               <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
               & maybeEmitSnapshot
  where
@@ -526,6 +534,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 { snapshot
                 , party = otherParty
                 , signature = snapshotSignature
+                , stateChangeID = nextStateChangeID
                 }
 
   requireVerifiedMultisignature multisig msg cont =
@@ -544,7 +553,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn, stateChangeID = nextStateChangeID}
           <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs))
       else outcome
 
@@ -589,9 +598,10 @@ onOpenChainCloseTx ::
   SnapshotNumber ->
   -- | Contestation deadline.
   UTCTime ->
+  Word64 ->
   Outcome tx
-onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  newState HeadClosed{chainState = newChainState, contestationDeadline}
+onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline nextStateChangeID =
+  newState HeadClosed{chainState = newChainState, contestationDeadline, stateChangeID = nextStateChangeID}
     <> causes
       ( notifyClient
           : [ OnChainEffect
@@ -674,9 +684,10 @@ onClosedChainFanoutTx ::
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
+  Word64 ->
   Outcome tx
-onClosedChainFanoutTx closedState newChainState =
-  newState HeadFannedOut{chainState = newChainState}
+onClosedChainFanoutTx closedState newChainState nextStateChangeID =
+  newState HeadFannedOut{chainState = newChainState, stateChangeID = nextStateChangeID}
     <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo})
  where
   Snapshot{utxo} = getSnapshot confirmedSnapshot
@@ -700,17 +711,17 @@ update env ledger nextStateChangeID st ev = case (st, ev) of
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
-    onIdleChainInitTx env newChainState headId headSeed headParameters participants
+    onIdleChainInitTx env newChainState headId headSeed headParameters participants nextStateChangeID
   (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
-    | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
+    | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo nextStateChangeID
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial initialState, ClientInput Abort) ->
     onInitialClientAbort initialState
   (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCollectComTx{headId}, newChainState})
-    | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState
+    | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState nextStateChangeID
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial InitialState{headId = ourHeadId, committed}, ChainInput Observation{observedTx = OnAbortTx{headId}, newChainState})
-    | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
+    | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId nextStateChangeID
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Initial InitialState{committed, headId}, ClientInput GetUTxO) ->
     cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ fold committed)
@@ -720,18 +731,18 @@ update env ledger nextStateChangeID st ev = case (st, ev) of
   (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl _ (ReqTx tx)) ->
-    onOpenNetworkReqTx env ledger openState ttl tx
+    onOpenNetworkReqTx env ledger openState ttl tx nextStateChangeID
   (Open openState, NetworkInput _ otherParty (ReqSn sn txIds)) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState otherParty sn txIds
+    onOpenNetworkReqSn env ledger openState otherParty sn txIds nextStateChangeID
   (Open openState, NetworkInput _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
-    onOpenNetworkAckSn env openState otherParty snapshotSignature sn
+    onOpenNetworkAckSn env openState otherParty snapshotSignature sn nextStateChangeID
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
       | ourHeadId == headId ->
-          onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
+          onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline nextStateChangeID
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
@@ -756,20 +767,23 @@ update env ledger nextStateChangeID st ev = case (st, ev) of
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId}, newChainState})
     | ourHeadId == headId ->
-        onClosedChainFanoutTx closedState newChainState
+        onClosedChainFanoutTx closedState newChainState nextStateChangeID
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
   (_, ChainInput Rollback{rolledBackChainState}) ->
-    newState ChainRolledBack{chainState = rolledBackChainState}
+    newState ChainRolledBack{chainState = rolledBackChainState, stateChangeID}
   (_, ChainInput Tick{chainSlot}) ->
-    newState TickObserved{chainSlot}
+    newState TickObserved{chainSlot, stateChangeID}
+  -- FIXME(Elaine): should this bump the stateChangeID as well?
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
     cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
     Error $ UnhandledInput ev st
+ where
+  stateChangeID = nextStateChangeID
 
 -- * HeadState aggregate
 

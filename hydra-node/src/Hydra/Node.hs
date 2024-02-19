@@ -241,7 +241,7 @@ processNextInput HydraNode{nodeState, ledger, env} e nextStateChangeID =
   computeOutcome = Logic.update env ledger nextStateChangeID
 
 processNextStateChange ::
-  forall m e tx.
+  forall m tx.
   (Monad m, MonadSTM m, ToJSON (StateChanged tx)) =>
   HydraNode tx m ->
   NonEmpty (EventSink (StateChanged tx) m) ->
