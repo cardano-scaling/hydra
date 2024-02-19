@@ -31,7 +31,7 @@ import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), initHistory)
+import Hydra.Chain (Chain (..), PostTxError (..), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -149,7 +149,7 @@ mockChainAndNetwork tr seedKeys commits = do
               Left err ->
                 throwSTM . userError . toString $
                   unlines
-                    [ "Invalid tx submitted"
+                    [ "MockChain: Invalid tx submitted"
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
                     , "Error: " <> show err
                     ]
@@ -157,7 +157,7 @@ mockChainAndNetwork tr seedKeys commits = do
                 | any isLeft report ->
                     throwSTM . userError . toString $
                       unlines
-                        [ "Invalid tx submitted"
+                        [ "MockChain: Invalid tx submitted"
                         , "Tx: " <> toText (renderTxWithUTxO utxo tx)
                         , "Error: " <> show (lefts . toList $ report)
                         ]
@@ -239,6 +239,10 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing ->
         pure ()
 
+  -- FIXME: This should actually work more like a chain fork / switch to longer
+  -- chain. That is, the ledger switches to the longer chain state right away
+  -- and we issue rollback and forwards to synchronize clients. However,
+  -- submission will already validate against the new ledger state.
   rollbackAndForward nodes chain numberOfBlocks = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
