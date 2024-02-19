@@ -167,6 +167,7 @@ createNewPersistenceIncremental fp = do
       eventSinks = eventSink :| []
   pure NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId}
 
+
 -- | Initialize persistence handle for given type 'a' at given file path.
 --
 -- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
