@@ -187,6 +187,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
       Api.TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
 
   metadataLines =
-    [ "== REQUIRED SIGNERS"
+    [ "== METADATA"
     , show (txMetadata content)
     ]

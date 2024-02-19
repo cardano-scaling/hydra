@@ -11,6 +11,8 @@ changes.
 
 ## [0.16.0] - UNRELEASED
 
+- Add metadata to identify Hydra protocol transactions created by `hydra-node`.
+
 - **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
 
 - Provide more details about why a command failed. Added the state of the head logic at the point of failure.
