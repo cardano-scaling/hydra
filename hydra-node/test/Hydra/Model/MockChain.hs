@@ -127,21 +127,6 @@ mockChainAndNetwork tr seedKeys commits = do
     let vks = getVerificationKey . signingKey . snd <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  -- In case of two consecutive rollback actions it can happen that the
-  -- tx can't be evaluated to be correct. Waiting for some time to
-  -- see the needed inputs helps resolve these errors
-  waitToEvaluateTx n chain tx = do
-    (_, _, _, utxo) <- readTVarIO chain
-    let result = evaluateTx tx utxo
-    if n == 0
-       then pure (result, utxo)
-       else
-        case result of
-          Left _ -> threadDelay 0.1 >> waitToEvaluateTx (n - 1) chain tx
-          Right report
-            | any isLeft report -> threadDelay 0.1 >> waitToEvaluateTx (n - 1) chain tx
-            | otherwise -> pure (result, utxo)
-
   connectNode nodes chain queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let Environment{party = ownParty} = env node
@@ -155,30 +140,29 @@ mockChainAndNetwork tr seedKeys commits = do
             }
     let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-
     -- Validate transactions on submission and queue them for inclusion if valid.
-    let submitTx tx = do
-          (result, utxo) <- waitToEvaluateTx (2 :: Int) chain tx
-          -- TODO: dry with block tx validation
-          case result of
-            Left err ->
-              atomically . throwSTM . userError . toString $
-                unlines
-                  [ "MockChain: Invalid tx submitted"
-                  , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                  , "Error: " <> show err
-                  ]
-            Right report
-              | any isLeft report ->
-                  atomically . throwSTM . userError . toString $
-                    unlines
-                      [ "MockChain: Invalid tx submitted"
-                      , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                      , "Error: " <> show (lefts . toList $ report)
-                      ]
-              | otherwise ->
-                  atomically $ writeTQueue queue tx
-
+    let submitTx tx =
+          atomically $ do
+            (_, _, _, utxo) <- readTVar chain
+            -- TODO: dry with block tx validation
+            case evaluateTx tx utxo of
+              Left err ->
+                throwSTM . userError . toString $
+                  unlines
+                    [ "MockChain: Invalid tx submitted"
+                    , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                    , "Error: " <> show err
+                    ]
+              Right report
+                | any isLeft report ->
+                    throwSTM . userError . toString $
+                      unlines
+                        [ "MockChain: Invalid tx submitted"
+                        , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                        , "Error: " <> show (lefts . toList $ report)
+                        ]
+                | otherwise ->
+                    writeTQueue queue tx
     let chainHandle =
           createMockChain
             tr
