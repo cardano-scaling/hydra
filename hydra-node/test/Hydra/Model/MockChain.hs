@@ -31,7 +31,11 @@ import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), initHistory)
+import Hydra.Chain (
+  Chain (..),
+  PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters),
+  initHistory,
+ )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -51,16 +55,18 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
-  Environment (Environment, participants, party),
+  Environment (Environment, party),
   Event (..),
   defaultTTL,
  )
 import Hydra.HeadLogic.State (
   ClosedState (..),
+  CoordinatedHeadState (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
   OpenState (..),
+  participants,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
@@ -105,6 +111,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
+      , postCloseTx = postCloseTx nodes
       }
  where
   initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
@@ -205,6 +212,23 @@ mockChainAndNetwork tr seedKeys commits = do
           case eTx of
             Left e -> throwIO e
             Right tx -> submitTx tx
+
+  postCloseTx nodes party = do
+    hydraNodes <- readTVarIO nodes
+    case find (matchingParty party) hydraNodes of
+      Nothing -> error "postCloseTx: Could not find matching HydraNode"
+      Just
+        MockHydraNode
+          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeState{queryHeadState}}
+          } -> do
+          hs <- atomically queryHeadState
+          case hs of
+            Idle IdleState{} -> error "Cannot post Close tx when in Initial state"
+            Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
+            Open OpenState{headId = openHeadId, parameters = headParameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> do
+              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot}
+              postTx closeTx
+            Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
     party == us
