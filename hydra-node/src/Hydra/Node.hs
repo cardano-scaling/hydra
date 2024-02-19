@@ -217,7 +217,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, persistence = NewPersistenceIncremental{eventSinks}} = node
+  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, persistence = (_, eventSinks)} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime

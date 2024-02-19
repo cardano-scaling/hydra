@@ -90,7 +90,7 @@ run opts = do
         -- let -- (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
         --     eventSinks = eventSink :| [] --FIXME(Elaine): load other event sinks
         --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
-        persistence@NewPersistenceIncremental{eventSource, eventSinks} <- createNewPersistenceIncremental $ persistenceDir <> "/state"
+        persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
 
         (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource (NE.toList eventSinks) initialChainState
 

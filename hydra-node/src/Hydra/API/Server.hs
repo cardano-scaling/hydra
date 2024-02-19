@@ -68,7 +68,7 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerComponent tx IO ()
-withAPIServer host port party NewPersistenceIncremental{eventSource = EventSource{getEvents'}, eventSinks = sinks} tracer chain pparams callback action =
+withAPIServer host port party (EventSource{getEvents'}, sinks) tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     timedOutputEvents <- getEvents'
