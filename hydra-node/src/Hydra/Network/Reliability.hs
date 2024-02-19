@@ -186,10 +186,10 @@ data MessagePersistence m msg = MessagePersistence
 mkMessagePersistence ::
   (MonadThrow m, FromJSON msg, ToJSON msg) =>
   Int ->
-  NewPersistenceIncremental (Heartbeat msg) m ->
+  PersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence numberOfParties (eventSource, eventSinks) ackPersistence =
+mkMessagePersistence numberOfParties persistenceIncremental ackPersistence =
   MessagePersistence
     { loadAcks = do
         macks <- load ackPersistence
@@ -199,10 +199,11 @@ mkMessagePersistence numberOfParties (eventSource, eventSinks) ackPersistence =
     , saveAcks = \acks -> do
         save ackPersistence acks
     , loadMessages = do
-        getEvents' eventSource
+        loadAll persistenceIncremental
     , appendMessage = \msg -> do
-        putEventToSinks eventSinks msg
+        append persistenceIncremental msg
     }
+--TODO(Elaine): this can probably be replaced with new persistence
 
 -- | Middleware function to handle message counters tracking and resending logic.
 --
