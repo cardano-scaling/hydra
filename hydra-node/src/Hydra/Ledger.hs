@@ -74,13 +74,13 @@ data Ledger tx = Ledger
       UTxOType tx ->
       [tx] ->
       Either (tx, ValidationError) (UTxOType tx)
-  -- ^ Apply a set of transaction to a given UTXO set. Returns the new UTXO or
+  -- ^ Apply a set of transaction to a given UTxO set. Returns the new UTxO or
   -- validation failures returned from the ledger.
   -- TODO: 'ValidationError' should also include the UTxO, which is not
   -- necessarily the same as the given UTxO after some transactions
   , initUTxO :: UTxOType tx
-  -- ^ Generates an initial UTXO set. This is only temporary as it does not
-  -- allow to initialize the UTXO.
+  -- ^ Generates an initial UTxO set. This is only temporary as it does not
+  -- allow to initialize the UTxO.
   --
   -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
   -- coming with `IsTx`. We probably want to dry this out.
@@ -89,6 +89,17 @@ data Ledger tx = Ledger
 canApply :: Ledger tx -> ChainSlot -> UTxOType tx -> tx -> ValidationResult
 canApply ledger slot utxo tx =
   either (Invalid . snd) (const Valid) $ applyTransactions ledger slot utxo (pure tx)
+
+-- | Collect applicable transactions and resulting UTxO. In contrast to
+-- 'applyTransactions', this functions continues on validation errors.
+collectTransactions :: Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> ([tx], UTxOType tx)
+collectTransactions Ledger{applyTransactions} slot utxo =
+  foldr go ([], utxo)
+ where
+  go tx (applicableTxs, u) =
+    case applyTransactions slot u [tx] of
+      Left _ -> (applicableTxs, u)
+      Right u' -> (applicableTxs <> [tx], u')
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult

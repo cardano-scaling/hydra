@@ -5,7 +5,7 @@ module Hydra.Model.MockChain where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
-import Cardano.Api.UTxO (fromPairs, pairs)
+import Cardano.Api.UTxO (fromPairs)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   MonadSTM (newTVarIO, writeTVar),
@@ -62,7 +62,7 @@ import Hydra.HeadLogic.State (
   InitialState (..),
   OpenState (..),
  )
-import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
+import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
 import Hydra.Logging (Tracer)
@@ -111,7 +111,6 @@ mockChainAndNetwork tr seedKeys commits = do
 
   seedInput = genTxIn `generateWith` 42
 
-  -- TODO: why not use the full 'cardanoLedger'?
   ledger = scriptLedger seedInput
 
   Ledger{applyTransactions, initUTxO} = ledger
@@ -145,29 +144,20 @@ mockChainAndNetwork tr seedKeys commits = do
           atomically $ do
             -- NOTE: Determine the current "view" on the chain (important while
             -- rolled back, before new roll forwards were issued)
-            (_, position, blocks, globalUTxO) <- readTVar chain
+            (slot, position, blocks, globalUTxO) <- readTVar chain
             let utxo = case Seq.lookup (fromIntegral position) blocks of
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
-            -- TODO: dry with block tx validation
-            case evaluateTx tx utxo of
-              Left err ->
+            case applyTransactions slot utxo [tx] of
+              Left (_tx, err) ->
                 throwSTM . userError . toString $
                   unlines
                     [ "MockChain: Invalid tx submitted"
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
                     , "Error: " <> show err
                     ]
-              Right report
-                | any isLeft report ->
-                    throwSTM . userError . toString $
-                      unlines
-                        [ "MockChain: Invalid tx submitted"
-                        , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                        , "Error: " <> show (lefts . toList $ report)
-                        ]
-                | otherwise ->
-                    writeTQueue queue tx
+              Right _utxo' ->
+                writeTQueue queue tx
     let chainHandle =
           createMockChain
             tr
@@ -244,7 +234,7 @@ mockChainAndNetwork tr seedKeys commits = do
       Nothing ->
         pure ()
 
-  -- FIXME: This should actually work more like a chain fork / switch to longer
+  -- XXX: This should actually work more like a chain fork / switch to longer
   -- chain. That is, the ledger switches to the longer chain state right away
   -- and we issue rollback and forwards to synchronize clients. However,
   -- submission will already validate against the new ledger state.
@@ -266,24 +256,16 @@ mockChainAndNetwork tr seedKeys commits = do
         pure ()
 
   addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks, utxo) ->
+    modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
           header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
-       in case applyTransactions newSlot utxo transactions of
-            Left err ->
-              error $
-                toText $
-                  "On-chain transactions are not supposed to fail: "
-                    <> show err
-                    <> "\nTx:\n"
-                    <> (show @String $ txId <$> transactions)
-                    <> "\nUTxO:\n"
-                    <> show (fst <$> pairs utxo)
-            Right utxo' ->
-              -- FIXME: this includes all transactions even if only one of them
-              -- would apply (e.g. concurrent collect transactions in Hydra)
-              (newSlot, position, blocks :|> (header, transactions, utxo'), utxo')
+          -- NOTE: Transactions that do not apply to the current state (eg.
+          -- UTxO) are silently dropped which emulates the chain behaviour that
+          -- only the client is potentially witnessing the failure, and no
+          -- invalid transaction will ever be included in the chain.
+          (txs', utxo') = collectTransactions ledger newSlot utxo transactions
+       in (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
 -- This is used in our 'Model' tests and we want to make sure the tests finish before
@@ -308,20 +290,20 @@ scriptLedger seedInput =
  where
   initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
+  -- XXX: We could easily add 'slot' validation here and this would already
+  -- emulate the dropping of outdated transactions from the cardano-node
+  -- mempool.
   applyTransactions !slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->
       case evaluateTx tx utxo of
+        Left err ->
+          Left (tx, ValidationError{reason = show err})
         Right report
-          | all isRight report ->
-              let utxo' = adjustUTxO tx utxo
-               in applyTransactions slot utxo' txs
-        _ ->
-          -- Transactions that do not apply to the current state (eg. UTxO) are
-          -- silently dropped which emulates the chain behaviour that only the
-          -- client is potentially witnessing the failure, and no invalid
-          -- transaction will ever be included in the chain
-          applyTransactions slot utxo txs
+          | any isLeft report ->
+              Left (tx, ValidationError{reason = show . lefts $ toList report})
+          | otherwise ->
+              applyTransactions slot (adjustUTxO tx utxo) txs
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
