@@ -31,7 +31,7 @@ import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), PostTxError (..), initHistory)
+import Hydra.Chain (Chain (..), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),

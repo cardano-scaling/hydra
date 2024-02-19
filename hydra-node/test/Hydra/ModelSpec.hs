@@ -135,7 +135,6 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
-  genCommit',
   genInit,
   genPayment,
   genSeed,
@@ -235,9 +234,16 @@ headOpensIfAllPartiesCommit = do
     forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
 
   everybodyCommit = do
-    WorldState{hydraParties} <- getModelStateDL
-    forM_ hydraParties $ \party ->
-      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      Initial{pendingCommits} ->
+        forM_ hydraParties $ \p -> do
+          let party = deriveParty (fst p)
+          case Map.lookup party pendingCommits of
+            Nothing -> pure ()
+            Just utxo ->
+              void $ action $ Model.Commit party utxo
+      _ -> pure ()
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =

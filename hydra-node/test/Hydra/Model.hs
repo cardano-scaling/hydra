@@ -391,16 +391,6 @@ genInit hydraParties = do
   let party = deriveParty key
   pure $ Init party
 
-genCommit' ::
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
-  (SigningKey HydraKey, CardanoSigningKey) ->
-  Gen (Action WorldState [(CardanoSigningKey, Value)])
-genCommit' hydraParties hydraParty = do
-  let (_, sk) = fromJust $ find (== hydraParty) hydraParties
-  value <- genAdaValue
-  let utxo = [(sk, value)]
-  pure $ Commit (deriveParty . fst $ hydraParty) utxo
-
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
