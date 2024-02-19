@@ -121,6 +121,7 @@ import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, trac
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import GHC.IO (unsafePerformIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
@@ -145,6 +146,7 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Party (Party (..), deriveParty)
+import System.IO.Temp (writeSystemTempFile)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
@@ -372,16 +374,22 @@ runRunMonadIOSimGen ::
 runRunMonadIOSimGen f = do
   Capture eval <- capture
   let tr = runSimTrace (sim eval)
-  return
-    ( case traceResult False tr of
-        Right a -> logsOnError tr a
+  return $
+    logsOnError tr $
+      case traceResult False tr of
+        Right a -> property a
         Left (FailureException (SomeException ex)) ->
-          counterexample (show ex) $ logsOnError tr False
+          counterexample (show ex) False
         Left ex ->
-          counterexample (show ex) $ logsOnError tr False
-    )
+          counterexample (show ex) False
  where
-  logsOnError tr = counterexample ("trace:\n" <> toString traceDump)
+  -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
+  -- this during shrinking is not 100% confirmed, show the trace directly if you
+  -- want to be sure.
+  logsOnError tr =
+    counterexample . unsafePerformIO $ do
+      fn <- writeSystemTempFile "io-sim-trace" $ toString traceDump
+      pure $ "IOSim trace stored in: " <> toString fn
    where
     traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
 
