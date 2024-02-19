@@ -14,7 +14,6 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
-  modifyTVar,
   newTVarIO,
   stateTVar,
  )
@@ -196,7 +195,7 @@ stepHydraNode tracer node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
   outcome <- atomically $ do
-    nextStateChangeID <- readTVar . lastStateChangeId $ persistence node -- an event won't necessarily produce a statechange, but if it does, then this'll be its ID
+    let nextStateChangeID = queuedId -- an event won't necessarily produce a statechange, but if it does, then this'll be its ID
     processNextInput node queuedItem nextStateChangeID
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
@@ -240,19 +239,7 @@ processNextInput HydraNode{nodeState, ledger, env} e nextStateChangeID =
 
   computeOutcome = Logic.update env ledger nextStateChangeID
 
-processNextStateChange ::
-  forall m tx.
-  (Monad m, MonadSTM m, ToJSON (StateChanged tx)) =>
-  HydraNode tx m ->
-  NonEmpty (EventSink (StateChanged tx) m) ->
-  StateChanged tx ->
-  m ()
-processNextStateChange HydraNode{persistence} sinks sc = do
-  (putEventToSinks @m @(StateChanged tx)) sinks sc
-  atomically $ modifyTVar (lastStateChangeId persistence) (+ 1)
-
-
---NOTE(Elaine): think you shouldnt be able to put all above into a single atomically call, the types shouldnt allow that
+-- NOTE(Elaine): think you shouldnt be able to put all above into a single atomically call, the types shouldnt allow that
 -- some of the sinks won't be atomic, even if the disk-based persistence is
 -- and actually it doesn't matter if we accidentally do the same event twice because the PERSISTENCE is in charge of at-least-once semantics
 

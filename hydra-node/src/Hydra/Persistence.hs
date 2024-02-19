@@ -66,12 +66,7 @@ data PersistenceIncremental a m = PersistenceIncremental
   , loadAll :: FromJSON a => m [a]
   }
 
--- FIXME(Elaine): rename this, just taking the name of PersistenceIncremental once thats fully removed might suffice
-data NewPersistenceIncremental a m = NewPersistenceIncremental
-  { eventSource :: EventSource a m
-  , eventSinks :: NonEmpty (EventSink a m)
-  , lastStateChangeId :: TVar m Word64 -- FIXME(Elaine): name change , persistence captures more than just this
-  }
+type NewPersistenceIncremental a m = (EventSource a m, NonEmpty (EventSink a m))
 
 putEventToSinks :: forall m e. (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> e -> m ()
 putEventToSinks sinks e = forM_ sinks (\sink -> putEvent' sink e)
@@ -87,11 +82,6 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
       eventSink = EventSink{putEvent' = append}
    in (eventSource, eventSink)
 
--- persistenceIncrementalFromEventPair :: (Monad m, ToJSON a, FromJSON a) => (EventSource a m, EventSink a m) -> PersistenceIncremental a m
--- persistenceIncrementalFromEventPair (EventSource{getEvents'}, EventSink{putEvent'}) =
---   let append = putEvent' 0
---       loadAll = getEvents'
---    in PersistenceIncremental{append, loadAll}
 
 createNewPersistenceIncremental ::
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
@@ -164,7 +154,7 @@ createNewPersistenceIncremental fp = do
                   liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes) -- FIXME(Elaine): maybe error ? shouldnt really happen
           }
       eventSinks = eventSink :| []
-  pure NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId}
+  pure (eventSource, eventSinks)
 
 createNewPersistenceIncrementalStateChanged :: 
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
@@ -245,7 +235,7 @@ createNewPersistenceIncrementalGeneric getID fp = do
                   liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes) -- FIXME(Elaine): maybe error ? shouldnt really happen
           }
       eventSinks = eventSink :| []
-  pure NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId}
+  pure (eventSource, eventSinks)
 
 
 -- | Initialize persistence handle for given type 'a' at given file path.
