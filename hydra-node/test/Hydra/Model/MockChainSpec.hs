@@ -9,7 +9,7 @@ import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Hydra.Model.MockChain (scriptLedger)
 import Hydra.Prelude
 import Test.Hydra.Prelude
-import Test.QuickCheck (Property, Testable (property), counterexample, forAll, forAllBlind, (===))
+import Test.QuickCheck (Property, Testable (property), counterexample, forAllBlind, (===))
 
 spec :: Spec
 spec =
@@ -17,18 +17,17 @@ spec =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAll arbitrary $ \txin ->
-    forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-      let result = applyTransactions (scriptLedger txin) (ChainSlot 0) utxo txs
-       in case result of
-            Right u ->
-              isOutputOfLastTransaction txs u
-            Left (tx, err) ->
-              property False
-                & counterexample ("Error: " <> show err)
-                & counterexample ("Failing tx: " <> renderTx tx)
-                & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
-                & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+    let result = applyTransactions scriptLedger (ChainSlot 0) utxo txs
+     in case result of
+          Right u ->
+            isOutputOfLastTransaction txs u
+          Left (tx, err) ->
+            property False
+              & counterexample ("Error: " <> show err)
+              & counterexample ("Failing tx: " <> renderTx tx)
+              & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+              & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
 
 isOutputOfLastTransaction :: [Tx] -> UTxO -> Property
 isOutputOfLastTransaction txs utxo =

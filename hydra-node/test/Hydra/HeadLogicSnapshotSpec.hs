@@ -25,7 +25,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Outcome (collectEffects)
 import Hydra.HeadLogicSpec (getState, inOpenState, inOpenState', runEvents, step)
-import Hydra.Ledger (Ledger (..), txId)
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -39,7 +39,7 @@ spec :: Spec
 spec = do
   parallel $ do
     let threeParties = [alice, bob, carol]
-        Ledger{initUTxO} = simpleLedger
+        u0 = mempty
         envFor signingKey =
           let party = deriveParty signingKey
               otherParties = List.delete party threeParties
@@ -53,10 +53,10 @@ spec = do
 
     let coordinatedHeadState =
           CoordinatedHeadState
-            { localUTxO = initUTxO
+            { localUTxO = u0
             , allTxs = mempty
             , localTxs = mempty
-            , confirmedSnapshot = InitialSnapshot testHeadId initUTxO
+            , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             }
     let sendReqSn =
@@ -92,7 +92,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
-            sn1 = Snapshot testHeadId 1 initUTxO mempty :: Snapshot SimpleTx
+            sn1 = Snapshot testHeadId 1 u0 mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
@@ -107,7 +107,7 @@ spec = do
                 coordinatedHeadState
                   { localTxs = [tx]
                   , allTxs = Map.singleton (txId tx) tx
-                  , localUTxO = initUTxO <> utxoRef (txId tx)
+                  , localUTxO = u0 <> utxoRef (txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                   }
 
@@ -120,7 +120,7 @@ spec = do
       let bobEnv = envFor bobSk
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
-        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
@@ -131,7 +131,7 @@ spec = do
         collectEffects outcome `shouldSatisfy` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
-        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -149,7 +149,7 @@ spec = do
             newTxBeforeSnapshotAcknowledged =
               step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
 
-        headState <- runEvents notLeaderEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+        headState <- runEvents notLeaderEnv simpleLedger (inOpenState threeParties) $ do
           initiateSigningASnapshot alice
           step (ackFrom carolSk carol)
           newTxBeforeSnapshotAcknowledged
@@ -160,7 +160,7 @@ spec = do
         collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
-        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties simpleLedger) $ do
+        headState <- runEvents bobEnv simpleLedger (inOpenState threeParties) $ do
           step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
           step (NetworkEvent defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
