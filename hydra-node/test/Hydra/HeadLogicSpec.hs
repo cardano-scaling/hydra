@@ -693,6 +693,9 @@ data StepState tx = StepState
   { headState :: HeadState tx
   , env :: Environment
   , ledger :: Ledger tx
+  , lastStateChangeId :: Word64
+  -- TODO(Elaine): should this be folded into HeadState?
+  -- the type of aggregate kinda suggests it
   }
 
 runHeadLogic :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
@@ -708,8 +711,9 @@ step ::
   Input tx ->
   m (Outcome tx)
 step input = do
-  StepState{headState, env, ledger} <- get
-  let outcome = update env ledger headState input
+  StepState{headState, env, ledger, lastStateChangeId} <- get
+  let nextStateChangeID = succ lastStateChangeId
+  let outcome = update env ledger nextStateChangeID headState input
   let headState' = aggregateState headState outcome
   put StepState{env, ledger, headState = headState'}
   pure outcome
