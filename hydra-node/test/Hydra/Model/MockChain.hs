@@ -143,7 +143,12 @@ mockChainAndNetwork tr seedKeys commits = do
     -- Validate transactions on submission and queue them for inclusion if valid.
     let submitTx tx =
           atomically $ do
-            (_, _, _, utxo) <- readTVar chain
+            -- NOTE: Determine the current "view" on the chain (important while
+            -- rolled back, before new roll forwards were issued)
+            (_, position, blocks, globalUTxO) <- readTVar chain
+            let utxo = case Seq.lookup (fromIntegral position) blocks of
+                  Nothing -> globalUTxO
+                  Just (_, _, blockUTxO) -> blockUTxO
             -- TODO: dry with block tx validation
             case evaluateTx tx utxo of
               Left err ->
