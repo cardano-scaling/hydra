@@ -149,7 +149,7 @@ configureMessagePersistence ::
   Int ->
   m (MessagePersistence m msg)
 configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createNewPersistenceIncremental $ storedMessagesFile persistenceDir
+  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
   -- NOTE(Elaine): after deliberation, new persistence should be fine for network messages
   ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
   mAcks <- load
