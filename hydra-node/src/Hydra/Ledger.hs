@@ -68,7 +68,7 @@ nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
-data Ledger tx = Ledger
+newtype Ledger tx = Ledger
   { applyTransactions ::
       ChainSlot ->
       UTxOType tx ->
@@ -78,12 +78,6 @@ data Ledger tx = Ledger
   -- validation failures returned from the ledger.
   -- TODO: 'ValidationError' should also include the UTxO, which is not
   -- necessarily the same as the given UTxO after some transactions
-  , initUTxO :: UTxOType tx
-  -- ^ Generates an initial UTxO set. This is only temporary as it does not
-  -- allow to initialize the UTxO.
-  --
-  -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
-  -- coming with `IsTx`. We probably want to dry this out.
   }
 
 canApply :: Ledger tx -> ChainSlot -> UTxOType tx -> tx -> ValidationResult

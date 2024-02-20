@@ -60,10 +60,7 @@ import Test.QuickCheck (
 -- | Use the cardano-ledger as an in-hydra 'Ledger'.
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
-  Ledger
-    { applyTransactions
-    , initUTxO = mempty
-    }
+  Ledger{applyTransactions}
  where
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.

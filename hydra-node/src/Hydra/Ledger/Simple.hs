@@ -118,15 +118,14 @@ instance FromCBOR SimpleTxIn where
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
-  Ledger
-    { -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
-      applyTransactions = \_slot ->
-        foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
-          if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
-            then Right $ (utxo Set.\\ ins) `Set.union` outs
-            else Left (tx, ValidationError "cannot apply transaction")
-    , initUTxO = mempty
-    }
+  Ledger{applyTransactions}
+ where
+  -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
+  applyTransactions _slot =
+    foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
+      if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
+        then Right $ (utxo Set.\\ ins) `Set.union` outs
+        else Left (tx, ValidationError "cannot apply transaction")
 
 --
 -- Builders

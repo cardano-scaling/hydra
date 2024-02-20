@@ -107,13 +107,15 @@ mockChainAndNetwork tr seedKeys commits = do
       , simulateCommit = simulateCommit nodes
       }
  where
-  initialUTxO = initUTxO <> commits <> registryUTxO scriptRegistry
+  initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
+
+  seedUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
   seedInput = genTxIn `generateWith` 42
 
-  ledger = scriptLedger seedInput
+  ledger = scriptLedger
 
-  Ledger{applyTransactions, initUTxO} = ledger
+  Ledger{applyTransactions} = ledger
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -280,20 +282,15 @@ fixedTimeHandleIndefiniteHorizon = do
 
 -- | A trimmed down ledger whose only purpose is to validate
 -- on-chain scripts.
---
--- The initial UTxO set is primed with a dedicated UTxO for the `seedInput` and
 scriptLedger ::
-  TxIn ->
   Ledger Tx
-scriptLedger seedInput =
-  Ledger{applyTransactions, initUTxO}
+scriptLedger =
+  Ledger{applyTransactions}
  where
-  initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
-
   -- XXX: We could easily add 'slot' validation here and this would already
   -- emulate the dropping of outdated transactions from the cardano-node
   -- mempool.
-  applyTransactions !slot utxo = \case
+  applyTransactions slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->
       case evaluateTx tx utxo of
