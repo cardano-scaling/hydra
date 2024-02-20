@@ -891,7 +891,17 @@ aggregate st = \case
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed c -> Closed c{chainState, contestationDeadline}
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed} ->
+        Closed
+          ClosedState
+            { parameters
+            , confirmedSnapshot
+            , contestationDeadline
+            , readyToFanoutSent
+            , chainState
+            , headId
+            , headSeed
+            }
       _otherState -> st
   HeadFannedOut{chainState} ->
     case st of
