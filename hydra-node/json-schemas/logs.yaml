@@ -1824,6 +1824,7 @@ definitions:
           - tag
           - headId
           - snapshotNumber
+          - contestationDeadline
         properties:
           tag:
             type: string
@@ -1833,6 +1834,8 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
       - title: OnFanoutTx
         type: object
         additionalProperties: false
