@@ -371,11 +371,8 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  lastStateChangeId <- newTVarIO 0
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-      persistenceNew = NewPersistenceIncremental{eventSource, eventSinks = eventSink :| [], lastStateChangeId}
-  -- FIXME(Elaine): lastStateChangeId  is technically okay for mockPersistence but elsewhere not guaranteed
-  -- still, this saves us a little bit of debug time
+      persistenceNew = (eventSource, eventSink :| [])
   withAPIServer @SimpleTx "127.0.0.1" port actor persistenceNew tracer dummyChainHandle defaultPParams noop action
 
 -- | Connect to a websocket server running at given path. Fails if not connected
