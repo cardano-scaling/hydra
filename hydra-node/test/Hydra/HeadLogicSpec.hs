@@ -92,7 +92,8 @@ spec =
             reqTx = NetworkInput ttl alice $ ReqTx tx
             s0 = inOpenState threeParties
 
-        update bobEnv ledger s0 reqTx `hasEffectSatisfying` \case
+        -- NOTE(Elaine): check back here if tests fail
+        update bobEnv ledger 1 s0 reqTx `hasEffectSatisfying` \case
           ClientEffect TxInvalid{transaction} -> transaction == tx
           _ -> False
 
@@ -101,7 +102,7 @@ spec =
             inputs = utxoRef 1
             s0 = inOpenState threeParties
 
-        update bobEnv ledger s0 reqTx
+        update bobEnv ledger 1 s0 reqTx
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
@@ -184,7 +185,7 @@ spec =
             step (ackFrom aliceSk alice)
             getState
 
-        update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
+        update bobEnv ledger 4 waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
             _ -> False
@@ -522,7 +523,8 @@ prop_ignoresUnrelatedOnInitTx :: Property
 prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> do
-      let outcome = update env simpleLedger inIdleState (observeTx unrelatedInit)
+      -- NOTE(Elaine): check back here if tests fail
+      let outcome = update env simpleLedger 0 inIdleState (observeTx unrelatedInit)
       counterexample ("Outcome: " <> show outcome) $
         outcome
           `hasEffectSatisfying` \case
@@ -699,7 +701,7 @@ data StepState tx = StepState
   }
 
 runHeadLogic :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
-runHeadLogic env ledger headState = (`evalStateT` StepState{env, ledger, headState})
+runHeadLogic env ledger headState nextStateChangeID = (`evalStateT` StepState{env, ledger, headState, lastStateChangeId = nextStateChangeID})
 
 -- | Retrieves the latest 'HeadState' from within 'runHeadLogic'.
 getState :: MonadState (StepState tx) m => m (HeadState tx)
