@@ -121,6 +121,7 @@ import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, trac
 import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import GHC.IO (unsafePerformIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
@@ -134,7 +135,6 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
-  genCommit',
   genInit,
   genPayment,
   genSeed,
@@ -145,7 +145,8 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Party (Party (..), deriveParty)
-import Test.QuickCheck (Property, Testable, counterexample, forAll, property, withMaxSuccess, within)
+import System.IO.Temp (writeSystemTempFile)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -179,7 +180,7 @@ spec = do
   -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
   prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
-  prop "implementation respects model" $ forAll arbitrary prop_checkModel
+  prop "implementation respects model" prop_checkModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
@@ -219,20 +220,30 @@ prop_checkHeadOpensIfAllPartiesCommit =
 
 headOpensIfAllPartiesCommit :: DL WorldState ()
 headOpensIfAllPartiesCommit = do
-  _ <- seedTheWorld
-  _ <- initHead
+  seedTheWorld
+  initHead
   everybodyCommit
-  void $ eventually' ObserveHeadIsOpen
+  eventually' ObserveHeadIsOpen
  where
-  eventually' a = action (Wait 1000) >> action a
-  seedTheWorld = forAllQ (withGenQ genSeed (const [])) >>= action
+  eventually' a = action (Wait 1000) >> action_ a
+
+  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const [])) >>= action_
+
   initHead = do
     WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action
+    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
+
   everybodyCommit = do
-    WorldState{hydraParties} <- getModelStateDL
-    forM_ hydraParties $ \party ->
-      forAllQ (withGenQ (genCommit' hydraParties party) (const [])) >>= action
+    WorldState{hydraParties, hydraState} <- getModelStateDL
+    case hydraState of
+      Initial{pendingCommits} ->
+        forM_ hydraParties $ \p -> do
+          let party = deriveParty (fst p)
+          case Map.lookup party pendingCommits of
+            Nothing -> pure ()
+            Just utxo ->
+              void $ action $ Model.Commit party utxo
+      _ -> pure ()
 
 prop_checkConflictFreeLiveness :: Property
 prop_checkConflictFreeLiveness =
@@ -282,22 +293,23 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
-prop_checkModel :: Actions WorldState -> Property
-prop_checkModel actions =
+prop_checkModel :: Property
+prop_checkModel =
   within 30000000 $
-    runIOSimProp $ do
-      (metadata, _symEnv) <- runActions actions
-      let WorldState{hydraParties, hydraState} = underlyingState metadata
-      -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
-      -- the underlying simulated chain which produces a block every 20s. It
-      -- should be enough to ensure all nodes' threads terminate their actions
-      -- and those gets picked up by the chain
-      run $ lift waitForAMinute
-      let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-      nodes <- run $ gets nodes
-      assert (parties == Map.keysSet nodes)
-      forM_ parties $ \p -> do
-        assertBalancesInOpenHeadAreConsistent hydraState nodes p
+    forAllShrink arbitrary shrink $ \actions ->
+      runIOSimProp $ do
+        (metadata, _symEnv) <- runActions actions
+        let WorldState{hydraParties, hydraState} = underlyingState metadata
+        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
+        -- the underlying simulated chain which produces a block every 20s. It
+        -- should be enough to ensure all nodes' threads terminate their actions
+        -- and those gets picked up by the chain
+        run $ lift waitForAMinute
+        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+        nodes <- run $ gets nodes
+        assert (parties == Map.keysSet nodes)
+        forM_ parties $ \p -> do
+          assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
   waitForAMinute = threadDelay 60
@@ -368,16 +380,22 @@ runRunMonadIOSimGen ::
 runRunMonadIOSimGen f = do
   Capture eval <- capture
   let tr = runSimTrace (sim eval)
-  return
-    ( case traceResult False tr of
-        Right a -> logsOnError tr a
+  return $
+    logsOnError tr $
+      case traceResult False tr of
+        Right a -> property a
         Left (FailureException (SomeException ex)) ->
-          counterexample (show ex) $ logsOnError tr False
+          counterexample (show ex) False
         Left ex ->
-          counterexample (show ex) $ logsOnError tr False
-    )
+          counterexample (show ex) False
  where
-  logsOnError tr = counterexample ("trace:\n" <> toString traceDump)
+  -- NOTE: Store trace dump in file when showing the counterexample. Behavior of
+  -- this during shrinking is not 100% confirmed, show the trace directly if you
+  -- want to be sure.
+  logsOnError tr =
+    counterexample . unsafePerformIO $ do
+      fn <- writeSystemTempFile "io-sim-trace" $ toString traceDump
+      pure $ "IOSim trace stored in: " <> toString fn
    where
     traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
 

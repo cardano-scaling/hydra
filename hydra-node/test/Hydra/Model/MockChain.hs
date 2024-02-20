@@ -5,7 +5,7 @@ module Hydra.Model.MockChain where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
-import Cardano.Api.UTxO (fromPairs, pairs)
+import Cardano.Api.UTxO (fromPairs)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   MonadSTM (newTVarIO, writeTVar),
@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTQueueIO,
   newTVarIO,
   readTVarIO,
+  throwSTM,
   tryReadTQueue,
   writeTQueue,
   writeTVar,
@@ -25,9 +26,11 @@ import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.IO.Exception (userError)
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (Chain (..), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
@@ -52,8 +55,14 @@ import Hydra.HeadLogic (
   Event (..),
   defaultTTL,
  )
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..))
-import Hydra.Ledger (ChainSlot (..), Ledger (..), txId)
+import Hydra.HeadLogic.State (
+  ClosedState (..),
+  HeadState (..),
+  IdleState (..),
+  InitialState (..),
+  OpenState (..),
+ )
+import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
 import Hydra.Logging (Tracer)
@@ -92,7 +101,7 @@ mockChainAndNetwork tr seedKeys commits = do
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes queue
+      { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
@@ -117,7 +126,7 @@ mockChainAndNetwork tr seedKeys commits = do
     let vks = getVerificationKey . signingKey . snd <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes queue node = do
+  connectNode nodes chain queue node = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let Environment{party = ownParty} = env node
     let vkey = fst $ findOwnCardanoKey ownParty seedKeys
@@ -130,12 +139,25 @@ mockChainAndNetwork tr seedKeys commits = do
             }
     let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
     let HydraNode{eq = EventQueue{putEvent}} = node
-    let
-      -- NOTE: this very simple function put the transaction in a queue for
-      -- inclusion into the chain. We could want to simulate the local
-      -- submission of a transaction and the possible failures it introduces,
-      -- perhaps caused by the node lagging behind
-      submitTx = atomically . writeTQueue queue
+    -- Validate transactions on submission and queue them for inclusion if valid.
+    let submitTx tx =
+          atomically $ do
+            -- NOTE: Determine the current "view" on the chain (important while
+            -- rolled back, before new roll forwards were issued)
+            (slot, position, blocks, globalUTxO) <- readTVar chain
+            let utxo = case Seq.lookup (fromIntegral position) blocks of
+                  Nothing -> globalUTxO
+                  Just (_, _, blockUTxO) -> blockUTxO
+            case applyTransactions slot utxo [tx] of
+              Left (_tx, err) ->
+                throwSTM . userError . toString $
+                  unlines
+                    [ "MockChain: Invalid tx submitted"
+                    , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                    , "Error: " <> show err
+                    ]
+              Right _utxo' ->
+                writeTQueue queue tx
     let chainHandle =
           createMockChain
             tr
@@ -202,12 +224,20 @@ mockChainAndNetwork tr seedKeys commits = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral position) blocks of
       Just (header, txs, utxo) -> do
+        let position' = position + 1
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        -- NOTE: Need to reset the mocked chain ledger to this utxo before
+        -- calling the node handlers (as they might submit transactions
+        -- directly).
+        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (\h -> onRollForward h header txs)
-        atomically $ writeTVar chain (slotNum, position + 1, blocks, utxo)
       Nothing ->
         pure ()
 
+  -- XXX: This should actually work more like a chain fork / switch to longer
+  -- chain. That is, the ledger switches to the longer chain state right away
+  -- and we issue rollback and forwards to synchronize clients. However,
+  -- submission will already validate against the new ledger state.
   rollbackAndForward nodes chain numberOfBlocks = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
@@ -217,29 +247,25 @@ mockChainAndNetwork tr seedKeys commits = do
     (slotNum, position, blocks, _) <- readTVarIO chain
     case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
       Just (header, _, utxo) -> do
+        let position' = position - nbBlocks + 1
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
         let point = getChainPoint header
+        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (`onRollBackward` point)
-        atomically $ writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
       Nothing ->
         pure ()
 
   addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks, utxo) ->
+    modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
       -- NOTE: Assumes 1 slot = 1 second
       let newSlot = slotNum + ChainSlot (truncate blockTime)
           header = genBlockHeaderAt (fromChainSlot newSlot) `generateWith` 42
-       in case applyTransactions newSlot utxo transactions of
-            Left err ->
-              error $
-                toText $
-                  "On-chain transactions are not supposed to fail: "
-                    <> show err
-                    <> "\nTx:\n"
-                    <> (show @String $ txId <$> transactions)
-                    <> "\nUTxO:\n"
-                    <> show (fst <$> pairs utxo)
-            Right utxo' -> (newSlot, position, blocks :|> (header, transactions, utxo), utxo')
+          -- NOTE: Transactions that do not apply to the current state (eg.
+          -- UTxO) are silently dropped which emulates the chain behaviour that
+          -- only the client is potentially witnessing the failure, and no
+          -- invalid transaction will ever be included in the chain.
+          (txs', utxo') = collectTransactions ledger newSlot utxo transactions
+       in (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
 -- This is used in our 'Model' tests and we want to make sure the tests finish before
@@ -264,19 +290,20 @@ scriptLedger seedInput =
  where
   initUTxO = fromPairs [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
 
-  applyTransactions slot utxo = \case
+  -- XXX: We could easily add 'slot' validation here and this would already
+  -- emulate the dropping of outdated transactions from the cardano-node
+  -- mempool.
+  applyTransactions !slot utxo = \case
     [] -> Right utxo
     (tx : txs) ->
       case evaluateTx tx utxo of
-        Left _ ->
-          -- Transactions that do not apply to the current state (eg. UTxO) are
-          -- silently dropped which emulates the chain behaviour that only the
-          -- client is potentially witnessing the failure, and no invalid
-          -- transaction will ever be included in the chain
-          applyTransactions slot utxo txs
-        Right _ ->
-          let utxo' = adjustUTxO tx utxo
-           in applyTransactions slot utxo' txs
+        Left err ->
+          Left (tx, ValidationError{reason = show err})
+        Right report
+          | any isLeft report ->
+              Left (tx, ValidationError{reason = show . lefts $ toList report})
+          | otherwise ->
+              applyTransactions slot (adjustUTxO tx utxo) txs
 
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no

@@ -223,12 +223,12 @@ instance StateModel WorldState where
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
-  precondition WorldState{hydraState = Idle{}} Init{} =
-    True
-  precondition WorldState{hydraState = hydraState@Initial{}} (Commit party _) =
-    isPendingCommitFrom party hydraState
-  precondition WorldState{hydraState = Initial{}} Abort{} =
-    True
+  precondition WorldState{hydraState = Idle{idleParties}} (Init p) =
+    p `elem` idleParties
+  precondition WorldState{hydraState = Initial{pendingCommits}} (Commit party _) =
+    party `Map.member` pendingCommits
+  precondition WorldState{hydraState = Initial{commits, pendingCommits}} (Abort party) =
+    party `Set.member` (Map.keysSet pendingCommits <> Map.keysSet commits)
   precondition WorldState{hydraState = Open{}} (Close _) =
     True
   precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
@@ -347,6 +347,14 @@ instance StateModel WorldState where
       ObserveHeadIsOpen -> s
       StopTheWorld -> s
 
+  shrinkAction _ctx _st = \case
+    seed@Seed{seedKeys, toCommit} ->
+      [ Some seed{seedKeys = seedKeys', toCommit = toCommit'}
+      | seedKeys' <- shrink seedKeys
+      , let toCommit' = Map.filterWithKey (\p _ -> p `elem` (deriveParty . fst <$> seedKeys')) toCommit
+      ]
+    _other -> []
+
 instance HasVariables WorldState where
   getAllVariables _ = mempty
 
@@ -382,16 +390,6 @@ genInit hydraParties = do
   key <- fst <$> elements hydraParties
   let party = deriveParty key
   pure $ Init party
-
-genCommit' ::
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
-  (SigningKey HydraKey, CardanoSigningKey) ->
-  Gen (Action WorldState [(CardanoSigningKey, Value)])
-genCommit' hydraParties hydraParty = do
-  let (_, sk) = fromJust $ find (== hydraParty) hydraParties
-  value <- genAdaValue
-  let utxo = [(sk, value)]
-  pure $ Commit (deriveParty . fst $ hydraParty) utxo
 
 genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
@@ -609,17 +607,18 @@ performCommit parties party paymentUTxO = do
   SimulatedChainNetwork{simulateCommit} <- gets chain
   case Map.lookup party nodes of
     Nothing -> throwIO $ UnexpectedParty party
-    Just actorNode -> do
+    Just{} -> do
       let realUTxO = toRealUTxO paymentUTxO
       lift $ simulateCommit (party, realUTxO)
       observedUTxO <-
         lift $
-          waitMatch actorNode $ \case
-            Committed{party = cp, utxo = committedUTxO}
-              | cp == party -> Just committedUTxO
-            err@CommandFailed{} -> error $ show err
-            _ -> Nothing
-      pure $ fromUtxo observedUTxO
+          forM nodes $ \n ->
+            waitMatch n $ \case
+              Committed{party = cp, utxo = committedUTxO}
+                | cp == party, committedUTxO == realUTxO -> Just committedUTxO
+              err@CommandFailed{} -> error $ show err
+              _ -> Nothing
+      pure $ fromUtxo $ List.head $ toList observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
   fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
