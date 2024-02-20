@@ -54,6 +54,9 @@ instance Arbitrary Environment where
 -- Note that rollbacks are currently not fully handled in the head logic and
 -- only this internal chain state gets replaced with the "rolled back to"
 -- version.
+--
+-- XXX: chainState would actualy not be needed in the HeadState anymore as we do
+-- not persist the 'HeadState' and not access it in the HeadLogic either.
 data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)

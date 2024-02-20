@@ -75,6 +75,7 @@ data StateChanged tx
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
   | HeadFannedOut {chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
