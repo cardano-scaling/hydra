@@ -72,7 +72,6 @@ import Hydra.Chain.Direct.ScriptRegistry (
  )
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (
-  AbortObservation (..),
   AbortTxError (..),
   CloseObservation (..),
   CloseTxError (..),
@@ -80,9 +79,7 @@ import Hydra.Chain.Direct.Tx (
   ClosingSnapshot (..),
   CollectComObservation (..),
   CommitObservation (..),
-  ContestObservation (..),
   ContestTxError (..),
-  FanoutObservation (..),
   FanoutTxError (..),
   InitObservation (..),
   InitialThreadOutput (..),
@@ -97,12 +94,9 @@ import Hydra.Chain.Direct.Tx (
   fanoutTx,
   headIdToPolicyId,
   initTx,
-  observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
-  observeContestTx,
-  observeFanoutTx,
   observeInitTx,
   txInToHeadSeed,
   verificationKeyToOnChainId,
@@ -730,16 +724,6 @@ observeCollect st tx = do
     , seedTxIn
     } = st
 
--- | Observe an abort transition using a 'InitialState' and 'observeAbortTx'.
-observeAbort ::
-  InitialState ->
-  Tx ->
-  Maybe (OnChainTx Tx)
-observeAbort st tx = do
-  let utxo = getKnownUTxO st
-  AbortObservation{headId} <- observeAbortTx utxo tx
-  pure OnAbortTx{headId}
-
 -- ** OpenState transitions
 
 -- | Observe a close transition using a 'OpenState' and 'observeCloseTx'.
@@ -771,44 +755,6 @@ observeClose st tx = do
   OpenState
     { headId
     , seedTxIn
-    } = st
-
--- ** ClosedState transitions
-
--- | Observe a fanout transition using a 'ClosedState' and 'observeContestTx'.
--- This function checks the head id and ignores if not relevant.
-observeContest ::
-  ClosedState ->
-  Tx ->
-  Maybe (OnChainTx Tx, ClosedState)
-observeContest st tx = do
-  let utxo = getKnownUTxO st
-  observation <- observeContestTx utxo tx
-  let ContestObservation{contestedThreadOutput, headId = contestObservationHeadId, snapshotNumber, contesters} = observation
-  guard (closedStateHeadId == contestObservationHeadId)
-  let event = OnContestTx{headId = contestObservationHeadId, snapshotNumber}
-  let st' = st{closedThreadOutput = closedThreadOutput{closedThreadUTxO = contestedThreadOutput, closedContesters = contesters}}
-  pure (event, st')
- where
-  ClosedState
-    { headId = closedStateHeadId
-    , closedThreadOutput
-    } = st
-
--- | Observe a fanout transition using a 'ClosedState' and 'observeFanoutTx'.
-observeFanout ::
-  ClosedState ->
-  Tx ->
-  Maybe (OnChainTx Tx)
-observeFanout st tx = do
-  let utxo = getKnownUTxO st
-  observation <- observeFanoutTx utxo tx
-  let FanoutObservation{headId = fanoutObservationHeadId} = observation
-  guard (closedStateHeadId == fanoutObservationHeadId)
-  pure OnFanoutTx{headId = fanoutObservationHeadId}
- where
-  ClosedState
-    { headId = closedStateHeadId
     } = st
 
 -- * Generators
