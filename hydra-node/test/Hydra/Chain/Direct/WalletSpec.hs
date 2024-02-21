@@ -228,19 +228,29 @@ prop_balanceTransaction =
             property False
               & counterexample ("Error: " <> show err)
           Right tx' ->
-            (isBalanced (lookupUTxO <> walletUTxO) tx tx' .&&. enoughFee Fixture.pparams tx')
+            (isBalanced (lookupUTxO <> walletUTxO) tx tx' .&&. hasLowFees Fixture.pparams tx')
               & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx))
           & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
           & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
           & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
 
-enoughFee :: PParams LedgerEra -> Tx LedgerEra -> Property
-enoughFee pparams tx =
-  actualFee >= minFee
-    & counterexample ("Fee too low: " <> show actualFee <> " < " <> show minFee)
-    & counterexample ("PParams: " <> show pparams)
+hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
+hasLowFees pparams tx =
+  counterexample ("PParams: " <> show pparams) $
+    notTooLow .&&. notTooHigh
  where
+  notTooLow =
+    actualFee >= minFee
+      & counterexample ("Fee too low: " <> show actualFee <> " < " <> show minFee)
+
+  notTooHigh =
+    actualFee < minFee <+> acceptableOverestimation
+      & counterexample ("Fee too high: " <> show actualFee <> " > " <> show (minFee <+> acceptableOverestimation))
+
+  acceptableOverestimation = Coin 100_000
+
   actualFee = tx ^. bodyTxL . feeTxBodyL
+
   minFee = getMinFeeTx pparams tx
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
