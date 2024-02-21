@@ -39,7 +39,7 @@ import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), PersistenceIncremental (..), createNewPersistenceIncremental, eventPairFromPersistenceIncremental)
+import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), PersistenceIncremental (..), createNewPersistenceIncremental, createPersistenceIncremental, eventPairFromPersistenceIncremental)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 
 spec :: Spec
@@ -269,9 +269,6 @@ createHydraNode' eventSource eventSinks signingKey otherParties contestationPeri
   (headState, _) <- loadState nullTracer eventSource SimpleChainState{slot = ChainSlot 0}
   nodeState <- createNodeState headState
 
-  -- FIXME(Elaine): initialize last state change ID
-  let persistence = NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId = error "lastStateChangeId not implemented"}
-
   pure $
     HydraNode
       { inputQueue
@@ -293,9 +290,7 @@ createHydraNode' eventSource eventSinks signingKey otherParties contestationPeri
             , contestationPeriod
             , participants
             }
-      , persistence
-      -- , eventSource
-      -- , eventSinks
+      , persistence = (eventSource, eventSinks)
       }
  where
   party = deriveParty signingKey
@@ -320,12 +315,7 @@ recordPersistedItems node = do
         record e
   pure
     ( node
-        { persistence =
-            NewPersistenceIncremental
-              { eventSource = EventSource{getEvents'}
-              , eventSinks = EventSink{putEvent'} :| []
-              , lastStateChangeId
-              }
+        { persistence = (EventSource{getEvents'}, EventSink{putEvent'} :| [])
         }
     , query
     )

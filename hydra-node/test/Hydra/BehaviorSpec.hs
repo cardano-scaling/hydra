@@ -783,9 +783,6 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
       eventSinks = eventSink :| []
 
-  -- FIXME(Elaine): initialize last state change ID
-  let persistence = NewPersistenceIncremental{eventSource, eventSinks, lastStateChangeId = error "lastStateChangeId not implemented"}
-
   connectNode chain $
     HydraNode
       { inputQueue
@@ -812,7 +809,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             , contestationPeriod = cp
             , participants
             }
-      , persistence
+      , persistence = (eventSource, eventSinks)
       }
  where
   party = deriveParty signingKey

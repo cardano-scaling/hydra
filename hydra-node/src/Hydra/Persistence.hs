@@ -53,6 +53,8 @@ createPersistence fp = do
 data EventSource e m = EventSource {getEvents' :: FromJSON e => m [e]}
 data EventSink e m = EventSink {putEvent' :: ToJSON e => e -> m ()}
 
+type EventID = Word64
+
 -- FIXME(Elaine): we have to figure out a better taxonomy/nomenclature for the events/statechange stuff
 -- the eventID here is not the same as the eventID in Queued, that one is more fickle and influenced by non state change events
 -- this one is only incremented when we have a new state change event
@@ -74,14 +76,11 @@ putEventToSinks sinks e = forM_ sinks (\sink -> putEvent' sink e)
 putEventsToSinks :: forall m e. (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> [e] -> m ()
 putEventsToSinks sinks es = forM_ es (\e -> putEventToSinks sinks e)
 
--- FIXME(Elaine): neither this nor the opposite direction can handle re-submission properly without keeping track of the state separately in step/hydranode &
--- so this means removing the old persistence for the purpose of statechanged events is more urgent
 eventPairFromPersistenceIncremental :: PersistenceIncremental a m -> (EventSource a m, EventSink a m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
   let eventSource = EventSource{getEvents' = loadAll}
       eventSink = EventSink{putEvent' = append}
    in (eventSource, eventSink)
-
 
 createNewPersistenceIncremental ::
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
@@ -156,13 +155,13 @@ createNewPersistenceIncremental fp = do
       eventSinks = eventSink :| []
   pure (eventSource, eventSinks)
 
-createNewPersistenceIncrementalStateChanged :: 
+createNewPersistenceIncrementalStateChanged ::
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
   FilePath ->
   m (NewPersistenceIncremental (StateChanged a) m)
 createNewPersistenceIncrementalStateChanged = createNewPersistenceIncrementalGeneric getStateChangeID
 
---FIXME(Elaine): find a better name
+-- FIXME(Elaine): find a better name
 createNewPersistenceIncrementalGeneric ::
   (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
   (a -> Word64) ->
@@ -234,7 +233,6 @@ createNewPersistenceIncrementalGeneric getID fp = do
           }
       eventSinks = eventSink :| []
   pure (eventSource, eventSinks)
-
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 --
