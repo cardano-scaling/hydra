@@ -15,7 +15,10 @@ changes.
 
 - **BREAKING** Update to and tested against `cardano-node 8.8.0-pre` and `cardano-cli 8.20`. This made smoke tests incompatible with public testnets and mainnet.
 
-- **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain.
+- **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
+  - Overall slight increase in script size.
+  - 50% less memory usage in `close` and `contest` transactions.
+  - Slightly less memory usage in `abort` and may be possible with 6 parties now.
 
 - **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
 
