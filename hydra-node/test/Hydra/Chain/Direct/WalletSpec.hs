@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (EraTx (getMinFeeTx), EraTxBody (feeTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -73,6 +73,7 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
+  (.&&.),
  )
 import Prelude qualified
 
@@ -226,11 +227,21 @@ prop_balanceTransaction =
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
-              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
-              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
-              & counterexample (renderTx $ fromLedgerTx tx)
           Right tx' ->
-            isBalanced (lookupUTxO <> walletUTxO) tx tx'
+            (isBalanced (lookupUTxO <> walletUTxO) tx tx' .&&. enoughFee Fixture.pparams tx')
+              & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx))
+          & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
+          & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+          & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+
+enoughFee :: PParams LedgerEra -> Tx LedgerEra -> Property
+enoughFee pparams tx =
+  actualFee >= minFee
+    & counterexample ("Fee too low: " <> show actualFee <> " < " <> show minFee)
+    & counterexample ("PParams: " <> show pparams)
+ where
+  actualFee = tx ^. bodyTxL . feeTxBodyL
+  minFee = getMinFeeTx pparams tx
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =
