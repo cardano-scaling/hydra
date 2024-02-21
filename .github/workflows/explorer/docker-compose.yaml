@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: ghcr.io/input-output-hk/cardano-node:8.7.3
+    image: ghcr.io/input-output-hk/cardano-node:8.8.0-pre
     volumes:
       - /srv/var/cardano/state-preview:/data
     environment:

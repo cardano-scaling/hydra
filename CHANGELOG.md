@@ -27,6 +27,12 @@ changes.
   fees in internal wallet
   [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
+- **BREAKING** Regenerated hydra scripts.
+
+- **BREAKING** Update to cardano-node 8.8.0 and remove Mainnet compatibility. Application is now only tested against Sanchonet.
+
+- Tested with `cardano-node 8.8.0-pre` and `cardano-node 8.20`.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.

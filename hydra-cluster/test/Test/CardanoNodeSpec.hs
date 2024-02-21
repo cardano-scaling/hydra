@@ -12,7 +12,6 @@ import CardanoNode (
 
 import CardanoClient (RunningNode (..), queryTipSlotNo)
 import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
-import Hydra.Cardano.Api qualified as NetworkId
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import System.Directory (doesFileExist)
@@ -23,7 +22,7 @@ spec = do
   -- false positives test errors in case someone uses an "untested" /
   -- different than in shell.nix version of cardano-node and cardano-cli.
   it "has expected cardano-node version available" $
-    getCardanoNodeVersion >>= (`shouldContain` "8.7.3")
+    getCardanoNodeVersion >>= (`shouldContain` "8.8.0")
 
   around (failAfter 5 . setupTracerAndTempDir) $ do
     it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $ \(tr, tmp) ->
@@ -39,11 +38,13 @@ spec = do
         slot2 <- queryTipSlotNo networkId nodeSocket
         slot2 `shouldSatisfy` (> slot1)
 
-    it "withCardanoNodeOnKnownNetwork on mainnet starts synchronizing within 5 seconds" $ \(tr, tmp) ->
+    it "withCardanoNodeOnKnownNetwork on mainnet starts synchronizing within 5 seconds" $ \(_, _) -> pendingWith "not yet supported"
+
+    it "withCardanoNodeOnKnownNetwork on sanchonet starts synchronizing within 5 seconds" $ \(tr, tmp) ->
       -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
       -- synchronize the whole chain before continuing.
-      withCardanoNodeOnKnownNetwork tr tmp Mainnet $ \RunningNode{nodeSocket, networkId, blockTime} -> do
-        networkId `shouldBe` NetworkId.Mainnet
+      withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \RunningNode{nodeSocket, networkId, blockTime} -> do
+        networkId `shouldBe` Testnet (NetworkMagic 4)
         blockTime `shouldBe` 20
         -- Should synchronize blocks (tip advances)
         slot1 <- queryTipSlotNo networkId nodeSocket
@@ -52,13 +53,11 @@ spec = do
         slot2 `shouldSatisfy` (> slot1)
 
     describe "findRunningCardanoNode" $ do
-      it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
-        withCardanoNodeOnKnownNetwork tr tmp Preview $ \_ -> do
-          findRunningCardanoNode tmp Preproduction `shouldReturn` Nothing
+      it "returns Nothing on non-matching network" $ const $ pendingWith "No other valid network to test against."
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
-        withCardanoNodeOnKnownNetwork tr tmp Preview $ \runningNode -> do
-          findRunningCardanoNode tmp Preview `shouldReturn` Just runningNode
+        withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \runningNode -> do
+          findRunningCardanoNode tmp Sanchonet `shouldReturn` Just runningNode
 
 setupTracerAndTempDir :: ToJSON msg => ((Tracer IO msg, FilePath) -> IO a) -> IO a
 setupTracerAndTempDir action =

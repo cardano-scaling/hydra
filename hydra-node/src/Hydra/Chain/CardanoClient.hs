@@ -13,10 +13,13 @@ import Cardano.Ledger.Core (PParams (..))
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
-import Hydra.Ledger.Cardano.Json ()
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Test.QuickCheck (oneof)
 import Text.Printf (printf)
+
+-- XXX: This should be re-exported by cardano-api
+-- https://github.com/IntersectMBO/cardano-api/issues/447
+import Ouroboros.Network.Protocol.LocalStateQuery.Type (Target (..))
 
 data QueryException
   = QueryAcquireException AcquiringFailure
@@ -92,7 +95,7 @@ buildTransaction ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  IO (Either TxBodyErrorAutoBalance TxBody)
+  IO (Either (TxBodyErrorAutoBalance Era) TxBody)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
@@ -359,8 +362,7 @@ queryUTxOWhole ::
   SocketPath ->
   QueryPoint ->
   IO UTxO
-queryUTxOWhole networkId socket queryPoint = do
-  UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
+queryUTxOWhole networkId socket queryPoint = UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
  where
   query =
     QueryInEra
@@ -414,20 +416,22 @@ queryInShelleyBasedEraExpr ::
   LocalStateQueryExpr b p QueryInMode r IO a
 queryInShelleyBasedEraExpr sbe query =
   queryExpr (QueryInEra $ QueryInShelleyBasedEra sbe query)
-    >>= (liftIO . throwOnUnsupportedNtcVersion)
-    >>= (liftIO . throwOnEraMismatch)
+    >>= liftIO
+    . throwOnUnsupportedNtcVersion
+    >>= liftIO
+    . throwOnEraMismatch
 
 -- | Throws at least 'QueryException' if query fails.
 runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode a -> IO a
 runQuery networkId socket point query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) maybePoint query >>= \case
+  queryNodeLocalState (localNodeConnectInfo networkId socket) queryTarget query >>= \case
     Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where
-  maybePoint =
+  queryTarget =
     case point of
-      QueryTip -> Nothing
-      QueryAt cp -> Just cp
+      QueryTip -> VolatileTip
+      QueryAt cp -> SpecificPoint cp
 
 -- | Throws at least 'QueryException' if query fails.
 runQueryExpr ::
@@ -437,14 +441,14 @@ runQueryExpr ::
   LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a ->
   IO a
 runQueryExpr networkId socket point query =
-  executeLocalStateQueryExpr (localNodeConnectInfo networkId socket) maybePoint query >>= \case
+  executeLocalStateQueryExpr (localNodeConnectInfo networkId socket) queryTarget query >>= \case
     Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where
-  maybePoint =
+  queryTarget =
     case point of
-      QueryTip -> Nothing
-      QueryAt cp -> Just cp
+      QueryTip -> VolatileTip
+      QueryAt cp -> SpecificPoint cp
 
 throwOnEraMismatch :: MonadThrow m => Either EraMismatch a -> m a
 throwOnEraMismatch res =

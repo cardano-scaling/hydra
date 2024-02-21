@@ -12,8 +12,8 @@ import Brick.BChan (newBChan, writeBChan)
 import Graphics.Vty (
   Vty,
   defaultConfig,
-  mkVty,
  )
+import Graphics.Vty.Platform.Unix (mkVty)
 import Hydra.Chain.CardanoClient (mkCardanoClient)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..), withClient)
