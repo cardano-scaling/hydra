@@ -23,11 +23,15 @@ changes.
 
 - Add `--sanchonet` option to `hydra-cluster` binary.
 
+- Reduce cost of transactions submitted by `hydra-node` by better estimating
+  fees in internal wallet
+  [#1315](https://github.com/input-output-hk/hydra/pull/1315).
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
 
-- **BREAKING** Remove head state from `hydra-node` chain layer [1196](https://github.com/input-output-hk/hydra/pull/1196):
+- **BREAKING** Remove head state from `hydra-node` chain layer [#1196](https://github.com/input-output-hk/hydra/pull/1196):
   - Not maintain head state in the chain layer anymore and all decision making (whether it's "our" head) is now fully contained in the logic layer.
   - This is a breaking change on the persisted `state` file, which now only stores so-called `spendableUTxO`. This raises a `PersistenceException` if an incompatible `state` file is loaded.
   - Heads need to be closed before upgrade to this version, as wiping `state` in the `--persistence-dir` is needed.

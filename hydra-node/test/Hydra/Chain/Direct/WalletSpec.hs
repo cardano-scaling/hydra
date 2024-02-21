@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (EraTx (getMinFeeTx), EraTxBody (feeTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -43,6 +43,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
@@ -57,10 +58,11 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor)
+import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genSigningKey)
 import Test.QuickCheck (
   Property,
   checkCoverage,
+  conjoin,
   counterexample,
   cover,
   forAll,
@@ -73,6 +75,7 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
+  (.&&.),
  )
 import Prelude qualified
 
@@ -226,11 +229,39 @@ prop_balanceTransaction =
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
-              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
-              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
-              & counterexample (renderTx $ fromLedgerTx tx)
           Right tx' ->
-            isBalanced (lookupUTxO <> walletUTxO) tx tx'
+            forAllBlind genSigningKey $ \sk -> do
+              -- NOTE: Testing the signed transaction as adding a witness
+              -- changes the fee requirements.
+              let signedTx = toLedgerTx $ signTx sk (fromLedgerTx tx')
+              conjoin
+                [ isBalanced (lookupUTxO <> walletUTxO) tx signedTx
+                , hasLowFees Fixture.pparams signedTx
+                ]
+                & counterexample ("Signed tx: \n" <> renderTx (fromLedgerTx signedTx))
+                & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx'))
+          & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
+          & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+          & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+
+hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
+hasLowFees pparams tx =
+  counterexample ("PParams: " <> show pparams) $
+    notTooLow .&&. notTooHigh
+ where
+  notTooLow =
+    actualFee >= minFee
+      & counterexample ("Fee too low: " <> show actualFee <> " < " <> show minFee)
+
+  notTooHigh =
+    actualFee < minFee <+> acceptableOverestimation
+      & counterexample ("Fee too high: " <> show actualFee <> " > " <> show (minFee <+> acceptableOverestimation))
+
+  acceptableOverestimation = Coin 100_000
+
+  actualFee = tx ^. bodyTxL . feeTxBodyL
+
+  minFee = getMinFeeTx pparams tx
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =

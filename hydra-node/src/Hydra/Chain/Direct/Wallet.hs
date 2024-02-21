@@ -12,16 +12,28 @@ import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.TxInfo (TranslationError)
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), Tag (Spend))
 import Cardano.Ledger.Alonzo.TxWits (AlonzoTxWits (..), RdmrPtr (RdmrPtr), Redeemers (..), txdats, txscripts)
-import Cardano.Ledger.Api (TransactionScriptFailure, ensureMinCoinTxOut, evalTxExUnits, outputsTxBodyL, ppMaxTxExUnitsL, ppPricesL)
+import Cardano.Ledger.Api (
+  TransactionScriptFailure,
+  bodyTxL,
+  collateralInputsTxBodyL,
+  ensureMinCoinTxOut,
+  evalTxExUnits,
+  feeTxBodyL,
+  inputsTxBodyL,
+  outputsTxBodyL,
+  ppMaxTxExUnitsL,
+  rdmrsTxWitsL,
+  scriptIntegrityHashTxBodyL,
+  witsTxL,
+ )
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
-import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), spendInputs')
+import Cardano.Ledger.Babbage.TxBody (spendInputs')
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (isNativeScript)
 import Cardano.Ledger.Core qualified as Core
@@ -31,18 +43,19 @@ import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Shelley.API.Wallet (evaluateTransactionFee)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
-import Control.Lens ((^.))
+import Control.Lens ((%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Ratio ((%))
-import Data.Sequence.Strict qualified as StrictSeq
+import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
@@ -60,7 +73,6 @@ import Hydra.Cardano.Api (
   fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
-  ledgerEraVersion,
   makeShelleyAddress,
   selectLovelace,
   shelleyAddressInEra,
@@ -226,7 +238,6 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 -- necessary fees and augments inputs / outputs / collateral accordingly to
 -- cover for the transaction cost and get the change back.
 --
--- TODO: The fee calculation is currently very dumb and static.
 -- XXX: All call sites of this function use cardano-api types
 coverFee_ ::
   Core.PParams LedgerEra ->
@@ -237,71 +248,80 @@ coverFee_ ::
   Babbage.AlonzoTx LedgerEra ->
   Either ErrCoverFee (Babbage.AlonzoTx LedgerEra)
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
-  (input, output) <- findUTxOToPayFees walletUTxO
+  (feeTxIn, feeTxOut) <- findUTxOToPayFees walletUTxO
 
-  let newInputs = spendInputs' body <> Set.singleton input
+  let newInputs = spendInputs' body <> Set.singleton feeTxIn
   resolvedInputs <- traverse resolveInput (toList newInputs)
 
+  -- Ensure we have at least the minimum amount of ada. NOTE: setMinCoinTxOut
+  -- would invalidate most Hydra protocol transactions.
+  let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
+
+  -- Compute costs of redeemers
   let utxo = lookupUTxO <> walletUTxO
-  estimatedScriptCosts <-
-    estimateScriptsCost pparams systemStart epochInfo utxo partialTx
+  estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
           (spendInputs' body)
           newInputs
           estimatedScriptCosts
           (txrdmrs wits)
-      needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
-  -- Ensure we have at least the minimum amount of ada. NOTE: setMinCointTxOut
-  -- would invalidate most Hydra protocol transactions.
-  let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
-
-  -- Add a change output
-  change <-
-    first ErrNotEnoughFunds $
-      mkChange
-        output
-        resolvedInputs
-        (toList txOuts)
-        needlesslyHighFee
-  let newOutputs = txOuts <> StrictSeq.singleton change
-
-      referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (Babbage.referenceInputs' body)
+  -- Compute script integrity hash from adjusted redeemers
+  let referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (Babbage.referenceInputs' body)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
         , (not . isNativeScript @LedgerEra) script
         , l <- maybeToList (language script)
         ]
-      finalBody =
-        body
-          { btbInputs = newInputs
-          , btbOutputs = mkSized ledgerEraVersion <$> newOutputs
-          , btbCollateral = Set.singleton input
-          , btbTxFee = needlesslyHighFee
-          , btbScriptIntegrityHash =
-              hashScriptIntegrity
-                (Set.fromList langs)
-                adjustedRedeemers
-                (txdats wits)
-          }
+      scriptIntegrityHash =
+        hashScriptIntegrity
+          (Set.fromList langs)
+          adjustedRedeemers
+          (txdats wits)
+
+  let
+    unbalancedBody =
+      body
+        & inputsTxBodyL .~ newInputs
+        & outputsTxBodyL .~ txOuts
+        & collateralInputsTxBodyL .~ Set.singleton feeTxIn
+        & scriptIntegrityHashTxBodyL .~ scriptIntegrityHash
+    unbalancedTx =
+      partialTx
+        & bodyTxL .~ unbalancedBody
+        & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
+
+  -- Compute fee using a body with selected txOut to pay fees (= full change)
+  -- and an aditional witness (we will sign this tx later)
+  let fee = evaluateTransactionFee pparams costingTx additionalWitnesses
+      costingTx =
+        unbalancedTx
+          & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
+          & bodyTxL . feeTxBodyL .~ Coin 10_000_000
+      -- XXX: Not hard-code but parameterize to make this flexible enough for
+      -- later signing and commit transactions with more than one sig
+      additionalWitnesses = 2
+
+  -- Balance tx with a change output and computed fee
+  change <-
+    first ErrNotEnoughFunds $
+      mkChange
+        feeTxOut
+        resolvedInputs
+        (toList txOuts)
+        fee
   pure $
-    partialTx
-      { body = finalBody
-      , wits = wits{txrdmrs = adjustedRedeemers}
-      }
+    unbalancedTx
+      & bodyTxL . outputsTxBodyL %~ (|> change)
+      & bodyTxL . feeTxBodyL .~ fee
  where
   findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
       Left ErrNoFuelUTxOFound
     Just (i, o) ->
       Right (i, o)
-
-  -- TODO: Do a better fee estimation based on the transaction's content.
-  calculateNeedlesslyHighFee (Redeemers redeemers) =
-    let executionCost = txscriptfee (pparams ^. ppPricesL) $ foldMap snd redeemers
-     in Coin 2_000_000 <> executionCost
 
   getAdaValue :: TxOut -> Coin
   getAdaValue (Babbage.BabbageTxOut _ value _ _) =
