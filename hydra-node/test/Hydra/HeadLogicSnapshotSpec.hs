@@ -23,8 +23,8 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', runHeadLogic, step)
-import Hydra.Ledger (txId)
+import Hydra.HeadLogicSpec (getState, getStateAndEventID, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', runHeadLogic, step)
+import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -58,6 +58,7 @@ spec = do
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             }
+    let initialEventID = 0
     let sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
@@ -73,7 +74,7 @@ spec = do
 
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkInput defaultTTL alice $ ReqTx tx
+            outcome = update (envFor aliceSk) simpleLedger initialEventID (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkInput defaultTTL alice $ ReqTx tx
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 1 [txId tx])
@@ -81,7 +82,8 @@ spec = do
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
-            outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkInput defaultTTL bob $ ReqTx tx
+            stEventID = initialEventID
+            outcome = update (envFor bobSk) simpleLedger stEventID (inOpenState' [alice, bob] st) $ NetworkInput defaultTTL bob $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
@@ -89,13 +91,15 @@ spec = do
         let tx = aValidTx 1
             sn1 = Snapshot testHeadId 1 u0 mempty :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
-            outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkInput defaultTTL alice $ ReqTx tx
+            stEventID = initialEventID
+            outcome = update (envFor aliceSk) simpleLedger stEventID (inOpenState' [alice, bob] st) $ NetworkInput defaultTTL alice $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
             st = inOpenState' threeParties coordinatedHeadState
+            stEventID = initialEventID
 
         let st' =
               inOpenState' threeParties $
@@ -105,34 +109,36 @@ spec = do
                   , localUTxO = u0 <> utxoRef (txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                   }
+            st'EventID = succ stEventID
 
-        actualState <- runHeadLogic (envFor aliceSk) simpleLedger st $ do
+        (actualState, actualEventID) <- runHeadLogic (envFor aliceSk) simpleLedger st stEventID $ do
           step $ NetworkInput defaultTTL alice $ ReqTx tx
-          getState
+          getStateAndEventID
         actualState `shouldBe` st'
+        actualEventID `shouldBe` st'EventID
 
     describe "On AckSn" $ do
       let bobEnv = envFor bobSk
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
-        headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
+        (headState, headStateEventID) <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) initialEventID $ do
           step (NetworkInput defaultTTL alice $ ReqSn 1 [])
           step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
-          getState
+          getStateAndEventID
 
-        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+        update bobEnv simpleLedger headStateEventID headState (ackFrom bobSk bob)
           `hasEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
-        headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
+        (headState, headStateEventID) <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) initialEventID $ do
           step (NetworkInput defaultTTL alice $ ReqSn 1 [])
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
-          getState
+          getStateAndEventID
 
-        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+        update bobEnv simpleLedger headStateEventID headState (ackFrom bobSk bob)
           `hasNoEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
@@ -144,18 +150,18 @@ spec = do
             newTxBeforeSnapshotAcknowledged =
               step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
 
-        headState <- runHeadLogic notLeaderEnv simpleLedger (inOpenState threeParties) $ do
+        (headState, headStateEventID) <- runHeadLogic notLeaderEnv simpleLedger (inOpenState threeParties) initialEventID $ do
           initiateSigningASnapshot alice
           step (ackFrom carolSk carol)
           newTxBeforeSnapshotAcknowledged
           step (ackFrom aliceSk alice)
-          getState
+          getStateAndEventID
 
-        let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
+        let everybodyAcknowleged = update notLeaderEnv simpleLedger headStateEventID headState $ ackFrom bobSk bob
         everybodyAcknowleged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
-        headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
+        headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) initialEventID $ do
           step (NetworkInput defaultTTL alice $ ReqSn 1 [])
           step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
@@ -195,7 +201,8 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , confirmedSnapshot = sn
         , seenSnapshot
         }
-    outcome = update aliceEnv simpleLedger (inOpenState' [alice] st) $ NetworkInput defaultTTL alice $ ReqTx tx
+    stEventID = 0
+    outcome = update aliceEnv simpleLedger stEventID (inOpenState' [alice] st) $ NetworkInput defaultTTL alice $ ReqTx tx
     Snapshot{number = confirmedSn} = getSnapshot sn
     nextSn = confirmedSn + 1
   pure $

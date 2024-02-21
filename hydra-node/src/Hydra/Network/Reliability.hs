@@ -203,7 +203,8 @@ mkMessagePersistence numberOfParties persistenceIncremental ackPersistence =
     , appendMessage = \msg -> do
         append persistenceIncremental msg
     }
---TODO(Elaine): this can probably be replaced with new persistence
+
+-- TODO(Elaine): this can probably be replaced with new persistence
 
 -- | Middleware function to handle message counters tracking and resending logic.
 --
