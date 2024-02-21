@@ -632,16 +632,24 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
     <> if
       | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
           Effects
-            [ ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}
+            [ notifyClients
             , OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}}
             ]
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
           -- not be able to fanout! We might want to communicate that to the client!
-          Effects [ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}]
+          Effects [notifyClients]
       | otherwise ->
-          Effects [ClientEffect ServerOutput.HeadIsContested{snapshotNumber, headId}]
+          Effects [notifyClients]
  where
+  notifyClients =
+    ClientEffect
+      ServerOutput.HeadIsContested
+        { snapshotNumber
+        , headId
+        , contestationDeadline
+        }
+
   ClosedState{parameters = headParameters, confirmedSnapshot, headId} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
