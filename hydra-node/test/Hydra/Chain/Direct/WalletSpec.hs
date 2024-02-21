@@ -223,6 +223,7 @@ prop_balanceTransaction =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+        -- FIXME: this does not cover signing
         case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
