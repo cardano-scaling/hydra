@@ -17,6 +17,10 @@ changes.
 
 - Provide more details about why a command failed. Added the state of the head logic at the point of failure.
 
+- Fix a bug where the `hydra-node` would not correctly observe a contest transaction and fail to fanout a head [#1260](https://github.com/input-output-hk/hydra/issues/1260).
+
+- Add `contestationDeadline` to the `HeadIsContested` output on the `hydra-node` API.
+
 - Add `--sanchonet` option to `hydra-cluster` binary.
 
 ## [0.15.0] - 2024-01-18

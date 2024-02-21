@@ -31,7 +31,11 @@ import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), initHistory)
+import Hydra.Chain (
+  Chain (..),
+  PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters),
+  initHistory,
+ )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -51,7 +55,7 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
-  Environment (Environment, participants, party),
+  Environment (Environment, party),
   Event (..),
   defaultTTL,
  )
@@ -61,6 +65,7 @@ import Hydra.HeadLogic.State (
   IdleState (..),
   InitialState (..),
   OpenState (..),
+  participants,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
@@ -72,6 +77,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNode (..), NodeState (..))
 import Hydra.Node.EventQueue (EventQueue (..))
 import Hydra.Party (Party (..), deriveParty)
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (getPositive)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
@@ -105,6 +111,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
+      , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
   initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
@@ -155,6 +162,7 @@ mockChainAndNetwork tr seedKeys commits = do
                 throwSTM . userError . toString $
                   unlines
                     [ "MockChain: Invalid tx submitted"
+                    , "Slot: " <> show slot
                     , "Tx: " <> toText (renderTxWithUTxO utxo tx)
                     , "Error: " <> show err
                     ]
@@ -205,6 +213,25 @@ mockChainAndNetwork tr seedKeys commits = do
           case eTx of
             Left e -> throwIO e
             Right tx -> submitTx tx
+
+  closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
+    hydraNodes <- readTVarIO nodes
+    case find (matchingParty party) hydraNodes of
+      Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
+      Just
+        MockHydraNode
+          { node = HydraNode{oc = Chain{postTx}, nodeState = NodeState{queryHeadState}}
+          } -> do
+          hs <- atomically queryHeadState
+          case hs of
+            Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
+            Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
+            Open OpenState{headId = openHeadId, parameters = headParameters} -> do
+              let initialSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+
+              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot}
+              postTx closeTx
+            Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
     party == us

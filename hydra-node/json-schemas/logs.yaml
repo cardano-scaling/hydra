@@ -1294,6 +1294,20 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           contestationDeadline:
             $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "HeadContested"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - contestationDeadline
+        properties:
+          tag:
+            type: string
+            enum: ["HeadContested"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
       - title: "HeadIsReadyToFanout"
         additionalProperties: false
         required:
@@ -1824,6 +1838,7 @@ definitions:
           - tag
           - headId
           - snapshotNumber
+          - contestationDeadline
         properties:
           tag:
             type: string
@@ -1833,6 +1848,8 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
       - title: OnFanoutTx
         type: object
         additionalProperties: false

@@ -50,7 +50,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
-import Hydra.Plutus.Extras (posixFromUTCTime)
+import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
@@ -970,6 +970,7 @@ data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
   , headId :: HeadId
   , snapshotNumber :: SnapshotNumber
+  , contestationDeadline :: UTCTime
   , contesters :: [Plutus.PubKeyHash]
   }
   deriving stock (Show, Eq, Generic)
@@ -995,21 +996,22 @@ observeContestTx utxo tx = do
     (Head.Closed{contesters}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
-      let onChainSnapshotNumber = closedSnapshotNumber newHeadDatum
+      let (onChainSnapshotNumber, contestationDeadline) = decodeDatum newHeadDatum
       pure
         ContestObservation
           { contestedThreadOutput = (newHeadInput, newHeadOutput)
           , headId
           , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
           }
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
 
-  closedSnapshotNumber headDatum =
+  decodeDatum headDatum =
     case fromScriptData headDatum of
-      Just Head.Closed{snapshotNumber} -> snapshotNumber
+      Just Head.Closed{snapshotNumber, contestationDeadline} -> (snapshotNumber, contestationDeadline)
       _ -> error "wrong state in output datum"
 
 newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)

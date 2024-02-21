@@ -30,7 +30,7 @@ import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _Double, _JSON)
+import Data.Aeson.Lens (AsJSON (_JSON), key, values, _Double, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -398,10 +398,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                       guard $ v ^? key "headId" == Just (toJSON headId)
                       snapshotNumber <- v ^? key "snapshotNumber"
                       guard $ snapshotNumber == toJSON (0 :: Word)
+
                 waitMatch 10 n1 isHeadClosedWith0
                 waitMatch 10 n2 isHeadClosedWith0
 
-                waitFor hydraTracer 10 [n1, n2] $ output "HeadIsContested" ["snapshotNumber" .= (1 :: Word), "headId" .= headId]
+                forM_ [n1, n2] $ \n ->
+                  waitMatch 10 n $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsContested"
+                    guard $ v ^? key "headId" == Just (toJSON headId)
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->

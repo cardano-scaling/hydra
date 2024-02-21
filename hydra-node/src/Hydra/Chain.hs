@@ -110,6 +110,7 @@ data OnChainTx tx
   | OnContestTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
+      , contestationDeadline :: UTCTime
       }
   | OnFanoutTx {headId :: HeadId}
   deriving stock (Generic)

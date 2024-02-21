@@ -421,7 +421,9 @@ spec = parallel $ do
                 _ -> False
 
               -- Expect n1 to contest with latest snapshot, number 1
-              waitUntil [n1, n2] HeadIsContested{snapshotNumber = 1, headId = testHeadId}
+              waitUntilMatch [n1, n2] $ \case
+                HeadIsContested{snapshotNumber} -> snapshotNumber == 1
+                _ -> False
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -548,6 +550,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateCommit :: (Party, UTxOType tx) -> m ()
+  , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
   }
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
@@ -557,6 +560,7 @@ dummySimulatedChainNetwork =
     , tickThread = error "tickThread"
     , rollbackAndForward = \_ -> error "rollbackAndForward"
     , simulateCommit = \_ -> error "simulateCommit"
+    , closeWithInitialSnapshot = \(_, _) -> error "closeWithInitialSnapshot"
     }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
@@ -622,6 +626,7 @@ simulatedChainAndNetwork initialChainState = do
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
           createAndYieldEvent nodes history localChainState $ OnCommitTx{headId = testHeadId, party, committed}
+      , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
   -- seconds
@@ -715,6 +720,7 @@ toOnChainTx now = \case
     OnContestTx
       { headId
       , snapshotNumber = number (getSnapshot confirmedSnapshot)
+      , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
   FanoutTx{} ->
     OnFanoutTx{headId = testHeadId}

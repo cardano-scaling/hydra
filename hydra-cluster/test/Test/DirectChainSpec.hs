@@ -395,9 +395,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             -- Alice close with the initial snapshot U0
             postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO}
-            waitMatch aliceChain $ \case
-              Observation{observedTx = OnCloseTx{snapshotNumber}}
-                | snapshotNumber == 0 -> Just ()
+            deadline <- waitMatch aliceChain $ \case
+              Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
+                | snapshotNumber == 0 -> Just contestationDeadline
               _ -> Nothing
 
             -- Alice contests with some snapshot U1 -> successful
@@ -413,7 +413,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 { snapshot = snapshot1
                 , signatures = aggregate [sign aliceSk snapshot1]
                 }
-            aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1}
+            aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1, contestationDeadline = deadline}
 
             -- Alice contests with some snapshot U2 -> expect fail
             let snapshot2 =

@@ -338,7 +338,8 @@ components:
     HeadIsClosed:
       title: HeadIsClosed
       description: |
-        A `Close` transaction has been observed on-chain, the head is now closed and the contestation phase begins.
+        A `Close` transaction has been observed on-chain, the head is now closed
+        and the contestation phase begins.
       payload:
         $ref: "api.yaml#/components/schemas/HeadIsClosed"
 
@@ -347,7 +348,8 @@ components:
       description: |
         A `Contest` transaction has been observed on-chain, that means the head
         state has been successfully contested and given snapshot number is now
-        the latest accepted snapshot.
+        the latest accepted snapshot. The contestation phase was extended to
+        given deadline.
       payload:
         $ref: "api.yaml#/components/schemas/HeadIsContested"
 
@@ -693,6 +695,7 @@ components:
         - tag
         - headId
         - snapshotNumber
+        - contestationDeadline
         - seq
         - timestamp
       properties:
@@ -703,6 +706,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

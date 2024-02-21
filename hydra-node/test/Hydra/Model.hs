@@ -118,6 +118,7 @@ data GlobalState
   | Open
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
+      , committed :: Committed Payment
       }
   | Closed
       { closedUTxO :: UTxOType Payment
@@ -166,6 +167,7 @@ instance StateModel WorldState where
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     RollbackAndForward :: Natural -> Action WorldState ()
+    CloseWithInitialSnapshot :: Party -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
   initialState =
@@ -186,7 +188,7 @@ instance StateModel WorldState where
           ]
       Open{} ->
         frequency
-          [ (5, genNewTx)
+          [ (10, genNewTx)
           , (1, genClose)
           , (1, genRollbackAndForward)
           ]
@@ -202,17 +204,13 @@ instance StateModel WorldState where
       (party, commits) <- elements $ Map.toList pending
       pure . Some $ Commit party commits
 
-    genAbort = do
-      (key, _) <- elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Abort party
+    genAbort =
+      Some . Abort . deriveParty . fst <$> elements hydraParties
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
-    genClose = do
-      (key, _) <- elements hydraParties
-      let party = deriveParty key
-      pure . Some $ Close party
+    genClose =
+      Some . Close . deriveParty . fst <$> elements hydraParties
 
     genFanout =
       Some . Fanout . deriveParty . fst <$> elements hydraParties
@@ -240,6 +238,8 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
   precondition WorldState{hydraState = Closed{}} (Fanout _) =
+    True
+  precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
     True
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
@@ -293,6 +293,7 @@ instance StateModel WorldState where
                 then
                   Open
                     { headParameters
+                    , committed = commits'
                     , offChainState =
                         OffChainState
                           { confirmedUTxO = mconcat (Map.elems commits')
@@ -332,14 +333,21 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithNewTx hydraState}
        where
         updateWithNewTx = \case
-          Open{headParameters, offChainState = OffChainState{confirmedUTxO}} ->
+          Open{headParameters, committed, offChainState = OffChainState{confirmedUTxO}} ->
             Open
               { headParameters
+              , committed
               , offChainState =
                   OffChainState
                     { confirmedUTxO = confirmedUTxO `applyTx` tx
                     }
               }
+          _ -> error "unexpected state"
+      CloseWithInitialSnapshot _ ->
+        WorldState{hydraParties, hydraState = updateWithClose hydraState}
+       where
+        updateWithClose = \case
+          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
       Wait _ -> s
@@ -541,6 +549,8 @@ instance
           case find headIsOpen outputs of
             Just _ -> pure ()
             Nothing -> error "The head is not open for node"
+      CloseWithInitialSnapshot party ->
+        performCloseWithInitialSnapshot st party
       RollbackAndForward numberOfBlocks ->
         performRollbackAndForward numberOfBlocks
       StopTheWorld ->
@@ -744,6 +754,25 @@ performFanout party = do
     HeadIsFinalized{} -> True
     _otherwise -> False
 
+performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => WorldState -> Party -> RunMonad m ()
+performCloseWithInitialSnapshot st party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+  case hydraState st of
+    Open{committed} -> do
+      SimulatedChainNetwork{closeWithInitialSnapshot} <- gets chain
+      _ <- lift $ closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
+      lift $
+        waitUntilMatch (toList nodes) $ \case
+          HeadIsClosed{snapshotNumber} ->
+            -- we deliberately wait to see close with the initial snapshot
+            -- here to mimic one node not seeing the confirmed tx
+            snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
+          err@CommandFailed{} -> error $ show err
+          _ -> False
+    _ -> error "Not in open state"
+
 performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
 performRollbackAndForward numberOfBlocks = do
   SimulatedChainNetwork{rollbackAndForward} <- gets chain
@@ -802,6 +831,7 @@ showFromAction k = \case
   NewTx{} -> k
   Wait{} -> k
   ObserveConfirmedTx{} -> k
+  CloseWithInitialSnapshot{} -> k
   RollbackAndForward{} -> k
   StopTheWorld -> k
   ObserveHeadIsOpen -> k
