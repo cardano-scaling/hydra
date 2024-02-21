@@ -791,6 +791,21 @@
         "type": "github"
       }
     },
+    "flake-utils_8": {
+      "locked": {
+        "lastModified": 1644229661,
+        "narHash": "sha256-1YdnJAsNy69bpcjuoKdOYQX0YxZBiCYZo4Twxerqv7k=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "3cecb5b042f7f209c56ffd8371b2711a290ec797",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "ghc-8.6.5-iohk": {
       "flake": false,
       "locked": {
@@ -1534,6 +1549,28 @@
         "ref": "hkm/remote-iserv",
         "type": "git",
         "url": "https://gitlab.haskell.org/hamishmack/iserv-proxy.git"
+      }
+    },
+    "lint-utils": {
+      "inputs": {
+        "flake-utils": "flake-utils_8",
+        "nixpkgs": [
+          "haskellNix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1708093119,
+        "narHash": "sha256-GiFM4MMQzFDHHBJ3GLd8yBjGWBnSRuPXUkokqEsS+qQ=",
+        "owner": "homotopic",
+        "repo": "lint-utils",
+        "rev": "f2d9c9c985cc81fcf55be71270d250073102b228",
+        "type": "github"
+      },
+      "original": {
+        "owner": "homotopic",
+        "repo": "lint-utils",
+        "type": "github"
       }
     },
     "lowdown-src": {
@@ -2621,6 +2658,7 @@
         "haskellNix": "haskellNix_2",
         "hls": "hls",
         "iohk-nix": "iohk-nix",
+        "lint-utils": "lint-utils",
         "mithril": "mithril",
         "nixpkgs": [
           "haskellNix",
