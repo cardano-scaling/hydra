@@ -43,6 +43,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
@@ -57,10 +58,11 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor)
+import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genSigningKey)
 import Test.QuickCheck (
   Property,
   checkCoverage,
+  conjoin,
   counterexample,
   cover,
   forAll,
@@ -223,14 +225,21 @@ prop_balanceTransaction =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
       forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
-        -- FIXME: this does not cover signing
         case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
           Right tx' ->
-            (isBalanced (lookupUTxO <> walletUTxO) tx tx' .&&. hasLowFees Fixture.pparams tx')
-              & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx))
+            forAllBlind genSigningKey $ \sk -> do
+              -- NOTE: Testing the signed transaction as adding a witness
+              -- changes the fee requirements.
+              let signedTx = toLedgerTx $ signTx sk (fromLedgerTx tx')
+              conjoin
+                [ isBalanced (lookupUTxO <> walletUTxO) tx signedTx
+                , hasLowFees Fixture.pparams signedTx
+                ]
+                & counterexample ("Signed tx: \n" <> renderTx (fromLedgerTx signedTx))
+                & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx'))
           & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
           & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
           & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))

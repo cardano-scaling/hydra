@@ -21,11 +21,10 @@ import Cardano.Ledger.Api (
   ensureMinCoinTxOut,
   evalTxExUnits,
   feeTxBodyL,
-  getMinFeeTx,
   inputsTxBodyL,
-  mkBasicTx,
   outputsTxBodyL,
   ppMaxTxExUnitsL,
+  rdmrsTxWitsL,
   scriptIntegrityHashTxBodyL,
   witsTxL,
  )
@@ -44,6 +43,7 @@ import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Shelley.API.Wallet (evaluateTransactionFee)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
@@ -289,16 +289,20 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         & collateralInputsTxBodyL .~ Set.singleton feeTxIn
         & scriptIntegrityHashTxBodyL .~ scriptIntegrityHash
     unbalancedTx =
-      mkBasicTx unbalancedBody
-        & witsTxL .~ wits{txrdmrs = adjustedRedeemers}
+      partialTx
+        & bodyTxL .~ unbalancedBody
+        & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  -- FIXME: There will be more witnesses.. so we need to account for that as well.
-  let costingTx =
+  -- and an aditional witness (we will sign this tx later)
+  let fee = evaluateTransactionFee pparams costingTx additionalWitnesses
+      costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
           & bodyTxL . feeTxBodyL .~ Coin 10_000_000
-      fee = getMinFeeTx pparams costingTx
+      -- XXX: Not hard-code but parameterize to make this flexible enough for
+      -- later signing and commit transactions with more than one sig
+      additionalWitnesses = 2
 
   -- Balance tx with a change output and computed fee
   change <-
@@ -308,11 +312,10 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         resolvedInputs
         (toList txOuts)
         fee
-  let balancedTx =
-        unbalancedTx
-          & bodyTxL . outputsTxBodyL %~ (|> change)
-          & bodyTxL . feeTxBodyL .~ fee
-  pure balancedTx
+  pure $
+    unbalancedTx
+      & bodyTxL . outputsTxBodyL %~ (|> change)
+      & bodyTxL . feeTxBodyL .~ fee
  where
   findUTxOToPayFees utxo = case findLargestUTxO utxo of
     Nothing ->
