@@ -96,18 +96,6 @@ let
     ];
   };
 
-  fmtShell = pkgs.mkShell {
-    name = "hydra-format-shell";
-    buildInputs = [
-      tools.treefmt
-      tools.fourmolu
-      tools.cabal-fmt
-      tools.nixpkgs-fmt
-      tools.hlint
-      tools.apply-refact
-    ];
-  };
-
   # If you want to modify `Python` code add `libtmux` and pyyaml to the
   # `buildInputs` then enter it and then run `Python` module directly so you
   # have fast devel cycle.
@@ -122,5 +110,4 @@ in
   cabalOnly = cabalShell;
   exes = exeShell;
   demo = demoShell;
-  fmt = fmtShell;
 }

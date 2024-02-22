@@ -1560,11 +1560,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1708093119,
-        "narHash": "sha256-GiFM4MMQzFDHHBJ3GLd8yBjGWBnSRuPXUkokqEsS+qQ=",
+        "lastModified": 1708583908,
+        "narHash": "sha256-zuNxxkt/wS8Z5TbGarf4QZVDt1R65dDkEw/s2T/tCW4=",
         "owner": "homotopic",
         "repo": "lint-utils",
-        "rev": "f2d9c9c985cc81fcf55be71270d250073102b228",
+        "rev": "2d77caa3644065ee0f462cc5ea654280c59127b2",
         "type": "github"
       },
       "original": {

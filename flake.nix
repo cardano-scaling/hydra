@@ -117,6 +117,15 @@
 
         checks = let lu = inputs.lint-utils.linters.${system}; in {
           hlint = lu.hlint { src = self; hlint = tools.hlint; };
+          treefmt = lu.treefmt {
+            src = self;
+            buildInputs = [
+              tools.cabal-fmt
+              tools.nixpkgs-fmt
+              tools.fourmolu
+            ];
+            treefmt = tools.treefmt;
+          };
         };
 
         devShells = import ./nix/hydra/shell.nix {
