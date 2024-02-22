@@ -18,6 +18,9 @@ spec = do
       withTracer (Verbose "test") $ \tracer -> do
         traceWith tracer (object ["foo" .= (42 :: Int)])
 
+    -- This test is flakey in CI. Suspected race condition.
+    liftIO $ threadDelay 2
+
     captured `shouldContain` "{\"foo\":42}"
 
   prop "Validates logs.yaml schema" $
