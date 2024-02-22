@@ -36,16 +36,47 @@
     ]
       (system:
       let
-        pkgs = import inputs.nixpkgs { inherit system; };
-        tools = {
-          hlint = hydraProject.pkgs.haskell-nix.tool hydraProject.compiler "hlint" "3.8";
+        compiler = "ghc964";
+
+        # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
+
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [
+            # This overlay contains libsodium and libblst libraries
+            inputs.iohk-nix.overlays.crypto
+            # This overlay contains pkg-config mappings via haskell.nix to use the
+            # crypto libraries above
+            inputs.iohk-nix.overlays.haskell-nix-crypto
+            # Keep haskell.nix as the last overlay!
+            #
+            # Reason: haskell.nix modules/overlays neds to be last
+            # https://github.com/input-output-hk/haskell.nix/issues/1954
+            inputs.haskellNix.overlay
+            # Custom static libs used for darwin build
+            (import ./nix/static-libs.nix)
+          ];
         };
-        hydraProject = import ./nix/hydra/project.nix {
-          inherit (inputs) haskellNix iohk-nix CHaP;
-          inherit system nixpkgs;
+
+        tools = {
+          apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+          cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+          fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
+          haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
+            src = inputs.hls;
+            cabalProject = builtins.readFile (src + "/cabal.project");
+          };
+          hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+        };
+
+        inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
+
+        hsPkgs = import ./nix/hydra/project.nix {
+          inherit pkgs inputMap;
+          compiler-nix-name = compiler;
         };
         hydraPackages = import ./nix/hydra/packages.nix {
-          inherit hydraProject system pkgs inputs;
+          inherit system pkgs inputs hsPkgs;
           gitRev = self.rev or "dirty";
         };
         hydraImages = import ./nix/hydra/docker.nix {
@@ -56,7 +87,6 @@
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
       in
       rec {
-        inherit hydraProject;
 
         packages =
           { default = hydraPackages.hydra-node; } //
@@ -70,10 +100,10 @@
         };
 
         devShells = (import ./nix/hydra/shell.nix {
-          inherit inputs hydraProject tools system;
+          inherit inputs tools pkgs hsPkgs system compiler;
         }) // {
           ci = (import ./nix/hydra/shell.nix {
-            inherit inputs hydraProject system tools;
+            inherit inputs pkgs system tools;
             withoutDevTools = true;
           }).default;
         };

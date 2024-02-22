@@ -5,25 +5,16 @@
 {
   # Used in CI to have a smaller closure
   withoutDevTools ? false
-, hydraProject
+, hsPkgs
 , inputs
 , tools
-, system ? builtins.currentSystem
+, system
+, pkgs
+, compiler
 }:
 let
-  inherit (hydraProject) compiler pkgs hsPkgs;
 
   cabal = pkgs.haskell-nix.cabal-install.${compiler};
-
-  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
-  cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-  apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
-
-  # Build HLS form our fork (see flake.nix)
-  haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-    src = inputs.hls;
-    cabalProject = builtins.readFile (src + "/cabal.project");
-  };
 
   libs = [
     pkgs.glibcLocales
@@ -44,11 +35,11 @@ let
     pkgs.haskellPackages.hspec-discover
     # Formatting
     pkgs.treefmt
-    fourmolu
-    cabal-fmt
+    tools.fourmolu
+    tools.cabal-fmt
     pkgs.nixpkgs-fmt
     tools.hlint
-    apply-refact
+    tools.apply-refact
     # For validating JSON instances against a pre-defined schema
     pkgs.check-jsonschema
     # For generating plantuml drawings
@@ -65,7 +56,7 @@ let
 
   devInputs = if withoutDevTools then [ ] else [
     # Essential for a good IDE
-    haskell-language-server
+    tools.haskell-language-server
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
     # Generate a graph of the module dependencies in the "dot" format
@@ -108,7 +99,7 @@ let
     name = "hydra-node-cabal-shell";
 
     buildInputs = libs ++ [
-      pkgs.haskell-nix.compiler.${compiler}
+      hsPkgs.compiler.${compiler}
       pkgs.cabal-install
       pkgs.pkg-config
     ] ++ buildInputs ++ devInputs;
@@ -156,11 +147,11 @@ let
     name = "hydra-format-shell";
     buildInputs = [
       pkgs.treefmt
-      fourmolu
-      cabal-fmt
+      tools.fourmolu
+      tools.cabal-fmt
       pkgs.nixpkgs-fmt
       tools.hlint
-      apply-refact
+      tools.apply-refact
     ];
   };
 
