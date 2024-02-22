@@ -92,13 +92,16 @@
           inherit pkgs inputMap;
           compiler-nix-name = compiler;
         };
+
         hydraPackages = import ./nix/hydra/packages.nix {
           inherit system pkgs inputs hsPkgs;
           gitRev = self.rev or "dirty";
         };
+
         hydraImages = import ./nix/hydra/docker.nix {
           inherit hydraPackages system nixpkgs;
         };
+
         prefixAttrs = s: attrs:
           with pkgs.lib.attrsets;
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
