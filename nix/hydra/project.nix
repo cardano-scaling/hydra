@@ -62,12 +62,6 @@ let
         packages.hydra-tui.dontStrip = false;
         packages.hydraw.dontStrip = false;
       }
-      # Fix compliation of strict-containers (see also cabal.project)
-      {
-        packages.strict-containers.ghcOptions = [ "-Wno-noncanonical-monad-instances" ];
-        # XXX: Could not figure out where to make this flag ^^^ effective in the haddock build
-        packages.strict-containers.doHaddock = false;
-      }
       # Use different static libs on darwin
       # TODO: Always use these?
       (pkgs.lib.mkIf pkgs.hostPlatform.isDarwin {
