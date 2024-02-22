@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "haskellNix/nixpkgs";
     };
     CHaP = {
-      url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
+      url = "github:intersectmbo/cardano-haskell-packages?ref=repo";
       flake = false;
     };
     # Use a patched 2.6.0.0 as we are also affected by
