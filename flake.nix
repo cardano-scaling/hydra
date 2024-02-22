@@ -60,13 +60,30 @@
 
         tools = {
           apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+          cabal = pkgs.haskell-nix.cabal-install.${compiler};
           cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+          cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
           fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
           haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
             src = inputs.hls;
             cabalProject = builtins.readFile (src + "/cabal.project");
           };
           hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+          inherit (pkgs)
+            check-jsonschema
+            git
+            gnuplot
+            nixpkgs-fmt
+            nodejs
+            pkg-config
+            plantuml
+            treefmt
+            websocat
+            yarn
+            yq;
+          inherit (pkgs.haskellPackages) hspec-discover ghcid graphmod;
+          inherit (inputs.cardano-node.packages.${system}) cardano-node cardano-cli;
+          mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
         };
 
         inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };

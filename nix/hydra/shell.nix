@@ -2,10 +2,7 @@
 # environment. The main shell environment is based on haskell.nix and uses the
 # same nixpkgs as the default nix builds (see default.nix).
 
-{
-  # Used in CI to have a smaller closure
-  withoutDevTools ? false
-, hsPkgs
+{ hsPkgs
 , inputs
 , tools
 , system
@@ -14,7 +11,7 @@
 }:
 let
 
-  cabal = pkgs.haskell-nix.cabal-install.${compiler};
+  buildInputs = pkgs.lib.mapAttrsToList (_: v: v) tools;
 
   libs = [
     pkgs.glibcLocales
@@ -26,54 +23,10 @@ let
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
-  buildInputs = [
-    # Build essentials
-    pkgs.git
-    pkgs.pkg-config
-    cabal
-    (pkgs.haskell-nix.tool compiler "cabal-plan" "latest")
-    pkgs.haskellPackages.hspec-discover
-    # Formatting
-    pkgs.treefmt
-    tools.fourmolu
-    tools.cabal-fmt
-    pkgs.nixpkgs-fmt
-    tools.hlint
-    tools.apply-refact
-    # For validating JSON instances against a pre-defined schema
-    pkgs.check-jsonschema
-    # For generating plantuml drawings
-    pkgs.plantuml
-    # For plotting results of hydra-cluster benchmarks
-    pkgs.gnuplot
-    # For integration tests
-    inputs.cardano-node.packages.${system}.cardano-node
-    # To interact with cardano-node and integration tests
-    inputs.cardano-node.packages.${system}.cardano-cli
-    # To interact with mithril and integration tests
-    inputs.mithril.packages.${system}.mithril-client-cli
-  ];
-
-  devInputs = if withoutDevTools then [ ] else [
-    # Essential for a good IDE
-    tools.haskell-language-server
-    # The interactive Glasgow Haskell Compiler as a Daemon
-    pkgs.haskellPackages.ghcid
-    # Generate a graph of the module dependencies in the "dot" format
-    pkgs.haskellPackages.graphmod
-    # Handy to interact with the hydra-node via websockets
-    pkgs.websocat
-    # Like 'jq' to manipulate JSON, but work for YAML
-    pkgs.yq
-    # For docs/ (i.e. Docusaurus, Node.js & React)
-    pkgs.yarn
-    pkgs.nodejs
-  ];
-
   haskellNixShell = hsPkgs.shellFor {
-    buildInputs = libs ++ buildInputs ++ devInputs;
+    buildInputs = libs ++ buildInputs;
 
-    withHoogle = !withoutDevTools;
+    withHoogle = true;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
@@ -100,9 +53,9 @@ let
 
     buildInputs = libs ++ [
       hsPkgs.compiler.${compiler}
-      pkgs.cabal-install
-      pkgs.pkg-config
-    ] ++ buildInputs ++ devInputs;
+      tools.cabal-install
+      tools.pkg-config
+    ] ++ buildInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
     LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
@@ -146,10 +99,10 @@ let
   fmtShell = pkgs.mkShell {
     name = "hydra-format-shell";
     buildInputs = [
-      pkgs.treefmt
+      tools.treefmt
       tools.fourmolu
       tools.cabal-fmt
-      pkgs.nixpkgs-fmt
+      tools.nixpkgs-fmt
       tools.hlint
       tools.apply-refact
     ];
