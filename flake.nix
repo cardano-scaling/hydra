@@ -99,19 +99,14 @@
           hlint = lu.hlint { src = self; hlint = tools.hlint; };
         };
 
-        devShells = (import ./nix/hydra/shell.nix {
+        devShells = import ./nix/hydra/shell.nix {
           inherit inputs tools pkgs hsPkgs system compiler;
-        }) // {
-          ci = (import ./nix/hydra/shell.nix {
-            inherit inputs pkgs system tools;
-            withoutDevTools = true;
-          }).default;
         };
 
         # Build selected derivations in CI for caching
         hydraJobs = pkgs.lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
           packages = { inherit (packages) hydra-node hydra-tui hydraw spec; };
-          devShells = { inherit (devShells) default ci; };
+          devShells = { inherit (devShells) default; };
         };
       });
 
