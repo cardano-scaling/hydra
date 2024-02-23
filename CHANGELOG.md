@@ -11,9 +11,18 @@ changes.
 
 ## [0.16.0] - UNRELEASED
 
-- Add metadata to identify Hydra protocol transactions created by `hydra-node`.
+- **DO NOT RELEASE** as only tested against Sanchonet.
+
+- **BREAKING** Update to and tested against `cardano-node 8.8.0-pre` and `cardano-cli 8.20`. This made smoke tests incompatible with public testnets and mainnet.
+
+- **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
+  - Overall slight increase in script size.
+  - 50% less memory usage in `close` and `contest` transactions.
+  - Slightly less memory usage in `abort` and may be possible with 6 parties now.
 
 - **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
+
+- Add metadata to identify Hydra protocol transactions created by `hydra-node`.
 
 - Provide more details about why a command failed. Added the state of the head logic at the point of failure.
 
@@ -23,15 +32,7 @@ changes.
 
 - Add `--sanchonet` option to `hydra-cluster` binary.
 
-- Reduce cost of transactions submitted by `hydra-node` by better estimating
-  fees in internal wallet
-  [#1315](https://github.com/input-output-hk/hydra/pull/1315).
-
-- **BREAKING** Regenerated hydra scripts.
-
-- **BREAKING** Update to cardano-node 8.8.0 and remove Mainnet compatibility. Application is now only tested against Sanchonet.
-
-- Tested with `cardano-node 8.8.0-pre` and `cardano-node 8.20`.
+- Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
 ## [0.15.0] - 2024-01-18
 

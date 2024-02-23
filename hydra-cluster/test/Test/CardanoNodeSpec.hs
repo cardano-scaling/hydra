@@ -38,7 +38,8 @@ spec = do
         slot2 <- queryTipSlotNo networkId nodeSocket
         slot2 `shouldSatisfy` (> slot1)
 
-    it "withCardanoNodeOnKnownNetwork on mainnet starts synchronizing within 5 seconds" $ \(_, _) -> pendingWith "not yet supported"
+    it "withCardanoNodeOnKnownNetwork on mainnet starts synchronizing within 5 seconds" $ \_ ->
+      pendingWith "cardano-node 8.8 is not supported on mainnet (config mismatch)"
 
     it "withCardanoNodeOnKnownNetwork on sanchonet starts synchronizing within 5 seconds" $ \(tr, tmp) ->
       -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
@@ -53,7 +54,9 @@ spec = do
         slot2 `shouldSatisfy` (> slot1)
 
     describe "findRunningCardanoNode" $ do
-      it "returns Nothing on non-matching network" $ const $ pendingWith "No other valid network to test against."
+      it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
+        withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \_ -> do
+          findRunningCardanoNode tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
         withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \runningNode -> do
