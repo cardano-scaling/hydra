@@ -55,35 +55,23 @@
             inputs.haskellNix.overlay
             # Custom static libs used for darwin build
             (import ./nix/static-libs.nix)
+            # Specific versions of tools we require
+            (final: prev: {
+              apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+              cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+              cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
+              cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.3.0";
+              fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
+              haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
+                src = inputs.hls;
+                cabalProject = builtins.readFile (src + "/cabal.project");
+              };
+              hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+              cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
+              cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
+              mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
+            })
           ];
-        };
-
-        tools = {
-          apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
-          cabal = pkgs.haskell-nix.cabal-install.${compiler};
-          cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-          cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
-          fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
-          haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-            src = inputs.hls;
-            cabalProject = builtins.readFile (src + "/cabal.project");
-          };
-          hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
-          inherit (pkgs)
-            check-jsonschema
-            git
-            gnuplot
-            nixpkgs-fmt
-            nodejs
-            pkg-config
-            plantuml
-            treefmt
-            websocat
-            yarn
-            yq;
-          inherit (pkgs.haskellPackages) hspec-discover ghcid graphmod;
-          inherit (inputs.cardano-node.packages.${system}) cardano-node cardano-cli;
-          mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
         };
 
         inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
@@ -107,6 +95,7 @@
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
       in
       rec {
+        legacyPackages = pkgs;
 
         packages =
           { default = hydraPackages.hydra-node; } //
@@ -116,20 +105,20 @@
           };
 
         checks = let lu = inputs.lint-utils.linters.${system}; in {
-          hlint = lu.hlint { src = self; hlint = tools.hlint; };
+          hlint = lu.hlint { src = self; hlint = pkgs.hlint; };
           treefmt = lu.treefmt {
             src = self;
             buildInputs = [
-              tools.cabal-fmt
-              tools.nixpkgs-fmt
-              tools.fourmolu
+              pkgs.cabal-fmt
+              pkgs.nixpkgs-fmt
+              pkgs.fourmolu
             ];
-            treefmt = tools.treefmt;
+            treefmt = pkgs.treefmt;
           };
         };
 
         devShells = import ./nix/hydra/shell.nix {
-          inherit inputs tools pkgs hsPkgs system compiler;
+          inherit inputs pkgs hsPkgs system compiler;
         };
 
         # Build selected derivations in CI for caching

@@ -4,14 +4,49 @@
 
 { hsPkgs
 , inputs
-, tools
 , system
 , pkgs
 , compiler
 }:
 let
 
-  buildInputs = pkgs.lib.mapAttrsToList (_: v: v) tools;
+  buildInputs = [
+    # For running automatic refactoring with hlint
+    pkgs.apply-refact
+    pkgs.cabal-fmt
+    pkgs.cabal-install
+    # Handy tool to debug the cabal build plan
+    pkgs.cabal-plan
+    # To interact with cardano-node and integration tests
+    pkgs.cardano-cli
+    # For integration tests
+    pkgs.cardano-node
+    # For validating JSON instances against a pre-defined schema
+    pkgs.check-jsonschema
+    pkgs.fourmolu
+    pkgs.git
+    # For plotting results of hydra-cluster benchmarks
+    pkgs.gnuplot
+    pkgs.haskell-language-server
+    pkgs.hlint
+    pkgs.haskellPackages.hspec-discover
+    # The interactive Glasgow Haskell Compiler as a Daemon
+    pkgs.haskellPackages.ghcid
+    # Generate a graph of the module dependencies in the "dot" format
+    pkgs.haskellPackages.graphmod
+    # To interact with mithril and integration tests
+    pkgs.mithril-client-cli
+    pkgs.nixpkgs-fmt
+    pkgs.nodejs
+    pkgs.pkg-config
+    # For generating plantuml drawings
+    pkgs.plantuml
+    pkgs.treefmt
+    # Handy to interact with the hydra-node via websockets
+    pkgs.websocat
+    pkgs.yarn
+    pkgs.yq
+  ];
 
   libs = [
     pkgs.glibcLocales
@@ -53,8 +88,8 @@ let
 
     buildInputs = libs ++ [
       hsPkgs.compiler.${compiler}
-      tools.cabal-install
-      tools.pkg-config
+      pkgs.cabal-install
+      pkgs.pkg-config
     ] ++ buildInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
