@@ -254,13 +254,10 @@ queryEpochNo ::
   QueryPoint ->
   IO EpochNo
 queryEpochNo networkId socket queryPoint = do
-  let query =
-        QueryInEra
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              QueryEpoch
-          )
-  runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
+    queryInShelleyBasedEraExpr sbe QueryEpoch
 
 -- | Query the protocol parameters at given point.
 --
@@ -362,14 +359,12 @@ queryUTxOWhole ::
   SocketPath ->
   QueryPoint ->
   IO UTxO
-queryUTxOWhole networkId socket queryPoint = UTxO.fromApi <$> (runQuery networkId socket queryPoint query >>= throwOnEraMismatch)
- where
-  query =
-    QueryInEra
-      ( QueryInShelleyBasedEra
-          ShelleyBasedEraBabbage
-          (QueryUTxO QueryUTxOWhole)
-      )
+queryUTxOWhole networkId socket queryPoint = do
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
+    eraUTxO <- queryInShelleyBasedEraExpr sbe $ QueryUTxO QueryUTxOWhole
+    pure $ UTxO.fromApi eraUTxO
 
 -- | Query UTxO for the address of given verification key at point.
 --
@@ -393,13 +388,10 @@ queryStakePools ::
   QueryPoint ->
   IO (Set PoolId)
 queryStakePools networkId socket queryPoint =
-  let query =
-        QueryInEra
-          ( QueryInShelleyBasedEra
-              ShelleyBasedEraBabbage
-              QueryStakePools
-          )
-   in runQuery networkId socket queryPoint query >>= throwOnEraMismatch
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
+    queryInShelleyBasedEraExpr sbe QueryStakePools
 
 -- * Helpers
 
