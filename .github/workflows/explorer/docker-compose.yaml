@@ -4,7 +4,7 @@ services:
   cardano-node:
     image: ghcr.io/input-output-hk/cardano-node:8.8.0-pre
     volumes:
-      - /srv/var/cardano/state-preview:/data
+      - /srv/var/cardano/state-sanchonet:/data
     environment:
       - CARDANO_CONFIG=/data/config.json
       - CARDANO_TOPOLOGY=/data/topology.json
@@ -19,14 +19,14 @@ services:
   hydra-explorer:
     image: ghcr.io/input-output-hk/hydra-explorer:unstable
     volumes:
-    - /srv/var/cardano/state-preview:/data
+    - /srv/var/cardano/state-sanchonet:/data
     ports:
       - "80:8080"
     command:
       [ "--node-socket", "/data/node.socket"
-      , "--testnet-magic", "2"
+      , "--testnet-magic", "4"
       , "--api-port", "8080"
-      # NOTE: Block in which version 0.15.0 scripts were published
-      , "--start-chain-from", "37054629.76c455bac2e759fc588921a75dc48bc5c6507e1cf823f3ce872bb8eb2d829785"
+      # NOTE: Block in which current master scripts were published
+      , "--start-chain-from", "21830575.4fa28d6c6f6541fd5c73d715d69f3dd7751e7b4d7dc1213cb02d30c5a0db609b"
       ]
     restart: always
