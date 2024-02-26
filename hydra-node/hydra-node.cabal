@@ -120,8 +120,9 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-babbage
     , cardano-ledger-binary
+    , cardano-ledger-conway:{cardano-ledger-conway, testlib}
     , cardano-ledger-core:{cardano-ledger-core, testlib}
     , cardano-ledger-shelley
     , cardano-slotting
@@ -140,7 +141,7 @@ library
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
-    , io-classes                                                >=0.3.0.0
+    , io-classes                                              >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -151,11 +152,11 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , ouroboros-network-api                                     >=0.1.0.0
-    , ouroboros-network-framework                               >=0.3.0.0
-    , ouroboros-network-protocols                               >=0.3.0.0
-    , plutus-core                                               >=1.21    && <1.22
-    , plutus-ledger-api                                         >=1.21    && <1.22
+    , ouroboros-network-api                                   >=0.1.0.0
+    , ouroboros-network-framework                             >=0.3.0.0
+    , ouroboros-network-protocols                             >=0.3.0.0
+    , plutus-core                                             >=1.21    && <1.22
+    , plutus-ledger-api                                       >=1.21    && <1.22
     , prometheus
     , QuickCheck
     , quickcheck-instances
@@ -165,8 +166,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                                           >=0.1.0.0
-    , typed-protocols-cborg                                     >=0.1.0.0
+    , typed-protocols                                         >=0.1.0.0
+    , typed-protocols-cborg                                   >=0.1.0.0
     , unliftio
     , vector
     , wai
@@ -338,6 +339,7 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley

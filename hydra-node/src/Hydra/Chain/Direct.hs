@@ -41,7 +41,6 @@ import Hydra.Cardano.Api (
   TxValidationErrorInCardanoMode,
   chainTipToChainPoint,
   connectToLocalNode,
-  convertConwayTx,
   getTxBody,
   getTxId,
   toLedgerUTxO,
@@ -310,19 +309,13 @@ chainSyncClient handler wallet startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode ConwayEra (Block header conwayTxs) -> do
-              let txs = map convertConwayTx conwayTxs
+            BlockInMode ConwayEra (Block header txs) -> do
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            BlockInMode BabbageEra (Block header txs) -> do
-              -- Update the tiny wallet
-              update wallet header txs
-              -- Observe Hydra transactions
-              onRollForward handler header txs
-              pure clientStIdle
+            BlockInMode era@BabbageEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AlonzoEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AllegraEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@MaryEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}

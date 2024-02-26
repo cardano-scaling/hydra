@@ -18,6 +18,7 @@
   "TestMaryHardForkAtEpoch": 0,
   "TestAlonzoHardForkAtEpoch": 0,
   "TestBabbageHardForkAtEpoch": 0,
+  "TestConwayHardForkAtEpoch": 0,
 
   "RequiresNetworkMagic": "RequiresNoMagic",
 

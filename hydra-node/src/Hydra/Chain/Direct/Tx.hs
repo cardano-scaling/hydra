@@ -16,8 +16,8 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), hashAlonzoTxAuxData)
 import Cardano.Ledger.Api (
-  AlonzoPlutusPurpose (..),
   AsIndex (..),
+  ConwayPlutusPurpose (..),
   Redeemers (..),
   auxDataHashTxBodyL,
   auxDataTxL,
@@ -305,7 +305,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
         []
         committedTxIns
 
-  mkSpendingKey i = AlonzoSpending (AsIndex $ fromIntegral i)
+  mkSpendingKey i = ConwaySpending (AsIndex $ fromIntegral i)
 
   initialScriptRef =
     fst (initialReference scriptRegistry)

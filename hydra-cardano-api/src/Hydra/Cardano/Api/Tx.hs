@@ -10,157 +10,31 @@ import Hydra.Cardano.Api.KeyWitness (
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Allegra.Scripts (translateTimelock)
-import Cardano.Ledger.Alonzo qualified as Ledger
-import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Alonzo.TxAuxData (translateAlonzoTxAuxData)
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (
-  AlonzoPlutusPurpose (..),
-  AsIndex (..),
-  ConwayPlutusPurpose (..),
   EraTx (mkBasicTx),
-  addrTxOutL,
   addrTxWitsL,
-  auxDataHashTxBodyL,
   auxDataTxL,
-  bodyTxL,
   bootAddrTxWitsL,
-  collateralInputsTxBodyL,
-  collateralReturnTxBodyL,
-  dataTxOutL,
   datsTxWitsL,
-  feeTxBodyL,
   hashScriptTxWitsL,
   inputsTxBodyL,
   isValidTxL,
-  mintTxBodyL,
   mkBasicTxBody,
-  mkBasicTxOut,
   mkBasicTxWits,
-  networkIdTxBodyL,
-  outputsTxBodyL,
   rdmrsTxWitsL,
-  referenceInputsTxBodyL,
-  referenceScriptTxOutL,
-  reqSignerHashesTxBodyL,
-  scriptIntegrityHashTxBodyL,
-  scriptTxWitsL,
-  totalCollateralTxBodyL,
-  valueTxOutL,
-  vldtTxBodyL,
-  withdrawalsTxBodyL,
   witsTxL,
  )
 import Cardano.Ledger.Api qualified as Ledger
-import Cardano.Ledger.Babbage qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
-import Cardano.Ledger.Babbage.TxWits (upgradeTxDats)
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.Scripts (PlutusScript (..))
-import Cardano.Ledger.Conway.Scripts qualified as Conway
-import Cardano.Ledger.Conway.TxBody qualified as Ledger
-import Cardano.Ledger.Plutus.Data (upgradeData)
-import Control.Lens ((&), (.~), (^.))
+import Control.Lens ((&), (.~))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
-import Data.Maybe (mapMaybe)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
-
--- * Extras
-
--- | Explicit downgrade from Conway to Babbage era.
---
--- NOTE: This is not a complete mapping and does silently drop things like
--- protocol updates, certificates and voting procedures.
-convertConwayTx :: Tx ConwayEra -> Tx BabbageEra
-convertConwayTx =
-  fromLedgerTx . convert . toLedgerTx
- where
-  convert :: Ledger.Tx (Ledger.ConwayEra StandardCrypto) -> Ledger.Tx (Ledger.BabbageEra StandardCrypto)
-  convert tx =
-    mkBasicTx (translateBody $ tx ^. bodyTxL)
-      & witsTxL .~ translateWits (tx ^. witsTxL)
-      & isValidTxL .~ tx ^. isValidTxL
-      & auxDataTxL .~ (translateAlonzoTxAuxData <$> tx ^. auxDataTxL)
-
-  translateBody ::
-    Ledger.ConwayTxBody (Ledger.ConwayEra StandardCrypto) ->
-    Ledger.BabbageTxBody (Ledger.BabbageEra StandardCrypto)
-  translateBody body =
-    mkBasicTxBody
-      & inputsTxBodyL .~ body ^. inputsTxBodyL
-      & outputsTxBodyL .~ (translateTxOut <$> body ^. outputsTxBodyL)
-      & feeTxBodyL .~ body ^. feeTxBodyL
-      & withdrawalsTxBodyL .~ body ^. withdrawalsTxBodyL
-      & auxDataHashTxBodyL .~ body ^. auxDataHashTxBodyL
-      -- NOTE: not considering 'updateTxBodyL' as upstream also does not upgrade it
-      -- NOTE: not considering 'certsTxBodyL' as we are not interested in it
-      & vldtTxBodyL .~ body ^. vldtTxBodyL
-      & mintTxBodyL .~ body ^. mintTxBodyL
-      & collateralInputsTxBodyL .~ body ^. collateralInputsTxBodyL
-      & reqSignerHashesTxBodyL .~ body ^. reqSignerHashesTxBodyL
-      & scriptIntegrityHashTxBodyL .~ body ^. scriptIntegrityHashTxBodyL
-      & networkIdTxBodyL .~ body ^. networkIdTxBodyL
-      & referenceInputsTxBodyL .~ body ^. referenceInputsTxBodyL
-      & totalCollateralTxBodyL .~ body ^. totalCollateralTxBodyL
-      & collateralReturnTxBodyL .~ (translateTxOut <$> body ^. collateralReturnTxBodyL)
-
-  translateTxOut ::
-    Ledger.BabbageTxOut (Ledger.ConwayEra StandardCrypto) ->
-    Ledger.BabbageTxOut (Ledger.BabbageEra StandardCrypto)
-  translateTxOut out =
-    mkBasicTxOut (out ^. addrTxOutL) (out ^. valueTxOutL)
-      & dataTxOutL .~ (upgradeData <$> out ^. dataTxOutL)
-      & referenceScriptTxOutL .~ (out ^. referenceScriptTxOutL >>= maybeToStrictMaybe . translateScript)
-
-  translateWits ::
-    Ledger.AlonzoTxWits (Ledger.ConwayEra StandardCrypto) ->
-    Ledger.AlonzoTxWits (Ledger.BabbageEra StandardCrypto)
-  translateWits wits =
-    mkBasicTxWits
-      & addrTxWitsL .~ wits ^. addrTxWitsL
-      & bootAddrTxWitsL .~ wits ^. bootAddrTxWitsL
-      & scriptTxWitsL .~ Map.mapMaybe translateScript (wits ^. scriptTxWitsL)
-      & datsTxWitsL .~ upgradeTxDats (wits ^. datsTxWitsL)
-      & rdmrsTxWitsL .~ translateRdmrs (wits ^. rdmrsTxWitsL)
-
-  translateScript ::
-    Ledger.AlonzoScript (Ledger.ConwayEra StandardCrypto) ->
-    Maybe (Ledger.AlonzoScript (Ledger.BabbageEra StandardCrypto))
-  translateScript = \case
-    Ledger.TimelockScript ts -> Just . Ledger.TimelockScript $ translateTimelock ts
-    Ledger.PlutusScript ps -> case ps of
-      ConwayPlutusV1 p1 -> Just . Ledger.PlutusScript $ BabbagePlutusV1 p1
-      ConwayPlutusV2 p2 -> Just . Ledger.PlutusScript $ BabbagePlutusV2 p2
-      ConwayPlutusV3{} -> Nothing
-
-  translateRdmrs ::
-    Ledger.Redeemers (Ledger.ConwayEra StandardCrypto) ->
-    Ledger.Redeemers (Ledger.BabbageEra StandardCrypto)
-  translateRdmrs (Ledger.Redeemers redeemerMap) =
-    Ledger.Redeemers
-      . Map.fromList
-      $ mapMaybe
-        ( \(purpose, (dat, units)) -> do
-            p' <- translatePlutusPurpose purpose
-            pure (p', (upgradeData dat, units))
-        )
-      $ Map.toList redeemerMap
-
-  translatePlutusPurpose ::
-    Conway.ConwayPlutusPurpose Ledger.AsIndex (Ledger.ConwayEra StandardCrypto) ->
-    Maybe (Ledger.AlonzoPlutusPurpose Ledger.AsIndex (Ledger.BabbageEra StandardCrypto))
-  translatePlutusPurpose = \case
-    ConwaySpending (AsIndex ix) -> Just $ AlonzoSpending (AsIndex ix)
-    ConwayMinting (AsIndex ix) -> Just $ AlonzoMinting (AsIndex ix)
-    ConwayCertifying (AsIndex ix) -> Just $ AlonzoCertifying (AsIndex ix)
-    ConwayRewarding (AsIndex ix) -> Just $ AlonzoRewarding (AsIndex ix)
-    ConwayVoting{} -> Nothing
-    ConwayProposing{} -> Nothing
 
 -- | Sign transaction using the provided secret key
 -- It only works for tx not containing scripts.

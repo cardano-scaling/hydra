@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
-  AlonzoPlutusPurpose (AlonzoSpending),
+  ConwayPlutusPurpose (ConwaySpending),
   Metadatum,
   auxDataTxL,
   bodyTxL,
@@ -361,7 +361,7 @@ prop_interestingBlueprintTx = do
       (toLedgerTx tx ^. bodyTxL . inputsTxBodyL)
       && any
         ( \case
-            AlonzoSpending _ -> True
+            ConwaySpending _ -> True
             _ -> False
         )
         ( Map.keysSet

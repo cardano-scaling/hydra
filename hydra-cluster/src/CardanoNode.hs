@@ -276,17 +276,6 @@ setupCardanoDevnet stateDirectory = do
     Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
       mkTopology peers
 
--- | Modify the cardano-node configuration to fork into conway at given era
--- number.
-forkIntoConwayInEpoch :: FilePath -> CardanoNodeArgs -> Natural -> IO ()
-forkIntoConwayInEpoch stateDirectory args n = do
-  config <-
-    unsafeDecodeJsonFile @Aeson.Value (stateDirectory </> nodeConfigFile args)
-      <&> atKey "TestConwayHardForkAtEpoch" ?~ toJSON n
-  Aeson.encodeFile
-    (stateDirectory </> nodeConfigFile args)
-    config
-
 withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->

@@ -289,8 +289,8 @@ queryProtocolParameters networkId socket queryPoint =
       AllegraEra -> encodeToEra AllegraEra pparams
       MaryEra -> encodeToEra MaryEra pparams
       AlonzoEra -> encodeToEra AlonzoEra pparams
-      BabbageEra -> pure pparams
-      ConwayEra -> encodeToEra ConwayEra pparams
+      BabbageEra -> encodeToEra BabbageEra pparams
+      ConwayEra -> pure pparams
 
 -- | Query 'GenesisParameters' at a given point.
 --
