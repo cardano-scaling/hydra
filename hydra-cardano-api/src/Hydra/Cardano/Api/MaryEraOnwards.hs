@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.MaryEraOnwards where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (AlonzoEra, BabbageEra, ConwayEra, MaryEra, MaryEraOnwards (..))
 
 -- | Type class to produce 'MaryEraOnwards' witness values while staying
 -- parameterized by era.
