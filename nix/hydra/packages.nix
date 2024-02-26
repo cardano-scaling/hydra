@@ -116,73 +116,69 @@ rec {
 
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
-  tests = {
-    plutus-cbor = pkgs.mkShellNoCC {
-      name = "plutus-cbor-tests";
-      buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
-    };
-    plutus-merkle-tree = pkgs.mkShellNoCC {
-      name = "plutus-merkle-tree-tests";
-      buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
-    };
-    hydra-plutus = pkgs.mkShellNoCC {
-      name = "hydra-plutus-tests";
-      buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
-    };
-    hydra-node = pkgs.mkShellNoCC {
-      name = "hydra-node-tests";
-      buildInputs = [
-        nativePkgs.hydra-node.components.tests.tests
+  plutus-cbor-tests = pkgs.mkShellNoCC {
+    name = "plutus-cbor-tests";
+    buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
+  };
+  plutus-merkle-tree-tests = pkgs.mkShellNoCC {
+    name = "plutus-merkle-tree-tests";
+    buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
+  };
+  hydra-plutus-tests = pkgs.mkShellNoCC {
+    name = "hydra-plutus-tests";
+    buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
+  };
+  hydra-node-tests = pkgs.mkShellNoCC {
+    name = "hydra-node-tests";
+    buildInputs = [
+      nativePkgs.hydra-node.components.tests.tests
+      pkgs.check-jsonschema
+    ];
+  };
+  hydra-cluster-tests = pkgs.mkShellNoCC {
+    name = "hydra-cluster-tests";
+    buildInputs =
+      [
+        nativePkgs.hydra-cluster.components.tests.tests
+        hydra-node
+        hydra-chain-observer
+        inputs.cardano-node.packages.${system}.cardano-node
+        inputs.cardano-node.packages.${system}.cardano-cli
+        inputs.mithril.packages.${system}.mithril-client-cli
         pkgs.check-jsonschema
+        hydra-explorer
       ];
-    };
-    hydra-cluster = pkgs.mkShellNoCC {
-      name = "hydra-cluster-tests";
-      buildInputs =
-        [
-          nativePkgs.hydra-cluster.components.tests.tests
-          hydra-node
-          hydra-chain-observer
-          inputs.cardano-node.packages.${system}.cardano-node
-          inputs.cardano-node.packages.${system}.cardano-cli
-          inputs.mithril.packages.${system}.mithril-client-cli
-          pkgs.check-jsonschema
-          hydra-explorer
-        ];
-    };
-    hydra-tui = pkgs.mkShellNoCC {
-      name = "hydra-tui-tests";
-      buildInputs =
-        [
-          nativePkgs.hydra-tui.components.tests.tests
-          hydra-node
-          inputs.cardano-node.packages.${system}.cardano-node
-        ];
-    };
+  };
+  hydra-tui-tests = pkgs.mkShellNoCC {
+    name = "hydra-tui-tests";
+    buildInputs =
+      [
+        nativePkgs.hydra-tui.components.tests.tests
+        hydra-node
+        inputs.cardano-node.packages.${system}.cardano-node
+      ];
   };
 
-  benchs = {
-    hydra-node = pkgs.mkShellNoCC {
-      name = "bench-hydra-node";
-      buildInputs = [
-        nativePkgs.hydra-node.components.benchmarks.tx-cost
-        nativePkgs.hydra-node.components.benchmarks.micro
+  hydra-node-bench = pkgs.mkShellNoCC {
+    name = "hydra-node-bench";
+    buildInputs = [
+      nativePkgs.hydra-node.components.benchmarks.tx-cost
+      nativePkgs.hydra-node.components.benchmarks.micro
+    ];
+  };
+  hydra-cluster-bench = pkgs.mkShellNoCC {
+    name = "hydra-cluster-bench";
+    buildInputs =
+      [
+        nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
+        hydra-node
+        inputs.cardano-node.packages.${system}.cardano-node
+        inputs.cardano-node.packages.${system}.cardano-cli
       ];
-    };
-    hydra-cluster = pkgs.mkShellNoCC {
-      name = "bench-hydra-cluster";
-      buildInputs =
-        [
-          nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
-          hydra-node
-          inputs.cardano-node.packages.${system}.cardano-node
-          inputs.cardano-node.packages.${system}.cardano-cli
-        ];
-    };
-    plutus-merkle-tree = pkgs.mkShellNoCC {
-      name = "bench-plutus-merkle-tree";
-      buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
-    };
+  };
+  plutus-merkle-tree-bench = pkgs.mkShellNoCC {
+    name = "plutus-merkle-tree-bench";
+    buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
   };
 
   haddocks = pkgs.runCommand "hydra-haddocks"
