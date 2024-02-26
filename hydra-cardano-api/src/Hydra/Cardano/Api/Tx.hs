@@ -17,7 +17,6 @@ import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
-import Debug.Trace (trace)
 import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 
@@ -35,7 +34,7 @@ convertTx ::
   Maybe (Tx eraTo)
 convertTx tx =
   case deserialiseFromCBOR (proxyToAsType (Proxy @(Tx eraTo))) bytes of
-    Left err -> Nothing
+    Left _err -> Nothing
     Right tx' -> Just tx'
  where
   bytes = serialiseToCBOR tx

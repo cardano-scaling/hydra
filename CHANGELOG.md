@@ -36,6 +36,8 @@ changes.
 
 - Fix conversion of `Conway` blocks and fully verify `hydra-node` working on Conway networks like `sanchonet`.
 
+- Add support for `Conway` in `hydra-chain-observer`.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
