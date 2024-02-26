@@ -193,7 +193,7 @@ pattern ShelleyAddressInAnyEra <-
   Cardano.Api.ShelleyAddressInEra _
   where
     ShelleyAddressInAnyEra =
-      Cardano.Api.ShelleyAddressInEra ShelleyBasedEraBabbage
+      Cardano.Api.ShelleyAddressInEra shelleyBasedEra
 
 -- ** BalancedTxBody
 
@@ -217,14 +217,14 @@ pattern ShelleyBootstrapWitness{shelleyBootstrapWitness} <-
   Cardano.Api.Shelley.ShelleyBootstrapWitness _ shelleyBootstrapWitness
   where
     ShelleyBootstrapWitness =
-      Cardano.Api.Shelley.ShelleyBootstrapWitness ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyBootstrapWitness shelleyBasedEra
 
 pattern ShelleyKeyWitness :: Ledger.WitVKey 'Ledger.Witness StandardCrypto -> KeyWitness
 pattern ShelleyKeyWitness{shelleyKeyWitness} <-
   Cardano.Api.Shelley.ShelleyKeyWitness _ shelleyKeyWitness
   where
     ShelleyKeyWitness =
-      Cardano.Api.Shelley.ShelleyKeyWitness ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyKeyWitness shelleyBasedEra
 
 -- ** PlutusScript
 

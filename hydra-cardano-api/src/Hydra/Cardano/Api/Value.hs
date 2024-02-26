@@ -24,7 +24,7 @@ minUTxOValue pparams (TxOut addr val dat ref) =
   fromLedgerLovelace $
     getMinCoinTxOut
       pparams
-      (toShelleyTxOut ShelleyBasedEraBabbage (toUTxOContext out'))
+      (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
  where
   out' =
     TxOut
