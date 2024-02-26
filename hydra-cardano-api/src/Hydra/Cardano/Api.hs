@@ -155,8 +155,9 @@ import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Data.ByteString.Short (ShortByteString)
+import Hydra.Cardano.Api.AllegraEraOnwards (IsAllegraEraOnwards (..))
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Prelude
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards(..))
 
 -- ** AddressInEra
 
@@ -356,7 +357,7 @@ pattern TxAuxScripts{txAuxScripts'} <-
   Cardano.Api.TxAuxScripts _ txAuxScripts'
   where
     TxAuxScripts =
-      Cardano.Api.TxAuxScripts AllegraEraOnwardsBabbage
+      Cardano.Api.TxAuxScripts allegraEraOnwards
 
 -- ** TxBody
 
@@ -694,7 +695,7 @@ pattern TxValidityLowerBound{lowerBound} <-
   Cardano.Api.TxValidityLowerBound _ lowerBound
   where
     TxValidityLowerBound =
-      Cardano.Api.TxValidityLowerBound AllegraEraOnwardsBabbage
+      Cardano.Api.TxValidityLowerBound allegraEraOnwards
 
 -- ** TxValidityUpperBound
 
