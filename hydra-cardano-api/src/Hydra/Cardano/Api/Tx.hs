@@ -17,10 +17,28 @@ import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
+import Debug.Trace (trace)
 import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras
+
+-- | Convert a transaction of between cardano eras by re-encoding transactions
+-- and relying on the fact that ledger transactions are usually backward
+-- compatible. Expect this to succeed, for example, for a Babbage transaction
+-- that was included Conway block, which is then to be converted back to Babbage
+-- by this function.
+convertTx ::
+  forall eraFrom eraTo.
+  (IsShelleyBasedEra eraFrom, IsShelleyBasedEra eraTo) =>
+  Tx eraFrom ->
+  Maybe (Tx eraTo)
+convertTx tx =
+  case deserialiseFromCBOR (proxyToAsType (Proxy @(Tx eraTo))) bytes of
+    Left err -> trace ("CONVERT TX: " <> show err) Nothing
+    Right tx' -> Just tx'
+ where
+  bytes = serialiseToCBOR tx
 
 -- | Sign transaction using the provided secret key
 -- It only works for tx not containing scripts.
