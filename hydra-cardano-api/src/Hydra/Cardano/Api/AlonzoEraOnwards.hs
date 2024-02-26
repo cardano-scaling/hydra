@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.AlonzoEraOnwards where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (AlonzoEra, AlonzoEraOnwards (..), BabbageEra, ConwayEra)
 
 -- | Type class to produce 'AlonzoEraOnwards' witness values while staying
 -- parameterized by era.

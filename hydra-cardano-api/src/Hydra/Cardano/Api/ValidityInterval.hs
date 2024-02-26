@@ -30,8 +30,8 @@ fromLedgerValidityInterval validityInterval =
         SNothing -> TxValidityNoLowerBound
         SJust s -> TxValidityLowerBound AllegraEraOnwardsBabbage s
       upperBound = case invalidHereAfter of
-        SNothing -> TxValidityUpperBound ShelleyBasedEraBabbage Nothing
-        SJust s -> TxValidityUpperBound ShelleyBasedEraBabbage (Just s)
+        SNothing -> TxValidityUpperBound shelleyBasedEra Nothing
+        SJust s -> TxValidityUpperBound shelleyBasedEra (Just s)
    in (lowerBound, upperBound)
 
 instance Arbitrary (TxValidityLowerBound Era) where
@@ -42,4 +42,4 @@ instance Arbitrary (TxValidityLowerBound Era) where
       ]
 
 instance Arbitrary (TxValidityUpperBound Era) where
-  arbitrary = TxValidityUpperBound ShelleyBasedEraBabbage . fmap SlotNo <$> arbitrary
+  arbitrary = TxValidityUpperBound (shelleyBasedEra @Era) . fmap SlotNo <$> arbitrary
