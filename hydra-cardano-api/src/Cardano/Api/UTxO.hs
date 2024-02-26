@@ -20,6 +20,8 @@ import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
+import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Prelude
 
 type Era = BabbageEra
@@ -106,7 +108,7 @@ fromApi (Cardano.Api.UTxO eraUTxO) =
       (convertRefScriptToEra eraRefScript)
 
   convertAddressToEra :: AddressInEra era -> AddressInEra Era
-  convertAddressToEra (AddressInEra _ eraAddress) = anyAddressInShelleyBasedEra ShelleyBasedEraBabbage (toAddressAny eraAddress)
+  convertAddressToEra (AddressInEra _ eraAddress) = anyAddressInShelleyBasedEra shelleyBasedEra (toAddressAny eraAddress)
 
   convertValueToEra :: TxOutValue era -> TxOutValue Era
   convertValueToEra (TxOutValueByron lovelace) = lovelaceToTxOutValue shelleyBasedEra lovelace
@@ -114,12 +116,12 @@ fromApi (Cardano.Api.UTxO eraUTxO) =
 
   convertDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
   convertDatumToEra TxOutDatumNone = TxOutDatumNone
-  convertDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash AlonzoEraOnwardsBabbage hashScriptData
-  convertDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline BabbageEraOnwardsBabbage hashableScriptData
+  convertDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash alonzoEraOnwards hashScriptData
+  convertDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline babbageEraOnwards hashableScriptData
 
   convertRefScriptToEra :: ReferenceScript era -> ReferenceScript Era
   convertRefScriptToEra ReferenceScriptNone = ReferenceScriptNone
-  convertRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript BabbageEraOnwardsBabbage scriptInAnyLang
+  convertRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript babbageEraOnwards scriptInAnyLang
 
 toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

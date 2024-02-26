@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.BabbageEraOnwards where
 
-import Hydra.Cardano.Api.Prelude
+import Cardano.Api (BabbageEra, BabbageEraOnwards (..), ConwayEra)
 
 -- | Type class to produce 'BabbageEraOnwards' witness values while staying
 -- parameterized by era.
