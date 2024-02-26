@@ -35,7 +35,7 @@ convertTx ::
   Maybe (Tx eraTo)
 convertTx tx =
   case deserialiseFromCBOR (proxyToAsType (Proxy @(Tx eraTo))) bytes of
-    Left err -> trace ("CONVERT TX: " <> show err) Nothing
+    Left err -> Nothing
     Right tx' -> Just tx'
  where
   bytes = serialiseToCBOR tx
