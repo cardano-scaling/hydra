@@ -43,8 +43,6 @@ import Hydra.Cardano.Api (
   TxValidationErrorInCardanoMode,
   chainTipToChainPoint,
   connectToLocalNode,
-  convertConwayTx,
-  fromLedgerTx,
   getTxBody,
   getTxId,
   toLedgerTx,
@@ -152,7 +150,6 @@ mkTinyWallet tracer config = do
     runQueryExpr networkId nodeSocket QueryTip $ do
       AnyCardanoEra era <- queryCurrentEraExpr
       case era of
-        BabbageEra{} -> BabbagePParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
         ConwayEra{} -> ConwayPParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
         _ -> liftIO . throwIO $ QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Babbage or Conway"}
 
@@ -325,19 +322,13 @@ chainSyncClient handler wallet startingPoint =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
-            BlockInMode ConwayEra (Block header conwayTxs) -> do
-              let txs = map (fromLedgerTx . convertConwayTx . toLedgerTx) conwayTxs
+            BlockInMode ConwayEra (Block header txs) -> do
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
-            BlockInMode BabbageEra (Block header txs) -> do
-              -- Update the tiny wallet
-              update wallet header txs
-              -- Observe Hydra transactions
-              onRollForward handler header txs
-              pure clientStIdle
+            BlockInMode era@BabbageEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AlonzoEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AllegraEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@MaryEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}

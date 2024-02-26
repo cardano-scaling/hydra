@@ -15,11 +15,6 @@ import Hydra.Ledger.Cardano.Builder
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
-import Cardano.Ledger.Api (
-  updateTxBodyL,
- )
-import Cardano.Ledger.Babbage.Tx qualified as Ledger
-import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
 import Cardano.Ledger.Credential qualified as Ledger
@@ -30,7 +25,6 @@ import Cardano.Ledger.Shelley.Rules qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Control.Lens (set)
 import Control.Monad (foldM)
 import Data.Aeson (object, (.:), (.:?), (.=))
 import Data.Aeson qualified as Aeson
@@ -46,7 +40,7 @@ import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import PlutusLedgerApi.V2 (fromBuiltin)
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.QuickCheck (
   choose,
   getSize,
@@ -140,8 +134,8 @@ instance FromCBOR Tx where
 
 txType :: Tx -> Text
 txType tx' = case getTxWitnesses tx' of
-  [] -> "Unwitnessed Tx BabbageEra"
-  _ -> "Witnessed Tx BabbageEra"
+  [] -> "Unwitnessed Tx ConwayEra"
+  _ -> "Witnessed Tx ConwayEra"
 
 instance ToJSON Tx where
   toJSON tx =
@@ -170,11 +164,7 @@ instance FromJSON Tx where
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
-  arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
-   where
-    withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
-      let body' = body & set updateTxBodyL SNothing
-       in tx{Ledger.body = body'}
+  arbitrary = fromLedgerTx <$> arbitrary
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleTx ::

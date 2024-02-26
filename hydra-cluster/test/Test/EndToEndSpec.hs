@@ -21,10 +21,7 @@ import CardanoClient (
  )
 import CardanoNode (
   CardanoNodeArgs (..),
-  forkIntoConwayInEpoch,
-  setupCardanoDevnet,
   unsafeDecodeJsonFile,
-  withCardanoNode,
   withCardanoNodeDevnet,
  )
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
@@ -37,7 +34,6 @@ import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -58,7 +54,6 @@ import Hydra.Cluster.Fixture (
   carol,
   carolSk,
   carolVk,
-  cperiod,
  )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
@@ -99,14 +94,11 @@ import HydraNode (
   withHydraNode',
  )
 import System.Directory (removeDirectoryRecursive)
-import System.Exit (ExitCode (ExitFailure))
 import System.FilePath ((</>))
 import System.IO (
-  hGetContents,
   hGetLine,
  )
 import System.IO.Error (isEOFError)
-import System.Process (waitForProcess)
 import Test.QuickCheck (generate)
 import Prelude qualified
 
@@ -509,138 +501,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
-
-    describe "forking eras" $ do
-      it "does report on unsupported era" $ \tracer -> do
-        pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
-            let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-            withHydraNode' hydraTracer chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \out stdErr ph -> do
-              -- Assert nominal startup
-              waitForLog 5 out "missing NodeOptions" (Text.isInfixOf "NodeOptions")
-
-              waitUntilEpoch tmpDir args node 1
-
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents stdErr
-              errorOutputs `shouldContain` "Received blocks in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
-
-      it "does report on unsupported era on startup" $ \tracer -> do
-        pendingWith "Currently supporting Conway era no future upcoming"
-        withClusterTempDir $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $ \node@RunningNode{nodeSocket} -> do
-            let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-
-            waitUntilEpoch tmpDir args node 2
-
-            withHydraNode' hydraTracer chainConfig tmpDir 1 aliceSk [] [1] Nothing $ \_out stdErr ph -> do
-              waitForProcess ph `shouldReturn` ExitFailure 1
-              errorOutputs <- hGetContents stdErr
-              errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
-              errorOutputs `shouldContain` "upgrade your hydra-node"
-
-      it "support new era" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-
-          forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
-            \node@RunningNode{nodeSocket, networkId} -> do
-              let lovelaceBalanceValue = 100_000_000
-              -- Funds to be used as fuel by Hydra protocol transactions
-              (aliceCardanoVk, _) <- keysFor Alice
-              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
-              -- Get some UTXOs to commit to a head
-              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
-
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-
-              let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
-                send n1 $ input "Init" []
-                headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
-
-                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
-
-                waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
-
-                guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
-                waitUntilEpoch tmpDir args node 10
-                guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
-
-                send n1 $ input "Close" []
-                waitMatch 3 n1 $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsClosed"
-                  guard $ v ^? key "headId" == Just (toJSON headId)
-                  snapshotNumber <- v ^? key "snapshotNumber"
-                  guard $ snapshotNumber == Aeson.Number 0
-
-      it "can start in conway era" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-          forkIntoConwayInEpoch tmpDir args 1
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
-            \node@RunningNode{nodeSocket} -> do
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-              waitUntilEpoch tmpDir args node 1
-              let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ const $ pure ()
-
-      it "support new era on restart" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          args <- setupCardanoDevnet tmpDir
-
-          forkIntoConwayInEpoch tmpDir args 10
-          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
-            \node@RunningNode{nodeSocket, networkId} -> do
-              let lovelaceBalanceValue = 100_000_000
-              -- Funds to be used as fuel by Hydra protocol transactions
-              (aliceCardanoVk, _) <- keysFor Alice
-              seedFromFaucet_ node aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
-              -- Get some UTXOs to commit to a head
-              (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
-
-              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
-
-              guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
-
-              let hydraTracer = contramap FromHydraNode tracer
-              headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
-                send n1 $ input "Init" []
-                headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
-
-                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
-
-                waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
-
-                pure headId
-
-              waitUntilEpoch tmpDir args node 10
-
-              guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
-
-              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
-                send n1 $ input "Close" []
-                waitMatch 3 n1 $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsClosed"
-                  guard $ v ^? key "headId" == Just (toJSON headId)
-                  snapshotNumber <- v ^? key "snapshotNumber"
-                  guard $ snapshotNumber == Aeson.Number 0
 
 -- | Query the current era at the tip, and guard that it is equal to the
 -- provided one.

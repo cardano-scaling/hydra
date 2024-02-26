@@ -293,5 +293,8 @@
       "numerator": 2,
       "denominator": 3
     }
-  }
+  },
+  "minFeeRefScriptCostPerByte": 0,
+  "plutusV3CostModel":[],
+  "extraPraosEntropy": null
 }

@@ -133,7 +133,8 @@ import Hydra.Cardano.Api
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AlonzoPlutusPurpose (..), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
+import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
+import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
@@ -304,13 +305,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       | isHeadOutput (resolveInput ix) = (Ledger.Data (toData newRedeemer), units)
       | otherwise = (dat, units)
 
-    resolveInput :: Ledger.AlonzoPlutusPurpose AsIx w -> TxOut CtxUTxO
+    resolveInput :: ConwayPlutusPurpose AsIx w -> TxOut CtxUTxO
     resolveInput ix =
       let k = case ix of
-            AlonzoSpending i -> unAsIx i
-            AlonzoCertifying i -> unAsIx i
-            AlonzoRewarding i -> unAsIx i
-            AlonzoMinting i -> unAsIx i
+            ConwaySpending i -> unAsIx i
+            ConwayCertifying i -> unAsIx i
+            ConwayRewarding i -> unAsIx i
+            ConwayMinting i -> unAsIx i
+            ConwayVoting i -> unAsIx i
+            ConwayProposing i -> unAsIx i
           txIn = Set.elemAt (fromIntegral k) ledgerInputs -- NOTE: calls 'error' if out of bounds
        in case UTxO.resolve (fromLedgerTxIn txIn) utxo of
             Nothing -> error $ "txIn not resolvable: " <> show txIn
@@ -417,7 +420,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
             let newRedeemers =
                   Map.filterWithKey
                     ( \x _ -> case x of
-                        Ledger.AlonzoMinting _ -> False
+                        ConwayMinting _ -> False
                         _ -> True
                     )
                     redeemers
@@ -624,7 +627,7 @@ alterTxIns fn tx =
   nonSpendingRedeemers =
     Map.filterWithKey
       ( \x _ -> case x of
-          Ledger.AlonzoSpending _ -> False
+          ConwaySpending _ -> False
           _ -> True
       )
       redeemersMap
@@ -632,7 +635,7 @@ alterTxIns fn tx =
   rebuiltSpendingRedeemers = Map.fromList $
     flip mapMaybe (zip [0 ..] newSortedInputs) $ \(i, (_, mRedeemer)) ->
       mRedeemer <&> \d ->
-        (Ledger.AlonzoSpending (AsIx i), (toLedgerData d, Ledger.ExUnits 0 0))
+        (ConwaySpending (AsIx i), (toLedgerData d, Ledger.ExUnits 0 0))
 
   -- NOTE: This needs to be ordered, such that we can calculate the redeemer
   -- pointers correctly.
@@ -648,7 +651,7 @@ alterTxIns fn tx =
   resolveRedeemers :: [TxIn] -> [(TxIn, Maybe HashableScriptData)]
   resolveRedeemers txInputs =
     zip txInputs [0 ..] <&> \(txIn, i) ->
-      case Map.lookup (Ledger.AlonzoSpending (AsIx i)) redeemersMap of
+      case Map.lookup (ConwaySpending (AsIx i)) redeemersMap of
         Nothing -> (txIn, Nothing)
         Just (redeemerData, _exUnits) -> (txIn, Just $ fromLedgerData redeemerData)
 
