@@ -24,12 +24,12 @@ import Cardano.Ledger.Alonzo.TxWits (
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
-  Babbage,
   BabbageEraTxBody,
   Conway,
   Data,
   EraCrypto,
   PParams,
+  TransactionScriptFailure,
   Tx,
   bodyTxL,
   calcMinFeeTx,
@@ -46,7 +46,6 @@ import Cardano.Ledger.Api (
   reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   scriptTxWitsL,
-  upgradeTxOut,
   witsTxL,
   pattern SpendingPurpose,
  )
@@ -57,7 +56,9 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (TxUpgradeError, upgradeTx)
+import Cardano.Ledger.Core (
+  TxUpgradeError,
+ )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
@@ -69,7 +70,6 @@ import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
-import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
@@ -89,7 +89,6 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
-  convertConwayTx,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
@@ -138,11 +137,6 @@ data TinyWallet m = TinyWallet
   -- wallet is still initializing.
   }
 
-data SomePParams
-  = BabbagePParams (PParams Babbage)
-  | ConwayPParams (PParams Conway)
-  deriving (Show)
-
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
   , systemStart :: SystemStart
@@ -170,7 +164,7 @@ newTinyWallet ::
   ChainQuery IO ->
   IO (EpochInfo (Either Text)) ->
   -- | A means to query some pparams.
-  IO SomePParams ->
+  IO (PParams Conway) ->
   IO (TinyWallet IO)
 newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
@@ -187,16 +181,11 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           -- We query pparams here again as it's possible that a hardfork
           -- occurred and the pparams changed.
           pparams <- querySomePParams
-          pure $
-            case pparams of
-              BabbagePParams pp ->
-                coverFee_ pp systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
-                  <&> fromLedgerTx
-              ConwayPParams pp -> do
-                -- TODO: request re-export of upgradeTx in cardano-ledger-api
-                conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
-                coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
-                  <&> fromLedgerTx . recomputeIntegrityHash pp [PlutusV2] . convertConwayTx
+          pure $ do
+            -- TODO: request re-export of upgradeTx in cardano-ledger-api
+            let conwayTx = toLedgerTx partialTx
+            coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO conwayTx
+              <&> fromLedgerTx . recomputeIntegrityHash pparams [PlutusV2]
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -427,6 +416,7 @@ findLargestUTxO utxo =
 -- elements to it like change outputs or script integrity hash may increase that
 -- cost a little.
 estimateScriptsCost ::
+  forall era.
   (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraCrypto era ~ StandardCrypto, EraUTxO era) =>
   -- | Protocol parameters
   Core.PParams era ->
@@ -440,14 +430,19 @@ estimateScriptsCost ::
   Tx era ->
   Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
-  Map.traverseWithKey convertResult $
+  Map.traverseWithKey convertResult result
+ where
+  result ::
+    Map
+      (PlutusPurpose AsIx era)
+      (Either (TransactionScriptFailure era) ExUnits)
+  result =
     evalTxExUnits
       pparams
       tx
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
- where
   convertResult ptr = \case
     Right exUnits -> Right exUnits
     Left failure ->

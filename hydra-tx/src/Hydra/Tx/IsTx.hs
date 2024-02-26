@@ -128,8 +128,8 @@ instance FromCBOR UTxO where
 
 txType :: Tx -> Text
 txType tx' = case getTxWitnesses tx' of
-  [] -> "Unwitnessed Tx BabbageEra"
-  _ -> "Witnessed Tx BabbageEra"
+  [] -> "Unwitnessed Tx ConwayEra"
+  _ -> "Witnessed Tx ConwayEra"
 
 instance IsTx Tx where
   type TxIdType Tx = TxId

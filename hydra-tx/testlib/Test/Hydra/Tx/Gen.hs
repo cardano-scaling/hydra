@@ -9,15 +9,10 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Api (
-  updateTxBodyL,
- )
-import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Magic (uintegerFromBytes)
-import Control.Lens (set)
 import Data.ByteString qualified as BS
 import Data.List (maximum)
 import Data.Map.Strict qualified as Map
@@ -38,7 +33,7 @@ import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Utils (adaOnly, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusTx.Builtins (fromBuiltin)
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixtures
 import Test.QuickCheck (choose, getSize, listOf, oneof, scale, shrinkList, shrinkMapBy, sublistOf, suchThat, vector, vectorOf)
@@ -230,11 +225,7 @@ instance Arbitrary ClosedThreadOutput where
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
-  arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
-   where
-    withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
-      let body' = body & set updateTxBodyL Ledger.SNothing
-       in tx{Ledger.body = body'}
+  arbitrary = fromLedgerTx <$> arbitrary
 
 instance Arbitrary UTxO where
   shrink = shrinkUTxO
