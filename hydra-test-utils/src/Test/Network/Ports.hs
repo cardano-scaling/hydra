@@ -5,9 +5,8 @@ import Hydra.Prelude
 
 import Network.Socket (
   PortNumber,
-  close',
  )
-import Network.Socket.Free (openFreePort)
+import Network.Socket.Free (getFreePort)
 
 -- | Find a TCPv4 port which is likely to be free for listening on
 -- @localhost@. This binds a socket, receives an OS-assigned port, then closes
@@ -19,9 +18,7 @@ import Network.Socket.Free (openFreePort)
 -- Do not use this unless you have no other option.
 getRandomPort :: IO PortNumber
 getRandomPort = do
-  (port, sock) <- openFreePort
-  liftIO $ close' sock
-  return $ fromIntegral port
+  fromIntegral <$> getFreePort
 
 -- | Find a free TCPv4 port and pass it to the given 'action'.
 --
