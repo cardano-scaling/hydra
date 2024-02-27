@@ -34,6 +34,10 @@ changes.
 
 - Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
+- Fix conversion of `Conway` blocks and fully verify `hydra-node` working on Conway networks like `sanchonet`.
+
+- Add support for `Conway` in `hydra-chain-observer`.
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
