@@ -55,7 +55,6 @@ import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Shelley.API.Wallet (evaluateTransactionFee)
 import Cardano.Ledger.Val (Val (..), invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
@@ -307,7 +306,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an aditional witness (we will sign this tx later)
-  let fee = evaluateTransactionFee pparams costingTx additionalWitnesses
+  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
