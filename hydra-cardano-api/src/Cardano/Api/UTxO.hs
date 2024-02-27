@@ -22,6 +22,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
 import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
+import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 import Prelude
 
 type Era = BabbageEra
@@ -112,7 +113,7 @@ fromApi (Cardano.Api.UTxO eraUTxO) =
 
   convertValueToEra :: TxOutValue era -> TxOutValue Era
   convertValueToEra (TxOutValueByron lovelace) = lovelaceToTxOutValue shelleyBasedEra lovelace
-  convertValueToEra (TxOutValueShelleyBased sbe value) = TxOutValueShelleyBased shelleyBasedEra (toLedgerValue MaryEraOnwardsBabbage $ fromLedgerValue sbe value)
+  convertValueToEra (TxOutValueShelleyBased sbe value) = TxOutValueShelleyBased shelleyBasedEra (toLedgerValue (maryEraOnwards @Era) $ fromLedgerValue sbe value)
 
   convertDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
   convertDatumToEra TxOutDatumNone = TxOutDatumNone
