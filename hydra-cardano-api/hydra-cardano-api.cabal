@@ -44,6 +44,7 @@ library
     Hydra.Cardano.Api
     Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.AllegraEraOnwards
     Hydra.Cardano.Api.AlonzoEraOnwards
     Hydra.Cardano.Api.BabbageEraOnwards
     Hydra.Cardano.Api.BlockHeader

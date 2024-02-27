@@ -6,6 +6,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
+import Hydra.Cardano.Api.AllegraEraOnwards (IsAllegraEraOnwards (..))
 import Test.QuickCheck (oneof)
 
 toLedgerValidityInterval ::
@@ -28,7 +29,7 @@ fromLedgerValidityInterval validityInterval =
   let Ledger.ValidityInterval{Ledger.invalidBefore = invalidBefore, Ledger.invalidHereafter = invalidHereAfter} = validityInterval
       lowerBound = case invalidBefore of
         SNothing -> TxValidityNoLowerBound
-        SJust s -> TxValidityLowerBound AllegraEraOnwardsBabbage s
+        SJust s -> TxValidityLowerBound allegraEraOnwards s
       upperBound = case invalidHereAfter of
         SNothing -> TxValidityUpperBound shelleyBasedEra Nothing
         SJust s -> TxValidityUpperBound shelleyBasedEra (Just s)
@@ -38,7 +39,7 @@ instance Arbitrary (TxValidityLowerBound Era) where
   arbitrary =
     oneof
       [ pure TxValidityNoLowerBound
-      , TxValidityLowerBound AllegraEraOnwardsBabbage . SlotNo <$> arbitrary
+      , TxValidityLowerBound allegraEraOnwards . SlotNo <$> arbitrary
       ]
 
 instance Arbitrary (TxValidityUpperBound Era) where
