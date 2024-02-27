@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   UTxO,
   chainTipToChainPoint,
   connectToLocalNode,
+  convertTx,
   getTxBody,
   getTxId,
  )
@@ -157,17 +158,21 @@ chainSyncClient tracer networkId startingPoint observerHandler =
   clientStNext utxo =
     ClientStNext
       { recvMsgRollForward = \blockInMode tip -> ChainSyncClient $ do
-          case blockInMode of
-            BlockInMode BabbageEra (Block _header txs) -> do
-              let point = chainTipToChainPoint tip
-              let receivedTxIds = getTxId . getTxBody <$> txs
-              traceWith tracer RollForward{point, receivedTxIds}
-              let (utxo', observations) = observeAll networkId utxo txs
-              -- FIXME we should be exposing OnChainTx instead of working around NoHeadTx.
-              forM_ observations (maybe (pure ()) (traceWith tracer) . logObservation)
-              observerHandler observations
-              pure $ clientStIdle utxo'
-            _ -> pure $ clientStIdle utxo
+          let txs = case blockInMode of
+                BlockInMode ConwayEra (Block _header conwayTxs) -> mapMaybe convertTx conwayTxs
+                BlockInMode BabbageEra (Block _header babbageTxs) -> babbageTxs
+                _ -> []
+          traceWith
+            tracer
+            RollForward
+              { point = chainTipToChainPoint tip
+              , receivedTxIds = getTxId . getTxBody <$> txs
+              }
+          let (utxo', observations) = observeAll networkId utxo txs
+          -- FIXME we should be exposing OnChainTx instead of working around NoHeadTx.
+          forM_ observations (maybe (pure ()) (traceWith tracer) . logObservation)
+          observerHandler observations
+          pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
           pure $ clientStIdle utxo
