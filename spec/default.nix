@@ -1,5 +1,4 @@
-{ pkgs ? import <nixpkgs> { }
-}:
+{ pkgs }:
 
 pkgs.stdenvNoCC.mkDerivation rec {
   name = "hydra-spec";

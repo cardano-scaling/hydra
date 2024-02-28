@@ -2,8 +2,8 @@
 # metadata, as this is only added by the Github workflow.
 
 { hydraPackages # as defined in packages.nix
-, system ? builtins.currentSystem
-, nixpkgs ? <nixpkgs>
+, system
+, nixpkgs
 }:
 let
   pkgs = import nixpkgs { inherit system; };

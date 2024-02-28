@@ -2,28 +2,51 @@
 # environment. The main shell environment is based on haskell.nix and uses the
 # same nixpkgs as the default nix builds (see default.nix).
 
-{
-  # Used in CI to have a smaller closure
-  withoutDevTools ? false
-, hydraProject
+{ hsPkgs
 , inputs
-, tools
-, system ? builtins.currentSystem
+, system
+, pkgs
+, compiler
 }:
 let
-  inherit (hydraProject) compiler pkgs hsPkgs;
 
-  cabal = pkgs.haskell-nix.cabal-install.${compiler};
-
-  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.0.0";
-  cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-  apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
-
-  # Build HLS form our fork (see flake.nix)
-  haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-    src = inputs.hls;
-    cabalProject = builtins.readFile (src + "/cabal.project");
-  };
+  buildInputs = [
+    # For running automatic refactoring with hlint
+    pkgs.apply-refact
+    pkgs.cabal-fmt
+    pkgs.cabal-install
+    # Handy tool to debug the cabal build plan
+    pkgs.cabal-plan
+    # To interact with cardano-node and integration tests
+    pkgs.cardano-cli
+    # For integration tests
+    pkgs.cardano-node
+    # For validating JSON instances against a pre-defined schema
+    pkgs.check-jsonschema
+    pkgs.fourmolu
+    pkgs.git
+    # For plotting results of hydra-cluster benchmarks
+    pkgs.gnuplot
+    pkgs.haskell-language-server
+    pkgs.hlint
+    pkgs.haskellPackages.hspec-discover
+    # The interactive Glasgow Haskell Compiler as a Daemon
+    pkgs.haskellPackages.ghcid
+    # Generate a graph of the module dependencies in the "dot" format
+    pkgs.haskellPackages.graphmod
+    # To interact with mithril and integration tests
+    pkgs.mithril-client-cli
+    pkgs.nixpkgs-fmt
+    pkgs.nodejs
+    pkgs.pkg-config
+    # For generating plantuml drawings
+    pkgs.plantuml
+    pkgs.treefmt
+    # Handy to interact with the hydra-node via websockets
+    pkgs.websocat
+    pkgs.yarn
+    pkgs.yq
+  ];
 
   libs = [
     pkgs.glibcLocales
@@ -35,54 +58,10 @@ let
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
-  buildInputs = [
-    # Build essentials
-    pkgs.git
-    pkgs.pkg-config
-    cabal
-    (pkgs.haskell-nix.tool compiler "cabal-plan" "latest")
-    pkgs.haskellPackages.hspec-discover
-    # Formatting
-    pkgs.treefmt
-    fourmolu
-    cabal-fmt
-    pkgs.nixpkgs-fmt
-    tools.hlint
-    apply-refact
-    # For validating JSON instances against a pre-defined schema
-    pkgs.check-jsonschema
-    # For generating plantuml drawings
-    pkgs.plantuml
-    # For plotting results of hydra-cluster benchmarks
-    pkgs.gnuplot
-    # For integration tests
-    inputs.cardano-node.packages.${system}.cardano-node
-    # To interact with cardano-node and integration tests
-    inputs.cardano-node.packages.${system}.cardano-cli
-    # To interact with mithril and integration tests
-    inputs.mithril.packages.${system}.mithril-client-cli
-  ];
-
-  devInputs = if withoutDevTools then [ ] else [
-    # Essential for a good IDE
-    haskell-language-server
-    # The interactive Glasgow Haskell Compiler as a Daemon
-    pkgs.haskellPackages.ghcid
-    # Generate a graph of the module dependencies in the "dot" format
-    pkgs.haskellPackages.graphmod
-    # Handy to interact with the hydra-node via websockets
-    pkgs.websocat
-    # Like 'jq' to manipulate JSON, but work for YAML
-    pkgs.yq
-    # For docs/ (i.e. Docusaurus, Node.js & React)
-    pkgs.yarn
-    pkgs.nodejs
-  ];
-
   haskellNixShell = hsPkgs.shellFor {
-    buildInputs = libs ++ buildInputs ++ devInputs;
+    buildInputs = libs ++ buildInputs;
 
-    withHoogle = !withoutDevTools;
+    withHoogle = true;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
@@ -108,10 +87,10 @@ let
     name = "hydra-node-cabal-shell";
 
     buildInputs = libs ++ [
-      pkgs.haskell-nix.compiler.${compiler}
+      hsPkgs.compiler.${compiler}
       pkgs.cabal-install
       pkgs.pkg-config
-    ] ++ buildInputs ++ devInputs;
+    ] ++ buildInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
     LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
@@ -152,18 +131,6 @@ let
     ];
   };
 
-  fmtShell = pkgs.mkShell {
-    name = "hydra-format-shell";
-    buildInputs = [
-      pkgs.treefmt
-      fourmolu
-      cabal-fmt
-      pkgs.nixpkgs-fmt
-      tools.hlint
-      apply-refact
-    ];
-  };
-
   # If you want to modify `Python` code add `libtmux` and pyyaml to the
   # `buildInputs` then enter it and then run `Python` module directly so you
   # have fast devel cycle.
@@ -178,5 +145,4 @@ in
   cabalOnly = cabalShell;
   exes = exeShell;
   demo = demoShell;
-  fmt = fmtShell;
 }
