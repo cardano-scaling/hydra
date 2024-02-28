@@ -1,0 +1,7 @@
+{ buildYarnPackage }:
+
+buildYarnPackage rec {
+
+  src = ./.;
+
+}
