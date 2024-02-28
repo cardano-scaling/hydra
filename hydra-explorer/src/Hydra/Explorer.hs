@@ -13,44 +13,50 @@ import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
 import Options.Applicative (execParser)
-import Servant (Server, throwError)
-import Servant.API (Get, Header, JSON, addHeader, (:>))
+import Servant (throwError)
+import Servant.API (Get, Header, JSON, Raw, addHeader, (:<|>) (..), (:>))
 import Servant.API.ResponseHeaders (Headers)
-import Servant.Server (Application, Handler, err500, serve)
+import Servant.Server (Application, Handler, Tagged, err500, serve)
+import Servant.Server.StaticFiles (serveDirectoryWebApp)
 import System.Environment (withArgs)
 
+type CorsHeaders :: [Type]
+type CorsHeaders =
+  [ Header "Access-Control-Allow-Origin" String
+  , Header "Access-Control-Allow-Methods" String
+  , Header "Access-Control-Allow-Headers" String
+  ]
+
+type GetHeadsHeaders :: [Type]
+type GetHeadsHeaders = Header "Accept" String ': CorsHeaders
+
+type API :: Type
 type API =
   "heads"
     :> Get
         '[JSON]
         ( Headers
-            '[ Header "Accept" String
-             , Header "Access-Control-Allow-Origin" String
-             , Header "Access-Control-Allow-Methods" String
-             , Header "Access-Control-Allow-Headers" String
-             ]
+            GetHeadsHeaders
             [HeadState]
         )
+    :<|> Raw
 
+type GetHeads :: Type
 type GetHeads = IO [HeadState]
 
 api :: Proxy API
 api = Proxy
 
-server :: GetHeads -> Server API
-server = handleGetHeads
+server ::
+  forall (m :: Type -> Type).
+  GetHeads ->
+  Handler (Headers GetHeadsHeaders [HeadState])
+    :<|> Tagged m Application
+server getHeads = handleGetHeads getHeads :<|> serveDirectoryWebApp "static"
 
 handleGetHeads ::
   GetHeads ->
-  Handler
-    ( Headers
-        '[ Header "Accept" String
-         , Header "Access-Control-Allow-Origin" String
-         , Header "Access-Control-Allow-Methods" String
-         , Header "Access-Control-Allow-Headers" String
-         ]
-        [HeadState]
-    )
+  Handler (Headers GetHeadsHeaders [HeadState])
 handleGetHeads getHeads = do
   result <- liftIO $ try getHeads
   case result of
@@ -111,12 +117,5 @@ main = do
       & Warp.setHost "0.0.0.0"
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
-addCorsHeaders ::
-  a ->
-  Headers
-    [ Header "Access-Control-Allow-Origin" String
-    , Header "Access-Control-Allow-Methods" String
-    , Header "Access-Control-Allow-Headers" String
-    ]
-    a
+addCorsHeaders :: a -> Headers CorsHeaders a
 addCorsHeaders = addHeader "*" . addHeader "*" . addHeader "*"
