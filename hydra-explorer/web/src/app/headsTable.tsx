@@ -6,6 +6,8 @@ import Image from "next/image"
 interface HeadState {
     headId: string
     status: string
+    lastUpdatedAtSlotNo: number
+    lastUpdatedAtBlockNo: number
 }
 
 const HeadsTable = () => {
@@ -56,6 +58,8 @@ const HeadsTable = () => {
                             <tr>
                                 <th className="px-4 py-2">Head ID</th>
                                 <th className="px-4 py-2">Status</th>
+                                <th className="px-4 py-2">Last Updated At SlotNo</th>
+                                <th className="px-4 py-2">Last Updated At BlockNo</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -63,6 +67,8 @@ const HeadsTable = () => {
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
                                     <td className="border px-4 py-2">{entry.headId}</td>
                                     <td className="border px-4 py-2">{entry.status}</td>
+                                    <td className="border px-4 py-2">{entry.lastUpdatedAtSlotNo}</td>
+                                    <td className="border px-4 py-2">{entry.lastUpdatedAtBlockNo}</td>
                                 </tr>
                             ))}
                         </tbody>
