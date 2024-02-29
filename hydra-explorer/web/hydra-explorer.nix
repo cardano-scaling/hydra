@@ -1,6 +1,6 @@
-{ buildYarnPackage }:
+{ pkgs }:
 
-(buildYarnPackage rec {
+(pkgs.buildYarnPackage rec {
   src = ./.;
   yarnBuildMore = "yarn build";
 }).overrideAttrs (oldAttrs: {

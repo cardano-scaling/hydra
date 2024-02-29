@@ -84,7 +84,7 @@
         };
 
         hydraPackages = import ./nix/hydra/packages.nix {
-          inherit system pkgs inputs hsPkgs;
+          inherit system pkgs inputs hsPkgs self;
           gitRev = self.rev or "dirty";
         };
 
@@ -96,14 +96,11 @@
           with pkgs.lib.attrsets;
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
 
-        hydra-explorer-web = import ./hydra-explorer/web/hydra-explorer.nix { inherit (pkgs) buildYarnPackage; };
-
       in
       rec {
         legacyPackages = pkgs;
 
         packages =
-          { inherit hydra-explorer-web; default = hydraPackages.hydra-node; } //
           hydraPackages //
           prefixAttrs "docker-" hydraImages // {
             spec = import ./spec { inherit pkgs; };

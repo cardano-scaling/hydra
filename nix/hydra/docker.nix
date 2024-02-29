@@ -33,11 +33,13 @@ in
     created = "now";
     config = {
       Entrypoint = [ "${hydraPackages.hydra-explorer-static}/bin/hydra-explorer" ];
+      WorkingDir = "/";
     };
+    # Copy the static files to the /static in the docker image
     copyToRoot = [
-      (pkgs.runCommand "hydrascan-static-files" { } ''
+      (pkgs.runCommand "hydra-explorer-static-files" { } ''
         mkdir $out
-        ln -s ${../../hydra-explorer/web/static} $out/static
+        ln -s ${hydraPackages.hydra-explorer-web} $out/static
       '')
     ];
   };
