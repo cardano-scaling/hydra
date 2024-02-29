@@ -3,8 +3,7 @@ module Hydra.Explorer.ExplorerStateSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (Tx)
-import Hydra.Chain (OnChainTx (..))
+import Hydra.ChainObserver (HeadObservationAt)
 import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations)
 import Hydra.Explorer.ExplorerState qualified as ExplorerState
 import Hydra.HeadId (HeadId)
@@ -25,7 +24,7 @@ spec = do
           let resultHeads = aggregateHeadObservations observations initialState
           getHeadIds initialState `isPrefixOf` getHeadIds resultHeads
  where
-  genObservations :: Gen [OnChainTx Tx]
+  genObservations :: Gen [HeadObservationAt]
   genObservations = arbitrary `suchThat` (not . null)
 
   getHeadIds :: ExplorerState -> [HeadId]

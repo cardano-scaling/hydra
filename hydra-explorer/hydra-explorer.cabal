@@ -83,7 +83,7 @@ test-suite tests
     , hspec
     , hspec-wai
     , http-types
-    , hydra-cardano-api
+    , hydra-chain-observer
     , hydra-explorer
     , hydra-node
     , hydra-prelude

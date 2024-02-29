@@ -5,8 +5,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.Cardano.Api (Tx)
-import Hydra.Chain (OnChainTx)
+import Hydra.ChainObserver (HeadObservationAt)
 import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
 import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
@@ -78,7 +77,7 @@ httpApp :: Tracer IO APIServerLog -> GetHeads -> Application
 httpApp tracer getHeads =
   logMiddleware tracer $ serve api $ server getHeads
 
-observerHandler :: TVar IO ExplorerState -> [OnChainTx Tx] -> IO ()
+observerHandler :: TVar IO ExplorerState -> [HeadObservationAt] -> IO ()
 observerHandler explorerState observations = do
   atomically $
     modifyTVar' explorerState $

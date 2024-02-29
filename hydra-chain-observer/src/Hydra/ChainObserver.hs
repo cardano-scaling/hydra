@@ -6,7 +6,9 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (
   Block (..),
+  BlockHeader (BlockHeader),
   BlockInMode (..),
+  BlockNo,
   CardanoEra (..),
   ChainPoint,
   ChainSyncClient,
@@ -17,6 +19,7 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  SlotNo,
   SocketPath,
   Tx,
   UTxO,
@@ -48,7 +51,17 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStNext (..),
  )
 
-type ObserverHandler m = [OnChainTx Tx] -> m ()
+type ObserverHandler m = [HeadObservationAt] -> m ()
+
+data HeadObservationAt = HeadObservationAt
+  { slotNo :: SlotNo
+  , blockNo :: BlockNo
+  , onChainTx :: OnChainTx Tx
+  }
+  deriving stock (Eq, Show, Generic)
+
+instance Arbitrary HeadObservationAt where
+  arbitrary = genericArbitrary
 
 defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
@@ -157,6 +170,8 @@ chainSyncClient tracer networkId startingPoint observerHandler =
                 BlockInMode ConwayEra (Block _header conwayTxs) -> mapMaybe convertTx conwayTxs
                 BlockInMode BabbageEra (Block _header babbageTxs) -> babbageTxs
                 _ -> []
+
+              (BlockInMode _ (Block (BlockHeader slotNo _ blockNo) _)) = blockInMode
           traceWith
             tracer
             RollForward
@@ -166,7 +181,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           let (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
           forM_ onChainTxs (maybe (pure ()) (traceWith tracer) . logOnChainTx)
-          observerHandler onChainTxs
+          observerHandler (fmap (HeadObservationAt slotNo blockNo) onChainTxs)
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
