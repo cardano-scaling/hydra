@@ -5,6 +5,7 @@
 , pkgs
 , inputs
 , gitRev ? "unknown"
+, self
 }:
 let
   lib = pkgs.lib;
@@ -95,6 +96,9 @@ rec {
 
   hydra-explorer-static =
     musl64Pkgs.hydra-explorer.components.exes.hydra-explorer;
+
+  hydra-explorer-web =
+    import "${self}/hydra-explorer/web/hydra-explorer.nix" { inherit pkgs; };
 
   hydra-tui =
     embedRevision

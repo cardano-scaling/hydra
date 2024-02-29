@@ -20,6 +20,7 @@
     };
     cardano-node.url = "github:intersectmbo/cardano-node/8.8.0-pre";
     mithril.url = "github:input-output-hk/mithril/2347.0";
+    nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
   };
 
   outputs =
@@ -55,6 +56,7 @@
             inputs.haskellNix.overlay
             # Custom static libs used for darwin build
             (import ./nix/static-libs.nix)
+            inputs.nix-npm-buildpackage.overlays.default
             # Specific versions of tools we require
             (final: prev: {
               apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
@@ -82,7 +84,7 @@
         };
 
         hydraPackages = import ./nix/hydra/packages.nix {
-          inherit system pkgs inputs hsPkgs;
+          inherit system pkgs inputs hsPkgs self;
           gitRev = self.rev or "dirty";
         };
 
@@ -93,12 +95,12 @@
         prefixAttrs = s: attrs:
           with pkgs.lib.attrsets;
           mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
+
       in
       rec {
         legacyPackages = pkgs;
 
         packages =
-          { default = hydraPackages.hydra-node; } //
           hydraPackages //
           prefixAttrs "docker-" hydraImages // {
             spec = import ./spec { inherit pkgs; };
