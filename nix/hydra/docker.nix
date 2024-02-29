@@ -34,6 +34,12 @@ in
     config = {
       Entrypoint = [ "${hydraPackages.hydra-explorer-static}/bin/hydra-explorer" ];
     };
+    copyToRoot = [
+      (pkgs.runCommand "hydrascan-static-files" { } ''
+        mkdir $out
+        ln -s ${../../hydra-explorer/web/static} $out/static
+      '')
+    ];
   };
 
   hydraw = pkgs.dockerTools.buildImage {
