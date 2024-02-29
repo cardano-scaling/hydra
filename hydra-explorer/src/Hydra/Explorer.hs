@@ -13,7 +13,7 @@ import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
 import Options.Applicative (execParser)
-import Servant (throwError, serveDirectoryFileServer)
+import Servant (serveDirectoryFileServer, throwError)
 import Servant.API (Get, Header, JSON, Raw, addHeader, (:<|>) (..), (:>))
 import Servant.API.ResponseHeaders (Headers)
 import Servant.Server (Application, Handler, Tagged, err500, serve)
