@@ -84,14 +84,11 @@ jobs:
         name: haddocks
         path: docs/static/haddock
 
-    - name: Build documentation + latest monthly
+    - name: Build documentation
       working-directory: docs
       run: |
-        # Use monthly reports (blog) from master
-        git checkout origin/master -- monthly/
-        git checkout origin/master -- authors.yaml
-
-        # TODO: what to do about broken links from monthly -> ?
+        # Only warn on broken links here as the individual documentation builds
+        # should have failed with broken links originally.
         sed -i 's|onBrokenLinks: "throw"|onBrokenLinks: "warn"|' docusaurus.config.js
 
         yarn

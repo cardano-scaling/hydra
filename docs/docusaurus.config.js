@@ -67,18 +67,6 @@ const config = {
 
   plugins: [
     [
-      "content-blog",
-      /** @type {import('@docusaurus/plugin-content-blog').Options} */
-      ({
-        id: "monthly",
-        path: "monthly",
-        routeBasePath: "monthly",
-        authorsMapPath: "../authors.yaml",
-        editUrl,
-        editLocalizedFiles: true,
-      }),
-    ],
-    [
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
@@ -153,6 +141,11 @@ const config = {
           {
             from: "/use-cases/inter-wallet-payments",
             to: "/use-cases/payments/inter-wallet-payments",
+          },
+          // Monthly reports moved to a separate website (2024-02-29)
+          {
+            from: "/monthly",
+            to: "https://cardano-scaling.github.io/website/monthly",
           },
         ],
       },
@@ -257,7 +250,7 @@ const config = {
               },
               {
                 label: "Monthly reports",
-                to: "/monthly",
+                to: "https://cardano-scaling.github.io/website/monthly",
               },
               {
                 label: "Logbook",
