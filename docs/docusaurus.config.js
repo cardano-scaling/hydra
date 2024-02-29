@@ -142,11 +142,6 @@ const config = {
             from: "/use-cases/inter-wallet-payments",
             to: "/use-cases/payments/inter-wallet-payments",
           },
-          // Monthly reports moved to a separate website (2024-02-29)
-          {
-            from: "/monthly",
-            to: "https://cardano-scaling.github.io/website/monthly",
-          },
         ],
       },
     ],

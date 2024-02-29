@@ -147,10 +147,13 @@ jobs:
 
         mv build /tmp/public/head-protocol/unstable
 
-    - name: 👉 Create redirect
+    - name: 👉 Create redirects
       run: |
         echo "hydra.family" > /tmp/public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > /tmp/public/index.html
+        # Monthly reports moved to scaling website (2024-02-29)
+        mkdir -p /tmp/public/monthly/
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://cardano-scaling.github.io/website/monthly/"></head></html>' > /tmp/public/monthly/index.html
 
     - name: 🚢 Publish Documentation
       uses: peaceiris/actions-gh-pages@v3
