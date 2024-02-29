@@ -3,8 +3,10 @@ module Hydra.Explorer.ExplorerStateSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.Tx (HeadObservation (..))
-import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations, headId)
+import Hydra.Cardano.Api (Tx)
+import Hydra.Chain (OnChainTx (..))
+import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations)
+import Hydra.Explorer.ExplorerState qualified as ExplorerState
 import Hydra.HeadId (HeadId)
 import Hydra.OnChainId ()
 import Test.QuickCheck (forAll, suchThat, (=/=))
@@ -23,8 +25,8 @@ spec = do
           let resultHeads = aggregateHeadObservations observations initialState
           getHeadIds initialState `isPrefixOf` getHeadIds resultHeads
  where
-  genObservations :: Gen [HeadObservation]
-  genObservations = arbitrary `suchThat` (not . null) `suchThat` notElem NoHeadTx
+  genObservations :: Gen [OnChainTx Tx]
+  genObservations = arbitrary `suchThat` (not . null)
 
   getHeadIds :: ExplorerState -> [HeadId]
-  getHeadIds = fmap headId
+  getHeadIds = fmap ExplorerState.headId

@@ -7,9 +7,7 @@ import Hydra.HeadId (HeadId (..), HeadSeed)
 import Data.Aeson (Value (..))
 import Hydra.Cardano.Api (Tx, TxIn, UTxO)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
   headSeedToTxIn,
  )
 import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
@@ -273,9 +271,9 @@ replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =
         then newHeadState : tailStates
         else currentHeadState : replaceHeadState newHeadState tailStates
 
-aggregateHeadObservations :: [HeadObservation] -> ExplorerState -> ExplorerState
+aggregateHeadObservations :: [OnChainTx Tx] -> ExplorerState -> ExplorerState
 aggregateHeadObservations observations currentState =
-  foldl' aggregateOnChainTx currentState (mapMaybe convertObservation observations)
+  foldl' aggregateOnChainTx currentState observations
  where
   aggregateOnChainTx :: ExplorerState -> OnChainTx Tx -> ExplorerState
   aggregateOnChainTx explorerState =
