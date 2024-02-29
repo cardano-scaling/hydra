@@ -67,18 +67,6 @@ const config = {
 
   plugins: [
     [
-      "content-blog",
-      /** @type {import('@docusaurus/plugin-content-blog').Options} */
-      ({
-        id: "monthly",
-        path: "monthly",
-        routeBasePath: "monthly",
-        authorsMapPath: "../authors.yaml",
-        editUrl,
-        editLocalizedFiles: true,
-      }),
-    ],
-    [
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
@@ -257,7 +245,7 @@ const config = {
               },
               {
                 label: "Monthly reports",
-                to: "/monthly",
+                to: "https://cardano-scaling.github.io/website/monthly",
               },
               {
                 label: "Logbook",
