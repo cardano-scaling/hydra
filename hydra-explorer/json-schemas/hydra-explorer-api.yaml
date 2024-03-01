@@ -177,12 +177,34 @@ components:
         A unique identifier for a Head, represented by a hex-encoded 16 bytes string.
       example:
         "820082582089ff4f3ff4a6052ec9d073"
+    ChainPoint:
+      oneOf:
+        - title: ChainPointAtGenesis
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPointAtGenesis"]
+        - title: ChainPoint
+          required:
+            - tag
+            - slot
+            - blockHash
+          properties:
+            tag:
+              type: string
+              enum: ["ChainPoint"]
+            slot:
+              type: integer
+            blockHash:
+              type: string
     HeadState:
       type: object
       required:
         - headId
         - status
-        - lastUpdatedAtSlotNo
+        - lastUpdatedAtPoint
         - lastUpdatedAtBlockNo
       properties:
         headId:
@@ -206,7 +228,7 @@ components:
           $ref: '#/components/schemas/SnapshotNumber'
         contestationDeadline:
           $ref: '#/components/schemas/UTCTime'
-        lastUpdatedAtSlotNo:
-          type: integer
+        lastUpdatedAtPoint:
+          $ref: '#/components/schemas/ChainPoint'
         lastUpdatedAtBlockNo:
           type: integer

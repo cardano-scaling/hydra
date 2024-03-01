@@ -5,6 +5,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.ChainObserver (HeadObservationAt)
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, aggregateHeadObservations)
 import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
@@ -98,7 +99,7 @@ main = do
           , nodeSocket
           , startChainFrom
           } = opts
-    explorerState <- newTVarIO (ExplorerState [] 0 0)
+    explorerState <- newTVarIO (ExplorerState [] ChainPointAtGenesis 0)
     let getHeads = readModelGetHeadIds explorerState
         chainObserverArgs =
           Options.toArgNodeSocket nodeSocket
