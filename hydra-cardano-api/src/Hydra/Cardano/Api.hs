@@ -286,7 +286,7 @@ pattern PlutusScriptWitness
   , plutusScriptWitnessExecutionUnits
   } <-
   Cardano.Api.PlutusScriptWitness
-    PlutusScriptV2InBabbage
+    _
     PlutusScriptV2
     (PScript plutusScriptWitnessScript)
     plutusScriptWitnessDatum
@@ -295,7 +295,7 @@ pattern PlutusScriptWitness
   where
     PlutusScriptWitness =
       Cardano.Api.PlutusScriptWitness
-        PlutusScriptV2InBabbage
+        scriptLanguageInEra
         PlutusScriptV2
         . PScript
 
@@ -335,7 +335,7 @@ pattern ShelleyTxBody
     txBodyScriptValidity
   where
     ShelleyTxBody =
-      Cardano.Api.Shelley.ShelleyTxBody ShelleyBasedEraBabbage
+      Cardano.Api.Shelley.ShelleyTxBody shelleyBasedEra
 
 signShelleyTransaction :: TxBody -> [ShelleyWitnessSigningKey] -> Tx
 signShelleyTransaction = Cardano.Api.signShelleyTransaction shelleyBasedEra
@@ -593,7 +593,7 @@ pattern TxOut :: AddressInEra -> Value -> TxOutDatum ctx -> ReferenceScript -> T
 pattern TxOut{txOutAddress, txOutValue, txOutDatum, txOutReferenceScript} <-
   Cardano.Api.TxOut
     txOutAddress
-    (TxOutValueShelleyBased ShelleyBasedEraBabbage (Extras.fromLedgerValue -> txOutValue))
+    (TxOutValueShelleyBased _ (Extras.fromLedgerValue -> txOutValue))
     txOutDatum
     txOutReferenceScript
   where
@@ -612,12 +612,12 @@ type ReferenceScript = Cardano.Api.Shelley.ReferenceScript Era
 pattern ReferenceScript :: ScriptInAnyLang -> ReferenceScript
 pattern ReferenceScript{referenceScript} <-
   Cardano.Api.Shelley.ReferenceScript
-    Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+    _
     referenceScript
   where
     ReferenceScript =
       Cardano.Api.Shelley.ReferenceScript
-        Cardano.Api.Shelley.BabbageEraOnwardsBabbage
+        babbageEraOnwards
 
 pattern ReferenceScriptNone :: Cardano.Api.Shelley.ReferenceScript Era
 pattern ReferenceScriptNone <-
@@ -703,12 +703,18 @@ type TxValidityUpperBound = Cardano.Api.TxValidityUpperBound Era
 {-# COMPLETE TxValidityNoUpperBound, TxValidityUpperBound #-}
 
 pattern TxValidityNoUpperBound :: TxValidityUpperBound
-pattern TxValidityNoUpperBound =
-  Cardano.Api.TxValidityUpperBound ShelleyBasedEraBabbage Nothing
+pattern TxValidityNoUpperBound <-
+  Cardano.Api.TxValidityUpperBound _ Nothing
+  where
+    TxValidityNoUpperBound =
+      Cardano.Api.TxValidityUpperBound shelleyBasedEra Nothing
 
 pattern TxValidityUpperBound :: SlotNo -> TxValidityUpperBound
-pattern TxValidityUpperBound{upperBound} =
-  Cardano.Api.TxValidityUpperBound ShelleyBasedEraBabbage (Just upperBound)
+pattern TxValidityUpperBound{upperBound} <-
+  Cardano.Api.TxValidityUpperBound _ (Just upperBound)
+  where
+    TxValidityUpperBound =
+      Cardano.Api.TxValidityUpperBound shelleyBasedEra . Just
 
 -- ** Witness
 

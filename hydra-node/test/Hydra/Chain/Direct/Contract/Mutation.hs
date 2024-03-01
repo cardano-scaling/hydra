@@ -133,15 +133,13 @@ import Hydra.Cardano.Api
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AlonzoPlutusPurpose (..), AsIndex (..), outputsTxBodyL)
-import Cardano.Ledger.Babbage.TxBody qualified as Ledger
-import Cardano.Ledger.Binary (mkSized)
+import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AlonzoPlutusPurpose (..), AsIndex (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
-import Control.Lens ((^.))
+import Control.Lens (set, view, (.~), (^.))
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -342,7 +340,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
             Nothing -> error $ "txIn not resolvable: " <> show txIn
             Just o -> o
 
-    ledgerInputs = Ledger.btbInputs ledgerBody
+    ledgerInputs = view inputsTxBodyL ledgerBody
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   ChangeInputHeadDatum d' ->
@@ -429,7 +427,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
    where
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     valueToMultiAsset (Ledger.MaryValue _ multiAsset) = multiAsset
-    ledgerBody' = ledgerBody{Ledger.btbMint = valueToMultiAsset $ toLedgerValue v'}
+    ledgerBody' =
+      ledgerBody
+        & set mintTxBodyL (valueToMultiAsset $ toLedgerValue v')
     body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
     -- Drop all Mint redeemer pointers when we don't mint/burn anymore
     scriptData' =
@@ -453,8 +453,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        { Ledger.btbReqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
-        }
+        & set reqSignerHashesTxBodyL (Set.fromList (toLedgerKeyHash <$> newSigners))
   ChangeValidityInterval (lowerBound, upperBound) ->
     changeValidityInterval (Just lowerBound) (Just upperBound)
   ChangeValidityLowerBound bound ->
@@ -474,10 +473,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
     ledgerBody' =
       ledgerBody
-        { Ledger.btbMint =
-            valueToMultiAsset . toLedgerValue $
+        & set
+          mintTxBodyL
+          ( valueToMultiAsset . toLedgerValue $
               replacePolicyInValue selectedPid mutatedPid mint
-        }
+          )
 
     selectedPid =
       fromMaybe (error "cannot mutate non minting transaction")
@@ -488,7 +488,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           )
         $ valueToList mint
 
-    mint = fromLedgerMultiAsset $ Ledger.btbMint ledgerBody
+    mint = fromLedgerMultiAsset $ view mintTxBodyL ledgerBody
 
     scripts' =
       map
@@ -510,14 +510,13 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        { Ledger.btbValidityInterval =
-            toLedgerValidityInterval
-              ( fromMaybe lowerBound lowerBound'
-              , fromMaybe upperBound upperBound'
-              )
-        }
+        & vldtTxBodyL
+          .~ toLedgerValidityInterval
+            ( fromMaybe lowerBound lowerBound'
+            , fromMaybe upperBound upperBound'
+            )
     (lowerBound, upperBound) = fromLedgerValidityInterval ledgerValidityInterval
-    ledgerValidityInterval = Ledger.btbValidityInterval ledgerBody
+    ledgerValidityInterval = ledgerBody ^. vldtTxBodyL
 
 -- * Orphans
 
@@ -620,7 +619,7 @@ alterTxIns fn tx =
  where
   body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
 
-  ledgerBody' = ledgerBody{Ledger.btbInputs = inputs'}
+  ledgerBody' = ledgerBody & set inputsTxBodyL inputs'
 
   inputs' = Set.fromList $ toLedgerTxIn . fst <$> newSortedInputs
 
@@ -650,7 +649,7 @@ alterTxIns fn tx =
         . resolveRedeemers
         . fmap fromLedgerTxIn
         . toList
-      $ Ledger.btbInputs ledgerBody
+      $ view inputsTxBodyL ledgerBody
 
   resolveRedeemers :: [TxIn] -> [(TxIn, Maybe HashableScriptData)]
   resolveRedeemers txInputs =
@@ -676,9 +675,9 @@ alterTxOuts fn tx =
   Tx body' wits
  where
   body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.btbOutputs = ledgerOutputs'}
+  ledgerBody' = ledgerBody & outputsTxBodyL .~ ledgerOutputs'
 
-  ledgerOutputs' = StrictSeq.fromList . map (mkSized ledgerEraVersion . toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
+  ledgerOutputs' = StrictSeq.fromList . map (toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
 
   outputs' = fn . fmap fromLedgerTxOut . toList $ ledgerBody ^. outputsTxBodyL
 

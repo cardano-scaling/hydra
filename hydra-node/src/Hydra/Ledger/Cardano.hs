@@ -15,6 +15,7 @@ import Hydra.Ledger.Cardano.Builder
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
+import Cardano.Ledger.Api (updateTxBodyL)
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -27,6 +28,7 @@ import Cardano.Ledger.Shelley.Rules qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
+import Control.Lens (set)
 import Control.Monad (foldM)
 import Data.Aeson (object, (.:), (.:?), (.=))
 import Data.Aeson qualified as Aeson
@@ -157,7 +159,7 @@ instance Arbitrary Tx where
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
     withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
-      let body' = body{Ledger.btbUpdate = SNothing}
+      let body' = body & set updateTxBodyL SNothing
        in tx{Ledger.body = body'}
 
 -- | Create a zero-fee, payment cardano transaction.
