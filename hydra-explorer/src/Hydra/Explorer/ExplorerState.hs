@@ -78,13 +78,17 @@ data HeadState = HeadState
 instance Arbitrary HeadState where
   arbitrary = genericArbitrary
 
-type ExplorerState = [HeadState]
+data ExplorerState = ExplorerState
+  { heads :: [HeadState]
+  , slotNo :: SlotNo
+  , blockNo :: BlockNo
+  }
 
-aggregateInitObservation :: HeadId -> SlotNo -> BlockNo -> HeadSeed -> HeadParameters -> [OnChainId] -> ExplorerState -> ExplorerState
-aggregateInitObservation headId slotNo blockNo headSeed HeadParameters{parties, contestationPeriod} participants explorerState =
-  case findHeadState headId explorerState of
-    Just _headState -> replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newHeadState]
+aggregateInitObservation :: HeadId -> SlotNo -> BlockNo -> HeadSeed -> HeadParameters -> [OnChainId] -> [HeadState] -> [HeadState]
+aggregateInitObservation headId slotNo blockNo headSeed HeadParameters{parties, contestationPeriod} participants currentHeads =
+  case findHeadState headId currentHeads of
+    Just _headState -> replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newHeadState]
  where
   newHeadState =
     HeadState
@@ -110,13 +114,13 @@ aggregateInitObservation headId slotNo blockNo headSeed HeadParameters{parties, 
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateAbortObservation :: HeadId -> SlotNo -> BlockNo -> ExplorerState -> ExplorerState
-aggregateAbortObservation headId slotNo blockNo explorerState =
-  case findHeadState headId explorerState of
+aggregateAbortObservation :: HeadId -> SlotNo -> BlockNo -> [HeadState] -> [HeadState]
+aggregateAbortObservation headId slotNo blockNo currentHeads =
+  case findHeadState headId currentHeads of
     Just headState ->
       let newHeadState = headState{status = Aborted}
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   newUnknownHeadState =
     HeadState
@@ -132,13 +136,13 @@ aggregateAbortObservation headId slotNo blockNo explorerState =
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateCommitObservation :: HeadId -> SlotNo -> BlockNo -> Party -> UTxO -> ExplorerState -> ExplorerState
-aggregateCommitObservation headId slotNo blockNo party committed explorerState =
-  case findHeadState headId explorerState of
+aggregateCommitObservation :: HeadId -> SlotNo -> BlockNo -> Party -> UTxO -> [HeadState] -> [HeadState]
+aggregateCommitObservation headId slotNo blockNo party committed currentHeads =
+  case findHeadState headId currentHeads of
     Just headState ->
       let newHeadState = updateMember headState
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   updateMember headState@HeadState{members} =
     let members' = case members of
@@ -183,13 +187,13 @@ aggregateCommitObservation headId slotNo blockNo party committed explorerState =
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateCollectComObservation :: HeadId -> SlotNo -> BlockNo -> ExplorerState -> ExplorerState
-aggregateCollectComObservation headId slotNo blockNo explorerState =
-  case findHeadState headId explorerState of
+aggregateCollectComObservation :: HeadId -> SlotNo -> BlockNo -> [HeadState] -> [HeadState]
+aggregateCollectComObservation headId slotNo blockNo currentHeads =
+  case findHeadState headId currentHeads of
     Just headState ->
       let newHeadState = headState{status = Open}
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   newUnknownHeadState =
     HeadState
@@ -205,13 +209,13 @@ aggregateCollectComObservation headId slotNo blockNo explorerState =
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateCloseObservation :: HeadId -> SlotNo -> BlockNo -> SnapshotNumber -> UTCTime -> ExplorerState -> ExplorerState
-aggregateCloseObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) contestationDeadline explorerState =
-  case findHeadState headId explorerState of
+aggregateCloseObservation :: HeadId -> SlotNo -> BlockNo -> SnapshotNumber -> UTCTime -> [HeadState] -> [HeadState]
+aggregateCloseObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) contestationDeadline currentHeads =
+  case findHeadState headId currentHeads of
     Just headState ->
       let newHeadState = headState{status = Closed, contestations = Seen 0, snapshotNumber = Seen sn}
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   newUnknownHeadState =
     HeadState
@@ -227,9 +231,9 @@ aggregateCloseObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) contes
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateContestObservation :: HeadId -> SlotNo -> BlockNo -> SnapshotNumber -> ExplorerState -> ExplorerState
-aggregateContestObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) explorerState =
-  case findHeadState headId explorerState of
+aggregateContestObservation :: HeadId -> SlotNo -> BlockNo -> SnapshotNumber -> [HeadState] -> [HeadState]
+aggregateContestObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) currentHeads =
+  case findHeadState headId currentHeads of
     Just headState@HeadState{contestations, contestationPeriod, contestationDeadline} ->
       let newHeadState =
             headState
@@ -240,8 +244,8 @@ aggregateContestObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) expl
                     (Seen cp, Seen cd) -> Seen $ addUTCTime (toNominalDiffTime cp) cd
                     _ -> Unknown
               }
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   newUnknownHeadState =
     HeadState
@@ -257,13 +261,13 @@ aggregateContestObservation headId slotNo blockNo (UnsafeSnapshotNumber sn) expl
       , lastUpdatedAtBlockNo = blockNo
       }
 
-aggregateFanoutObservation :: HeadId -> SlotNo -> BlockNo -> ExplorerState -> ExplorerState
-aggregateFanoutObservation headId slotNo blockNo explorerState =
-  case findHeadState headId explorerState of
+aggregateFanoutObservation :: HeadId -> SlotNo -> BlockNo -> [HeadState] -> [HeadState]
+aggregateFanoutObservation headId slotNo blockNo currentHeads =
+  case findHeadState headId currentHeads of
     Just headState ->
       let newHeadState = headState{status = Finalized}
-       in replaceHeadState newHeadState explorerState
-    Nothing -> explorerState <> [newUnknownHeadState]
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
  where
   newUnknownHeadState =
     HeadState
@@ -279,9 +283,9 @@ aggregateFanoutObservation headId slotNo blockNo explorerState =
       , lastUpdatedAtBlockNo = blockNo
       }
 
-replaceHeadState :: HeadState -> ExplorerState -> ExplorerState
-replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =
-  case explorerState of
+replaceHeadState :: HeadState -> [HeadState] -> [HeadState]
+replaceHeadState newHeadState@HeadState{headId = newHeadStateId} currentHeads =
+  case currentHeads of
     [] -> [newHeadState]
     (currentHeadState@HeadState{headId = currentHeadStateId} : tailStates) ->
       if newHeadStateId == currentHeadStateId
@@ -289,26 +293,60 @@ replaceHeadState newHeadState@HeadState{headId = newHeadStateId} explorerState =
         else currentHeadState : replaceHeadState newHeadState tailStates
 
 aggregateHeadObservations :: [HeadObservationAt] -> ExplorerState -> ExplorerState
-aggregateHeadObservations observations currentState =
-  foldl' aggregateOnChainTx currentState observations
+aggregateHeadObservations observations explorerState =
+  foldl' aggregateOnChainTx explorerState observations
  where
   aggregateOnChainTx :: ExplorerState -> HeadObservationAt -> ExplorerState
-  aggregateOnChainTx explorerState =
+  aggregateOnChainTx ExplorerState{heads} =
     \case
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnInitTx{headId, headSeed, headParameters, participants}} ->
-        aggregateInitObservation headId slotNo blockNo headSeed headParameters participants explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnAbortTx{headId}} ->
-        aggregateAbortObservation headId slotNo blockNo explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnCommitTx{headId, party, committed}} ->
-        aggregateCommitObservation headId slotNo blockNo party committed explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnCollectComTx{headId}} ->
-        aggregateCollectComObservation headId slotNo blockNo explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->
-        aggregateCloseObservation headId slotNo blockNo snapshotNumber contestationDeadline explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnContestTx{headId, snapshotNumber}} ->
-        aggregateContestObservation headId slotNo blockNo snapshotNumber explorerState
-      HeadObservationAt{slotNo, blockNo, onChainTx = OnFanoutTx{headId}} ->
-        aggregateFanoutObservation headId slotNo blockNo explorerState
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnInitTx{headId, headSeed, headParameters, participants}} ->
+        ExplorerState
+          { heads = aggregateInitObservation headId slotNo blockNo headSeed headParameters participants heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnAbortTx{headId}} ->
+        ExplorerState
+          { heads = aggregateAbortObservation headId slotNo blockNo heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnCommitTx{headId, party, committed}} ->
+        ExplorerState
+          { heads = aggregateCommitObservation headId slotNo blockNo party committed heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnCollectComTx{headId}} ->
+        ExplorerState
+          { heads = aggregateCollectComObservation headId slotNo blockNo heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->
+        ExplorerState
+          { heads = aggregateCloseObservation headId slotNo blockNo snapshotNumber contestationDeadline heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnContestTx{headId, snapshotNumber}} ->
+        ExplorerState
+          { heads = aggregateContestObservation headId slotNo blockNo snapshotNumber heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Just OnFanoutTx{headId}} ->
+        ExplorerState
+          { heads = aggregateFanoutObservation headId slotNo blockNo heads
+          , slotNo
+          , blockNo
+          }
+      HeadObservationAt{slotNo, blockNo, onChainTx = Nothing} ->
+        ExplorerState
+          { heads
+          , slotNo
+          , blockNo
+          }
 
-findHeadState :: HeadId -> ExplorerState -> Maybe HeadState
+findHeadState :: HeadId -> [HeadState] -> Maybe HeadState
 findHeadState idToFind = find (\HeadState{headId} -> headId == idToFind)

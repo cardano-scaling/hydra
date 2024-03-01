@@ -56,7 +56,7 @@ type ObserverHandler m = [HeadObservationAt] -> m ()
 data HeadObservationAt = HeadObservationAt
   { slotNo :: SlotNo
   , blockNo :: BlockNo
-  , onChainTx :: OnChainTx Tx
+  , onChainTx :: Maybe (OnChainTx Tx)
   }
   deriving stock (Eq, Show, Generic)
 
@@ -181,7 +181,11 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           let (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
           forM_ onChainTxs (maybe (pure ()) (traceWith tracer) . logOnChainTx)
-          observerHandler (fmap (HeadObservationAt slotNo blockNo) onChainTxs)
+          let observationsAt =
+                fmap convertObservation observations <&> \case
+                  Just onChainTx -> HeadObservationAt slotNo blockNo (Just onChainTx)
+                  Nothing -> HeadObservationAt slotNo blockNo Nothing
+          observerHandler observationsAt
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
