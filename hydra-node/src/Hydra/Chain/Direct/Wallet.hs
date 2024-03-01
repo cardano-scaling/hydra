@@ -37,12 +37,12 @@ import Cardano.Ledger.Api (
   outputsTxBodyL,
   ppMaxTxExUnitsL,
   rdmrsTxWitsL,
+  referenceInputsTxBodyL,
   scriptIntegrityHashTxBodyL,
   witsTxL,
  )
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
-import Cardano.Ledger.Babbage.TxBody (spendInputs')
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -60,7 +60,7 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
-import Control.Lens ((%~), (.~), (^.))
+import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
@@ -214,7 +214,7 @@ applyTxs txs isOurs utxo =
       -- XXX: Use cardano-api types instead here
       let tx = toLedgerTx apiTx
       let txId = getTxId tx
-      modify (`Map.withoutKeys` spendInputs' (body tx))
+      modify (`Map.withoutKeys` view inputsTxBodyL (body tx))
       let indexedOutputs =
             let outs = toList $ body tx ^. outputsTxBodyL
                 maxIx = fromIntegral $ length outs
@@ -261,7 +261,7 @@ coverFee_ ::
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
   (feeTxIn, feeTxOut) <- findUTxOToPayFees walletUTxO
 
-  let newInputs = spendInputs' body <> Set.singleton feeTxIn
+  let newInputs = view inputsTxBodyL body <> Set.singleton feeTxIn
   resolvedInputs <- traverse resolveInput (toList newInputs)
 
   -- Ensure we have at least the minimum amount of ada. NOTE: setMinCoinTxOut
@@ -273,13 +273,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
-          (spendInputs' body)
+          (view inputsTxBodyL body)
           newInputs
           estimatedScriptCosts
           (txrdmrs wits)
 
   -- Compute script integrity hash from adjusted redeemers
-  let referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (Babbage.referenceInputs' body)
+  let referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (view referenceInputsTxBodyL body)
       langs =
         [ getLanguageView pparams l
         | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
