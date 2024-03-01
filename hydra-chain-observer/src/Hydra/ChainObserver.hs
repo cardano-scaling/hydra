@@ -180,7 +180,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
               }
           let (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
-          forM_ onChainTxs (maybe (pure ()) (traceWith tracer) . logOnChainTx)
+          forM_ onChainTxs (traceWith tracer . logOnChainTx)
           let observationsAt =
                 fmap convertObservation observations <&> \case
                   Just onChainTx -> HeadObservationAt slotNo blockNo (Just onChainTx)
@@ -192,15 +192,15 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           pure $ clientStIdle utxo
       }
 
-  logOnChainTx :: OnChainTx Tx -> Maybe ChainObserverLog
+  logOnChainTx :: OnChainTx Tx -> ChainObserverLog
   logOnChainTx = \case
-    OnInitTx{headId} -> pure $ HeadInitTx{headId}
-    OnCommitTx{headId} -> pure $ HeadCommitTx{headId}
-    OnCollectComTx{headId} -> pure $ HeadCollectComTx{headId}
-    OnCloseTx{headId} -> pure $ HeadCloseTx{headId}
-    OnFanoutTx{headId} -> pure $ HeadFanoutTx{headId}
-    OnAbortTx{headId} -> pure $ HeadAbortTx{headId}
-    OnContestTx{headId} -> pure $ HeadContestTx{headId}
+    OnInitTx{headId} -> HeadInitTx{headId}
+    OnCommitTx{headId} -> HeadCommitTx{headId}
+    OnCollectComTx{headId} -> HeadCollectComTx{headId}
+    OnCloseTx{headId} -> HeadCloseTx{headId}
+    OnFanoutTx{headId} -> HeadFanoutTx{headId}
+    OnAbortTx{headId} -> HeadAbortTx{headId}
+    OnContestTx{headId} -> HeadContestTx{headId}
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =
