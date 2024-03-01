@@ -6,7 +6,6 @@ import Test.Hydra.Prelude
 import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.ChainObserver (HeadObservationAt (..))
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState (..), aggregateHeadObservations)
-import Hydra.Explorer.ExplorerState qualified as ExplorerState
 import Hydra.HeadId (HeadId)
 import Hydra.OnChainId ()
 import Test.QuickCheck (forAll, suchThat, (=/=))
@@ -19,8 +18,7 @@ spec = do
     prop "Any head observations (of some head id) must yield an entry of that head id" $
       forAll genObservations $ \observations ->
         let ExplorerState{heads} = aggregateHeadObservations observations (ExplorerState [] ChainPointAtGenesis 0)
-         in -- headsObserved = filter (\ExplorerState{heads} -> null heads) explorerStates
-            heads =/= []
+         in heads =/= []
     prop "Given any observations, the resulting list of head ids is a prefix of the original" $
       forAll genObservations $ \observations ->
         forAll arbitrary $ \initialState -> do
@@ -31,4 +29,4 @@ spec = do
   genObservations = arbitrary `suchThat` (not . null) `suchThat` any (isJust . onChainTx)
 
   getHeadIds :: [HeadState] -> [HeadId]
-  getHeadIds = fmap ExplorerState.headId
+  getHeadIds = fmap headId
