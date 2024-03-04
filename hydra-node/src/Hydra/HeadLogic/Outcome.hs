@@ -102,7 +102,7 @@ instance HasEventId (StateChanged tx) where
     TickObserved{stateChangeID} -> stateChangeID
 
 -- FIXME(Elaine): these stateChangeID fields were added in an attempt to make every StateChanged keep track of its ID
--- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent' can be kept simple, and shouldn't do harm
+-- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent can be kept simple, and shouldn't do harm
 
 instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
   arbitrary = genericArbitrary

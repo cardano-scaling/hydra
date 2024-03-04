@@ -298,7 +298,7 @@ loadState ::
   ChainStateType tx ->
   m (HeadState tx, ChainStateHistory tx)
 loadState tracer eventSource defaultChainState = do
-  events <- getEvents' eventSource
+  events <- getEvents eventSource
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   let headState = recoverState initialState events
       chainStateHistory = recoverChainStateHistory defaultChainState events
@@ -314,7 +314,7 @@ loadStateEventSource ::
   ChainStateType tx ->
   m (HeadState tx, ChainStateHistory tx)
 loadStateEventSource tracer eventSource eventSinks defaultChainState = do
-  events <- getEvents' eventSource
+  events <- getEvents eventSource
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   let headState = recoverState initialState events
       chainStateHistory = recoverChainStateHistory defaultChainState events

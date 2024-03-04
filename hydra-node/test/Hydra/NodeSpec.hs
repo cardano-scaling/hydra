@@ -252,8 +252,8 @@ createHydraNode =
  where
   append = const $ pure ()
   loadAll = pure []
-  eventSource = EventSource{getEvents' = loadAll}
-  eventSink = EventSink{putEvent' = append}
+  eventSource = EventSource{getEvents = loadAll}
+  eventSink = EventSink{putEvent = append}
 
 createHydraNode' ::
   (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
@@ -311,12 +311,12 @@ recordPersistedItems node = do
   (record, query) <- messageRecorder
   lastStateChangeId <- newTVarIO 0
   -- pure (node{persistence = PersistenceIncremental{append = record, loadAll = pure []}}, query)
-  let putEvent' = \e -> do
+  let putEvent = \e -> do
         atomically $ modifyTVar lastStateChangeId succ
         record e
   pure
     ( node
-        { eventSinks = eventSinks node <> [EventSink{putEvent'}]
+        { eventSinks = eventSinks node <> [EventSink{putEvent}]
         }
     , query
     )
