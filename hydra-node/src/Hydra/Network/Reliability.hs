@@ -111,7 +111,7 @@ import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Party (Party)
-import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), Persistence (..), PersistenceIncremental (..), putEventToSinks)
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
 import Test.QuickCheck (getPositive, listOf)
 
 data ReliableMsg msg = ReliableMsg

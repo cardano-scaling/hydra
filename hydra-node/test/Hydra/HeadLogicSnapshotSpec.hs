@@ -77,7 +77,7 @@ spec = do
             outcome = update (envFor aliceSk) simpleLedger initialEventID (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkInput defaultTTL alice $ ReqTx tx
 
         outcome
-          `hasEffect` NetworkEffect (ReqSn 1 [txId tx])
+          `hasEffect` NetworkEffect (ReqSn 1 [Hydra.Ledger.txId tx])
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -105,8 +105,8 @@ spec = do
               inOpenState' threeParties $
                 coordinatedHeadState
                   { localTxs = [tx]
-                  , allTxs = Map.singleton (txId tx) tx
-                  , localUTxO = u0 <> utxoRef (txId tx)
+                  , allTxs = Map.singleton (Hydra.Ledger.txId tx) tx
+                  , localUTxO = u0 <> utxoRef (Hydra.Ledger.txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
                   }
             st'EventID = succ stEventID
@@ -206,7 +206,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
     Snapshot{number = confirmedSn} = getSnapshot sn
     nextSn = confirmedSn + 1
   pure $
-    outcome `hasEffect` NetworkEffect (ReqSn nextSn [txId tx])
+    outcome `hasEffect` NetworkEffect (ReqSn nextSn [Hydra.Ledger.txId tx])
       & counterexample (show outcome)
 
 prop_thereIsAlwaysALeader :: Property

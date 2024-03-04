@@ -35,7 +35,6 @@ import Hydra.Node (
   checkHeadState,
   createNodeState,
   initEnvironment,
-  loadState,
   loadStateEventSource,
   runHydraNode,
  )
@@ -50,7 +49,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (NewPersistenceIncremental (..), createNewPersistenceIncremental, createPersistenceIncremental, eventPairFromPersistenceIncremental)
+import Hydra.Persistence (createPersistenceIncremental, eventPairFromPersistenceIncremental)
 
 import Data.List.NonEmpty qualified as NE
 

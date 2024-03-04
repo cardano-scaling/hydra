@@ -83,7 +83,7 @@ import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePers
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (Persistence (..), createNewPersistenceIncremental, createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
 import System.FilePath ((</>))
 
 -- | An alias for logging messages output by network component.

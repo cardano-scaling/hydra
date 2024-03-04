@@ -63,7 +63,7 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (NewPersistenceIncremental (..), eventPairFromPersistenceIncremental)
+import Hydra.Persistence (eventPairFromPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
