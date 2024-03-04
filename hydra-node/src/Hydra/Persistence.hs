@@ -67,12 +67,12 @@ data PersistenceIncremental a m = PersistenceIncremental
   , loadAll :: FromJSON a => m [a]
   }
 
-type NewPersistenceIncremental a m = (EventSource a m, NonEmpty (EventSink a m))
+--type NewPersistenceIncremental a m = (EventSource a m, [EventSink a m])
 
-putEventToSinks :: forall m e. (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> e -> m ()
+putEventToSinks :: forall m e. (Monad m, ToJSON e) => [EventSink e m] -> e -> m ()
 putEventToSinks sinks e = forM_ sinks (\sink -> putEvent' sink e)
 
-putEventsToSinks :: forall m e. (Monad m, ToJSON e) => NonEmpty (EventSink e m) -> [e] -> m ()
+putEventsToSinks :: forall m e. (Monad m, ToJSON e) => [EventSink e m] -> [e] -> m ()
 putEventsToSinks sinks es = forM_ es (\e -> putEventToSinks sinks e)
 
 eventPairFromPersistenceIncremental :: PersistenceIncremental a m -> (EventSource a m, EventSink a m)

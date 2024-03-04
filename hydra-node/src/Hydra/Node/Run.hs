@@ -87,10 +87,10 @@ run opts = do
         -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
 
         let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-            eventSinks = eventSink :| [] -- FIXME(Elaine): load other event sinks
+            eventSinks = [eventSink] -- FIXME(Elaine): load other event sinks
             --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
             -- persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
-        (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource (NE.toList eventSinks) initialChainState
+        (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource eventSinks initialChainState
 
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
@@ -116,7 +116,8 @@ run opts = do
                   , server
                   , ledger
                   , env
-                  , persistence = (eventSource, eventSinks)
+                  , eventSource
+                  , eventSinks
                   }
  where
   connectionMessages Server{sendOutput} = \case

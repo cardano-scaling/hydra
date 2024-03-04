@@ -81,14 +81,14 @@ spec = do
               -- initialize an event source
               persistEventSource <- createPersistenceIncremental $ tmpDir <> "/dataEventSource"
               let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistEventSource
-              putEventsToSinks (eventSink :| []) items
+              putEventsToSinks [eventSink] items
 
               -- initialize some event sinks
               persistSink1 <- createPersistenceIncremental $ tmpDir <> "/data1"
               persistSink2 <- createPersistenceIncremental $ tmpDir <> "/data2"
               let (sink1Source, sink1Sink) = eventPairFromPersistenceIncremental persistSink1
                   (sink2Source, sink2Sink) = eventPairFromPersistenceIncremental persistSink2
-                  eventSinks = eventSink :| [sink1Sink, sink2Sink]
+                  eventSinks = [eventSink, sink1Sink, sink2Sink]
 
               -- load the event source, as if we had started a node
               -- TODO(Elaine): this on its own isn't enough to ensure persistence is working end to end, make sure to test that
