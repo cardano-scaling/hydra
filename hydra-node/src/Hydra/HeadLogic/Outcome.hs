@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
+import Hydra.Events (HasEventId (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -81,24 +82,24 @@ data StateChanged tx
   | TickObserved {chainSlot :: ChainSlot, stateChangeID :: Word64}
   deriving stock (Generic)
 
-getStateChangeID :: StateChanged tx -> Word64
-getStateChangeID = \case
-  HeadInitialized{stateChangeID} -> stateChangeID
-  CommittedUTxO{stateChangeID} -> stateChangeID
-  HeadAborted{stateChangeID} -> stateChangeID
-  HeadOpened{stateChangeID} -> stateChangeID
-  TransactionAppliedToLocalUTxO{stateChangeID} -> stateChangeID
-  SnapshotRequestDecided{stateChangeID} -> stateChangeID
-  SnapshotRequested{stateChangeID} -> stateChangeID
-  TransactionReceived{stateChangeID} -> stateChangeID
-  PartySignedSnapshot{stateChangeID} -> stateChangeID
-  SnapshotConfirmed{stateChangeID} -> stateChangeID
-  HeadClosed{stateChangeID} -> stateChangeID
-  HeadContested{stateChangeID} -> stateChangeID
-  HeadIsReadyToFanout{stateChangeID} -> stateChangeID
-  HeadFannedOut{stateChangeID} -> stateChangeID
-  ChainRolledBack{stateChangeID} -> stateChangeID
-  TickObserved{stateChangeID} -> stateChangeID
+instance HasEventId (StateChanged tx) where
+  getEventId = \case
+    HeadInitialized{stateChangeID} -> stateChangeID
+    CommittedUTxO{stateChangeID} -> stateChangeID
+    HeadAborted{stateChangeID} -> stateChangeID
+    HeadOpened{stateChangeID} -> stateChangeID
+    TransactionAppliedToLocalUTxO{stateChangeID} -> stateChangeID
+    SnapshotRequestDecided{stateChangeID} -> stateChangeID
+    SnapshotRequested{stateChangeID} -> stateChangeID
+    TransactionReceived{stateChangeID} -> stateChangeID
+    PartySignedSnapshot{stateChangeID} -> stateChangeID
+    SnapshotConfirmed{stateChangeID} -> stateChangeID
+    HeadClosed{stateChangeID} -> stateChangeID
+    HeadContested{stateChangeID} -> stateChangeID
+    HeadIsReadyToFanout{stateChangeID} -> stateChangeID
+    HeadFannedOut{stateChangeID} -> stateChangeID
+    ChainRolledBack{stateChangeID} -> stateChangeID
+    TickObserved{stateChangeID} -> stateChangeID
 
 -- FIXME(Elaine): these stateChangeID fields were added in an attempt to make every StateChanged keep track of its ID
 -- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent' can be kept simple, and shouldn't do harm
