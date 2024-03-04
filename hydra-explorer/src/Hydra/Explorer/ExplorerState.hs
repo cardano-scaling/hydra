@@ -5,12 +5,12 @@ import Hydra.Prelude
 import Hydra.HeadId (HeadId (..), HeadSeed)
 
 import Data.Aeson (Value (..))
-import Hydra.Cardano.Api (BlockNo, ChainPoint, SlotNo, TxIn, UTxO)
+import Hydra.Cardano.Api (BlockNo, ChainPoint, TxIn, UTxO)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Tx (
   headSeedToTxIn,
  )
-import Hydra.ChainObserver (HeadObservationAt (..))
+import Hydra.ChainObserver (ChainObservation (..))
 import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
@@ -292,56 +292,56 @@ replaceHeadState newHeadState@HeadState{headId = newHeadStateId} currentHeads =
         then newHeadState : tailStates
         else currentHeadState : replaceHeadState newHeadState tailStates
 
-aggregateHeadObservations :: [HeadObservationAt] -> ExplorerState -> ExplorerState
+aggregateHeadObservations :: [ChainObservation] -> ExplorerState -> ExplorerState
 aggregateHeadObservations observations explorerState =
   foldl' aggregateOnChainTx explorerState observations
  where
-  aggregateOnChainTx :: ExplorerState -> HeadObservationAt -> ExplorerState
+  aggregateOnChainTx :: ExplorerState -> ChainObservation -> ExplorerState
   aggregateOnChainTx ExplorerState{heads} =
     \case
-      HeadObservationAt{point, blockNo, onChainTx = Just OnInitTx{headId, headSeed, headParameters, participants}} ->
+      HeadObservation{point, blockNo, onChainTx = OnInitTx{headId, headSeed, headParameters, participants}} ->
         ExplorerState
           { heads = aggregateInitObservation headId point blockNo headSeed headParameters participants heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnAbortTx{headId}} ->
+      HeadObservation{point, blockNo, onChainTx = OnAbortTx{headId}} ->
         ExplorerState
           { heads = aggregateAbortObservation headId point blockNo heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnCommitTx{headId, party, committed}} ->
+      HeadObservation{point, blockNo, onChainTx = OnCommitTx{headId, party, committed}} ->
         ExplorerState
           { heads = aggregateCommitObservation headId point blockNo party committed heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnCollectComTx{headId}} ->
+      HeadObservation{point, blockNo, onChainTx = OnCollectComTx{headId}} ->
         ExplorerState
           { heads = aggregateCollectComObservation headId point blockNo heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->
+      HeadObservation{point, blockNo, onChainTx = OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->
         ExplorerState
           { heads = aggregateCloseObservation headId point blockNo snapshotNumber contestationDeadline heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnContestTx{headId, snapshotNumber}} ->
+      HeadObservation{point, blockNo, onChainTx = OnContestTx{headId, snapshotNumber}} ->
         ExplorerState
           { heads = aggregateContestObservation headId point blockNo snapshotNumber heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Just OnFanoutTx{headId}} ->
+      HeadObservation{point, blockNo, onChainTx = OnFanoutTx{headId}} ->
         ExplorerState
           { heads = aggregateFanoutObservation headId point blockNo heads
           , point
           , blockNo
           }
-      HeadObservationAt{point, blockNo, onChainTx = Nothing} ->
+      Tick{point, blockNo} ->
         ExplorerState
           { heads
           , point

@@ -50,16 +50,21 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStNext (..),
  )
 
-type ObserverHandler m = [HeadObservationAt] -> m ()
+type ObserverHandler m = [ChainObservation] -> m ()
 
-data HeadObservationAt = HeadObservationAt
-  { point :: ChainPoint
-  , blockNo :: BlockNo
-  , onChainTx :: Maybe (OnChainTx Tx)
-  }
+data ChainObservation
+  = Tick
+      { point :: ChainPoint
+      , blockNo :: BlockNo
+      }
+  | HeadObservation
+      { point :: ChainPoint
+      , blockNo :: BlockNo
+      , onChainTx :: OnChainTx Tx
+      }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary HeadObservationAt where
+instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary
 
 defaultObserverHandler :: Applicative m => ObserverHandler m
@@ -183,8 +188,8 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
           let observationsAt =
                 fmap convertObservation observations <&> \case
-                  Just onChainTx -> HeadObservationAt point blockNo (Just onChainTx)
-                  Nothing -> HeadObservationAt point blockNo Nothing
+                  Just onChainTx -> HeadObservation point blockNo onChainTx
+                  Nothing -> Tick point blockNo
           observerHandler observationsAt
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do

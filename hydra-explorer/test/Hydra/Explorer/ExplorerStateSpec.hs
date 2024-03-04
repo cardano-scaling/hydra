@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..))
-import Hydra.ChainObserver (HeadObservationAt (..))
+import Hydra.ChainObserver (ChainObservation (..))
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState (..), aggregateHeadObservations)
 import Hydra.HeadId (HeadId)
 import Hydra.OnChainId ()
@@ -25,8 +25,17 @@ spec = do
           let resultExplorerState = aggregateHeadObservations observations (ExplorerState initialState ChainPointAtGenesis 0)
           getHeadIds initialState `isPrefixOf` getHeadIds (heads resultExplorerState)
  where
-  genObservations :: Gen [HeadObservationAt]
-  genObservations = arbitrary `suchThat` (not . null) `suchThat` any (isJust . onChainTx)
+  genObservations :: Gen [ChainObservation]
+  genObservations =
+    arbitrary
+      `suchThat` (not . null)
+      `suchThat` ( not
+                    . any
+                      ( \case
+                          HeadObservation{} -> False
+                          Tick{} -> True
+                      )
+                 )
 
   getHeadIds :: [HeadState] -> [HeadId]
   getHeadIds = fmap headId

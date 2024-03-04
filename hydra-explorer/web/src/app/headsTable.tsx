@@ -3,10 +3,15 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 
+interface ChainPoint {
+    blockHash: string
+    slot: string
+}
+
 interface HeadState {
     headId: string
     status: string
-    lastUpdatedAtSlotNo: number
+    lastUpdatedAtPoint: ChainPoint
     lastUpdatedAtBlockNo: number
 }
 
@@ -20,7 +25,7 @@ const HeadsTable = () => {
 
     const getHeads = async () => {
         try {
-            const response = await fetch('http://explorer.hydra.family/heads')
+            const response = await fetch('http://0.0.0.0:3000/heads')
             // The return value is *not* serialized
             // You can return Date, Map, Set, etc.
             if (!response.ok) {
@@ -60,15 +65,17 @@ const HeadsTable = () => {
                                 <th className="px-4 py-2">Status</th>
                                 <th className="px-4 py-2">Last Updated At SlotNo</th>
                                 <th className="px-4 py-2">Last Updated At BlockNo</th>
+                                <th className="px-4 py-2">Last Updated At BlockHash</th>
                             </tr>
                         </thead>
                         <tbody>
                             {Heads.map((entry, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
-                                    <td className="border px-4 py-2">{entry.headId}</td>
-                                    <td className="border px-4 py-2">{entry.status}</td>
-                                    <td className="border px-4 py-2">{entry.lastUpdatedAtSlotNo}</td>
-                                    <td className="border px-4 py-2">{entry.lastUpdatedAtBlockNo}</td>
+                                    <td className="truncate border px-4 py-2">{entry.headId}</td>
+                                    <td className="truncate border px-4 py-2">{entry.status}</td>
+                                    <td className="truncate border px-4 py-2">{entry.lastUpdatedAtPoint.slot}</td>
+                                    <td className="truncate border px-4 py-2">{entry.lastUpdatedAtBlockNo}</td>
+                                    <td className="truncate border px-4 py-2">{entry.lastUpdatedAtPoint.blockHash}</td>
                                 </tr>
                             ))}
                         </tbody>
