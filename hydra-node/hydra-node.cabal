@@ -67,6 +67,7 @@ library
     Hydra.Chain.Offline
     Hydra.ContestationPeriod
     Hydra.Crypto
+    Hydra.Events
     Hydra.HeadId
     Hydra.HeadLogic
     Hydra.HeadLogic.Error

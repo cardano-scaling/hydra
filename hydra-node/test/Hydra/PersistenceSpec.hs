@@ -8,7 +8,8 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, eventPairFromPersistenceIncremental, getEvents', putEvent', putEventsToSinks)
+import Hydra.Events (getEvents', putEventsToSinks)
+import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, eventPairFromPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
