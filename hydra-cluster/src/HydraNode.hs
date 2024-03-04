@@ -31,7 +31,7 @@ import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.WebSockets (Connection, HandshakeException, receiveData, runClient, sendClose, sendTextData)
+import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Info (os)
@@ -62,7 +62,14 @@ send HydraClient{tracer, hydraNodeId, connection} v = do
 
 waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
 waitNext HydraClient{connection} = do
-  bytes <- receiveData connection
+  -- NOTE: We delay on connection errors to give other assertions the chance to
+  -- provide more detail (e.g. checkProcessHasNotDied) before this fails.
+  bytes <-
+    try (receiveData connection) >>= \case
+      Left (err :: ConnectionException) -> do
+        threadDelay 1
+        failure $ "waitNext: " <> show err
+      Right msg -> pure msg
   case Aeson.eitherDecode' bytes of
     Left err -> failure $ "WaitNext failed to decode msg: " <> err
     Right value -> pure value
