@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Events (EventId, getEvents', putEventsToSinks)
+import Hydra.Events (EventId, getEvents, putEventsToSinks)
 import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, eventPairFromPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
@@ -96,13 +96,13 @@ spec = do
               -- but it is an okay reference point
               -- maybe in node?
               -- test for loadStateEventSource
-              getEvents' eventSource >>= putEventsToSinks eventSinks
+              getEvents eventSource >>= putEventsToSinks eventSinks
 
               -- after loading our node, all sinks should recieved the same events
-              getEvents' sink1Source `shouldReturn` items
-              getEvents' sink2Source `shouldReturn` items
+              getEvents sink1Source `shouldReturn` items
+              getEvents sink2Source `shouldReturn` items
               -- including the event source itself, which will now have duplicated events, at least by current definition
-              getEvents' eventSource `shouldReturn` (items <> items)
+              getEvents eventSource `shouldReturn` (items <> items)
           pure ()
 
 genPersistenceItem :: Gen Aeson.Value

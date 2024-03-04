@@ -189,7 +189,7 @@ mkMessagePersistence ::
   PersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence numberOfParties persistenceIncremental ackPersistence =
+mkMessagePersistence numberOfParties msgPersistence ackPersistence =
   MessagePersistence
     { loadAcks = do
         macks <- load ackPersistence
@@ -199,12 +199,10 @@ mkMessagePersistence numberOfParties persistenceIncremental ackPersistence =
     , saveAcks = \acks -> do
         save ackPersistence acks
     , loadMessages = do
-        loadAll persistenceIncremental
+        loadAll msgPersistence
     , appendMessage = \msg -> do
-        append persistenceIncremental msg
+        append msgPersistence msg
     }
-
--- TODO(Elaine): this can probably be replaced with new persistence
 
 -- | Middleware function to handle message counters tracking and resending logic.
 --

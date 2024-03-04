@@ -62,8 +62,8 @@ eventPairFromPersistenceIncremental ::
   PersistenceIncremental a m ->
   (EventSource a m, EventSink a m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
-  let eventSource = EventSource{getEvents' = loadAll}
-      eventSink = EventSink{putEvent' = append}
+  let eventSource = EventSource{getEvents = loadAll}
+      eventSink = EventSink{putEvent = append}
    in (eventSource, eventSink)
 
 -- | Initialize persistence handle for given type 'a' at given file path.
