@@ -134,7 +134,7 @@ spec = parallel $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         persistence <- createPersistenceInMemory
         let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-            eventSinks = eventSink :| []
+            eventSinks = [eventSink]
 
         createHydraNode' eventSource eventSinks bobSk [alice, carol] defaultContestationPeriod inputsToOpenHead
           >>= runToCompletion tracer
@@ -247,7 +247,7 @@ createHydraNode ::
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 createHydraNode =
-  createHydraNode' eventSource (eventSink :| [])
+  createHydraNode' eventSource [eventSink]
  where
   append = const $ pure ()
   loadAll = pure []
@@ -257,7 +257,7 @@ createHydraNode =
 createHydraNode' ::
   (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   EventSource (StateChanged SimpleTx) m ->
-  NonEmpty (EventSink (StateChanged SimpleTx) m) ->
+  [EventSink (StateChanged SimpleTx) m] ->
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
@@ -290,7 +290,8 @@ createHydraNode' eventSource eventSinks signingKey otherParties contestationPeri
             , contestationPeriod
             , participants
             }
-      , persistence = (eventSource, eventSinks)
+      , eventSource
+      , eventSinks
       }
  where
   party = deriveParty signingKey
@@ -309,13 +310,12 @@ recordPersistedItems node = do
   (record, query) <- messageRecorder
   lastStateChangeId <- newTVarIO 0
   -- pure (node{persistence = PersistenceIncremental{append = record, loadAll = pure []}}, query)
-  let getEvents' = pure []
-      putEvent' = \e -> do
+  let putEvent' = \e -> do
         atomically $ modifyTVar lastStateChangeId succ
         record e
   pure
     ( node
-        { persistence = (EventSource{getEvents'}, EventSink{putEvent'} :| [])
+        { eventSinks = eventSinks node <> [EventSink{putEvent'}]
         }
     , query
     )

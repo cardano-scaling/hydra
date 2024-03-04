@@ -781,7 +781,7 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
   inputQueue <- createInputQueue
   persistence <- createPersistenceInMemory
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-      eventSinks = eventSink :| []
+      eventSinks = [eventSink]
 
   connectNode chain $
     HydraNode
@@ -809,7 +809,8 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             , contestationPeriod = cp
             , participants
             }
-      , persistence = (eventSource, eventSinks)
+      , eventSource
+      , eventSinks
       }
  where
   party = deriveParty signingKey

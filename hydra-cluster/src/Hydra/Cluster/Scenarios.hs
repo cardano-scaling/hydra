@@ -557,7 +557,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
 
   let contestationPeriod = UnsafeContestationPeriod 2
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket 0 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
+  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
     let clients = leader : rest
     waitForNodesConnected hydraTracer 20 clients
 

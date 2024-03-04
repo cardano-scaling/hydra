@@ -55,7 +55,7 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental, putEventToSinks, putEventsToSinks)
+import Hydra.Persistence (EventSink (..), EventSource (..), putEventToSinks, putEventsToSinks)
 
 -- * Environment Handling
 
@@ -143,10 +143,9 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , persistence :: NewPersistenceIncremental (StateChanged tx) m
-  -- , latestStateChangeId :: TVar m Word64
-  -- , eventSource :: EventSource (StateChanged tx) m
-  -- , eventSinks :: NonEmpty (EventSink (StateChanged tx) m)
+  , -- , latestStateChangeId :: TVar m Word64
+    eventSource :: EventSource (StateChanged tx) m
+  , eventSinks :: [EventSink (StateChanged tx) m]
   -- FIXME(Elaine): bundle eventSource,Sinks, latestStateChangeId into a single type for convenience?
   -- they should still definitely be separable too
   }
@@ -217,7 +216,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, persistence = (_, eventSinks)} = node
+  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, eventSinks} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -324,9 +323,7 @@ loadStateEventSource tracer eventSource eventSinks defaultChainState = do
       chainStateHistory = recoverChainStateHistory defaultChainState events
   -- deliver to sinks per spec, deduplication is handled by the sinks
   -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
-  case nonEmpty eventSinks of
-    Nothing -> putStrLn "ELAINE: deduplicate events for disk persistence so we can get rid of this kludge"
-    Just sinks' -> putEventsToSinks sinks' events
+  putEventsToSinks eventSinks events
   pure (headState, chainStateHistory)
  where
   initialState = Idle IdleState{chainState = defaultChainState}
