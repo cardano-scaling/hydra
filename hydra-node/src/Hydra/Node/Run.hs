@@ -76,20 +76,20 @@ run opts = do
       inputQueue@InputQueue{enqueue} <- createInputQueue
       let RunOptions{chainConfig, ledgerConfig} = opts
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-
       globals <- getGlobalsForChain chainConfig
-
       withCardanoLedger pparams globals $ \ledger -> do
+        -- Setup event source and sinks
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        -- TODO(Elaine): remove in favor of eventSource/Sink directly
-        -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
-
-        let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-            eventSinks = [eventSink] -- FIXME(Elaine): load other event sinks
-            --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
-            -- persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
+        let (eventSource, filePersistenceSink) = eventPairFromPersistenceIncremental persistence
+        -- NOTE: Add any custom sink setup code here
+        -- customSink <- createCustomSink
+        let eventSinks =
+              [ filePersistenceSink
+              -- NOTE: Add any custom sinks here
+              -- , customSink
+              ]
+        -- Load events and hydrate sinks
         (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource eventSinks initialChainState
-
         checkHeadState (contramap Node tracer) env hs
         nodeState <- createNodeState hs
         -- Chain
