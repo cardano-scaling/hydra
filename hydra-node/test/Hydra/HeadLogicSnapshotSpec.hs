@@ -23,8 +23,8 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.HeadLogicSpec (getState, getStateAndEventID, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', runHeadLogic, step)
-import Hydra.Ledger (Ledger (..), txId)
+import Hydra.HeadLogicSpec (getState, getStateAndEventId, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', runHeadLogic, step)
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -113,7 +113,7 @@ spec = do
 
         (actualState, actualEventID) <- runHeadLogic (envFor aliceSk) simpleLedger st stEventID $ do
           step $ NetworkInput defaultTTL alice $ ReqTx tx
-          getStateAndEventID
+          getStateAndEventId
         actualState `shouldBe` st'
         actualEventID `shouldBe` st'EventID
 
@@ -126,7 +126,7 @@ spec = do
           step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
-          getStateAndEventID
+          getStateAndEventId
 
         update bobEnv simpleLedger headStateEventID headState (ackFrom bobSk bob)
           `hasEffectSatisfying` sendReqSn
@@ -136,7 +136,7 @@ spec = do
           step (NetworkInput defaultTTL alice $ ReqSn 1 [])
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
-          getStateAndEventID
+          getStateAndEventId
 
         update bobEnv simpleLedger headStateEventID headState (ackFrom bobSk bob)
           `hasNoEffectSatisfying` sendReqSn
@@ -155,7 +155,7 @@ spec = do
           step (ackFrom carolSk carol)
           newTxBeforeSnapshotAcknowledged
           step (ackFrom aliceSk alice)
-          getStateAndEventID
+          getStateAndEventId
 
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headStateEventID headState $ ackFrom bobSk bob
         everybodyAcknowleged `hasNoEffectSatisfying` sendReqSn

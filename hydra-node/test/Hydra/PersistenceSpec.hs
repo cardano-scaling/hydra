@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Events (getEvents', putEventsToSinks)
+import Hydra.Events (EventId, getEvents', putEventsToSinks)
 import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, eventPairFromPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
@@ -75,7 +75,7 @@ spec = do
     it "re-delivers events on EventSource load, to all EventSinks" $
       checkCoverage $
         monadicIO $ do
-          items <- pick $ listOf genPersistenceItem
+          items <- pick $ zip [(0 :: EventId) ..] <$> listOf genPersistenceItem
           run $
             withTempDir "hydra-persistence" $ \tmpDir -> do
               -- FIXME(Elaine): swap for createEventPairIncremental only once nothing is using eventPairFromPersistenceIncremental
