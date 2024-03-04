@@ -31,7 +31,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
-import Hydra.Persistence (EventSource (..), NewPersistenceIncremental (..), putEventToSinks)
+import Hydra.Persistence (PersistenceIncremental (..))
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
@@ -63,15 +63,15 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Party ->
-  NewPersistenceIncremental (TimedServerOutput tx) IO ->
+  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerComponent tx IO ()
-withAPIServer host port party (EventSource{getEvents'}, sinks) tracer chain pparams callback action =
+withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
-    timedOutputEvents <- getEvents'
+    timedOutputEvents <- loadAll
 
     -- Intialize our read model from stored events
     headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
@@ -119,7 +119,7 @@ withAPIServer host port party (EventSource{getEvents'}, sinks) tracer chain ppar
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
-    putEventToSinks sinks timedOutput
+    append timedOutput
     pure timedOutput
 
   onIOException ioException =

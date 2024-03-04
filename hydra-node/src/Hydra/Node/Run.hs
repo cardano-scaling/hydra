@@ -88,10 +88,9 @@ run opts = do
         -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
 
         let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-            eventSinks = eventSink :| [] --FIXME(Elaine): load other event sinks
-        --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
-        --persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
-
+            eventSinks = eventSink :| [] -- FIXME(Elaine): load other event sinks
+            --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
+            -- persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
         (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource (NE.toList eventSinks) initialChainState
 
         checkHeadState (contramap Node tracer) env hs
@@ -103,7 +102,7 @@ run opts = do
           let RunOptions{host, port, peers, nodeId} = opts
               putNetworkEvent (Authenticated msg otherParty) = enqueue $ NetworkInput defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
-          apiPersistence <- createNewPersistenceIncremental $ persistenceDir <> "/server-output"
+          apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (enqueue . ClientInput) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}

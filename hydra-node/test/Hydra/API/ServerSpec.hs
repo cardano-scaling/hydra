@@ -38,7 +38,7 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
-import Hydra.Persistence (NewPersistenceIncremental (..), PersistenceIncremental (..), createPersistenceIncremental, eventPairFromPersistenceIncremental)
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (Snapshot, utxo))
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
@@ -371,9 +371,7 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-      persistenceNew = (eventSource, eventSink :| [])
-  withAPIServer @SimpleTx "127.0.0.1" port actor persistenceNew tracer dummyChainHandle defaultPParams noop action
+  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop action
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.
