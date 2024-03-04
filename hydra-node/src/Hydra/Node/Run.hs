@@ -83,14 +83,14 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
 
       withCardanoLedger pparams globals $ \ledger -> do
-        -- persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
+        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         -- TODO(Elaine): remove in favor of eventSource/Sink directly
         -- (eventSource, eventSink) <- createEventPairIncremental $ persistenceDir <> "/state"
 
-        -- let -- (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-        --     eventSinks = eventSink :| [] --FIXME(Elaine): load other event sinks
+        let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
+            eventSinks = eventSink :| [] --FIXME(Elaine): load other event sinks
         --     eventSinksSansSource = [] --TODO(Elaine): this needs a better name. essentially, don't load events back into where they came from, at least until disk-based persistence can handle redelivery
-        persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
+        --persistence@(eventSource, eventSinks) <- createNewPersistenceIncremental $ persistenceDir <> "/state"
 
         (hs, chainStateHistory) <- loadStateEventSource (contramap Node tracer) eventSource (NE.toList eventSinks) initialChainState
 
@@ -118,7 +118,7 @@ run opts = do
                   , server
                   , ledger
                   , env
-                  , persistence
+                  , persistence = (eventSource, eventSinks)
                   }
  where
   connectionMessages Server{sendOutput} = \case
