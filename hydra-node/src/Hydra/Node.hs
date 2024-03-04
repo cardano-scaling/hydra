@@ -55,7 +55,7 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental (..), PersistenceIncremental (..), putEventToSinks, putEventsToSinks)
+import Hydra.Persistence (EventSink (..), EventSource (..), NewPersistenceIncremental, putEventToSinks, putEventsToSinks)
 
 -- * Environment Handling
 
