@@ -2,6 +2,8 @@
 -- 'EventSource' and 'EventSink' instances and is intended to be used as an
 -- extension point. A single 'EventSource' and zero or more 'EventSink' handles
 -- are used by the main 'HydraNode' handle to load and send out events.
+--
+-- TODO: add an example event source sink (on top of the persistence one)
 module Hydra.Events where
 
 import Hydra.Prelude
