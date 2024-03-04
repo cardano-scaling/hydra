@@ -767,7 +767,7 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsTx tx, FromJSON (ChainStateType tx), ToJSON (ChainStateType tx)) =>
   Ledger tx ->
   NodeState tx m ->
   SigningKey HydraKey ->

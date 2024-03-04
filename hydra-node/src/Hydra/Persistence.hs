@@ -9,6 +9,7 @@ import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
+import Hydra.Events (EventSink (..), EventSource (..))
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
@@ -49,33 +50,17 @@ createPersistence fp = do
                   Right a -> pure (Just a)
       }
 
-data EventSource e m = EventSource {getEvents' :: FromJSON e => m [e]}
-data EventSink e m = EventSink {putEvent' :: ToJSON e => e -> m ()}
-
-type EventID = Word64
-
--- FIXME(Elaine): we have to figure out a better taxonomy/nomenclature for the events/statechange stuff
--- the eventID here is not the same as the eventID in Queued, that one is more fickle and influenced by non state change events
--- this one is only incremented when we have a new state change event
-
--- FIXME(Elaine): primary createPersistenceIncremental is in Run.hs, that's swapped now
---  but replacing PersistenceIncremental outside of that, for network messages ex, seems like it should happen after, to not break too much at once
-
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , loadAll :: FromJSON a => m [a]
   }
 
---type NewPersistenceIncremental a m = (EventSource a m, [EventSink a m])
-
-putEventToSinks :: forall m e. (Monad m, ToJSON e) => [EventSink e m] -> e -> m ()
-putEventToSinks sinks e = forM_ sinks (\sink -> putEvent' sink e)
-
-putEventsToSinks :: forall m e. (Monad m, ToJSON e) => [EventSink e m] -> [e] -> m ()
-putEventsToSinks sinks es = forM_ es (\e -> putEventToSinks sinks e)
-
-eventPairFromPersistenceIncremental :: PersistenceIncremental a m -> (EventSource a m, EventSink a m)
+-- | Define an event source and sink from a persistence handle.
+eventPairFromPersistenceIncremental ::
+  (FromJSON a, ToJSON a) =>
+  PersistenceIncremental a m ->
+  (EventSource a m, EventSink a m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
   let eventSource = EventSource{getEvents' = loadAll}
       eventSink = EventSink{putEvent' = append}

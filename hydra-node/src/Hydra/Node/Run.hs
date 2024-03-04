@@ -51,8 +51,6 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental, eventPairFromPersistenceIncremental)
 
-import Data.List.NonEmpty qualified as NE
-
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError
   | InvalidOptionException InvalidOptions

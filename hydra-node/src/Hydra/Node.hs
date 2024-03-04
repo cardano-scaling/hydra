@@ -32,6 +32,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
+import Hydra.Events (EventSink (..), EventSource (..), putEventToSinks, putEventsToSinks)
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
@@ -55,7 +56,6 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (EventSink (..), EventSource (..), putEventToSinks, putEventsToSinks)
 
 -- * Environment Handling
 
@@ -143,11 +143,8 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   , ledger :: Ledger tx
   , env :: Environment
-  , -- , latestStateChangeId :: TVar m Word64
-    eventSource :: EventSource (StateChanged tx) m
+  , eventSource :: EventSource (StateChanged tx) m
   , eventSinks :: [EventSink (StateChanged tx) m]
-  -- FIXME(Elaine): bundle eventSource,Sinks, latestStateChangeId into a single type for convenience?
-  -- they should still definitely be separable too
   }
 
 data HydraNodeLog tx
@@ -310,7 +307,7 @@ loadState tracer eventSource defaultChainState = do
   initialState = Idle IdleState{chainState = defaultChainState}
 
 loadStateEventSource ::
-  (MonadThrow m, MonadIO m, IsChainState tx) =>
+  (MonadThrow m, IsChainState tx) =>
   Tracer m (HydraNodeLog tx) ->
   EventSource (StateChanged tx) m ->
   [EventSink (StateChanged tx) m] ->
