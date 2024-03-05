@@ -133,8 +133,8 @@ Figure~\ref{fig:commitTx} and has the following structure:
 \begin{itemize}
 	\item One input spending from $\nuInitial$ with datum $\datumInitial{}$,
 	      where value $\valInitial{i}$ holds a $\pt_i$, and the redeemer
-	      $\redeemerInitial{} \in \tyOutRef^{?}$ is an optional output
-	      reference to be committed,
+	      $\redeemerInitial{} \in \tyOutRef^{*}$ is a list of output
+	      references to be committed,
 	\item zero or more inputs with reference $\txOutRef_{\mathsf{committed}_{j}}$
 	      spending output $o_{\mathsf{committed}_{j}}$ with
 	      $\val_{\mathsf{committed}_{j}}$,
