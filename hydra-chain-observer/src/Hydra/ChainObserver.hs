@@ -186,10 +186,10 @@ chainSyncClient tracer networkId startingPoint observerHandler =
           let (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt =
-                fmap convertObservation observations <&> \case
-                  Just onChainTx -> HeadObservation point blockNo onChainTx
-                  Nothing -> Tick point blockNo
+          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          if null observationsAt
+            then observerHandler [Tick point blockNo]
+            else observerHandler observationsAt
           observerHandler observationsAt
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
