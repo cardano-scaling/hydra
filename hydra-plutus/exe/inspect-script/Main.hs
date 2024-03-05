@@ -18,7 +18,7 @@ import Hydra.Contract.Initial as Initial
 import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
-import Prettyprinter (defaultLayoutOptions, layoutPretty, pretty)
+import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.

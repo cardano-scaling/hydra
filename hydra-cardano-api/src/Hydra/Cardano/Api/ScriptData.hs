@@ -2,7 +2,7 @@
 
 module Hydra.Cardano.Api.ScriptData where
 
-import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.Prelude hiding (left)
 
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Era qualified as Ledger
