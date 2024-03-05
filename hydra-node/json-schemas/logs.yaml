@@ -1948,48 +1948,38 @@ definitions:
     description: >-
       The decision taken by the node logic after processing an Event.
     oneOf:
-      - title: Effects
+      - title: Continue
         type: object
         additionalProperties: false
         required:
           - tag
+          - events
           - effects
         description: >-
-          An outcome representing the list of actions to be taken by the node
-          to transition the protocol.
+          Continue with the given state update events and side effects.
         properties:
           tag:
             type: string
-            enum: ["Effects"]
+            enum: ["Continue"]
+          events:
+            type: array
+            items:
+              type: object
+              $ref: "logs.yaml#/definitions/StateChanged"
           effects:
             type: array
             items:
               type: object
               $ref: "logs.yaml#/definitions/Effect"
-      - title: StateChanged
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - event
-        description: >-
-          An outcome representing the new resulting state of the node.
-        properties:
-          tag:
-            type: string
-            enum: ["StateChanged"]
-          event:
-            type: object
-            $ref: "logs.yaml#/definitions/StateChanged"
       - title: Wait
         type: object
         additionalProperties: false
         required:
           - tag
           - reason
+          - events
         description: >-
-          An outcome representing the time that needs to pass before re-enqueuing
-          the input event to be processed again.
+          Wait for some condition to be met with optional state updates.
         properties:
           tag:
             type: string
@@ -1997,6 +1987,11 @@ definitions:
           reason:
             type: object
             $ref: "logs.yaml#/definitions/WaitReason"
+          events:
+            type: array
+            items:
+              type: object
+              $ref: "logs.yaml#/definitions/StateChanged"
       - title: Error
         type: object
         additionalProperties: false
@@ -2004,8 +1999,7 @@ definitions:
           - tag
           - error
         description: >-
-          An outcome representing an error to be logged by the node after processing
-          an input event.
+          Processing an input event resulted in an error.
         properties:
           tag:
             type: string
@@ -2013,25 +2007,6 @@ definitions:
           error:
             type: object
             $ref: "#/definitions/LogicError"
-      - title: Combined
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - left
-          - right
-        description: >-
-          A combination of two outcomes.
-        properties:
-          tag:
-            type: string
-            enum: ["Combined"]
-          left:
-            type: object
-            $ref: "logs.yaml#/definitions/Outcome"
-          right:
-            type: object
-            $ref: "logs.yaml#/definitions/Outcome"
 
   WaitReason:
     oneOf:

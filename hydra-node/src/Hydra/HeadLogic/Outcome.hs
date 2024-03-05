@@ -91,15 +91,20 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Stat
 deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 data Outcome tx
-  = Effects {effects :: [Effect tx]}
-  | StateChanged {event :: StateChanged tx}
-  | Wait {reason :: WaitReason tx}
-  | Error {error :: LogicError tx}
-  | Combined {left :: Outcome tx, right :: Outcome tx}
+  = -- | Continue with the given state updates and side effects.
+    Continue {events :: [StateChanged tx], effects :: [Effect tx]}
+  | -- | Wait for some condition to be met with optional state updates.
+    Wait {reason :: WaitReason tx, events :: [StateChanged tx]}
+  | -- | Processing resulted in an error.
+    Error {error :: LogicError tx}
   deriving stock (Generic)
 
 instance Semigroup (Outcome tx) where
-  (<>) = Combined
+  e@Error{} <> _ = e
+  _ <> e@Error{} = e
+  Continue evA _ <> Wait r evB = Wait r (evA <> evB)
+  Wait r evA <> _ = Wait r evA
+  Continue evA efA <> Continue evB efB = Continue (evA <> evB) (efA <> efB)
 
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
@@ -108,25 +113,22 @@ deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
-  shrink = \case
-    Combined l r -> [l, r] <> [Combined l' r' | l' <- shrink l, r' <- shrink r]
-    other -> genericShrink other
+  shrink = genericShrink
 
-collectEffects :: Outcome tx -> [Effect tx]
-collectEffects = \case
-  Error _ -> []
-  Wait _ -> []
-  StateChanged _ -> []
-  Effects effs -> effs
-  Combined l r -> collectEffects l <> collectEffects r
+noop :: Outcome tx
+noop = Continue [] []
 
-collectWaits :: Outcome tx -> [WaitReason tx]
-collectWaits = \case
-  Error _ -> []
-  Wait w -> [w]
-  StateChanged _ -> []
-  Effects _ -> []
-  Combined l r -> collectWaits l <> collectWaits r
+wait :: WaitReason tx -> Outcome tx
+wait reason = Wait reason []
+
+newState :: StateChanged tx -> Outcome tx
+newState change = Continue [change] []
+
+cause :: Effect tx -> Outcome tx
+cause e = Continue [] [e]
+
+causes :: [Effect tx] -> Outcome tx
+causes = Continue []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}

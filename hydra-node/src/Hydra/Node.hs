@@ -38,7 +38,6 @@ import Hydra.HeadLogic (
   IdleState (..),
   Outcome (..),
   aggregateState,
-  collectEffects,
   defaultTTL,
   recoverChainStateHistory,
   recoverState,
@@ -190,17 +189,16 @@ stepHydraNode tracer node = do
   traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
   outcome <- atomically (processNextEvent node queuedEvent)
   traceWith tracer (LogicOutcome party outcome)
-  handleOutcome e outcome
-  processEffects node tracer eventId outcome
+  case outcome of
+    Continue{events, effects} -> do
+      forM_ events append
+      processEffects node tracer eventId effects
+    Wait{events} -> do
+      forM_ events append
+      putEventAfter eq waitDelay (decreaseTTL e)
+    Error{} -> pure ()
   traceWith tracer EndEvent{by = party, eventId}
  where
-  handleOutcome e = \case
-    Error _ -> pure ()
-    Wait _reason -> putEventAfter eq waitDelay (decreaseTTL e)
-    StateChanged sc -> append sc
-    Effects _ -> pure ()
-    Combined l r -> handleOutcome e l >> handleOutcome e r
-
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
@@ -241,10 +239,10 @@ processEffects ::
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
   Word64 ->
-  Outcome tx ->
+  [Effect tx] ->
   m ()
-processEffects HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer eventId outcome = do
-  mapM_ processEffect $ zip (collectEffects outcome) [0 ..]
+processEffects HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer eventId effects = do
+  mapM_ processEffect $ zip effects [0 ..]
  where
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party eventId effectId effect
