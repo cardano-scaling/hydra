@@ -1,59 +1,22 @@
-"use client"; // This is a client component 👈🏽
+"use client" // This is a client component 👈🏽
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-
-interface ChainPoint {
-    blockHash: string
-    slot: string
-}
-
-interface HeadState {
-    headId: string
-    status: string
-    lastUpdatedAtPoint: ChainPoint
-    lastUpdatedAtBlockNo: number
-}
+import { HeadState } from "@/app/model"
+import useDataFetcher from "@/hooks/DataFetcher"
+import { useState } from "react"
 
 const HeadsTable = () => {
-    const [Heads, setHeads] = useState<HeadState[]>([])
+
+    const [heads, setHeads] = useState<HeadState[]>([])
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        getHeads()
-    }, [])
-
-    const getHeads = async () => {
-        try {
-            const response = await fetch('/heads')
-            // The return value is *not* serialized
-            // You can return Date, Map, Set, etc.
-            if (!response.ok) {
-                // This will activate the closest `error.js` Error Boundary
-                throw new Error('Failed to fetch data')
-            }
-            const data: HeadState[] = await response.json()
-            setHeads(data)
-        } catch (error) {
-            setError('Error fetching data. Please try again later.')
-        }
-    }
+    useDataFetcher<HeadState[]>({
+        url: '/heads',
+        setFetchedData: setHeads,
+        setError,
+    })
 
     return (
         <div className="container mx-auto mt-8">
-            <h1 className="text-3xl font-bold mb-4 flex items-center">
-                <div className="mr-2">
-                    <Image
-                        src="/hydra.svg"
-                        alt="Hydra Logo"
-                        className="dark:invert"
-                        width={100}
-                        height={24}
-                        priority
-                    />
-                </div>
-                Hydrascan
-            </h1>
             {error ? (
                 <p className="text-red-500">{error}</p>
             ) : (
@@ -69,7 +32,7 @@ const HeadsTable = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {Heads.map((entry, index) => (
+                            {heads?.map((entry, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
                                     <td className="truncate border px-4 py-2">{entry.headId}</td>
                                     <td className="truncate border px-4 py-2">{entry.status}</td>
