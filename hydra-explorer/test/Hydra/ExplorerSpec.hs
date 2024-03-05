@@ -21,7 +21,7 @@ import Data.OpenApi (
  )
 import Data.Yaml qualified as Yaml
 import Hydra.Explorer (httpApp)
-import Hydra.Explorer.ExplorerState (HeadState)
+import Hydra.Explorer.ExplorerState (HeadState, TickState)
 import Hydra.Logging (nullTracer)
 import Network.HTTP.Types (statusCode)
 import Network.Wai.Test (SResponse (..))
@@ -35,7 +35,7 @@ spec = apiServerSpec
 apiServerSpec :: Spec
 apiServerSpec = do
   Wai.with (return webServer) $
-    describe "API should respond correctly" $
+    describe "API should respond correctly" $ do
       describe "GET /heads" $
         it "matches schema" $ do
           let openApiSchema = "json-schemas" </> "hydra-explorer-api.yaml"
@@ -63,7 +63,38 @@ apiServerSpec = do
                   case validateJSON componentSchemas headsSchema value of
                     [] -> pure ()
                     errs -> liftIO . failure . toString $ unlines (map toText errs)
+      describe "GET /tick" $
+        it "matches schema" $ do
+          let openApiSchema = "json-schemas" </> "hydra-explorer-api.yaml"
+          openApi <- liftIO $ Yaml.decodeFileThrow @_ @OpenApi openApiSchema
+          let componentSchemas = openApi ^?! components . schemas
+          let maybeTickSchema = do
+                path <- openApi ^. paths . at "/tick"
+                endpoint <- path ^. get
+                res <- endpoint ^. responses . at 200
+                -- XXX: _Inline here assumes that no $ref is used within the
+                -- openapi Operation
+                jsonContent <- res ^. _Inline . content . at "application/json"
+                s <- jsonContent ^. schema
+                pure $ s ^. _Inline
+          case maybeTickSchema of
+            Nothing -> liftIO . failure $ "Failed to find schema for GET /tick endpoint"
+            Just tickSchema -> do
+              liftIO $ tickSchema `shouldNotBe` mempty
+              SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/tick"
+              liftIO $ statusCode simpleStatus `shouldBe` 200
+              liftIO $ simpleHeaders `shouldContain` [("Accept", "application/json")]
+              case Aeson.eitherDecode simpleBody of
+                Left err -> liftIO . failure $ "Failed to decode body: " <> err
+                Right value ->
+                  case validateJSON componentSchemas tickSchema value of
+                    [] -> pure ()
+                    errs -> liftIO . failure . toString $ unlines (map toText errs)
  where
-  webServer = httpApp nullTracer dummyGetHeads
+  webServer = httpApp nullTracer dummyGetHeads dummyGetTick
+
   dummyGetHeads :: IO [HeadState]
   dummyGetHeads = generate arbitrary
+
+  dummyGetTick :: IO TickState
+  dummyGetTick = generate arbitrary

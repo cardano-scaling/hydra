@@ -45,7 +45,6 @@ library
   build-depends:
     , aeson
     , base
-    , directory
     , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
@@ -83,7 +82,6 @@ test-suite tests
     , hspec
     , hspec-wai
     , http-types
-    , hydra-cardano-api
     , hydra-chain-observer
     , hydra-explorer
     , hydra-node

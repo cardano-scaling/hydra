@@ -5,9 +5,8 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.ChainObserver (ChainObservation)
-import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, aggregateHeadObservations)
+import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
 import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
@@ -27,6 +26,7 @@ type CorsHeaders =
   , Header "Access-Control-Allow-Headers" String
   ]
 
+-- REVIEW: maybe rename
 type GetHeadsHeaders :: [Type]
 type GetHeadsHeaders = Header "Accept" String ': CorsHeaders
 
@@ -39,10 +39,20 @@ type API =
             GetHeadsHeaders
             [HeadState]
         )
+    :<|> "tick"
+      :> Get
+          '[JSON]
+          ( Headers
+              GetHeadsHeaders
+              TickState
+          )
     :<|> Raw
 
 type GetHeads :: Type
 type GetHeads = IO [HeadState]
+
+type GetTick :: Type
+type GetTick = IO TickState
 
 api :: Proxy API
 api = Proxy
@@ -50,9 +60,14 @@ api = Proxy
 server ::
   forall (m :: Type -> Type).
   GetHeads ->
+  GetTick ->
   Handler (Headers GetHeadsHeaders [HeadState])
+    :<|> Handler (Headers GetHeadsHeaders TickState)
     :<|> Tagged m Application
-server getHeads = handleGetHeads getHeads :<|> serveDirectoryFileServer "static"
+server getHeads getTick =
+  handleGetHeads getHeads
+    :<|> handleGetTick getTick
+    :<|> serveDirectoryFileServer "static"
 
 handleGetHeads ::
   GetHeads ->
@@ -62,6 +77,16 @@ handleGetHeads getHeads = do
   case result of
     Right heads -> do
       return $ addHeader "application/json" $ addCorsHeaders heads
+    Left (_ :: SomeException) -> throwError err500
+
+handleGetTick ::
+  GetTick ->
+  Handler (Headers GetHeadsHeaders TickState)
+handleGetTick getTick = do
+  result <- liftIO $ try getTick
+  case result of
+    Right tick -> do
+      return $ addHeader "application/json" $ addCorsHeaders tick
     Left (_ :: SomeException) -> throwError err500
 
 logMiddleware :: Tracer IO APIServerLog -> Middleware
@@ -74,9 +99,9 @@ logMiddleware tracer app' req sendResponse = do
         }
   app' req sendResponse
 
-httpApp :: Tracer IO APIServerLog -> GetHeads -> Application
-httpApp tracer getHeads =
-  logMiddleware tracer $ serve api $ server getHeads
+httpApp :: Tracer IO APIServerLog -> GetHeads -> GetTick -> Application
+httpApp tracer getHeads getTick =
+  logMiddleware tracer $ serve api $ server getHeads getTick
 
 observerHandler :: TVar IO ExplorerState -> [ChainObservation] -> IO ()
 observerHandler explorerState observations = do
@@ -89,6 +114,11 @@ readModelGetHeadIds explorerStateTVar = do
   ExplorerState{heads} <- readTVarIO explorerStateTVar
   pure heads
 
+readModelGetTick :: TVar IO ExplorerState -> GetTick
+readModelGetTick explorerStateTVar = do
+  ExplorerState{tick} <- readTVarIO explorerStateTVar
+  pure tick
+
 main :: IO ()
 main = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
@@ -99,8 +129,9 @@ main = do
           , nodeSocket
           , startChainFrom
           } = opts
-    explorerState <- newTVarIO (ExplorerState [] ChainPointAtGenesis 0)
-    let getHeads = readModelGetHeadIds explorerState
+    explorerState <- newTVarIO (ExplorerState [] initialTickState)
+    let getTick = readModelGetTick explorerState
+        getHeads = readModelGetHeadIds explorerState
         chainObserverArgs =
           Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
@@ -110,7 +141,7 @@ main = do
           Hydra.ChainObserver.main (observerHandler explorerState)
       )
       ( traceWith tracer (APIServerStarted port)
-          *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads)
+          *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads getTick)
       )
  where
   settings tracer port =

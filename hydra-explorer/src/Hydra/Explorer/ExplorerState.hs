@@ -5,7 +5,7 @@ import Hydra.Prelude
 import Hydra.HeadId (HeadId (..), HeadSeed)
 
 import Data.Aeson (Value (..))
-import Hydra.Cardano.Api (BlockNo, ChainPoint, TxIn, UTxO)
+import Hydra.Cardano.Api (BlockNo, ChainPoint (..), TxIn, UTxO)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Tx (
   headSeedToTxIn,
@@ -78,10 +78,23 @@ data HeadState = HeadState
 instance Arbitrary HeadState where
   arbitrary = genericArbitrary
 
+-- | Represents the latest point in time observed on chain.
+data TickState = TickState
+  { point :: ChainPoint
+  , blockNo :: BlockNo
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
+instance Arbitrary TickState where
+  arbitrary = genericArbitrary
+
+initialTickState :: TickState
+initialTickState = TickState ChainPointAtGenesis 0
+
 data ExplorerState = ExplorerState
   { heads :: [HeadState]
-  , point :: ChainPoint
-  , blockNo :: BlockNo
+  , tick :: TickState
   }
 
 aggregateInitObservation :: HeadId -> ChainPoint -> BlockNo -> HeadSeed -> HeadParameters -> [OnChainId] -> [HeadState] -> [HeadState]
@@ -302,50 +315,42 @@ aggregateHeadObservations observations explorerState =
       HeadObservation{point, blockNo, onChainTx = OnInitTx{headId, headSeed, headParameters, participants}} ->
         ExplorerState
           { heads = aggregateInitObservation headId point blockNo headSeed headParameters participants heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnAbortTx{headId}} ->
         ExplorerState
           { heads = aggregateAbortObservation headId point blockNo heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnCommitTx{headId, party, committed}} ->
         ExplorerState
           { heads = aggregateCommitObservation headId point blockNo party committed heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnCollectComTx{headId}} ->
         ExplorerState
           { heads = aggregateCollectComObservation headId point blockNo heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->
         ExplorerState
           { heads = aggregateCloseObservation headId point blockNo snapshotNumber contestationDeadline heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnContestTx{headId, snapshotNumber}} ->
         ExplorerState
           { heads = aggregateContestObservation headId point blockNo snapshotNumber heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnFanoutTx{headId}} ->
         ExplorerState
           { heads = aggregateFanoutObservation headId point blockNo heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
       Tick{point, blockNo} ->
         ExplorerState
           { heads
-          , point
-          , blockNo
+          , tick = TickState point blockNo
           }
 
 findHeadState :: HeadId -> [HeadState] -> Maybe HeadState

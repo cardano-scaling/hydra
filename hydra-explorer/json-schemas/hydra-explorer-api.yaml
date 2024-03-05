@@ -3,6 +3,24 @@ info:
   title: Head Explorer API
   version: 1.0.0
 paths:
+  /tick:
+    get:
+      summary: Get the latest point in time obseverd on chain by the explorer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - point
+                  - blockNo
+                properties:
+                  point:
+                    $ref: '#/components/schemas/ChainPoint'
+                  blockNo:
+                    type: integer
   /heads:
     get:
       summary: Get a list of head states

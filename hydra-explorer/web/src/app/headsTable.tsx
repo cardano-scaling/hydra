@@ -25,7 +25,7 @@ const HeadsTable = () => {
 
     const getHeads = async () => {
         try {
-            const response = await fetch('http://0.0.0.0:3000/heads')
+            const response = await fetch('/heads')
             // The return value is *not* serialized
             // You can return Date, Map, Set, etc.
             if (!response.ok) {
