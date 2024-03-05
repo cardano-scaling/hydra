@@ -1,5 +1,6 @@
 module Hydra.Cardano.Api.Prelude (
   module Cardano.Api,
+  module Cardano.Api.Classy,
   module Cardano.Api.Shelley,
   module Data.Aeson,
   HasCallStack,
@@ -30,6 +31,7 @@ import Cardano.Api hiding (
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
+import Cardano.Api.Classy
 import Cardano.Api.Shelley hiding (
   UTxO,
   scriptLanguageSupportedInEra,

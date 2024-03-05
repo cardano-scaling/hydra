@@ -1,6 +1,5 @@
 module Hydra.Cardano.Api.TxOut where
 
-import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
@@ -11,8 +10,6 @@ import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
-import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ScriptData (toScriptData)

@@ -86,6 +86,7 @@ import Cardano.Api as X hiding (
 import Cardano.Api.Byron as X (
   Address (..),
  )
+import Cardano.Api.Classy as X
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
   Address (..),
@@ -120,7 +121,6 @@ import Hydra.Cardano.Api.Prelude (
 
 import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
-import Hydra.Cardano.Api.AlonzoEraOnwards as Extras
 import Hydra.Cardano.Api.BlockHeader as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
@@ -129,7 +129,6 @@ import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.KeyWitness as Extras
 import Hydra.Cardano.Api.Lovelace as Extras
-import Hydra.Cardano.Api.MaryEraOnwards as Extras
 import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
@@ -137,7 +136,6 @@ import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
-import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
 import Hydra.Cardano.Api.Tx as Extras
 import Hydra.Cardano.Api.TxBody as Extras
 import Hydra.Cardano.Api.TxId as Extras
@@ -159,8 +157,6 @@ import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Data.ByteString.Short (ShortByteString)
-import Hydra.Cardano.Api.AllegraEraOnwards (IsAllegraEraOnwards (..))
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Prelude
 
 -- ** AddressInEra
