@@ -5,7 +5,7 @@ module Hydra.Cardano.Api.PlutusScript where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Babbage.Scripts qualified as Ledger
+import Cardano.Ledger.Conway.Scripts qualified as Ledger
 import Cardano.Ledger.Plutus.Language qualified as Ledger
 import Data.ByteString.Short qualified as SBS
 import PlutusLedgerApi.Common qualified as Plutus
@@ -29,17 +29,31 @@ fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
   Ledger.PlutusScript x -> Ledger.withPlutusScript x (\(Ledger.Plutus (Ledger.PlutusBinary bytes)) -> PlutusScriptSerialised bytes)
 
--- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
-toLedgerScript ::
-  forall lang.
-  IsPlutusScriptLanguage lang =>
-  PlutusScript lang ->
-  Ledger.AlonzoScript (ShelleyLedgerEra Era)
-toLedgerScript (PlutusScriptSerialised bytes) =
-  Ledger.PlutusScript $ case plutusScriptVersion @lang of
-    PlutusScriptV1 -> Ledger.BabbagePlutusV1 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
-    PlutusScriptV2 -> Ledger.BabbagePlutusV2 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
-    PlutusScriptV3 -> error "toLedgerScript: PlutusV3 not supported in Babbage"
+class ToAlonzoScript lang era where
+  toLedgerScript ::
+    IsPlutusScriptLanguage lang =>
+    PlutusScript lang ->
+    Ledger.AlonzoScript (ShelleyLedgerEra era)
+
+instance ToAlonzoScript PlutusScriptV1 BabbageEra where
+  toLedgerScript (PlutusScriptSerialised bytes) =
+    Ledger.PlutusScript $ Ledger.BabbagePlutusV1 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
+
+instance ToAlonzoScript PlutusScriptV2 BabbageEra where
+  toLedgerScript (PlutusScriptSerialised bytes) =
+    Ledger.PlutusScript $ Ledger.BabbagePlutusV2 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
+
+instance ToAlonzoScript PlutusScriptV1 ConwayEra where
+  toLedgerScript (PlutusScriptSerialised bytes) =
+    Ledger.PlutusScript $ Ledger.ConwayPlutusV1 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
+
+instance ToAlonzoScript PlutusScriptV2 ConwayEra where
+  toLedgerScript (PlutusScriptSerialised bytes) =
+    Ledger.PlutusScript $ Ledger.ConwayPlutusV2 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
+
+instance ToAlonzoScript PlutusScriptV3 ConwayEra where
+  toLedgerScript (PlutusScriptSerialised bytes) =
+    Ledger.PlutusScript $ Ledger.ConwayPlutusV3 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
 
 -- | Convert a serialized plutus script into a cardano-api 'PlutusScript'.
 fromPlutusScript :: Plutus.SerialisedScript -> PlutusScript lang
