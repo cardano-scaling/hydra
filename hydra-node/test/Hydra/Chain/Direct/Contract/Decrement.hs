@@ -3,7 +3,13 @@
 module Hydra.Chain.Direct.Contract.Decrement where
 
 import Hydra.Cardano.Api
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceParties)
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  modifyInlineDatum,
+  replaceParties,
+  replaceSnapshotNumber,
+ )
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
@@ -30,10 +36,10 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Party (Party, partyToChain, vkey)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
-import Test.QuickCheck (elements, oneof)
+import Test.QuickCheck (arbitrarySizedNatural, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -83,12 +89,15 @@ healthyDecrementTx =
         )
         healthyParties
 
+healthySnapshotNumber :: SnapshotNumber
+healthySnapshotNumber = 1
+
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   let (utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
-        , number = 1
+        , number = healthySnapshotNumber
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
@@ -138,6 +147,11 @@ data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
     MutatePartiesInOutput
+  | -- | Invalidates the tx by changing the snapshot number in resulting head
+    -- output.
+    --
+    -- Ensures the snapshot number is aligned.
+    MutateSnapshotNumber
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -146,6 +160,9 @@ genDecrementMutation (tx, _utxo) =
     [ SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (Just "H38") MutateSnapshotNumber <$> do
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
