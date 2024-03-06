@@ -31,6 +31,7 @@ data State
       , parties :: [Party]
       , utxoHash :: Hash
       , headId :: CurrencySymbol
+      , snapshotNumber :: SnapshotNumber
       }
   | Closed
       { parties :: [Party]
