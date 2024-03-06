@@ -1,8 +1,8 @@
 "use client" // This is a client component 👈🏽
 
-import { HeadState } from '@/app/model';
-import useDataFetcher from '@/hooks/DataFetcher';
-import React, { useContext, useState } from 'react';
+import { HeadState } from '@/app/model'
+import useDataFetcher from '@/hooks/DataFetcher'
+import React, { useContext, useState } from 'react'
 
 export interface HeadsDataService {
   heads: HeadState[],
@@ -30,7 +30,7 @@ export const HeadsDataProvider: React.FC<any> = ({
     <HeadsDataContext.Provider value={{heads: heads, error: error}}>
       {children}
     </HeadsDataContext.Provider>
-  );
-};
+  )
+}
 
-export const useHeadsData = () => useContext(HeadsDataContext);
+export const useHeadsData = () => useContext(HeadsDataContext)
