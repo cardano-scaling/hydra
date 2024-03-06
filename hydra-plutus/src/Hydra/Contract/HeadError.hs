@@ -44,6 +44,7 @@ data HeadError
   | PartySignatureVerificationFailed
   | NotPayingToHead
   | NotAllValueCollected
+  | SnapshotNumberMismatch
   deriving stock (Show)
 
 instance ToErrorCode HeadError where
@@ -85,3 +86,4 @@ instance ToErrorCode HeadError where
     PartySignatureVerificationFailed -> "H35"
     NotPayingToHead -> "H36"
     NotAllValueCollected -> "H37"
+    SnapshotNumberMismatch -> "H38"

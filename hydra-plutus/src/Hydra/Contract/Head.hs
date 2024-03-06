@@ -73,7 +73,7 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, contestationPeriod, headId}, Decrement{}) -> checkDecrement ctx parties contestationPeriod headId
+    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature}) -> checkDecrement ctx parties snapshotNumber contestationPeriod headId signature
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
@@ -230,13 +230,16 @@ commitDatum input = do
 checkDecrement ::
   ScriptContext ->
   [Party] ->
+  SnapshotNumber ->
   ContestationPeriod ->
   CurrencySymbol ->
+  [Signature] ->
   Bool
-checkDecrement ctx parties cperiod headPolicyId =
+checkDecrement ctx parties snapshotNumber cperiod headPolicyId _signature =
   mustNotChangeParameters
+    && checkSnapshot
  where
-  (_, parties', cperiod', headId') =
+  (_, parties', snapshotNumber', cperiod', headId') =
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Open
@@ -244,7 +247,8 @@ checkDecrement ctx parties cperiod headPolicyId =
           , parties = p
           , headId
           , contestationPeriod
-          } -> (utxoHash, p, contestationPeriod, headId)
+          , snapshotNumber = sn
+          } -> (utxoHash, p, sn, contestationPeriod, headId)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
   mustNotChangeParameters =
@@ -252,6 +256,10 @@ checkDecrement ctx parties cperiod headPolicyId =
       headId' == headPolicyId
         && parties' == parties
         && cperiod' == cperiod
+
+  checkSnapshot =
+    traceIfFalse $(errorCode SnapshotNumberMismatch) $
+      snapshotNumber' > snapshotNumber
 {-# INLINEABLE checkDecrement #-}
 
 -- | The close validator must verify that:

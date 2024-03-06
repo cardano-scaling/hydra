@@ -735,6 +735,17 @@ replacePolicyInValue original replacement =
       | pid == original -> (AssetId replacement an, q)
     _ -> (aid, q)
 
+replaceSnapshotNumberInOpen :: Head.SnapshotNumber -> Head.State -> Head.State
+replaceSnapshotNumberInOpen snapshotNumber = \case
+  Head.Open{parties, utxoHash, headId, contestationPeriod} ->
+    Head.Open
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationPeriod = contestationPeriod
+      , Head.headId = headId
+      }
+  otherState -> otherState
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
   Head.Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod} ->

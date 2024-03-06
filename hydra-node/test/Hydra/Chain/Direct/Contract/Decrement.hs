@@ -8,7 +8,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
   modifyInlineDatum,
   replaceParties,
-  replaceSnapshotNumber,
+  replaceSnapshotNumberInOpen,
  )
 import Hydra.Prelude hiding (label)
 
@@ -97,7 +97,7 @@ healthySnapshot =
   let (utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
-        , number = healthySnapshotNumber
+        , number = succ healthySnapshotNumber
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
@@ -161,9 +161,9 @@ genDecrementMutation (tx, _utxo) =
     [ SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (Just "H38") MutateSnapshotNumber <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , SomeMutation (Just $ toErrorCode SnapshotNumberMismatch) MutateSnapshotNumber <$> do
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
