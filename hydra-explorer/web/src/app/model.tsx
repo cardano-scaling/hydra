@@ -6,8 +6,8 @@ export interface ChainPoint {
 export interface HeadState {
     headId: string
     status: string
-    lastUpdatedAtPoint: ChainPoint
-    lastUpdatedAtBlockNo: number
+    point: ChainPoint
+    blockNo: number
 }
 
 export interface TickState {

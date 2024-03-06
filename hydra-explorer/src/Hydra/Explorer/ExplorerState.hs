@@ -69,8 +69,8 @@ data HeadState = HeadState
   , contestations :: Observed Natural
   , snapshotNumber :: Observed Natural
   , contestationDeadline :: Observed UTCTime
-  , lastUpdatedAtPoint :: ChainPoint
-  , lastUpdatedAtBlockNo :: BlockNo
+  , point :: ChainPoint
+  , blockNo :: BlockNo
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
@@ -123,8 +123,8 @@ aggregateInitObservation headId point blockNo headSeed HeadParameters{parties, c
       , contestations = Seen 0
       , snapshotNumber = Seen 0
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateAbortObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
@@ -145,8 +145,8 @@ aggregateAbortObservation headId point blockNo currentHeads =
       , contestations = Seen 0
       , snapshotNumber = Seen 0
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateCommitObservation :: HeadId -> ChainPoint -> BlockNo -> Party -> UTxO -> [HeadState] -> [HeadState]
@@ -196,8 +196,8 @@ aggregateCommitObservation headId point blockNo party committed currentHeads =
       , contestations = Seen 0
       , snapshotNumber = Seen 0
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateCollectComObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
@@ -218,8 +218,8 @@ aggregateCollectComObservation headId point blockNo currentHeads =
       , contestations = Seen 0
       , snapshotNumber = Seen 0
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateCloseObservation :: HeadId -> ChainPoint -> BlockNo -> SnapshotNumber -> UTCTime -> [HeadState] -> [HeadState]
@@ -240,8 +240,8 @@ aggregateCloseObservation headId point blockNo (UnsafeSnapshotNumber sn) contest
       , contestations = Seen 0
       , snapshotNumber = Seen sn
       , contestationDeadline = Seen contestationDeadline
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateContestObservation :: HeadId -> ChainPoint -> BlockNo -> SnapshotNumber -> [HeadState] -> [HeadState]
@@ -270,8 +270,8 @@ aggregateContestObservation headId point blockNo (UnsafeSnapshotNumber sn) curre
       , contestations = Seen 1
       , snapshotNumber = Seen sn
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 aggregateFanoutObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
@@ -292,8 +292,8 @@ aggregateFanoutObservation headId point blockNo currentHeads =
       , contestations = Unknown
       , snapshotNumber = Unknown
       , contestationDeadline = Unknown
-      , lastUpdatedAtPoint = point
-      , lastUpdatedAtBlockNo = blockNo
+      , point = point
+      , blockNo = blockNo
       }
 
 replaceHeadState :: HeadState -> [HeadState] -> [HeadState]

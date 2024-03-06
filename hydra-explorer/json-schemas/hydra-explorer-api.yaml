@@ -222,8 +222,8 @@ components:
       required:
         - headId
         - status
-        - lastUpdatedAtPoint
-        - lastUpdatedAtBlockNo
+        - point
+        - blockNo
       properties:
         headId:
           $ref: '#/components/schemas/HeadId'
@@ -246,7 +246,7 @@ components:
           $ref: '#/components/schemas/SnapshotNumber'
         contestationDeadline:
           $ref: '#/components/schemas/UTCTime'
-        lastUpdatedAtPoint:
+        point:
           $ref: '#/components/schemas/ChainPoint'
-        lastUpdatedAtBlockNo:
+        blockNo:
           type: integer
