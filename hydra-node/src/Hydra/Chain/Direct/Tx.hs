@@ -394,6 +394,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
       Head.Open
         { Head.parties = partyToChain <$> parties
         , utxoHash
+        , snapshotNumber = 0
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
@@ -462,10 +463,11 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       Head.Open
         { Head.parties = partyToChain <$> parties
         , utxoHash
+        , snapshotNumber = toInteger number
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
         }
-  Snapshot{utxo, utxoToDecommit} = snapshot
+  Snapshot{utxo, utxoToDecommit, number} = snapshot
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also

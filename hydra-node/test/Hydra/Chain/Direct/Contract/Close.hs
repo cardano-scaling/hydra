@@ -164,6 +164,7 @@ healthyOpenHeadDatum =
   Head.Open
     { parties = healthyOnChainParties
     , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+    , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
     }
@@ -310,6 +311,7 @@ genCloseMutation (tx, _utxo) =
           Head.Open
             { parties = mutatedParties
             , utxoHash = ""
+            , snapshotNumber = toInteger healthyCloseSnapshotNumber
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
             }

@@ -132,6 +132,7 @@ healthyDatum =
     { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
     , parties = healthyOnChainParties
     , contestationPeriod = toChain healthyContestationPeriod
+    , snapshotNumber = toInteger healthySnapshotNumber
     , headId = toPlutusCurrencySymbol testPolicyId
     }
 

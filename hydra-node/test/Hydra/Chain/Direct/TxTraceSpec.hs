@@ -288,6 +288,7 @@ openHeadUTxO =
         , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO 0
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
+        , snapshotNumber = 0
         }
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
