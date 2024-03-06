@@ -29,6 +29,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (UTxOType)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
 import Hydra.Party (Party)
