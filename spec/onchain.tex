@@ -255,24 +255,72 @@ a party to add a UTxO to an already open head and consists of:
 $\redeemerHead = (\mathsf{increment}, \xi)$, where $\xi$ is a multi-signature of
 the increment snapshot which authorizes addition of some UTxO $U_\alpha$, and checks:
 \begin{menumerate}
-  \item State is advanced from $\datumHead \sim \stOpen$ to
-$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
-stay unchanged and the new state is governed again by $\nuHead$:
-  \[
-	(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta) \xrightarrow[\xi]{\mathsf{increment}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta')
-  \]
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+	stay unchanged and the new state is governed again by $\nuHead$:
+	\[
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta) \xrightarrow[\xi]{\mathsf{increment}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta')
+	\]
 	\item Increment snapshot is newer $s' > s$, where $(s, \cdot) = \eta$ is the
-		current and $(s', \cdot) = \eta'$ is the incremented snapshot number.
+	current and $(s', \cdot) = \eta'$ is the incremented snapshot number.
 	\item $\xi$ is a valid multi-signature of the new snapshot state
-    $\msVfy(\hydraKeysAgg,(\cid || \textcolor{red}{\eta_{0}} || \eta'),\xi) = \true$.
-  \item \todo{Need to ensure all value of $U_\alpha$ is captured! Right now, this could be attached with $\txOutRef_{\mathsf{committed}} = []$} All committed value is in the output
-	$\valHead' \supseteq \valHead \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$
+	$\msVfy(\hydraKeysAgg,(\cid || \textcolor{red}{\eta_{0}} || \eta'),\xi) = \true$.
+	\item \todo{Need to ensure all value of $U_\alpha$ is captured! Right now, this could be attached with $\txOutRef_{\mathsf{committed}} = []$} \textcolor{red}{All committed value is in the output
+		$\valHead' \supseteq \valHead \cup (\bigcup_{j=1}^{m} \val_{\mathsf{committed}_{j}})$}
+
+	\item Transaction is signed by a participant $\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys$.
 \end{menumerate}
 
 \begin{figure}[h] \centering
 	\includegraphics[width=0.8\textwidth]{figures/incrementTx.pdf}
 	\caption{\mtxIncrement{} transaction spending an open head output and a single
 		committed output, and producing a new head output.}\label{fig:incrementTx}
+\end{figure}
+
+\newpage
+
+\subsection{Decrement Transaction}\label{sec:increment-tx}
+
+\noindent The \mtxDecrement{} transaction (Figure~\ref{fig:DecrementTx}) allows
+a party to remove a UTxO from an already open head and consists of:
+
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$,
+	\item one or more decommit outputs $o_{1} \dots o_{m}$.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{decrement}, \xi, m)$, where $\xi$ is a multi-signature of
+the decrement snapshot which authorizes removal of some UTxO $U_\omega$, and $m$ is
+the number of outputs to reimburse. The validator checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
+	unchanged and the new state is governed again by $\nuHead$:
+	\[
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta) \xrightarrow[\xi]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta')
+	\]
+	\item The decrement snapshot is newer $s' > s$, where $(s, \cdot) = \eta$ is the
+	current and $(s', \cdot) = \eta'$ is the decremented snapshot number.
+	\item $\xi$ is a valid multi-signature of the new snapshot state $\eta'$ and the
+	removed UTxOs
+	\[
+		\msVfy(\hydraKeysAgg,(\cid || \textcolor{red}{\eta_{0}} || \eta' || U^{\#}_{\omega}),\xi) = \true
+	\]
+	where
+	\[
+		U^{\#}_{\omega}  = \hash(\bigoplus_{j=1}^{m} \bytes(o_{j}))
+	\]
+	\item Transaction is signed by a participant $\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys$.
+	\todo{Need a constraint on the value in the head?}
+\end{menumerate}
+
+\begin{figure}[h] \centering
+	\includegraphics[width=0.8\textwidth]{figures/decrementTx.pdf}
+	\caption{\mtxDecrement{} transaction spending an open head output,
+		producing a new head output and multiple decommitted outputs.}\label{fig:decrementTx}
 \end{figure}
 
 \subsection{Abort Transaction}\label{sec:abort-tx}
