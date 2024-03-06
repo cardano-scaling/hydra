@@ -73,7 +73,7 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{}, Decrement{}) -> checkDecrement
+    (Open{parties, contestationPeriod, headId}, Decrement{}) -> checkDecrement ctx parties contestationPeriod headId
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
@@ -227,8 +227,31 @@ commitDatum input = do
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
-checkDecrement :: Bool
-checkDecrement = True
+checkDecrement ::
+  ScriptContext ->
+  [Party] ->
+  ContestationPeriod ->
+  CurrencySymbol ->
+  Bool
+checkDecrement ctx parties cperiod headPolicyId =
+  mustNotChangeParameters
+ where
+  (_, parties', cperiod', headId') =
+    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+      Just
+        Open
+          { utxoHash
+          , parties = p
+          , headId
+          , contestationPeriod
+          } -> (utxoHash, p, contestationPeriod, headId)
+      _ -> traceError $(errorCode WrongStateInOutputDatum)
+
+  mustNotChangeParameters =
+    traceIfFalse $(errorCode ChangedParameters) $
+      headId' == headPolicyId
+        && parties' == parties
+        && cperiod' == cperiod
 {-# INLINEABLE checkDecrement #-}
 
 -- | The close validator must verify that:
