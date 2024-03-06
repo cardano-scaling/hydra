@@ -740,7 +740,7 @@ update env ledger st ev = case (st, ev) of
     cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot)
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
-  (Open{}, PostTxError{postChainTx = CollectComTx{}}) ->
+  (Open{}, OnChainEvent PostTxError{postChainTx = CollectComTx{}}) ->
     noop
   -- Closed
   (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
@@ -764,7 +764,7 @@ update env ledger st ev = case (st, ev) of
     newState ChainRolledBack{chainState = rolledBackChainState}
   (_, OnChainEvent Tick{chainSlot}) ->
     newState TickObserved{chainSlot}
-  (_, PostTxError{postChainTx, postTxError}) ->
+  (_, OnChainEvent PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientEvent{clientInput}) ->
     cause . ClientEffect $ ServerOutput.CommandFailed clientInput st

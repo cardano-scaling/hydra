@@ -33,12 +33,7 @@ deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
-instance
-  ( IsTx tx
-  , Arbitrary (ChainStateType tx)
-  ) =>
-  Arbitrary (Effect tx)
-  where
+instance IsChainState tx => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 -- | Head state changed event. These events represent all the internal state
@@ -111,7 +106,7 @@ deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
 deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
+instance IsChainState tx => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
 

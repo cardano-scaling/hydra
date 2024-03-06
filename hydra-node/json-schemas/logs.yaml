@@ -1588,23 +1588,6 @@ definitions:
             enum: ["OnChainEvent"]
           chainEvent:
             $ref: "logs.yaml#/definitions/OnChainEvent"
-      - title: PostTxError
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - postChainTx
-          - postTxError
-        description: >-
-          Event emitted when posting a transaction on the main chain failed.
-        properties:
-          tag:
-            type: string
-            enum: ["PostTxError"]
-          postChainTx:
-            $ref: "api.yaml#/components/schemas/PostChainTx"
-          postTxError:
-            $ref: "api.yaml#/components/schemas/PostTxError"
 
   Message:
     description: >-
@@ -1734,6 +1717,24 @@ definitions:
             $ref: "api.yaml#/components/schemas/UTCTime"
           chainSlot:
             $ref: "api.yaml#/components/schemas/ChainSlot"
+
+      - title: PostTxError
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - postChainTx
+          - postTxError
+        description: >-
+          Event emitted when posting a transaction on the main chain failed.
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxError"]
+          postChainTx:
+            $ref: "api.yaml#/components/schemas/PostChainTx"
+          postTxError:
+            $ref: "api.yaml#/components/schemas/PostTxError"
 
   OnChainTx:
     description: >-
