@@ -36,8 +36,11 @@ data State
   | Closed
       { parties :: [Party]
       , snapshotNumber :: SnapshotNumber
+      -- ^ Spec: fst of η
       , utxoHash :: Hash
+      -- ^ Spec: snd of η
       , utxoToDecommitHash :: Hash
+      -- ^ Spec: ηω
       , contestationDeadline :: POSIXTime
       , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
