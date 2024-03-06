@@ -5,6 +5,7 @@ import IntervalSettingProvider from "@/providers/IntervalProvider"
 import IntervalSetter from "@/components/IntervalSetter"
 import TickBox from "@/components/TickBox"
 import HeadsTable from "@/components/HeadsTable"
+import { HeadsDataProvider } from "@/providers/HeadsDataProvider"
 
 
 export default function Home() {
@@ -42,8 +43,9 @@ export default function Home() {
               </div>
 
             </div>
-
-            <HeadsTable />
+            <HeadsDataProvider>
+              <HeadsTable />
+            </HeadsDataProvider>
           </div>
 
 

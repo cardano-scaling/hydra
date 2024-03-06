@@ -1,18 +1,9 @@
 "use client" // This is a client component 👈🏽
 
-import { HeadState } from "@/app/model"
-import useDataFetcher from "@/hooks/DataFetcher"
-import { useState } from "react"
+import { useHeadsData } from "@/providers/HeadsDataProvider"
 
 const HeadsTable = () => {
-    const [heads, setHeads] = useState<HeadState[]>([])
-    const [error, setError] = useState<string | null>(null)
-
-    useDataFetcher<HeadState[]>({
-        url: '/heads',
-        setFetchedData: setHeads,
-        setError,
-    })
+    const {heads, error} = useHeadsData()
 
     return (
         <div className="container mx-auto mt-12">
