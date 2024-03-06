@@ -3,9 +3,11 @@
 module Hydra.Chain.Direct.Contract.Decrement where
 
 import Hydra.Cardano.Api
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceParties)
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
+import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -14,9 +16,12 @@ import Hydra.Chain.Direct.Tx (
   mkHeadId,
   mkHeadOutput,
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.ContestationPeriod (ContestationPeriod, toChain)
+import Hydra.Contract.Error (ToErrorCode (..))
+import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (MultiSignature (..))
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
@@ -28,7 +33,8 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..))
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
-import Test.QuickCheck (elements)
+import Test.QuickCheck (elements, oneof)
+import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyDecrementTx :: (Tx, UTxO)
@@ -115,9 +121,8 @@ healthyDatum :: Head.State
 healthyDatum =
   Head.Open
     { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-    , parties =
-        partyToChain <$> healthyParties
-    , contestationPeriod = 10
+    , parties = healthyOnChainParties
+    , contestationPeriod = toChain healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     }
 
@@ -125,3 +130,22 @@ healthyParties :: [Party]
 healthyParties =
   [ generateWith arbitrary i | i <- [1 .. 3]
   ]
+
+healthyOnChainParties :: [OnChain.Party]
+healthyOnChainParties = partyToChain <$> healthyParties
+
+data DecrementMutation
+  = -- | Ensures parties do not change between head input datum and head output
+    --  datum.
+    MutatePartiesInOutput
+  deriving stock (Generic, Show, Enum, Bounded)
+
+genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
+genDecrementMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    ]
+ where
+  headTxOut = fromJust $ txOuts' tx !!? 0
