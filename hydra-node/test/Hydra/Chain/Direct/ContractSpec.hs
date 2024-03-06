@@ -24,7 +24,7 @@ import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutat
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
-import Hydra.Chain.Direct.Contract.Decrement (healthyDecrementTx)
+import Hydra.Chain.Direct.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation)
@@ -117,6 +117,8 @@ spec = parallel $ do
   describe "Decrement" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyDecrementTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyDecrementTx genDecrementMutation
   describe "Close" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseTx
