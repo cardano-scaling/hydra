@@ -49,8 +49,8 @@ jobs:
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
         cd ${{ matrix.package }}
-        nix build .#tests.${{ matrix.package }}
-        nix develop .#tests.${{ matrix.package }} --command tests
+        nix build .#${{ matrix.package }}-tests
+        nix develop .#${{ matrix.package }}-tests --command tests
 
     - name: ❓ Test (TUI)
       id: test_tui
@@ -62,8 +62,8 @@ jobs:
         TERM: "xterm"
       run: |
         cd ${{ matrix.package  }}
-        nix build .#tests.${{ matrix.package }}
-        nix develop .#tests.${{ matrix.package }} --build
+        nix build .#${{ matrix.package }}-tests
+        nix develop .#${{ matrix.package }}-tests --build
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
@@ -170,8 +170,8 @@ jobs:
       run: |
         mkdir -p benchmarks
         cd ${{ matrix.package }}
-        nix build .#benchs.${{ matrix.package }}
-        nix develop .#benchs.${{ matrix.package }} --command ${{ matrix.bench }} ${{ matrix.options }}
+        nix build .#${{ matrix.package }}-bench
+        nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4

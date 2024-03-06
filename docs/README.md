@@ -36,8 +36,8 @@ right place before, you can use these `nix` builds from the repository root:
 nix build .#spec && ln -s $(readlink result)/hydra-spec.pdf docs/static/hydra-spec.pdf
 nix build .#haddocks -o docs/static/haddock
 
-(cd hydra-node; nix develop .#benchs.hydra-node --command tx-cost --output-directory $(pwd)/../docs/benchmarks)
-(cd hydra-cluster; nix develop .#benchs.hydra-cluster --command bench-e2e --scaling-factor 1 --output-directory $(pwd)/../docs/benchmarks)
+(cd hydra-node; nix develop .#hydra-node-bench --command tx-cost --output-directory $(pwd)/../docs/benchmarks)
+(cd hydra-cluster; nix develop .#hydra-cluster-bench --command bench-e2e --scaling-factor 1 --output-directory $(pwd)/../docs/benchmarks)
 ```
 
 # Translating
