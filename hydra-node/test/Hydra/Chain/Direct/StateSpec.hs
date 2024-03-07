@@ -87,7 +87,7 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), ClosedThreadOutput (closedContesters), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), IncrementObservation (..), NotAnInitReason (..), observeCommitTx, observeHeadTx, observeInitTx)
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), ClosedThreadOutput (closedContesters), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeHeadTx, observeInitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
