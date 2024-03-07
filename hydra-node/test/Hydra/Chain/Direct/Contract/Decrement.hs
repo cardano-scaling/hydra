@@ -156,6 +156,11 @@ data DecrementMutation
     -- Ensures the snapshot number is aligned.
     MutateSnapshotNumber
   | SnapshotSignatureInvalid
+  | -- | Produce invalid signature by changing signers in the redeemer
+    SnapshotSignatureInvalid
+  | -- | Ensures decrement is authenticated by one of the Head members by changing
+    --  the signer used on the tx to not be one of PTs.
+    MutateRequiredSigner
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -169,6 +174,9 @@ genDecrementMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotSignatureInvalid . ChangeHeadRedeemer <$> do
         Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
