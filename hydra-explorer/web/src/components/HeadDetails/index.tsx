@@ -90,7 +90,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                                     <th className="text-center px-4 py-2">On Chain ID</th>
                                     <th className="text-center px-4 py-2">Party VKey</th>
                                     <th className="text-center px-4 py-2">Total Value Committed</th>
-                                    <th className="text-center px-4 py-2">View UTxO Details</th>
+                                    <th className="text-center px-4 py-2">Details</th>
                                 </tr>
                             </thead>
                             <tbody>

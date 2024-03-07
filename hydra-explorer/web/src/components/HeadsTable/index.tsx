@@ -29,7 +29,7 @@ const HeadsTable: React.FC = () => {
                                 <th className="text-center px-4 py-2">Block Number</th>
                                 <th className="text-center px-4 py-2">Block Hash</th>
                                 <th className="text-center px-4 py-2">Value Locked</th>
-                                <th className="text-center px-4 py-2">Actions</th>
+                                <th className="text-center px-4 py-2">Details</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -46,7 +46,7 @@ const HeadsTable: React.FC = () => {
                                             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                                             onClick={() => handleRowClick(head)}
                                         >
-                                            Details
+                                            View
                                         </button>
                                     </td>
                                 </tr>
