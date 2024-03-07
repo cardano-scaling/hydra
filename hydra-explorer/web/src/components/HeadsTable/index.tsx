@@ -33,13 +33,21 @@ const HeadsTable: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {heads?.map((head, index) => (
+                            {heads?.sort((a, b) => b.blockNo - a.blockNo).map((head, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
-                                    <td className="truncate text-center border px-4 py-2">{head.headId}</td>
+                                    <td className="truncate text-center border px-4 py-2">
+                                        <a href={`https://sancho.cexplorer.io/policy/${head.headId}/mint`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                            {head.headId}
+                                        </a>
+                                    </td>
                                     <td className="truncate text-center border px-4 py-2">{head.status}</td>
                                     <td className="truncate text-center border px-4 py-2">{head.point.slot}</td>
                                     <td className="truncate text-center border px-4 py-2">{head.blockNo}</td>
-                                    <td className="truncate text-center border px-4 py-2">{head.point.blockHash}</td>
+                                    <td className="truncate text-center border px-4 py-2">
+                                        <a href={`https://sancho.cexplorer.io/block/${head.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                            {head.point.blockHash}
+                                        </a>
+                                    </td>
                                     <td className="truncate text-center border px-4 py-2">{totalLovelaceValueLocked(head) / 1000000} ₳</td>
                                     <td className="text-center border px-4 py-2">
                                         <button

@@ -18,7 +18,7 @@ const IntervalSettingProvider: React.FC<any> = ({
     children
 }) => {
     const [intervalTime, setIntervalTime] = useState(1000)
-    const [isAutoUpdateOn, setAutoUpdate] = useState(false)
+    const [isAutoUpdateOn, setAutoUpdate] = useState(true)
 
     const handleToggleAutoUpdate = () => {
         setAutoUpdate((prevAutoUpdate) => !prevAutoUpdate)

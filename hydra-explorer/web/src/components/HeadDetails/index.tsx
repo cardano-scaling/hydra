@@ -49,11 +49,19 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Head ID</h3>
-                        <p>{head.headId}</p>
+                        <p>
+                            <a href={`https://sancho.cexplorer.io/policy/${head.headId}/mint`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                {head.headId}
+                            </a>
+                        </p>
                     </div>
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Seed Tx In</h3>
-                        <p>{head.seedTxIn}</p>
+                        <p>
+                            <a href={`https://sancho.cexplorer.io/tx/${head.seedTxIn}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                {head.seedTxIn}
+                            </a>
+                        </p>
                     </div>
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Status</h3>
@@ -78,7 +86,9 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Point</h3>
                         <p>
-                            Block Hash: {head.point.blockHash} <br />
+                            Block Hash: <a href={`https://sancho.cexplorer.io/block/${head.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                {head.point.blockHash}
+                            </a> <br />
                             Slot: {head.point.slot}
                         </p>
                     </div>

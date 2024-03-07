@@ -32,7 +32,11 @@ const TickBox = () => {
                             {tick ? (
                                 <tr>
                                     <td className="truncate text-center border px-4 py-2">{tick?.blockNo}</td>
-                                    <td className="truncate text-center border px-4 py-2">{tick?.point.blockHash}</td>
+                                    <td className="truncate text-center border px-4 py-2">
+                                        <a href={`https://sancho.cexplorer.io/block/${tick?.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                            {tick?.point.blockHash}
+                                        </a>
+                                    </td>
                                     <td className="truncate text-center border px-4 py-2">{tick?.point.slot}</td>
                                 </tr>
                             ) : null}

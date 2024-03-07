@@ -56,7 +56,7 @@ apiServerSpec = do
               liftIO $ headsSchema `shouldNotBe` mempty
               SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/heads"
               liftIO $ statusCode simpleStatus `shouldBe` 200
-              liftIO $ simpleHeaders `shouldContain` [("Accept", "application/json")]
+              liftIO $ simpleHeaders `shouldContain` [("Content-Type", "application/json")]
               case Aeson.eitherDecode simpleBody of
                 Left err -> liftIO . failure $ "Failed to decode body: " <> err
                 Right value ->
@@ -83,7 +83,7 @@ apiServerSpec = do
               liftIO $ tickSchema `shouldNotBe` mempty
               SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/tick"
               liftIO $ statusCode simpleStatus `shouldBe` 200
-              liftIO $ simpleHeaders `shouldContain` [("Accept", "application/json")]
+              liftIO $ simpleHeaders `shouldContain` [("Content-Type", "application/json")]
               case Aeson.eitherDecode simpleBody of
                 Left err -> liftIO . failure $ "Failed to decode body: " <> err
                 Right value ->

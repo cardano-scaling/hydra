@@ -46,8 +46,16 @@ const MemberCommitDetails: React.FC<MemberCommitDetailsProps> = ({ member, onClo
               {member.commits &&
                 Object.entries(member.commits).map(([commitId, commit], index) => (
                   <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
-                    <td className="truncate text-center border px-4 py-2">{commitId}</td>
-                    <td className="truncate text-center border px-4 py-2">{commit.address}</td>
+                    <td className="truncate text-center border px-4 py-2">
+                      <a href={`https://sancho.cexplorer.io/tx/${commitId}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                        {commitId}
+                      </a>
+                    </td>
+                    <td className="truncate text-center border px-4 py-2">
+                      <a href={`https://sancho.cexplorer.io/address/${commit.address}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                        {commit.address}
+                      </a>
+                    </td>
                     <td className="truncate text-center border px-4 py-2">{commit.value.lovelace / 1000000} ₳</td>
                   </tr>
                 ))}

@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   chainTipToChainPoint,
   connectToLocalNode,
   convertTx,
+  getChainPoint,
   getTxBody,
   getTxId,
  )
@@ -175,20 +176,20 @@ chainSyncClient tracer networkId startingPoint observerHandler =
                 BlockInMode BabbageEra (Block _header babbageTxs) -> babbageTxs
                 _ -> []
 
-              (BlockInMode _ (Block (BlockHeader _ _ blockNo) _)) = blockInMode
-              point = chainTipToChainPoint tip
+              (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
+              pointInBlock = getChainPoint bh
           traceWith
             tracer
             RollForward
-              { point
+              { point = chainTipToChainPoint tip
               , receivedTxIds = getTxId . getTxBody <$> txs
               }
           let (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          let observationsAt = HeadObservation pointInBlock blockNo <$> onChainTxs
           if null observationsAt
-            then observerHandler [Tick point blockNo]
+            then observerHandler [Tick pointInBlock blockNo]
             else observerHandler observationsAt
           observerHandler observationsAt
           pure $ clientStIdle utxo'

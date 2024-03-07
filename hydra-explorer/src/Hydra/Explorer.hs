@@ -26,24 +26,20 @@ type CorsHeaders =
   , Header "Access-Control-Allow-Headers" String
   ]
 
--- REVIEW: maybe rename
-type GetHeadsHeaders :: [Type]
-type GetHeadsHeaders = Header "Accept" String ': CorsHeaders
-
 type API :: Type
 type API =
   "heads"
     :> Get
         '[JSON]
         ( Headers
-            GetHeadsHeaders
+            CorsHeaders
             [HeadState]
         )
     :<|> "tick"
       :> Get
           '[JSON]
           ( Headers
-              GetHeadsHeaders
+              CorsHeaders
               TickState
           )
     :<|> Raw
@@ -61,32 +57,30 @@ server ::
   forall (m :: Type -> Type).
   GetHeads ->
   GetTick ->
-  Handler (Headers GetHeadsHeaders [HeadState])
-    :<|> Handler (Headers GetHeadsHeaders TickState)
+  Handler (Headers CorsHeaders [HeadState])
+    :<|> Handler (Headers CorsHeaders TickState)
     :<|> Tagged m Application
 server getHeads getTick =
-  handleGetHeads getHeads
-    :<|> handleGetTick getTick
+  (addCorsHeaders <$> handleGetHeads getHeads)
+    :<|> (addCorsHeaders <$> handleGetTick getTick)
     :<|> serveDirectoryFileServer "static"
 
 handleGetHeads ::
   GetHeads ->
-  Handler (Headers GetHeadsHeaders [HeadState])
+  Handler [HeadState]
 handleGetHeads getHeads = do
   result <- liftIO $ try getHeads
   case result of
-    Right heads -> do
-      return $ addHeader "application/json" $ addCorsHeaders heads
+    Right heads -> return heads
     Left (_ :: SomeException) -> throwError err500
 
 handleGetTick ::
   GetTick ->
-  Handler (Headers GetHeadsHeaders TickState)
+  Handler TickState
 handleGetTick getTick = do
   result <- liftIO $ try getTick
   case result of
-    Right tick -> do
-      return $ addHeader "application/json" $ addCorsHeaders tick
+    Right tick -> return tick
     Left (_ :: SomeException) -> throwError err500
 
 logMiddleware :: Tracer IO APIServerLog -> Middleware
