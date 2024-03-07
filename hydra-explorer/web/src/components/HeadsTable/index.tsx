@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { HeadState } from "@/app/model"
 import { useHeadsData } from "@/providers/HeadsDataProvider"
 import HeadDetails from "../HeadDetails"
+import { totalLovelaceValueLocked } from '@/utils'
 
 const HeadsTable: React.FC = () => {
     const { heads, error } = useHeadsData()
@@ -11,18 +12,6 @@ const HeadsTable: React.FC = () => {
 
     const handleRowClick = (head: HeadState) => {
         setSelectedHead(head)
-    }
-
-    const totalValueLocked = (head: HeadState) => {
-        let totalLockedMoney = 0
-        head.members?.forEach((member) => {
-            if (member.commits && Object.keys(member.commits).length > 0) {
-                Object.values(member.commits).forEach((commit) => {
-                    totalLockedMoney += (commit.value.lovelace) 
-                })
-            }
-        })
-        return totalLockedMoney;
     }
 
     return (
@@ -44,18 +33,18 @@ const HeadsTable: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {heads?.map((entry, index) => (
+                            {heads?.map((head, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
-                                    <td className="truncate text-center border px-4 py-2">{entry.headId}</td>
-                                    <td className="truncate text-center border px-4 py-2">{entry.status}</td>
-                                    <td className="truncate text-center border px-4 py-2">{entry.point.slot}</td>
-                                    <td className="truncate text-center border px-4 py-2">{entry.blockNo}</td>
-                                    <td className="truncate text-center border px-4 py-2">{entry.point.blockHash}</td>
-                                    <td className="truncate text-center border px-4 py-2">{totalValueLocked(entry) / 1000000} ₳</td>
+                                    <td className="truncate text-center border px-4 py-2">{head.headId}</td>
+                                    <td className="truncate text-center border px-4 py-2">{head.status}</td>
+                                    <td className="truncate text-center border px-4 py-2">{head.point.slot}</td>
+                                    <td className="truncate text-center border px-4 py-2">{head.blockNo}</td>
+                                    <td className="truncate text-center border px-4 py-2">{head.point.blockHash}</td>
+                                    <td className="truncate text-center border px-4 py-2">{totalLovelaceValueLocked(head) / 1000000} ₳</td>
                                     <td className="text-center border px-4 py-2">
                                         <button
                                             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                                            onClick={() => handleRowClick(entry)}
+                                            onClick={() => handleRowClick(head)}
                                         >
                                             Details
                                         </button>

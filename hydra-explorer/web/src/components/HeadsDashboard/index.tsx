@@ -1,6 +1,7 @@
 "use client" // This is a client component 👈🏽
 
 import { useHeadsData } from '@/providers/HeadsDataProvider'
+import { totalLovelaceValueLocked } from '@/utils'
 import React from 'react'
 
 const HeadsDashboard = () => {
@@ -8,16 +9,7 @@ const HeadsDashboard = () => {
 
     const totalHeads = heads.length
 
-    let totalLockedMoney = 0
-    heads.forEach(head => {
-        head.members?.forEach((member) => {
-            if (member.commits && Object.keys(member.commits).length > 0) {
-                Object.values(member.commits).forEach((commit) => {
-                    totalLockedMoney += (commit.value.lovelace) 
-                })
-            }
-        })
-    })
+    const totalLockedMoney = heads.reduce((total, head) => total + totalLovelaceValueLocked(head), 0)
 
     return (
         <div style={{ maxWidth: 'fit-content' }}>
