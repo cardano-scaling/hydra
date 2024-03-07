@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotNumberInOpen,
@@ -34,7 +35,7 @@ import Hydra.Ledger.Cardano (
   genTxOut,
   genVerificationKey,
  )
-import Hydra.Party (Party, deriveParty, partyToChain, vkey)
+import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusTx.Builtins (toBuiltin)
@@ -67,28 +68,30 @@ healthyDecrementTx =
       , contestationPeriod = healthyContestationPeriod
       }
 
-  somePartyCardanoVerificationKey =
-    elements healthyParticipants `generateWith` 42
-
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
-  headOutput' =
+  headOutput =
     mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyDatum)
+      & addParticipationTokens healthyParticipants
 
-  headOutput = modifyTxOutValue (<> participationTokens) headOutput'
-
-  participationTokens =
-    valueFromList $
-      map
-        ( \party ->
-            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
-        )
-        healthyParties
+somePartyCardanoVerificationKey :: VerificationKey PaymentKey
+somePartyCardanoVerificationKey =
+  elements healthyParticipants `generateWith` 42
 
 healthySigningKeys :: [SigningKey HydraKey]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
+
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
+
+healthyParties :: [Party]
+healthyParties = deriveParty <$> healthySigningKeys
+
+healthyOnChainParties :: [OnChain.Party]
+healthyOnChainParties = partyToChain <$> healthyParties
 
 healthySignature :: MultiSignature (Snapshot Tx)
 healthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys]
@@ -119,10 +122,6 @@ healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
 
-healthyParticipants :: [VerificationKey PaymentKey]
-healthyParticipants =
-  genForParty genVerificationKey <$> healthyParties
-
 healthyUTxO :: UTxO
 healthyUTxO =
   adaOnly
@@ -140,22 +139,13 @@ healthyDatum =
     , headId = toPlutusCurrencySymbol testPolicyId
     }
 
-healthyParties :: [Party]
-healthyParties = deriveParty <$> healthySigningKeys
-
-healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = partyToChain <$> healthyParties
-
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
     MutatePartiesInOutput
   | -- | Invalidates the tx by changing the snapshot number in resulting head
     -- output.
-    --
-    -- Ensures the snapshot number is aligned.
     MutateSnapshotNumber
-  | SnapshotSignatureInvalid
   | -- | Produce invalid signature by changing signers in the redeemer
     SnapshotSignatureInvalid
   | -- | Ensures decrement is authenticated by one of the Head members by changing
