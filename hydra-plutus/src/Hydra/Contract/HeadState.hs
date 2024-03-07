@@ -30,15 +30,15 @@ data State
       { contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , utxoHash :: Hash
+      -- ^ Spec: η
       , headId :: CurrencySymbol
       , snapshotNumber :: SnapshotNumber
       }
   | Closed
       { parties :: [Party]
       , snapshotNumber :: SnapshotNumber
-      -- ^ Spec: fst of η
       , utxoHash :: Hash
-      -- ^ Spec: snd of η
+      -- ^ Spec: η
       , utxoToDecommitHash :: Hash
       -- ^ Spec: ηω
       , contestationDeadline :: POSIXTime

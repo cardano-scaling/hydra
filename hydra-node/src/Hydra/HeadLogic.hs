@@ -29,6 +29,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.HTTPServer (DraftCommitTxRequest (utxoToCommit))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
@@ -456,6 +457,10 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
+        -- FIXME: Why don't we apply the decommitTx to the confirmed UTxO? Right
+        -- now the inputs would still remain on the L2 state and actually don't
+        -- get removed by 'withoutUTxO' below, because the utxoToCommit are not
+        -- in confirmedUTxO (but the inputs of the decommitTx would be).
         case canApply ledger currentSlot confirmedUTxO decommitTx of
           Invalid err ->
             Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
