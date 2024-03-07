@@ -29,7 +29,6 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.HTTPServer (DraftCommitTxRequest (utxoToCommit))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
@@ -89,9 +88,7 @@ import Hydra.Ledger (
   Ledger (..),
   TxIdType,
   UTxOType,
-  ValidationResult (..),
   applyTransactions,
-  canApply,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -457,16 +454,12 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
-        -- FIXME: Why don't we apply the decommitTx to the confirmed UTxO? Right
-        -- now the inputs would still remain on the L2 state and actually don't
-        -- get removed by 'withoutUTxO' below, because the utxoToCommit are not
-        -- in confirmedUTxO (but the inputs of the decommitTx would be).
-        case canApply ledger currentSlot confirmedUTxO decommitTx of
-          Invalid err ->
+        case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+          Left (_, err) ->
             Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
-          Valid -> do
+          Right newConfirmedUTxO -> do
             let utxoToDecommit = utxoFromTx decommitTx
-            let activeUTxO = confirmedUTxO `withoutUTxO` utxoToDecommit
+            let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
             cont (activeUTxO, Just utxoToDecommit)
 
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
