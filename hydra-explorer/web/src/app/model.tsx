@@ -1,4 +1,4 @@
-interface UTxO {
+export interface UTxO {
     [key: string]: {
         address: string
         datum: any
@@ -11,7 +11,7 @@ interface UTxO {
     }
 }
 
-interface HeadMember {
+export interface HeadMember {
     commits: UTxO | null
     onChainId: string | null
     party: {
@@ -19,7 +19,7 @@ interface HeadMember {
     }
 }
 
-interface ChainPoint {
+export interface ChainPoint {
     blockHash: string
     slot: string
 }

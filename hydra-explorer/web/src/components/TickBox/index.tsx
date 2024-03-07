@@ -5,7 +5,6 @@ import useDataFetcher from "@/hooks/DataFetcher"
 import { useState } from "react"
 
 const TickBox = () => {
-
     const [tick, setTick] = useState<TickState | null>(null)
     const [error, setError] = useState<string | null>(null)
 
