@@ -239,7 +239,8 @@ checkDecrement ::
 checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature =
   mustNotChangeParameters
     && checkSnapshot
-    && checkSignatures
+    && checkSnapshotSignature
+    && mustBeSignedByParticipant ctx prevHeadId
  where
   decommitUtxoHash = hashTxOuts $ tail (txInfoOutputs txInfo)
   (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
@@ -264,7 +265,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     traceIfFalse $(errorCode SnapshotNumberMismatch) $
       nextSnapshotNumber > prevSnapshotNumber
 
-  checkSignatures =
+  checkSnapshotSignature =
     verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
 {-# INLINEABLE checkDecrement #-}
 
