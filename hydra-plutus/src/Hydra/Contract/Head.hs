@@ -73,7 +73,8 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature}) -> checkDecrement ctx parties snapshotNumber contestationPeriod headId signature
+    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature}) ->
+      checkDecrement ctx parties snapshotNumber contestationPeriod headId signature
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
@@ -235,11 +236,13 @@ checkDecrement ::
   CurrencySymbol ->
   [Signature] ->
   Bool
-checkDecrement ctx parties snapshotNumber cperiod headPolicyId _signature =
+checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature =
   mustNotChangeParameters
     && checkSnapshot
+    && checkSignatures
  where
-  (_, parties', snapshotNumber', cperiod', headId') =
+  decommitUtxoHash = hashTxOuts $ tail (txInfoOutputs txInfo)
+  (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Open
@@ -253,13 +256,16 @@ checkDecrement ctx parties snapshotNumber cperiod headPolicyId _signature =
 
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
-      headId' == headPolicyId
-        && parties' == parties
-        && cperiod' == cperiod
+      prevHeadId == nextHeadId
+        && prevParties == nextParties
+        && prevCperiod == nextCperiod
 
   checkSnapshot =
     traceIfFalse $(errorCode SnapshotNumberMismatch) $
-      snapshotNumber' > snapshotNumber
+      nextSnapshotNumber > prevSnapshotNumber
+
+  checkSignatures =
+    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
 {-# INLINEABLE checkDecrement #-}
 
 -- | The close validator must verify that:

@@ -26,7 +26,7 @@ import Hydra.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (MultiSignature (..))
+import Hydra.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Ledger.Cardano (
@@ -34,11 +34,11 @@ import Hydra.Ledger.Cardano (
   genTxOut,
   genVerificationKey,
  )
-import Hydra.Party (Party, partyToChain, vkey)
+import Hydra.Party (Party, deriveParty, partyToChain, vkey)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Fixture (genForParty)
+import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
@@ -59,9 +59,7 @@ healthyDecrementTx =
       parameters
       (headInput, headOutput)
       healthySnapshot
-      multisig
-
-  multisig = HydraMultiSignature $ arbitrary `generateWith` 42
+      healthySignature
 
   parameters =
     HeadParameters
@@ -88,6 +86,12 @@ healthyDecrementTx =
             (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
         )
         healthyParties
+
+healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys = [aliceSk, bobSk, carolSk]
+
+healthySignature :: MultiSignature (Snapshot Tx)
+healthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys]
 
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
@@ -137,9 +141,7 @@ healthyDatum =
     }
 
 healthyParties :: [Party]
-healthyParties =
-  [ generateWith arbitrary i | i <- [1 .. 3]
-  ]
+healthyParties = deriveParty <$> healthySigningKeys
 
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
