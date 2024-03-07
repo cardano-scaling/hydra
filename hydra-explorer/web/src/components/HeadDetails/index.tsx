@@ -38,7 +38,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
 
     return (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl relative">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-xl relative overflow-auto max-h-screen">
                 <button
                     className="absolute top-4 right-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
                     onClick={onClose}
