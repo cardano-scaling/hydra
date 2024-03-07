@@ -89,7 +89,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                                 <tr>
                                     <th className="text-center px-4 py-2">On Chain ID</th>
                                     <th className="text-center px-4 py-2">Party VKey</th>
-                                    <th className="text-center px-4 py-2">Total Committed Lovelace</th>
+                                    <th className="text-center px-4 py-2">Total Value Committed</th>
                                     <th className="text-center px-4 py-2">View UTxO Details</th>
                                 </tr>
                             </thead>
@@ -98,7 +98,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                                     <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
                                         <td className="truncate text-center border px-4 py-2">{member.onChainId}</td>
                                         <td className="truncate text-center border px-4 py-2">{member.party.vkey}</td>
-                                        <td className="truncate text-center border px-4 py-2">{getTotalCommittedLovelace(member)}</td>
+                                        <td className="truncate text-center border px-4 py-2">{getTotalCommittedLovelace(member) / 1000000} ₳</td>
                                         <td className="text-center border px-4 py-2">
                                             <button
                                                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"

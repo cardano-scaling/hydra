@@ -13,7 +13,7 @@ const HeadsDashboard = () => {
         head.members?.forEach((member) => {
             if (member.commits && Object.keys(member.commits).length > 0) {
                 Object.values(member.commits).forEach((commit) => {
-                    totalLockedMoney += commit.value.lovelace
+                    totalLockedMoney += (commit.value.lovelace) 
                 })
             }
         })
@@ -31,8 +31,8 @@ const HeadsDashboard = () => {
                             <p className="text-center text-xl">{totalHeads}</p>
                         </div>
                         <div className="border p-4">
-                            <h3 className="text-center text-lg font-semibold mb-2">Total Locked Money</h3>
-                            <p className="text-center text-xl">{totalLockedMoney} lovelace</p>
+                            <h3 className="text-center text-lg font-semibold mb-2">Total Value Locked</h3>
+                            <p className="text-center text-xl">{totalLockedMoney / 1000000} ₳</p>
                         </div>
                     </div>
                 </div>

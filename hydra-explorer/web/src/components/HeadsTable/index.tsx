@@ -13,6 +13,18 @@ const HeadsTable: React.FC = () => {
         setSelectedHead(head)
     }
 
+    const totalValueLocked = (head: HeadState) => {
+        let totalLockedMoney = 0
+        head.members?.forEach((member) => {
+            if (member.commits && Object.keys(member.commits).length > 0) {
+                Object.values(member.commits).forEach((commit) => {
+                    totalLockedMoney += (commit.value.lovelace) 
+                })
+            }
+        })
+        return totalLockedMoney;
+    }
+
     return (
         <div className="container mx-auto mt-12">
             {error ? (
@@ -27,6 +39,7 @@ const HeadsTable: React.FC = () => {
                                 <th className="text-center px-4 py-2">Slot Number</th>
                                 <th className="text-center px-4 py-2">Block Number</th>
                                 <th className="text-center px-4 py-2">Block Hash</th>
+                                <th className="text-center px-4 py-2">Value Locked</th>
                                 <th className="text-center px-4 py-2">Actions</th>
                             </tr>
                         </thead>
@@ -38,6 +51,7 @@ const HeadsTable: React.FC = () => {
                                     <td className="truncate text-center border px-4 py-2">{entry.point.slot}</td>
                                     <td className="truncate text-center border px-4 py-2">{entry.blockNo}</td>
                                     <td className="truncate text-center border px-4 py-2">{entry.point.blockHash}</td>
+                                    <td className="truncate text-center border px-4 py-2">{totalValueLocked(entry) / 1000000} ₳</td>
                                     <td className="text-center border px-4 py-2">
                                         <button
                                             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
