@@ -153,6 +153,7 @@ data DecrementMutation
     --
     -- Ensures the snapshot number is aligned.
     MutateSnapshotNumber
+  | SnapshotSignatureInvalid
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -164,6 +165,8 @@ genDecrementMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SnapshotNumberMismatch) MutateSnapshotNumber <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotSignatureInvalid . ChangeHeadRedeemer <$> do
+        Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
