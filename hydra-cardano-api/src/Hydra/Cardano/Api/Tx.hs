@@ -17,7 +17,6 @@ import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
-import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras

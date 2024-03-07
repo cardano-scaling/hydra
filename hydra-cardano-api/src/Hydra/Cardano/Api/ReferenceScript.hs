@@ -2,7 +2,6 @@ module Hydra.Cardano.Api.ReferenceScript where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
 import PlutusLedgerApi.V2 qualified as Plutus
 

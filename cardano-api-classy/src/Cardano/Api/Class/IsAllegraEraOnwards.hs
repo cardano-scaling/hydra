@@ -1,4 +1,4 @@
-module Hydra.Cardano.Api.AllegraEraOnwards where
+module Cardano.Api.Class.IsAllegraEraOnwards where
 
 import Cardano.Api (AllegraEra, AllegraEraOnwards (..), AlonzoEra, BabbageEra, ConwayEra, MaryEra)
 

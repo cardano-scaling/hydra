@@ -2,8 +2,6 @@ module Hydra.Cardano.Api.TxOutDatum where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 
 -- | Construct a 'TxOutDatum' to be included in the tx from some serialisable data.

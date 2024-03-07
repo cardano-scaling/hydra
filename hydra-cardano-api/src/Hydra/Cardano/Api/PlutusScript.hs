@@ -5,7 +5,7 @@ module Hydra.Cardano.Api.PlutusScript where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Babbage.Scripts qualified as Ledger
+import Cardano.Ledger.Conway.Scripts qualified as Ledger
 import Cardano.Ledger.Plutus.Language qualified as Ledger
 import Data.ByteString.Short qualified as SBS
 import PlutusLedgerApi.Common qualified as Plutus
@@ -28,18 +28,6 @@ fromLedgerScript ::
 fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
   Ledger.PlutusScript x -> Ledger.withPlutusScript x (\(Ledger.Plutus (Ledger.PlutusBinary bytes)) -> PlutusScriptSerialised bytes)
-
--- | Convert a cardano-api 'PlutusScript' into a cardano-ledger 'Script'.
-toLedgerScript ::
-  forall lang.
-  IsPlutusScriptLanguage lang =>
-  PlutusScript lang ->
-  Ledger.AlonzoScript (ShelleyLedgerEra Era)
-toLedgerScript (PlutusScriptSerialised bytes) =
-  Ledger.PlutusScript $ case plutusScriptVersion @lang of
-    PlutusScriptV1 -> Ledger.BabbagePlutusV1 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
-    PlutusScriptV2 -> Ledger.BabbagePlutusV2 $ Ledger.Plutus (Ledger.PlutusBinary bytes)
-    PlutusScriptV3 -> error "toLedgerScript: PlutusV3 not supported in Babbage"
 
 -- | Convert a serialized plutus script into a cardano-api 'PlutusScript'.
 fromPlutusScript :: Plutus.SerialisedScript -> PlutusScript lang

@@ -10,6 +10,9 @@ module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api qualified
+import Cardano.Api.Class.IsAlonzoEraOnwards (IsAlonzoEraOnwards (..))
+import Cardano.Api.Class.IsBabbageEraOnwards (IsBabbageEraOnwards (..))
+import Cardano.Api.Class.IsMaryEraOnwards (IsMaryEraOnwards (..))
 import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
@@ -20,9 +23,6 @@ import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Hydra.Cardano.Api.AlonzoEraOnwards (IsAlonzoEraOnwards (..))
-import Hydra.Cardano.Api.BabbageEraOnwards (IsBabbageEraOnwards (..))
-import Hydra.Cardano.Api.MaryEraOnwards (IsMaryEraOnwards (..))
 import Prelude
 
 type Era = BabbageEra

@@ -6,7 +6,6 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
-import Hydra.Cardano.Api.AllegraEraOnwards (IsAllegraEraOnwards (..))
 import Test.QuickCheck (oneof)
 
 toLedgerValidityInterval ::
