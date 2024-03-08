@@ -32,7 +32,6 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
-  genTxOut,
   genUTxOSized,
   genValue,
   genVerificationKey,
@@ -151,6 +150,11 @@ data DecrementMutation
     MutateRequiredSigner
   | -- | Mutate the output value to produce different 'UTxO' hash to the one in the signed 'Snapshot'.
     MutateChangeOutputValue
+  | -- | Invalidates the tx by changing the output values arbitrarily to be
+    -- different (not preserved) from the head.
+    --
+    -- Ensures values are preserved between head input and output.
+    MutateValueInOutput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -173,6 +177,9 @@ genDecrementMutation (tx, _utxo) =
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
+        newValue <- genValue
+        pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
