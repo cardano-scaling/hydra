@@ -54,6 +54,7 @@ library
     , servant
     , servant-server
     , wai
+    , wai-cors
     , warp
 
   exposed-modules:

@@ -12,35 +12,22 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
+import Network.Wai.Middleware.Cors (simpleCors)
 import Servant (serveDirectoryFileServer, throwError)
-import Servant.API (Get, Header, JSON, Raw, addHeader, (:<|>) (..), (:>))
-import Servant.API.ResponseHeaders (Headers)
-import Servant.Server (Application, Handler, Tagged, err500, serve)
+import Servant.API (Get, JSON, Raw, (:<|>) (..), (:>))
+import Servant.Server (Application, Handler, Server, err500, serve)
 import System.Environment (withArgs)
-
-type CorsHeaders :: [Type]
-type CorsHeaders =
-  [ Header "Access-Control-Allow-Origin" String
-  , Header "Access-Control-Allow-Methods" String
-  , Header "Access-Control-Allow-Headers" String
-  ]
 
 type API :: Type
 type API =
   "heads"
     :> Get
         '[JSON]
-        ( Headers
-            CorsHeaders
-            [HeadState]
-        )
+        [HeadState]
     :<|> "tick"
       :> Get
           '[JSON]
-          ( Headers
-              CorsHeaders
-              TickState
-          )
+          TickState
     :<|> Raw
 
 type GetHeads :: Type
@@ -53,15 +40,12 @@ api :: Proxy API
 api = Proxy
 
 server ::
-  forall (m :: Type -> Type).
   GetHeads ->
   GetTick ->
-  Handler (Headers CorsHeaders [HeadState])
-    :<|> Handler (Headers CorsHeaders TickState)
-    :<|> Tagged m Application
+  Server API
 server getHeads getTick =
-  (addCorsHeaders <$> handleGetHeads getHeads)
-    :<|> (addCorsHeaders <$> handleGetTick getTick)
+  handleGetHeads getHeads
+    :<|> handleGetTick getTick
     :<|> serveDirectoryFileServer "static"
 
 handleGetHeads ::
@@ -94,7 +78,10 @@ logMiddleware tracer app' req sendResponse = do
 
 httpApp :: Tracer IO APIServerLog -> GetHeads -> GetTick -> Application
 httpApp tracer getHeads getTick =
-  logMiddleware tracer $ serve api $ server getHeads getTick
+  logMiddleware tracer
+    . simpleCors
+    . serve api
+    $ server getHeads getTick
 
 observerHandler :: TVar IO ExplorerState -> [ChainObservation] -> IO ()
 observerHandler explorerState observations = do
