@@ -242,6 +242,8 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     && checkSnapshotSignature
     && mustBeSignedByParticipant ctx prevHeadId
  where
+  -- NOTE: we always assume Head output is the first one so we pick all other
+  -- outputs of a decommit tx to calculate the expected hash.
   decommitUtxoHash = hashTxOuts $ tail (txInfoOutputs txInfo)
   (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
