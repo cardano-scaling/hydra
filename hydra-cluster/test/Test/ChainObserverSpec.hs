@@ -61,7 +61,7 @@ spec = do
 
                 commitTx <- requestCommitTx hydraNode commitUTxO
 
-                pure (signTx walletSk commitTx) >>= submitTx cardanoNode
+                submitTx cardanoNode (signTx walletSk commitTx)
 
                 waitFor hydraTracer 5 [hydraNode] $
                   output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]

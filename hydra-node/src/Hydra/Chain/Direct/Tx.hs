@@ -438,7 +438,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       -- NOTE: at this point 'utxoToDecommit' is populated
-      & addOutputs (headOutput' : map toTxContext (maybe [] (fmap snd . UTxO.pairs) utxoToDecommit))
+      & addOutputs (headOutput' : map toTxContext (maybe [] toList utxoToDecommit))
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
@@ -549,8 +549,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
-        , -- TODO: find a way to introduce this value
-          utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
+        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
         , parties = openParties
         , contestationDeadline
         , contestationPeriod = openContestationPeriod
