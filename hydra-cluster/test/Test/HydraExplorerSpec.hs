@@ -7,11 +7,11 @@ module Test.HydraExplorerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import CardanoClient (RunningNode (..))
+import CardanoClient (RunningNode (..), queryTip)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Lens ((^.), (^?))
 import Data.Aeson as Aeson
-import Data.Aeson.Lens (key, nth, _Array, _String)
+import Data.Aeson.Lens (key, nth, _Array, _Number, _String)
 import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, bobSk, cperiod)
@@ -101,7 +101,27 @@ spec = do
               allHeads ^. nth 1 . key "headId" . _String `shouldBe` bobHeadId
               allHeads ^. nth 1 . key "status" . _String `shouldBe` "Aborted"
 
-newtype HydraExplorerHandle = HydraExplorerHandle {getHeads :: IO Value}
+  it "can query for latest point in time observed on chain" $
+    failAfter 60 $
+      showLogsOnFailure "HydraExplorerSpec" $ \tracer -> do
+        withTempDir "hydra-explorer-get-tick" $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \cardanoNode@RunningNode{nodeSocket, networkId} -> do
+            withHydraExplorer cardanoNode Nothing $ \explorer -> do
+              tip <- toJSON <$> queryTip networkId nodeSocket
+              tick <- getTick explorer
+
+              let tipSlot = tip ^? key "slot" . _Number
+                  tickSlot = tick ^? key "point" . key "slot" . _Number
+              tipSlot `shouldBe` tickSlot
+
+              let tipBlockHash = tip ^? key "blockHash" . _String
+                  tickBlockHash = tick ^? key "point" . key "blockHash" . _String
+              tipBlockHash `shouldBe` tickBlockHash
+
+data HydraExplorerHandle = HydraExplorerHandle
+  { getHeads :: IO Value
+  , getTick :: IO Value
+  }
 
 data HydraExplorerLog
   = FromCardanoNode NodeLog
@@ -119,11 +139,13 @@ withHydraExplorer cardanoNode mStartChainFrom action =
         (checkProcessHasNotDied "hydra-explorer" processHandle err)
         ( -- XXX: wait for the http server to be listening on port
           threadDelay 3
-            *> action HydraExplorerHandle{getHeads}
+            *> action HydraExplorerHandle{getHeads, getTick}
         )
         <&> either absurd id
  where
   getHeads = responseBody <$> (parseRequestThrow "http://127.0.0.1:9090/heads" >>= httpJSON)
+
+  getTick = responseBody <$> (parseRequestThrow "http://127.0.0.1:9090/tick" >>= httpJSON)
 
   process =
     proc

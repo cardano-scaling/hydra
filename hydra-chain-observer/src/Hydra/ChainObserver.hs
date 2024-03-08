@@ -6,7 +6,9 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (
   Block (..),
+  BlockHeader (BlockHeader),
   BlockInMode (..),
+  BlockNo,
   CardanoEra (..),
   ChainPoint,
   ChainSyncClient,
@@ -23,20 +25,16 @@ import Hydra.Cardano.Api (
   chainTipToChainPoint,
   connectToLocalNode,
   convertTx,
+  getChainPoint,
   getTxBody,
   getTxId,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
+import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.CardanoClient (queryTip)
+import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.Tx (
-  AbortObservation (..),
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  ContestObservation (..),
-  FanoutObservation (..),
   HeadObservation (..),
-  InitObservation (..),
   observeHeadTx,
  )
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
@@ -53,7 +51,22 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
   ClientStNext (..),
  )
 
-type ObserverHandler m = [HeadObservation] -> m ()
+type ObserverHandler m = [ChainObservation] -> m ()
+
+data ChainObservation
+  = Tick
+      { point :: ChainPoint
+      , blockNo :: BlockNo
+      }
+  | HeadObservation
+      { point :: ChainPoint
+      , blockNo :: BlockNo
+      , onChainTx :: OnChainTx Tx
+      }
+  deriving stock (Eq, Show, Generic)
+
+instance Arbitrary ChainObservation where
+  arbitrary = genericArbitrary
 
 defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
@@ -162,6 +175,9 @@ chainSyncClient tracer networkId startingPoint observerHandler =
                 BlockInMode ConwayEra (Block _header conwayTxs) -> mapMaybe convertTx conwayTxs
                 BlockInMode BabbageEra (Block _header babbageTxs) -> babbageTxs
                 _ -> []
+
+              (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
+              pointInBlock = getChainPoint bh
           traceWith
             tracer
             RollForward
@@ -169,25 +185,28 @@ chainSyncClient tracer networkId startingPoint observerHandler =
               , receivedTxIds = getTxId . getTxBody <$> txs
               }
           let (utxo', observations) = observeAll networkId utxo txs
-          -- FIXME we should be exposing OnChainTx instead of working around NoHeadTx.
-          forM_ observations (maybe (pure ()) (traceWith tracer) . logObservation)
-          observerHandler observations
+              onChainTxs = mapMaybe convertObservation observations
+          forM_ onChainTxs (traceWith tracer . logOnChainTx)
+          let observationsAt = HeadObservation pointInBlock blockNo <$> onChainTxs
+          if null observationsAt
+            then observerHandler [Tick pointInBlock blockNo]
+            else observerHandler observationsAt
+          observerHandler observationsAt
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
           pure $ clientStIdle utxo
       }
 
-  logObservation :: HeadObservation -> Maybe ChainObserverLog
-  logObservation = \case
-    NoHeadTx -> Nothing
-    Init InitObservation{headId} -> pure $ HeadInitTx{headId}
-    Commit CommitObservation{headId} -> pure $ HeadCommitTx{headId}
-    CollectCom CollectComObservation{headId} -> pure $ HeadCollectComTx{headId}
-    Close CloseObservation{headId} -> pure $ HeadCloseTx{headId}
-    Fanout FanoutObservation{headId} -> pure $ HeadFanoutTx{headId}
-    Abort AbortObservation{headId} -> pure $ HeadAbortTx{headId}
-    Contest ContestObservation{headId} -> pure $ HeadContestTx{headId}
+  logOnChainTx :: OnChainTx Tx -> ChainObserverLog
+  logOnChainTx = \case
+    OnInitTx{headId} -> HeadInitTx{headId}
+    OnCommitTx{headId} -> HeadCommitTx{headId}
+    OnCollectComTx{headId} -> HeadCollectComTx{headId}
+    OnCloseTx{headId} -> HeadCloseTx{headId}
+    OnFanoutTx{headId} -> HeadFanoutTx{headId}
+    OnAbortTx{headId} -> HeadAbortTx{headId}
+    OnContestTx{headId} -> HeadContestTx{headId}
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =

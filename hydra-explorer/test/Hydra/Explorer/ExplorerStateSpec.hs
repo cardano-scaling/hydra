@@ -3,11 +3,10 @@ module Hydra.Explorer.ExplorerStateSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.Tx (HeadObservation (..))
-import Hydra.Explorer.ExplorerState (ExplorerState, aggregateHeadObservations, headId)
+import Hydra.ChainObserver (ChainObservation (..))
+import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState (..), aggregateHeadObservations, initialTickState)
 import Hydra.HeadId (HeadId)
-import Hydra.OnChainId ()
-import Test.QuickCheck (forAll, suchThat, (=/=))
+import Test.QuickCheck (forAll, listOf1, (=/=))
 
 spec :: Spec
 spec = do
@@ -16,15 +15,18 @@ spec = do
     -- Even if we only observe a part of the life cycle of some head.
     prop "Any head observations (of some head id) must yield an entry of that head id" $
       forAll genObservations $ \observations ->
-        aggregateHeadObservations observations [] =/= []
+        let ExplorerState{heads} = aggregateHeadObservations observations (ExplorerState [] initialTickState)
+         in heads =/= []
+
     prop "Given any observations, the resulting list of head ids is a prefix of the original" $
       forAll genObservations $ \observations ->
-        forAll arbitrary $ \initialState -> do
-          let resultHeads = aggregateHeadObservations observations initialState
-          getHeadIds initialState `isPrefixOf` getHeadIds resultHeads
+        forAll arbitrary $ \initialHeads -> do
+          let resultExplorerState = aggregateHeadObservations observations (ExplorerState initialHeads initialTickState)
+          getHeadIds initialHeads `isPrefixOf` getHeadIds (heads resultExplorerState)
  where
-  genObservations :: Gen [HeadObservation]
-  genObservations = arbitrary `suchThat` (not . null) `suchThat` notElem NoHeadTx
+  genObservations :: Gen [ChainObservation]
+  genObservations =
+    listOf1 $ HeadObservation <$> arbitrary <*> arbitrary <*> arbitrary
 
-  getHeadIds :: ExplorerState -> [HeadId]
+  getHeadIds :: [HeadState] -> [HeadId]
   getHeadIds = fmap headId

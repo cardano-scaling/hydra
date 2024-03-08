@@ -5,63 +5,44 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.Chain.Direct.Tx (HeadObservation)
-import Hydra.Explorer.ExplorerState (ExplorerState, HeadState, aggregateHeadObservations)
-import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
+import Hydra.ChainObserver (ChainObservation)
+import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
+import Hydra.Explorer.Options (Options (..), toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
-import Options.Applicative (execParser)
-import Servant (serveDirectoryFileServer, throwError)
-import Servant.API (Get, Header, JSON, Raw, addHeader, (:<|>) (..), (:>))
-import Servant.API.ResponseHeaders (Headers)
-import Servant.Server (Application, Handler, Tagged, err500, serve)
+import Network.Wai.Middleware.Cors (simpleCors)
+import Servant (serveDirectoryFileServer)
+import Servant.API (Get, JSON, Raw, (:<|>) (..), (:>))
+import Servant.Server (Application, Handler, Server, serve)
 import System.Environment (withArgs)
-
-type CorsHeaders :: [Type]
-type CorsHeaders =
-  [ Header "Access-Control-Allow-Origin" String
-  , Header "Access-Control-Allow-Methods" String
-  , Header "Access-Control-Allow-Headers" String
-  ]
-
-type GetHeadsHeaders :: [Type]
-type GetHeadsHeaders = Header "Accept" String ': CorsHeaders
 
 type API :: Type
 type API =
-  "heads"
-    :> Get
-        '[JSON]
-        ( Headers
-            GetHeadsHeaders
-            [HeadState]
-        )
+  "heads" :> Get '[JSON] [HeadState]
+    :<|> "tick" :> Get '[JSON] TickState
     :<|> Raw
 
-type GetHeads :: Type
-type GetHeads = IO [HeadState]
-
-api :: Proxy API
-api = Proxy
-
 server ::
-  forall (m :: Type -> Type).
-  GetHeads ->
-  Handler (Headers GetHeadsHeaders [HeadState])
-    :<|> Tagged m Application
-server getHeads = handleGetHeads getHeads :<|> serveDirectoryFileServer "static"
+  GetExplorerState ->
+  Server API
+server getExplorerState =
+  handleGetHeads getExplorerState
+    :<|> handleGetTick getExplorerState
+    :<|> serveDirectoryFileServer "static"
 
 handleGetHeads ::
-  GetHeads ->
-  Handler (Headers GetHeadsHeaders [HeadState])
-handleGetHeads getHeads = do
-  result <- liftIO $ try getHeads
-  case result of
-    Right heads -> do
-      return $ addHeader "application/json" $ addCorsHeaders heads
-    Left (_ :: SomeException) -> throwError err500
+  GetExplorerState ->
+  Handler [HeadState]
+handleGetHeads getExplorerState =
+  liftIO getExplorerState <&> \ExplorerState{heads} -> heads
+
+handleGetTick ::
+  GetExplorerState ->
+  Handler TickState
+handleGetTick getExplorerState = do
+  liftIO getExplorerState <&> \ExplorerState{tick} -> tick
 
 logMiddleware :: Tracer IO APIServerLog -> Middleware
 logMiddleware tracer app' req sendResponse = do
@@ -73,48 +54,55 @@ logMiddleware tracer app' req sendResponse = do
         }
   app' req sendResponse
 
-httpApp :: Tracer IO APIServerLog -> GetHeads -> Application
-httpApp tracer getHeads =
-  logMiddleware tracer $ serve api $ server getHeads
+httpApp :: Tracer IO APIServerLog -> GetExplorerState -> Application
+httpApp tracer getExplorerState =
+  logMiddleware tracer
+    . simpleCors
+    . serve (Proxy @API)
+    $ server getExplorerState
 
-observerHandler :: TVar IO ExplorerState -> [HeadObservation] -> IO ()
-observerHandler explorerState observations = do
-  atomically $
-    modifyTVar' explorerState $
-      aggregateHeadObservations observations
+observerHandler :: ModifyExplorerState -> [ChainObservation] -> IO ()
+observerHandler modifyExplorerState observations = do
+  modifyExplorerState $
+    aggregateHeadObservations observations
 
-readModelGetHeadIds :: TVar IO ExplorerState -> GetHeads
-readModelGetHeadIds = readTVarIO
+type GetExplorerState = IO ExplorerState
 
-main :: IO ()
-main = do
+type ModifyExplorerState = (ExplorerState -> ExplorerState) -> IO ()
+
+createExplorerState :: IO (GetExplorerState, ModifyExplorerState)
+createExplorerState = do
+  v <- newTVarIO (ExplorerState [] initialTickState)
+  pure (getExplorerState v, modifyExplorerState v)
+ where
+  getExplorerState = readTVarIO
+  modifyExplorerState v = atomically . modifyTVar' v
+
+run :: Options -> IO ()
+run opts = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
-    opts <- execParser hydraExplorerOptions
-    let Options
-          { networkId
-          , port
-          , nodeSocket
-          , startChainFrom
-          } = opts
-    explorerState <- newTVarIO (mempty :: ExplorerState)
-    let getHeads = readModelGetHeadIds explorerState
-        chainObserverArgs =
+    (getExplorerState, modifyExplorerState) <- createExplorerState
+
+    let chainObserverArgs =
           Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
             <> toArgStartChainFrom startChainFrom
     race_
       ( withArgs chainObserverArgs $
-          Hydra.ChainObserver.main (observerHandler explorerState)
+          Hydra.ChainObserver.main (observerHandler modifyExplorerState)
       )
-      ( traceWith tracer (APIServerStarted port)
-          *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads)
-      )
+      (Warp.runSettings (settings tracer) (httpApp tracer getExplorerState))
  where
-  settings tracer port =
+  settings tracer =
     Warp.defaultSettings
       & Warp.setPort (fromIntegral port)
       & Warp.setHost "0.0.0.0"
+      & Warp.setBeforeMainLoop (traceWith tracer $ APIServerStarted port)
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
-addCorsHeaders :: a -> Headers CorsHeaders a
-addCorsHeaders = addHeader "*" . addHeader "*" . addHeader "*"
+  Options
+    { networkId
+    , port
+    , nodeSocket
+    , startChainFrom
+    } = opts

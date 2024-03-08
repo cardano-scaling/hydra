@@ -45,7 +45,6 @@ library
   build-depends:
     , aeson
     , base
-    , directory
     , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
@@ -55,6 +54,7 @@ library
     , servant
     , servant-server
     , wai
+    , wai-cors
     , warp
 
   exposed-modules:
@@ -70,6 +70,7 @@ executable hydra-explorer
   build-depends:
     , hydra-explorer
     , hydra-prelude
+    , optparse-applicative
 
 test-suite tests
   import:             project-config
@@ -83,6 +84,7 @@ test-suite tests
     , hspec
     , hspec-wai
     , http-types
+    , hydra-chain-observer
     , hydra-explorer
     , hydra-node
     , hydra-prelude
