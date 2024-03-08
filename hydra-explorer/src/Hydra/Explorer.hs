@@ -13,58 +13,36 @@ import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Middleware.Cors (simpleCors)
-import Servant (serveDirectoryFileServer, throwError)
+import Servant (serveDirectoryFileServer)
 import Servant.API (Get, JSON, Raw, (:<|>) (..), (:>))
-import Servant.Server (Application, Handler, Server, err500, serve)
+import Servant.Server (Application, Handler, Server, serve)
 import System.Environment (withArgs)
 
 type API :: Type
 type API =
-  "heads"
-    :> Get
-        '[JSON]
-        [HeadState]
-    :<|> "tick"
-      :> Get
-          '[JSON]
-          TickState
+  "heads" :> Get '[JSON] [HeadState]
+    :<|> "tick" :> Get '[JSON] TickState
     :<|> Raw
 
-type GetHeads :: Type
-type GetHeads = IO [HeadState]
-
-type GetTick :: Type
-type GetTick = IO TickState
-
-api :: Proxy API
-api = Proxy
-
 server ::
-  GetHeads ->
-  GetTick ->
+  GetExplorerState ->
   Server API
-server getHeads getTick =
-  handleGetHeads getHeads
-    :<|> handleGetTick getTick
+server getExplorerState =
+  handleGetHeads getExplorerState
+    :<|> handleGetTick getExplorerState
     :<|> serveDirectoryFileServer "static"
 
 handleGetHeads ::
-  GetHeads ->
+  GetExplorerState ->
   Handler [HeadState]
-handleGetHeads getHeads = do
-  result <- liftIO $ try getHeads
-  case result of
-    Right heads -> return heads
-    Left (_ :: SomeException) -> throwError err500
+handleGetHeads getExplorerState =
+  liftIO getExplorerState <&> \ExplorerState{heads} -> heads
 
 handleGetTick ::
-  GetTick ->
+  GetExplorerState ->
   Handler TickState
-handleGetTick getTick = do
-  result <- liftIO $ try getTick
-  case result of
-    Right tick -> return tick
-    Left (_ :: SomeException) -> throwError err500
+handleGetTick getExplorerState = do
+  liftIO getExplorerState <&> \ExplorerState{tick} -> tick
 
 logMiddleware :: Tracer IO APIServerLog -> Middleware
 logMiddleware tracer app' req sendResponse = do
@@ -76,51 +54,50 @@ logMiddleware tracer app' req sendResponse = do
         }
   app' req sendResponse
 
-httpApp :: Tracer IO APIServerLog -> GetHeads -> GetTick -> Application
-httpApp tracer getHeads getTick =
+httpApp :: Tracer IO APIServerLog -> GetExplorerState -> Application
+httpApp tracer getExplorerState =
   logMiddleware tracer
     . simpleCors
-    . serve api
-    $ server getHeads getTick
+    . serve (Proxy @API)
+    $ server getExplorerState
 
-observerHandler :: TVar IO ExplorerState -> [ChainObservation] -> IO ()
-observerHandler explorerState observations = do
-  atomically $
-    modifyTVar' explorerState $
-      aggregateHeadObservations observations
+observerHandler :: ModifyExplorerState -> [ChainObservation] -> IO ()
+observerHandler modifyExplorerState observations = do
+  modifyExplorerState $
+    aggregateHeadObservations observations
 
-readModelGetHeadIds :: TVar IO ExplorerState -> GetHeads
-readModelGetHeadIds explorerStateTVar = do
-  ExplorerState{heads} <- readTVarIO explorerStateTVar
-  pure heads
+type GetExplorerState = IO ExplorerState
 
-readModelGetTick :: TVar IO ExplorerState -> GetTick
-readModelGetTick explorerStateTVar = do
-  ExplorerState{tick} <- readTVarIO explorerStateTVar
-  pure tick
+type ModifyExplorerState = (ExplorerState -> ExplorerState) -> IO ()
+
+createExplorerState :: IO (GetExplorerState, ModifyExplorerState)
+createExplorerState = do
+  v <- newTVarIO (ExplorerState [] initialTickState)
+  pure (getExplorerState v, modifyExplorerState v)
+ where
+  getExplorerState = readTVarIO
+  modifyExplorerState v = atomically . modifyTVar' v
 
 run :: Options -> IO ()
 run opts = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
-    explorerState <- newTVarIO (ExplorerState [] initialTickState)
-    let getTick = readModelGetTick explorerState
-        getHeads = readModelGetHeadIds explorerState
-        chainObserverArgs =
+    (getExplorerState, modifyExplorerState) <- createExplorerState
+
+    let chainObserverArgs =
           Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
             <> toArgStartChainFrom startChainFrom
     race_
       ( withArgs chainObserverArgs $
-          Hydra.ChainObserver.main (observerHandler explorerState)
+          Hydra.ChainObserver.main (observerHandler modifyExplorerState)
       )
-      ( traceWith tracer (APIServerStarted port)
-          *> Warp.runSettings (settings tracer) (httpApp tracer getHeads getTick)
-      )
+      (Warp.runSettings (settings tracer) (httpApp tracer getExplorerState))
  where
   settings tracer =
     Warp.defaultSettings
       & Warp.setPort (fromIntegral port)
       & Warp.setHost "0.0.0.0"
+      & Warp.setBeforeMainLoop (traceWith tracer $ APIServerStarted port)
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
   Options
