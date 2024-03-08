@@ -5,8 +5,8 @@ these communication channels to reach the Hydra team and get answers in a way
 where others can benefit from it as well:
 
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
-- Github [Discussions](https://github.com/input-output-hk/hydra/discussions)
-- Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
+- create a Github [Discussion](https://github.com/input-output-hk/hydra/discussions)
+- open a Github [Issue](https://github.com/input-output-hk/hydra/issues/new)
 
 # Reporting a Vulnerability
 
