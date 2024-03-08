@@ -33,6 +33,8 @@ import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Ledger.Cardano (
   adaOnly,
   genTxOut,
+  genUTxOSized,
+  genValue,
   genVerificationKey,
  )
 import Hydra.Party (Party, deriveParty, partyToChain)
@@ -123,11 +125,7 @@ healthyContestationPeriod =
   arbitrary `generateWith` 42
 
 healthyUTxO :: UTxO
-healthyUTxO =
-  adaOnly
-    <$> generateWith
-      (UTxO.fromPairs . (: []) <$> ((,) <$> genTxIn <*> genTxOut))
-      42
+healthyUTxO = adaOnly <$> generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
@@ -151,6 +149,8 @@ data DecrementMutation
   | -- | Ensures decrement is authenticated by one of the Head members by changing
     --  the signer used on the tx to not be one of PTs.
     MutateRequiredSigner
+  | -- | Mutate the output value to produce different 'UTxO' hash to the one in the signed 'Snapshot'.
+    MutateChangeOutputValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -167,6 +167,12 @@ genDecrementMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateChangeOutputValue <$> do
+        let outs = txOuts' tx
+        -- NOTE: Skip the first output since this is the Head output.
+        (ix, out) <- elements (zip [1 .. length outs - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
