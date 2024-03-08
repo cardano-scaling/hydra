@@ -44,8 +44,6 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   WaitReason (..),
   aggregateState,
-  collectEffects,
-  collectWaits,
   defaultTTL,
   update,
  )
@@ -109,7 +107,7 @@ spec =
             s0 = inOpenState threeParties
 
         update bobEnv ledger s0 reqTx
-          `hasWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+          `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
@@ -264,12 +262,13 @@ spec =
         let s0 = inOpenState threeParties
             reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
         update bobEnv ledger s0 reqSn
-          `shouldBe` Wait (WaitOnTxs [1])
+          `assertWait` WaitOnTxs [1]
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 mempty []
             event = NetworkEvent defaultTTL alice $ AckSn (sign aliceSk snapshot) 1
-        update bobEnv ledger (inOpenState threeParties) event `shouldBe` Wait WaitOnSeenSnapshot
+        update bobEnv ledger (inOpenState threeParties) event
+          `assertWait` WaitOnSeenSnapshot
 
       -- TODO: Write property tests for various future / old snapshot behavior.
       -- That way we could cover variations of snapshot numbers and state of
@@ -288,7 +287,8 @@ spec =
             step reqSn1
             getState
 
-        update bobEnv ledger st reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
+        update bobEnv ledger st reqSn2
+          `assertWait` WaitOnSnapshotNumber 1
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
@@ -740,26 +740,31 @@ assertEffects outcome = hasEffectSatisfying outcome (const True)
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect outcome effect = hasEffectSatisfying outcome (== effect)
 
-hasWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
-hasWait outcome waitReason = do
-  let waits = collectWaits outcome
-  unless (waitReason `elem` waits) $
-    failure $
-      "No wait matching reason " <> show waitReason
+assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
+assertWait outcome waitReason =
+  case outcome of
+    Wait{reason} -> reason `shouldBe` waitReason
+    _ -> failure $ "Expected a wait, but got: " <> show outcome
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasEffectSatisfying outcome predicate = do
-  let effects = collectEffects outcome
-  unless (any predicate effects) $
-    failure $
-      "No effect matching predicate in produced effects: " <> show outcome
+hasEffectSatisfying outcome predicate =
+  case outcome of
+    Wait{} -> failure "Expected an effect, but got Wait outcome"
+    Error{} -> failure "Expected an effect, but got Error outcome"
+    Continue{effects} ->
+      unless (any predicate effects) $
+        failure $
+          "Expected an effect satisfying the predicate, but got: " <> show effects
 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying outcome predicate = do
-  let effects = collectEffects outcome
-  when (any predicate effects) $
-    failure $
-      "Found unwanted effect in: " <> show effects
+hasNoEffectSatisfying outcome predicate =
+  case outcome of
+    Wait{} -> failure "Expected an effect, but got Wait outcome"
+    Error{} -> failure "Expected an effect, but got Error outcome"
+    Continue{effects} ->
+      when (any predicate effects) $
+        failure $
+          "Expected no effect satisfying the predicate, but got: " <> show effects
 
 testSnapshot ::
   SnapshotNumber ->

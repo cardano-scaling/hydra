@@ -23,8 +23,7 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.HeadLogic.Outcome (collectEffects)
-import Hydra.HeadLogicSpec (getState, inOpenState, inOpenState', runEvents, step)
+import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
@@ -59,13 +58,9 @@ spec = do
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             }
-    let sendReqSn =
-          isJust
-            . find
-              ( \case
-                  NetworkEffect ReqSn{} -> True
-                  _ -> False
-              )
+    let sendReqSn = \case
+          NetworkEffect ReqSn{} -> True
+          _ -> False
     let snapshot1 = Snapshot testHeadId 1 mempty []
 
     let ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
@@ -80,15 +75,15 @@ spec = do
         let tx = aValidTx 1
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] coordinatedHeadState) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
-        collectEffects outcome
-          `shouldContain` [NetworkEffect (ReqSn 1 [txId tx])]
+        outcome
+          `hasEffect` NetworkEffect (ReqSn 1 [txId tx])
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
             outcome = update (envFor bobSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL bob $ ReqTx tx
 
-        collectEffects outcome `shouldNotSatisfy` sendReqSn
+        outcome `hasNoEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
@@ -96,7 +91,7 @@ spec = do
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ NetworkEvent defaultTTL alice $ ReqTx tx
 
-        collectEffects outcome `shouldNotSatisfy` sendReqSn
+        outcome `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
@@ -127,8 +122,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
-        collectEffects outcome `shouldSatisfy` sendReqSn
+        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+          `hasEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties) $ do
@@ -137,8 +132,8 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        let outcome = update bobEnv simpleLedger headState $ ackFrom bobSk bob
-        collectEffects outcome `shouldNotSatisfy` sendReqSn
+        update bobEnv simpleLedger headState (ackFrom bobSk bob)
+          `hasNoEffectSatisfying` sendReqSn
 
       it "does NOT send ReqSn when we are NOT the leader but there are seen transactions" $ do
         let
@@ -157,7 +152,7 @@ spec = do
           getState
 
         let everybodyAcknowleged = update notLeaderEnv simpleLedger headState $ ackFrom bobSk bob
-        collectEffects everybodyAcknowleged `shouldNotSatisfy` sendReqSn
+        everybodyAcknowleged `hasNoEffectSatisfying` sendReqSn
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         headState <- runEvents bobEnv simpleLedger (inOpenState threeParties) $ do
@@ -204,9 +199,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
     Snapshot{number = confirmedSn} = getSnapshot sn
     nextSn = confirmedSn + 1
   pure $
-    ( collectEffects outcome
-        `shouldContain` [NetworkEffect (ReqSn nextSn [txId tx])]
-    )
+    outcome `hasEffect` NetworkEffect (ReqSn nextSn [txId tx])
       & counterexample (show outcome)
 
 prop_thereIsAlwaysALeader :: Property

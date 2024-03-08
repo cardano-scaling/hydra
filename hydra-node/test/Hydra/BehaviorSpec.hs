@@ -64,7 +64,6 @@ import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
@@ -453,8 +452,6 @@ spec = parallel $ do
 
       logs `shouldContain` [BeginEffect alice 1 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
       logs `shouldContain` [EndEffect alice 1 0]
-
-    roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
