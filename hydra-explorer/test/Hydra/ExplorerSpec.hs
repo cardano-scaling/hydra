@@ -8,7 +8,9 @@ import Test.Hydra.Prelude
 import Control.Lens (at, (^.), (^?!))
 import Data.Aeson qualified as Aeson
 import Data.OpenApi (
+  Definitions,
   OpenApi (..),
+  Schema,
   components,
   content,
   get,
@@ -21,11 +23,11 @@ import Data.OpenApi (
  )
 import Data.Yaml qualified as Yaml
 import Hydra.Explorer (httpApp)
-import Hydra.Explorer.ExplorerState (HeadState, TickState)
 import Hydra.Logging (nullTracer)
 import Network.HTTP.Types (statusCode)
 import Network.Wai.Test (SResponse (..))
 import System.FilePath ((</>))
+import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (ResponseMatcher), shouldRespondWith, (<:>))
 import Test.Hspec.Wai qualified as Wai
 import Test.QuickCheck (generate)
 
@@ -54,15 +56,9 @@ apiServerSpec = do
             Nothing -> liftIO . failure $ "Failed to find schema for GET /heads endpoint"
             Just headsSchema -> do
               liftIO $ headsSchema `shouldNotBe` mempty
-              SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/heads"
-              liftIO $ statusCode simpleStatus `shouldBe` 200
-              liftIO $ simpleHeaders `shouldContain` [("Content-Type", "application/json")]
-              case Aeson.eitherDecode simpleBody of
-                Left err -> liftIO . failure $ "Failed to decode body: " <> err
-                Right value ->
-                  case validateJSON componentSchemas headsSchema value of
-                    [] -> pure ()
-                    errs -> liftIO . failure . toString $ unlines (map toText errs)
+              Wai.get "heads"
+                `shouldRespondWith` matchingJSONSchema componentSchemas headsSchema
+
       describe "GET /tick" $
         it "matches schema" $ do
           let openApiSchema = "json-schemas" </> "hydra-explorer-api.yaml"
@@ -81,20 +77,28 @@ apiServerSpec = do
             Nothing -> liftIO . failure $ "Failed to find schema for GET /tick endpoint"
             Just tickSchema -> do
               liftIO $ tickSchema `shouldNotBe` mempty
-              SResponse{simpleStatus, simpleHeaders, simpleBody} <- Wai.get "/tick"
-              liftIO $ statusCode simpleStatus `shouldBe` 200
-              liftIO $ simpleHeaders `shouldContain` [("Content-Type", "application/json")]
-              case Aeson.eitherDecode simpleBody of
-                Left err -> liftIO . failure $ "Failed to decode body: " <> err
-                Right value ->
-                  case validateJSON componentSchemas tickSchema value of
-                    [] -> pure ()
-                    errs -> liftIO . failure . toString $ unlines (map toText errs)
+              Wai.get "tick"
+                `shouldRespondWith` matchingJSONSchema componentSchemas tickSchema
  where
-  webServer = httpApp nullTracer dummyGetHeads dummyGetTick
+  webServer = httpApp nullTracer getRandomExplorerState
 
-  dummyGetHeads :: IO [HeadState]
-  dummyGetHeads = generate arbitrary
+  getRandomExplorerState = generate arbitrary
 
-  dummyGetTick :: IO TickState
-  dummyGetTick = generate arbitrary
+matchingJSONSchema :: Definitions Schema -> Schema -> ResponseMatcher
+matchingJSONSchema definitions s =
+  ResponseMatcher
+    { matchStatus = 200
+    , matchHeaders = ["Content-Type" <:> "application/json;charset=utf-8"]
+    , matchBody = MatchBody $ \_headers body ->
+        case Aeson.eitherDecode body of
+          Left err -> Just $ "Failed to decode body: " <> err
+          Right value ->
+            case validateJSON definitions s value of
+              [] -> Nothing
+              errs ->
+                Just . toString . unlines $
+                  map toText errs
+                    <> [ "Expected schema: " <> show s
+                       , "Actual value: " <> show value
+                       ]
+    }
