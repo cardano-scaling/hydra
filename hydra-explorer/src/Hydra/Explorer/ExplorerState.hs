@@ -97,6 +97,9 @@ data ExplorerState = ExplorerState
   , tick :: TickState
   }
 
+instance Arbitrary ExplorerState where
+  arbitrary = ExplorerState <$> arbitrary <*> arbitrary
+
 aggregateInitObservation :: HeadId -> ChainPoint -> BlockNo -> HeadSeed -> HeadParameters -> [OnChainId] -> [HeadState] -> [HeadState]
 aggregateInitObservation headId point blockNo headSeed HeadParameters{parties, contestationPeriod} participants currentHeads =
   case findHeadState headId currentHeads of

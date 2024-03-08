@@ -6,8 +6,7 @@ import Test.Hydra.Prelude
 import Hydra.ChainObserver (ChainObservation (..))
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState (..), aggregateHeadObservations, initialTickState)
 import Hydra.HeadId (HeadId)
-import Hydra.OnChainId ()
-import Test.QuickCheck (forAll, suchThat, (=/=))
+import Test.QuickCheck (forAll, listOf1, (=/=))
 
 spec :: Spec
 spec = do
@@ -18,6 +17,7 @@ spec = do
       forAll genObservations $ \observations ->
         let ExplorerState{heads} = aggregateHeadObservations observations (ExplorerState [] initialTickState)
          in heads =/= []
+
     prop "Given any observations, the resulting list of head ids is a prefix of the original" $
       forAll genObservations $ \observations ->
         forAll arbitrary $ \initialHeads -> do
@@ -26,15 +26,7 @@ spec = do
  where
   genObservations :: Gen [ChainObservation]
   genObservations =
-    arbitrary
-      `suchThat` (not . null)
-      `suchThat` ( not
-                    . any
-                      ( \case
-                          HeadObservation{} -> False
-                          Tick{} -> True
-                      )
-                 )
+    listOf1 $ HeadObservation <$> arbitrary <*> arbitrary <*> arbitrary
 
   getHeadIds :: [HeadState] -> [HeadId]
   getHeadIds = fmap headId
