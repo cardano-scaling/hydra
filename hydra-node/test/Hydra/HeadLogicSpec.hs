@@ -158,7 +158,7 @@ spec =
                 NetworkEffect reqDec' -> reqDec' == reqDec
                 _ -> False
 
-        it "cannot request decommit when another one is in flight" $ do
+        it "wait for second decommit when another one is in flight" $ do
           let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
               decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
               reqDec1 = ReqDec{transaction = decommitTx1, decommitRequester = alice}
@@ -174,8 +174,8 @@ spec =
           let outcome = update bobEnv ledger s1 reqDecEvent2
 
           outcome `shouldSatisfy` \case
-            Error (RequireFailed DecommitTxInFlight{decommitTx = decommitTx''}) ->
-              decommitTx1 == decommitTx''
+            Wait (WaitOnNotApplicableDecommitTx{waitingOnDecommitTx = decommitTx''}) ->
+              decommitTx2 == decommitTx''
             _ -> False
 
         it "updates decommitTx on valid ReqDec" $ do

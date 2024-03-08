@@ -158,6 +158,7 @@ data WaitReason tx
   | WaitOnSeenSnapshot
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
+  | WaitOnNotApplicableDecommitTx { waitingOnDecommitTx :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)
