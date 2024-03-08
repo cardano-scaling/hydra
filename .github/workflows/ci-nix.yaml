@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
@@ -107,7 +107,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
@@ -154,7 +154,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
@@ -233,7 +233,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
