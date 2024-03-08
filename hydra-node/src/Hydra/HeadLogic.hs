@@ -700,25 +700,31 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
 onOpenNetworkReqDec ::
   IsTx tx =>
   Environment ->
+  TTL ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env openState decommitTx =
-  case mExistingDecommitTx of
-    Just existingDecommitTx ->
-      Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
-    Nothing ->
-      let decommitUTxO = utxoFromTx decommitTx
-       in newState (DecommitRecorded decommitTx)
-            <> causes
-              [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-              ]
-            <> if isLeader parameters party nextSn
-              then
-                causes
-                  [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
-              else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+onOpenNetworkReqDec env ttl openState decommitTx =
+  waitOnApplicableDecommit $
+    let decommitUTxO = utxoFromTx decommitTx
+     in StateChanged (DecommitRecorded decommitTx)
+          <> Effects
+            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
+            ]
+          <> if isLeader parameters party nextSn
+            then
+              Effects
+                [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
+            else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
  where
+  waitOnApplicableDecommit cont =
+    case mExistingDecommitTx of
+      Nothing -> cont
+      Just existingDecommitTx
+        | ttl > 0 ->
+            Wait $ WaitOnNotApplicableDecommitTx decommitTx
+        | otherwise ->
+            Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
   Environment{party} = env
 
   Snapshot{number} = getSnapshot confirmedSnapshot
@@ -922,7 +928,7 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput _ _ (ReqDec{transaction})) ->
-    onOpenNetworkReqDec env openState transaction
+    onOpenNetworkReqDec env ttl openState transaction
   ( Open OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnDecrementTx{headId}}
     )
