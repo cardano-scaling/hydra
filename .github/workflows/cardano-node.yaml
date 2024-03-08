@@ -18,7 +18,7 @@ jobs:
         ref: 8.7.2
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
@@ -50,7 +50,7 @@ jobs:
         ref: 170817f5ba3f7838ffd9bd181bc30504906a6506
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v25
+      uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           accept-flake-config = true
