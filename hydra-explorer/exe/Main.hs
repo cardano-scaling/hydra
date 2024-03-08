@@ -1,7 +1,11 @@
 module Main where
 
-import Hydra.Explorer qualified
 import Hydra.Prelude
 
+import Hydra.Explorer (run)
+import Hydra.Explorer.Options (hydraExplorerOptions)
+import Options.Applicative (execParser)
+
 main :: IO ()
-main = Hydra.Explorer.main
+main =
+  execParser hydraExplorerOptions >>= run

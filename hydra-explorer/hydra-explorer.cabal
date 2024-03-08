@@ -69,6 +69,7 @@ executable hydra-explorer
   build-depends:
     , hydra-explorer
     , hydra-prelude
+    , optparse-applicative
 
 test-suite tests
   import:             project-config

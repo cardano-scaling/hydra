@@ -7,12 +7,11 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.ChainObserver (ChainObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
-import Hydra.Explorer.Options (Options (..), hydraExplorerOptions, toArgStartChainFrom)
+import Hydra.Explorer.Options (Options (..), toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
 import Network.Wai.Handler.Warp qualified as Warp
-import Options.Applicative (execParser)
 import Servant (serveDirectoryFileServer, throwError)
 import Servant.API (Get, Header, JSON, Raw, addHeader, (:<|>) (..), (:>))
 import Servant.API.ResponseHeaders (Headers)
@@ -113,16 +112,9 @@ readModelGetTick explorerStateTVar = do
   ExplorerState{tick} <- readTVarIO explorerStateTVar
   pure tick
 
-main :: IO ()
-main = do
+run :: Options -> IO ()
+run opts = do
   withTracer (Verbose "hydra-explorer") $ \tracer -> do
-    opts <- execParser hydraExplorerOptions
-    let Options
-          { networkId
-          , port
-          , nodeSocket
-          , startChainFrom
-          } = opts
     explorerState <- newTVarIO (ExplorerState [] initialTickState)
     let getTick = readModelGetTick explorerState
         getHeads = readModelGetHeadIds explorerState
@@ -135,14 +127,18 @@ main = do
           Hydra.ChainObserver.main (observerHandler explorerState)
       )
       ( traceWith tracer (APIServerStarted port)
-          *> Warp.runSettings (settings tracer port) (httpApp tracer getHeads getTick)
+          *> Warp.runSettings (settings tracer) (httpApp tracer getHeads getTick)
       )
  where
-  settings tracer port =
+  settings tracer =
     Warp.defaultSettings
       & Warp.setPort (fromIntegral port)
       & Warp.setHost "0.0.0.0"
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
 
-addCorsHeaders :: a -> Headers CorsHeaders a
-addCorsHeaders = addHeader "*" . addHeader "*" . addHeader "*"
+  Options
+    { networkId
+    , port
+    , nodeSocket
+    , startChainFrom
+    } = opts
