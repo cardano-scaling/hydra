@@ -636,27 +636,25 @@ onOpenClientDecommit ::
 onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight $
     checkValidDecommitTx $
-      Effects
-        [ NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party}
-        ]
+      cause (NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party})
  where
   checkNoDecommitInFlight continue =
     case mExistingDecommitTx of
       Just existingDecommitTx ->
-        Effects
-          [ ClientEffect
+        cause
+          ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
                 , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
                 }
-          ]
+          )
       Nothing -> continue
 
   checkValidDecommitTx cont =
     case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
       Left (_, err) ->
-        Effects
-          [ ClientEffect
+        cause
+          ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
                 , decommitInvalidReason =
@@ -666,7 +664,7 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
                       , validationError = err
                       }
                 }
-          ]
+          )
       Right _ -> cont
 
   confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
@@ -707,22 +705,18 @@ onOpenNetworkReqDec ::
 onOpenNetworkReqDec env ttl openState decommitTx =
   waitOnApplicableDecommit $
     let decommitUTxO = utxoFromTx decommitTx
-     in StateChanged (DecommitRecorded decommitTx)
-          <> Effects
-            [ ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO
-            ]
+     in newState (DecommitRecorded decommitTx)
+          <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
           <> if isLeader parameters party nextSn
-            then
-              Effects
-                [NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx))]
-            else Error $ RequireFailed $ ReqSnNotLeader{requestedSn = nextSn, leader = party}
+            then cause (NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx)))
+            else noop
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
       Nothing -> cont
       Just existingDecommitTx
         | ttl > 0 ->
-            Wait $ WaitOnNotApplicableDecommitTx decommitTx
+            wait $ WaitOnNotApplicableDecommitTx decommitTx
         | otherwise ->
             Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
   Environment{party} = env
@@ -934,8 +928,7 @@ update env ledger st ev = case (st, ev) of
     )
       -- TODO: What happens if observed decrement tx get's rolled back?
       | ourHeadId == headId ->
-          causes
-            [ClientEffect $ ServerOutput.DecommitFinalized{headId}]
+          cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
             <> newState DecommitFinalized
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}

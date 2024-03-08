@@ -47,6 +47,7 @@ import Hydra.HeadLogic (
   aggregateState,
   defaultTTL,
   update,
+  cause,
  )
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
@@ -153,10 +154,8 @@ spec =
           let input = NetworkInput defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
-            update aliceEnv ledger st input
-              `hasEffectSatisfying` \case
-                NetworkEffect reqDec' -> reqDec' == reqDec
-                _ -> False
+            update aliceEnv ledger st event
+              `shouldNotBe` cause (NetworkEffect reqDec)
 
         it "wait for second decommit when another one is in flight" $ do
           let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
@@ -174,7 +173,7 @@ spec =
           let outcome = update bobEnv ledger s1 reqDecEvent2
 
           outcome `shouldSatisfy` \case
-            Wait (WaitOnNotApplicableDecommitTx{waitingOnDecommitTx = decommitTx''}) ->
+            Wait (WaitOnNotApplicableDecommitTx{waitingOnDecommitTx = decommitTx''}) _ ->
               decommitTx2 == decommitTx''
             _ -> False
 

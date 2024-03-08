@@ -1550,7 +1550,10 @@ definitions:
       seenSnapshot:
         $ref: "logs.yaml#/definitions/SeenSnapshot"
       decommitTx:
-        $ref: "api.yaml#/components/schemas/Transaction"
+        oneOf:
+          - type: "null"
+          - type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
 
   SeenSnapshot:
     oneOf:
@@ -2237,6 +2240,20 @@ definitions:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
+      - title: WaitOnNotApplicableDecommitTx
+        description: >-
+          Somebody requested a Decommit but there is another one in flight already.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - waitingOnDecommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnNotApplicableDecommitTx"]
+          waitingOnDecommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
 
   RunOptions:
     type: object

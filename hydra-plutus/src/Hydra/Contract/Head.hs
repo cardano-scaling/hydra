@@ -241,10 +241,21 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     && checkSnapshot
     && checkSnapshotSignature
     && mustBeSignedByParticipant ctx prevHeadId
+    && mustPreserveValue
  where
+  mustPreserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue === headOutValue
+  -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
+  headOutValue = txOutValue $ head $ txInfoOutputs txInfo <> decommitOutputs
+
+  headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  decommitOutputs = tail (txInfoOutputs txInfo)
+
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.
-  decommitUtxoHash = hashTxOuts $ tail (txInfoOutputs txInfo)
+  decommitUtxoHash = hashTxOuts decommitOutputs
   (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just

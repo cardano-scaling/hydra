@@ -216,9 +216,8 @@ prop_verifyOffChainSignatures =
           onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
-          utxoHash =
-            (toBuiltin $ hashUTxO @SimpleTx utxo)
-          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
+          utxoHash = (toBuiltin $ hashUTxO @SimpleTx utxo)
+          utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
        in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
@@ -234,7 +233,6 @@ prop_verifySnapshotSignatures =
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
-          utxoHash =
-            toBuiltin (hashUTxO @SimpleTx utxo)
-          utxoToDecommitHash = maybe (toBuiltin $ hashUTxO @SimpleTx mempty) (toBuiltin . hashUTxO @SimpleTx) utxoToDecommit
+          utxoHash = toBuiltin (hashUTxO @SimpleTx utxo)
+          utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
        in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash signatures
