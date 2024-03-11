@@ -180,7 +180,8 @@ hydrate ::
     )
 hydrate dryNode eventSource eventSinks = do
   (hs, chainStateHistory) <- loadStateEventSource tracer eventSource eventSinks initialChainState
-  checkHeadState tracer env hs
+  -- FIXME: move this outside (how access headstate?)
+  -- checkHeadState tracer env hs
   nodeState <- createNodeState hs
   inputQueue <- createInputQueue
   let wetNode =
