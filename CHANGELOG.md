@@ -38,6 +38,10 @@ changes.
 
 - Add support for `Conway` in `hydra-chain-observer`.
 
+- **BREAKING** Change to the `hydra-node` logs and removal of `log-filter` executable:
+  - We renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
+  - In course of this, we also removed the `log-filter` executable as nobody is actively using it and we recommend using other off-the-shelf utilities to manipulate structured JSON logs (`jq` is already quite powerful).
+
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
