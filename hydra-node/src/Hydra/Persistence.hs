@@ -57,6 +57,7 @@ data PersistenceIncremental a m = PersistenceIncremental
   }
 
 -- | Define an event source and sink from a persistence handle.
+-- TODO: Add property tests about consistency + deduplication behavior.
 eventPairFromPersistenceIncremental ::
   (FromJSON a, ToJSON a) =>
   PersistenceIncremental a m ->
