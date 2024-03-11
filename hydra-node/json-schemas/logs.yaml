@@ -748,6 +748,7 @@ definitions:
 
   Node:
     oneOf:
+      # FIXME: Update logs schema
       - title: BeginEvent
         description: >-
           Head has started processing an event drawn from some pool or queue of
