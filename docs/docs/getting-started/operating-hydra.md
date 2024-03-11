@@ -31,8 +31,8 @@ will output
 ```
 # TYPE hydra_head_confirmed_tx counter
 hydra_head_confirmed_tx  0
-# TYPE hydra_head_events counter
-hydra_head_events  50467
+# TYPE hydra_head_inputs counter
+hydra_head_inputs  50467
 # TYPE hydra_head_requested_tx counter
 hydra_head_requested_tx  0
 # TYPE hydra_head_tx_confirmation_time_ms histogram

@@ -75,7 +75,7 @@ data MetricDefinition where
 -- | All custom 'MetricDefinition's for Hydra
 allMetrics :: [MetricDefinition]
 allMetrics =
-  [ MetricDefinition (Name "hydra_head_events") CounterMetric $ flip registerCounter mempty
+  [ MetricDefinition (Name "hydra_head_inputs") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
@@ -108,7 +108,7 @@ monitor transactionsMap metricsMap = \case
         Nothing -> pure ()
     tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
   (Node (EndInput _ _)) ->
-    tick "hydra_head_events"
+    tick "hydra_head_inputs"
   _ -> pure ()
  where
   tick metricName =

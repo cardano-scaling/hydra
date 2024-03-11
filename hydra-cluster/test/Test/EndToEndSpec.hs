@@ -479,7 +479,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     send n1 $ input "Init" []
                     void $ waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
+                    metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
 
     describe "hydra-node executable" $ do
       it "logs its command line arguments" $ \tracer -> do
