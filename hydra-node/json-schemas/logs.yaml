@@ -1588,23 +1588,6 @@ definitions:
             enum: ["OnChainEvent"]
           chainEvent:
             $ref: "logs.yaml#/definitions/OnChainEvent"
-      - title: PostTxError
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - postChainTx
-          - postTxError
-        description: >-
-          Event emitted when posting a transaction on the main chain failed.
-        properties:
-          tag:
-            type: string
-            enum: ["PostTxError"]
-          postChainTx:
-            $ref: "api.yaml#/components/schemas/PostChainTx"
-          postTxError:
-            $ref: "api.yaml#/components/schemas/PostTxError"
 
   Message:
     description: >-
@@ -1686,24 +1669,6 @@ definitions:
           newChainState:
             $ref: "api.yaml#/components/schemas/ChainState"
 
-      - title: IgnoredInitTx
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - headId
-          - participants
-        properties:
-          tag:
-            type: string
-            enum: ["IgnoredInitTx"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          participants:
-            items:
-              type: string
-              contentEncoding: base16
-
       - title: Rollback
         type: object
         additionalProperties: false
@@ -1734,6 +1699,24 @@ definitions:
             $ref: "api.yaml#/components/schemas/UTCTime"
           chainSlot:
             $ref: "api.yaml#/components/schemas/ChainSlot"
+
+      - title: PostTxError
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - postChainTx
+          - postTxError
+        description: >-
+          Event emitted when posting a transaction on the main chain failed.
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxError"]
+          postChainTx:
+            $ref: "api.yaml#/components/schemas/PostChainTx"
+          postTxError:
+            $ref: "api.yaml#/components/schemas/PostTxError"
 
   OnChainTx:
     description: >-

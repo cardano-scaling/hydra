@@ -5,13 +5,7 @@ module Hydra.HeadLogic.Event where
 import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.Chain (
-  ChainEvent,
-  ChainStateType,
-  IsChainState,
-  PostChainTx,
-  PostTxError,
- )
+import Hydra.Chain (ChainEvent, IsChainState)
 import Hydra.Ledger (IsTx)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
@@ -33,8 +27,6 @@ data Event tx
     NetworkEvent {ttl :: TTL, party :: Party, message :: Message tx}
   | -- | Event received from the chain via a "Hydra.Chain".
     OnChainEvent {chainEvent :: ChainEvent tx}
-  | -- | Event to re-ingest errors from 'postTx' for further processing.
-    PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (Event tx)
@@ -42,6 +34,6 @@ deriving stock instance IsChainState tx => Show (Event tx)
 deriving anyclass instance IsChainState tx => ToJSON (Event tx)
 deriving anyclass instance IsChainState tx => FromJSON (Event tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Event tx) where
+instance (IsTx tx, IsChainState tx) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

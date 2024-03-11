@@ -21,6 +21,7 @@ import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
+  ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
   HeadParameters (..),
@@ -45,7 +46,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as Logic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.Ledger (IsTx (), Ledger)
+import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -159,7 +160,7 @@ deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HydraNodeLog tx) where
+instance IsChainState tx => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
@@ -252,7 +253,7 @@ processEffects HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{p
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->
-            putEvent eq $ PostTxError{postChainTx, postTxError}
+            putEvent eq . OnChainEvent $ PostTxError{postChainTx, postTxError}
     traceWith tracer $ EndEffect party eventId effectId
 
 -- ** Manage state

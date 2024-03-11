@@ -138,8 +138,8 @@ spec = do
         run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
       timeHandle <- pickBlind arbitrary
       let callback = \case
-            Rollback{} ->
-              failure "rolled back but expected roll forward."
+            Rollback{} -> failure "rolled back but expected roll forward."
+            PostTxError{} -> failure "Unxpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> do
               let observedTransition =

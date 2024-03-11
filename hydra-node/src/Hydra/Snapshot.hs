@@ -56,7 +56,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
 
-instance (Arbitrary (TxIdType tx), Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
+instance IsTx tx => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'

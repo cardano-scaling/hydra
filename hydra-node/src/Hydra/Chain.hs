@@ -28,7 +28,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.HeadId (HeadId, HeadSeed)
-import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType)
+import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
@@ -212,12 +212,13 @@ deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (ChainStateH
 instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
--- | Interface available from a chain state. Expected to be instantiated by all
--- 'ChainStateType tx'.
+-- | Types that can be used on-chain by the Hydra protocol.
+-- XXX: Find a better name for this. Maybe IsChainTx or IsL1Tx?
 class
   ( IsTx tx
   , Eq (ChainStateType tx)
   , Show (ChainStateType tx)
+  , Arbitrary (ChainStateType tx)
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
   ) =>
@@ -276,21 +277,16 @@ data ChainEvent tx
       { chainTime :: UTCTime
       , chainSlot :: ChainSlot
       }
+  | -- | Event to re-ingest errors from 'postTx' for further processing.
+    PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ChainEvent tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ChainEvent tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ChainEvent tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ChainEvent tx)
+deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
+deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
+deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
+deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
-instance
-  ( Arbitrary tx
-  , Arbitrary (UTxOType tx)
-  , Arbitrary (TxIdType tx)
-  , Arbitrary (ChainStateType tx)
-  ) =>
-  Arbitrary (ChainEvent tx)
-  where
+instance (IsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
