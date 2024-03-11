@@ -18,6 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
   stateTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
@@ -51,8 +52,9 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
+import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
+import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
@@ -132,62 +134,132 @@ checkHeadState tracer env headState = do
 
   Environment{contestationPeriod = configuredCp, otherParties, party} = env
 
--- ** Create and run a hydra node
+-- * Create and run a hydra node
 
--- | Main handle of a hydra node where all layers are tied together.
-data HydraNode tx m = HydraNode
-  { inputQueue :: InputQueue m (Input tx)
-  , hn :: Network m (Message tx)
-  , nodeState :: NodeState tx m
-  , oc :: Chain tx m
-  , server :: Server tx m
-  , ledger :: Ledger tx
+-- | A dry version of the 'HydraNode' that does not yet hold state and is not
+-- yet connected to the network.
+data DryHydraNode tx m = DryHydraNode
+  { tracer :: Tracer m (HydraNodeLog tx)
   , env :: Environment
+  , ledger :: Ledger tx
+  , initialChainState :: ChainStateType tx
+  }
+
+-- | Create a dry 'HydraNode' which needs to be 'hydrate'd next.
+mkHydraNode ::
+  Tracer m (HydraNodeLog tx) ->
+  Environment ->
+  Ledger tx ->
+  ChainStateType tx ->
+  DryHydraNode tx m
+mkHydraNode tracer env ledger initialChainState =
+  DryHydraNode{tracer, env, ledger, initialChainState}
+
+-- | A wet version (see 'hydrate') of the 'HydraNode' that holds state and can
+-- be used to 'wireChainInput', but is not yet connected (see 'connect').
+data WetHydraNode tx m = WetHydraNode
+  { tracer :: Tracer m (HydraNodeLog tx)
+  , env :: Environment
+  , ledger :: Ledger tx
+  , nodeState :: NodeState tx m
+  , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateChanged tx) m
   , eventSinks :: [EventSink (StateChanged tx) m]
   }
 
-data HydraNodeLog tx
-  = BeginInput {by :: Party, inputId :: Word64, input :: Input tx}
-  | EndInput {by :: Party, inputId :: Word64}
-  | BeginEffect {by :: Party, inputId :: Word64, effectId :: Word32, effect :: Effect tx}
-  | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
-  | LogicOutcome {by :: Party, outcome :: Outcome tx}
-  | LoadedState {numberOfEvents :: Word64}
-  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
-  deriving stock (Generic)
+-- | Hydrate a 'DryHydraNode' into a 'WetHydraNode' by loading events from
+-- source, re-aggregate node state and sending events to sinks while doing so.
+hydrate ::
+  (MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, IsChainState tx) =>
+  DryHydraNode tx m ->
+  EventSource (StateChanged tx) m ->
+  [EventSink (StateChanged tx) m] ->
+  m
+    ( WetHydraNode tx m
+    , ChainStateHistory tx -- TODO: Make this part of NodeState?
+    )
+hydrate dryNode eventSource eventSinks = do
+  (hs, chainStateHistory) <- loadStateEventSource tracer eventSource eventSinks initialChainState
+  checkHeadState tracer env hs
+  nodeState <- createNodeState hs
+  inputQueue <- createInputQueue
+  let wetNode =
+        WetHydraNode
+          { tracer
+          , env
+          , ledger
+          , nodeState
+          , inputQueue
+          , eventSource
+          , eventSinks
+          }
+  pure (wetNode, chainStateHistory)
+ where
+  DryHydraNode{tracer, env, ledger, initialChainState} = dryNode
 
-deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
-deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
-deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
+wireChainInput :: WetHydraNode tx m -> (ChainEvent tx -> m ())
+wireChainInput node = enqueue . ChainInput
+ where
+  WetHydraNode{inputQueue = InputQueue{enqueue}} = node
 
-instance IsChainState tx => Arbitrary (HydraNodeLog tx) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
+wireClientInput :: WetHydraNode tx m -> (ClientInput tx -> m ())
+wireClientInput node = enqueue . ClientInput
+ where
+  WetHydraNode{inputQueue = InputQueue{enqueue}} = node
+
+wireNetworkInput :: WetHydraNode tx m -> (Authenticated (Message tx) -> m ())
+wireNetworkInput node (Authenticated msg otherParty) =
+  enqueue $ NetworkInput defaultTTL otherParty msg
+ where
+  WetHydraNode{inputQueue = InputQueue{enqueue}} = node
+
+-- | Connect chain, network and API to a hydrated 'WetHydraNode' to get a fully
+-- connected 'HydraNode'.
+connect ::
+  WetHydraNode tx m ->
+  Chain tx m ->
+  Network m (Message tx) ->
+  Server tx m ->
+  HydraNode tx m
+connect node chain network server =
+  HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+ where
+  WetHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
+
+-- | Fully connected hydra node with everything wired in.
+data HydraNode tx m = HydraNode
+  { tracer :: Tracer m (HydraNodeLog tx)
+  , env :: Environment
+  , ledger :: Ledger tx
+  , nodeState :: NodeState tx m
+  , inputQueue :: InputQueue m (Input tx)
+  , eventSource :: EventSource (StateChanged tx) m
+  , eventSinks :: [EventSink (StateChanged tx) m]
+  , oc :: Chain tx m
+  , hn :: Network m (Message tx)
+  , server :: Server tx m
+  }
 
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , IsChainState tx
   ) =>
-  Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node =
+runHydraNode node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode tracer node
+  forever $ stepHydraNode node
 
 stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , IsChainState tx
   ) =>
-  Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-stepHydraNode tracer node = do
+stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
   outcome <- atomically $ do
@@ -213,7 +285,7 @@ stepHydraNode tracer node = do
 
   Environment{party} = env
 
-  HydraNode{inputQueue = InputQueue{dequeue, reenqueue}, env, eventSinks} = node
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env, eventSinks} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -324,3 +396,24 @@ loadStateEventSource tracer eventSource eventSinks defaultChainState = do
   pure (headState, chainStateHistory)
  where
   initialState = Idle IdleState{chainState = defaultChainState}
+
+-- * Logging
+
+data HydraNodeLog tx
+  = BeginInput {by :: Party, inputId :: Word64, input :: Input tx}
+  | EndInput {by :: Party, inputId :: Word64}
+  | BeginEffect {by :: Party, inputId :: Word64, effectId :: Word32, effect :: Effect tx}
+  | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
+  | LogicOutcome {by :: Party, outcome :: Outcome tx}
+  | LoadedState {numberOfEvents :: Word64}
+  | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
+  deriving stock (Generic)
+
+deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
+deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
+deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
+deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
+
+instance IsChainState tx => Arbitrary (HydraNodeLog tx) where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
