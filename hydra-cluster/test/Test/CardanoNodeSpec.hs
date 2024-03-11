@@ -56,11 +56,11 @@ spec = do
     describe "findRunningCardanoNode" $ do
       it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
         withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \_ -> do
-          findRunningCardanoNode tmp Preproduction `shouldReturn` Nothing
+          findRunningCardanoNode tr tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
         withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \runningNode -> do
-          findRunningCardanoNode tmp Sanchonet `shouldReturn` Just runningNode
+          findRunningCardanoNode tr tmp Sanchonet `shouldReturn` Just runningNode
 
 setupTracerAndTempDir :: ToJSON msg => ((Tracer IO msg, FilePath) -> IO a) -> IO a
 setupTracerAndTempDir action =
