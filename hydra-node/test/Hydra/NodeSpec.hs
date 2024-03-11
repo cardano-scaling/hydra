@@ -15,7 +15,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.HeadLogic (
   Environment (..),
-  Event (..),
+  Input (..),
   StateChanged,
   defaultTTL,
  )
@@ -47,18 +47,18 @@ spec = parallel $ do
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
-      -- 'eventsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
+      -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
-          events =
-            eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
+          inputs =
+            inputsToOpenHead
+              <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
+                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
                  ]
           signedSnapshot = sign aliceSk $ testSnapshot 1 (utxoRefs [1, 3, 4]) [1]
-      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
+      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
@@ -68,15 +68,15 @@ spec = parallel $ do
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
           sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
-          events =
-            eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
-                 , NetworkEvent{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+          inputs =
+            inputsToOpenHead
+              <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
+                 , NetworkInput{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
+                 , NetworkInput{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
+                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
                  ]
 
-      node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
+      node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod inputs
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
@@ -87,21 +87,21 @@ spec = parallel $ do
       let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
           sigBob = sign bobSk snapshot
           sigAlice = sign aliceSk snapshot
-          events =
-            eventsToOpenHead
-              <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
-                 , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
+          inputs =
+            inputsToOpenHead
+              <> [ NetworkInput{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
+                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
                  ]
-      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
+      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
 
   it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure "NodeSpec" $ \tracer -> do
-      let events = [ClientEvent Init]
+      let inputs = [ClientInput Init]
       (node, getServerOutputs) <-
-        createHydraNode aliceSk [bob, carol] defaultContestationPeriod events
+        createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
           >>= throwExceptionOnPostTx NoSeedInput
           >>= recordServerOutputs
 
@@ -118,13 +118,13 @@ spec = parallel $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
             sigBob = sign bobSk snapshot
-            events =
-              eventsToOpenHead
-                <> [ NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
-                   , NetworkEvent{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
-                   , NetworkEvent{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
+            inputs =
+              inputsToOpenHead
+                <> [ NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
+                   , NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
                    ]
-        node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod events
+        node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod inputs
         (node', getNetworkMessages) <- recordNetwork node
         runToCompletion tracer node'
         getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
@@ -134,14 +134,14 @@ spec = parallel $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         persistence <- createPersistenceInMemory
 
-        createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod eventsToOpenHead
+        createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod inputsToOpenHead
           >>= runToCompletion tracer
 
-        let reqTxEvent = NetworkEvent{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+        let reqTx = NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
             tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
 
         (node, getServerOutputs) <-
-          createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod [reqTxEvent]
+          createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod [reqTx]
             >>= recordServerOutputs
         runToCompletion tracer node
 
@@ -203,18 +203,18 @@ isReqSn = \case
   ReqSn{} -> True
   _ -> False
 
-eventsToOpenHead :: [Event SimpleTx]
-eventsToOpenHead =
-  [ observationEvent $ OnInitTx testHeadId testHeadSeed headParameters participants
-  , observationEvent $ OnCommitTx testHeadId carol (utxoRef 3)
-  , observationEvent $ OnCommitTx testHeadId bob (utxoRef 2)
-  , observationEvent $ OnCommitTx testHeadId alice (utxoRef 1)
-  , observationEvent $ OnCollectComTx testHeadId
+inputsToOpenHead :: [Input SimpleTx]
+inputsToOpenHead =
+  [ observationInput $ OnInitTx testHeadId testHeadSeed headParameters participants
+  , observationInput $ OnCommitTx testHeadId carol (utxoRef 3)
+  , observationInput $ OnCommitTx testHeadId bob (utxoRef 2)
+  , observationInput $ OnCommitTx testHeadId alice (utxoRef 1)
+  , observationInput $ OnCollectComTx testHeadId
   ]
  where
-  observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
-  observationEvent observedTx =
-    OnChainEvent
+  observationInput :: OnChainTx SimpleTx -> Input SimpleTx
+  observationInput observedTx =
+    ChainInput
       { chainEvent =
           Observation
             { observedTx
@@ -231,7 +231,7 @@ runToCompletion ::
   Tracer IO (HydraNodeLog tx) ->
   HydraNode tx IO ->
   IO ()
-runToCompletion tracer node@HydraNode{eq = InputQueue{isEmpty}} = go
+runToCompletion tracer node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
  where
   go =
     unlessM isEmpty $
@@ -242,7 +242,7 @@ createHydraNode ::
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
-  [Event SimpleTx] ->
+  [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 createHydraNode =
   createHydraNode'
@@ -257,11 +257,11 @@ createHydraNode' ::
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
-  [Event SimpleTx] ->
+  [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
-createHydraNode' persistence signingKey otherParties contestationPeriod events = do
+createHydraNode' persistence signingKey otherParties contestationPeriod inputs = do
   inputQueue@InputQueue{enqueue} <- createInputQueue
-  forM_ events enqueue
+  forM_ inputs enqueue
   (headState, _) <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
   nodeState <- createNodeState headState
   pure $
