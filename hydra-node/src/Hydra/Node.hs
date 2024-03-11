@@ -147,13 +147,14 @@ data DryHydraNode tx m = DryHydraNode
 
 -- | Create a dry 'HydraNode' which needs to be 'hydrate'd next.
 mkHydraNode ::
+  Monad m =>
   Tracer m (HydraNodeLog tx) ->
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
-  DryHydraNode tx m
+  m (DryHydraNode tx m)
 mkHydraNode tracer env ledger initialChainState =
-  DryHydraNode{tracer, env, ledger, initialChainState}
+  pure DryHydraNode{tracer, env, ledger, initialChainState}
 
 -- | A wet version (see 'hydrate') of the 'HydraNode' that holds state and can
 -- be used to 'wireChainInput', but is not yet connected (see 'connect').
@@ -165,36 +166,37 @@ data WetHydraNode tx m = WetHydraNode
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateChanged tx) m
   , eventSinks :: [EventSink (StateChanged tx) m]
+  , -- TODO: Make this part of NodeState?
+    chainStateHistory :: ChainStateHistory tx
   }
 
 -- | Hydrate a 'DryHydraNode' into a 'WetHydraNode' by loading events from
 -- source, re-aggregate node state and sending events to sinks while doing so.
 hydrate ::
   (MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, IsChainState tx) =>
-  DryHydraNode tx m ->
   EventSource (StateChanged tx) m ->
   [EventSink (StateChanged tx) m] ->
+  DryHydraNode tx m ->
   m
     ( WetHydraNode tx m
-    , ChainStateHistory tx -- TODO: Make this part of NodeState?
     )
-hydrate dryNode eventSource eventSinks = do
+hydrate eventSource eventSinks dryNode = do
   (hs, chainStateHistory) <- loadStateEventSource tracer eventSource eventSinks initialChainState
   -- FIXME: move this outside (how access headstate?)
   -- checkHeadState tracer env hs
   nodeState <- createNodeState hs
   inputQueue <- createInputQueue
-  let wetNode =
-        WetHydraNode
-          { tracer
-          , env
-          , ledger
-          , nodeState
-          , inputQueue
-          , eventSource
-          , eventSinks
-          }
-  pure (wetNode, chainStateHistory)
+  pure
+    WetHydraNode
+      { tracer
+      , env
+      , ledger
+      , nodeState
+      , inputQueue
+      , eventSource
+      , eventSinks
+      , chainStateHistory
+      }
  where
   DryHydraNode{tracer, env, ledger, initialChainState} = dryNode
 
@@ -217,13 +219,14 @@ wireNetworkInput node (Authenticated msg otherParty) =
 -- | Connect chain, network and API to a hydrated 'WetHydraNode' to get a fully
 -- connected 'HydraNode'.
 connect ::
-  WetHydraNode tx m ->
+  Monad m =>
   Chain tx m ->
   Network m (Message tx) ->
   Server tx m ->
-  HydraNode tx m
-connect node chain network server =
-  HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+  WetHydraNode tx m ->
+  m (HydraNode tx m)
+connect chain network server node =
+  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
  where
   WetHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
 

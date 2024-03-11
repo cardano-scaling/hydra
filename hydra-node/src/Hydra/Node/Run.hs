@@ -26,6 +26,7 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
+  chainStateHistory,
   connect,
   hydrate,
   initEnvironment,
@@ -73,7 +74,7 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Start hydra node wiring
-        let dryHydraNode = mkHydraNode (contramap Node tracer) env ledger initialChainState
+        dryHydraNode <- mkHydraNode (contramap Node tracer) env ledger initialChainState
         -- Hydrate with event source and sinks
         persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
         let (eventSource, filePersistenceSink) = eventPairFromPersistenceIncremental persistence
@@ -84,10 +85,10 @@ run opts = do
               -- NOTE: Add any custom sinks here
               -- , customSink
               ]
-        (wetHydraNode, chainStateHistory) <- hydrate dryHydraNode eventSource eventSinks
+        wetHydraNode <- hydrate eventSource eventSinks dryHydraNode
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
-        withChain chainStateHistory (wireChainInput wetHydraNode) $ \chain -> do
+        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
@@ -95,8 +96,8 @@ run opts = do
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer (connectionMessages server) networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
-              connect wetHydraNode chain network server
-                & runHydraNode
+              connect chain network server wetHydraNode
+                >>= runHydraNode
  where
   connectionMessages Server{sendOutput} = \case
     Connected nodeid -> sendOutput $ PeerConnected nodeid
