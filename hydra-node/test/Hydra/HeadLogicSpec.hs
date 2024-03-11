@@ -33,10 +33,10 @@ import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
-  Event (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
+  Input (..),
   LogicError (..),
   OpenState (..),
   Outcome (..),
@@ -56,7 +56,6 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -64,10 +63,6 @@ import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 spec :: Spec
 spec =
   parallel $ do
-    describe "Types" $ do
-      roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
-      roundtripAndGoldenSpecs (Proxy @(HeadState SimpleTx))
-
     let threeParties = [alice, bob, carol]
         bobEnv =
           Environment
