@@ -11,13 +11,13 @@ import Test.QuickCheck (NonEmptyList (NonEmpty), Property, counterexample)
 
 spec :: Spec
 spec =
-  prop "adds sequential id to all events enqueued" prop_identify_enqueued_events
+  prop "adds sequential id to all enqueued items" prop_identify_enqueued_items
 
 newtype DummyInput = DummyInput Int
   deriving newtype (Eq, Show, Arbitrary)
 
-prop_identify_enqueued_events :: NonEmptyList Int -> Property
-prop_identify_enqueued_events (NonEmpty inputs) =
+prop_identify_enqueued_items :: NonEmptyList Int -> Property
+prop_identify_enqueued_items (NonEmpty inputs) =
   let test :: IOSim s [Word64]
       test = do
         q <- createInputQueue
