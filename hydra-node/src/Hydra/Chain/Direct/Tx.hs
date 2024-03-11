@@ -441,7 +441,13 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & addOutputs (headOutput' : map toTxContext (maybe [] toList utxoToDecommit))
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
-  headRedeemer = toScriptData $ Head.Decrement (toPlutusSignatures signatures)
+  headRedeemer =
+    toScriptData $
+      Head.Decrement
+        { signature = toPlutusSignatures signatures
+        , numberOfDecommitOutputs =
+            fromIntegral $ length $ maybe [] toList utxoToDecommit
+        }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters

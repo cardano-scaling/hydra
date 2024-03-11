@@ -73,8 +73,8 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature}) ->
-      checkDecrement ctx parties snapshotNumber contestationPeriod headId signature
+    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature, numberOfDecommitOutputs}) ->
+      checkDecrement ctx parties snapshotNumber contestationPeriod headId signature numberOfDecommitOutputs
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
@@ -235,8 +235,9 @@ checkDecrement ::
   ContestationPeriod ->
   CurrencySymbol ->
   [Signature] ->
+  Integer ->
   Bool
-checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature =
+checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature numberOfDecommitOutputs =
   mustNotChangeParameters
     && checkSnapshot
     && checkSnapshotSignature
@@ -251,7 +252,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
 
   headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  decommitOutputs = tail (txInfoOutputs txInfo)
+  decommitOutputs = take numberOfDecommitOutputs (tail $ txInfoOutputs txInfo)
 
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.

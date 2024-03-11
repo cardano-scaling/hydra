@@ -128,13 +128,14 @@ healthyUTxO = adaOnly <$> generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
-  Head.Open
-    { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-    , parties = healthyOnChainParties
-    , contestationPeriod = toChain healthyContestationPeriod
-    , snapshotNumber = toInteger healthySnapshotNumber
-    , headId = toPlutusCurrencySymbol testPolicyId
-    }
+  let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
+   in Head.Open
+        { utxoHash = toBuiltin $ hashUTxO @Tx utxo
+        , parties = healthyOnChainParties
+        , contestationPeriod = toChain healthyContestationPeriod
+        , snapshotNumber = toInteger healthySnapshotNumber
+        , headId = toPlutusCurrencySymbol testPolicyId
+        }
 
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
@@ -160,7 +161,7 @@ data DecrementMutation
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
-genDecrementMutation (tx, _utxo) =
+genDecrementMutation (tx, utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
@@ -169,7 +170,7 @@ genDecrementMutation (tx, _utxo) =
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotSignatureInvalid . ChangeHeadRedeemer <$> do
-        Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx))) <*> pure (fromIntegral $ length utxo - 1)
     , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]

@@ -55,6 +55,7 @@ data Input
   = CollectCom
   | Decrement
       { signature :: [Signature]
+      , numberOfDecommitOutputs :: Integer
       }
   | Close
       { signature :: [Signature]
