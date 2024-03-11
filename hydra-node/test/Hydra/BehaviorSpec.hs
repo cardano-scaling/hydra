@@ -41,9 +41,9 @@ import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
-  Event (..),
   HeadState (..),
   IdleState (..),
+  Input (..),
   defaultTTL,
  )
 import Hydra.HeadLogicSpec (testSnapshot)
@@ -60,7 +60,7 @@ import Hydra.Node (
   runHydraNode,
   waitDelay,
  )
-import Hydra.Node.EventQueue (EventQueue (putEvent), createEventQueue)
+import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -436,9 +436,9 @@ spec = parallel $ do
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginEvent alice 0 (ClientEvent Init)]
+        `shouldContain` [BeginInput alice 0 (ClientInput Init)]
       logs
-        `shouldContain` [EndEvent alice 0]
+        `shouldContain` [EndInput alice 0]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -681,7 +681,7 @@ simulatedChainAndNetwork initialChainState = do
       recordAndYieldEvent nodes history ev
 
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainEvent HydraNode{eq} = putEvent eq . OnChainEvent
+handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
 createMockNetwork :: MonadSTM m => HydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 createMockNetwork node nodes =
@@ -692,7 +692,7 @@ createMockNetwork node nodes =
     let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL (getNodeId node)
+  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getNodeId node)
 
   getNodeId HydraNode{env = Environment{party}} = party
 
@@ -756,11 +756,11 @@ createTestHydraClient ::
   HydraNode tx m ->
   NodeState tx m ->
   TestHydraClient tx m
-createTestHydraClient outputs outputHistory HydraNode{eq} nodeState =
+createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
   TestHydraClient
-    { send = putEvent eq . ClientEvent
+    { send = enqueue inputQueue . ClientInput
     , waitForNext = atomically (readTQueue outputs)
-    , injectChainEvent = putEvent eq . OnChainEvent
+    , injectChainEvent = enqueue inputQueue . ChainInput
     , serverOutputs = reverse <$> readTVarIO outputHistory
     , queryState = atomically (queryHeadState nodeState)
     }
@@ -777,11 +777,11 @@ createHydraNode ::
   ContestationPeriod ->
   m (HydraNode tx m)
 createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
-  eq <- createEventQueue
+  inputQueue <- createInputQueue
   persistence <- createPersistenceInMemory
   connectNode chain $
     HydraNode
-      { eq
+      { inputQueue
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
       , ledger
