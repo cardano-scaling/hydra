@@ -910,18 +910,18 @@ definitions:
               $ref: "logs.yaml#/definitions/ParamMismatch"
   LogicError:
     oneOf:
-      - title: InvalidEvent
+      - title: UnhandledInput
         additionalProperties: false
         required:
           - tag
-          - invalidEvent
+          - input
           - currentHeadState
         properties:
           tag:
             type: string
-            enum: ["InvalidEvent"]
-          invalidEvent:
-            $ref: "logs.yaml#/definitions/Event"
+            enum: ["UnhandledInput"]
+          input:
+            $ref: "logs.yaml#/definitions/Input"
           currentHeadState:
             $ref: "logs.yaml#/definitions/HeadState"
 

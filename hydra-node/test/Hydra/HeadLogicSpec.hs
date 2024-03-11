@@ -374,9 +374,9 @@ spec =
             step (observeTx $ OnCollectComTx testHeadId)
             getState
 
-        let invalidInput = observeTx OnAbortTx{headId = testHeadId}
-        update bobEnv ledger afterCollectCom invalidInput
-          `shouldBe` Error (UnhandledInput invalidInput afterCollectCom)
+        let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
+        update bobEnv ledger afterCollectCom unhandledInput
+          `shouldBe` Error (UnhandledInput unhandledInput afterCollectCom)
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
@@ -384,9 +384,9 @@ spec =
             step (observeTx OnAbortTx{headId = testHeadId})
             getState
 
-        let invalidInput = observeTx (OnCollectComTx testHeadId)
-        update bobEnv ledger afterAbort invalidInput
-          `shouldBe` Error (UnhandledInput invalidInput afterAbort)
+        let unhandledInput = observeTx (OnCollectComTx testHeadId)
+        update bobEnv ledger afterAbort unhandledInput
+          `shouldBe` Error (UnhandledInput unhandledInput afterAbort)
 
       it "notifies user on head closing and when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties
