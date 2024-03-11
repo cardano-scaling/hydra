@@ -73,7 +73,6 @@ library
     Hydra.Cluster.Scenarios
     Hydra.Cluster.Util
     Hydra.Generator
-    Hydra.LogFilter
     HydraNode
     Paths_hydra_cluster
 
@@ -127,20 +126,6 @@ executable hydra-cluster
 
   build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts
-
-executable log-filter
-  import:         project-config
-  hs-source-dirs: exe/log-filter
-  main-is:        Main.hs
-  ghc-options:    -threaded -rtsopts
-  build-depends:
-    , aeson
-    , base                  >=4.7 && <5
-    , bytestring
-    , hydra-cluster
-    , hydra-node
-    , hydra-prelude
-    , optparse-applicative
 
 test-suite tests
   import:             project-config
