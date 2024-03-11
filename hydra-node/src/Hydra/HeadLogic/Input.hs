@@ -1,12 +1,9 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 module Hydra.HeadLogic.Input where
 
 import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent, IsChainState)
-import Hydra.Ledger (IsTx)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 
@@ -24,7 +21,7 @@ data Input tx
     --    reenqueued due to a wait. It's default value is `defaultTTL`
     NetworkInput {ttl :: TTL, party :: Party, message :: Message tx}
   | -- | Input received from the chain via a "Hydra.Chain".
-    ChainInput {chainInput :: ChainEvent tx}
+    ChainInput {chainEvent :: ChainEvent tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (Input tx)
@@ -32,6 +29,6 @@ deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
-instance (IsTx tx, IsChainState tx) => Arbitrary (Input tx) where
+instance IsChainState tx => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

@@ -70,7 +70,7 @@ library
     Hydra.HeadId
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
-    Hydra.HeadLogic.Event
+    Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State

@@ -1523,6 +1523,7 @@ definitions:
           items:
             $ref: "api.yaml#/components/schemas/Signature"
 
+  # FIXME: update schema
   Event:
     description: >-
       Events (with Effects) are the atomic elements of the Hydra Head protocol

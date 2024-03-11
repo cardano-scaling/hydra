@@ -16,7 +16,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
--- | Analogous to events, the pure head logic "core" can have effects emited to
+-- | Analogous to inputs, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx

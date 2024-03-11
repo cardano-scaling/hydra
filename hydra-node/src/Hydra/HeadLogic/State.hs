@@ -47,16 +47,16 @@ instance Arbitrary Environment where
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
--- Each of the sub-types (InitialState, OpenState, etc.) contain black-box
--- 'chainState' corresponding to 'OnChainEvent' that has been observed leading
+-- Each of the sub-types (InitialState, OpenState, etc.) contain a black-box
+-- 'chainState' corresponding to the 'ChainEvent' that has been observed leading
 -- to the state.
 --
 -- Note that rollbacks are currently not fully handled in the head logic and
 -- only this internal chain state gets replaced with the "rolled back to"
 -- version.
 --
--- XXX: chainState would actualy not be needed in the HeadState anymore as we do
--- not persist the 'HeadState' and not access it in the HeadLogic either.
+-- TODO: chainState would actualy not be needed in the HeadState anymore as we
+-- do not persist the 'HeadState' and not access it in the HeadLogic either.
 data HeadState tx
   = Idle (IdleState tx)
   | Initial (InitialState tx)
