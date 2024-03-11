@@ -244,15 +244,22 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     && mustBeSignedByParticipant ctx prevHeadId
     && mustPreserveValue
  where
+  mustNotChangeParameters =
+    traceIfFalse $(errorCode ChangedParameters) $
+      prevHeadId == nextHeadId
+        && prevParties == nextParties
+        && prevCperiod == nextCperiod
+
+  checkSnapshot =
+    traceIfFalse $(errorCode SnapshotNumberMismatch) $
+      nextSnapshotNumber > prevSnapshotNumber
+
+  checkSnapshotSignature =
+    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
+
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue === headOutValue
-  -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
-  headOutValue = txOutValue $ head $ txInfoOutputs txInfo <> decommitOutputs
-
-  headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
-  decommitOutputs = take numberOfDecommitOutputs (tail $ txInfoOutputs txInfo)
 
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.
@@ -269,18 +276,15 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
           } -> (utxoHash, p, sn, contestationPeriod, headId)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
-  mustNotChangeParameters =
-    traceIfFalse $(errorCode ChangedParameters) $
-      prevHeadId == nextHeadId
-        && prevParties == nextParties
-        && prevCperiod == nextCperiod
+  -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
+  -- headOutValue = foldMap txOutValue outputs
 
-  checkSnapshot =
-    traceIfFalse $(errorCode SnapshotNumberMismatch) $
-      nextSnapshotNumber > prevSnapshotNumber
+  headOutValue = txOutValue $ head outputs
+  headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
-  checkSnapshotSignature =
-    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
+  decommitOutputs = take numberOfDecommitOutputs (tail outputs)
+
+  outputs = txInfoOutputs txInfo
 {-# INLINEABLE checkDecrement #-}
 
 -- | The close validator must verify that:
