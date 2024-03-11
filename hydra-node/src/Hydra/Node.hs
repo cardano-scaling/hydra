@@ -181,10 +181,16 @@ hydrate ::
     ( WetHydraNode tx m
     )
 hydrate eventSource eventSinks dryNode = do
-  (hs, chainStateHistory) <- loadStateEventSource tracer eventSource eventSinks initialChainState
+  events <- getEvents eventSource
+  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
+  let headState = recoverState initialState events
+      chainStateHistory = recoverChainStateHistory initialChainState events
+  -- deliver to sinks per spec, deduplication is handled by the sinks
+  -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
+  putEventsToSinks eventSinks events
   -- FIXME: move this outside (how access headstate?)
   -- checkHeadState tracer env hs
-  nodeState <- createNodeState hs
+  nodeState <- createNodeState headState
   inputQueue <- createInputQueue
   pure
     WetHydraNode
@@ -198,6 +204,8 @@ hydrate eventSource eventSinks dryNode = do
       , chainStateHistory
       }
  where
+  initialState = Idle IdleState{chainState = initialChainState}
+
   DryHydraNode{tracer, env, ledger, initialChainState} = dryNode
 
 wireChainInput :: WetHydraNode tx m -> (ChainEvent tx -> m ())
@@ -365,41 +373,6 @@ createNodeState initialState = do
       { modifyHeadState = stateTVar tv
       , queryHeadState = readTVar tv
       }
-
--- | Load a 'HeadState' from persistence.
-loadState ::
-  (MonadThrow m, IsChainState tx) =>
-  Tracer m (HydraNodeLog tx) ->
-  EventSource (StateChanged tx) m ->
-  ChainStateType tx ->
-  m (HeadState tx, ChainStateHistory tx)
-loadState tracer eventSource defaultChainState = do
-  events <- getEvents eventSource
-  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory defaultChainState events
-  pure (headState, chainStateHistory)
- where
-  initialState = Idle IdleState{chainState = defaultChainState}
-
-loadStateEventSource ::
-  (MonadThrow m, IsChainState tx) =>
-  Tracer m (HydraNodeLog tx) ->
-  EventSource (StateChanged tx) m ->
-  [EventSink (StateChanged tx) m] ->
-  ChainStateType tx ->
-  m (HeadState tx, ChainStateHistory tx)
-loadStateEventSource tracer eventSource eventSinks defaultChainState = do
-  events <- getEvents eventSource
-  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory defaultChainState events
-  -- deliver to sinks per spec, deduplication is handled by the sinks
-  -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
-  putEventsToSinks eventSinks events
-  pure (headState, chainStateHistory)
- where
-  initialState = Idle IdleState{chainState = defaultChainState}
 
 -- * Logging
 
