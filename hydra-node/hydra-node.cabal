@@ -94,7 +94,7 @@ library
     Hydra.Network.Ouroboros.Type
     Hydra.Network.Reliability
     Hydra.Node
-    Hydra.Node.EventQueue
+    Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
@@ -308,7 +308,7 @@ test-suite tests
     Hydra.Network.HeartbeatSpec
     Hydra.Network.ReliabilitySpec
     Hydra.NetworkSpec
-    Hydra.Node.EventQueueSpec
+    Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec

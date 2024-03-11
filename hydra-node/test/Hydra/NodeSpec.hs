@@ -35,7 +35,7 @@ import Hydra.Node (
   loadState,
   stepHydraNode,
  )
-import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
+import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
@@ -231,7 +231,7 @@ runToCompletion ::
   Tracer IO (HydraNodeLog tx) ->
   HydraNode tx IO ->
   IO ()
-runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
+runToCompletion tracer node@HydraNode{eq = InputQueue{isEmpty}} = go
  where
   go =
     unlessM isEmpty $
@@ -260,13 +260,13 @@ createHydraNode' ::
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
 createHydraNode' persistence signingKey otherParties contestationPeriod events = do
-  eq@EventQueue{putEvent} <- createEventQueue
-  forM_ events putEvent
+  inputQueue@InputQueue{enqueue} <- createInputQueue
+  forM_ events enqueue
   (headState, _) <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
   nodeState <- createNodeState headState
   pure $
     HydraNode
-      { eq
+      { inputQueue
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
       , oc =
