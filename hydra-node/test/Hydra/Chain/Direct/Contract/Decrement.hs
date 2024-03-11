@@ -41,7 +41,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
-import Test.QuickCheck (arbitrarySizedNatural, elements, oneof)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -155,6 +155,8 @@ data DecrementMutation
     --
     -- Ensures values are preserved between head input and output.
     MutateValueInOutput
+  | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
+    DropDecommitOutput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -180,6 +182,9 @@ genDecrementMutation (tx, _utxo) =
     , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
+        ix <- choose (1, length (txOuts' tx) - 1)
+        pure $ RemoveOutput (fromIntegral ix)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
