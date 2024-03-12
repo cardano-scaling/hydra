@@ -605,9 +605,11 @@ spec =
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
 
-        st <- run $ runHeadLogic bobEnv ledger st0 $ do
-          step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
-          getState
+        st <-
+          run $
+            runHeadLogic bobEnv ledger st0 $ do
+              step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
+              getState
 
         assert $ case st of
           Open

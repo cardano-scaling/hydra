@@ -921,7 +921,7 @@ update env ledger st ev = case (st, ev) of
     noop
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
-  (Open openState, NetworkInput _ _ (ReqDec{transaction})) ->
+  (Open openState, NetworkInput ttl _ (ReqDec{transaction})) ->
     onOpenNetworkReqDec env ttl openState transaction
   ( Open OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnDecrementTx{headId}}
