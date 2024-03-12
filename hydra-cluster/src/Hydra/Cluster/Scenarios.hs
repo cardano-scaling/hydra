@@ -59,6 +59,7 @@ import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, s
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
+import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.HeadId (HeadId)
@@ -101,7 +102,8 @@ import System.FilePath ((</>))
 import Test.QuickCheck (generate)
 
 data EndToEndLog
-  = FromCardanoNode NodeLog
+  = ClusterOptions {options :: Options}
+  | FromCardanoNode NodeLog
   | FromFaucet FaucetLog
   | FromHydraNode HydraNodeLog
   | FromMithril MithrilLog

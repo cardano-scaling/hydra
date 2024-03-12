@@ -13,13 +13,16 @@ data Options = Options
   , publishHydraScripts :: PublishOrReuse
   , useMithril :: UseMithril
   }
-  deriving stock (Show)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data PublishOrReuse = Publish | Reuse TxId
-  deriving stock (Show)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data UseMithril = NotUseMithril | UseMithril
-  deriving stock (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 parseOptions :: Parser Options
 parseOptions =

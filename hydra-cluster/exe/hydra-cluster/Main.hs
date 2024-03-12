@@ -22,6 +22,7 @@ main =
 run :: Options -> IO ()
 run options =
   withTracer (Verbose "hydra-cluster") $ \tracer -> do
+    traceWith tracer ClusterOptions{options}
     let fromCardanoNode = contramap FromCardanoNode tracer
     withStateDirectory $ \workDir ->
       case knownNetwork of
@@ -39,7 +40,7 @@ run options =
   Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril} = options
 
   withRunningCardanoNode tracer workDir network action =
-    findRunningCardanoNode workDir network >>= \case
+    findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
       Just node ->
         action node
       Nothing -> do
