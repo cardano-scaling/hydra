@@ -23,7 +23,6 @@ import Hydra.Logging (nullTracer)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.QuickCheck (
   checkCoverage,
@@ -34,6 +33,7 @@ import Test.QuickCheck (
   property,
   withMaxSuccess,
  )
+import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 
 spec :: Spec
 spec = do
