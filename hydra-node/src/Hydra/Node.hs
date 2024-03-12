@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -264,16 +263,15 @@ stepHydraNode node = do
       processEffects node tracer queuedId effects
     Wait{events} -> do
       forM_ events $ putEventToSinks eventSinks
-      reenqueue waitDelay (decreaseTTL i)
+      maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
  where
-  decreaseTTL =
-    \case
-      -- XXX: this is smelly, handle wait re-enqueing differently
-      Queued{queuedId, queuedItem = NetworkInput ttl aParty msg}
-        | ttl > 0 -> Queued{queuedId, queuedItem = NetworkInput (ttl - 1) aParty msg}
-      e -> e
+  maybeReenqueue q@Queued{queuedId, queuedItem} =
+    case queuedItem of
+      NetworkInput ttl aParty msg
+        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) aParty msg}
+      _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
   Environment{party} = env
 
@@ -362,6 +360,7 @@ data HydraNodeLog tx
   | BeginEffect {by :: Party, inputId :: Word64, effectId :: Word32, effect :: Effect tx}
   | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
+  | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadedState {numberOfEvents :: Word64}
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
