@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   Witness,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
@@ -59,6 +60,11 @@ instance Arbitrary HeadParameters where
    where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
+
+-- | Make 'HeadParameters' that are consistent with the given 'Environment'.
+mkHeadParameters :: Environment -> HeadParameters
+mkHeadParameters Environment{party, otherParties, contestationPeriod} =
+  HeadParameters{contestationPeriod, parties = party : otherParties}
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.

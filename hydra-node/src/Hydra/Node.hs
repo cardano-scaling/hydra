@@ -177,19 +177,17 @@ hydrate ::
   EventSource (StateChanged tx) m ->
   [EventSink (StateChanged tx) m] ->
   DryHydraNode tx m ->
-  m
-    ( WetHydraNode tx m
-    )
+  m (WetHydraNode tx m)
 hydrate eventSource eventSinks dryNode = do
   events <- getEvents eventSource
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
   let headState = recoverState initialState events
       chainStateHistory = recoverChainStateHistory initialChainState events
+  -- Check whether the loaded state matches our configuration (env)
+  checkHeadState tracer env headState
   -- deliver to sinks per spec, deduplication is handled by the sinks
   -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
   putEventsToSinks eventSinks events
-  -- FIXME: move this outside (how access headstate?)
-  -- checkHeadState tracer env hs
   nodeState <- createNodeState headState
   inputQueue <- createInputQueue
   pure

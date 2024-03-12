@@ -18,7 +18,7 @@ data Environment = Environment
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   }
-  deriving stock (Show)
+  deriving stock (Show, Eq)
 
 instance Arbitrary Environment where
   arbitrary = do

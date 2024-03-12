@@ -37,6 +37,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   initHistory,
+  mkHeadParameters,
   pushNewState,
   rollbackHistory,
  )
@@ -109,13 +110,9 @@ onIdleClientInit ::
 onIdleClientInit env =
   cause OnChainEffect{postChainTx = InitTx{participants, headParameters}}
  where
-  headParameters =
-    HeadParameters
-      { contestationPeriod
-      , parties = party : otherParties
-      }
+  headParameters = mkHeadParameters env
 
-  Environment{party, otherParties, contestationPeriod, participants} = env
+  Environment{participants} = env
 
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.
