@@ -15,7 +15,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.Environment (Environment (..))
 import Hydra.Environment qualified as Environment
-import Hydra.Events (EventSink (..), EventSource (..), getEventId)
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..), defaultTTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
@@ -54,7 +54,7 @@ spec = parallel $ do
   describe "hydrate" $ do
     around setupHydrate $ do
       it "loads events from source into all sinks" $ \testHydrate ->
-        forAllShrink (listOf $ genStateChanged testEnvironment) shrink $
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (mockSink1, getMockSinkEvents1) <- createRecordingSink
             (mockSink2, getMockSinkEvents2) <- createRecordingSink
@@ -65,7 +65,7 @@ spec = parallel $ do
             getMockSinkEvents2 `shouldReturn` someEvents
 
       it "event ids are consistent" $ \testHydrate ->
-        forAllShrink (listOf $ genStateChanged testEnvironment) shrink $
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (sink, getSinkEvents) <- createRecordingSink
 
@@ -75,7 +75,7 @@ spec = parallel $ do
             getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
 
       it "fails if one sink fails" $ \testHydrate ->
-        forAllShrink (listOf1 $ genStateChanged testEnvironment) shrink $
+        forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             let genSinks = elements [mockSink, failingSink]
                 failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
@@ -88,7 +88,10 @@ spec = parallel $ do
           env /= testEnvironment ==> do
             -- XXX: This is very tied to the fact that 'HeadInitialized' results in
             -- a head state that gets checked by 'checkHeadState'
-            let genEvent = HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            let genEvent = do
+                  StateEvent
+                    <$> arbitrary
+                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
                 `shouldThrow` \(_ :: ParameterMismatch) -> True

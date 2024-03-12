@@ -746,7 +746,7 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  nodeState <- createNodeState Nothing $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
   node <- createHydraNode traceInIOSim simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node nodeState)
@@ -768,7 +768,7 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsTx tx, FromJSON (ChainStateType tx), ToJSON (ChainStateType tx)) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   NodeState tx m ->
@@ -780,6 +780,7 @@ createHydraNode ::
   ContestationPeriod ->
   m (HydraNode tx m)
 createHydraNode tracer ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
+  -- TODO: refactor using 'hydrate'
   inputQueue <- createInputQueue
   persistence <- createPersistenceInMemory
   let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence

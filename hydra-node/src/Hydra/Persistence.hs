@@ -9,7 +9,9 @@ import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
-import Hydra.Events (EventSink (..), EventSource (..))
+import Hydra.Chain (IsChainState)
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
+import Hydra.HeadLogic (StateChanged)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
@@ -59,13 +61,19 @@ data PersistenceIncremental a m = PersistenceIncremental
 -- | Define an event source and sink from a persistence handle.
 -- TODO: Add property tests about consistency + deduplication behavior.
 eventPairFromPersistenceIncremental ::
-  (FromJSON a, ToJSON a) =>
-  PersistenceIncremental a m ->
-  (EventSource a m, EventSink a m)
+  (Monad m, IsChainState tx) =>
+  PersistenceIncremental (StateChanged tx) m ->
+  (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} =
-  let eventSource = EventSource{getEvents = loadAll}
-      eventSink = EventSink{putEvent = append}
-   in (eventSource, eventSink)
+  (eventSource, eventSink)
+ where
+  eventSource =
+    EventSource
+      { getEvents =
+          -- TODO: Make this backward compatible to how 'StateChanged' was serialized before
+          zipWith StateEvent [0 ..] <$> loadAll
+      }
+  eventSink = EventSink{putEvent = append . stateChanged}
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 --

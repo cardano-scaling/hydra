@@ -1928,7 +1928,7 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - events
+          - stateChanges
           - effects
         description: >-
           Continue with the given state update events and side effects.
@@ -1936,7 +1936,7 @@ definitions:
           tag:
             type: string
             enum: ["Continue"]
-          events:
+          stateChanges:
             type: array
             items:
               type: object
@@ -1952,7 +1952,7 @@ definitions:
         required:
           - tag
           - reason
-          - events
+          - stateChanges
         description: >-
           Wait for some condition to be met with optional state updates.
         properties:
@@ -1962,7 +1962,7 @@ definitions:
           reason:
             type: object
             $ref: "logs.yaml#/definitions/WaitReason"
-          events:
+          stateChanges:
             type: array
             items:
               type: object

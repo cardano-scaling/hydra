@@ -9,7 +9,6 @@ import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.Environment (Environment (..))
-import Hydra.Events (HasEventId (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -47,22 +46,19 @@ data StateChanged tx
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
-      , stateChangeID :: Word64
       }
   | CommittedUTxO
       { party :: Party
       , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
-      , stateChangeID :: Word64
       }
-  | HeadAborted {chainState :: ChainStateType tx, stateChangeID :: Word64}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx, stateChangeID :: Word64}
+  | HeadAborted {chainState :: ChainStateType tx}
+  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
-      , stateChangeID :: Word64
       }
-  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber, stateChangeID :: Word64}
+  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.
@@ -71,40 +67,17 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
-      , stateChangeID :: Word64
       }
-  | TransactionReceived {tx :: tx, stateChangeID :: Word64}
-  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx), stateChangeID :: Word64}
-  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx), stateChangeID :: Word64}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime, stateChangeID :: Word64}
-  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime, stateChangeID :: Word64}
-  | HeadIsReadyToFanout {stateChangeID :: Word64}
-  | HeadFannedOut {chainState :: ChainStateType tx, stateChangeID :: Word64}
-  | ChainRolledBack {chainState :: ChainStateType tx, stateChangeID :: Word64}
-  | TickObserved {chainSlot :: ChainSlot, stateChangeID :: Word64}
+  | TransactionReceived {tx :: tx}
+  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
+  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadIsReadyToFanout
+  | HeadFannedOut {chainState :: ChainStateType tx}
+  | ChainRolledBack {chainState :: ChainStateType tx}
+  | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
-
-instance HasEventId (StateChanged tx) where
-  getEventId = \case
-    HeadInitialized{stateChangeID} -> stateChangeID
-    CommittedUTxO{stateChangeID} -> stateChangeID
-    HeadAborted{stateChangeID} -> stateChangeID
-    HeadOpened{stateChangeID} -> stateChangeID
-    TransactionAppliedToLocalUTxO{stateChangeID} -> stateChangeID
-    SnapshotRequestDecided{stateChangeID} -> stateChangeID
-    SnapshotRequested{stateChangeID} -> stateChangeID
-    TransactionReceived{stateChangeID} -> stateChangeID
-    PartySignedSnapshot{stateChangeID} -> stateChangeID
-    SnapshotConfirmed{stateChangeID} -> stateChangeID
-    HeadClosed{stateChangeID} -> stateChangeID
-    HeadContested{stateChangeID} -> stateChangeID
-    HeadIsReadyToFanout{stateChangeID} -> stateChangeID
-    HeadFannedOut{stateChangeID} -> stateChangeID
-    ChainRolledBack{stateChangeID} -> stateChangeID
-    TickObserved{stateChangeID} -> stateChangeID
-
--- FIXME(Elaine): these stateChangeID fields were added in an attempt to make every StateChanged keep track of its ID
--- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent can be kept simple, and shouldn't do harm
 
 deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
@@ -117,31 +90,31 @@ instance IsChainState tx => Arbitrary (StateChanged tx) where
 genStateChanged :: IsChainState tx => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO party <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary <*> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary <*> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadIsReadyToFanout <$> arbitrary
-    , HeadFannedOut <$> arbitrary <*> arbitrary
-    , ChainRolledBack <$> arbitrary <*> arbitrary
-    , TickObserved <$> arbitrary <*> arbitrary
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO party <$> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary
+    , pure HeadIsReadyToFanout
+    , HeadFannedOut <$> arbitrary
+    , ChainRolledBack <$> arbitrary
+    , TickObserved <$> arbitrary
     ]
  where
   Environment{party} = env
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
-    Continue {events :: [StateChanged tx], effects :: [Effect tx]}
+    Continue {stateChanges :: [StateChanged tx], effects :: [Effect tx]}
   | -- | Wait for some condition to be met with optional state updates.
-    Wait {reason :: WaitReason tx, events :: [StateChanged tx]}
+    Wait {reason :: WaitReason tx, stateChanges :: [StateChanged tx]}
   | -- | Processing resulted in an error.
     Error {error :: LogicError tx}
   deriving stock (Generic)
@@ -149,9 +122,9 @@ data Outcome tx
 instance Semigroup (Outcome tx) where
   e@Error{} <> _ = e
   _ <> e@Error{} = e
-  Continue evA _ <> Wait r evB = Wait r (evA <> evB)
-  Wait r evA <> _ = Wait r evA
-  Continue evA efA <> Continue evB efB = Continue (evA <> evB) (efA <> efB)
+  Continue scA _ <> Wait r scB = Wait r (scA <> scB)
+  Wait r scA <> _ = Wait r scA
+  Continue scA efA <> Continue scB efB = Continue (scA <> scB) (efA <> efB)
 
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)

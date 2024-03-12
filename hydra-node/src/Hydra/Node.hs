@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   labelTVarIO,
   newTVarIO,
   stateTVar,
+  writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
@@ -33,7 +34,7 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.Environment (Environment (..))
-import Hydra.Events (EventSink (..), EventSource (..), putEventToSinks, putEventsToSinks)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventToSinks, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -45,7 +46,7 @@ import Hydra.HeadLogic (
   recoverChainStateHistory,
   recoverState,
  )
-import Hydra.HeadLogic qualified as Logic
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
@@ -144,8 +145,8 @@ data DraftHydraNode tx m = DraftHydraNode
   , ledger :: Ledger tx
   , nodeState :: NodeState tx m
   , inputQueue :: InputQueue m (Input tx)
-  , eventSource :: EventSource (StateChanged tx) m
-  , eventSinks :: [EventSink (StateChanged tx) m]
+  , eventSource :: EventSource (StateEvent tx) m
+  , eventSinks :: [EventSink (StateEvent tx) m]
   , -- TODO: Make this part of NodeState?
     chainStateHistory :: ChainStateHistory tx
   }
@@ -158,20 +159,21 @@ hydrate ::
   Environment ->
   Ledger tx ->
   ChainStateType tx ->
-  EventSource (StateChanged tx) m ->
-  [EventSink (StateChanged tx) m] ->
+  EventSource (StateEvent tx) m ->
+  [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState eventSource eventSinks = do
   events <- getEvents eventSource
+  let lastSeenEventId = getEventId . last <$> nonEmpty events
   traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState events
-      chainStateHistory = recoverChainStateHistory initialChainState events
+  let headState = recoverState initialState (stateChanged <$> events)
+      chainStateHistory = recoverChainStateHistory initialChainState (stateChanged <$> events)
   -- Check whether the loaded state matches our configuration (env)
   checkHeadState tracer env headState
   -- deliver to sinks per spec, deduplication is handled by the sinks
   -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
   putEventsToSinks eventSinks events
-  nodeState <- createNodeState headState
+  nodeState <- createNodeState lastSeenEventId headState
   inputQueue <- createInputQueue
   pure
     DraftHydraNode
@@ -224,8 +226,8 @@ data HydraNode tx m = HydraNode
   , ledger :: Ledger tx
   , nodeState :: NodeState tx m
   , inputQueue :: InputQueue m (Input tx)
-  , eventSource :: EventSource (StateChanged tx) m
-  , eventSinks :: [EventSink (StateChanged tx) m]
+  , eventSource :: EventSource (StateEvent tx) m
+  , eventSinks :: [EventSink (StateEvent tx) m]
   , oc :: Chain tx m
   , hn :: Network m (Message tx)
   , server :: Server tx m
@@ -253,16 +255,14 @@ stepHydraNode ::
 stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  outcome <- atomically $ do
-    let nextStateChangeID = queuedId -- an event won't necessarily produce a statechange, but if it does, then this'll be its ID
-    processNextInput node queuedItem nextStateChangeID
+  outcome <- atomically $ processNextInput node queuedItem
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
-    Continue{events, effects} -> do
-      forM_ events $ putEventToSinks eventSinks
+    Continue{stateChanges, effects} -> do
+      processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{events} -> do
-      forM_ events $ putEventToSinks eventSinks
+    Wait{stateChanges} -> do
+      processStateChanges node stateChanges
       maybeReenqueue i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
@@ -275,7 +275,7 @@ stepHydraNode node = do
 
   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env, eventSinks} = node
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
@@ -286,20 +286,27 @@ processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
-  Word64 ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeState, ledger, env} e nextStateChangeID =
+processNextInput HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
  where
   NodeState{modifyHeadState} = nodeState
 
-  computeOutcome = Logic.update env ledger nextStateChangeID
+  computeOutcome = HeadLogic.update env ledger
 
--- NOTE(Elaine): think you shouldnt be able to put all above into a single atomically call, the types shouldnt allow that
--- some of the sinks won't be atomic, even if the disk-based persistence is
--- and actually it doesn't matter if we accidentally do the same event twice because the PERSISTENCE is in charge of at-least-once semantics
+processStateChanges :: MonadSTM m => HydraNode tx m -> [StateChanged tx] -> m ()
+processStateChanges node stateChanges = do
+  events <- atomically . forM stateChanges $ \stateChanged -> do
+    eventId <- getNextEventId
+    pure StateEvent{eventId, stateChanged}
+  forM_ events $ putEventToSinks eventSinks
+ where
+  HydraNode
+    { eventSinks
+    , nodeState = NodeState{getNextEventId}
+    } = node
 
 processEffects ::
   ( MonadAsync m
@@ -339,17 +346,29 @@ processEffects node tracer inputId effects = do
 data NodeState tx m = NodeState
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
   , queryHeadState :: STM m (HeadState tx)
+  , getNextEventId :: STM m EventId
   }
 
 -- | Initialize a new 'NodeState'.
-createNodeState :: MonadLabelledSTM m => HeadState tx -> m (NodeState tx m)
-createNodeState initialState = do
-  tv <- newTVarIO initialState
-  labelTVarIO tv "node-state"
+createNodeState ::
+  MonadLabelledSTM m =>
+  -- | Last seen 'EventId'.
+  Maybe EventId ->
+  HeadState tx ->
+  m (NodeState tx m)
+createNodeState lastSeenEventId initialState = do
+  nextEventIdV <- newTVarIO $ maybe 0 (+ 1) lastSeenEventId
+  labelTVarIO nextEventIdV "next-event-id"
+  hs <- newTVarIO initialState
+  labelTVarIO hs "head-state"
   pure
     NodeState
-      { modifyHeadState = stateTVar tv
-      , queryHeadState = readTVar tv
+      { modifyHeadState = stateTVar hs
+      , queryHeadState = readTVar hs
+      , getNextEventId = do
+          eventId <- readTVar nextEventIdV
+          writeTVar nextEventIdV $ eventId + 1
+          pure eventId
       }
 
 -- * Logging
