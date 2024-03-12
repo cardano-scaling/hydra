@@ -15,7 +15,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.Environment (Environment (..))
 import Hydra.Environment qualified as Environment
-import Hydra.Events (EventSink (..), EventSource (..))
+import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.HeadLogic (Input (..), defaultTTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
@@ -40,7 +40,8 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), eventPairFromPersistenceIncremental)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, deriveOnChainId, testEnvironment, testHeadId, testHeadSeed)
-import Test.QuickCheck (elements, forAllBlind, forAllShrink, listOf, listOf1, (==>))
+import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
+import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
@@ -62,6 +63,16 @@ spec = parallel $ do
 
             getMockSinkEvents1 `shouldReturn` someEvents
             getMockSinkEvents2 `shouldReturn` someEvents
+
+      it "event ids are consistent" $ \testHydrate ->
+        forAllShrink (listOf $ genStateChanged testEnvironment) shrink $
+          \someEvents -> do
+            (sink, getSinkEvents) <- createRecordingSink
+
+            void $ testHydrate (mockSource someEvents) [sink]
+
+            seenEvents <- getSinkEvents
+            getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
 
       it "fails if one sink fails" $ \testHydrate ->
         forAllShrink (listOf1 $ genStateChanged testEnvironment) shrink $
@@ -97,6 +108,32 @@ spec = parallel $ do
         events `shouldNotBe` []
         getMockSinkEvents2 `shouldReturn` events
 
+      it "event ids are strictly monotonic" $ \testHydrate -> do
+        -- NOTE: Arbitrary inputs in open head state results more likely in
+        -- multiple state change events per input (during tx processing).
+        let genInputs = do
+              -- Resize to reducing complexity of additional input contents
+              someInput <- resize 1 arbitrary
+              pure $ inputsToOpenHead <> [someInput]
+
+        forAllShrinkBlind genInputs shrink $ \someInputs ->
+          idempotentIOProperty $ do
+            (sink, getSinkEvents) <- createRecordingSink
+            testHydrate (mockSource []) [sink]
+              >>= notConnect
+              >>= primeWith someInputs
+              >>= runToCompletion
+
+            events <- getSinkEvents
+            let eventIds = getEventId <$> events
+            pure $
+              isStrictlyMonotonic eventIds
+                & counterexample "Not strictly monotonic"
+                & counterexample ("Event ids: " <> show eventIds)
+                & counterexample ("Events: " <> show events)
+                & counterexample ("Inputs: " <> show someInputs)
+                & classify (null eventIds) "empty list of events"
+
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
           persistence <- createPersistenceInMemory
@@ -110,14 +147,20 @@ spec = parallel $ do
           let reqTx = NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
               tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
 
+          (recordingSink, getRecordedEvents) <- createRecordingSink
+
           (node, getServerOutputs) <-
-            testHydrate eventSource [eventSink]
+            testHydrate eventSource [eventSink, recordingSink]
               >>= notConnect
               >>= primeWith [reqTx]
               >>= recordServerOutputs
           runToCompletion node
 
           getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
+
+          -- Ensures that event ids are corecctly hydrate
+          events <- getRecordedEvents
+          getEventId <$> events `shouldSatisfy` isStrictlyMonotonic
 
     it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do

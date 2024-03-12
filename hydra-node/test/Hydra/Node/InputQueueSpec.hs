@@ -3,11 +3,11 @@ module Hydra.Node.InputQueueSpec where
 import Hydra.Prelude
 
 import Control.Monad.IOSim (IOSim, runSimOrThrow)
-import Hydra.API.ServerSpec (strictlyMonotonic)
 import Hydra.Node.InputQueue (Queued (queuedId), createInputQueue, dequeue, enqueue)
 import Test.Hspec (Spec)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (NonEmptyList (NonEmpty), Property, counterexample)
+import Test.Util (isContinuous)
 
 spec :: Spec
 spec =
@@ -25,5 +25,5 @@ prop_identify_enqueued_items (NonEmpty inputs) =
           enqueue q i
           queuedId <$> dequeue q
       ids = runSimOrThrow test
-   in strictlyMonotonic ids
+   in isContinuous ids
         & counterexample ("queued ids: " <> show ids)
