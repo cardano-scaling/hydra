@@ -928,8 +928,8 @@ update env ledger st ev = case (st, ev) of
     )
       -- TODO: What happens if observed decrement tx get's rolled back?
       | ourHeadId == headId ->
-          cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
-            <> newState DecommitFinalized
+          newState DecommitFinalized
+            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
