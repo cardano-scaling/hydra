@@ -38,9 +38,9 @@ import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, roll
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   Effect (..),
-  Environment (..),
   HeadState (..),
   IdleState (..),
   Input (..),

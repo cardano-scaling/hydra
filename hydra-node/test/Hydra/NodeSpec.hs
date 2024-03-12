@@ -13,13 +13,10 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
+import Hydra.Environment (Environment (..))
+import Hydra.Environment qualified as Environment
 import Hydra.Events (EventSink (..), EventSource (..))
-import Hydra.HeadLogic (
-  Environment (..),
-  Input (..),
-  defaultTTL,
- )
-import Hydra.HeadLogic qualified as HeadLogic
+import Hydra.HeadLogic (Input (..), defaultTTL)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -217,7 +214,7 @@ spec = parallel $ do
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
-              defaultEnv{HeadLogic.contestationPeriod = UnsafeContestationPeriod 42}
+              defaultEnv{Environment.contestationPeriod = UnsafeContestationPeriod 42}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 

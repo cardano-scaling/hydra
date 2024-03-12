@@ -6,8 +6,8 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (Key (..), SerialiseAsRawBytes (..), SigningKey, VerificationKey, getVerificationKey)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
-import Hydra.HeadLogic (Environment (..))
 import Hydra.OnChainId (AsType (AsOnChainId), OnChainId)
 import Hydra.Party (Party (..), deriveParty)
 

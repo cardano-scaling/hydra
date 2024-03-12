@@ -47,6 +47,7 @@ import Hydra.Crypto (
   sign,
   verifyMultiSignature,
  )
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (
   LogicError (..),
@@ -69,7 +70,6 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
-  Environment (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),

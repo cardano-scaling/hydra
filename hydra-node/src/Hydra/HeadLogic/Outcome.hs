@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Hydra.API.ServerOutput (ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
 import Hydra.Crypto (MultiSignature, Signature)
+import Hydra.Environment (Environment (..))
 import Hydra.Events (HasEventId (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (LogicError)
