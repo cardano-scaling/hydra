@@ -10,13 +10,14 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput))
+import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput), mkHeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
 import Hydra.Environment (Environment (..))
 import Hydra.Environment qualified as Environment
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (Input (..), defaultTTL)
+import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -39,8 +40,7 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..), eventPairFromPersistenceIncremental)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, deriveOnChainId, testEnvironment, testHeadId, testHeadSeed)
-import Test.QuickCheck (NonEmptyList (..), listOf, oneof, property)
-import Test.QuickCheck.Property (forAllBlind)
+import Test.QuickCheck (elements, forAllBlind, forAllShrink, listOf, listOf1, (==>))
 
 spec :: Spec
 spec = parallel $ do
@@ -53,22 +53,34 @@ spec = parallel $ do
   describe "hydrate" $ do
     around setupHydrate $ do
       it "loads events from source into all sinks" $ \testHydrate ->
-        property $ \someEvents -> do
-          (mockSink1, getMockSinkEvents1) <- createRecordingSink
-          (mockSink2, getMockSinkEvents2) <- createRecordingSink
+        forAllShrink (listOf $ genStateChanged testEnvironment) shrink $
+          \someEvents -> do
+            (mockSink1, getMockSinkEvents1) <- createRecordingSink
+            (mockSink2, getMockSinkEvents2) <- createRecordingSink
 
-          void $ testHydrate (mockSource someEvents) [mockSink1, mockSink2]
+            void $ testHydrate (mockSource someEvents) [mockSink1, mockSink2]
 
-          getMockSinkEvents1 `shouldReturn` someEvents
-          getMockSinkEvents2 `shouldReturn` someEvents
+            getMockSinkEvents1 `shouldReturn` someEvents
+            getMockSinkEvents2 `shouldReturn` someEvents
 
       it "fails if one sink fails" $ \testHydrate ->
-        property $ \(NonEmpty someEvents) -> do
-          let genSinks = oneof [pure mockSink, pure failingSink]
-              failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
-          forAllBlind (listOf genSinks) $ \sinks -> do
-            testHydrate (mockSource someEvents) (sinks <> [failingSink])
-              `shouldThrow` \(_ :: HUnitFailure) -> True
+        forAllShrink (listOf1 $ genStateChanged testEnvironment) shrink $
+          \someEvents -> do
+            let genSinks = elements [mockSink, failingSink]
+                failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
+            forAllBlind (listOf genSinks) $ \sinks ->
+              testHydrate (mockSource someEvents) (sinks <> [failingSink])
+                `shouldThrow` \(_ :: HUnitFailure) -> True
+
+      it "checks head state" $ \testHydrate ->
+        forAllShrink arbitrary shrink $ \env ->
+          env /= testEnvironment ==> do
+            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+            -- a head state that gets checked by 'checkHeadState'
+            let genEvent = HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            forAllShrink genEvent shrink $ \incompatibleEvent ->
+              testHydrate (mockSource [incompatibleEvent]) []
+                `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do

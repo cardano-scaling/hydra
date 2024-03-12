@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.Environment (Environment (..))
 import Hydra.Events (HasEventId (..))
@@ -17,6 +17,7 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Test.QuickCheck (oneof)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -105,13 +106,36 @@ instance HasEventId (StateChanged tx) where
 -- FIXME(Elaine): these stateChangeID fields were added in an attempt to make every StateChanged keep track of its ID
 -- it's not clear how to handle the state for this. but for now the field is kept so that the type of putEvent can be kept simple, and shouldn't do harm
 
-instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
-  arbitrary = genericArbitrary
-
 deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+
+instance IsChainState tx => Arbitrary (StateChanged tx) where
+  arbitrary = arbitrary >>= genStateChanged
+
+genStateChanged :: IsChainState tx => Environment -> Gen (StateChanged tx)
+genStateChanged env =
+  oneof
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO party <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary <*> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary <*> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadIsReadyToFanout <$> arbitrary
+    , HeadFannedOut <$> arbitrary <*> arbitrary
+    , ChainRolledBack <$> arbitrary <*> arbitrary
+    , TickObserved <$> arbitrary <*> arbitrary
+    ]
+ where
+  Environment{party} = env
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
