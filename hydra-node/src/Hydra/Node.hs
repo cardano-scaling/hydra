@@ -34,9 +34,9 @@ import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.HeadLogic (
   Effect (..),
   Environment (..),
-  Event (..),
   HeadState (..),
   IdleState (..),
+  Input (..),
   Outcome (..),
   aggregateState,
   defaultTTL,
@@ -50,7 +50,7 @@ import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node.EventQueue (EventQueue (..), Queued (..))
+import Hydra.Node.InputQueue (InputQueue (..), Queued (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (Party (..), deriveParty)
@@ -135,7 +135,7 @@ checkHeadState tracer env headState = do
 
 -- | Main handle of a hydra node where all layers are tied together.
 data HydraNode tx m = HydraNode
-  { eq :: EventQueue m (Event tx)
+  { inputQueue :: InputQueue m (Input tx)
   , hn :: Network m (Message tx)
   , nodeState :: NodeState tx m
   , oc :: Chain tx m
@@ -146,10 +146,10 @@ data HydraNode tx m = HydraNode
   }
 
 data HydraNodeLog tx
-  = BeginEvent {by :: Party, eventId :: Word64, event :: Event tx}
-  | EndEvent {by :: Party, eventId :: Word64}
-  | BeginEffect {by :: Party, eventId :: Word64, effectId :: Word32, effect :: Effect tx}
-  | EndEffect {by :: Party, eventId :: Word64, effectId :: Word32}
+  = BeginInput {by :: Party, inputId :: Word64, input :: Input tx}
+  | EndInput {by :: Party, inputId :: Word64}
+  | BeginEffect {by :: Party, inputId :: Word64, effectId :: Word32, effect :: Effect tx}
+  | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | LoadedState {numberOfEvents :: Word64}
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
@@ -186,44 +186,44 @@ stepHydraNode ::
   HydraNode tx m ->
   m ()
 stepHydraNode tracer node = do
-  e@Queued{eventId, queuedEvent} <- nextEvent eq
-  traceWith tracer $ BeginEvent{by = party, eventId, event = queuedEvent}
-  outcome <- atomically (processNextEvent node queuedEvent)
+  i@Queued{queuedId, queuedItem} <- dequeue
+  traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
+  outcome <- atomically (processNextInput node queuedItem)
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{events, effects} -> do
       forM_ events append
-      processEffects node tracer eventId effects
+      processEffects node tracer queuedId effects
     Wait{events} -> do
       forM_ events append
-      putEventAfter eq waitDelay (decreaseTTL e)
+      reenqueue waitDelay (decreaseTTL i)
     Error{} -> pure ()
-  traceWith tracer EndEvent{by = party, eventId}
+  traceWith tracer EndInput{by = party, inputId = queuedId}
  where
   decreaseTTL =
     \case
       -- XXX: this is smelly, handle wait re-enqueing differently
-      Queued{eventId, queuedEvent = NetworkEvent ttl aParty msg}
-        | ttl > 0 -> Queued{eventId, queuedEvent = NetworkEvent (ttl - 1) aParty msg}
+      Queued{queuedId, queuedItem = NetworkInput ttl aParty msg}
+        | ttl > 0 -> Queued{queuedId, queuedItem = NetworkInput (ttl - 1) aParty msg}
       e -> e
 
   Environment{party} = env
 
   PersistenceIncremental{append} = persistence
 
-  HydraNode{persistence, eq, env} = node
+  HydraNode{persistence, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome from 'HeadLogic'.
 waitDelay :: DiffTime
 waitDelay = 0.1
 
 -- | Monadic interface around 'Hydra.Logic.update'.
-processNextEvent ::
+processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
-  Event tx ->
+  Input tx ->
   STM m (Outcome tx)
-processNextEvent HydraNode{nodeState, ledger, env} e =
+processNextInput HydraNode{nodeState, ledger, env} e =
   modifyHeadState $ \s ->
     let outcome = computeOutcome s e
      in (outcome, aggregateState s outcome)
@@ -242,19 +242,27 @@ processEffects ::
   Word64 ->
   [Effect tx] ->
   m ()
-processEffects HydraNode{hn, oc = Chain{postTx}, server, eq, env = Environment{party}} tracer eventId effects = do
+processEffects node tracer inputId effects = do
   mapM_ processEffect $ zip effects [0 ..]
  where
   processEffect (effect, effectId) = do
-    traceWith tracer $ BeginEffect party eventId effectId effect
+    traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent defaultTTL party msg)
+      NetworkEffect msg -> broadcast hn msg >> enqueue (NetworkInput defaultTTL party msg)
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->
-            putEvent eq . OnChainEvent $ PostTxError{postChainTx, postTxError}
-    traceWith tracer $ EndEffect party eventId effectId
+            enqueue . ChainInput $ PostTxError{postChainTx, postTxError}
+    traceWith tracer $ EndEffect party inputId effectId
+
+  HydraNode
+    { hn
+    , oc = Chain{postTx}
+    , server
+    , inputQueue = InputQueue{enqueue}
+    , env = Environment{party}
+    } = node
 
 -- ** Manage state
 

@@ -20,13 +20,13 @@ import Data.Map.Strict as Map
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
   Effect (ClientEffect),
-  Event (NetworkEvent),
+  Input (NetworkInput),
  )
 import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (BeginEffect, BeginEvent, EndEvent), event)
+import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput, EndInput, input))
 import Hydra.Snapshot (Snapshot (confirmed))
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
@@ -75,7 +75,7 @@ data MetricDefinition where
 -- | All custom 'MetricDefinition's for Hydra
 allMetrics :: [MetricDefinition]
 allMetrics =
-  [ MetricDefinition (Name "hydra_head_events") CounterMetric $ flip registerCounter mempty
+  [ MetricDefinition (Name "hydra_head_inputs") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
@@ -89,7 +89,7 @@ monitor ::
   HydraLog tx net ->
   m ()
 monitor transactionsMap metricsMap = \case
-  (Node BeginEvent{event = NetworkEvent _ _ (ReqTx tx)}) -> do
+  (Node BeginInput{input = NetworkInput _ _ (ReqTx tx)}) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
     -- forever in the transactions map which could lead to unbounded growth and
@@ -107,8 +107,8 @@ monitor transactionsMap metricsMap = \case
           histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
         Nothing -> pure ()
     tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
-  (Node (EndEvent _ _)) ->
-    tick "hydra_head_events"
+  (Node (EndInput _ _)) ->
+    tick "hydra_head_inputs"
   _ -> pure ()
  where
   tick metricName =

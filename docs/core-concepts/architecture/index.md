@@ -43,12 +43,7 @@ The Hydra node maintains an internal wallet using the Cardano signing key provid
 
 ### Head Logic
 
-This is the component which is the heart of the Hydra node, implementing the protocol's _input-output state machine_. It is structured around the concepts of `Event`s and `Effect`s:
-
-- `Event`s are _inputs_ to the state machine from various parts of the node that can change the state and they ...
-- ... produce `Effect`s which are _outputs_ from the state machine interpreted by other components to produce "side-effects".
-
-The _Head Logic_ of course maintains the internal state of the head and persists it when it changes. This state consists in both the content of the Head itself (eg. current Ledger, transactions pending) _and_ the data from the Layer 1 that's needed to observe and trigger on-chain transitions.
+This is the component which is the heart of the Hydra node, implementing the protocol's _state machine_. It is structured around the concepts of `Input`s and `Effect`s: `Input`s from the outside world are interpreted against the current state, this may result in internal `Event`s, which are aggregated into an updated state, and `Effect`s which result in "side-effects" on the outside world. The state available to the _Head Logic_ consists of both, the content of the Head itself (eg. current Ledger, transactions pending) _and_ the data from the Layer 1 that's needed to observe and trigger on-chain transitions.
 
 ### Hydra Smart Contracts
 

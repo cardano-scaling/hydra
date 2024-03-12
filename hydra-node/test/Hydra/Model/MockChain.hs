@@ -56,7 +56,7 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
 import Hydra.HeadLogic (
   Environment (Environment, party),
-  Event (..),
+  Input (..),
   defaultTTL,
  )
 import Hydra.HeadLogic.State (
@@ -75,7 +75,7 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (HydraNode (..), NodeState (..))
-import Hydra.Node.EventQueue (EventQueue (..))
+import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (getPositive)
@@ -147,7 +147,7 @@ mockChainAndNetwork tr seedKeys commits = do
             , scriptRegistry
             }
     let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
-    let HydraNode{eq = EventQueue{putEvent}} = node
+    let HydraNode{inputQueue = InputQueue{enqueue}} = node
     -- Validate transactions on submission and queue them for inclusion if valid.
     let submitTx tx =
           atomically $ do
@@ -179,7 +179,7 @@ mockChainAndNetwork tr seedKeys commits = do
     let chainHandler =
           chainSyncHandler
             tr
-            (putEvent . OnChainEvent)
+            (enqueue . ChainInput)
             getTimeHandle
             ctx
             localChainState
@@ -347,7 +347,7 @@ createMockNetwork myNode nodes =
     let otherNodes = filter (\n -> getNodeId n /= getNodeId myNode) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{eq} = putEvent eq . NetworkEvent defaultTTL (getNodeId myNode)
+  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getNodeId myNode)
 
   getNodeId HydraNode{env = Environment{party}} = party
 

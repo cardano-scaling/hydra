@@ -8,7 +8,7 @@ full life-cycle of a Hydra head on-chain, this section completes the picture by
 defining how the protocol behaves off-chain and notably the relationship between
 on- and off-chain semantics. Participants of the protocol are also called Hydra
 head members, parties or simply protocol actors. The protocol is specified as a
-reactive system that processes three kinds of events:
+reactive system that processes three kinds of inputs:
 \begin{enumerate}
 	\item On-chain protocol transactions as introduced in
 	      Section~\ref{sec:on-chain}, which are posted to the mainchain and can be
@@ -51,17 +51,17 @@ off-chain protocol logic relies on these assumptions:
 	      %       multiple Hydra heads might exist on the same blockchain, it is vital
 	      %       that they do not interfere and the specification will take special care
 	      %       to ensure this.
-	\item All events are processed to completion, i.e.\ run-to-completion semantics
+	\item All inputs are processed to completion, i.e.\ run-to-completion semantics
 	      and no preemption.
-	\item Events are deduplicated. That is, any two identical events must not lead
+	\item Inputs are deduplicated. That is, any two identical inputs must not lead
 	      to multiple invocations of the handling semantics.
-	\item Given the specification, events may pile up forever and implementations
+	\item Given the specification, inputs may pile up forever and implementations
 	      need to consider these situations (i.e.\ potential for DoS). A valid reaction
-	      to this would be to just drop these events. Note that, from a security standpoint,
+	      to this would be to just drop these inputs. Note that, from a security standpoint,
 	      these situations are identical to a non-collaborative peer and closing the head
 	      is also a possible reaction.
 	\item The lifecycle of a Hydra head on-chain does not cross (hard fork)
-	      protocol update boundaries. Note that these events are announced in
+	      protocol update boundaries. Note that these inputs are announced in
 	      advance hence it should be possible for implementations to react in such
 	      a way as to expedite closing of the head before such a protocol update.
 	      This further assumes that the contestation period parameter is picked
@@ -71,9 +71,9 @@ off-chain protocol logic relies on these assumptions:
 \subsection{Notation}
 \todo{missing:, apply tx}
 \begin{itemize}
-	\item $\KwOn~event$ specifies how the protocol reacts on a given $event$.
+	\item $\KwOn~event$ specifies how the protocol reacts on a given input $event$.
 	      Further information may be available from the constituents of $event$
-	      and origin of the event.
+	      and origin of the input.
 	\item $\Req~p$ means that boolean expression $p \in \tyBool$ must be satisfied
 	      for the further execution of a routine, while discontinued on $\neg p$.
 	      A conservative protocol actor could interpret this as a reason to close
@@ -210,7 +210,7 @@ corresponding $\hpRS$ is distributed.
 \subsubsection{Closing the head}
 
 \dparagraph{$\hpClose$.}\quad In order to close a head, a client issues the
-$\hpClose$ event which uses the latest confirmed snapshot $\barmU$ to create
+$\hpClose$ input which uses the latest confirmed snapshot $\barmU$ to create
 \begin{itemize}
 	\item the new $\eta$-state $\eta'$ from the last confirmed UTxO set and snapshot
 	      number, and
@@ -232,7 +232,7 @@ Section~\ref{sec:contest-tx}).
 % FIXME: Need to address this fully
 \todo{Discuss protocol updates as well, also in light of rollbacks}
 
-The overall life-cycle of the Head protocol is driven by on-chain events (see
+The overall life-cycle of the Head protocol is driven by on-chain inputs (see
 introduction of Section~\ref{sec:offchain}) which stem from observing
 transactions on the mainchain. Most blockchains, however, do only provide
 \emph{eventual} consistency. The consensus algorithm ensures a consistent view

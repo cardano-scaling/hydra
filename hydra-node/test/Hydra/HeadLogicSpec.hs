@@ -33,10 +33,10 @@ import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
-  Event (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
+  Input (..),
   LogicError (..),
   OpenState (..),
   Outcome (..),
@@ -56,7 +56,6 @@ import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -64,10 +63,6 @@ import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 spec :: Spec
 spec =
   parallel $ do
-    describe "Types" $ do
-      roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
-      roundtripAndGoldenSpecs (Proxy @(HeadState SimpleTx))
-
     let threeParties = [alice, bob, carol]
         bobEnv =
           Environment
@@ -94,7 +89,7 @@ spec =
         let inputs = utxoRef 1
             tx = SimpleTx 2 inputs mempty
             ttl = 0
-            reqTx = NetworkEvent ttl alice $ ReqTx tx
+            reqTx = NetworkInput ttl alice $ ReqTx tx
             s0 = inOpenState threeParties
 
         update bobEnv ledger s0 reqTx `hasEffectSatisfying` \case
@@ -102,7 +97,7 @@ spec =
           _ -> False
 
       it "waits if a requested tx is not (yet) applicable" $ do
-        let reqTx = NetworkEvent defaultTTL alice $ ReqTx $ SimpleTx 2 inputs mempty
+        let reqTx = NetworkInput defaultTTL alice $ ReqTx $ SimpleTx 2 inputs mempty
             inputs = utxoRef 1
             s0 = inOpenState threeParties
 
@@ -110,10 +105,10 @@ spec =
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 []
             snapshot1 = Snapshot testHeadId 1 mempty []
-            ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
-        snapshotInProgress <- runEvents bobEnv ledger (inOpenState threeParties) $ do
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot1) 1
+        snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -122,7 +117,7 @@ spec =
         getConfirmedSnapshot snapshotInProgress `shouldBe` Just (testSnapshot 0 mempty [])
 
         snapshotConfirmed <-
-          runEvents bobEnv ledger snapshotInProgress $ do
+          runHeadLogic bobEnv ledger snapshotInProgress $ do
             step (ackFrom bobSk bob)
             getState
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
@@ -132,8 +127,8 @@ spec =
           let s0 = inOpenState threeParties
               t1 = SimpleTx 1 mempty (utxoRef 1)
 
-          sa <- runEvents bobEnv ledger s0 $ do
-            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+          sa <- runHeadLogic bobEnv ledger s0 $ do
+            step $ NetworkInput defaultTTL alice $ ReqTx t1
             getState
 
           sa `shouldSatisfy` \case
@@ -143,10 +138,10 @@ spec =
         it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1]
 
-          s1 <- runEvents bobEnv ledger s0 $ do
-            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+          s1 <- runHeadLogic bobEnv ledger s0 $ do
+            step $ NetworkInput defaultTTL alice $ ReqTx t1
             step reqSn
             getState
 
@@ -157,17 +152,17 @@ spec =
         it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
-              reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+              reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1]
               snapshot1 = testSnapshot 1 (utxoRefs [1]) [1]
-              ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
+              ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot1) 1
 
-          sa <- runEvents bobEnv ledger (inOpenState threeParties) $ do
-            step $ NetworkEvent defaultTTL alice $ ReqTx t1
+          sa <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
+            step $ NetworkInput defaultTTL alice $ ReqTx t1
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
 
-            step $ NetworkEvent defaultTTL alice $ ReqTx pendingTransaction
+            step $ NetworkInput defaultTTL alice $ ReqTx pendingTransaction
 
             step (ackFrom bobSk bob)
             getState
@@ -177,13 +172,13 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 []
             snapshot = testSnapshot 1 mempty []
             snapshot' = testSnapshot 2 mempty []
-            ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
-            invalidAckFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot') 1
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot) 1
+            invalidAckFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot') 1
         waitingForLastAck <-
-          runEvents bobEnv ledger (inOpenState threeParties) $ do
+          runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
@@ -195,11 +190,11 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a different key" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 []
             snapshot = testSnapshot 1 mempty []
-            ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot) 1
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
-          runEvents bobEnv ledger (inOpenState threeParties) $ do
+          runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
@@ -211,14 +206,14 @@ spec =
             _ -> False
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 []
             snapshot1 = testSnapshot 1 mempty []
-            ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
-              NetworkEvent defaultTTL vk $
+              NetworkInput defaultTTL vk $
                 AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
         waitingForLastAck <-
-          runEvents bobEnv ledger (inOpenState threeParties) $ do
+          runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
             step (invalidAckFrom bobSk bob)
@@ -230,11 +225,11 @@ spec =
             _ -> False
 
       it "rejects last AckSn if already received signature from this party" $ do
-        let reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 []
+        let reqSn = NetworkInput defaultTTL alice $ ReqSn 1 []
             snapshot1 = testSnapshot 1 mempty []
-            ackFrom sk vk = NetworkEvent defaultTTL vk $ AckSn (sign sk snapshot1) 1
+            ackFrom sk vk = NetworkInput defaultTTL vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
-          runEvents bobEnv ledger (inOpenState threeParties) $ do
+          runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
             getState
@@ -245,29 +240,29 @@ spec =
             _ -> False
 
       it "waits if we receive a snapshot with transaction not applicable on previous snapshot" $ do
-        let reqTx42 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
-            reqTx1 = NetworkEvent defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            event = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+        let reqTx42 = NetworkInput defaultTTL alice $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
+            reqTx1 = NetworkInput defaultTTL alice $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
+            input = NetworkInput defaultTTL alice $ ReqSn 1 [1]
             s0 = inOpenState threeParties
 
-        s2 <- runEvents bobEnv ledger s0 $ do
+        s2 <- runHeadLogic bobEnv ledger s0 $ do
           step reqTx42
           step reqTx1
           getState
 
-        update bobEnv ledger s2 event
+        update bobEnv ledger s2 input
           `shouldBe` Error (RequireFailed (SnapshotDoesNotApply 1 1 (ValidationError "cannot apply transaction")))
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
-            reqSn = NetworkEvent defaultTTL alice $ ReqSn 1 [1]
+            reqSn = NetworkInput defaultTTL alice $ ReqSn 1 [1]
         update bobEnv ledger s0 reqSn
           `assertWait` WaitOnTxs [1]
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 mempty []
-            event = NetworkEvent defaultTTL alice $ AckSn (sign aliceSk snapshot) 1
-        update bobEnv ledger (inOpenState threeParties) event
+            input = NetworkInput defaultTTL alice $ AckSn (sign aliceSk snapshot) 1
+        update bobEnv ledger (inOpenState threeParties) input
           `assertWait` WaitOnSeenSnapshot
 
       -- TODO: Write property tests for various future / old snapshot behavior.
@@ -275,15 +270,15 @@ spec =
       -- snapshot collection.
 
       it "rejects if we receive a too far future snapshot" $ do
-        let event = NetworkEvent defaultTTL bob $ ReqSn 2 []
+        let input = NetworkInput defaultTTL bob $ ReqSn 2 []
             st = inOpenState threeParties
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
-        let reqSn1 = NetworkEvent defaultTTL alice $ ReqSn 1 []
-            reqSn2 = NetworkEvent defaultTTL bob $ ReqSn 2 []
+        let reqSn1 = NetworkInput defaultTTL alice $ ReqSn 1 []
+            reqSn2 = NetworkInput defaultTTL bob $ ReqSn 2 []
         st <-
-          runEvents bobEnv ledger (inOpenState threeParties) $ do
+          runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn1
             getState
 
@@ -293,31 +288,31 @@ spec =
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
             snapshot = testSnapshot 1 mempty []
-            event = NetworkEvent defaultTTL leader $ ReqSn (number snapshot) []
+            input = NetworkInput defaultTTL leader $ ReqSn (number snapshot) []
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
-        update bobEnv ledger st event `hasEffect` NetworkEffect ack
+        update bobEnv ledger st input `hasEffect` NetworkEffect ack
 
       it "does not ack snapshots from non-leaders" $ do
-        let event = NetworkEvent defaultTTL notTheLeader $ ReqSn 1 []
+        let input = NetworkInput defaultTTL notTheLeader $ ReqSn 1 []
             notTheLeader = bob
             st = inOpenState threeParties
-        update bobEnv ledger st event `shouldSatisfy` \case
+        update bobEnv ledger st input `shouldSatisfy` \case
           Error (RequireFailed ReqSnNotLeader{requestedSn = 1, leader}) -> leader == notTheLeader
           _ -> False
 
       it "rejects too-old snapshots" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 2 []
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "rejects too-old snapshots when collecting signatures" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 2 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 2 []
             theLeader = alice
             snapshot = testSnapshot 2 mempty []
             st =
@@ -326,23 +321,23 @@ spec =
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
                   , seenSnapshot = SeenSnapshot (testSnapshot 3 mempty []) mempty
                   }
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
+        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
       it "rejects too-new snapshots from the leader" $ do
-        let event = NetworkEvent defaultTTL theLeader $ ReqSn 3 []
+        let input = NetworkInput defaultTTL theLeader $ ReqSn 3 []
             theLeader = carol
             st = inOpenState threeParties
-        update bobEnv ledger st event `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
+        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice
             nextSN = 1
-            firstReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 42)
-            firstReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [42]
-            secondReqTx = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 51)
-            secondReqSn = NetworkEvent defaultTTL theLeader $ ReqSn nextSN [51]
+            firstReqTx = NetworkInput defaultTTL alice $ ReqTx (aValidTx 42)
+            firstReqSn = NetworkInput defaultTTL theLeader $ ReqSn nextSN [42]
+            secondReqTx = NetworkInput defaultTTL alice $ ReqTx (aValidTx 51)
+            secondReqSn = NetworkInput defaultTTL theLeader $ ReqSn nextSN [51]
 
-        s3 <- runEvents bobEnv ledger (inOpenState threeParties) $ do
+        s3 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step firstReqTx
           step firstReqSn
           step secondReqTx
@@ -354,58 +349,58 @@ spec =
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
-            event = NetworkEvent defaultTTL alice $ ReqTx (aValidTx 42)
-        update bobEnv ledger s0 event `shouldBe` Error (InvalidEvent event s0)
+            input = NetworkInput defaultTTL alice $ ReqTx (aValidTx 42)
+        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
 
       it "everyone does collect on last commit after collect com" $ do
         let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
             bobCommit = OnCommitTx testHeadId bob (utxoRef 2)
             carolCommit = OnCommitTx testHeadId carol (utxoRef 3)
         waitingForLastCommit <-
-          runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observeEventAtSlot 1 aliceCommit)
-            step (observeEventAtSlot 2 bobCommit)
+          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
+            step (observeTxAtSlot 1 aliceCommit)
+            step (observeTxAtSlot 2 bobCommit)
             getState
 
         -- Bob is not the last party, but still does post a collect
-        update bobEnv ledger waitingForLastCommit (observeEventAtSlot 3 carolCommit)
+        update bobEnv ledger waitingForLastCommit (observeTxAtSlot 3 carolCommit)
           `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = CollectComTx{}} -> True
             _ -> False
 
       it "cannot observe abort after collect com" $ do
         afterCollectCom <-
-          runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent $ OnCollectComTx testHeadId)
+          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
+            step (observeTx $ OnCollectComTx testHeadId)
             getState
 
-        let invalidEvent = observationEvent OnAbortTx{headId = testHeadId}
-        update bobEnv ledger afterCollectCom invalidEvent
-          `shouldBe` Error (InvalidEvent invalidEvent afterCollectCom)
+        let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
+        update bobEnv ledger afterCollectCom unhandledInput
+          `shouldBe` Error (UnhandledInput unhandledInput afterCollectCom)
 
       it "cannot observe collect com after abort" $ do
         afterAbort <-
-          runEvents bobEnv ledger (inInitialState threeParties) $ do
-            step (observationEvent OnAbortTx{headId = testHeadId})
+          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
+            step (observeTx OnAbortTx{headId = testHeadId})
             getState
 
-        let invalidEvent = observationEvent (OnCollectComTx testHeadId)
-        update bobEnv ledger afterAbort invalidEvent
-          `shouldBe` Error (InvalidEvent invalidEvent afterAbort)
+        let unhandledInput = observeTx (OnCollectComTx testHeadId)
+        update bobEnv ledger afterAbort unhandledInput
+          `shouldBe` Error (UnhandledInput unhandledInput afterAbort)
 
       it "notifies user on head closing and when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties
             snapshotNumber = 0
             contestationDeadline = arbitrary `generateWith` 42
             observeCloseTx =
-              observationEvent
+              observeTx
                 OnCloseTx
                   { headId = testHeadId
                   , snapshotNumber
                   , contestationDeadline
                   }
             clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
-        runEvents bobEnv ledger s0 $ do
+        runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do
             outcome1 `hasEffect` clientEffect
@@ -416,7 +411,7 @@ spec =
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
               someChainSlot = arbitrary `generateWith` 42
-              stepTimePastDeadline = OnChainEvent $ Tick oneSecondsPastDeadline someChainSlot
+              stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
           outcome2 <- step stepTimePastDeadline
           lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
@@ -427,12 +422,10 @@ spec =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
-            closeTxEvent = observationEvent $ OnCloseTx testHeadId 0 deadline
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
-            contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
-        runEvents bobEnv ledger s0 $ do
-          o1 <- step closeTxEvent
-          lift $ o1 `hasEffect` contestTxEffect
+        runHeadLogic bobEnv ledger s0 $ do
+          o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
+          lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot)
           s1 <- getState
           lift $
             s1 `shouldSatisfy` \case
@@ -444,38 +437,35 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
-            contestSnapshot1Event = observationEvent $ OnContestTx testHeadId 1 deadline
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
-            contestTxEffect = chainEffect $ ContestTx testHeadId params latestConfirmedSnapshot
-            s1 = update bobEnv ledger s0 contestSnapshot1Event
-        s1 `hasEffect` contestTxEffect
-        assertEffects s1
+        update bobEnv ledger s0 (observeTx $ OnContestTx testHeadId 1 deadline)
+          `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot)
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
-        let abortOtherHead = observationEvent $ OnAbortTx{headId = otherHeadId}
+        let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
         update bobEnv ledger (inInitialState threeParties) abortOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
-        let collectOtherHead = observationEvent $ OnCollectComTx{headId = otherHeadId}
+        let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
         update bobEnv ledger (inInitialState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
         let openState = inOpenState threeParties
-        let closeOtherHead = observationEvent $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
         update bobEnv ledger openState closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let contestOtherHead = observationEvent $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
         update bobEnv ledger (inClosedState threeParties) contestOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores fanoutTx of another head" $ \otherHeadId -> do
-        let collectOtherHead = observationEvent $ OnFanoutTx{headId = otherHeadId}
+        let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId}
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
@@ -514,8 +504,8 @@ spec =
 
         st <-
           run $
-            runEvents bobEnv ledger st0 $ do
-              step (NetworkEvent defaultTTL alice $ ReqSn 1 [])
+            runHeadLogic bobEnv ledger st0 $ do
+              step (NetworkInput defaultTTL alice $ ReqSn 1 [])
               getState
 
         assert $ case st of
@@ -532,7 +522,7 @@ prop_ignoresUnrelatedOnInitTx :: Property
 prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> do
-      let outcome = update env simpleLedger inIdleState (observationEvent unrelatedInit)
+      let outcome = update env simpleLedger inIdleState (observeTx unrelatedInit)
       counterexample ("Outcome: " <> show outcome) $
         outcome
           `hasEffectSatisfying` \case
@@ -591,13 +581,6 @@ prop_ignoresUnrelatedOnInitTx =
 
 -- * Utilities
 
-runEvents :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
-runEvents env ledger headState = (`evalStateT` StepState{env, ledger, headState})
-
---
--- Assertion utilities
---
-
 -- | Create a chain effect with fixed chain state and slot.
 chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
 chainEffect postChainTx =
@@ -605,9 +588,10 @@ chainEffect postChainTx =
     { postChainTx
     }
 
-observeEventAtSlot :: Natural -> OnChainTx SimpleTx -> Event SimpleTx
-observeEventAtSlot slot observedTx =
-  OnChainEvent
+-- | Create an observation chain input with chain state at given slot.
+observeTxAtSlot :: Natural -> OnChainTx SimpleTx -> Input SimpleTx
+observeTxAtSlot slot observedTx =
+  ChainInput
     { chainEvent =
         Observation
           { observedTx
@@ -615,16 +599,9 @@ observeEventAtSlot slot observedTx =
           }
     }
 
--- | Create an observation event with fixed chain state and slot.
-observationEvent :: OnChainTx SimpleTx -> Event SimpleTx
-observationEvent observedTx =
-  OnChainEvent
-    { chainEvent =
-        Observation
-          { observedTx
-          , newChainState = SimpleChainState{slot = ChainSlot 0}
-          }
-    }
+-- | Create an observation chain input with fixed chain state and slot.
+observeTx :: OnChainTx SimpleTx -> Input SimpleTx
+observeTx = observeTxAtSlot 0
 
 inIdleState :: HeadState SimpleTx
 inIdleState =
@@ -718,24 +695,24 @@ data StepState tx = StepState
   , ledger :: Ledger tx
   }
 
--- | Retrieves the latest 'HeadState' from within 'runEvents'.
+runHeadLogic :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
+runHeadLogic env ledger headState = (`evalStateT` StepState{env, ledger, headState})
+
+-- | Retrieves the latest 'HeadState' from within 'runHeadLogic'.
 getState :: MonadState (StepState tx) m => m (HeadState tx)
 getState = headState <$> get
 
--- | Calls 'update' and 'aggregate' to drive the 'runEvents' monad forward.
+-- | Calls 'update' and 'aggregate' to drive the 'runHeadLogic' monad forward.
 step ::
   (MonadState (StepState tx) m, IsChainState tx) =>
-  Event tx ->
+  Input tx ->
   m (Outcome tx)
-step event = do
+step input = do
   StepState{headState, env, ledger} <- get
-  let outcome = update env ledger headState event
+  let outcome = update env ledger headState input
   let headState' = aggregateState headState outcome
   put StepState{env, ledger, headState = headState'}
   pure outcome
-
-assertEffects :: (HasCallStack, IsChainState tx) => Outcome tx -> IO ()
-assertEffects outcome = hasEffectSatisfying outcome (const True)
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect outcome effect = hasEffectSatisfying outcome (== effect)

@@ -1,35 +1,34 @@
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Error types used in the Hydra.HeadLogic module.
 module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
 import Hydra.Crypto (HydraKey, VerificationKey)
 import Hydra.HeadId (HeadId)
-import Hydra.HeadLogic.Event (Event)
+import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx (TxIdType), ValidationError)
 import Hydra.Party (Party)
 import Hydra.Snapshot (SnapshotNumber)
 
--- | Preliminary type for collecting errors occurring during 'update'.
--- TODO: Try to merge this (back) into 'Outcome'.
 data LogicError tx
-  = InvalidEvent {invalidEvent :: Event tx, currentHeadState :: HeadState tx}
+  = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}
   | RequireFailed {requirementFailure :: RequirementFailure tx}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
-instance (Typeable tx, Show (Event tx), Show (HeadState tx), Show (RequirementFailure tx)) => Exception (LogicError tx)
+instance (Typeable tx, Show (Input tx), Show (HeadState tx), Show (RequirementFailure tx)) => Exception (LogicError tx)
 
-instance (Arbitrary (Event tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary (Input tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-deriving stock instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
-deriving stock instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)
-deriving anyclass instance (ToJSON (HeadState tx), ToJSON (Event tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
-deriving anyclass instance (FromJSON (HeadState tx), FromJSON (Event tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
+deriving stock instance (Eq (HeadState tx), Eq (Input tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
+deriving stock instance (Show (HeadState tx), Show (Input tx), Show (RequirementFailure tx)) => Show (LogicError tx)
+deriving anyclass instance (ToJSON (HeadState tx), ToJSON (Input tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
+deriving anyclass instance (FromJSON (HeadState tx), FromJSON (Input tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}

@@ -59,8 +59,7 @@ properties:
           - tag
           - node
         description: >-
-          A log entry denoting events and effects processed by the Node as part
-          of the Head protocol.
+          A log entry produced by the main loop in the node.
         properties:
           tag:
             type: string
@@ -748,52 +747,51 @@ definitions:
 
   Node:
     oneOf:
-      - title: BeginEvent
+      - title: BeginInput
         description: >-
-          Head has started processing an event drawn from some pool or queue of
-          events to process.
+          Head has started processing an input from the chain, network, or client.
         type: object
         additionalProperties: false
         required:
           - tag
           - by
-          - eventId
-          - event
+          - inputId
+          - input
         properties:
           tag:
             type: string
-            enum: ["BeginEvent"]
+            enum: ["BeginInput"]
           by:
             "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
-          eventId:
+          inputId:
             type: integer
             minimum: 0
             description: >-
-              Provides a unique, incremental, number identifying that event within
-              the stream of events from this node. This is useful to correlate with
-              `EndEvent`.
-          event:
-            "$ref": "logs.yaml#/definitions/Event"
-      - title: EndEvent
+              Provides a unique, incremental, number identifying that input
+              within the stream of inputs. This is useful to correlate with
+              `EndInput`.
+          input:
+            "$ref": "logs.yaml#/definitions/Input"
+      - title: EndInput
         description: >-
-          Head has succesfully finished processing an event.
+          Head has finished processing an input.
         type: object
         additionalProperties: false
         required:
           - tag
           - by
-          - eventId
+          - inputId
         properties:
           tag:
             type: string
-            enum: ["EndEvent"]
+            enum: ["EndInput"]
           by:
             "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
-          eventId:
+          inputId:
             type: integer
             minimum: 0
       - title: BeginEffect
@@ -805,7 +803,7 @@ definitions:
         required:
           - tag
           - by
-          - eventId
+          - inputId
           - effectId
           - effect
         properties:
@@ -816,20 +814,22 @@ definitions:
             "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
-          eventId:
+          inputId:
             type: integer
             minimum: 0
             description: >-
-              Provides a unique, incremental, number identifying which event within
-              the stream of events from this node this effect is part of. This number
-              can be used to correlate `EndEffect` entries.
+              Provides a unique, incremental, number identifying which input
+              within the stream of inputs from this node this effect is a
+              consequence of. This number can be used to correlate `EndEffect`
+              entries.
           effectId:
             type: integer
             minimum: 0
             description: >-
-              Provides a unique, monotonically increasing index for this effect within
-              the span of a specific `eventId`. This number along with the `eventId`
-              field is used to correlate the beginning and end of an effect.
+              Provides a unique, monotonically increasing index for this effect
+              within the span of a specific `inputId`. This number along with
+              the `inputId` field is used to correlate the beginning and end of
+              an effect.
           effect:
             $ref: "logs.yaml#/definitions/Effect"
       - title: EndEffect
@@ -841,7 +841,7 @@ definitions:
         required:
           - tag
           - by
-          - eventId
+          - inputId
           - effectId
         properties:
           tag:
@@ -851,7 +851,7 @@ definitions:
             "$ref": "api.yaml#/components/schemas/Party"
             description: >-
               The Party emitting the log entry.
-          eventId:
+          inputId:
             type: integer
             minimum: 0
           effectId:
@@ -859,7 +859,7 @@ definitions:
             minimum: 0
       - title: LogicOutcome
         description: >-
-          An outcome produced is a decision the node took after processing an input event.
+          An outcome produced is a decision the node took after processing an input.
         type: object
         additionalProperties: false
         required:
@@ -909,18 +909,18 @@ definitions:
               $ref: "logs.yaml#/definitions/ParamMismatch"
   LogicError:
     oneOf:
-      - title: InvalidEvent
+      - title: UnhandledInput
         additionalProperties: false
         required:
           - tag
-          - invalidEvent
+          - input
           - currentHeadState
         properties:
           tag:
             type: string
-            enum: ["InvalidEvent"]
-          invalidEvent:
-            $ref: "logs.yaml#/definitions/Event"
+            enum: ["UnhandledInput"]
+          input:
+            $ref: "logs.yaml#/definitions/Input"
           currentHeadState:
             $ref: "logs.yaml#/definitions/HeadState"
 
@@ -1523,26 +1523,26 @@ definitions:
           items:
             $ref: "api.yaml#/components/schemas/Signature"
 
-  Event:
+  Input:
     description: >-
-      Events (with Effects) are the atomic elements of the Hydra Head protocol
-      which is basically a state-machine consuming events and producing effects.
-      Events can come from different sources representing the various components
-      a Head needs to interact with: Clients, other peers through the Network,
-      main Chain.
+      Inputs (with Effects) are the atomic elements of the Hydra Head protocol
+      which is basically a state-machine consuming inputs and producing effects.
+      Inputs can come from different sources representing the various components
+      a Head needs to interact with: Clients via the API, other peers through
+      the Network, and the underlying Chain.
     oneOf:
-      - title: ClientEvent
+      - title: ClientInput
         type: object
         additionalProperties: false
         required:
           - tag
           - clientInput
         description: >-
-          An event representing some input from a client.
+          Input received from clients via the API.
         properties:
           tag:
             type: string
-            enum: ["ClientEvent"]
+            enum: ["ClientInput"]
           clientInput:
             oneOf:
               - $ref: "api.yaml#/components/messages/Init/payload"
@@ -1553,7 +1553,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Contest/payload"
               - $ref: "api.yaml#/components/messages/Fanout/payload"
 
-      - title: NetworkEvent
+      - title: NetworkInput
         type: object
         additionalProperties: false
         required:
@@ -1562,32 +1562,32 @@ definitions:
           - message
           - party
         description: >-
-          An event representing some message received from peers in the network.
+          Input representing some message received from peers on the network.
         properties:
           tag:
             type: string
-            enum: ["NetworkEvent"]
+            enum: ["NetworkInput"]
           message:
             $ref: "logs.yaml#/definitions/Message"
           ttl:
             type: number
           party:
             $ref: "api.yaml#/components/schemas/Party"
-      - title: OnChainEvent
+      - title: ChainInput
         type: object
         additionalProperties: false
         required:
           - tag
           - chainEvent
         description: >-
-          An event representing the confirmation that some transaction part of the
-          Head protocol has been confirmed on the main chain.
+          Input representing an observation made on the main chain (or witnessed
+          rollbacks, ticks and errors).
         properties:
           tag:
             type: string
-            enum: ["OnChainEvent"]
+            enum: ["ChainInput"]
           chainEvent:
-            $ref: "logs.yaml#/definitions/OnChainEvent"
+            $ref: "logs.yaml#/definitions/ChainEvent"
 
   Message:
     description: >-
@@ -1651,7 +1651,7 @@ definitions:
               Signature from given party of the snapshot. The bytes representing
               the signature are hex-encoded.
 
-  OnChainEvent:
+  ChainEvent:
     oneOf:
       - title: Observation
         type: object
@@ -1708,7 +1708,7 @@ definitions:
           - postChainTx
           - postTxError
         description: >-
-          Event emitted when posting a transaction on the main chain failed.
+          Posting a transaction on the main chain failed.
         properties:
           tag:
             type: string
@@ -1848,7 +1848,7 @@ definitions:
 
   Effect:
     description: >-
-      Effects are the outcome of Head protocol processing Events. Each Effect
+      Effects are the outcome of Head protocol processing inputs. Each effect
       represents a message that needs to be sent somewhere, either to clients
       for notification purpose, to other heads, or to the chain as part of the
       protocol.
@@ -1891,7 +1891,7 @@ definitions:
           - postChainTx
         description: >-
           An effect representing some transaction must be posted on-chain. Note
-          that incoming transactions are represented by OnChainEvent which can be
+          that incoming transactions are represented by ChainEvent which can be
           different from outgoing transactions.
         properties:
           tag:
@@ -1899,37 +1899,10 @@ definitions:
             enum: ["OnChainEffect"]
           postChainTx:
             $ref: "api.yaml#/components/schemas/PostChainTx"
-      - title: Delay
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - delay
-          - reason
-          - event
-        description: >-
-          A special effect requesting the given event to be delayed from
-          processing for some amount of time. Delays can happen in the protocol
-          because messages can be received out-of-order due to the asynchronous
-          nature of the network, hence an otherwise invalid event could become
-          invalid in the future.
-        properties:
-          tag:
-            type: string
-            enum: ["Delay"]
-          delay:
-            type: number
-            minimum: 0
-            description: >-
-              The length of the delay, in seconds.
-          reason:
-            $ref: "logs.yaml#/definitions/WaitReason"
-          event:
-            $ref: "logs.yaml#/definitions/Event"
 
   Outcome:
     description: >-
-      The decision taken by the node logic after processing an Event.
+      The decision taken by the node logic after processing an input.
     oneOf:
       - title: Continue
         type: object
@@ -1982,7 +1955,7 @@ definitions:
           - tag
           - error
         description: >-
-          Processing an input event resulted in an error.
+          Processing an input resulted in an error.
         properties:
           tag:
             type: string

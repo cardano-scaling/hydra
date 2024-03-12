@@ -3,17 +3,17 @@
 
 -- | Implements the Head Protocol's /state machine/ as /pure functions/ in an event sourced manner.
 --
--- More specifically, the 'update' will handle incoming 'Event' (or rather
--- "commands" in event sourcing speak) and convert that into a set of
--- side-'Effect's and internal 'StateChanged' events, which in turn are
--- 'aggregate'd into a single 'HeadState'.
+-- More specifically, the 'update' will handle 'Input's (or rather "commands" in
+-- event sourcing speak) and convert that into a list of side-'Effect's and
+-- 'StateChanged' events, which in turn are 'aggregate'd into a single
+-- 'HeadState'.
 --
 -- As the specification is using a more imperative way of specifying the protocl
 -- behavior, one would find the decision logic in 'update' while state updates
 -- can be found in the corresponding 'aggregate' branch.
 module Hydra.HeadLogic (
   module Hydra.HeadLogic,
-  module Hydra.HeadLogic.Event,
+  module Hydra.HeadLogic.Input,
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
@@ -52,10 +52,7 @@ import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
  )
-import Hydra.HeadLogic.Event (
-  Event (..),
-  TTL,
- )
+import Hydra.HeadLogic.Input (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (
   Effect (..),
   Outcome (..),
@@ -684,92 +681,92 @@ onClosedChainFanoutTx closedState newChainState =
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
--- | Handles commands and converts them into internal 'StateChanged' events
--- along with 'Effect's, in case it is processed succesfully.
--- Later, the Node will 'aggregate' the events, resulting in a new 'HeadState'.
+-- | Handles inputs and converts them into 'StateChanged' events along with
+-- 'Effect's, in case it is processed succesfully. Later, the Node will
+-- 'aggregate' the events, resulting in a new 'HeadState'.
 update ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
   -- | Current HeadState to validate the command against.
   HeadState tx ->
-  -- | Command sent to the HeadLogic to be processed.
-  Event tx ->
+  -- | Input to be processed.
+  Input tx ->
   Outcome tx
 update env ledger st ev = case (st, ev) of
-  (Idle _, ClientEvent Init) ->
+  (Idle _, ClientInput Init) ->
     onIdleClientInit env
-  (Idle _, OnChainEvent Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
+  (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
-  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
+  (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
     | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial initialState, ClientEvent Abort) ->
+  (Initial initialState, ClientInput Abort) ->
     onInitialClientAbort initialState
-  (Initial initialState@InitialState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnCollectComTx{headId}, newChainState})
+  (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCollectComTx{headId}, newChainState})
     | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial InitialState{headId = ourHeadId, committed}, OnChainEvent Observation{observedTx = OnAbortTx{headId}, newChainState})
+  (Initial InitialState{headId = ourHeadId, committed}, ChainInput Observation{observedTx = OnAbortTx{headId}, newChainState})
     | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial InitialState{committed, headId}, ClientEvent GetUTxO) ->
+  (Initial InitialState{committed, headId}, ClientInput GetUTxO) ->
     cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ fold committed)
   -- Open
-  (Open openState, ClientEvent Close) ->
+  (Open openState, ClientInput Close) ->
     onOpenClientClose openState
-  (Open{}, ClientEvent (NewTx tx)) ->
+  (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
-  (Open openState, NetworkEvent ttl _ (ReqTx tx)) ->
+  (Open openState, NetworkInput ttl _ (ReqTx tx)) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkEvent _ otherParty (ReqSn sn txIds)) ->
+  (Open openState, NetworkInput _ otherParty (ReqSn sn txIds)) ->
     -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState otherParty sn txIds
-  (Open openState, NetworkEvent _ otherParty (AckSn snapshotSignature sn)) ->
+  (Open openState, NetworkInput _ otherParty (AckSn snapshotSignature sn)) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState otherParty snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
-    , OnChainEvent Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
+    , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )
       | ourHeadId == headId ->
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientEvent GetUTxO) ->
+  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
     cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot)
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
-  (Open{}, OnChainEvent PostTxError{postChainTx = CollectComTx{}}) ->
+  (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
   -- Closed
-  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
     | ourHeadId == headId ->
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, OnChainEvent Tick{chainTime})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState HeadIsReadyToFanout
           <> cause (ClientEffect $ ServerOutput.ReadyToFanout headId)
-  (Closed closedState, ClientEvent Fanout) ->
+  (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
-  (Closed closedState@ClosedState{headId = ourHeadId}, OnChainEvent Observation{observedTx = OnFanoutTx{headId}, newChainState})
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId}, newChainState})
     | ourHeadId == headId ->
         onClosedChainFanoutTx closedState newChainState
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- General
-  (_, OnChainEvent Rollback{rolledBackChainState}) ->
+  (_, ChainInput Rollback{rolledBackChainState}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
-  (_, OnChainEvent Tick{chainSlot}) ->
+  (_, ChainInput Tick{chainSlot}) ->
     newState TickObserved{chainSlot}
-  (_, OnChainEvent PostTxError{postChainTx, postTxError}) ->
+  (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
-  (_, ClientEvent{clientInput}) ->
+  (_, ClientInput{clientInput}) ->
     cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
-    Error $ InvalidEvent ev st
+    Error $ UnhandledInput ev st
 
 -- * HeadState aggregate
 

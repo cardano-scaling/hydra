@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.HeadLogic (
   Environment (..),
-  Event (..),
+  Input (..),
   defaultTTL,
  )
 import Hydra.Ledger.Cardano qualified as Ledger
@@ -38,7 +38,7 @@ import Hydra.Node (
   loadState,
   runHydraNode,
  )
-import Hydra.Node.EventQueue (EventQueue (..), createEventQueue)
+import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
@@ -73,7 +73,7 @@ run opts = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       traceWith tracer (NodeOptions opts)
-      eq@EventQueue{putEvent} <- createEventQueue
+      inputQueue@InputQueue{enqueue} <- createInputQueue
       let RunOptions{chainConfig, ledgerConfig} = opts
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
 
@@ -87,20 +87,20 @@ run opts = do
         nodeState <- createNodeState hs
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
-        withChain chainStateHistory (putEvent . OnChainEvent) $ \chain -> do
+        withChain chainStateHistory (enqueue . ChainInput) $ \chain -> do
           -- API
           let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent (Authenticated msg otherParty) = putEvent $ NetworkEvent defaultTTL otherParty msg
+              putNetworkEvent (Authenticated msg otherParty) = enqueue $ NetworkInput defaultTTL otherParty msg
               RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (putEvent . ClientEvent) $ \server -> do
+          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (enqueue . ClientInput) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
               -- Main loop
               runHydraNode (contramap Node tracer) $
                 HydraNode
-                  { eq
+                  { inputQueue
                   , hn
                   , nodeState
                   , oc = chain
