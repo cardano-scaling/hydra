@@ -54,6 +54,7 @@ data NodeLog
   | MsgNodeStarting {stateDirectory :: FilePath}
   | MsgSocketIsReady SocketPath
   | MsgSynchronizing {percentDone :: Centi}
+  | MsgQueryGenesisParametersFailed {err :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -129,11 +130,11 @@ getCardanoNodeVersion =
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- work directory. NOTE: This is using the default node socket name as defined
 -- by 'defaultCardanoNodeArgs'.
-findRunningCardanoNode :: FilePath -> KnownNetwork -> IO (Maybe RunningNode)
-findRunningCardanoNode workDir knownNetwork = do
+findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe RunningNode)
+findRunningCardanoNode tracer workDir knownNetwork = do
   try (queryGenesisParameters knownNetworkId socketPath QueryTip) >>= \case
-    Left (_ :: SomeException) ->
-      pure Nothing
+    Left (e :: SomeException) ->
+      traceWith tracer MsgQueryGenesisParametersFailed{err = show e} $> Nothing
     Right GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} ->
       pure $
         Just
