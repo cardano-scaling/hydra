@@ -25,7 +25,6 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
-import Data.List qualified as List
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
@@ -40,6 +39,7 @@ import Hydra.Cardano.Api (
   Key (SigningKey),
   PaymentKey,
   PlutusScriptV2,
+  ShelleyWitnessSigningKey (WitnessPaymentKey),
   Tx,
   TxId,
   UTxO,
@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   getVerificationKey,
   isVkTxOut,
   lovelaceToValue,
+  makeShelleyKeyWitness,
   makeSignedTransaction,
   mkScriptAddress,
   mkTxOutDatumHash,
@@ -631,33 +632,53 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
-      decommitTx <-
-        either (failure . show) pure $
-          mkSimpleTx
-            (List.head $ UTxO.pairs commitUTxO)
-            (mkVkAddress networkId walletVk, lovelaceToValue 2_000_000)
-            walletSk
+      let walletAddress = mkVkAddress networkId walletVk
 
-      let decommitClientInput = send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
+      let walletOutput = [TxOut walletAddress (lovelaceToValue 2_000_000) TxOutDatumNone ReferenceScriptNone]
 
-      let callDecommitHttpEndpoint =
-            void $
-              L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
-                <&> setRequestBodyJSON decommitTx
-                  >>= httpLbs
+      buildTransaction networkId nodeSocket walletAddress commitUTxO [] walletOutput >>= \case
+        Left e -> failure $ show e
+        Right body -> do
+          -- Send unsigned decommit tx and expect failure
+          let unsignedDecommitTx = makeSignedTransaction [] body
 
-      join . generate $ oneof [pure decommitClientInput, pure callDecommitHttpEndpoint]
+          let unsignedDecommitClientInput = send n1 $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
 
-      let decommitUTxO = utxoFromTx decommitTx
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+          let callDecommitHttpEndpoint tx =
+                void $
+                  L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+                    <&> setRequestBodyJSON tx
+                      >>= httpLbs
 
-      failAfter 10 $ waitForUTxO node decommitUTxO
+          join . generate $ oneof [pure unsignedDecommitClientInput, pure $ callDecommitHttpEndpoint unsignedDecommitTx]
 
-      waitFor hydraTracer 10 [n1] $
-        output "DecommitFinalized" ["headId" .= headId]
+          validationError <- waitMatch 10 n1 $ \v -> do
+            guard $ v ^? key "headId" == Just (toJSON headId)
+            guard $ v ^? key "tag" == Just (Aeson.String "DecommitInvalid")
+            guard $ v ^? key "decommitInvalidReason" . key "decommitTx" == Just (toJSON unsignedDecommitTx)
+            v ^? key "decommitInvalidReason" . key "validationError" . key "reason" . _JSON
+
+          validationError `shouldContain` "MissingVKeyWitnessesUTXOW"
+
+          -- Sign and re-send the decommit tx
+          let signedDecommitTx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey walletSk)] body
+
+          let signedDecommitClientInput = send n1 $ input "Decommit" ["decommitTx" .= signedDecommitTx]
+
+          join . generate $ oneof [pure signedDecommitClientInput, pure $ callDecommitHttpEndpoint signedDecommitTx]
+
+          let decommitUTxO = utxoFromTx signedDecommitTx
+
+          waitFor hydraTracer 10 [n1] $
+            output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+
+          waitFor hydraTracer 10 [n1] $
+            output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+
+          failAfter 10 $ waitForUTxO node decommitUTxO
+
+          waitFor hydraTracer 10 [n1] $
+            output "DecommitFinalized" ["headId" .= headId]
  where
   hydraTracer = contramap FromHydraNode tracer
 
