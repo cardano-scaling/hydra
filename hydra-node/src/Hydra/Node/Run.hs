@@ -12,7 +12,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.HeadLogic (Environment (..))
+import Hydra.Environment (Environment (..))
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   Globals,

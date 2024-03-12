@@ -28,12 +28,12 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
 import Hydra.Crypto qualified as Crypto
+import Hydra.Environment (Environment (..))
 import Hydra.Events (EventId)
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
   Effect (..),
-  Environment (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),

@@ -33,10 +33,10 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
+import Hydra.Environment (Environment (..))
 import Hydra.Events (EventSink (..), EventSource (..), putEventToSinks, putEventsToSinks)
 import Hydra.HeadLogic (
   Effect (..),
-  Environment (..),
   HeadState (..),
   IdleState (..),
   Input (..),

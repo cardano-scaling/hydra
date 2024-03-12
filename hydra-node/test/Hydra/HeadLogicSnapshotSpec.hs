@@ -10,10 +10,10 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Crypto (sign)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
-  Environment (..),
   HeadState (..),
   Input (NetworkInput),
   OpenState (OpenState),
