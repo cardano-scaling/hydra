@@ -140,7 +140,7 @@ spec = parallel $ do
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
           persistence <- createPersistenceInMemory
-          let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
+          (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
 
           testHydrate eventSource [eventSink]
             >>= notConnect

@@ -783,8 +783,7 @@ createHydraNode tracer ledger nodeState signingKey otherParties outputs outputHi
   -- TODO: refactor using 'hydrate'
   inputQueue <- createInputQueue
   persistence <- createPersistenceInMemory
-  let (eventSource, eventSink) = eventPairFromPersistenceIncremental persistence
-      eventSinks = [eventSink]
+  (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
 
   connectNode chain $
     HydraNode
@@ -814,7 +813,7 @@ createHydraNode tracer ledger nodeState signingKey otherParties outputs outputHi
             , participants
             }
       , eventSource
-      , eventSinks
+      , eventSinks = [eventSink]
       }
  where
   party = deriveParty signingKey

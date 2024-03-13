@@ -73,8 +73,9 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
-        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        let (eventSource, filePersistenceSink) = eventPairFromPersistenceIncremental persistence
+        (eventSource, filePersistenceSink) <-
+          eventPairFromPersistenceIncremental
+            =<< createPersistenceIncremental (persistenceDir <> "/state")
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         let eventSinks =

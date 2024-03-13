@@ -51,6 +51,8 @@ instance HasEventId (StateEvent tx) where
 
 deriving instance IsChainState tx => Show (StateEvent tx)
 deriving instance IsChainState tx => Eq (StateEvent tx)
+deriving instance IsChainState tx => ToJSON (StateEvent tx)
+deriving instance IsChainState tx => FromJSON (StateEvent tx)
 
 instance IsChainState tx => Arbitrary (StateEvent tx) where
   arbitrary = genericArbitrary

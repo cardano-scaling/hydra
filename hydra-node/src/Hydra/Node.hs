@@ -147,7 +147,8 @@ data DraftHydraNode tx m = DraftHydraNode
   , inputQueue :: InputQueue m (Input tx)
   , eventSource :: EventSource (StateEvent tx) m
   , eventSinks :: [EventSink (StateEvent tx) m]
-  , -- TODO: Make this part of NodeState?
+  , -- XXX: This is an odd field in here, but needed for the chain layer to
+    -- bootstrap. Maybe move to NodeState or make it differently accessible?
     chainStateHistory :: ChainStateHistory tx
   }
 
