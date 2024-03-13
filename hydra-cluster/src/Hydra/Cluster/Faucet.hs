@@ -56,7 +56,8 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+  signedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+  void $ awaitTransaction networkId nodeSocket signedTx
   waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   submitSeedTx faucetVk faucetSk = do
@@ -65,7 +66,9 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
-        submitTransaction networkId nodeSocket (sign faucetSk body)
+        let signedTx = sign faucetSk body
+        submitTransaction networkId nodeSocket signedTx
+        pure signedTx
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
@@ -190,7 +193,7 @@ calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
         Right body -> pure $ txFee' (sign secretKey body)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
 retryOnExceptions tracer action =
   action
     `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do

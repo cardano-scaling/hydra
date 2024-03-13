@@ -90,12 +90,12 @@ waitForPayment networkId socket amount addr =
  where
   go = do
     utxo <- queryUTxO networkId socket QueryTip [addr]
-    let expectedPayment = selectPayment utxo
-    if expectedPayment /= mempty
-      then pure $ UTxO expectedPayment
+    let expectedPayments = selectPayments utxo
+    if expectedPayments /= mempty
+      then pure $ UTxO expectedPayments
       else threadDelay 1 >> go
 
-  selectPayment (UTxO utxo) =
+  selectPayments (UTxO utxo) =
     Map.filter ((== amount) . selectLovelace . txOutValue) utxo
 
 waitForUTxO ::
