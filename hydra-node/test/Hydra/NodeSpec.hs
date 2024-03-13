@@ -16,6 +16,7 @@ import Hydra.Crypto (HydraKey, sign)
 import Hydra.Environment (Environment (..))
 import Hydra.Environment qualified as Environment
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (Input (..), defaultTTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
@@ -38,7 +39,7 @@ import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
-import Hydra.Persistence (PersistenceIncremental (..), eventPairFromPersistenceIncremental)
+import Hydra.Persistence (PersistenceIncremental (..))
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, deriveOnChainId, testEnvironment, testHeadId, testHeadSeed)
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
@@ -161,7 +162,7 @@ spec = parallel $ do
 
           getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
 
-          -- Ensures that event ids are corecctly hydrate
+          -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents
           getEventId <$> events `shouldSatisfy` isStrictlyMonotonic
 

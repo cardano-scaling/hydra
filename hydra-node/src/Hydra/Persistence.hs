@@ -4,14 +4,11 @@ module Hydra.Persistence where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, swapTVar, throwSTM, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
-import Hydra.Chain (IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
-import Hydra.HeadLogic (StateChanged)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
@@ -97,64 +94,3 @@ createPersistenceIncremental fp = do
                 Left e -> throwIO $ PersistenceException e
                 Right decoded -> pure decoded
       }
-
--- * Event Source / Sink interface
-
--- TODO: document
-data PersistedStateChange tx
-  = Legacy (StateChanged tx)
-  | New (StateEvent tx)
-  deriving stock (Generic, Show, Eq)
-
-instance IsChainState tx => ToJSON (PersistedStateChange tx) where
-  toJSON = \case
-    Legacy sc -> toJSON sc
-    New e -> toJSON e
-
-instance IsChainState tx => FromJSON (PersistedStateChange tx) where
-  parseJSON v =
-    New <$> parseJSON v
-      <|> Legacy <$> parseJSON v
-
--- | Define an event source and sink from a persistence handle.
-eventPairFromPersistenceIncremental ::
-  (IsChainState tx, MonadSTM m) =>
-  PersistenceIncremental (PersistedStateChange tx) m ->
-  m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
-eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} = do
-  eventIdV <- newTVarIO Nothing
-  let
-    getLastSeenEventId = readTVar eventIdV
-
-    setLastSeenEventId StateEvent{eventId} = do
-      writeTVar eventIdV (Just eventId)
-
-    getNextEventId =
-      maybe 0 (+ 1) <$> readTVar eventIdV
-
-    -- Keep track of the last seen event id when loading
-    getEvents = do
-      items <- loadAll
-      atomically . forM items $ \i -> do
-        event <- case i of
-          New e -> pure e
-          Legacy sc -> do
-            eventId <- getNextEventId
-            pure $ StateEvent eventId sc
-
-        setLastSeenEventId event
-        pure event
-
-    -- Filter events that are already stored
-    putEvent e@StateEvent{eventId} = do
-      atomically getLastSeenEventId >>= \case
-        Nothing -> store e
-        Just lastSeenEventId
-          | eventId > lastSeenEventId -> store e
-          | otherwise -> pure ()
-
-    store e = do
-      append (New e)
-      atomically $ setLastSeenEventId e
-
-  pure (EventSource{getEvents}, EventSink{putEvent})

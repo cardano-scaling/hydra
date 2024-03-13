@@ -34,7 +34,7 @@ import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Crypto (AsType (AsHydraKey))
 import Hydra.Environment (Environment (..))
-import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventToSinks, putEventsToSinks, stateChanged)
+import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -171,8 +171,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
       chainStateHistory = recoverChainStateHistory initialChainState (stateChanged <$> events)
   -- Check whether the loaded state matches our configuration (env)
   checkHeadState tracer env headState
-  -- deliver to sinks per spec, deduplication is handled by the sinks
-  -- FIXME(Elaine): persistence currently not handling duplication, so this relies on not providing the eventSource's sink as an arg here
+  -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   putEventsToSinks eventSinks events
   nodeState <- createNodeState lastSeenEventId headState
   inputQueue <- createInputQueue
@@ -302,7 +301,7 @@ processStateChanges node stateChanges = do
   events <- atomically . forM stateChanges $ \stateChanged -> do
     eventId <- getNextEventId
     pure StateEvent{eventId, stateChanged}
-  forM_ events $ putEventToSinks eventSinks
+  putEventsToSinks eventSinks events
  where
   HydraNode
     { eventSinks

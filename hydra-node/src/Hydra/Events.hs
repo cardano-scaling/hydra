@@ -4,7 +4,11 @@
 -- A single 'EventSource' and zero or more 'EventSink' handles are used by the
 -- main 'HydraNode' handle to load and send out events.
 --
--- TODO: add an example event source sink (on top of the persistence one)
+-- See 'Hydra.Events.FileBased' for an example implementation and
+-- 'Hydra.Events.FileBasedSpec' for the corresponding test suite.
+--
+-- Custom implementations should be located under Hydra.Events to avoid
+-- conflicts.
 module Hydra.Events where
 
 import Hydra.Prelude
@@ -30,16 +34,17 @@ newtype EventSink e m = EventSink
   -- ^ Send a single event to the event sink.
   }
 
-putEventToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> e -> m ()
-putEventToSinks sinks e = forM_ sinks $ \sink -> putEvent sink e
-
+-- | Put a list of events to a list of event sinks in a round-robin fashion.
 putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
-putEventsToSinks sinks = mapM_ (putEventToSinks sinks)
+putEventsToSinks sinks events =
+  forM_ events $ \event ->
+    forM_ sinks $ \sink ->
+      putEvent sink event
 
 -- * State change events as used by Hydra.Node
 
--- TODO: Move 'StateChanged' here as well?
-
+-- | A state change event with an event id that is the common entity to be
+-- loaded from an 'EventSource' and sent to 'EventSink's.
 data StateEvent tx = StateEvent
   { eventId :: EventId
   , stateChanged :: StateChanged tx

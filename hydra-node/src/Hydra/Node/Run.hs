@@ -13,6 +13,7 @@ import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Environment (Environment (..))
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
@@ -45,7 +46,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental, eventPairFromPersistenceIncremental)
+import Hydra.Persistence (createPersistenceIncremental)
 
 data ConfigurationException
   = ConfigurationException ProtocolParametersConversionError

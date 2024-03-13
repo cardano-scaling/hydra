@@ -39,6 +39,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
 import Hydra.Environment (Environment (..))
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -64,7 +65,6 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Party (Party (..), deriveParty)
-import Hydra.Persistence (eventPairFromPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
