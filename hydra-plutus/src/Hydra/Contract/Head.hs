@@ -242,7 +242,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     && checkSnapshot
     && checkSnapshotSignature
     && mustBeSignedByParticipant ctx prevHeadId
-    && mustPreserveValue
+    && mustDecreaseValue
  where
   mustNotChangeParameters =
     traceIfFalse $(errorCode ChangedParameters) $
@@ -257,9 +257,9 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
   checkSnapshotSignature =
     verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
 
-  mustPreserveValue =
+  mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue === headOutValue
+      headInValue === headOutValue <> foldMap txOutValue decommitOutputs
 
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.

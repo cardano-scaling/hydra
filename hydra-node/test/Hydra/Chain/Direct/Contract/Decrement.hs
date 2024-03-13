@@ -71,7 +71,7 @@ healthyDecrementTx =
   headOutput =
     mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
-      & modifyTxOutValue (<> lovelaceToValue 3_000_000)
+      & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -184,7 +184,7 @@ genDecrementMutation (tx, utxo) =
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , -- TODO: fix error code and maybe dry with CollectCom
+    , -- TODO: maybe dry with CollectCom
       SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
         -- Remove a random asset and quantity from headOutput
         removedValue <- do

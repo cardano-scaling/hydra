@@ -438,7 +438,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       -- NOTE: at this point 'utxoToDecommit' is populated
-      & addOutputs (headOutput' : map toTxContext (maybe [] toList utxoToDecommit))
+      & addOutputs (headOutput' : map toTxContext decommitOutputs)
       & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headRedeemer =
@@ -453,7 +453,13 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   HeadParameters{parties, contestationPeriod} = headParameters
 
   headOutput' =
-    modifyTxOutDatum (const headDatumAfter) headOutput
+    headOutput
+      & modifyTxOutDatum (const headDatumAfter)
+      & modifyTxOutValue (\v -> v <> negateValue decomittedValue)
+
+  decomittedValue = foldMap txOutValue decommitOutputs
+
+  decommitOutputs = maybe [] toList utxoToDecommit
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
