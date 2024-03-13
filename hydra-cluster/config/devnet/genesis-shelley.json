@@ -22,7 +22,7 @@
         "keyDeposit": 0,
         "maxBlockBodySize": 65536,
         "maxBlockHeaderSize": 1100,
-        "maxTxSize": 16384,
+        "maxTxSize": 16405,
         "minFeeA": 44,
         "minFeeB": 155381,
         "minPoolCost": 0,
