@@ -56,10 +56,31 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  signedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-  void $ awaitTransaction networkId nodeSocket signedTx
-  waitForPayment networkId nodeSocket lovelace receivingAddress
+  payments <- findOldPaymentsWithSameLovelace
+  case payments of
+    Just oldPayments -> do
+      signedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+      void $ awaitTransaction networkId nodeSocket signedTx
+      paymentsWithSameLovelace <- waitForPayment networkId nodeSocket lovelace receivingAddress
+      pure
+        $ UTxO.fromPairs
+          . filter
+            ( \(txIn, _) ->
+                not $ txIn `member` UTxO.inputSet oldPayments
+            )
+        $ UTxO.pairs paymentsWithSameLovelace
+    Nothing -> do
+      void $ retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+      waitForPayment networkId nodeSocket lovelace receivingAddress
  where
+  findOldPaymentsWithSameLovelace =
+    failAfter 3 $
+      ( do
+          oldPayment <- waitForPayment networkId nodeSocket lovelace receivingAddress
+          pure $ Just oldPayment
+      )
+        `catch` \(_ :: SomeException) -> pure Nothing
+
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
