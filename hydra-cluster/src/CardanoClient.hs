@@ -79,13 +79,13 @@ submitTx :: RunningNode -> Tx -> IO ()
 submitTx RunningNode{networkId, nodeSocket} =
   submitTransaction networkId nodeSocket
 
-waitForPayment ::
+waitForPayments ::
   NetworkId ->
   SocketPath ->
   Lovelace ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayment networkId socket amount addr =
+waitForPayments networkId socket amount addr =
   go
  where
   go = do
@@ -110,7 +110,7 @@ waitForUTxO networkId nodeSocket utxo =
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
-        waitForPayment
+        waitForPayments
           networkId
           nodeSocket
           (selectLovelace value)

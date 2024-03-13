@@ -16,7 +16,7 @@ import CardanoClient (
   queryUTxOFor,
   sign,
   submitTransaction,
-  waitForPayment,
+  waitForPayments,
  )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
@@ -61,7 +61,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     Just oldPayments -> do
       signedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
       void $ awaitTransaction networkId nodeSocket signedTx
-      paymentsWithSameLovelace <- waitForPayment networkId nodeSocket lovelace receivingAddress
+      paymentsWithSameLovelace <- waitForPayments networkId nodeSocket lovelace receivingAddress
       pure
         $ UTxO.fromPairs
           . filter
@@ -71,12 +71,12 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
         $ UTxO.pairs paymentsWithSameLovelace
     Nothing -> do
       void $ retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-      waitForPayment networkId nodeSocket lovelace receivingAddress
+      waitForPayments networkId nodeSocket lovelace receivingAddress
  where
   findOldPaymentsWithSameLovelace =
     failAfter 3 $
       ( do
-          oldPayment <- waitForPayment networkId nodeSocket lovelace receivingAddress
+          oldPayment <- waitForPayments networkId nodeSocket lovelace receivingAddress
           pure $ Just oldPayment
       )
         `catch` \(_ :: SomeException) -> pure Nothing
