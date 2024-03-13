@@ -13,7 +13,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
@@ -30,12 +30,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
-import Hydra.Ledger.Cardano (
-  adaOnly,
-  genUTxOSized,
-  genValue,
-  genVerificationKey,
- )
+import Hydra.Ledger.Cardano (adaOnly, genAddressInEra, genUTxOSized, genValue, genVerificationKey)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -76,6 +71,7 @@ healthyDecrementTx =
   headOutput =
     mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
+      & modifyTxOutValue (<> lovelaceToValue 3_000_000)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -137,6 +133,7 @@ healthyDatum =
         , headId = toPlutusCurrencySymbol testPolicyId
         }
 
+-- TODO: alter the constructor names not to include mutate this and that
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
@@ -158,6 +155,7 @@ data DecrementMutation
     MutateValueInOutput
   | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
     DropDecommitOutput
+  | ExtractSomeValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -186,6 +184,28 @@ genDecrementMutation (tx, utxo) =
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
+    , -- TODO: fix error code and maybe dry with CollectCom
+      SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
+        -- Remove a random asset and quantity from headOutput
+        removedValue <- do
+          let allAssets = valueToList $ txOutValue headTxOut
+              nonPTs = flip filter allAssets $ \case
+                (AssetId pid _, _) -> pid /= testPolicyId
+                _ -> True
+          (assetId, Quantity n) <- elements nonPTs
+          q <- Quantity <$> choose (1, n)
+          pure $ valueFromList [(assetId, q)]
+        -- Add another output which would extract the 'removedValue'. The ledger
+        -- would check for this, and this is needed because the way we implement
+        -- collectCom checks.
+        extractionTxOut <- do
+          someAddress <- genAddressInEra testNetworkId
+          pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
+        pure $
+          Changes
+            [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
+            , AppendOutput extractionTxOut
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
