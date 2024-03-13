@@ -120,7 +120,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
+import Test.QuickCheck (choose, frequency, getPositive, oneof, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -1028,12 +1028,21 @@ genCollectComTx = do
 genDecrementTx :: Int -> Gen (ChainContext, OpenState, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
-  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   cctx <- pickChainContext ctx
-  snapshot <- arbitrary `suchThat` (\Snapshot{utxoToDecommit} -> isJust utxoToDecommit)
+  snapshot <- do
+    number <- getPositive <$> arbitrary
+    (utxo, toDecommit) <- splitUTxO u0
+    pure Snapshot{headId, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit}
   signatures <- arbitrary
   let openUTxO = getKnownUTxO stOpen
   pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures)
+
+splitUTxO :: UTxO -> Gen (UTxO, UTxO)
+splitUTxO utxo = do
+  ix <- choose (0, length utxo)
+  let (p1, p2) = splitAt ix (UTxO.pairs utxo)
+  pure (UTxO.fromPairs p1, UTxO.fromPairs p2)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do

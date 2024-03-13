@@ -98,6 +98,7 @@ healthySnapshotNumber = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
+  -- TODO: use splitUTxO generator
   let (utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
