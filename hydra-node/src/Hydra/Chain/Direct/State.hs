@@ -104,7 +104,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (HydraKey, MultiSignature)
+import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
@@ -1034,7 +1034,7 @@ genDecrementTx numParties = do
     number <- getPositive <$> arbitrary
     (utxo, toDecommit) <- splitUTxO u0
     pure Snapshot{headId, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit}
-  signatures <- arbitrary
+  let signatures = aggregate $ fmap (`sign` snapshot) (ctxHydraSigningKeys ctx)
   let openUTxO = getKnownUTxO stOpen
   pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures)
 

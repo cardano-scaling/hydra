@@ -154,7 +154,7 @@ spec =
           let input = NetworkInput defaultTTL alice reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
-            update aliceEnv ledger st event
+            update aliceEnv ledger st input
               `shouldNotBe` cause (NetworkEffect reqDec)
 
         it "wait for second decommit when another one is in flight" $ do

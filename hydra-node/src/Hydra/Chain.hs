@@ -21,16 +21,14 @@ import Hydra.Cardano.Api (
   Coin (..),
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Environment (Environment (..))
 import Hydra.Crypto (MultiSignature)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
-import Test.Cardano.Ledger.Core.Arbitrary ()
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
-import Test.QuickCheck (scale, suchThat)
+import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
