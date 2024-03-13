@@ -259,7 +259,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue === headOutValue <> foldMap txOutValue decommitOutputs
+      headInValue == headOutValue <> foldMap txOutValue decommitOutputs
 
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.

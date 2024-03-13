@@ -68,6 +68,7 @@ import Hydra.Chain.Direct.State (
   genCommits,
   genCommits',
   genContestTx,
+  genDecrementTx,
   genFanoutTx,
   genHydraContext,
   genInitTx,
@@ -123,6 +124,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   forAllShow,
+  forAllShrink,
   getPositive,
   label,
   sized,
@@ -306,6 +308,10 @@ spec = parallel $ do
   describe "collectCom" $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
     propIsValid forAllCollectCom
+
+  describe "decrement" $ do
+    propBelowSizeLimit maxTxSize forAllDecrement
+    propIsValid forAllDecrement
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
@@ -572,6 +578,15 @@ forAllCollectCom action =
     let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
+
+forAllDecrement ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllDecrement action = do
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, st, tx) ->
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+     in action utxo tx
 
 forAllClose ::
   Testable property =>
