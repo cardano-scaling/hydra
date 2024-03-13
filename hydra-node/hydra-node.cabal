@@ -332,7 +332,6 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
-    , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley

@@ -24,8 +24,6 @@ import Data.OpenApi (
 import Data.Yaml qualified as Yaml
 import Hydra.Explorer (httpApp)
 import Hydra.Logging (nullTracer)
-import Network.HTTP.Types (statusCode)
-import Network.Wai.Test (SResponse (..))
 import System.FilePath ((</>))
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (ResponseMatcher), shouldRespondWith, (<:>))
 import Test.Hspec.Wai qualified as Wai
