@@ -36,7 +36,7 @@ spec =
             Just something -> something == "Witnessed Tx BabbageEra"
 
     it "has expected cardano-cli version available" $
-      readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "8.20.0.0")
+      readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "8.20.3.0")
 
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->

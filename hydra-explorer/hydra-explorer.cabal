@@ -83,7 +83,6 @@ test-suite tests
     , filepath
     , hspec
     , hspec-wai
-    , http-types
     , hydra-chain-observer
     , hydra-explorer
     , hydra-node
@@ -92,7 +91,6 @@ test-suite tests
     , lens
     , openapi3
     , QuickCheck
-    , wai-extra
     , yaml
 
   other-modules:

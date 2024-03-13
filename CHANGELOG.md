@@ -13,7 +13,7 @@ changes.
 
 - **DO NOT RELEASE** as only tested against Sanchonet.
 
-- **BREAKING** Update to and tested against `cardano-node 8.8.0-pre` and `cardano-cli 8.20`. This made smoke tests incompatible with public testnets and mainnet.
+- **BREAKING** Update to and tested against `cardano-node 8.9.0` and `cardano-cli 8.20.3.0`. This made smoke tests incompatible with public testnets and mainnet.
 
 - **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
   - Overall slight increase in script size.
