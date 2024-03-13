@@ -152,6 +152,7 @@ import Test.QuickCheck.DynamicLogic (
   Quantification,
   action,
   anyActions_,
+  elementsQ,
   forAllDL,
   forAllNonVariableQ,
   forAllQ,
@@ -180,7 +181,7 @@ spec = do
   -- See https://github.com/input-output-hk/cardano-ledger/blob/master/doc/explanations/min-utxo-mary.rst
   prop "model should not generate 0 Ada UTxO" $ withMaxSuccess 10000 prop_doesNotGenerate0AdaUTxO
   prop "model generates consistent traces" $ withMaxSuccess 10000 prop_generateTraces
-  prop "implementation respects model" prop_checkModel
+  prop "implementation respects model" prop_HydraModel
   prop "check conflict-free liveness" prop_checkConflictFreeLiveness
   prop "check head opens if all participants commit" prop_checkHeadOpensIfAllPartiesCommit
   prop "fanout contains whole confirmed UTxO" prop_fanoutContainsWholeConfirmedUTxO
@@ -204,8 +205,9 @@ partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
   headOpensIfAllPartiesCommit
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+    st@WorldState{hydraParties, hydraState = Open{}} -> do
+      (_, to) <- forAllNonVariableQ (elementsQ hydraParties)
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
       action_ $ Model.CloseWithInitialSnapshot party
@@ -223,8 +225,9 @@ fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 fanoutContainsWholeConfirmedUTxO = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+    st@WorldState{hydraParties, hydraState = Open{}} -> do
+      (_, to) <- forAllNonVariableQ (elementsQ hydraParties)
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
       action_ $ Model.Close party
@@ -286,8 +289,9 @@ conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+    st@WorldState{hydraParties, hydraState = Open{}} -> do
+      (_, to) <- forAllNonVariableQ $ elementsQ hydraParties
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
     _ -> pure ()

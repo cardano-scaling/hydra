@@ -17,7 +17,7 @@
 -- modelling more complex transactions schemes...
 module Hydra.Model where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup)
 
 import Cardano.Api.UTxO (pairs)
@@ -70,7 +70,7 @@ import Hydra.Node (runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
 import Test.Hydra.Prelude (failure)
-import Test.QuickCheck (choose, elements, frequency, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (choose, elements, frequency, oneof, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -117,7 +117,8 @@ data GlobalState
       , committed :: Committed Payment
       }
   | Closed
-      { closedUTxO :: UTxOType Payment
+      { headParameters :: HeadParameters
+      , closedUTxO :: UTxOType Payment
       }
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
@@ -154,6 +155,7 @@ instance StateModel WorldState where
     -- different return values.
     Init :: Party -> Action WorldState ()
     Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
+    Decommit :: Party -> Payment -> Action WorldState ()
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
     Fanout :: Party -> Action WorldState UTxO
@@ -182,12 +184,8 @@ instance StateModel WorldState where
           [ (5, genCommit pendingCommits)
           , (1, genAbort)
           ]
-      Open{} ->
-        frequency
-          [ (10, genNewTx)
-          , (1, genClose)
-          , (1, genRollbackAndForward)
-          ]
+      Open{offChainState = OffChainState{confirmedUTxO}} ->
+        genOpenActions confirmedUTxO
       Closed{} ->
         frequency
           [ (5, genFanout)
@@ -200,10 +198,41 @@ instance StateModel WorldState where
       (party, commits) <- elements $ Map.toList pending
       pure . Some $ Commit party commits
 
+    -- NOTE: Some actions depend on confirmed 'UTxO' in the head so
+    -- we need to make sure there are funds to spend when generating a
+    -- `NewTx` action for example but also want to make sure that after
+    -- a 'Decommit' we are not left without any funds so further actions
+    -- can be generated.
+    genOpenActions :: UTxOType Payment -> Gen (Any (Action WorldState))
+    genOpenActions confirmedUTxO =
+      oneof
+        ( [ frequency
+            [ (1, genClose)
+            , (1, genRollbackAndForward)
+            ]
+          | null confirmedUTxO
+          ]
+            <> [ frequency $
+                [ (10, genNewTx)
+                , (1, genClose)
+                , (1, genRollbackAndForward)
+                ]
+                  <> ([(2, genDecommit) | length confirmedUTxO > 1])
+               | not (null confirmedUTxO)
+               ]
+        )
+
+    genDecommit :: Gen (Any (Action WorldState))
+    genDecommit = do
+      to <- CardanoSigningKey <$> genSigningKey
+      genPayment to st >>= \(party, tx) -> pure . Some $ Decommit party tx
+
     genAbort =
       Some . Abort . deriveParty . fst <$> elements hydraParties
 
-    genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
+    genNewTx = do
+      (_, to) <- elements hydraParties
+      genPayment to st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
     genClose =
       Some . Close . deriveParty . fst <$> elements hydraParties
@@ -223,20 +252,24 @@ instance StateModel WorldState where
     party `Map.member` pendingCommits
   precondition WorldState{hydraState = Initial{commits, pendingCommits}} (Abort party) =
     party `Set.member` (Map.keysSet pendingCommits <> Map.keysSet commits)
-  precondition WorldState{hydraState = Open{}} (Close _) =
-    True
-  precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
-    (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{headParameters = HeadParameters{parties}}} (Close party) =
+    party `elem` parties
+  precondition WorldState{hydraState = Open{offChainState, headParameters = HeadParameters{parties}}} (NewTx party tx) =
+    party `List.elem` parties
+      && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{}} ObserveConfirmedTx{} =
+  precondition WorldState{hydraState = Open{offChainState, headParameters = HeadParameters{parties}}} (Decommit party tx) =
+    party `elem` parties
+      && (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{}} (ObserveConfirmedTx _) =
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
-  precondition WorldState{hydraState = Closed{}} (Fanout _) =
-    True
-  precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
-    True
+  precondition WorldState{hydraState = Closed{headParameters = HeadParameters{parties}}} (Fanout p) =
+    p `elem` parties
+  precondition WorldState{hydraState = Open{headParameters = HeadParameters{parties}}} (CloseWithInitialSnapshot p) =
+    p `elem` parties
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
       Start{} -> False
@@ -273,6 +306,21 @@ instance StateModel WorldState where
                     }
               , commits = mempty
               , pendingCommits = toCommit
+              }
+          _ -> error "unexpected state"
+      Decommit _party tx ->
+        WorldState{hydraParties, hydraState = updateWithDecommit hydraState}
+       where
+        updateWithDecommit = \case
+          Open{headParameters, committed, offChainState = OffChainState{confirmedUTxO}} ->
+            Open
+              { headParameters
+              , committed
+              , offChainState =
+                  OffChainState
+                    { confirmedUTxO =
+                        List.delete (from tx, value tx) confirmedUTxO
+                    }
               }
           _ -> error "unexpected state"
       --
@@ -316,7 +364,7 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
+          Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       Fanout{} ->
         WorldState{hydraParties, hydraState = updateWithFanout hydraState}
@@ -343,7 +391,7 @@ instance StateModel WorldState where
         WorldState{hydraParties, hydraState = updateWithClose hydraState}
        where
         updateWithClose = \case
-          Open{offChainState = OffChainState{confirmedUTxO}} -> Closed confirmedUTxO
+          Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
       Wait _ -> s
@@ -395,16 +443,12 @@ genInit hydraParties = do
   let party = deriveParty key
   pure $ Init party
 
-genPayment :: WorldState -> Gen (Party, Payment)
-genPayment WorldState{hydraParties, hydraState} =
+genPayment :: CardanoSigningKey -> WorldState -> Gen (Party, Payment)
+genPayment to WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      (from, value) <-
-        elements (filter (not . null . valueToList . snd) confirmedUTxO)
+      (from, value) <- elements $ filter (not . null . valueToList . snd) confirmedUTxO
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      -- NOTE: It's perfectly possible this yields a payment to self and it
-      -- assumes hydraParties is not empty else `elements` will crash
-      (_, to) <- elements hydraParties
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
@@ -519,6 +563,8 @@ instance
         seedWorld seedKeys seedContestationPeriod toCommit
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
+      Decommit party tx ->
+        performDecommit party tx
       NewTx party transaction ->
         performNewTx party transaction
       Init party ->
@@ -531,13 +577,19 @@ instance
         performFanout party
       Wait delay ->
         lift $ threadDelay delay
-      ObserveConfirmedTx var -> do
-        let tx = lookup var
-        nodes <- Map.toList <$> gets nodes
-        forM_ nodes $ \(_, node) -> do
-          lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
-            Left u -> throwIO $ TransactionNotObserved tx u
-            Right _ -> pure ()
+      ObserveConfirmedTx var ->
+        case hydraState of
+          Open{offChainState = OffChainState{confirmedUTxO}} -> do
+            let tx = lookup var
+            when ((to tx, value tx) `List.elem` confirmedUTxO) $ do
+              nodes <- Map.toList <$> gets nodes
+              forM_ nodes $ \(_, node) -> do
+                lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
+                  Left u -> throwIO $ TransactionNotObserved tx u
+                  Right _ -> pure ()
+          _ -> pure ()
+       where
+        WorldState{hydraState} = st
       ObserveHeadIsOpen -> do
         nodes' <- Map.toList <$> gets nodes
         forM_ nodes' $ \(_, node) -> do
@@ -639,6 +691,36 @@ performCommit parties party paymentUTxO = do
 
   makeAddressFromSigningKey :: CardanoSigningKey -> AddressInEra
   makeAddressFromSigningKey = mkVkAddress testNetworkId . getVerificationKey . signingKey
+
+performDecommit ::
+  (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m) =>
+  Party ->
+  Payment ->
+  RunMonad m ()
+performDecommit party tx = do
+  let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+
+  (i, o) <-
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
+      Left u -> error $ "Cannot execute Decommit for " <> show tx <> ", no spendable UTxO in " <> show u
+      Right ok -> pure ok
+
+  let realTx =
+        either
+          (error . show)
+          id
+          (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
+
+  party `sendsInput` Input.Decommit realTx
+
+  lift $ do
+    waitUntilMatch [thisNode] $ \case
+      DecommitFinalized{} -> True
+      err@CommandFailed{} -> error $ show err
+      _ -> False
 
 performNewTx ::
   (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) =>
@@ -820,6 +902,7 @@ showFromAction k = \case
   Seed{} -> k
   Init{} -> k
   Commit{} -> k
+  Decommit{} -> k
   Abort{} -> k
   Close{} -> k
   Fanout{} -> k

@@ -608,6 +608,8 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 -- | Open a a single participant head with some UTxO and decommit parts of it.
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canDecommit tracer workDir node hydraScriptsTxId =
+  -- FIXME: this test only works because we bumped the tx execution budget!!!
+  -- revisit and make the decommit tx smaller
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
     -- Start hydra-node on chain tip
