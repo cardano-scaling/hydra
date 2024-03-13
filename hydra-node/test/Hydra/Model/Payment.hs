@@ -97,10 +97,10 @@ instance IsTx Payment where
     _ -> error "cant spend from multiple utxo in one payment"
   utxoFromTx Payment{to, value} = [(to, value)]
   withoutUTxO a b =
-    let as = bimap id valueToList <$> a
-        bs = bimap id valueToList <$> b
+    let as = second valueToList <$> a
+        bs = second valueToList <$> b
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
-     in bimap id valueFromList <$> result
+     in second valueFromList <$> result
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
