@@ -74,7 +74,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
       waitForPayments networkId nodeSocket lovelace receivingAddress
  where
   findOldPaymentsWithSameLovelace =
-    failAfter 3 $
+    failAfter 1 $
       ( do
           oldPayment <- waitForPayments networkId nodeSocket lovelace receivingAddress
           pure $ Just oldPayment
