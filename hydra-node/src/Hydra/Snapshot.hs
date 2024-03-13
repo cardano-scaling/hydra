@@ -35,6 +35,7 @@ data Snapshot tx = Snapshot
   -- ^ The set of transactions that lead to 'utxo'
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Ûω
+  -- TODO: what is the difference between Noting and (Just mempty) here?
   }
   deriving stock (Generic)
 
@@ -181,6 +182,7 @@ genConfirmedSnapshot headId minSn utxo sks
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
     -- TODO: check whether we are fine with this not producing any decommitting utxo ever
+    -- TODO: use splitUTxO generator
     let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit = mempty}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
