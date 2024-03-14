@@ -3,6 +3,7 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently_)
@@ -34,7 +35,9 @@ spec = do
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
               walletVk <- fst <$> generate genKeyPair
               uTxO1 <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
+              uTxO1 `shouldSatisfy` (\utxo -> length (UTxO.pairs utxo) == 1)
               uTxO2 <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
+              uTxO2 `shouldSatisfy` (\utxo -> length (UTxO.pairs utxo) == 1)
               uTxO1 `shouldNotBe` uTxO2
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet should work together" $ do

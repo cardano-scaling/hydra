@@ -16,7 +16,6 @@ import CardanoClient (
   queryUTxOFor,
   sign,
   submitTransaction,
-  waitForPayments,
  )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
@@ -56,29 +55,10 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  payments <- findPaymentsWithSameLovelace
-  case payments of
-    Just currentPayments -> do
-      signedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-      void $ awaitTransaction networkId nodeSocket signedTx
-      newPayments <-
-        waitForPayments networkId nodeSocket lovelace receivingAddress
-      pure
-        $ UTxO.fromPairs
-          . filter
-            ( \(txIn, _) ->
-                not $ txIn `member` UTxO.inputSet currentPayments
-            )
-        $ UTxO.pairs newPayments
-    Nothing -> do
-      void $ retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-      waitForPayments networkId nodeSocket lovelace receivingAddress
+  seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+  producedUTxO <- awaitTransaction networkId nodeSocket seedTx
+  pure $ UTxO.filter (== toUTxOContext theOutput) producedUTxO
  where
-  findPaymentsWithSameLovelace =
-    failAfter 1 $
-      (Just <$> waitForPayments networkId nodeSocket lovelace receivingAddress)
-        `catch` \(_ :: SomeException) -> pure Nothing
-
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
@@ -86,12 +66,12 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         let signedTx = sign faucetSk body
-        submitTransaction networkId nodeSocket signedTx
+        submitTransaction networkId nodeSocket (sign faucetSk body)
         pure signedTx
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
-  theOutput =
+  theOutput :: TxOut CtxTx =
     TxOut
       (shelleyAddressInEra shelleyBasedEra receivingAddress)
       (lovelaceToValue lovelace)
