@@ -18,7 +18,7 @@ import Test.QuickCheck (elements, generate)
 
 spec :: Spec
 spec = do
-  describe "seedFromFaucet" $ do
+  describe "seedFromFaucet" $
     it "should work concurrently when called multiple times with the same amount of lovelace" $
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $

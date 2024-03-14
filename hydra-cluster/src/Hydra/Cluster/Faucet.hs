@@ -71,7 +71,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
-  theOutput :: TxOut CtxTx =
+  theOutput =
     TxOut
       (shelleyAddressInEra shelleyBasedEra receivingAddress)
       (lovelaceToValue lovelace)
