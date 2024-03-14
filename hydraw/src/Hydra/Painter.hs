@@ -72,7 +72,7 @@ mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
     defaultTxBodyContent
       & addTxIn (txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)
       & addTxOut (toTxContext txOut)
-      & setTxFee (TxFeeExplicit $ Lovelace 0)
+      & setTxFee (TxFeeExplicit $ Coin 0)
       & setTxMetadata metadata
 
   metadata = TxMetadataInEra $ TxMetadata $ fromList [(14, listOfInts)]

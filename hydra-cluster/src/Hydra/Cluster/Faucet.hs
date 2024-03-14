@@ -40,7 +40,7 @@ instance Exception FaucetException
 
 data FaucetLog
   = TraceResourceExhaustedHandled Text
-  | ReturnedFunds {actor :: String, returnAmount :: Lovelace}
+  | ReturnedFunds {actor :: String, returnAmount :: Coin}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -51,7 +51,7 @@ seedFromFaucet ::
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
-  Lovelace ->
+  Coin ->
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
@@ -76,11 +76,11 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
       TxOutDatumNone
       ReferenceScriptNone
 
-findFaucetUTxO :: RunningNode -> Lovelace -> IO UTxO
+findFaucetUTxO :: RunningNode -> Coin -> IO UTxO
 findFaucetUTxO RunningNode{networkId, nodeSocket} lovelace = do
   (faucetVk, _) <- keysFor Faucet
   faucetUTxO <- queryUTxO networkId nodeSocket QueryTip [buildAddress faucetVk networkId]
-  let foundUTxO = UTxO.filter (\o -> txOutLovelace o >= lovelace) faucetUTxO
+  let foundUTxO = UTxO.filter (\o -> (selectLovelace . txOutValue) o >= lovelace) faucetUTxO
   when (null foundUTxO) $
     throwIO $
       FaucetHasNotEnoughFunds{faucetUTxO}
@@ -92,7 +92,7 @@ seedFromFaucet_ ::
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
-  Lovelace ->
+  Coin ->
   Tracer IO FaucetLog ->
   IO ()
 seedFromFaucet_ node vk ll tracer =
@@ -181,8 +181,8 @@ calculateTxFee ::
   SigningKey PaymentKey ->
   UTxO ->
   AddressInEra ->
-  Lovelace ->
-  IO Lovelace
+  Coin ->
+  IO Coin
 calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
   let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
    in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case

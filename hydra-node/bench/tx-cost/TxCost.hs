@@ -9,8 +9,8 @@ import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
+  Coin (..),
   ExecutionUnits (..),
-  Lovelace,
   Tx,
   UTxO,
   genTxIn,
@@ -67,7 +67,7 @@ import PlutusLedgerApi.V2 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.QuickCheck (generate)
 
-computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeInitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
@@ -89,7 +89,7 @@ computeInitCost = do
     let utxo = UTxO.singleton (seedInput, seedOutput)
     pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
-computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeCommitCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit, Coin)]
 computeCommitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
@@ -115,7 +115,7 @@ computeCommitCost = do
         knownUTxO = getKnownUTxO stInitial <> getKnownUTxO cctx
     pure (commit cctx headId knownUTxO utxo, knownUTxO)
 
-computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeCollectComCost :: IO [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeCollectComCost =
   catMaybes <$> mapM compute [1 .. 10]
  where
@@ -138,7 +138,7 @@ computeCollectComCost =
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeCloseCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeCloseCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
@@ -153,7 +153,7 @@ computeCloseCost = do
       Nothing ->
         pure Nothing
 
-computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeContestCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeContestCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
@@ -178,7 +178,7 @@ computeContestCost = do
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
     pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime, contestUtxo)
 
-computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeAbortCost =
   -- NOTE: We can't even close with one party right now, so no point in
   -- determining interesting values
@@ -203,7 +203,7 @@ computeAbortCost =
     let spendableUTxO = getKnownUTxO stInitialized <> getKnownUTxO cctx
     pure (unsafeAbort cctx seedTxIn spendableUTxO (fold committed), spendableUTxO)
 
-computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Lovelace)]
+computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFanOutCost = do
   interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
   limit <-
@@ -253,7 +253,7 @@ newtype MemUnit = MemUnit Natural
 newtype CpuUnit = CpuUnit Natural
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
 
-checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit, Lovelace)
+checkSizeAndEvaluate :: Tx -> UTxO -> Maybe (TxSize, MemUnit, CpuUnit, Coin)
 checkSizeAndEvaluate tx knownUTxO = do
   guard $ txSize < maxTxSize
   case evaluateTx tx knownUTxO of

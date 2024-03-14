@@ -27,7 +27,7 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Platform.Unix.Input (buildInput)
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
-import Hydra.Cardano.Api (Key (getVerificationKey), Lovelace)
+import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -146,7 +146,7 @@ spec = do
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
-setupNodeAndTUI' :: Lovelace -> (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI' :: Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' lovelace action =
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do

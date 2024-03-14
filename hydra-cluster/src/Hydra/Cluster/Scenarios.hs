@@ -33,8 +33,8 @@ import Hydra.API.HTTPServer (
   TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
+  Coin (..),
   File (File),
-  Lovelace (..),
   PlutusScriptV2,
   Tx,
   TxId,
@@ -108,7 +108,7 @@ data EndToEndLog
   | FromHydraNode HydraNodeLog
   | FromMithril MithrilLog
   | StartingFunds {actor :: String, utxo :: UTxO}
-  | RefueledFunds {actor :: String, refuelingAmount :: Lovelace, utxo :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
   | RemainingFunds {actor :: String, utxo :: UTxO}
   | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
   | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
@@ -518,7 +518,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
           carolsOutput =
             TxOut
               carolsAddress
-              (lovelaceToValue $ Lovelace 2_000_000)
+              (lovelaceToValue $ Coin 2_000_000)
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
@@ -630,7 +630,7 @@ refuelIfNeeded ::
   Tracer IO EndToEndLog ->
   RunningNode ->
   Actor ->
-  Lovelace ->
+  Coin ->
   IO ()
 refuelIfNeeded tracer node actor amount = do
   (actorVk, _) <- keysFor actor

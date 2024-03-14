@@ -46,6 +46,7 @@ common project-config
     OverloadedStrings
     PartialTypeSignatures
     PatternGuards
+    PatternSynonyms
     RankNTypes
     ScopedTypeVariables
     StandaloneDeriving

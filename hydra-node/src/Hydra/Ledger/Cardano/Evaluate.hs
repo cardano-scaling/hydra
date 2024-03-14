@@ -45,7 +45,6 @@ import Hydra.Cardano.Api (
   LedgerEpochInfo (..),
   LedgerEra,
   LedgerProtocolParameters (..),
-  Lovelace,
   ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
@@ -55,7 +54,6 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   evaluateTransactionExecutionUnits,
-  fromLedgerCoin,
   getTxBody,
   toLedgerExUnits,
   toLedgerTx,
@@ -188,11 +186,10 @@ usedExecutionUnits report =
 estimateMinFee ::
   Tx ->
   EvaluationReport ->
-  Lovelace
+  Coin
 estimateMinFee tx evaluationReport =
-  fromLedgerCoin $
-    (txSize <×> a <+> b)
-      <+> txscriptfee prices allExunits
+  (txSize <×> a <+> b)
+    <+> txscriptfee prices allExunits
  where
   txSize = BS.length $ serialiseToCBOR tx
   a = pparams ^. ppMinFeeAL

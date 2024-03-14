@@ -2,7 +2,7 @@ import Hydra.Prelude hiding (catch)
 
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
-import Hydra.Cardano.Api (Lovelace (Lovelace), serialiseToRawBytesHexText)
+import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Hydra.Plutus.Orphans ()
@@ -158,7 +158,7 @@ costOfInit = markdownInitCost <$> computeInitCost
       , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numParties
                 <> "| "
@@ -185,7 +185,7 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
       , "| :--- | ------: | --------: | --------: | --------: |"
       ]
         <> map
-          ( \(ulen, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(ulen, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show ulen
                 <> "| "
@@ -211,7 +211,7 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
       , "| :------ | :----------- |------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numParties
                 <> " | "
@@ -239,7 +239,7 @@ costOfClose = markdownClose <$> computeCloseCost
       , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numParties
                 <> "| "
@@ -265,7 +265,7 @@ costOfContest = markdownContest <$> computeContestCost
       , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numParties
                 <> "| "
@@ -292,7 +292,7 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
       , "| :------ | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numParties, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numParties
                 <> "| "
@@ -319,7 +319,7 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
       , "| :------ | :---- | :----------- | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(parties, numElems, utxoSize, txSize, mem, cpu, Lovelace minFee) ->
+          ( \(parties, numElems, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show parties
                 <> " | "

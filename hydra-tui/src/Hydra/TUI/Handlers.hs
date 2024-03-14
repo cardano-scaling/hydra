@@ -176,7 +176,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
           let utxoSelected@(_, TxOut{txOutValue = v}) = formState i
-          let Lovelace limit = selectLovelace v
+          let Coin limit = selectLovelace v
           let enteringAmountForm =
                 let field = editShowableFieldWithValidate id "amount" (\n -> n > 0 && n <= limit)
                  in newForm [field] limit
@@ -206,7 +206,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
           let recipient = formState i
-          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Lovelace amountEntered) (sk hydraClient) of
+          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin amountEntered) (sk hydraClient) of
             Left _ -> pure ()
             Right tx -> do
               liftIO (sendInput hydraClient (NewTx tx))
