@@ -3,42 +3,32 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
-import Control.Concurrent.Async (replicateConcurrently_)
+import Control.Concurrent.Async (replicateConcurrently)
 import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
-import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger.Cardano (genKeyPair, genVerificationKey)
+import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Logging (showLogsOnFailure)
 import Test.QuickCheck (elements, generate)
 
 spec :: Spec
 spec = do
   describe "seedFromFaucet" $ do
-    it "should work concurrently" $
-      showLogsOnFailure "FaucetSpec" $ \tracer ->
-        failAfter 30 $
-          withTempDir "hydra-cluster" $ \tmpDir ->
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-              replicateConcurrently_ 10 $ do
-                vk <- generate genVerificationKey
-                seedFromFaucet_ node vk 1_000_000 (contramap FromFaucet tracer)
-    it "should work when called multiple times with the same amount of lovelace" $
+    it "should work concurrently when called multiple times with the same amount of lovelace" $
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
           withTempDir "hydra-cluster" $ \tmpDir ->
             withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
-              walletVk <- fst <$> generate genKeyPair
-              uTxO1 <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
-              uTxO1 `shouldSatisfy` (\utxo -> length (UTxO.pairs utxo) == 1)
-              uTxO2 <- seedFromFaucet node walletVk 2_000_000 (contramap FromFaucet tracer)
-              uTxO2 `shouldSatisfy` (\utxo -> length (UTxO.pairs utxo) == 1)
-              uTxO1 `shouldNotBe` uTxO2
+              utxos <- replicateConcurrently 10 $ do
+                vk <- generate genVerificationKey
+                seedFromFaucet node vk 1_000_000 (contramap FromFaucet tracer)
+              -- 10 unique outputs
+              length (fold utxos) `shouldBe` 10
   describe "returnFundsToFaucet" $
     it "seedFromFaucet and returnFundsToFaucet should work together" $ do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
