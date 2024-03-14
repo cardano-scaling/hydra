@@ -79,6 +79,12 @@ submitTx :: RunningNode -> Tx -> IO ()
 submitTx RunningNode{networkId, nodeSocket} =
   submitTransaction networkId nodeSocket
 
+-- | Wait until the specified Address has received payments, visible on-chain,
+-- for the specified Lovelace amount. Returns the UTxO set containing all payments
+-- with the same Lovelace amount at the given Address.
+--
+-- Note that this function loops indefinitely; therefore, it's recommended to use
+-- it with a surrounding timeout mechanism.
 waitForPayments ::
   NetworkId ->
   SocketPath ->
