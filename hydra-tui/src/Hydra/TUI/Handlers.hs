@@ -128,7 +128,13 @@ handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
           liftIO $ externalCommit hydraClient commitUTxO
           id .= InitializingHome
         _ -> pure ()
-      zoom commitMenuL $ handleFormEvent (VtyEvent e)
+      zoom commitMenuL $ handleFormEvent (VtyEvent . toCheckboxNavigationHotkeys $ e)
+     where
+      toCheckboxNavigationHotkeys :: Event -> Event
+      toCheckboxNavigationHotkeys = \case
+        EvKey KDown [] -> EvKey (KChar '\t') []
+        EvKey KUp [] -> EvKey KBackTab []
+        event -> event
     ConfirmingAbort i -> do
       case e of
         EvKey KEsc [] -> id .= InitializingHome
