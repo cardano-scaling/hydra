@@ -79,23 +79,29 @@ submitTx :: RunningNode -> Tx -> IO ()
 submitTx RunningNode{networkId, nodeSocket} =
   submitTransaction networkId nodeSocket
 
-waitForPayment ::
+-- | Wait until the specified Address has received payments, visible on-chain,
+-- for the specified Lovelace amount. Returns the UTxO set containing all payments
+-- with the same Lovelace amount at the given Address.
+--
+-- Note that this function loops indefinitely; therefore, it's recommended to use
+-- it with a surrounding timeout mechanism.
+waitForPayments ::
   NetworkId ->
   SocketPath ->
   Coin ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayment networkId socket amount addr =
+waitForPayments networkId socket amount addr =
   go
  where
   go = do
     utxo <- queryUTxO networkId socket QueryTip [addr]
-    let expectedPayment = selectPayment utxo
-    if expectedPayment /= mempty
-      then pure $ UTxO expectedPayment
+    let expectedPayments = selectPayments utxo
+    if expectedPayments /= mempty
+      then pure $ UTxO expectedPayments
       else threadDelay 1 >> go
 
-  selectPayment (UTxO utxo) =
+  selectPayments (UTxO utxo) =
     Map.filter ((== amount) . selectLovelace . txOutValue) utxo
 
 waitForUTxO ::
@@ -110,7 +116,7 @@ waitForUTxO networkId nodeSocket utxo =
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
-        waitForPayment
+        waitForPayments
           networkId
           nodeSocket
           (selectLovelace value)

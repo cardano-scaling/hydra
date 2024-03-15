@@ -5,10 +5,10 @@ import Test.Hydra.Prelude
 
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
-import Control.Concurrent.Async (replicateConcurrently_)
+import Control.Concurrent.Async (replicateConcurrently)
 import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
-import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
@@ -19,17 +19,18 @@ import Test.QuickCheck (elements, generate)
 spec :: Spec
 spec = do
   describe "seedFromFaucet" $
-    it "should work concurrently" $
+    it "should work concurrently when called multiple times with the same amount of lovelace" $
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         failAfter 30 $
           withTempDir "hydra-cluster" $ \tmpDir ->
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-              replicateConcurrently_ 10 $ do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+              utxos <- replicateConcurrently 10 $ do
                 vk <- generate genVerificationKey
-                seedFromFaucet_ node vk 1_000_000 (contramap FromFaucet tracer)
-
+                seedFromFaucet node vk 1_000_000 (contramap FromFaucet tracer)
+              -- 10 unique outputs
+              length (fold utxos) `shouldBe` 10
   describe "returnFundsToFaucet" $
-    it "seedFromFaucet and returnFundsToFaucet work together" $ do
+    it "seedFromFaucet and returnFundsToFaucet should work together" $ do
       showLogsOnFailure "FaucetSpec" $ \tracer ->
         withTempDir "hydra-cluster" $ \tmpDir ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do

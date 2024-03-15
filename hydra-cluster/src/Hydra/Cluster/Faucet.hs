@@ -16,7 +16,6 @@ import CardanoClient (
   queryUTxOFor,
   sign,
   submitTransaction,
-  waitForPayment,
  )
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
@@ -56,8 +55,9 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey lovelace tracer = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
-  waitForPayment networkId nodeSocket lovelace receivingAddress
+  seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
+  producedUTxO <- awaitTransaction networkId nodeSocket seedTx
+  pure $ UTxO.filter (== toUTxOContext theOutput) producedUTxO
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace
@@ -65,7 +65,9 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
+        let signedTx = sign faucetSk body
         submitTransaction networkId nodeSocket (sign faucetSk body)
+        pure signedTx
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
@@ -190,7 +192,7 @@ calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
         Right body -> pure $ txFee' (sign secretKey body)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m () -> m ()
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
 retryOnExceptions tracer action =
   action
     `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
