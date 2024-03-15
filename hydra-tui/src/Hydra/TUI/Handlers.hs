@@ -43,7 +43,6 @@ handleEvent ::
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name RootState ()
 handleEvent cardanoClient client e = do
-  handleVtyEventVia (handleExtraHotkeys (handleEvent cardanoClient client)) () e
   zoom logStateL $ handleVtyEventVia handleVtyEventsLogState () e
   handleAppEventVia handleTick () e
   zoom connectedStateL $ do
@@ -54,12 +53,6 @@ handleEvent cardanoClient client e = do
   -- XXX: Global events must be handled as the very last step.
   -- Any `EventM` that decides to `Continue` would override the `Halt` decision.
   handleGlobalEvents e
-
-handleExtraHotkeys :: (BrickEvent w e -> EventM n s ()) -> Vty.Event -> EventM n s ()
-handleExtraHotkeys f = \case
-  EvKey KDown [] -> f $ VtyEvent $ EvKey (KChar '\t') []
-  EvKey KUp [] -> f $ VtyEvent $ EvKey KBackTab []
-  _ -> pure ()
 
 handleTick :: HydraEvent Tx -> EventM Name RootState ()
 handleTick = \case
