@@ -229,7 +229,13 @@ aggregateCloseObservation :: HeadId -> ChainPoint -> BlockNo -> SnapshotNumber -
 aggregateCloseObservation headId point blockNo (UnsafeSnapshotNumber sn) contestationDeadline currentHeads =
   case findHeadState headId currentHeads of
     Just headState ->
-      let newHeadState = headState{status = Closed, contestations = Seen 0, snapshotNumber = Seen sn}
+      let newHeadState =
+            headState
+              { status = Closed
+              , contestations = Seen 0
+              , snapshotNumber = Seen sn
+              , contestationDeadline = Seen contestationDeadline
+              }
        in replaceHeadState newHeadState currentHeads
     Nothing -> currentHeads <> [newUnknownHeadState]
  where
