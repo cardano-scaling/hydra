@@ -5,7 +5,6 @@ module Hydra.ChainObserver where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (
-  Block (..),
   BlockHeader (BlockHeader),
   BlockInMode (..),
   BlockNo,
@@ -28,6 +27,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  pattern Block,
  )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
@@ -165,7 +165,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
       }
 
   clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint ChainTip m ()
-  clientStIdle utxo = SendMsgRequestNext (clientStNext utxo) (pure $ clientStNext utxo)
+  clientStIdle utxo = SendMsgRequestNext (pure ()) (clientStNext utxo)
 
   clientStNext :: UTxO -> ClientStNext BlockType ChainPoint ChainTip m ()
   clientStNext utxo =

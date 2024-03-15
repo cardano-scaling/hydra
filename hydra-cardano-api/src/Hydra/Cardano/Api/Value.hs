@@ -21,7 +21,7 @@ minUTxOValue ::
   TxOut CtxTx Era ->
   Value
 minUTxOValue pparams (TxOut addr val dat ref) =
-  fromLedgerLovelace $
+  lovelaceToValue $
     getMinCoinTxOut
       pparams
       (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
@@ -43,10 +43,7 @@ minUTxOValue pparams (TxOut addr val dat ref) =
   -- already large enough lovelace to acknowledge for the increase in size to
   -- come.
   defaultHighEnoughValue =
-    lovelaceToValue $ Lovelace $ toInteger $ maxBound @Word64
-
-  fromLedgerLovelace =
-    lovelaceToValue . fromShelleyLovelace
+    lovelaceToValue $ Coin $ toInteger $ maxBound @Word64
 
 -- | Count number of assets in a 'Value'.
 valueSize :: Value -> Int

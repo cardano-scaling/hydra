@@ -115,14 +115,14 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
-    amount <- Lovelace <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
+    amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
     pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
         mkGenesisTx
           networkId
           pparams
           faucetSk
-          (Lovelace availableInitialFunds)
+          (Coin availableInitialFunds)
           clientFunds
   clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}

@@ -23,7 +23,6 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
-  Block (..),
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint,
@@ -46,6 +45,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   toLedgerUTxO,
+  pattern Block,
  )
 import Hydra.Chain (
   ChainComponent,
@@ -303,7 +303,7 @@ chainSyncClient handler wallet startingPoint =
       }
 
   clientStIdle :: ClientStIdle BlockType ChainPoint ChainTip m ()
-  clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
+  clientStIdle = SendMsgRequestNext (pure ()) clientStNext
 
   clientStNext :: ClientStNext BlockType ChainPoint ChainTip m ()
   clientStNext =

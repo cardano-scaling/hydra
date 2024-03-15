@@ -18,8 +18,8 @@ import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
+  Coin (..),
   CtxUTxO,
-  Lovelace (..),
   Tx,
   TxOut,
   UTxO',
@@ -32,13 +32,13 @@ import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
-import Test.QuickCheck (scale, suchThat)
+import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Lovelace
-maxMainnetLovelace = 100_000_000
+maxMainnetLovelace :: Coin
+maxMainnetLovelace = Coin 100_000_000
 
 -- | Hardcoded limit for maximum number of parties in a head protocol
 -- The value is obtained from calculating the costs of running the scripts
@@ -152,7 +152,7 @@ data PostTxError tx
     PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
     -- we keep track of both the hardcoded limit and what the user originally tried to commit
-    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Lovelace, mainnetLimitLovelace :: Lovelace}
+    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
   | -- | Committing UTxO addressed to the internal wallet is forbidden.
@@ -170,9 +170,6 @@ deriving anyclass instance IsChainState tx => ToJSON (PostTxError tx)
 deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
-
-instance Arbitrary Lovelace where
-  arbitrary = Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary

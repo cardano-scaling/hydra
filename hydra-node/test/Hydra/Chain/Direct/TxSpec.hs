@@ -126,10 +126,10 @@ spec =
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
                                 Right ledgerTx ->
-                                  let actualExecutionCost = fromLedgerCoin $ getMinFeeTx pparams ledgerTx
+                                  let actualExecutionCost = getMinFeeTx pparams ledgerTx
                                       fee = txFee' apiTx
                                       apiTx = fromLedgerTx ledgerTx
-                                   in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
+                                   in actualExecutionCost > Coin 0 && fee > actualExecutionCost
                                         & label "Ok"
                                         & counterexample ("Execution cost: " <> show actualExecutionCost)
                                         & counterexample ("Fee: " <> show fee)
@@ -192,7 +192,7 @@ generateCommitUTxOs parties = do
    where
     commitValue =
       mconcat
-        [ lovelaceToValue (Lovelace 2000000)
+        [ lovelaceToValue (Coin 2000000)
         , foldMap txOutValue utxo
         , valueFromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)

@@ -13,6 +13,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
@@ -62,7 +63,7 @@ utxoProducedByTx tx =
   TxBody body = getTxBody tx
 
 -- | Get explicit fees allocated to a transaction.
-txFee' :: Tx era -> Lovelace
+txFee' :: Tx era -> Coin
 txFee' (getTxBody -> TxBody body) =
   case txFee body of
     TxFeeExplicit _ y -> y

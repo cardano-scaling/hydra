@@ -34,7 +34,7 @@ buildScriptAddress script networkId =
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
+buildRaw :: [TxIn] -> [TxOut CtxTx] -> Coin -> Either TxBodyError TxBody
 buildRaw ins outs fee =
   createAndValidateTransactionBody $
     defaultTxBodyContent
@@ -42,7 +42,7 @@ buildRaw ins outs fee =
       & setTxOuts outs
       & setTxFee (TxFeeExplicit fee)
 
-calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Lovelace
+calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Coin
 calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
   let tx = makeSignedTransaction [] body
       noByronWitnesses = 0
@@ -88,7 +88,7 @@ submitTx RunningNode{networkId, nodeSocket} =
 waitForPayments ::
   NetworkId ->
   SocketPath ->
-  Lovelace ->
+  Coin ->
   Address ShelleyAddr ->
   IO UTxO
 waitForPayments networkId socket amount addr =
@@ -130,9 +130,9 @@ mkGenesisTx ::
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Amount of initialFunds
-  Lovelace ->
+  Coin ->
   -- | Recipients and amounts to pay in this transaction.
-  [(VerificationKey PaymentKey, Lovelace)] ->
+  [(VerificationKey PaymentKey, Coin)] ->
   Tx
 mkGenesisTx networkId pparams signingKey initialAmount recipients =
   case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) fee of

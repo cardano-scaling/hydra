@@ -192,7 +192,7 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
         | valueOut /= valueIn
         ]
 
-  fee = Lovelace 0
+  fee = Coin 0
 
 -- | Create a zero-fee, payment cardano transaction with validity range.
 mkRangedTx ::
@@ -220,7 +220,7 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
                 refScript
               | valueOut /= valueIn
               ]
-      , txFee = TxFeeExplicit $ Lovelace 0
+      , txFee = TxFeeExplicit $ Coin 0
       , txValidityLowerBound = fromMaybe TxValidityNoLowerBound validityLowerBound
       , txValidityUpperBound = fromMaybe TxValidityNoUpperBound validityUpperBound
       }
@@ -310,7 +310,7 @@ genOutput vk = do
 -- | Generate an ada-only 'TxOut' payed to an arbitrary public key.
 genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
 genTxOutAdaOnly vk = do
-  value <- lovelaceToValue . Lovelace <$> scale (* 8) arbitrary `suchThat` (> 0)
+  value <- lovelaceToValue . Coin <$> scale (* 8) arbitrary `suchThat` (> 0)
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone ReferenceScriptNone
 
 -- | Generate a fixed size UTxO with ada-only outputs.
@@ -360,7 +360,7 @@ genTxOut =
     `suchThat` notByronAddress
  where
   gen =
-    modifyTxOutValue (<> (lovelaceToValue $ Lovelace 10_000_000))
+    modifyTxOutValue (<> (lovelaceToValue $ Coin 10_000_000))
       <$> oneof
         [ fromLedgerTxOut <$> arbitrary
         , notMultiAsset . fromLedgerTxOut <$> arbitrary
@@ -427,7 +427,7 @@ genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
-genValue = fmap ((lovelaceToValue $ Lovelace 10_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
+genValue = fmap ((lovelaceToValue $ Coin 10_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

@@ -110,6 +110,7 @@ import Cardano.Api.UTxO (
   UTxO,
   UTxO' (..),
  )
+import Cardano.Ledger.Coin as X (Coin (..))
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
@@ -128,7 +129,6 @@ import Hydra.Cardano.Api.CtxUTxO as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.KeyWitness as Extras
-import Hydra.Cardano.Api.Lovelace as Extras
 import Hydra.Cardano.Api.NetworkId ()
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
@@ -202,7 +202,7 @@ pattern ShelleyAddressInAnyEra <-
 type BalancedTxBody = Cardano.Api.BalancedTxBody Era
 {-# COMPLETE BalancedTxBody #-}
 
-pattern BalancedTxBody :: TxBodyContent BuildTx -> TxBody -> TxOut CtxTx -> Lovelace -> BalancedTxBody
+pattern BalancedTxBody :: TxBodyContent BuildTx -> TxBody -> TxOut CtxTx -> Coin -> BalancedTxBody
 pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
   Cardano.Api.BalancedTxBody balancedTxBodyContent balancedTxBody balancedTxChangeOutput balancedTxFee
   where
@@ -493,7 +493,7 @@ pattern TxExtraKeyWitnesses{txExtraKeyWitnesses} <-
 type TxFee = Cardano.Api.TxFee Era
 {-# COMPLETE TxFeeExplicit #-}
 
-pattern TxFeeExplicit :: Lovelace -> TxFee
+pattern TxFeeExplicit :: Coin -> TxFee
 pattern TxFeeExplicit{txFeeExplicit} <-
   Cardano.Api.TxFeeExplicit _ txFeeExplicit
   where
