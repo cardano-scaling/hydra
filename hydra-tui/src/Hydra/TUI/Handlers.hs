@@ -11,7 +11,7 @@ import Brick
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 
-import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm, radioField)
+import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
@@ -34,6 +34,7 @@ import Hydra.TUI.Handlers.Global (handleVtyGlobalEvents)
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
+import Hydra.TUI.Style (own)
 import Lens.Micro.Mtl (use, (%=), (.=))
 import Prelude qualified
 
@@ -181,16 +182,19 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
         EvKey KEsc [] -> id .= OpenHome
         EvKey KEnter [] -> do
           let amountEntered = formState i
-          let ownAddress = mkVkAddress (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
+          let ownAddress = mkVkAddress @Era (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
           let field =
-                radioField
-                  id
+                customRadioField '[' 'X' ']' id $
                   [ (u, show u, decodeUtf8 $ encodePretty u)
-                  | u <- filter (/= ownAddress) (nub addresses)
+                  | u <- nub addresses
                   ]
               addresses = getRecipientAddress <$> Map.elems (UTxO.toMap utxo)
               getRecipientAddress TxOut{txOutAddress = addr} = addr
-          let selectingRecipientForm = newForm [field] (Prelude.head addresses)
+              decorator a _ _ =
+                if a == ownAddress
+                  then withAttr own
+                  else id
+          let selectingRecipientForm = newForm [field decorator] (Prelude.head addresses)
           id .= SelectingRecipient{utxoSelected, amountEntered, selectingRecipientForm}
         _ -> pure ()
       zoom enteringAmountFormL $ handleFormEvent (VtyEvent e)
