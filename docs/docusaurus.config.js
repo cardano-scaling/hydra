@@ -46,6 +46,8 @@ const config = {
         docs: {
           editUrl,
           editLocalizedFiles: true,
+          sidebarPath: require.resolve("./sidebar.js"),
+          sidebarCollapsible: false,
         },
         blog: {
           path: "adr",
