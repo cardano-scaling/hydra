@@ -171,6 +171,16 @@ const config = {
             position: "left",
           },
           {
+            to: "/topologies",
+            label: "Topologies",
+            position: "right",
+          },
+          {
+            to: "/use-cases",
+            label: "Use Cases",
+            position: "right",
+          },
+          {
             href: "https://github.com/input-output-hk/hydra",
             label: "GitHub",
             position: "right",
