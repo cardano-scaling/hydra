@@ -46,7 +46,7 @@ const config = {
         docs: {
           editUrl,
           editLocalizedFiles: true,
-          sidebarPath: require.resolve("./sidebar.js"),
+          sidebarPath: require.resolve("./sidebars.js"),
           sidebarCollapsible: false,
         },
         blog: {
@@ -163,6 +163,11 @@ const config = {
           {
             to: "/docs/getting-started",
             label: "User Manual",
+            position: "left",
+          },
+          {
+            to: "/docs/dev/overview",
+            label: "Developer Documentation",
             position: "left",
           },
           {
