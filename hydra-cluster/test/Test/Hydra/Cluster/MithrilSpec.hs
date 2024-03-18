@@ -6,11 +6,11 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO)
 import Control.Lens ((^?!))
 import Data.Aeson.Lens (key, _Number)
-import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
 import System.FilePath ((</>))
+import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 spec :: Spec
 spec = parallel $ do
@@ -44,9 +44,3 @@ captureTracer namespace = do
   traces <- newTVarIO []
   let tracer = traceInTVar traces namespace
   pure (tracer, readTVarIO traces)
-
--- | Creates test cases for each 'KnownNetwork'.
-forEachKnownNetwork :: String -> (KnownNetwork -> IO ()) -> Spec
-forEachKnownNetwork msg action =
-  forM_ (enumFromTo minBound maxBound) $ \network ->
-    it (msg <> " (" <> show network <> ")") $ action network
