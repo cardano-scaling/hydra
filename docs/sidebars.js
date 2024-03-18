@@ -6,6 +6,12 @@ module.exports = {
       id: "getting-started/index",
     },
     {
+      type: "link",
+      href: "/",
+      label: "Protocol overview",
+    },
+    "known-issues",
+    {
       type: "html",
       value: "<small><b>Tutorials</b></small>",
       defaultStyle: true,
@@ -14,7 +20,7 @@ module.exports = {
     {
       type: "link",
       href: "/",
-      label: "Quick Start",
+      label: "Getting started",
     },
     {
       type: "doc",
@@ -23,26 +29,13 @@ module.exports = {
     },
     {
       type: "html",
-      value: "<small><b>Core Concepts</b></small>",
-      defaultStyle: true,
-      className: "sidebar-header",
-    },
-    {
-      type: "link",
-      href: "/",
-      label: "Protocol overview",
-    },
-    "known-issues",
-    "faq",
-    {
-      type: "html",
       value: "<small><b>Documentation</b></small>",
       defaultStyle: true,
       className: "sidebar-header",
     },
     {
-      type: "link",
-      href: "/",
+      type: "doc",
+      id: "getting-started/quickstart",
       label: "Configuration",
     },
     {
@@ -63,12 +56,12 @@ module.exports = {
     {
       type: "category",
       label: "How to ...",
-      collapsed: true,
-      collapsible: true,
+      // collapsed: true,
+      // collapsible: true,
       items: [
         {
-          type: "link",
-          href: "/",
+          type: "doc",
+          id: "run-on-mainnet",
           label: "Run Hydra on mainnet",
         },
         {
