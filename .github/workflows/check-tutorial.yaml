@@ -31,7 +31,7 @@ jobs:
         import re
         with open("docs/docs/tutorial/index.md", "r") as tutorial:
             body = tutorial.read()
-            usedCardanoNodeVersions = re.findall(r"cardano-node-.*-([0-9]+\.[0-9]+\.[0-9]+).zip", body)
+            usedCardanoNodeVersions = re.findall(r"cardano-node-([0-9]+\.[0-9]+\.[0-9]+)-.*\.tar\.gz", body)
 
         with open("hydra-cluster/test/Test/CardanoNodeSpec.hs", "r") as cardanoNodeSpecFile:
             body = cardanoNodeSpecFile.read()
