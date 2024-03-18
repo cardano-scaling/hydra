@@ -9,6 +9,7 @@ module.exports = {
       type: "html",
       value: "<small><b>Tutorials</b></small>",
       defaultStyle: true,
+      className: "sidebar-header",
     },
     {
       type: "link",
@@ -24,6 +25,7 @@ module.exports = {
       type: "html",
       value: "<small><b>Core Concepts</b></small>",
       defaultStyle: true,
+      className: "sidebar-header",
     },
     {
       type: "link",
@@ -36,6 +38,7 @@ module.exports = {
       type: "html",
       value: "<small><b>Documentation</b></small>",
       defaultStyle: true,
+      className: "sidebar-header",
     },
     {
       type: "link",
@@ -84,6 +87,7 @@ module.exports = {
       type: "html",
       value: "<small><b>Reference</b></small>",
       defaultStyle: true,
+      className: "sidebar-header",
     },
     {
       type: "link",
