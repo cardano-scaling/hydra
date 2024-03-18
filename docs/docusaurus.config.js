@@ -164,31 +164,6 @@ const config = {
             position: "left",
           },
           {
-            to: "/api-reference",
-            label: "API Reference",
-            position: "left",
-          },
-          {
-            to: "/core-concepts",
-            label: "Core Concepts",
-            position: "left",
-          },
-          {
-            to: "/benchmarks",
-            label: "Benchmarks",
-            position: "left",
-          },
-          {
-            to: "/topologies",
-            label: "Topologies",
-            position: "left",
-          },
-          {
-            to: "/use-cases",
-            label: "Use Cases",
-            position: "left",
-          },
-          {
             href: "https://github.com/input-output-hk/hydra",
             label: "GitHub",
             position: "right",
