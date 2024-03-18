@@ -8,41 +8,11 @@ import Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain (ChainStateType, HeadParameters)
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Crypto (HydraKey, Signature, SigningKey)
+import Hydra.Crypto (Signature)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
-
-data Environment = Environment
-  { party :: Party
-  -- ^ This is the p_i from the paper
-  , -- NOTE(MB): In the long run we would not want to keep the signing key in
-    -- memory, i.e. have an 'Effect' for signing or so.
-    signingKey :: SigningKey HydraKey
-  , otherParties :: [Party]
-  , -- XXX: Improve naming
-    participants :: [OnChainId]
-  , contestationPeriod :: ContestationPeriod
-  }
-  deriving stock (Show)
-
-instance Arbitrary Environment where
-  arbitrary = do
-    signingKey <- arbitrary
-    otherParties <- arbitrary
-    participants <- arbitrary
-    contestationPeriod <- arbitrary
-    pure $
-      Environment
-        { signingKey
-        , party = deriveParty signingKey
-        , otherParties
-        , contestationPeriod
-        , participants
-        }
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

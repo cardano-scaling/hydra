@@ -54,18 +54,15 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Crypto (HydraKey)
+import Hydra.Environment (Environment (Environment, participants, party))
 import Hydra.HeadLogic (
-  Environment (Environment, party),
-  Input (..),
-  defaultTTL,
- )
-import Hydra.HeadLogic.State (
   ClosedState (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
+  Input (..),
   OpenState (..),
-  participants,
+  defaultTTL,
  )
 import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)

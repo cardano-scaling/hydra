@@ -6,8 +6,9 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ServerOutput)
-import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx)
+import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
 import Hydra.Crypto (MultiSignature, Signature)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -15,6 +16,7 @@ import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Test.QuickCheck (oneof)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -77,19 +79,42 @@ data StateChanged tx
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
 
-instance (IsTx tx, Arbitrary (HeadState tx), Arbitrary (ChainStateType tx)) => Arbitrary (StateChanged tx) where
-  arbitrary = genericArbitrary
-
 deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
+instance IsChainState tx => Arbitrary (StateChanged tx) where
+  arbitrary = arbitrary >>= genStateChanged
+
+genStateChanged :: IsChainState tx => Environment -> Gen (StateChanged tx)
+genStateChanged env =
+  oneof
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO party <$> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary
+    , pure HeadIsReadyToFanout
+    , HeadFannedOut <$> arbitrary
+    , ChainRolledBack <$> arbitrary
+    , TickObserved <$> arbitrary
+    ]
+ where
+  Environment{party} = env
+
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
-    Continue {events :: [StateChanged tx], effects :: [Effect tx]}
+    Continue {stateChanges :: [StateChanged tx], effects :: [Effect tx]}
   | -- | Wait for some condition to be met with optional state updates.
-    Wait {reason :: WaitReason tx, events :: [StateChanged tx]}
+    Wait {reason :: WaitReason tx, stateChanges :: [StateChanged tx]}
   | -- | Processing resulted in an error.
     Error {error :: LogicError tx}
   deriving stock (Generic)
@@ -97,9 +122,9 @@ data Outcome tx
 instance Semigroup (Outcome tx) where
   e@Error{} <> _ = e
   _ <> e@Error{} = e
-  Continue evA _ <> Wait r evB = Wait r (evA <> evB)
-  Wait r evA <> _ = Wait r evA
-  Continue evA efA <> Continue evB efB = Continue (evA <> evB) (efA <> efB)
+  Continue scA _ <> Wait r scB = Wait r (scA <> scB)
+  Wait r scA <> _ = Wait r scA
+  Continue scA efA <> Continue scB efB = Continue (scA <> scB) (efA <> efB)
 
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)

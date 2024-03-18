@@ -3,11 +3,11 @@ slug: 29
 title: |
   29. EventSource & EventSink abstractions
 authors: [cardenaso11, quantumplation, ch1bo]
-tags: [Draft]
+tags: [Accepted]
 ---
 
 ## Status
-Draft
+Accepted
 
 ## Context
 
@@ -42,12 +42,12 @@ Draft
 ```hs
 data HydraNode tx m = HydraNode
   { -- ...
-  , eventSource :: EventSource (StateChanged tx) m
-  , eventSinks :: [EventSink (StateChanged tx) m]
+  , eventSource :: EventSource (StateEvent tx) m
+  , eventSinks :: [EventSink (StateEvent tx) m]
   }
 ```
 
-* The `hydra-node` will load events and __hydra_te its `HeadState` using `getEvents` of the single `eventSource`.
+* The `hydra-node` will load events and `hydrate` its `HeadState` using `getEvents` of the single `eventSource`.
 
 * The `stepHydraNode` main loop does call `putEvent` on all `eventSinks` in sequence. Any failure will make the `hydra-node` process terminate and require a restart.
 

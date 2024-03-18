@@ -28,11 +28,11 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.State ()
 import Hydra.Crypto (generateSigningKey, sign)
 import Hydra.Crypto qualified as Crypto
+import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
   Effect (..),
-  Environment (..),
   HeadState (..),
   IdleState (..),
   InitialState (..),
@@ -183,7 +183,6 @@ spec =
             step (ackFrom carolSk carol)
             step (ackFrom aliceSk alice)
             getState
-
         update bobEnv ledger waitingForLastAck (invalidAckFrom bobSk bob)
           `shouldSatisfy` \case
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
@@ -502,11 +501,9 @@ spec =
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
                   }
 
-        st <-
-          run $
-            runHeadLogic bobEnv ledger st0 $ do
-              step (NetworkInput defaultTTL alice $ ReqSn 1 [])
-              getState
+        st <- run $ runHeadLogic bobEnv ledger st0 $ do
+          step (NetworkInput defaultTTL alice $ ReqSn 1 [])
+          getState
 
         assert $ case st of
           Open
@@ -695,7 +692,13 @@ data StepState tx = StepState
   , ledger :: Ledger tx
   }
 
-runHeadLogic :: Monad m => Environment -> Ledger tx -> HeadState tx -> StateT (StepState tx) m a -> m a
+runHeadLogic ::
+  Monad m =>
+  Environment ->
+  Ledger tx ->
+  HeadState tx ->
+  StateT (StepState tx) m a ->
+  m a
 runHeadLogic env ledger headState = (`evalStateT` StepState{env, ledger, headState})
 
 -- | Retrieves the latest 'HeadState' from within 'runHeadLogic'.

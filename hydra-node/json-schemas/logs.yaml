@@ -876,6 +876,25 @@ definitions:
               The Party emitting the log entry.
           outcome:
             $ref: "logs.yaml#/definitions/Outcome"
+      - title: DroppedFromQueue
+        description: >-
+          An input event has been dropped from the input queue as its
+          time-to-live ran out.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - inputId
+          - input
+        properties:
+          tag:
+            type: string
+            enum: ["DroppedFromQueue"]
+          inputId:
+            type: integer
+            minimum: 0
+          input:
+            "$ref": "logs.yaml#/definitions/Input"
       - title: LoadedState
         description: >-
           Loaded state events from persistence.
@@ -1909,7 +1928,7 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - events
+          - stateChanges
           - effects
         description: >-
           Continue with the given state update events and side effects.
@@ -1917,7 +1936,7 @@ definitions:
           tag:
             type: string
             enum: ["Continue"]
-          events:
+          stateChanges:
             type: array
             items:
               type: object
@@ -1933,7 +1952,7 @@ definitions:
         required:
           - tag
           - reason
-          - events
+          - stateChanges
         description: >-
           Wait for some condition to be met with optional state updates.
         properties:
@@ -1943,7 +1962,7 @@ definitions:
           reason:
             type: object
             $ref: "logs.yaml#/definitions/WaitReason"
-          events:
+          stateChanges:
             type: array
             items:
               type: object

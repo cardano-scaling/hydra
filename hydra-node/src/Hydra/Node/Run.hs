@@ -12,11 +12,8 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.HeadLogic (
-  Environment (..),
-  Input (..),
-  defaultTTL,
- )
+import Hydra.Environment (Environment (..))
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
@@ -28,17 +25,17 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network.Authenticate (Authenticated (Authenticated))
 import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
-  HydraNode (..),
-  checkHeadState,
-  createNodeState,
+  chainStateHistory,
+  connect,
+  hydrate,
   initEnvironment,
-  loadState,
   runHydraNode,
+  wireChainInput,
+  wireClientInput,
+  wireNetworkInput,
  )
-import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
@@ -68,47 +65,38 @@ instance Exception ConfigurationException where
 run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  let RunOptions{verbosity, monitoringPort, persistenceDir} = opts
-  env@Environment{party, otherParties, signingKey} <- initEnvironment opts
-  withTracer verbosity $ \tracer' ->
+  withTracer verbosity $ \tracer' -> do
+    traceWith tracer' (NodeOptions opts)
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      traceWith tracer (NodeOptions opts)
-      inputQueue@InputQueue{enqueue} <- createInputQueue
-      let RunOptions{chainConfig, ledgerConfig} = opts
+      env@Environment{party, otherParties, signingKey} <- initEnvironment opts
+      -- Ledger
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-
       globals <- getGlobalsForChain chainConfig
-
       withCardanoLedger pparams globals $ \ledger -> do
-        persistence <- createPersistenceIncremental $ persistenceDir <> "/state"
-        (hs, chainStateHistory) <- loadState (contramap Node tracer) persistence initialChainState
-
-        checkHeadState (contramap Node tracer) env hs
-        nodeState <- createNodeState hs
+        -- Hydrate with event source and sinks
+        (eventSource, filePersistenceSink) <-
+          eventPairFromPersistenceIncremental
+            =<< createPersistenceIncremental (persistenceDir <> "/state")
+        -- NOTE: Add any custom sink setup code here
+        -- customSink <- createCustomSink
+        let eventSinks =
+              [ filePersistenceSink
+              -- NOTE: Add any custom sinks here
+              -- , customSink
+              ]
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
-        withChain chainStateHistory (enqueue . ChainInput) $ \chain -> do
+        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
-          let RunOptions{host, port, peers, nodeId} = opts
-              putNetworkEvent (Authenticated msg otherParty) = enqueue $ NetworkInput defaultTTL otherParty msg
-              RunOptions{apiHost, apiPort} = opts
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (enqueue . ClientInput) $ \server -> do
+          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer (connectionMessages server) networkConfiguration putNetworkEvent $ \hn -> do
+            withNetwork tracer (connectionMessages server) networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
-              runHydraNode (contramap Node tracer) $
-                HydraNode
-                  { inputQueue
-                  , hn
-                  , nodeState
-                  , oc = chain
-                  , server
-                  , ledger
-                  , env
-                  , persistence
-                  }
+              connect chain network server wetHydraNode
+                >>= runHydraNode
  where
   connectionMessages Server{sendOutput} = \case
     Connected nodeid -> sendOutput $ PeerConnected nodeid
@@ -125,6 +113,20 @@ run opts = do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+
+  RunOptions
+    { verbosity
+    , monitoringPort
+    , persistenceDir
+    , chainConfig
+    , ledgerConfig
+    , host
+    , port
+    , peers
+    , nodeId
+    , apiHost
+    , apiPort
+    } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case

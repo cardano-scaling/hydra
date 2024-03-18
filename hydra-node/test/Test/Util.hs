@@ -107,3 +107,24 @@ propCollisionResistant name gen =
       forAll gen $ \a ->
         forAll gen $ \b ->
           a /= b
+
+-- | Predicate which decides whether given list is continuous.
+isContinuous :: (Eq a, Enum a) => [a] -> Bool
+isContinuous = \case
+  [] -> True
+  [_] -> True
+  (a : b : as) -> succ a == b && isContinuous (b : as)
+
+-- | Predicate which decides whether given list is monotonic.
+isMonotonic :: Ord a => [a] -> Bool
+isMonotonic = \case
+  [] -> True
+  [_] -> True
+  (a : b : as) -> a <= b && isMonotonic (b : as)
+
+-- | Predicate which decides whether given list is strictly monotonic.
+isStrictlyMonotonic :: Ord a => [a] -> Bool
+isStrictlyMonotonic = \case
+  [] -> True
+  [_] -> True
+  (a : b : as) -> a < b && isStrictlyMonotonic (b : as)

@@ -46,6 +46,7 @@ import Test.Hydra.Fixture (alice, testHeadId)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import Test.Util (isContinuous)
 
 spec :: Spec
 spec =
@@ -212,7 +213,7 @@ spec =
               waitMatch 5 conn $ \v ->
                 guard $ isNothing $ v ^? key "utxo"
 
-    it "sequence numbers are continuous and strictly monotonically increasing" $
+    it "sequence numbers are continuous" $
       monadicIO $ do
         outputs :: [ServerOutput SimpleTx] <- pick arbitrary
         run $
@@ -226,7 +227,7 @@ spec =
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
-                      seq <$> timedOutputs `shouldSatisfy` strictlyMonotonic
+                      seq <$> timedOutputs `shouldSatisfy` isContinuous
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -305,12 +306,6 @@ spec =
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
-strictlyMonotonic :: (Eq a, Enum a) => [a] -> Bool
-strictlyMonotonic = \case
-  [] -> True
-  [_] -> True
-  (a : b : as) -> succ a == b && strictlyMonotonic (b : as)
-
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -370,8 +365,8 @@ withTestAPIServer ::
   Tracer IO APIServerLog ->
   (Server SimpleTx IO -> IO ()) ->
   IO ()
-withTestAPIServer port actor persistence tracer =
-  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop
+withTestAPIServer port actor persistence tracer action = do
+  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop action
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.

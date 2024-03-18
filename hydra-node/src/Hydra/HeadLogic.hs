@@ -37,6 +37,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
   initHistory,
+  mkHeadParameters,
   pushNewState,
   rollbackHistory,
  )
@@ -47,6 +48,7 @@ import Hydra.Crypto (
   sign,
   verifyMultiSignature,
  )
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.HeadLogic.Error (
   LogicError (..),
@@ -69,7 +71,6 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
-  Environment (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   InitialState (..),
@@ -109,13 +110,9 @@ onIdleClientInit ::
 onIdleClientInit env =
   cause OnChainEffect{postChainTx = InitTx{participants, headParameters}}
  where
-  headParameters =
-    HeadParameters
-      { contestationPeriod
-      , parties = party : otherParties
-      }
+  headParameters = mkHeadParameters env
 
-  Environment{party, otherParties, contestationPeriod, participants} = env
+  Environment{participants} = env
 
 -- | Observe an init transaction, initialize parameters in an 'InitialState' and
 -- notify clients that they can now commit.
@@ -965,7 +962,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  HeadIsReadyToFanout ->
+  HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -986,8 +983,8 @@ aggregateState s outcome =
  where
   collectStateChanged = \case
     Error{} -> []
-    Wait{events} -> events
-    Continue{events} -> events
+    Wait{stateChanges} -> stateChanges
+    Continue{stateChanges} -> stateChanges
 
 recoverChainStateHistory ::
   (Foldable t, IsChainState tx) =>
@@ -1010,7 +1007,7 @@ recoverChainStateHistory initialChainState =
     SnapshotConfirmed{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
-    HeadIsReadyToFanout -> history
+    HeadIsReadyToFanout{} -> history
     HeadFannedOut{chainState} -> pushNewState chainState history
     ChainRolledBack{chainState} ->
       rollbackHistory (chainStateSlot chainState) history

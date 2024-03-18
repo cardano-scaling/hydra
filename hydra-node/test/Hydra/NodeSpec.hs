@@ -10,144 +10,252 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput))
+import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput), mkHeadParameters)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, sign)
-import Hydra.HeadLogic (
-  Environment (..),
-  Input (..),
-  StateChanged,
-  defaultTTL,
- )
-import Hydra.HeadLogic qualified as HeadLogic
+import Hydra.Environment (Environment (..))
+import Hydra.Environment qualified as Environment
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.HeadLogic (Input (..), defaultTTL)
+import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
-import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
+import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
+  DraftHydraNode,
   HydraNode (..),
   HydraNodeLog (..),
   checkHeadState,
-  createNodeState,
-  loadState,
+  connect,
+  hydrate,
   stepHydraNode,
  )
-import Hydra.Node.InputQueue (InputQueue (..), createInputQueue)
+import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, deriveOnChainId, testEnvironment, testHeadId, testHeadSeed)
+import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
+import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
-  it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
-    showLogsOnFailure "NodeSpec" $ \tracer -> do
-      -- NOTE(SN): Sequence of parties in OnInitTx of
-      -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
-      let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
-          tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
-          inputs =
-            inputsToOpenHead
-              <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
-                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
-                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
-                 ]
-          signedSnapshot = sign aliceSk $ testSnapshot 1 (utxoRefs [1, 3, 4]) [1]
-      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
-      (node', getNetworkMessages) <- recordNetwork node
-      runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
+  -- Set up a hydrate function with fixtures curried
+  let setupHydrate action =
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
+          action testHydrate
 
-  it "rotates snapshot leaders" $
-    showLogsOnFailure "NodeSpec" $ \tracer -> do
-      let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
-          sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
-          inputs =
-            inputsToOpenHead
-              <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
-                 , NetworkInput{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
-                 , NetworkInput{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
-                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
-                 ]
+  describe "hydrate" $ do
+    around setupHydrate $ do
+      it "loads events from source into all sinks" $ \testHydrate ->
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+          \someEvents -> do
+            (mockSink1, getMockSinkEvents1) <- createRecordingSink
+            (mockSink2, getMockSinkEvents2) <- createRecordingSink
 
-      node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod inputs
-      (node', getNetworkMessages) <- recordNetwork node
-      runToCompletion tracer node'
+            void $ testHydrate (mockSource someEvents) [mockSink1, mockSink2]
 
-      getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
+            getMockSinkEvents1 `shouldReturn` someEvents
+            getMockSinkEvents2 `shouldReturn` someEvents
 
-  it "processes out-of-order AckSn" $
-    showLogsOnFailure "NodeSpec" $ \tracer -> do
-      let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
-          sigBob = sign bobSk snapshot
-          sigAlice = sign aliceSk snapshot
-          inputs =
-            inputsToOpenHead
-              <> [ NetworkInput{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
-                 , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
-                 ]
-      node <- createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
-      (node', getNetworkMessages) <- recordNetwork node
-      runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
+      it "event ids are consistent" $ \testHydrate ->
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+          \someEvents -> do
+            (sink, getSinkEvents) <- createRecordingSink
 
-  it "notifies client when postTx throws PostTxError" $
-    showLogsOnFailure "NodeSpec" $ \tracer -> do
-      let inputs = [ClientInput Init]
-      (node, getServerOutputs) <-
-        createHydraNode aliceSk [bob, carol] defaultContestationPeriod inputs
-          >>= throwExceptionOnPostTx NoSeedInput
-          >>= recordServerOutputs
+            void $ testHydrate (mockSource someEvents) [sink]
 
-      runToCompletion tracer node
+            seenEvents <- getSinkEvents
+            getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
 
-      outputs <- getServerOutputs
-      let isPostTxOnChainFailed = \case
-            PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
-            _ -> False
-      any isPostTxOnChainFailed outputs `shouldBe` True
+      it "fails if one sink fails" $ \testHydrate ->
+        forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+          \someEvents -> do
+            let genSinks = elements [mockSink, failingSink]
+                failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
+            forAllBlind (listOf genSinks) $ \sinks ->
+              testHydrate (mockSource someEvents) (sinks <> [failingSink])
+                `shouldThrow` \(_ :: HUnitFailure) -> True
 
-  it "signs snapshot even if it has seen conflicting transactions" $
-    failAfter 1 $
+      it "checks head state" $ \testHydrate ->
+        forAllShrink arbitrary shrink $ \env ->
+          env /= testEnvironment ==> do
+            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+            -- a head state that gets checked by 'checkHeadState'
+            let genEvent = do
+                  StateEvent
+                    <$> arbitrary
+                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
+            forAllShrink genEvent shrink $ \incompatibleEvent ->
+              testHydrate (mockSource [incompatibleEvent]) []
+                `shouldThrow` \(_ :: ParameterMismatch) -> True
+
+  describe "stepHydraNode" $ do
+    around setupHydrate $ do
+      it "events are sent to all sinks" $ \testHydrate -> do
+        (mockSink1, getMockSinkEvents1) <- createRecordingSink
+        (mockSink2, getMockSinkEvents2) <- createRecordingSink
+
+        testHydrate (mockSource []) [mockSink1, mockSink2]
+          >>= notConnect
+          >>= primeWith inputsToOpenHead
+          >>= runToCompletion
+
+        events <- getMockSinkEvents1
+        events `shouldNotBe` []
+        getMockSinkEvents2 `shouldReturn` events
+
+      it "event ids are strictly monotonic" $ \testHydrate -> do
+        -- NOTE: Arbitrary inputs in open head state results more likely in
+        -- multiple state change events per input (during tx processing).
+        let genInputs = do
+              -- Resize to reducing complexity of additional input contents
+              someInput <- resize 1 arbitrary
+              pure $ inputsToOpenHead <> [someInput]
+
+        forAllShrinkBlind genInputs shrink $ \someInputs ->
+          idempotentIOProperty $ do
+            (sink, getSinkEvents) <- createRecordingSink
+            testHydrate (mockSource []) [sink]
+              >>= notConnect
+              >>= primeWith someInputs
+              >>= runToCompletion
+
+            events <- getSinkEvents
+            let eventIds = getEventId <$> events
+            pure $
+              isStrictlyMonotonic eventIds
+                & counterexample "Not strictly monotonic"
+                & counterexample ("Event ids: " <> show eventIds)
+                & counterexample ("Events: " <> show events)
+                & counterexample ("Inputs: " <> show someInputs)
+                & classify (null eventIds) "empty list of events"
+
+      it "can continue after re-hydration" $ \testHydrate ->
+        failAfter 1 $ do
+          persistence <- createPersistenceInMemory
+          (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
+
+          testHydrate eventSource [eventSink]
+            >>= notConnect
+            >>= primeWith inputsToOpenHead
+            >>= runToCompletion
+
+          let reqTx = NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+              tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+
+          (recordingSink, getRecordedEvents) <- createRecordingSink
+
+          (node, getServerOutputs) <-
+            testHydrate eventSource [eventSink, recordingSink]
+              >>= notConnect
+              >>= primeWith [reqTx]
+              >>= recordServerOutputs
+          runToCompletion node
+
+          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
+
+          -- Ensures that event ids are correctly loaded in hydrate
+          events <- getRecordedEvents
+          getEventId <$> events `shouldSatisfy` isStrictlyMonotonic
+
+    it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
-            sigBob = sign bobSk snapshot
+        -- NOTE(SN): Sequence of parties in OnInitTx of
+        -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
+        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+            tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
+            tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
             inputs =
               inputsToOpenHead
-                <> [ NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
-                   , NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
-                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
+                <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx2}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx3}}
                    ]
-        node <- createHydraNode bobSk [alice, carol] defaultContestationPeriod inputs
-        (node', getNetworkMessages) <- recordNetwork node
-        runToCompletion tracer node'
-        getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+            signedSnapshot = sign aliceSk $ testSnapshot 1 (utxoRefs [1, 3, 4]) [1]
+        (node, getNetworkMessages) <-
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
+            >>= recordNetwork
+        runToCompletion node
+        getNetworkMessages `shouldReturn` [ReqSn 1 [1], AckSn signedSnapshot 1]
 
-  it "can continue after restart via persisted state" $
-    failAfter 1 $
+    it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        persistence <- createPersistenceInMemory
+        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+            sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
+            sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
+            inputs =
+              inputsToOpenHead
+                <> [ NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = mempty}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = AckSn (sign aliceSk sn1) 1}
+                   , NetworkInput{ttl = defaultTTL, party = carol, message = AckSn (sign carolSk sn1) 1}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
+                   ]
 
-        createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod inputsToOpenHead
-          >>= runToCompletion tracer
+        (node, getNetworkMessages) <-
+          testHydraNode tracer bobSk [alice, carol] cperiod inputs
+            >>= recordNetwork
+        runToCompletion node
 
-        let reqTx = NetworkInput{ttl = defaultTTL, party = alice, message = ReqTx{transaction = tx1}}
-            tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+        getNetworkMessages `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1], AckSn (sign bobSk sn2) 2]
 
+    it "processes out-of-order AckSn" $
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
+        let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
+            sigBob = sign bobSk snapshot
+            sigAlice = sign aliceSk snapshot
+            inputs =
+              inputsToOpenHead
+                <> [ NetworkInput{ttl = defaultTTL, party = bob, message = AckSn{signed = sigBob, snapshotNumber = 1}}
+                   , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = []}}
+                   ]
+        (node, getNetworkMessages) <-
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
+            >>= recordNetwork
+        runToCompletion node
+        getNetworkMessages `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
+
+    it "notifies client when postTx throws PostTxError" $
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
+        let inputs = [ClientInput Init]
         (node, getServerOutputs) <-
-          createHydraNode' persistence bobSk [alice, carol] defaultContestationPeriod [reqTx]
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
+            >>= throwExceptionOnPostTx NoSeedInput
             >>= recordServerOutputs
-        runToCompletion tracer node
 
-        getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
+        runToCompletion node
 
-  describe "Configuration mismatch" $ do
+        outputs <- getServerOutputs
+        let isPostTxOnChainFailed = \case
+              PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+              _ -> False
+        any isPostTxOnChainFailed outputs `shouldBe` True
+
+    it "signs snapshot even if it has seen conflicting transactions" $
+      failAfter 1 $
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
+              sigBob = sign bobSk snapshot
+              inputs =
+                inputsToOpenHead
+                  <> [ NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}}
+                     , NetworkInput{ttl = defaultTTL, party = bob, message = ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}}
+                     , NetworkInput{ttl = defaultTTL, party = alice, message = ReqSn{snapshotNumber = 1, transactionIds = [2]}}
+                     ]
+          (node, getNetworkMessages) <-
+            testHydraNode tracer bobSk [alice, carol] cperiod inputs
+              >>= recordNetwork
+          runToCompletion node
+          getNetworkMessages `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+
+  describe "checkHeadState" $ do
     let defaultEnv =
           Environment
             { party = alice
@@ -165,7 +273,7 @@ spec = parallel $ do
     it "throws exception given contestation period differs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv =
-              defaultEnv{HeadLogic.contestationPeriod = UnsafeContestationPeriod 42}
+              defaultEnv{Environment.contestationPeriod = UnsafeContestationPeriod 42}
         checkHeadState tracer invalidPeriodEnv headState
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
@@ -187,6 +295,45 @@ spec = parallel $ do
 
       entries <- fmap Logging.message <$> readTVarIO logs
       entries `shouldSatisfy` any isContestationPeriodMismatch
+
+-- | Add given list of inputs to the 'InputQueue'. This is returning the node to
+-- allow for chaining with 'runToCompletion'.
+primeWith :: Monad m => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
+  forM_ inputs enqueue
+  pure node
+
+-- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
+notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+notConnect =
+  connect mockChain mockNetwork mockServer
+
+mockServer :: Monad m => Server SimpleTx m
+mockServer =
+  Server{sendOutput = \_ -> pure ()}
+
+mockNetwork :: Monad m => Network m (Message SimpleTx)
+mockNetwork =
+  Network{broadcast = \_ -> pure ()}
+
+mockChain :: MonadThrow m => Chain SimpleTx m
+mockChain =
+  Chain
+    { postTx = \_ -> pure ()
+    , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
+    , submitTx = \_ -> failure "mockChain: unexpected submitTx"
+    }
+
+mockSink :: Monad m => EventSink a m
+mockSink = EventSink{putEvent = const $ pure ()}
+
+mockSource :: Monad m => [a] -> EventSource a m
+mockSource events = EventSource{getEvents = pure events}
+
+createRecordingSink :: IO (EventSink a IO, IO [a])
+createRecordingSink = do
+  (putEvent, getAll) <- messageRecorder
+  pure (EventSink{putEvent}, getAll)
 
 createPersistenceInMemory :: MonadLabelledSTM m => m (PersistenceIncremental a m)
 createPersistenceInMemory = do
@@ -223,71 +370,43 @@ inputsToOpenHead =
       }
 
   parties = [alice, bob, carol]
-  headParameters = HeadParameters defaultContestationPeriod parties
+  headParameters = HeadParameters cperiod parties
   participants = deriveOnChainId <$> parties
 
 runToCompletion ::
   IsChainState tx =>
-  Tracer IO (HydraNodeLog tx) ->
   HydraNode tx IO ->
   IO ()
-runToCompletion tracer node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
+runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
  where
   go =
     unlessM isEmpty $
-      stepHydraNode tracer node >> go
+      stepHydraNode node >> go
 
-createHydraNode ::
+-- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
+-- that this node is 'notConnect'ed to any components.
+testHydraNode ::
   (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  Tracer m (HydraNodeLog SimpleTx) ->
   SigningKey HydraKey ->
   [Party] ->
   ContestationPeriod ->
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
-createHydraNode =
-  createHydraNode'
-    PersistenceIncremental
-      { append = const $ pure ()
-      , loadAll = pure []
-      }
-
-createHydraNode' ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
-  PersistenceIncremental (StateChanged SimpleTx) m ->
-  SigningKey HydraKey ->
-  [Party] ->
-  ContestationPeriod ->
-  [Input SimpleTx] ->
-  m (HydraNode SimpleTx m)
-createHydraNode' persistence signingKey otherParties contestationPeriod inputs = do
-  inputQueue@InputQueue{enqueue} <- createInputQueue
-  forM_ inputs enqueue
-  (headState, _) <- loadState nullTracer persistence SimpleChainState{slot = ChainSlot 0}
-  nodeState <- createNodeState headState
-  pure $
-    HydraNode
-      { inputQueue
-      , hn = Network{broadcast = \_ -> pure ()}
-      , nodeState
-      , oc =
-          Chain
-            { postTx = \_ -> pure ()
-            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
-            , submitTx = \_ -> error "submitTx not implemented"
-            }
-      , server = Server{sendOutput = \_ -> pure ()}
-      , ledger = simpleLedger
-      , env =
-          Environment
-            { party
-            , signingKey
-            , otherParties
-            , contestationPeriod
-            , participants
-            }
-      , persistence
-      }
+testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
+  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} (mockSource []) []
+    >>= notConnect
+    >>= primeWith inputs
  where
+  env =
+    Environment
+      { party
+      , signingKey
+      , otherParties
+      , contestationPeriod
+      , participants
+      }
+
   party = deriveParty signingKey
 
   -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine
@@ -298,11 +417,6 @@ recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
-
-recordPersistedItems :: HydraNode tx IO -> IO (HydraNode tx IO, IO [StateChanged tx])
-recordPersistedItems node = do
-  (record, query) <- messageRecorder
-  pure (node{persistence = PersistenceIncremental{append = record, loadAll = pure []}}, query)
 
 recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do

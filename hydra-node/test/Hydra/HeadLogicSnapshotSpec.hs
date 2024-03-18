@@ -10,10 +10,10 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Crypto (sign)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
-  Environment (..),
   HeadState (..),
   Input (NetworkInput),
   OpenState (OpenState),
@@ -96,8 +96,7 @@ spec = do
       it "updates seenSnapshot state when sending ReqSn" $ do
         let tx = aValidTx 1
             st = inOpenState' threeParties coordinatedHeadState
-
-        let st' =
+            st' =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { localTxs = [tx]

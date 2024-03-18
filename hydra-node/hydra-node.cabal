@@ -67,6 +67,9 @@ library
     Hydra.Chain.Offline
     Hydra.ContestationPeriod
     Hydra.Crypto
+    Hydra.Environment
+    Hydra.Events
+    Hydra.Events.FileBased
     Hydra.HeadId
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
@@ -290,6 +293,7 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
+    Hydra.Events.FileBasedSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec

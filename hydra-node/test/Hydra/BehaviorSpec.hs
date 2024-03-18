@@ -38,9 +38,10 @@ import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, roll
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Crypto (HydraKey, aggregate, sign)
+import Hydra.Environment (Environment (..))
+import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (
   Effect (..),
-  Environment (..),
   HeadState (..),
   IdleState (..),
   Input (..),
@@ -49,6 +50,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Node (
@@ -744,9 +746,9 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-  node <- createHydraNode simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
-  withAsync (runHydraNode traceInIOSim node) $ \_ ->
+  nodeState <- createNodeState Nothing $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
+  node <- createHydraNode traceInIOSim simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
+  withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node nodeState)
 
 createTestHydraClient ::
@@ -766,7 +768,8 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx) =>
+  Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   NodeState tx m ->
   SigningKey HydraKey ->
@@ -776,12 +779,16 @@ createHydraNode ::
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   m (HydraNode tx m)
-createHydraNode ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
+createHydraNode tracer ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
+  -- TODO: refactor using 'hydrate'
   inputQueue <- createInputQueue
   persistence <- createPersistenceInMemory
+  (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
+
   connectNode chain $
     HydraNode
-      { inputQueue
+      { tracer
+      , inputQueue
       , hn = Network{broadcast = \_ -> pure ()}
       , nodeState
       , ledger
@@ -805,7 +812,8 @@ createHydraNode ledger nodeState signingKey otherParties outputs outputHistory c
             , contestationPeriod = cp
             , participants
             }
-      , persistence
+      , eventSource
+      , eventSinks = [eventSink]
       }
  where
   party = deriveParty signingKey

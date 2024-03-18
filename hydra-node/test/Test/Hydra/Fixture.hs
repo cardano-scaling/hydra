@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (Key (..), SerialiseAsRawBytes (..), SigningKey, VerificationKey, getVerificationKey)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (HydraKey, generateSigningKey)
+import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.OnChainId (AsType (AsOnChainId), OnChainId)
 import Hydra.Party (Party (..), deriveParty)
@@ -47,3 +48,14 @@ deriveOnChainId Party{vkey} =
     Right oid -> oid
  where
   bytes = serialiseToRawBytes $ verificationKeyHash vkey
+
+-- | An environment fixture for testing.
+testEnvironment :: Environment
+testEnvironment =
+  Environment
+    { party = alice
+    , signingKey = aliceSk
+    , otherParties = [bob, carol]
+    , contestationPeriod = cperiod
+    , participants = deriveOnChainId <$> [alice, bob, carol]
+    }

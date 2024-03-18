@@ -39,9 +39,16 @@ changes.
 - Add support for `Conway` in `hydra-chain-observer`.
 
 - **BREAKING** Change to the `hydra-node` logs, monitoring and removal of `log-filter` executable:
-  - We renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
-  - In course of this, we also removed the `log-filter` executable as nobody is actively using it and we recommend using other off-the-shelf utilities to manipulate structured JSON logs (`jq` is already quite powerful).
+  - Renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
+  - Changed structure of `LogicOutcome` entries.
+  - Added node-level log entry when an input was `DroppedFromQueue`.
+  - In course of this, the `log-filter` executable was removed as nobody is actively using it and other off-the-shelf utilities to manipulate structured JSON logs (`jq` is already quite powerful) are recommended.
   - Renamed prometheus metric `hydra_head_events -> hydra_head_inputs`.
+
+- Introduce `EventSource` and `EventSink` interfaces in `hydra-node`:
+  - These handles can now be used as "extension points" to make the `hydra-node` store and load its state differently or expose `StateEvent`s to other, external services.
+  - Internal refactoring of persistence mechanism as event source and sink in a backward-compatible way.
+  - More details can be found in [ADR21](https://hydra.family/head-protocol/adr/21/)
 
 ## [0.15.0] - 2024-01-18
 
