@@ -20,7 +20,7 @@ import Brick.Forms (
   radioField,
  )
 import Brick.Types (Location (..), Widget)
-import Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
+import Brick.Widgets.Core (clickable, putCursor, txt)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
@@ -83,72 +83,6 @@ confirmRadioField =
 
   radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
 
-checkboxGroupField ::
-  (Ord k, Ord n) =>
-  -- | Left bracket character.
-  Char ->
-  -- | Checkmark character.
-  Char ->
-  -- | Right bracket character.
-  Char ->
-  -- | The state lens for this value.
-  Lens' (Map k (a, Bool)) (Map k (a, Bool)) ->
-  -- | The available choices, in order.
-  -- Each choice is represented by a resource name `n`, a text label,
-  -- and a triplet of type @@(k, a, Bool)@@; where `k` is the unique
-  -- identifier for the choice, `a` the value carried by the key and
-  -- Bool being the default choice.
-  [((k, a, Bool), n, Text)] ->
-  -- | The initial form state.
-  Map k (a, Bool) ->
-  FormFieldState (Map k (a, Bool)) e n
-checkboxGroupField lb check rb stLens options initialState =
-  FormFieldState
-    { formFieldState = initialState
-    , formFields = mkFormField <$> options
-    , formFieldLens = stLens
-    , formFieldUpdate = \_ tuple -> tuple
-    , formFieldRenderHelper = id
-    , formFieldConcat = vBox
-    , formFieldVisibilityMode = ShowFocusedFieldOnly
-    }
- where
-  mkFormField ((k, a, b), name, lbl) =
-    FormField
-      name
-      Just
-      True
-      (renderCheckbox (k, b) lbl name)
-      (handleCheckboxEvent k)
-
-  renderCheckbox (k, boolOption) lbl name foc opts =
-    let addAttr = if foc then withDefAttr focusedFormInputAttr else id
-        csr = if foc then putCursor name (Location (1, 0)) else id
-        val = case Map.lookup k opts of
-          Nothing -> boolOption
-          Just (_, b) -> b
-     in clickable name $
-          addAttr $
-            csr $
-              txt
-                ( Text.singleton lb
-                    <> (if val then Text.singleton check else " ")
-                    <> Text.singleton rb
-                    <> " "
-                )
-                <+> txt lbl
-
-  handleCheckboxEvent k = \case
-    (MouseDown n _ _ _) -> updateCheckbox k
-    (VtyEvent (EvKey (KChar ' ') [])) -> updateCheckbox k
-    _ -> return ()
-
-  updateCheckbox k = do
-    cur <- get
-    case Map.lookup k cur of
-      Nothing -> return ()
-      Just _ -> put $ Map.adjust (second not) k cur
-
 type FormFieldRenderHelper a n = (a -> Text -> Bool -> Widget n -> Widget n)
 
 customRadioField ::
@@ -170,36 +104,35 @@ customRadioField ::
   s ->
   FormFieldState s e n
 customRadioField lb check rb stLens options decorator initialState =
-  let initVal = initialState ^. stLens
-
-      lookupOptionValue n =
-        let results = filter (\(_, n', _) -> n' == n) options
-         in case results of
-              [(val, _, _)] -> Just val
-              _ -> Nothing
-
-      handleEvent _ (MouseDown n _ _ _) = forM_ (lookupOptionValue n) put
-      handleEvent new (VtyEvent (EvKey (KChar ' ') [])) = put new
-      handleEvent _ _ = return ()
-
-      optionFields = mkOptionField <$> options
-      mkOptionField (val, name, lbl) =
-        FormField
-          name
-          Just
-          True
-          (renderRadio val name lbl)
-          (handleEvent val)
-   in FormFieldState
-        { formFieldState = initVal
-        , formFields = optionFields
-        , formFieldLens = stLens
-        , formFieldUpdate = const
-        , formFieldRenderHelper = id
-        , formFieldConcat = vBox
-        , formFieldVisibilityMode = ShowFocusedFieldOnly
-        }
+  FormFieldState
+    { formFieldState = initialState ^. stLens
+    , formFields = mkOptionField <$> options
+    , formFieldLens = stLens
+    , formFieldUpdate = const
+    , formFieldRenderHelper = id
+    , formFieldConcat = vBox
+    , formFieldVisibilityMode = ShowFocusedFieldOnly
+    }
  where
+  lookupOptionValue n =
+    let results = filter (\(_, n', _) -> n' == n) options
+     in case results of
+          [(val, _, _)] -> Just val
+          _ -> Nothing
+
+  handleEvent new = \case
+    MouseDown n _ _ _ -> forM_ (lookupOptionValue n) put
+    VtyEvent (EvKey (KChar ' ') []) -> put new
+    _ -> return ()
+
+  mkOptionField (val, name, lbl) =
+    FormField
+      name
+      Just
+      True
+      (renderRadio val name lbl)
+      (handleEvent val)
+
   renderRadio val name lbl foc cur =
     let addAttr =
           if foc
