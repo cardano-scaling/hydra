@@ -5,7 +5,7 @@ import Hydra.Prelude
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey, SigningKey)
 import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (HasParty (..), Party, deriveParty)
 
 data Environment = Environment
   { party :: Party
@@ -34,3 +34,6 @@ instance Arbitrary Environment where
         , contestationPeriod
         , participants
         }
+
+instance HasParty Environment where
+  getParty = party

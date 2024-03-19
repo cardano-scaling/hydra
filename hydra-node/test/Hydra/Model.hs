@@ -59,18 +59,14 @@ import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, testNetwork
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (HydraKey)
-import Hydra.HeadLogic (
-  Committed (),
-  IdleState (..),
- )
-import Hydra.HeadLogic qualified as HeadState
+import Hydra.HeadLogic (Committed ())
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genSigningKey, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (createNodeState, runHydraNode)
+import Hydra.Node (runHydraNode)
 import Hydra.Party (Party (..), deriveParty)
 import Hydra.Snapshot qualified as Snapshot
 import Test.Hydra.Prelude (failure)
@@ -587,9 +583,8 @@ seedWorld seedKeys seedCP futureCommits = do
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      nodeState <- createNodeState Nothing $ HeadState.Idle IdleState{chainState = initialChainState}
-      node <- createHydraNode (contramap Node tr) ledger nodeState hsk otherParties outputs outputHistory mockChain seedCP
-      let testClient = createTestHydraClient outputs outputHistory node nodeState
+      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP
+      let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
       pure (testClient, nodeThread)

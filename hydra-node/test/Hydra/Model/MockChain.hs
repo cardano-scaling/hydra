@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.Model.MockChain where
 
@@ -27,9 +28,8 @@ import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (userError)
-import Hydra.BehaviorSpec (
-  SimulatedChainNetwork (..),
- )
+import Hydra.API.Server (Server (..))
+import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
@@ -71,9 +71,9 @@ import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (HydraNode (..), NodeState (..))
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Party (Party (..), deriveParty, getParty)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (getPositive)
 
@@ -128,13 +128,14 @@ mockChainAndNetwork tr seedKeys commits = do
   -- validating transactions and need to be signing with proper keys.
   -- Consequently the identifiers of participants need to be derived from
   -- the real keys.
-  updateEnvironment HydraNode{env} = do
+  updateEnvironment env = do
     let vks = getVerificationKey . signingKey . snd <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes chain queue node = do
+  connectNode nodes chain queue draftNode = do
     localChainState <- newLocalChainState (initHistory initialChainState)
-    let Environment{party = ownParty} = env node
+    let DraftHydraNode{env} = draftNode
+        Environment{party = ownParty} = env
     let vkey = fst $ findOwnCardanoKey ownParty seedKeys
     let ctx =
           ChainContext
@@ -144,7 +145,7 @@ mockChainAndNetwork tr seedKeys commits = do
             , scriptRegistry
             }
     let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
-    let HydraNode{inputQueue = InputQueue{enqueue}} = node
+    let DraftHydraNode{inputQueue = InputQueue{enqueue}} = draftNode
     -- Validate transactions on submission and queue them for inclusion if valid.
     let submitTx tx =
           atomically $ do
@@ -165,7 +166,7 @@ mockChainAndNetwork tr seedKeys commits = do
                     ]
               Right _utxo' ->
                 writeTQueue queue tx
-    let chainHandle =
+    let mockChain =
           createMockChain
             tr
             ctx
@@ -173,20 +174,20 @@ mockChainAndNetwork tr seedKeys commits = do
             getTimeHandle
             seedInput
             localChainState
-    let chainHandler =
-          chainSyncHandler
-            tr
-            (enqueue . ChainInput)
-            getTimeHandle
-            ctx
-            localChainState
-    let node' =
-          node
-            { hn = createMockNetwork node nodes
-            , oc = chainHandle
-            , env = updateEnvironment node
+        mockServer = Server{sendOutput = const $ pure ()}
+    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
+    let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
+    let mockNode =
+          MockHydraNode
+            { node = node'
+            , chainHandler =
+                chainSyncHandler
+                  tr
+                  (enqueue . ChainInput)
+                  getTimeHandle
+                  ctx
+                  localChainState
             }
-    let mockNode = MockHydraNode{node = node', chainHandler}
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
@@ -335,18 +336,16 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
 
 -- TODO: unify with BehaviorSpec's ?
-createMockNetwork :: MonadSTM m => HydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
-createMockNetwork myNode nodes =
+createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
+createMockNetwork draftNode nodes =
   Network{broadcast}
  where
   broadcast msg = do
     allNodes <- fmap node <$> readTVarIO nodes
-    let otherNodes = filter (\n -> getNodeId n /= getNodeId myNode) allNodes
+    let otherNodes = filter (\n -> getParty n /= getParty draftNode) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getNodeId myNode)
-
-  getNodeId HydraNode{env = Environment{party}} = party
+  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getParty draftNode)
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m

@@ -43,7 +43,6 @@ import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
-  IdleState (..),
   Input (..),
   defaultTTL,
  )
@@ -53,18 +52,10 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (
-  HydraNode (..),
-  HydraNodeLog (..),
-  NodeState,
-  createNodeState,
-  queryHeadState,
-  runHydraNode,
-  waitDelay,
- )
-import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, hydrate, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Node.InputQueue (InputQueue (enqueue))
 import Hydra.NodeSpec (createPersistenceInMemory)
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Party (Party (..), deriveParty, getParty)
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
@@ -545,7 +536,7 @@ data TestHydraClient tx m = TestHydraClient
 -- 'OnChainTx' onto all connected nodes. It can also 'rollbackAndForward' any
 -- number of these "transactions".
 data SimulatedChainNetwork tx m = SimulatedChainNetwork
-  { connectNode :: HydraNode tx m -> m (HydraNode tx m)
+  { connectNode :: DraftHydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateCommit :: (Party, UTxOType tx) -> m ()
@@ -607,20 +598,20 @@ simulatedChainAndNetwork initialChainState = do
   tickThread <- async $ simulateTicks nodes localChainState
   pure $
     SimulatedChainNetwork
-      { connectNode = \node -> do
+      { connectNode = \draftNode -> do
+          let mockChain =
+                Chain
+                  { postTx = \tx -> do
+                      now <- getCurrentTime
+                      createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
+                  , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+                  , submitTx = \_ -> error "unexpected call to submitTx"
+                  }
+              mockNetwork = createMockNetwork draftNode nodes
+              mockServer = Server{sendOutput = const $ pure ()}
+          node <- connect mockChain mockNetwork mockServer draftNode
           atomically $ modifyTVar nodes (node :)
-          pure $
-            node
-              { oc =
-                  Chain
-                    { postTx = \tx -> do
-                        now <- getCurrentTime
-                        createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
-                    , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
-                    , submitTx = \_ -> error "unexpected call to submitTx"
-                    }
-              , hn = createMockNetwork node nodes
-              }
+          pure node
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \(party, committed) ->
@@ -685,18 +676,16 @@ simulatedChainAndNetwork initialChainState = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
-createMockNetwork :: MonadSTM m => HydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
+createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 createMockNetwork node nodes =
   Network{broadcast}
  where
   broadcast msg = do
     allNodes <- readTVarIO nodes
-    let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
+    let otherNodes = filter (\n -> getParty n /= getParty node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getNodeId node)
-
-  getNodeId HydraNode{env = Environment{party}} = party
+  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getParty node)
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
@@ -746,19 +735,18 @@ withHydraNode ::
 withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
-  nodeState <- createNodeState Nothing $ Idle IdleState{chainState = SimpleChainState{slot = ChainSlot 0}}
-  node <- createHydraNode traceInIOSim simpleLedger nodeState signingKey otherParties outputs outputHistory chain testContestationPeriod
+  let initialChainState = SimpleChainState{slot = ChainSlot 0}
+  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod
   withAsync (runHydraNode node) $ \_ ->
-    action (createTestHydraClient outputs outputHistory node nodeState)
+    action (createTestHydraClient outputs outputHistory node)
 
 createTestHydraClient ::
   MonadSTM m =>
   TQueue m (ServerOutput tx) ->
   TVar m [ServerOutput tx] ->
   HydraNode tx m ->
-  NodeState tx m ->
   TestHydraClient tx m
-createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
+createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
   TestHydraClient
     { send = enqueue inputQueue . ClientInput
     , waitForNext = atomically (readTQueue outputs)
@@ -768,10 +756,10 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue} nodeState =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx, MonadThrow m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
-  NodeState tx m ->
+  ChainStateType tx ->
   SigningKey HydraKey ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
@@ -779,43 +767,28 @@ createHydraNode ::
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   m (HydraNode tx m)
-createHydraNode tracer ledger nodeState signingKey otherParties outputs outputHistory chain cp = do
-  -- TODO: refactor using 'hydrate'
-  inputQueue <- createInputQueue
+createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp = do
   persistence <- createPersistenceInMemory
   (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
-
-  connectNode chain $
-    HydraNode
-      { tracer
-      , inputQueue
-      , hn = Network{broadcast = \_ -> pure ()}
-      , nodeState
-      , ledger
-      , oc =
-          Chain
-            { postTx = \_ -> pure ()
-            , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
-            , submitTx = \_ -> error "unexpected call to submitTx"
-            }
-      , server =
+  node <- connectNode chain =<< hydrate tracer env ledger chainState eventSource [eventSink]
+  pure $
+    node
+      { server =
           Server
             { sendOutput = \out -> atomically $ do
                 writeTQueue outputs out
                 modifyTVar' outputHistory (out :)
             }
-      , env =
-          Environment
-            { party
-            , signingKey
-            , otherParties
-            , contestationPeriod = cp
-            , participants
-            }
-      , eventSource
-      , eventSinks = [eventSink]
       }
  where
+  env =
+    Environment
+      { party
+      , signingKey
+      , otherParties
+      , contestationPeriod = cp
+      , participants
+      }
   party = deriveParty signingKey
 
   -- NOTE: We use the hydra-keys as on-chain identities directly. This is fine

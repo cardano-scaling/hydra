@@ -57,7 +57,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Party (HasParty (..), Party (..), deriveParty)
 
 -- * Environment Handling
 
@@ -152,6 +152,9 @@ data DraftHydraNode tx m = DraftHydraNode
     chainStateHistory :: ChainStateHistory tx
   }
 
+instance HasParty (DraftHydraNode tx m) where
+  getParty DraftHydraNode{env} = getParty env
+
 -- | Hydrate a 'DraftHydraNode' by loading events from source, re-aggregate node
 -- state and sending events to sinks while doing so.
 hydrate ::
@@ -232,6 +235,9 @@ data HydraNode tx m = HydraNode
   , hn :: Network m (Message tx)
   , server :: Server tx m
   }
+
+instance HasParty (HydraNode tx m) where
+  getParty HydraNode{env} = getParty env
 
 runHydraNode ::
   ( MonadCatch m
