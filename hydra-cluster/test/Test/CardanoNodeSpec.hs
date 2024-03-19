@@ -12,9 +12,10 @@ import CardanoNode (
 
 import CardanoClient (RunningNode (..), queryTipSlotNo)
 import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
-import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import System.Directory (doesFileExist)
+import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 spec :: Spec
 spec = do
@@ -38,29 +39,27 @@ spec = do
         slot2 <- queryTipSlotNo networkId nodeSocket
         slot2 `shouldSatisfy` (> slot1)
 
-    it "withCardanoNodeOnKnownNetwork on mainnet starts synchronizing within 5 seconds" $ \_ ->
-      pendingWith "cardano-node 8.8 is not supported on mainnet (config mismatch)"
-
-    it "withCardanoNodeOnKnownNetwork on sanchonet starts synchronizing within 5 seconds" $ \(tr, tmp) ->
-      -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
-      -- synchronize the whole chain before continuing.
-      withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \RunningNode{nodeSocket, networkId, blockTime} -> do
-        networkId `shouldBe` Testnet (NetworkMagic 4)
-        blockTime `shouldBe` 20
-        -- Should synchronize blocks (tip advances)
-        slot1 <- queryTipSlotNo networkId nodeSocket
-        threadDelay 1
-        slot2 <- queryTipSlotNo networkId nodeSocket
-        slot2 `shouldSatisfy` (> slot1)
-
     describe "findRunningCardanoNode" $ do
       it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
         withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \_ -> do
           findRunningCardanoNode tr tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
-        withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \runningNode -> do
-          findRunningCardanoNode tr tmp Sanchonet `shouldReturn` Just runningNode
+        withCardanoNodeOnKnownNetwork tr tmp Preview $ \runningNode -> do
+          findRunningCardanoNode tr tmp Preview `shouldReturn` Just runningNode
+
+  forEachKnownNetwork "withCardanoNodeOnKnownNetwork starts synchronizing within 10 seconds" $ \network -> do
+    -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
+    -- synchronize the whole chain before continuing.
+    setupTracerAndTempDir $ \(tr, tmp) ->
+      withCardanoNodeOnKnownNetwork tr tmp network $ \RunningNode{nodeSocket, networkId, blockTime} -> do
+        networkId `shouldBe` toNetworkId network
+        blockTime `shouldBe` 20
+        -- Should synchronize blocks (tip advances)
+        slot1 <- queryTipSlotNo networkId nodeSocket
+        threadDelay 10
+        slot2 <- queryTipSlotNo networkId nodeSocket
+        slot2 `shouldSatisfy` (> slot1)
 
 setupTracerAndTempDir :: ToJSON msg => ((Tracer IO msg, FilePath) -> IO a) -> IO a
 setupTracerAndTempDir action =

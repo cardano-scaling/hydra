@@ -144,6 +144,7 @@ test-suite tests
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
     Test.Hydra.Cluster.MithrilSpec
+    Test.Hydra.Cluster.Utils
     Test.HydraExplorerSpec
     Test.OfflineChainSpec
 

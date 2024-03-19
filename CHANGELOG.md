@@ -11,9 +11,7 @@ changes.
 
 ## [0.16.0] - UNRELEASED
 
-- **DO NOT RELEASE** as only tested against Sanchonet.
-
-- **BREAKING** Update to and tested against `cardano-node 8.9.0` and `cardano-cli 8.20.3.0`. This made smoke tests incompatible with public testnets and mainnet.
+- Update to and tested against `cardano-node 8.9.0` and `cardano-cli 8.20.3.0`.
 
 - **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
   - Overall slight increase in script size.
