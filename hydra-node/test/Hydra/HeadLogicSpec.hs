@@ -184,7 +184,7 @@ spec =
               s0 = inOpenState threeParties
 
           s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
           s1 <- runHeadLogic aliceEnv ledger s0 $ do
@@ -209,7 +209,7 @@ spec =
           let s0 = inOpenState threeParties
 
           s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Nothing
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
           let reqDecEvent = NetworkInput defaultTTL alice ReqDec{transaction = decommitTx', decommitRequester = alice}
