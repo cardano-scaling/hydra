@@ -145,7 +145,7 @@ checkCollectCom ::
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
   mustCollectUtxoHash
-    && mustNotChangeParameters
+    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
     && mustCollectAllValue
     -- XXX: Is this really needed? If yes, why not check on the output?
     && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
@@ -156,12 +156,6 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
   mustCollectUtxoHash =
     traceIfFalse $(errorCode IncorrectUtxoHash) $
       utxoHash == hashPreSerializedCommits collectedCommits
-
-  mustNotChangeParameters =
-    traceIfFalse $(errorCode ChangedParameters) $
-      parties' == parties
-        && contestationPeriod' == contestationPeriod
-        && headId' == headId
 
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
@@ -221,7 +215,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 -- if it is there return the committed utxo
 commitDatum :: TxOut -> [Commit]
 commitDatum input = do
-  let datum = getTxOutDatum input
+  let !datum = getTxOutDatum input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
     Just (_party, commits, _headId) ->
       commits
@@ -238,18 +232,12 @@ checkDecrement ::
   Integer ->
   Bool
 checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature numberOfDecommitOutputs =
-  mustNotChangeParameters
+  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && checkSnapshot
     && checkSnapshotSignature
     && mustBeSignedByParticipant ctx prevHeadId
     && mustDecreaseValue
  where
-  mustNotChangeParameters =
-    traceIfFalse $(errorCode ChangedParameters) $
-      prevHeadId == nextHeadId
-        && prevParties == nextParties
-        && prevCperiod == nextCperiod
-
   checkSnapshot =
     traceIfFalse $(errorCode SnapshotNumberMismatch) $
       nextSnapshotNumber > prevSnapshotNumber
@@ -319,7 +307,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && mustBeSignedByParticipant ctx headPolicyId
     && mustInitializeContesters
     && mustPreserveValue
-    && mustNotChangeParameters
+    && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headPolicyId)
  where
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -369,12 +357,6 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
   tMin = case ivFrom $ txInfoValidRange txInfo of
     LowerBound (Finite t) _ -> t
     _InfiniteBound -> traceError $(errorCode InfiniteLowerBound)
-
-  mustNotChangeParameters =
-    traceIfFalse $(errorCode ChangedParameters) $
-      headId' == headPolicyId
-        && parties' == parties
-        && cperiod' == cperiod
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -428,7 +410,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
     && mustPushDeadline
-    && mustNotChangeParameters
+    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
     && mustPreserveValue
  where
   mustPreserveValue =
@@ -452,12 +434,6 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
         traceIfFalse $(errorCode UpperBoundBeyondContestationDeadline) $
           time <= contestationDeadline
       _ -> traceError $(errorCode ContestNoUpperBoundDefined)
-
-  mustNotChangeParameters =
-    traceIfFalse $(errorCode ChangedParameters) $
-      parties' == parties
-        && headId' == headId
-        && contestationPeriod' == contestationPeriod
 
   mustPushDeadline =
     if length contesters' == length parties'
@@ -564,6 +540,18 @@ getHeadAddress :: ScriptContext -> Address
 getHeadAddress = txOutAddress . txInInfoResolved . getHeadInput
 {-# INLINEABLE getHeadAddress #-}
 
+mustNotChangeParameters ::
+  ([Party], [Party]) ->
+  (ContestationPeriod, ContestationPeriod) ->
+  (CurrencySymbol, CurrencySymbol) ->
+  Bool
+mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId) =
+  traceIfFalse $(errorCode ChangedParameters) $
+    parties' == parties
+      && contestationPeriod' == contestationPeriod
+      && headId' == headId
+{-# INLINEABLE mustNotChangeParameters #-}
+
 -- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
   ScriptContext ->
@@ -643,7 +631,7 @@ hashTxOuts =
 -- | Check if 'TxOut' contains the PT token.
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
-  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+  let !pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
