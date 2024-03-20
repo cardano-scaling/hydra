@@ -4,8 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO)
-import Control.Lens ((^?!))
-import Data.Aeson.Lens (key, _Number)
+import Control.Lens ((^?))
+import Data.Aeson.Lens (key)
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
@@ -22,19 +22,19 @@ spec = parallel $ do
         doesDirectoryExist dbPath `shouldReturn` False
         race_
           (downloadLatestSnapshotTo tracer network tmpDir)
-          (waitForStep 3 getTraces)
+          (waitForDownload getTraces)
 
--- | Wait for the 'StdOut' message that matches the given step number.
-waitForStep :: HasCallStack => Natural -> IO [Envelope MithrilLog] -> IO ()
-waitForStep step getTraces = do
+-- | Wait for the 'StdErr' message to indicate it starts downloading.
+waitForDownload :: HasCallStack => IO [Envelope MithrilLog] -> IO ()
+waitForDownload getTraces = do
   traces <- getTraces
-  unless (any isRightStep traces) $ do
+  unless (any isRightTrace traces) $ do
     threadDelay 1
-    waitForStep step getTraces
+    waitForDownload getTraces
  where
-  isRightStep = \case
-    Envelope{message = StdOut{output}} ->
-      output ^?! key "step_num" . _Number == fromIntegral step
+  isRightTrace = \case
+    Envelope{message = StdErr{output}} ->
+      isJust $ output ^? key "bytes_downloaded"
     _ -> False
 
 -- | Create a tracer that captures all messages and a function to retrieve all
