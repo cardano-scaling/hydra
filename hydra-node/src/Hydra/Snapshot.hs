@@ -149,7 +149,8 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
     ks <- arbitrary
     utxo <- arbitrary
     headId <- arbitrary
-    genConfirmedSnapshot headId 0 utxo ks
+    -- NOTE: arbitrary instance does not assume any decommits
+    genConfirmedSnapshot headId 0 utxo Nothing ks
 
   shrink = \case
     InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
@@ -164,9 +165,10 @@ genConfirmedSnapshot ::
   -- this lower bound.
   SnapshotNumber ->
   UTxOType tx ->
+  Maybe (UTxOType tx) ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId minSn utxo sks
+genConfirmedSnapshot headId minSn utxo utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -181,9 +183,7 @@ genConfirmedSnapshot headId minSn utxo sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    -- TODO: check whether we are fine with this not producing any decommitting utxo ever
-    -- TODO: use splitUTxO generator
-    let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit = mempty}
+    let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

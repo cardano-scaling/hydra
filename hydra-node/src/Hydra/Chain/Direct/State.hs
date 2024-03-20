@@ -1040,7 +1040,8 @@ genDecrementTx numParties = do
 
 splitUTxO :: UTxO -> Gen (UTxO, UTxO)
 splitUTxO utxo = do
-  ix <- choose (0, length utxo)
+  -- NOTE: here we skip the head output which is always at the first position.
+  ix <- choose (1, length utxo)
   let (p1, p2) = splitAt ix (UTxO.pairs utxo)
   pure (UTxO.fromPairs p1, UTxO.fromPairs p2)
 
@@ -1048,7 +1049,8 @@ genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  snapshot <- genConfirmedSnapshot headId 0 u0 (ctxHydraSigningKeys ctx)
+  (confirmedUtxo, utxoToDecommit) <- splitUTxO u0
+  snapshot <- genConfirmedSnapshot headId 1 confirmedUtxo (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -1059,7 +1061,8 @@ genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  confirmed <- genConfirmedSnapshot headId 0 u0 []
+  (confirmedUtXO, utxoToDecommit) <- splitUTxO u0
+  confirmed <- genConfirmedSnapshot headId 1 confirmedUtXO (Just utxoToDecommit) []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -1068,7 +1071,8 @@ genContestTx = do
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
   someUtxo <- arbitrary
-  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) someUtxo (ctxHydraSigningKeys ctx)
+  (confirmedUTxO', utxoToDecommit') <- splitUTxO someUtxo
+  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime)
 
