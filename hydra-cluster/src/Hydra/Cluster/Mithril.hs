@@ -10,12 +10,12 @@ import Data.ByteString qualified as BS
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
 import System.IO.Error (isEOFError)
-import System.Process.Typed (createPipe, getStdout, proc, setStdout, withProcessWait_)
+import System.Process.Typed (createPipe, getStderr, proc, setStderr, withProcessWait_)
 
 data MithrilLog
   = StartSnapshotDownload {network :: KnownNetwork, directory :: FilePath}
-  | -- | Output captured directly from mithril-client
-    StdOut {output :: Value}
+  | -- | Output captured directly from mithril-client stderr.
+    StdErr {output :: Value}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -28,7 +28,7 @@ downloadLatestSnapshotTo tracer network directory = do
       traceWith tracer StartSnapshotDownload{network, directory}
       genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
       let cmd =
-            setStdout createPipe $
+            setStderr createPipe $
               proc "mithril-client" $
                 concat
                   [ ["--aggregator-endpoint", aggregatorEndpoint]
@@ -37,15 +37,15 @@ downloadLatestSnapshotTo tracer network directory = do
                   , ["--download-dir", directory]
                   , ["--json"]
                   ]
-      withProcessWait_ cmd traceStdout
+      withProcessWait_ cmd traceStderr
     _ -> error $ "Network " <> show network <> " not supported by mithril."
  where
-  traceStdout p =
+  traceStderr p =
     ignoreEOFErrors . forever $ do
-      bytes <- BS.hGetLine (getStdout p)
+      bytes <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bytes of
         Left err -> error $ "failed to decode: \n" <> show bytes <> "\nerror: " <> show err
-        Right output -> traceWith tracer StdOut{output}
+        Right output -> traceWith tracer StdErr{output}
 
   ignoreEOFErrors =
     handleJust (guard . isEOFError) (const $ pure ())
