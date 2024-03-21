@@ -30,7 +30,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
-import Hydra.Ledger.Cardano (adaOnly, genAddressInEra, genUTxOSized, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (adaOnly, genUTxOSized, genValue, genVerificationKey)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
@@ -40,6 +40,7 @@ import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
 import Hydra.Chain.Direct.Contract.CollectCom (extractHeadOutputValue)
+import Hydra.Chain.Direct.State (splitUTxO)
 
 healthyDecrementTx :: (Tx, UTxO)
 healthyDecrementTx =
@@ -99,8 +100,8 @@ healthySnapshotNumber = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  -- TODO: use splitUTxO generator
-  let (utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
+  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO `generateWith` 42
+
    in Snapshot
         { headId = mkHeadId testPolicyId
         , number = succ healthySnapshotNumber
