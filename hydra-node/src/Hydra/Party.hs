@@ -72,3 +72,7 @@ partyFromChain =
   either (\e -> fail $ "partyFromChain failed: " <> show e) (pure . Party)
     . deserialiseFromRawBytes (AsVerificationKey AsHydraKey)
     . OnChain.partyToVerficationKeyBytes
+
+-- | Type class to retrieve the 'Party' from some type.
+class HasParty a where
+  getParty :: a -> Party
