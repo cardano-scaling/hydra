@@ -207,29 +207,10 @@ genCollectComMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
-        -- Remove a random asset and quantity from headOutput
-        removedValue <- do
-          let allAssets = valueToList $ txOutValue headTxOut
-              nonPTs = flip filter allAssets $ \case
-                (AssetId pid _, _) -> pid /= testPolicyId
-                _ -> True
-          (assetId, Quantity n) <- elements nonPTs
-          q <- Quantity <$> choose (1, n)
-          pure $ valueFromList [(assetId, q)]
-        -- Add another output which would extract the 'removedValue'. The ledger
-        -- would check for this, and this is needed because the way we implement
-        -- collectCom checks.
-        extractionTxOut <- do
-          someAddress <- genAddressInEra testNetworkId
-          pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
-        pure $
-          Changes
-            [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
-            , AppendOutput extractionTxOut
-            ]
-    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
+    , SomeMutation (Just $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
+        extractHeadOutputValue headTxOut testPolicyId
+    , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
@@ -287,3 +268,27 @@ genCollectComMutation (tx, _utxo) =
     Head.Open{parties, contestationPeriod, snapshotNumber, headId} ->
       Head.Open{parties, snapshotNumber, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId}
     st -> st
+
+
+extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
+extractHeadOutputValue headTxOut policyId = do
+  -- Remove a random asset and quantity from headOutput
+  removedValue <- do
+    let allAssets = valueToList $ txOutValue headTxOut
+        nonPTs = flip filter allAssets $ \case
+          (AssetId pid _, _) -> pid /= policyId
+          _ -> True
+    (assetId, Quantity n) <- elements nonPTs
+    q <- Quantity <$> choose (1, n)
+    pure $ valueFromList [(assetId, q)]
+  -- Add another output which would extract the 'removedValue'. The ledger
+  -- would check for this, and this is needed because the way we implement
+  -- collectCom checks.
+  extractionTxOut <- do
+    someAddress <- genAddressInEra testNetworkId
+    pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
+  pure $
+    Changes
+      [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
+      , AppendOutput extractionTxOut
+      ]
