@@ -82,7 +82,7 @@ library
     , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             >=8.40.0 && <8.41
+    , cardano-api             >=8.42.0 && <8.43
     , cardano-api-classy
     , cardano-binary          >=1.7.0  && <1.8
     , cardano-crypto-class    >=2.1.1  && <2.2
