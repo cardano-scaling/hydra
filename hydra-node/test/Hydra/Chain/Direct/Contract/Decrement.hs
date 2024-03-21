@@ -39,6 +39,7 @@ import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
+import Hydra.Chain.Direct.Contract.CollectCom (extractHeadOutputValue)
 
 healthyDecrementTx :: (Tx, UTxO)
 healthyDecrementTx =
@@ -134,26 +135,25 @@ healthyDatum =
         , headId = toPlutusCurrencySymbol testPolicyId
         }
 
--- TODO: alter the constructor names not to include mutate this and that
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
-    MutatePartiesInOutput
+    ChangePartiesInOuput
   | -- | Invalidates the tx by changing the snapshot number in resulting head
     -- output.
-    MutateSnapshotNumber
+    UseDifferentSnapshotNumber
   | -- | Produce invalid signature by changing signers in the redeemer
-    SnapshotSignatureInvalid
+    ProduceInvalidSignatures
   | -- | Ensures decrement is authenticated by one of the Head members by changing
     --  the signer used on the tx to not be one of PTs.
-    MutateRequiredSigner
+    AlterRequiredSigner
   | -- | Mutate the output value to produce different 'UTxO' hash to the one in the signed 'Snapshot'.
-    MutateChangeOutputValue
+    ChangeOutputValue
   | -- | Invalidates the tx by changing the output values arbitrarily to be
     -- different (not preserved) from the head.
     --
     -- Ensures values are preserved between head input and output.
-    MutateValueInOutput
+    ChangeValueInOutput
   | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
     DropDecommitOutput
   | ExtractSomeValue
@@ -162,51 +162,33 @@ data DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDecrementMutation (tx, utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
+    [ SomeMutation (Just $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (Just $ toErrorCode SnapshotNumberMismatch) MutateSnapshotNumber <$> do
+    , SomeMutation (Just $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) SnapshotSignatureInvalid . ChangeHeadRedeemer <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
         Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx))) <*> pure (fromIntegral $ length utxo - 1)
-    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
+    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateChangeOutputValue <$> do
+    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) ChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Skip the first output since this is the Head output.
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
+    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , -- TODO: maybe dry with CollectCom
-      SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
-        -- Remove a random asset and quantity from headOutput
-        removedValue <- do
-          let allAssets = valueToList $ txOutValue headTxOut
-              nonPTs = flip filter allAssets $ \case
-                (AssetId pid _, _) -> pid /= testPolicyId
-                _ -> True
-          (assetId, Quantity n) <- elements nonPTs
-          q <- Quantity <$> choose (1, n)
-          pure $ valueFromList [(assetId, q)]
-        -- Add another output which would extract the 'removedValue'. The ledger
-        -- would check for this, and this is needed because the way we implement
-        -- collectCom checks.
-        extractionTxOut <- do
-          someAddress <- genAddressInEra testNetworkId
-          pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
-        pure $
-          Changes
-            [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
-            , AppendOutput extractionTxOut
-            ]
+    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
+        extractHeadOutputValue headTxOut testPolicyId
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
+
+
