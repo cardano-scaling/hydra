@@ -83,14 +83,15 @@ confirmRadioField =
 
   radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
 
+type LeftBracketChar = Char
+type CheckmarkChar = Char
+type RightBracketChar = Char
+
 checkboxGroupField ::
   (Ord k, Ord n) =>
-  -- | Left bracket character.
-  Char ->
-  -- | Checkmark character.
-  Char ->
-  -- | Right bracket character.
-  Char ->
+  LeftBracketChar ->
+  CheckmarkChar ->
+  RightBracketChar ->
   -- | The state lens for this value.
   Lens' (Map k (a, Bool)) (Map k (a, Bool)) ->
   -- | The available choices, in order.
@@ -153,12 +154,9 @@ type FormFieldRenderHelper a n = (a -> Text -> Bool -> Widget n -> Widget n)
 
 customRadioField ::
   (Ord n, Eq a) =>
-  -- | Left bracket character.
-  Char ->
-  -- | Checkmark character.
-  Char ->
-  -- | Right bracket character.
-  Char ->
+  LeftBracketChar ->
+  CheckmarkChar ->
+  RightBracketChar ->
   -- | The state lens for this value.
   Lens' s a ->
   -- | The available choices, in order. Each choice has a value
