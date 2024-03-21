@@ -993,10 +993,10 @@ observeContestTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{contesters}, Head.Contest{}) -> do
+    (Head.Closed{}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
-      let (onChainSnapshotNumber, contestationDeadline) = decodeDatum newHeadDatum
+      let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
       pure
         ContestObservation
           { contestedThreadOutput = (newHeadInput, newHeadOutput)
@@ -1011,7 +1011,7 @@ observeContestTx utxo tx = do
 
   decodeDatum headDatum =
     case fromScriptData headDatum of
-      Just Head.Closed{snapshotNumber, contestationDeadline} -> (snapshotNumber, contestationDeadline)
+      Just Head.Closed{snapshotNumber, contestationDeadline, contesters} -> (snapshotNumber, contestationDeadline, contesters)
       _ -> error "wrong state in output datum"
 
 newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
