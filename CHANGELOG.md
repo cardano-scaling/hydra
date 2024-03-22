@@ -36,6 +36,10 @@ changes.
 
 - Add support for `Conway` in `hydra-chain-observer`.
 
+- Fix a bug in the contest observation where contesters were extracted from the
+  input instead of the output datum.
+  [#1266](https://github.com/input-output-hk/hydra/pull/1266)
+
 - **BREAKING** Change to the `hydra-node` logs, monitoring and removal of `log-filter` executable:
   - Renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
   - Changed structure of `LogicOutcome` entries.
