@@ -62,6 +62,7 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
   canDecommit,
+  canFanoutWithDecommitRecorded,
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
@@ -198,6 +199,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canDecommit tracer tmpDir node
+      it "can fanout after decommit" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canFanoutWithDecommitRecorded tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->

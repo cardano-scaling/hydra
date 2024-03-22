@@ -269,7 +269,6 @@ genCollectComMutation (tx, _utxo) =
       Head.Open{parties, snapshotNumber, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId}
     st -> st
 
-
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
 extractHeadOutputValue headTxOut policyId = do
   -- Remove a random asset and quantity from headOutput

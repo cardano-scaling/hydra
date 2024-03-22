@@ -16,8 +16,10 @@ import Hydra.Prelude hiding (label)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct.Contract.CollectCom (extractHeadOutputValue)
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.Tx (
   decrementTx,
   mkHeadId,
@@ -39,8 +41,6 @@ import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
-import Hydra.Chain.Direct.Contract.CollectCom (extractHeadOutputValue)
-import Hydra.Chain.Direct.State (splitUTxO)
 
 healthyDecrementTx :: (Tx, UTxO)
 healthyDecrementTx =
@@ -101,7 +101,6 @@ healthySnapshotNumber = 1
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO `generateWith` 42
-
    in Snapshot
         { headId = mkHeadId testPolicyId
         , number = succ healthySnapshotNumber
@@ -191,5 +190,3 @@ genDecrementMutation (tx, utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
-
-
