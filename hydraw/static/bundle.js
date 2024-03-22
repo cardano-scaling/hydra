@@ -15,10 +15,13 @@ client.addEventListener("message", e => {
   switch (msg.tag) {
     case "TxValid":
       // TODO: Should only draw pixels on SnapshotConfirmed
-      console.log("New transaction seen", msg.transaction.id);
-      if (msg.transaction.auxiliaryData != null) {
-        console.log("Transaction has auxiliary data", msg.transaction.auxiliaryData);
-        const aux = cbor.decodeFirstSync(msg.transaction.auxiliaryData).value;
+      const cborHex = msg.transaction.cborHex;
+      console.log("New transaction cborHex seen", cborHex);
+      const transaction = cbor.decodeFirstSync(cborHex);
+      const auxiliaryData = transaction[3]
+      if (auxiliaryData !== undefined && auxiliaryData !== null) {
+        console.log("Transaction has auxiliary data", auxiliaryData);
+        const aux = auxiliaryData.value;
         const [x, y, r, g, b] = (aux.get(0) || aux.get(1)).get(metadataLabel);
         n += delay;
         setTimeout(() => drawPixel(x, y, [r, g, b]), n);
@@ -46,7 +49,6 @@ const drawPixel = (x, y, rgb) => {
   ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
   ctx.fillRect(x, y, 1, 1);
 }
-
 
 canvas.addEventListener('click', function(e) {
   console.log("event", e);
