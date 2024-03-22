@@ -651,7 +651,75 @@ transactions to the head as you wish. Proceed in the tutorial once you're done
 and want to realize the exchanged funds from the Hydra head back to the Cardano
 layer one.
 
-## Step 6: Closing the Hydra head
+## Step 6: Decommitting funds from the Hydra head
+
+Now let's take some `UTxO` present in the head and send it back to the layer one.
+To do this we need to find out which `UTxO` we can spend. We can do this by querying
+the state of Alice's funds in the `websocat` session:
+
+```shell
+websocat -U "ws://0.0.0.0:4001?history=no" \
+  | jq "select(.tag == \"Greetings\") \
+    | .snapshotUtxo \
+    | with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
+  > utxo.json
+```
+Now we need to generate another key to send funds to and  construct a decommit
+transaction which will be sent to the `hydra-node` to initiate the process of
+sending funds back to the layer one.
+
+Create new wallet key pair and address:
+
+```shell
+
+cardano-cli address key-gen \
+  --verification-key-file credentials/wallet.vk \
+  --signing-key-file credentials/wallet.sk
+
+cardano-cli address build \
+  --verification-key-file credentials/wallet.vk \
+  --out-file credentials/wallet.addr
+
+```
+
+Construct and sign a decommit transaction by using the correct amount for the `UTxO` we queried before:
+
+```shell
+LOVELACE=4000000
+cardano-cli transaction build-raw \
+  --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
+  --tx-out $(cat credentials/wallet.addr)+${LOVELACE} \
+  --fee 0 \
+  --out-file decommit.json
+
+cardano-cli transaction sign \
+  --tx-file decommit.json \
+  --signing-key-file credentials/alice-node.sk \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file alice-decommit-tx-signed.json
+
+```
+
+With the signed decommit transaction, we can now submit it to the `hydra-node`:
+
+```shell
+curl -X POST 127.0.0.1:5001/decommit \
+  --data @alice-decommit-tx-signed.json
+```
+
+In our websocat session, we can see first a `DecommitRequested` message which
+indicates a decommit is requested and after some time `DecommitFinalized` which
+concludes the decommit process and after which the funds are available on the
+layer one.
+
+To confirm, you can query the funds of the wallet on the layer one:
+
+```shell
+
+cardano-cli query utxo --address $(cat credentials/wallet.addr) --out-file /dev/stdout | jq
+```
+
+## Step 7: Closing the Hydra head
 
 Each participant of the head can close it at any point in time. To do this, we
 can use the websocket API and submit this command:
