@@ -10,6 +10,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
+import Hydra.Chain.BlockFrost (withBlockFrostChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Environment (Environment (..))
@@ -113,6 +114,10 @@ run opts = do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+    BlockFrost cfg -> do
+      ctx <- loadChainContext cfg party
+      wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
+      pure $ withBlockFrostChain (contramap BlockFrostChain tracer) cfg ctx wallet
 
   RunOptions
     { verbosity

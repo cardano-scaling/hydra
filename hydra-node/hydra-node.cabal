@@ -54,6 +54,7 @@ library
     Hydra.API.ServerOutput
     Hydra.API.WSServer
     Hydra.Chain
+    Hydra.Chain.BlockFrost
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Fixture
