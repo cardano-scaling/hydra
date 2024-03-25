@@ -22,22 +22,22 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
-import Hydra.Cardano.Api (LedgerEra)
-import Hydra.Chain (
-  Chain (..),
-  IsChainState,
- )
+import Hydra.Cardano.Api (LedgerEra, Tx)
+import Hydra.Chain (Chain (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
+import Network.HTTP.Types (status500)
+import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
   setBeforeMainLoop,
   setHost,
   setOnException,
+  setOnExceptionResponse,
   setPort,
  )
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -58,16 +58,14 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
-  forall tx.
-  IsChainState tx =>
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
+  PersistenceIncremental (TimedServerOutput Tx) IO ->
   Tracer IO APIServerLog ->
-  Chain tx IO ->
+  Chain Tx IO ->
   PParams LedgerEra ->
-  ServerComponent tx IO ()
+  ServerComponent Tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
@@ -88,6 +86,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
             & setHost (fromString $ show host)
             & setPort (fromIntegral port)
             & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+            & setOnExceptionResponse (responseLBS status500 [] . show)
             & setBeforeMainLoop notifyServerRunning
     race_
       ( do

@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey, VerificationKey, verificationKeyHash),
-  KeyWitnessInCtx (..),
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -32,8 +31,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   UTxO' (UTxO),
-  WitCtxTxIn,
-  Witness,
   chainPointToSlotNo,
   fromPlutusScript,
   fromScriptData,
@@ -44,20 +41,18 @@ import Hydra.Cardano.Api (
   selectLovelace,
   toTxContext,
   txIns',
-  txOutReferenceScript,
   txOutScriptData,
   txOutValue,
+  txSpendingUTxO,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
-  pattern KeyWitness,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
 import Hydra.Chain (
   ChainStateType,
+  CommitBlueprintTx (..),
   HeadParameters (..),
   IsChainState (..),
   OnChainTx (..),
@@ -226,7 +221,7 @@ instance Arbitrary ChainContext where
   arbitrary = do
     networkId <- Testnet . NetworkMagic <$> arbitrary
     ownVerificationKey <- genVerificationKey
-    otherParties <- arbitrary
+    otherParties <- choose (1, maximumNumberOfParties) >>= \n -> replicateM n arbitrary
     ownParty <- elements otherParties
     scriptRegistry <- genScriptRegistry
     pure
@@ -343,14 +338,15 @@ commit ::
   HeadId ->
   -- | Spendable 'UTxO'
   UTxO ->
-  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
+  -- | 'UTxO' to commit.
   UTxO ->
   Either (PostTxError Tx) Tx
-commit ctx headId spendableUTxO utxoToCommit =
-  commit' ctx headId spendableUTxO $ utxoToCommit <&> (,KeyWitness KeyWitnessForSpending)
+commit ctx headId spendableUTxO lookupUTxO =
+  let blueprintTx = txSpendingUTxO lookupUTxO
+   in commit' ctx headId spendableUTxO CommitBlueprintTx{lookupUTxO, blueprintTx}
 
 -- | Construct a commit transaction based on known, spendable UTxO and some
--- arbitrary UTxOs to commit. This does look for "our initial output" to spend
+-- user UTxO inputs to commit. This does look for "our initial output" to spend
 -- and check the given 'UTxO' to be compatible. Hence, this function does fail
 -- if already committed or if the head is not initializing.
 --
@@ -360,18 +356,17 @@ commit' ::
   HeadId ->
   -- | Spendable 'UTxO'
   UTxO ->
-  -- | 'UTxO' to commit, along with witnesses to spend them.
-  UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+  CommitBlueprintTx Tx ->
   Either (PostTxError Tx) Tx
-commit' ctx headId spendableUTxO utxoToCommit = do
+commit' ctx headId spendableUTxO commitBlueprintTx = do
   pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
   (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
-  let utxo = fst <$> utxoToCommit
-  rejectByronAddress utxo
-  rejectReferenceScripts utxo
-  rejectMoreThanMainnetLimit networkId utxo
-  pure $ commitTx networkId scriptRegistry headId ownParty utxoToCommit (i, o, vkh)
+  rejectByronAddress lookupUTxO
+  rejectMoreThanMainnetLimit networkId lookupUTxO
+  pure $ commitTx networkId scriptRegistry headId ownParty commitBlueprintTx (i, o, vkh)
  where
+  CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
+
   ChainContext{networkId, ownParty, scriptRegistry, ownVerificationKey} = ctx
 
   vkh = verificationKeyHash ownVerificationKey
@@ -389,16 +384,6 @@ rejectByronAddress u = do
       Left (UnsupportedLegacyOutput addr)
     (TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
-
-rejectReferenceScripts :: UTxO -> Either (PostTxError Tx) ()
-rejectReferenceScripts u =
-  when (any hasReferenceScript u) $
-    Left CannotCommitReferenceScript
- where
-  hasReferenceScript out =
-    case txOutReferenceScript out of
-      ReferenceScript{} -> True
-      ReferenceScriptNone -> False
 
 -- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
 -- NOTE: Remove this limit once we have more experiments on mainnet.

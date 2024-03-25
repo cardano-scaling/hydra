@@ -5,7 +5,6 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO' (UTxO, toMap))
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
@@ -22,20 +21,19 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey),
-  KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
   TxOut,
-  WitCtxTxIn,
-  Witness,
+  UTxO',
   lovelaceToValue,
   signTx,
   txOutValue,
+  txSpendingUTxO,
   unFile,
-  pattern KeyWitness,
  )
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
+  CommitBlueprintTx (..),
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
@@ -449,7 +447,7 @@ data DirectChainTestLog
 data DirectChainTest tx m = DirectChainTest
   { postTx :: PostChainTx tx -> m ()
   , waitCallback :: m (ChainEvent tx)
-  , draftCommitTx :: UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) -> HeadId -> m tx
+  , draftCommitTx :: HeadId -> UTxOType tx -> tx -> m tx
   }
 
 -- | Wrapper around 'withDirectChain' that threads a 'ChainStateType tx' through
@@ -476,8 +474,8 @@ withDirectChainTest tracer config party action = do
       DirectChainTest
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
-        , draftCommitTx = \utxo headId -> do
-            eTx <- draftCommitTx headId utxo
+        , draftCommitTx = \headId utxo blueprintTx -> do
+            eTx <- draftCommitTx headId $ CommitBlueprintTx{lookupUTxO = utxo, blueprintTx}
             case eTx of
               Left e -> throwIO e
               Right tx -> pure tx
@@ -528,10 +526,9 @@ externalCommit ::
   HeadId ->
   UTxO' (TxOut CtxUTxO) ->
   IO ()
-externalCommit node hydraClient externalSk headId utxoToCommit' = do
-  let utxoToCommit =
-        UTxO $ (,KeyWitness KeyWitnessForSpending) <$> toMap utxoToCommit'
-  commitTx <- draftCommitTx utxoToCommit headId
+externalCommit node hydraClient externalSk headId utxoToCommit = do
+  let blueprintTx = txSpendingUTxO utxoToCommit
+  commitTx <- draftCommitTx headId utxoToCommit blueprintTx
   let signedTx = signTx externalSk commitTx
   submitTx node signedTx
  where

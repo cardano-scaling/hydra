@@ -13,12 +13,36 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
+import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), hashAlonzoTxAuxData)
+import Cardano.Ledger.Api (
+  AlonzoPlutusPurpose (..),
+  AsIndex (..),
+  Redeemers (..),
+  auxDataHashTxBodyL,
+  auxDataTxL,
+  bodyTxL,
+  inputsTxBodyL,
+  mintTxBodyL,
+  mkAlonzoTxAuxData,
+  outputsTxBodyL,
+  rdmrsTxWitsL,
+  referenceInputsTxBodyL,
+  reqSignerHashesTxBodyL,
+  unRedeemers,
+  witsTxL,
+ )
+import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Control.Lens ((.~), (<>~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
+import Data.Sequence.Strict qualified as StrictSeq
+import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Cardano.Api.Prelude (toShelleyMetadata)
+import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain, toChain)
@@ -217,39 +241,80 @@ commitTx ::
   ScriptRegistry ->
   HeadId ->
   Party ->
-  -- | The UTxO to commit to the Head along with witnesses.
-  UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
+  CommitBlueprintTx Tx ->
   -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInput, out, vkh) =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(initialInput, initialWitness)]
-      & addReferenceInputs [initialScriptRef]
-      & addInputs committedTxIns
-      & addExtraRequiredSigners [vkh]
-      & addOutputs [commitOutput]
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CommitTx")
+commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, out, vkh) =
+  let
+    ledgerBlueprintTx =
+      toLedgerTx blueprintTx
+        & bodyTxL . inputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialInput)
+        & bodyTxL . referenceInputsTxBodyL <>~ Set.fromList [toLedgerTxIn initialScriptRef]
+        & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
+        & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
+        & bodyTxL . auxDataHashTxBodyL .~ SJust (hashAlonzoTxAuxData txAuxMetadata)
+        & bodyTxL . mintTxBodyL .~ mempty
+        & auxDataTxL .~ addMetadata txAuxMetadata
+    existingWits = toLedgerTx blueprintTx ^. witsTxL
+    allInputs = ledgerBlueprintTx ^. bodyTxL . inputsTxBodyL
+    blueprintRedeemers = unRedeemers $ toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL
+    resolved = resolveRedeemers blueprintRedeemers committedTxIns
+    wits =
+      witsTxL
+        .~ ( existingWits
+              & rdmrsTxWitsL .~ Redeemers (Map.fromList $ reassociate resolved allInputs)
+           )
+   in
+    fromLedgerTx $ ledgerBlueprintTx & wits
  where
-  initialWitness =
-    BuildTxWith $
-      ScriptWitness scriptWitnessInCtx $
-        mkScriptReference initialScriptRef initialScript InlineScriptDatum initialRedeemer
+  addMetadata newMetadata@(AlonzoTxAuxData metadata' _ _) =
+    case toLedgerTx blueprintTx ^. auxDataTxL of
+      SNothing -> SJust newMetadata
+      SJust (AlonzoTxAuxData metadata timeLocks languageMap) ->
+        SJust $
+          AlonzoTxAuxData
+            (Map.union metadata metadata')
+            timeLocks
+            languageMap
 
-  initialScript =
-    fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  -- re-associates final commit tx inputs with the redeemer data from blueprint tx
+  reassociate resolved allInputs =
+    foldl'
+      ( \newRedeemerData txin ->
+          let key = mkSpendingKey $ Set.findIndex txin allInputs
+           in case find (\(txin', _) -> txin == txin') resolved of
+                Nothing -> newRedeemerData
+                Just (_, d) ->
+                  (key, d) : newRedeemerData
+      )
+      []
+      allInputs
+
+  -- Creates a list of 'TxIn' paired with redeemer data and also adds the initial txIn and it's redeemer.
+  resolveRedeemers existingRedeemerMap blueprintInputs =
+    (toLedgerTxIn initialInput, (toLedgerData @LedgerEra initialRedeemer, ExUnits 0 0))
+      : foldl'
+        ( \pairs txin ->
+            let key = mkSpendingKey $ Set.findIndex txin blueprintInputs
+             in case Map.lookup key existingRedeemerMap of
+                  Nothing -> pairs
+                  Just d -> (txin, d) : pairs
+        )
+        []
+        committedTxIns
+
+  mkSpendingKey i = AlonzoSpending (AsIndex $ fromIntegral i)
 
   initialScriptRef =
     fst (initialReference scriptRegistry)
 
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.ViaCommit (toPlutusTxOutRef . fst <$> committedTxIns)
+      Initial.ViaCommit (toPlutusTxOutRef . fromLedgerTxIn <$> Set.toList committedTxIns)
 
-  committedTxIns =
-    map (\(i, (_, w)) -> (i, BuildTxWith w)) $ UTxO.pairs utxoToCommitWitnessed
+  committedTxIns = toLedgerTx blueprintTx ^. bodyTxL . inputsTxBodyL
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
@@ -260,13 +325,19 @@ commitTx networkId scriptRegistry headId party utxoToCommitWitnessed (initialInp
   commitAddress =
     mkScriptAddress @PlutusScriptV2 networkId commitScript
 
+  utxoToCommit =
+    UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) (txIns' blueprintTx)
+
   commitValue =
     txOutValue out <> foldMap txOutValue utxoToCommit
 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
 
-  utxoToCommit = fst <$> utxoToCommitWitnessed
+  TxMetadata metadataMap = mkHydraHeadV1TxName "CommitTx"
+
+  txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata metadataMap) []
+  CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =

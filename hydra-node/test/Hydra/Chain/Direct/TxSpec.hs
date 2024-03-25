@@ -1,22 +1,42 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
 module Hydra.Chain.Direct.TxSpec where
 
-import Hydra.Cardano.Api
-import Hydra.Chain.Direct.Tx
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
+import Cardano.Ledger.Api (
+  AlonzoPlutusPurpose (AlonzoSpending),
+  Metadatum,
+  auxDataTxL,
+  bodyTxL,
+  inputsTxBodyL,
+  outputsTxBodyL,
+  rdmrsTxWitsL,
+  referenceInputsTxBodyL,
+  reqSignerHashesTxBodyL,
+  unRedeemers,
+  vldtTxBodyL,
+  witsTxL,
+ )
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
+import Cardano.Ledger.Credential (Credential (..))
+import Control.Lens ((.~), (^.))
+import Data.ByteString qualified as BS
 import Data.Map qualified as Map
+import Data.Maybe.Strict (fromSMaybe)
+import Data.Set qualified as Set
+import Data.Text (pack)
 import Data.Text qualified as T
-import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain (HeadParameters (..))
+import Data.Text qualified as Text
+import Hydra.Cardano.Api
+import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
+import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
+import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
   pparams,
@@ -25,26 +45,52 @@ import Hydra.Chain.Direct.Fixture (
   testPolicyId,
   testSeedInput,
  )
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.Chain.Direct.Tx
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
+import Hydra.Ledger (IsTx (balance))
+import Hydra.Ledger.Cardano (
+  adaOnly,
+  addInputs,
+  addReferenceInputs,
+  addVkInputs,
+  emptyTxBody,
+  genOneUTxOFor,
+  genSomeTokens,
+  genTxOutWithReferenceScript,
+  genUTxO1,
+  genUTxOAdaOnlyOfSize,
+  genVerificationKey,
+  unsafeBuildTransaction,
+ )
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
+import Hydra.PersistenceSpec (genSomeText)
+import PlutusLedgerApi.Test.Examples qualified as Plutus
+import PlutusTx (Data (..))
 import Test.Hydra.Fixture (genForParty)
+import Test.Hydra.Prelude
 import Test.QuickCheck (
+  Positive (..),
   Property,
   choose,
+  conjoin,
   counterexample,
+  cover,
   elements,
   forAll,
   forAllBlind,
+  getPrintableString,
   label,
+  oneof,
   property,
+  vector,
   vectorOf,
   withMaxSuccess,
   (===),
@@ -140,6 +186,215 @@ spec =
                         & counterexample "Failed to construct and observe init tx."
                         & counterexample (renderTx tx)
                         & counterexample (show e)
+
+    describe "commitTx" $ do
+      prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
+
+      prop "Validate blueprint and commit transactions" $ do
+        forAllBlind arbitrary $ \chainContext -> do
+          let ChainContext{networkId, ownVerificationKey, ownParty, scriptRegistry} =
+                chainContext{ownVerificationKey = getVerificationKey commitSigningKey, networkId = testNetworkId}
+          forAll genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx') -> do
+            let commitTx' =
+                  commitTx
+                    networkId
+                    scriptRegistry
+                    (mkHeadId Fixture.testPolicyId)
+                    ownParty
+                    CommitBlueprintTx{lookupUTxO, blueprintTx = blueprintTx'}
+                    (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, verificationKeyHash ownVerificationKey)
+            let blueprintTx = toLedgerTx blueprintTx'
+            let blueprintBody = blueprintTx ^. bodyTxL
+            let tx = toLedgerTx commitTx'
+            let commitTxBody = tx ^. bodyTxL
+
+            let spendableUTxO =
+                  UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
+                    <> lookupUTxO
+                    <> registryUTxO scriptRegistry
+
+            checkCoverage $
+              conjoin
+                [ propTransactionEvaluates (blueprintTx', lookupUTxO)
+                    & counterexample ("Blueprint transaction failed to evaluate: " <> renderTxWithUTxO lookupUTxO blueprintTx')
+                , propTransactionEvaluates (commitTx', spendableUTxO)
+                    & counterexample ("Commit transaction failed to evaluate: " <> renderTxWithUTxO spendableUTxO commitTx')
+                , let blueprintMetadata = fromSMaybe mempty $ getAuxMetadata <$> blueprintTx ^. auxDataTxL
+                      commitMetadata = fromSMaybe mempty $ getAuxMetadata <$> tx ^. auxDataTxL
+                   in blueprintMetadata `Map.isSubmapOf` commitMetadata
+                        & counterexample ("blueprint metadata: " <> show blueprintMetadata)
+                        & counterexample ("commit metadata: " <> show commitMetadata)
+                , let blueprintValidity = blueprintBody ^. vldtTxBodyL
+                      commitValidity = commitTxBody ^. vldtTxBodyL
+                   in blueprintValidity === commitValidity
+                        & counterexample ("blueprint validity: " <> show blueprintValidity)
+                        & counterexample ("commit validity: " <> show commitValidity)
+                , let blueprintInputs = blueprintBody ^. inputsTxBodyL
+                      commitInputs = commitTxBody ^. inputsTxBodyL
+                   in property (blueprintInputs `Set.isSubsetOf` commitInputs)
+                        & counterexample ("blueprint inputs: " <> show blueprintInputs)
+                        & counterexample ("commit inputs: " <> show commitInputs)
+                , let blueprintOutputs = toList $ blueprintBody ^. outputsTxBodyL
+                      commitOutputs = toList $ commitTxBody ^. outputsTxBodyL
+                   in property
+                        ( all
+                            (`notElem` blueprintOutputs)
+                            commitOutputs
+                        )
+                        & counterexample ("blueprint outputs: " <> show blueprintOutputs)
+                        & counterexample ("commit outputs: " <> show commitOutputs)
+                , let blueprintSigs = blueprintBody ^. reqSignerHashesTxBodyL
+                      commitSigs = commitTxBody ^. reqSignerHashesTxBodyL
+                   in property (blueprintSigs `Set.isSubsetOf` commitSigs)
+                        & counterexample ("blueprint signatures: " <> show blueprintSigs)
+                        & counterexample ("commit signatures: " <> show commitSigs)
+                , let blueprintRefInputs = blueprintBody ^. referenceInputsTxBodyL
+                      commitRefInputs = commitTxBody ^. referenceInputsTxBodyL
+                   in property (blueprintRefInputs `Set.isSubsetOf` commitRefInputs)
+                        & counterexample ("blueprint reference inputs: " <> show blueprintRefInputs)
+                        & counterexample ("commit reference inputs: " <> show commitRefInputs)
+                ]
+                & cover 1 (spendsFromScript (lookupUTxO, fromLedgerTx blueprintTx)) "blueprint spends script UTxO"
+                & cover 1 (spendsFromPubKey (lookupUTxO, fromLedgerTx blueprintTx)) "blueprint spends pub key UTxO"
+                & cover 1 (not . null $ blueprintTx ^. bodyTxL . referenceInputsTxBodyL) "blueprint has reference input"
+
+getAuxMetadata :: AlonzoTxAuxData LedgerEra -> Map Word64 Metadatum
+getAuxMetadata (AlonzoTxAuxData metadata _ _) = metadata
+
+addRequiredSignatures :: [VerificationKey PaymentKey] -> Tx -> Tx
+addRequiredSignatures vks tx =
+  fromLedgerTx $
+    toLedgerTx tx
+      & bodyTxL . reqSignerHashesTxBodyL .~ Set.fromList (toLedgerKeyHash . verificationKeyHash <$> vks)
+
+genBlueprintTxWithUTxO :: Gen (UTxO, Tx)
+genBlueprintTxWithUTxO =
+  fmap (second unsafeBuildTransaction) $
+    spendingPubKeyOutput (mempty, emptyTxBody)
+      >>= spendSomeScriptInputs
+      >>= addSomeReferenceInputs
+      >>= addValidityRange
+      >>= addRandomMetadata
+      >>= removeRandomInputs
+      >>= addCollateralInputs
+ where
+  spendingPubKeyOutput (utxo, txbody) = do
+    utxoToSpend <- (genUTxOAdaOnlyOfSize . getPositive) . Positive =<< choose (0, 50)
+    pure
+      ( utxo <> utxoToSpend
+      , txbody & addVkInputs (toList $ UTxO.inputSet utxoToSpend)
+      )
+
+  spendSomeScriptInputs (utxo, txbody) = do
+    let alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 3
+    n <- choose (1, 100)
+    datum <- unsafeHashableScriptData . fromPlutusData . I <$> arbitrary
+    redeemer <-
+      unsafeHashableScriptData . fromPlutusData . B . BS.pack
+        <$> vector n
+    let genTxOut = do
+          value <- balance @Tx <$> genUTxOAdaOnlyOfSize n
+          tokens <- genSomeTokens
+          let scriptAddress = mkScriptAddress testNetworkId alwaysSucceedingScript
+          pure $ TxOut scriptAddress (value <> tokens) (TxOutDatumInline datum) ReferenceScriptNone
+    utxoToSpend <- genUTxO1 genTxOut
+    pure
+      ( utxo <> utxoToSpend
+      , txbody
+          & addInputs
+            ( UTxO.pairs $
+                ( \_ ->
+                    BuildTxWith $
+                      ScriptWitness ScriptWitnessForSpending $
+                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn datum) redeemer
+                )
+                  <$> utxoToSpend
+            )
+      )
+
+  addSomeReferenceInputs (utxo, txbody) = do
+    txout <- genTxOutWithReferenceScript
+    txin <- arbitrary
+    pure (utxo <> UTxO.singleton (txin, txout), txbody & addReferenceInputs [txin])
+
+  addValidityRange (utxo, txbody) = do
+    (start, end) <- arbitrary
+    pure
+      ( utxo
+      , txbody{txValidityLowerBound = start, txValidityUpperBound = end}
+      )
+
+  addRandomMetadata (utxo, txbody) = do
+    mtdt <- oneof [randomMetadata, pure TxMetadataNone]
+    pure (utxo, txbody{txMetadata = mtdt})
+   where
+    randomMetadata = do
+      n <- choose (2, 50)
+      metadata <- Text.take n <$> genSomeText
+      l <- arbitrary
+      pure $
+        TxMetadataInEra $
+          TxMetadata $
+            Map.fromList [(l, TxMetaText metadata)]
+
+  removeRandomInputs (utxo, txbody) = do
+    someInput <- elements $ txIns txbody
+    pure (utxo, txbody{txIns = [someInput]})
+
+  addCollateralInputs (utxo, txbody) = do
+    utxoToSpend <- (genUTxOAdaOnlyOfSize . getPositive) . Positive =<< choose (0, 50)
+    pure
+      ( utxo <> utxoToSpend
+      , txbody{txInsCollateral = TxInsCollateral $ toList $ UTxO.inputSet utxoToSpend}
+      )
+
+prop_interestingBlueprintTx :: Property
+prop_interestingBlueprintTx = do
+  forAll genBlueprintTxWithUTxO $ \(utxo, tx) ->
+    checkCoverage
+      True
+      & cover 1 (spendsFromScript (utxo, tx)) "blueprint spends script UTxO"
+      & cover 1 (spendsFromPubKey (utxo, tx)) "blueprint spends pub key UTxO"
+      & cover 1 (hasReferenceInputs tx) "blueprint has reference input"
+ where
+  hasReferenceInputs tx =
+    not . null $ toLedgerTx tx ^. bodyTxL . referenceInputsTxBodyL
+
+spendsFromPubKey :: (UTxO, Tx) -> Bool
+spendsFromPubKey (utxo, tx) =
+  any
+    ( \txIn -> case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+        Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (KeyHashObj _) _)) _ _ _) -> True
+        _ -> False
+    )
+    $ toLedgerTx tx ^. bodyTxL . inputsTxBodyL
+
+-- XXX: We do check both, the utxo and redeemers, because we
+-- don't do phase 1 validation of the resulting transactions
+-- and would not detect if redeemers are missing.
+spendsFromScript :: (UTxO, Tx) -> Bool
+spendsFromScript (utxo, tx) =
+  any
+    ( \txIn -> case UTxO.resolve (fromLedgerTxIn txIn) utxo of
+        Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (ScriptHashObj _) _)) _ _ _) -> True
+        _ -> False
+    )
+    (toLedgerTx tx ^. bodyTxL . inputsTxBodyL)
+    && any
+      ( \case
+          AlonzoSpending _ -> True
+          _ -> False
+      )
+      ( Map.keysSet
+          . unRedeemers
+          $ toLedgerTx @Era tx ^. witsTxL . rdmrsTxWitsL
+      )
+
+genLabelAndMetadata :: Gen (Word64, Text)
+genLabelAndMetadata = do
+  metalabel <- choose (1, 250)
+  metadata <- pack . getPrintableString <$> arbitrary
+  pure (metalabel, metadata)
 
 withinTxExecutionBudget :: EvaluationReport -> Property
 withinTxExecutionBudget report =

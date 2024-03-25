@@ -67,9 +67,8 @@ import Hydra.Cluster.Scenarios (
   refuelIfNeeded,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
-  singlePartyCannotCommitExternallyWalletUtxo,
-  singlePartyCommitsExternalScriptWithInlineDatum,
-  singlePartyCommitsFromExternalScript,
+  singlePartyCommitsFromExternal,
+  singlePartyCommitsFromExternalTxBlueprint,
   singlePartyHeadFullLifeCycle,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
@@ -178,26 +177,21 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= timedTx tmpDir tracer node
-      it "commits from external with script utxo" $ \tracer -> do
+      it "commits from external with utxo" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= singlePartyCommitsFromExternalScript tracer tmpDir node
-      it "commit external wallet utxo with inline datum in the script" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartyCommitsExternalScriptWithInlineDatum tracer tmpDir node
-      it "can't commit externally with internal wallet utxo" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartyCannotCommitExternallyWalletUtxo tracer tmpDir node
+              >>= singlePartyCommitsFromExternal tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canSubmitTransactionThroughAPI tracer tmpDir node
+      it "commits from external with tx blueprint" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCommitsFromExternalTxBlueprint tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->

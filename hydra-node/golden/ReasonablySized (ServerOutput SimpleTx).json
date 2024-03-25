@@ -304,7 +304,7 @@
                 ]
             },
             "postTxError": {
-                "tag": "FailedToDraftTxNotInitializing"
+                "tag": "SpendingNodeUtxoForbidden"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -568,23 +568,8 @@
                 ]
             },
             "postTxError": {
-                "headUTxO": [
-                    -3,
-                    0,
-                    6
-                ],
-                "reason": "",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": 1,
-                    "inputs": [
-                        4,
-                        5
-                    ],
-                    "outputs": [
-                        0
-                    ]
-                }
+                "failureReason": "\n႕",
+                "tag": "FailedToPostTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -857,9 +842,33 @@
                 ]
             },
             "postTxError": {
-                "failureReason": "􄣽i!\u0004",
-                "redeemerPtr": "\"+)󸍻M0",
-                "tag": "ScriptFailedInWallet"
+                "headUTxO": [
+                    -6,
+                    -4,
+                    2,
+                    3,
+                    5
+                ],
+                "reason": "\u001a\u0004f",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": 4,
+                    "inputs": [
+                        -5,
+                        -3,
+                        -2,
+                        0,
+                        1,
+                        2
+                    ],
+                    "outputs": [
+                        -6,
+                        -5,
+                        -2,
+                        3,
+                        4
+                    ]
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1149,7 +1158,7 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "tag": "FailedToConstructCollectTx"
+                "tag": "FailedToConstructFanoutTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1320,25 +1329,8 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "headUTxO": [
-                    -3,
-                    0,
-                    4
-                ],
-                "reason": "\u0010焨䤠b􈅙􊨍",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": 3,
-                    "inputs": [
-                        3,
-                        4
-                    ],
-                    "outputs": [
-                        -1,
-                        2,
-                        5
-                    ]
-                }
+                "failureReason": "J􉷾kP",
+                "tag": "FailedToPostTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1738,7 +1730,7 @@
                 ]
             },
             "postTxError": {
-                "tag": "NotEnoughFuel"
+                "tag": "NoFuelUTXOFound"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1783,7 +1775,19 @@
                 ]
             },
             "postTxError": {
-                "tag": "CannotCommitReferenceScript"
+                "chainState": {
+                    "slot": 1
+                },
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "headSeed": "04060507080501070206000402030407",
+                    "tag": "AbortTx",
+                    "utxo": [
+                        -4,
+                        2,
+                        4
+                    ]
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1830,7 +1834,54 @@
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "tag": "CannotCommitReferenceScript"
+                "chainState": {
+                    "slot": 0
+                },
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "ebddeecc3bc01790c4f058affbda9299aafe0da6c3385c9ae5e7b1b54054fadd4c90e5b573384a9263a631c6489d75b864204fdeabbc49d1b9cafbd610a3600a",
+                                "c7953eab0f83edc97375df45b36442136a0487adb9cfb3a696c70629ad66c51f5ff7f5193c4b2d0fc2492b2e3d8ca096b8048822a57782ac5a9e2c1764539909",
+                                "0fc684f87e20b0fffb8bd3b76f4572c3500cc25d8a4dfd6da27f0c7137948c919a041fd520c83f646aa2167411ce2bce624f1953f3c2a950ac263bdc10d0560c",
+                                "b9d52dd477e7e51f8263bce7a1c4162eef80e15c468f106f9e02fbabe6155e9e9c193234322cd3cbf7b1a876e5bd56c0301d4917635450912cfe8948fb255008",
+                                "a533f10e6335db5561018d88a57295dc91fa7f4da66806b35e74713016c21b710099efa419716a06704ded9da617a058479c01a410342946f82811e6022db90e"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "02040306000707000502050804020700",
+                            "snapshotNumber": 4,
+                            "utxo": [
+                                -4
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "headId": "05050405040602040202060108060103",
+                    "headParameters": {
+                        "contestationPeriod": 43200,
+                        "parties": [
+                            {
+                                "vkey": "0b0e2630b85586f73774081f3c3448142dc6f9eaa0793effec7473b86db37b96"
+                            },
+                            {
+                                "vkey": "281019832a4203c4d6946fe22cb8fe93a7edfee50c8adf6f629ec23ea5de5b6e"
+                            },
+                            {
+                                "vkey": "3d81d50a18583d4b16161e33c6c4755af84827c9374301d8a5b5ab09cddcfed8"
+                            },
+                            {
+                                "vkey": "14daab812bee410dea4ff5cf6e5a63a05f57aaf6351b2a5505ed319835d4c570"
+                            },
+                            {
+                                "vkey": "7c357785a5ace8921baa5ad2297337d985dbc647259f0c9c2799cfb00cb500ec"
+                            }
+                        ]
+                    },
+                    "tag": "ContestTx"
+                }
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -2152,7 +2203,7 @@
                 "tag": "ContestTx"
             },
             "postTxError": {
-                "tag": "SpendingNodeUtxoForbidden"
+                "tag": "FailedToConstructAbortTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -2280,7 +2331,7 @@
                 "tag": "CloseTx"
             },
             "postTxError": {
-                "tag": "FailedToConstructContestTx"
+                "tag": "FailedToConstructCollectTx"
             },
             "tag": "PostTxOnChainFailed"
         },

@@ -67,7 +67,8 @@ import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
-import Hydra.Cardano.Api.TxIn (mkTxIn)
+import Data.Set qualified as Set
+import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
 
 -- * Extras
 
@@ -173,6 +174,28 @@ signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
   witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
+
+-- | Create _blueprint/draft_ transaction used as a starting point for a proper commit tx.
+--
+-- This is to ensure the backwards compatibility with `UTxO'` which
+-- **was** the request format for the commit endpoint.
+--
+-- By accepting a _blueprint_ tx the user can specify a starting point with any tx fields
+-- they need which gets enriched with commit tx data later and sent back to the user for
+-- signing and _publishing_.
+-- Note that we don't take into account the outputs of a _blueprint_
+-- transaction since the final commit tx should produce only the
+-- commit output which is then collected into the Head. `hydra-node` will also
+-- ignore any minting/burning when finalizing the commit tx.
+txSpendingUTxO :: UTxO -> Tx Era
+txSpendingUTxO utxo =
+  fromLedgerTx $
+    mkBasicTx
+      ( mkBasicTxBody
+          & inputsTxBodyL .~ (toLedgerTxIn `Set.map` inputs)
+      )
+ where
+  inputs = UTxO.inputSet utxo
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency

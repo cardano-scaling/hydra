@@ -77,6 +77,8 @@ fromLedgerData =
   fromAlonzoData
 
 -- | Convert a cardano-api script data into a cardano-ledger script 'Data'.
+-- XXX: This is a partial function. Ideally it would fall back to the
+-- 'Plutus.Data' portion in 'HashableScriptData'.
 toLedgerData :: Ledger.Era era => HashableScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData

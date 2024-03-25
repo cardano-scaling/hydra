@@ -26,6 +26,7 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
+import Hydra.Cardano.Api (Tx)
 import Hydra.Chain (
   Chain (Chain),
   draftCommitTx,
@@ -33,7 +34,6 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
@@ -157,7 +157,7 @@ spec =
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
-                  received <- failAfter 5 $ replicateM (length outputs + 1) (receiveData conn)
+                  received <- failAfter 10 $ replicateM (length outputs + 1) (receiveData conn)
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
@@ -167,7 +167,7 @@ spec =
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
-        history :: [ServerOutput SimpleTx] <- pick arbitrary
+        history :: [ServerOutput Tx] <- pick arbitrary
         monitor $ cover 0.1 (null history) "no message when reconnecting"
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
@@ -182,7 +182,7 @@ spec =
                   -- wait on the greeting message
                   waitMatch 5 conn $ guard . matchGreetings
 
-                  notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
+                  notHistoryMessage :: ServerOutput Tx <- generate arbitrary
                   sendFromApiServer notHistoryMessage
 
                   -- Receive one more message. The messages we sent
@@ -215,9 +215,9 @@ spec =
 
     it "sequence numbers are continuous" $
       monadicIO $ do
-        outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+        outputs :: [ServerOutput Tx] <- pick arbitrary
         run $
-          showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 10 $
             withFreePort $ \port ->
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
@@ -226,7 +226,7 @@ spec =
 
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
+                    Right (timedOutputs :: [TimedServerOutput Tx]) ->
                       seq <$> timedOutputs `shouldSatisfy` isContinuous
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
@@ -314,7 +314,7 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
         msg <- receiveData con
-        case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
+        case Aeson.eitherDecode @(TimedServerOutput Tx) msg of
           Left{} -> failure $ "Failed to decode output " <> show msg
           Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
  where
@@ -337,7 +337,7 @@ waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >=
 
 -- NOTE: this client runs indefinitely so it should be run within a context that won't
 -- leak runaway threads
-testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
+testClient :: TQueue IO (ServerOutput Tx) -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
@@ -361,12 +361,12 @@ noop = const $ pure ()
 withTestAPIServer ::
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput SimpleTx) IO ->
+  PersistenceIncremental (TimedServerOutput Tx) IO ->
   Tracer IO APIServerLog ->
-  (Server SimpleTx IO -> IO ()) ->
+  (Server Tx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop action
+  withAPIServer "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop action
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.

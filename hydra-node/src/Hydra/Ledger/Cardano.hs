@@ -15,7 +15,9 @@ import Hydra.Ledger.Cardano.Builder
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
-import Cardano.Ledger.Api (updateTxBodyL)
+import Cardano.Ledger.Api (
+  updateTxBodyL,
+ )
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -45,6 +47,7 @@ import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..
 import PlutusLedgerApi.V2 (fromBuiltin)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.QuickCheck (
+  Positive (..),
   choose,
   getSize,
   listOf,
@@ -352,6 +355,7 @@ genUTxO1 gen = do
 --
 -- NOTE: This generator does
 --  * not produce byron addresses as most of the cardano ecosystem dropped support for that (including plutus),
+--  * not produce too big quantities (determined by 'maximumTotalQuantity')
 --  * not produce reference scripts as they are not fully "visible" from plutus,
 --  * replace stake pointers with null references as nobody uses that.
 genTxOut :: Gen (TxOut ctx)
@@ -365,7 +369,6 @@ genTxOut =
         [ fromLedgerTxOut <$> arbitrary
         , notMultiAsset . fromLedgerTxOut <$> arbitrary
         ]
-
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
 
@@ -428,6 +431,14 @@ genAddressInEra networkId =
 
 genValue :: Gen Value
 genValue = fmap ((lovelaceToValue $ Coin 10_000_000) <>) (scale (`div` 10) $ fromLedgerValue <$> arbitrary)
+
+genSomeTokens :: Gen Value
+genSomeTokens = do
+  tokenName <- arbitrary
+  policyId <- arbitrary
+  n <- getPositive <$> arbitrary
+  quantity <- choose (1, n)
+  pure $ valueFromList [(AssetId policyId tokenName, Quantity quantity)]
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
