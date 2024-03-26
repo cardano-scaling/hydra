@@ -4,7 +4,8 @@ import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
 import Debug.Trace (traceM)
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, property)
+import Test.QuickCheck.Monadic (monadic, monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions (..),
@@ -16,6 +17,7 @@ import Test.QuickCheck.StateModel (
   Step ((:=)),
   Var,
   VarContext,
+  runActions,
  )
 
 data State
@@ -57,10 +59,10 @@ instance HasVariables (Action State a) where
 deriving instance Eq (Action State a)
 deriving instance Show (Action State a)
 
-instance RunModel State Identity where
-  perform :: State -> Action State a -> LookUp Identity -> Identity a
+instance RunModel State IO where
+  perform :: State -> Action State a -> LookUp IO -> IO a
   perform _s action _lookup = do
-    traceM $ "performing action: " <> show action
+    putStrLn $ "performing action: " <> show action
     case action of
       Close -> pure ()
       Contest -> pure ()
@@ -68,8 +70,9 @@ instance RunModel State Identity where
       Stop -> pure ()
 
 spec :: Spec
-spec =
-  prop "generates trace of transitions" prop_traces
+spec = do
+  prop "generates interesting transaction traces" prop_traces
+  prop "all valid transactions" prop_runActions
 
 prop_traces :: Property
 prop_traces =
@@ -85,11 +88,16 @@ prop_traces =
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
         Fanout{} -> True
         _ -> False
-  countContests s =
-    length $
-      filter
+
+  countContests =
+    length
+      . filter
         ( \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
             Contest{} -> True
             _ -> False
         )
-        s
+
+prop_runActions :: Actions State -> Property
+prop_runActions actions =
+  monadicIO $
+    void (runActions actions)
