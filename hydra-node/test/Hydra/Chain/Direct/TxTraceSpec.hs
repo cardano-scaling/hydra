@@ -56,7 +56,7 @@ deriving instance Show (Action State a)
 
 spec :: Spec
 spec =
-  prop "generates trace of transitions" $ prop_traces
+  prop "generates trace of transitions" prop_traces
 
 prop_traces :: Property
 prop_traces =
@@ -65,9 +65,18 @@ prop_traces =
       True
         & cover 1 (null steps) "empty"
         & cover 10 (hasFanout steps) "reach fanout"
+        & cover 5 (countContests steps >= 2) "has multiple contests"
  where
   hasFanout =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
         Fanout{} -> True
         _ -> False
+  countContests s =
+    length $
+      filter
+        ( \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+            Contest{} -> True
+            _ -> False
+        )
+        s
