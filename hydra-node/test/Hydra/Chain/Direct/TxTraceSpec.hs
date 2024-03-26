@@ -3,12 +3,15 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
+import Debug.Trace (traceM)
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions (..),
   Any (..),
   HasVariables (getAllVariables),
+  LookUp,
+  RunModel (..),
   StateModel (..),
   Step ((:=)),
   Var,
@@ -53,6 +56,16 @@ instance HasVariables (Action State a) where
 
 deriving instance Eq (Action State a)
 deriving instance Show (Action State a)
+
+instance RunModel State Identity where
+  perform :: State -> Action State a -> LookUp Identity -> Identity a
+  perform _s action _lookup = do
+    traceM $ "performing action: " <> show action
+    case action of
+      Close -> pure ()
+      Contest -> pure ()
+      Fanout -> pure ()
+      Stop -> pure ()
 
 spec :: Spec
 spec =
