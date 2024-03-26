@@ -1,49 +1,73 @@
 module Hydra.Chain.Direct.TxTraceSpec where
 
-import Hydra.Prelude hiding (State)
+import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
-import Test.QuickCheck (elements, forAll)
+
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
+import Test.QuickCheck.StateModel (
+  ActionWithPolarity (..),
+  Actions (..),
+  Any (..),
+  HasVariables (getAllVariables),
+  StateModel (..),
+  Step ((:=)),
+  Var,
+  VarContext,
+ )
 
 data State
   = Open
   | Closed
   | Final
-
-data Transition
-  = Close
-  | Contest
-  | Fanout
   deriving (Show)
 
-genTransition :: State -> Gen Transition
-genTransition = \case
-  Open -> pure Close
-  Closed -> elements [Contest, Fanout]
-  Final -> undefined
+instance StateModel State where
+  data Action State a where
+    Close :: Action State ()
+    Contest :: Action State ()
+    Fanout :: Action State ()
+    Stop :: Action State ()
 
-startingState :: State
-startingState = Open
+  arbitraryAction :: VarContext -> State -> Gen (Any (Action State))
+  arbitraryAction _lookup = \case
+    Open -> pure $ Some Close
+    Closed -> Some <$> elements [Contest, Fanout]
+    Final -> pure $ Some Stop
 
-nextState :: State -> Transition -> State
-nextState s t =
-  case (s, t) of
-    (Open, Close) -> Closed
-    (Closed, Contest) -> Closed
-    (Closed, Fanout) -> Final
-    _ -> s
+  initialState = Open
 
-genTrace :: Gen [Transition]
-genTrace = go [] startingState
- where
-  go ts s = do
-    t <- genTransition s
-    let s' = nextState s t
-    case s' of
-      Final -> pure $ t : ts
-      _ -> go (t : ts) s'
+  nextState :: State -> Action State a -> Var a -> State
+  nextState s t _ =
+    case (s, t) of
+      (_, Stop) -> s
+      (Open, Close) -> Closed
+      (Closed, Contest) -> Closed
+      (Closed, Fanout) -> Final
+      _ -> s
+
+instance HasVariables State where
+  getAllVariables = mempty
+
+instance HasVariables (Action State a) where
+  getAllVariables = mempty
+
+deriving instance Eq (Action State a)
+deriving instance Show (Action State a)
 
 spec :: Spec
 spec =
-  prop "generates trace of transitions" $ do
-    forAll genTrace $ \transitions ->
-      not $ null transitions
+  prop "generates trace of transitions" $ prop_traces
+
+prop_traces :: Property
+prop_traces =
+  forAll (arbitrary :: Gen (Actions State)) $ \(Actions_ _ (Smart _ steps)) ->
+    checkCoverage $
+      True
+        & cover 1 (null steps) "empty"
+        & cover 10 (hasFanout steps) "reach fanout"
+ where
+  hasFanout =
+    any $
+      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+        Fanout{} -> True
+        _ -> False
