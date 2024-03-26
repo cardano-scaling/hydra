@@ -11,10 +11,23 @@ import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import Cardano.Ledger.Api qualified as Ledger
+import Cardano.Ledger.Api.Tx (
+  EraTx (mkBasicTx),
+  addrTxWitsL,
+  auxDataTxL,
+  bootAddrTxWitsL,
+  datsTxWitsL,
+  hashScriptTxWitsL,
+  isValidTxL,
+  mkBasicTxWits,
+  rdmrsTxWitsL,
+  witsTxL,
+ )
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core qualified as Ledger (Tx, hashScript)
+import Control.Lens ((&), (.~))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
@@ -70,42 +83,31 @@ txFee' (getTxBody -> TxBody body) =
 
 -- * Type Conversions
 
--- | Convert a cardano-api 'Tx' into a cardano-ledger 'Tx' in the Babbage era
-toLedgerTx :: Tx Era -> Ledger.Tx (ShelleyLedgerEra Era)
+-- | Convert a cardano-api 'Tx' into a matching cardano-ledger 'Tx'.
+toLedgerTx ::
+  forall era.
+  ( Ledger.EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto
+  , Ledger.AlonzoEraTx (ShelleyLedgerEra era)
+  ) =>
+  Tx era ->
+  Ledger.Tx (ShelleyLedgerEra era)
 toLedgerTx = \case
   Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
     let (datums, redeemers) =
           case scriptsData of
             TxBodyScriptData _ ds rs -> (ds, rs)
             TxBodyNoScriptData -> (mempty, Ledger.Redeemers mempty)
-     in -- XXX: The suggested way (by the ledger team) forward is to use
-        -- mkBasicTxBody and lenses to construct ledger transactions.
-        Ledger.AlonzoTx
-          { Ledger.body =
-              body
-          , Ledger.isValid =
-              toLedgerScriptValidity validity
-          , Ledger.auxiliaryData =
-              maybeToStrictMaybe auxData
-          , Ledger.wits =
-              Ledger.AlonzoTxWits
-                { Ledger.txwitsVKey =
-                    toLedgerKeyWitness vkWits
-                , Ledger.txwitsBoot =
-                    toLedgerBootstrapWitness vkWits
-                , Ledger.txscripts =
-                    Map.fromList
-                      [ ( Ledger.hashScript @(ShelleyLedgerEra Era) s
-                        , s
-                        )
-                      | s <- scripts
-                      ]
-                , Ledger.txdats =
-                    datums
-                , Ledger.txrdmrs =
-                    redeemers
-                }
-          }
+        wits =
+          mkBasicTxWits
+            & addrTxWitsL .~ toLedgerKeyWitness vkWits
+            & bootAddrTxWitsL .~ toLedgerBootstrapWitness vkWits
+            & hashScriptTxWitsL .~ scripts
+            & datsTxWitsL .~ datums
+            & rdmrsTxWitsL .~ redeemers
+     in mkBasicTx body
+          & isValidTxL .~ toLedgerScriptValidity validity
+          & auxDataTxL .~ maybeToStrictMaybe auxData
+          & witsTxL .~ wits
 
 -- | Convert a cardano-ledger's 'Tx' in the Babbage era into a cardano-api 'Tx'.
 fromLedgerTx :: Ledger.Tx (ShelleyLedgerEra Era) -> Tx Era
