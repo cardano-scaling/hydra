@@ -3,9 +3,8 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
-import Debug.Trace (traceM)
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, property)
-import Test.QuickCheck.Monadic (monadic, monadicIO)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
+import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions (..),
@@ -31,6 +30,8 @@ instance StateModel State where
     Close :: Action State ()
     Contest :: Action State ()
     Fanout :: Action State ()
+    -- \| Helper action to identify the terminal state 'Final' and shorten
+    -- traces using the 'precondition'.
     Stop :: Action State ()
 
   arbitraryAction :: VarContext -> State -> Gen (Any (Action State))
@@ -50,6 +51,10 @@ instance StateModel State where
       (Closed, Fanout) -> Final
       _ -> s
 
+  precondition :: State -> Action State a -> Bool
+  precondition Final Stop = False
+  precondition _ _ = True
+
 instance HasVariables State where
   getAllVariables = mempty
 
@@ -61,8 +66,13 @@ deriving instance Show (Action State a)
 
 instance RunModel State IO where
   perform :: State -> Action State a -> LookUp IO -> IO a
-  perform _s action _lookup = do
+  perform s action _lookup = do
+    case s of
+      Open -> putStrLn "=========OPEN======="
+      _ -> pure ()
+
     putStrLn $ "performing action: " <> show action
+
     case action of
       Close -> pure ()
       Contest -> pure ()
