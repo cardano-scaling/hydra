@@ -3,6 +3,9 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
+import Data.Map.Strict qualified as Map
+import Hydra.Chain.Direct.Contract.Close (healthyCloseTx)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
@@ -74,7 +77,16 @@ instance RunModel State IO where
     putStrLn $ "performing action: " <> show action
 
     case action of
-      Close -> pure ()
+      Close -> do
+        let (tx, utxo) = healthyCloseTx
+
+        case evaluateTx tx utxo of
+          Left err ->
+            fail $ show err
+          Right redeemerReport ->
+            when (any isLeft (Map.elems redeemerReport)) $
+              fail $
+                "Some redeemers failed: " <> show redeemerReport
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
