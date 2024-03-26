@@ -41,7 +41,7 @@ import Hydra.Cardano.Api (
   TxValidationErrorInCardanoMode,
   chainTipToChainPoint,
   connectToLocalNode,
-  convertTx,
+  convertConwayTx,
   getTxBody,
   getTxId,
   toLedgerUTxO,
@@ -311,7 +311,7 @@ chainSyncClient handler wallet startingPoint =
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
           case blockInMode of
             BlockInMode ConwayEra (Block header conwayTxs) -> do
-              let txs = mapMaybe convertTx conwayTxs
+              let txs = map convertConwayTx conwayTxs
               -- Update the tiny wallet
               update wallet header txs
               -- Observe Hydra transactions
