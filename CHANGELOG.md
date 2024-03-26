@@ -32,9 +32,7 @@ changes.
 
 - Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
-- Fix conversion of `Conway` blocks and fully verify `hydra-node` working on Conway networks like `sanchonet`.
-
-- Add support for `Conway` in `hydra-chain-observer`.
+- Fix conversion of `Conway` blocks in `hydra-node` and `hydra-chain-observer`. This also includes tests that verify `hydra-node` working on Conway networks like `sanchonet` and the `hydra-explorer` observing heads on `sanchonet`.
 
 - Fix a bug in the contest observation where contesters were extracted from the
   input instead of the output datum.
