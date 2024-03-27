@@ -9,7 +9,7 @@ const TickBox = () => {
     const [error, setError] = useState<string | null>(null)
 
     useDataFetcher<TickState>({
-        url: 'http://explorer.hydra.family/tick',
+        url: '/tick',
         setFetchedData: setTick,
         setError,
     })
