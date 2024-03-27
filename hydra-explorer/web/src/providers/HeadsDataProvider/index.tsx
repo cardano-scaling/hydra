@@ -21,7 +21,7 @@ export const HeadsDataProvider: React.FC<any> = ({
   const [error, setError] = useState<string | null>(null)
 
   useDataFetcher<HeadState[]>({
-      url: '/heads',
+      url: 'http://explorer.hydra.family/heads',
       setFetchedData: setHeads,
       setError,
   })
