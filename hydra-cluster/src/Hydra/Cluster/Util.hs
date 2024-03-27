@@ -88,20 +88,18 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
       defaultDirectChainConfig
         { nodeSocket
         , hydraScriptsTxId
-        , cardanoSigningKey = skTarget me
-        , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
+        , cardanoSigningKey = actorFilePath me "sk"
+        , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         }
  where
-  moveFile actor fileType = do
-    let actorFileName = actorName actor <.> fileType
-        actorFilePath = targetDir </> actorFileName
-    readConfigFile ("credentials" </> actorFileName) >>= writeFileBS actorFilePath
+  actorFilePath actor fileType = targetDir </> actorFileName actor fileType
+  actorFileName actor fileType = actorName actor <.> fileType
 
-  skTarget x = targetDir </> skName x
-  vkTarget x = targetDir </> vkName x
-  skName x = actorName x <.> ".sk"
-  vkName x = actorName x <.> ".vk"
+  moveFile actor fileType = do
+    let fileName = actorFileName actor fileType
+        filePath = actorFilePath actor fileType
+    readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
 
 modifyConfig :: (DirectChainConfig -> DirectChainConfig) -> ChainConfig -> ChainConfig
 modifyConfig fn = \case
