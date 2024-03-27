@@ -47,7 +47,9 @@ data Actor
   = Alice
   | AliceFunds
   | Bob
+  | BobFunds
   | Carol
+  | CarolFunds
   | Faucet
   deriving stock (Eq, Show)
 
@@ -56,8 +58,20 @@ actorName = \case
   Alice -> "alice"
   AliceFunds -> "alice-funds"
   Bob -> "bob"
+  BobFunds -> "bob-funds"
   Carol -> "carol"
+  CarolFunds -> "carol-funds"
   Faucet -> "faucet"
+
+toExternalCommitActor :: Actor -> Actor
+toExternalCommitActor = \case
+  Alice -> AliceFunds
+  AliceFunds -> AliceFunds
+  Bob -> BobFunds
+  BobFunds -> BobFunds
+  Carol -> CarolFunds
+  CarolFunds -> CarolFunds
+  Faucet -> Faucet
 
 -- | A network known to the hydra-cluster. That means we have configuration
 -- files to connect to at least these networks.
