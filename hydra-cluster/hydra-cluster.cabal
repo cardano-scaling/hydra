@@ -13,6 +13,8 @@ license-files:
 
 extra-source-files: README.md
 data-files:
+  config/credentials/alice-funds.sk
+  config/credentials/alice-funds.vk
   config/credentials/alice.sk
   config/credentials/alice.vk
   config/credentials/bob.sk
