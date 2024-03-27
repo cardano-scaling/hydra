@@ -21,9 +21,8 @@ import Hydra.Cardano.Api (
   SocketPath,
   Tx,
   UTxO,
-  chainTipToChainPoint,
   connectToLocalNode,
-  convertTx,
+  convertConwayTx,
   getChainPoint,
   getTxBody,
   getTxId,
@@ -170,28 +169,31 @@ chainSyncClient tracer networkId startingPoint observerHandler =
   clientStNext :: UTxO -> ClientStNext BlockType ChainPoint ChainTip m ()
   clientStNext utxo =
     ClientStNext
-      { recvMsgRollForward = \blockInMode tip -> ChainSyncClient $ do
-          let txs = case blockInMode of
-                BlockInMode ConwayEra (Block _header conwayTxs) -> mapMaybe convertTx conwayTxs
-                BlockInMode BabbageEra (Block _header babbageTxs) -> babbageTxs
+      { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
+          let receivedTxIds = case blockInMode of
+                BlockInMode ConwayEra (Block _ conwayTxs) -> getTxId . getTxBody <$> conwayTxs
+                BlockInMode BabbageEra (Block _ babbageTxs) -> getTxId . getTxBody <$> babbageTxs
                 _ -> []
 
               (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
-              pointInBlock = getChainPoint bh
-          traceWith
-            tracer
-            RollForward
-              { point = chainTipToChainPoint tip
-              , receivedTxIds = getTxId . getTxBody <$> txs
-              }
-          let (utxo', observations) = observeAll networkId utxo txs
+              point = getChainPoint bh
+          traceWith tracer RollForward{point, receivedTxIds}
+
+          let txs = case blockInMode of
+                BlockInMode ConwayEra (Block _ conwayTxs) -> map convertConwayTx conwayTxs
+                BlockInMode BabbageEra (Block _ babbageTxs) -> babbageTxs
+                _ -> []
+
+              (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
+
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = HeadObservation pointInBlock blockNo <$> onChainTxs
-          if null observationsAt
-            then observerHandler [Tick pointInBlock blockNo]
-            else observerHandler observationsAt
-          observerHandler observationsAt
+          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          observerHandler $
+            if null observationsAt
+              then [Tick point blockNo]
+              else observationsAt
+
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
