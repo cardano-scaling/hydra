@@ -211,9 +211,9 @@ singlePartyHeadFullLifeCycle ::
   IO ()
 singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
   ( `finally`
-      ( returnFundsToFaucet tracer node Alice
-          >> returnFundsToFaucet tracer node AliceFunds
-      )
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
   )
     $ do
       refuelIfNeeded tracer node Alice 25_000_000
