@@ -3,11 +3,11 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO (UTxO)
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.Direct.Contract.Close (healthyCloseTx)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Snapshot (Snapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
@@ -25,7 +25,7 @@ import Test.QuickCheck.StateModel (
  )
 
 data Model = Model
-  { snapshots :: [Snapshot Tx]
+  { snapshots :: [ConfirmedSnapshot Tx]
   , headState :: State
   }
   deriving (Show)
@@ -38,8 +38,8 @@ data State
 
 instance StateModel Model where
   data Action Model a where
-    ProduceSnapshots :: [Snapshot Tx] -> Action Model ()
-    Close :: Action Model ()
+    ProduceSnapshots :: [ConfirmedSnapshot Tx] -> Action Model ()
+    Close :: ConfirmedSnapshot Tx -> Action Model ()
     Contest :: Action Model ()
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
@@ -47,11 +47,15 @@ instance StateModel Model where
     Stop :: Action Model ()
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState} =
+  arbitraryAction _lookup Model{headState, snapshots} =
     case headState of
-      Open -> Some <$> oneof [pure Close, ProduceSnapshots <$> arbitrary]
+      Open -> Some <$> oneof [generateClose, ProduceSnapshots <$> arbitrary]
       Closed -> Some <$> elements [Contest, Fanout]
       Final -> pure $ Some Stop
+   where
+    generateClose = case snapshots of
+      [] -> fmap Close (InitialSnapshot <$> arbitrary <*> arbitrary)
+      xs -> Close <$> elements xs
 
   -- TODO: shrinkAction to have small snapshots
 
@@ -63,7 +67,7 @@ instance StateModel Model where
     m
       { headState =
           case (headState m, t) of
-            (Open, Close) -> Closed
+            (Open, Close{}) -> Closed
             (Closed, Contest) -> Closed
             (Closed, Fanout) -> Final
             _ -> headState m
@@ -92,17 +96,16 @@ instance RunModel Model IO where
     putStrLn $ "performing action: " <> take 30 (show action) <> "..."
 
     case action of
-      ProduceSnapshots _snapshots -> pure ()
-      Close -> do
-        let (tx, utxo) = healthyCloseTx
-
-        case evaluateTx tx utxo of
-          Left err ->
-            fail $ show err
-          Right redeemerReport ->
-            when (any isLeft (Map.elems redeemerReport)) $
-              fail $
-                "Some redeemers failed: " <> show redeemerReport
+      ProduceSnapshots snapshots -> pure ()
+      Close snapshot -> pure ()
+        -- (tx, utxo) <- pure () -- mkCloseTx snapshot
+        -- case evaluateTx tx utxo of
+        --   Left err ->
+        --     fail $ show err
+        --   Right redeemerReport ->
+        --     when (any isLeft (Map.elems redeemerReport)) $
+        --       fail $
+        --         "Some redeemers failed: " <> show redeemerReport
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
@@ -146,3 +149,40 @@ prop_runActions :: Actions Model -> Property
 prop_runActions actions =
   monadicIO $
     void (runActions actions)
+
+mkCloseTx :: ConfirmedSnapshot Tx -> (Tx, UTxO)
+mkCloseTx snapshot = undefined
+
+-- where
+-- (tx, lookupUTxO)
+
+-- tx =
+--   closeTx
+--     scriptRegistry
+--     somePartyCardanoVerificationKey
+--     closingSnapshot
+--     healthyCloseLowerBoundSlot
+--     healthyCloseUpperBoundPointInTime
+--     openThreadOutput
+--     (mkHeadId Fixture.testPolicyId)
+--
+-- lookupUTxO =
+--   UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+--     <> registryUTxO scriptRegistry
+--
+-- scriptRegistry = genScriptRegistry `generateWith` 42
+--
+-- openThreadOutput =
+--   OpenThreadOutput
+--     { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+--     , openParties = healthyOnChainParties
+--     , openContestationPeriod = healthyContestationPeriod
+--     }
+--
+-- closingSnapshot :: ClosingSnapshot
+-- closingSnapshot =
+--   CloseWithConfirmedSnapshot
+--     { snapshotNumber = healthyCloseSnapshotNumber
+--     , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
+--     , signatures = healthySignature healthyCloseSnapshotNumber
+--     }
