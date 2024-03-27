@@ -8,7 +8,7 @@ import Hydra.Chain.Direct.Contract.Close (healthyCloseTx)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Snapshot (Snapshot)
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -24,7 +24,11 @@ import Test.QuickCheck.StateModel (
   runActions,
  )
 
-data Model = Model {snapshots :: [Snapshot Tx], headState :: State} deriving (Show)
+data Model = Model
+  { snapshots :: [Snapshot Tx]
+  , headState :: State
+  }
+  deriving (Show)
 
 data State
   = Open
@@ -45,9 +49,11 @@ instance StateModel Model where
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
   arbitraryAction _lookup Model{headState} =
     case headState of
-      Open -> pure $ Some Close
+      Open -> Some <$> oneof [pure Close, ProduceSnapshots <$> arbitrary]
       Closed -> Some <$> elements [Contest, Fanout]
       Final -> pure $ Some Stop
+
+  -- TODO: shrinkAction to have small snapshots
 
   initialState = Model{snapshots = [], headState = Open}
 
@@ -83,7 +89,7 @@ instance RunModel Model IO where
       Open -> putStrLn "=========OPEN======="
       _ -> pure ()
 
-    putStrLn $ "performing action: " <> show action
+    putStrLn $ "performing action: " <> take 30 (show action) <> "..."
 
     case action of
       ProduceSnapshots _snapshots -> pure ()
