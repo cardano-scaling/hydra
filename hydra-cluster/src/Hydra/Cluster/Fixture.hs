@@ -45,6 +45,7 @@ availableInitialFunds = 900_000_000_000
 -- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.
 data Actor
   = Alice
+  | AliceFunds
   | Bob
   | Carol
   | Faucet
@@ -53,6 +54,7 @@ data Actor
 actorName :: Actor -> String
 actorName = \case
   Alice -> "alice"
+  AliceFunds -> "alice-funds"
   Bob -> "bob"
   Carol -> "carol"
   Faucet -> "faucet"
