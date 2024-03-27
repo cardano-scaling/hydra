@@ -15,21 +15,21 @@ const HeadsTable: React.FC = () => {
     }
 
     return (
-        <div className="container mx-auto mt-12">
+        <div className="container mx-auto mt-12 overflow-y-auto">
             {error ? (
                 <p className="text-red-500">{error}</p>
             ) : (
                 <div className="w-full">
-                    <table className="table-fixed w-full bg-gray-800 text-white rounded-lg">
-                        <thead>
+                    <table className="table-fixed w-full rounded-lg">
+                        <thead className="sticky top-0 text-center px-4 py-2 bg-gray-800">
                             <tr>
-                                <th className="text-center px-4 py-2">Head ID</th>
-                                <th className="text-center px-4 py-2">Status</th>
-                                <th className="text-center px-4 py-2">Slot Number</th>
-                                <th className="text-center px-4 py-2">Block Number</th>
-                                <th className="text-center px-4 py-2">Block Hash</th>
-                                <th className="text-center px-4 py-2">Value Locked</th>
-                                <th className="text-center px-4 py-2">Details</th>
+                                <th>Head ID</th>
+                                <th>Status</th>
+                                <th>Slot Number</th>
+                                <th>Block Number</th>
+                                <th>Block Hash</th>
+                                <th>Value Locked</th>
+                                <th>Details</th>
                             </tr>
                         </thead>
                         <tbody>
