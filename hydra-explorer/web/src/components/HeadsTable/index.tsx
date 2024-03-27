@@ -20,16 +20,16 @@ const HeadsTable: React.FC = () => {
                 <p className="text-red-500">{error}</p>
             ) : (
                 <div className="w-full">
-                    <table className="table-fixed w-full bg-gray-800 text-white rounded-lg">
-                        <thead className="sticky top-0">
+                    <table className="table-fixed w-full rounded-lg">
+                        <thead className="sticky top-0 text-center px-4 py-2 bg-gray-800">
                             <tr>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Head ID</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Status</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Slot Number</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Block Number</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Block Hash</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Value Locked</th>
-                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Details</th>
+                                <th>Head ID</th>
+                                <th>Status</th>
+                                <th>Slot Number</th>
+                                <th>Block Number</th>
+                                <th>Block Hash</th>
+                                <th>Value Locked</th>
+                                <th>Details</th>
                             </tr>
                         </thead>
                         <tbody>
