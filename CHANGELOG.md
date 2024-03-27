@@ -30,6 +30,8 @@ changes.
 
 - Add `--sanchonet` option to `hydra-cluster` binary.
 
+- Enhance `hydra-cluster --devnet` mode to produce a constant stream of snaphsots by re-spending the sandbox UTxO.
+
 - Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/input-output-hk/hydra/pull/1315).
 
 - Fix conversion of `Conway` blocks in `hydra-node` and `hydra-chain-observer`. This also includes tests that verify `hydra-node` working on Conway networks like `sanchonet` and the `hydra-explorer` observing heads on `sanchonet`.
