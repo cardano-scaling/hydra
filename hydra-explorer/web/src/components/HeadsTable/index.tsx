@@ -15,21 +15,21 @@ const HeadsTable: React.FC = () => {
     }
 
     return (
-        <div className="container mx-auto mt-12">
+        <div className="container mx-auto mt-12 overflow-y-auto">
             {error ? (
                 <p className="text-red-500">{error}</p>
             ) : (
                 <div className="w-full">
                     <table className="table-fixed w-full bg-gray-800 text-white rounded-lg">
-                        <thead>
+                        <thead className="sticky top-0">
                             <tr>
-                                <th className="text-center px-4 py-2">Head ID</th>
-                                <th className="text-center px-4 py-2">Status</th>
-                                <th className="text-center px-4 py-2">Slot Number</th>
-                                <th className="text-center px-4 py-2">Block Number</th>
-                                <th className="text-center px-4 py-2">Block Hash</th>
-                                <th className="text-center px-4 py-2">Value Locked</th>
-                                <th className="text-center px-4 py-2">Details</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Head ID</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Status</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Slot Number</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Block Number</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Block Hash</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Value Locked</th>
+                                <th className="sticky top-0 text-center px-4 py-2 bg-gray-800 text-white">Details</th>
                             </tr>
                         </thead>
                         <tbody>
