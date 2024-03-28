@@ -18,7 +18,7 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import Hydra.Cluster.Fixture (Actor, actorName)
+import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
@@ -75,24 +75,31 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
-  readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
-  readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
+
+  copyFile me "vk"
+  copyFile me "sk"
+  copyFile (fundsOf me) "vk"
+  copyFile (fundsOf me) "sk"
+
   forM_ them $ \actor ->
-    readConfigFile ("credentials" </> vkName actor) >>= writeFileBS (vkTarget actor)
+    copyFile actor "vk"
   pure $
     Direct
       defaultDirectChainConfig
         { nodeSocket
         , hydraScriptsTxId
-        , cardanoSigningKey = skTarget me
-        , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
+        , cardanoSigningKey = actorFilePath me "sk"
+        , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         }
  where
-  skTarget x = targetDir </> skName x
-  vkTarget x = targetDir </> vkName x
-  skName x = actorName x <.> ".sk"
-  vkName x = actorName x <.> ".vk"
+  actorFilePath actor fileType = targetDir </> actorFileName actor fileType
+  actorFileName actor fileType = actorName actor <.> fileType
+
+  copyFile actor fileType = do
+    let fileName = actorFileName actor fileType
+        filePath = actorFilePath actor fileType
+    readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
 
 modifyConfig :: (DirectChainConfig -> DirectChainConfig) -> ChainConfig -> ChainConfig
 modifyConfig fn = \case

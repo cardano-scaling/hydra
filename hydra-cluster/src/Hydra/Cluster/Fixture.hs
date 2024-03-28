@@ -45,17 +45,33 @@ availableInitialFunds = 900_000_000_000
 -- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.
 data Actor
   = Alice
+  | AliceFunds
   | Bob
+  | BobFunds
   | Carol
+  | CarolFunds
   | Faucet
   deriving stock (Eq, Show)
 
 actorName :: Actor -> String
 actorName = \case
   Alice -> "alice"
+  AliceFunds -> "alice-funds"
   Bob -> "bob"
+  BobFunds -> "bob-funds"
   Carol -> "carol"
+  CarolFunds -> "carol-funds"
   Faucet -> "faucet"
+
+fundsOf :: Actor -> Actor
+fundsOf = \case
+  Alice -> AliceFunds
+  AliceFunds -> AliceFunds
+  Bob -> BobFunds
+  BobFunds -> BobFunds
+  Carol -> CarolFunds
+  CarolFunds -> CarolFunds
+  Faucet -> Faucet
 
 -- | A network known to the hydra-cluster. That means we have configuration
 -- files to connect to at least these networks.
