@@ -63,8 +63,8 @@ actorName = \case
   CarolFunds -> "carol-funds"
   Faucet -> "faucet"
 
-toExternalCommitActor :: Actor -> Actor
-toExternalCommitActor = \case
+fundsOf :: Actor -> Actor
+fundsOf = \case
   Alice -> AliceFunds
   AliceFunds -> AliceFunds
   Bob -> BobFunds

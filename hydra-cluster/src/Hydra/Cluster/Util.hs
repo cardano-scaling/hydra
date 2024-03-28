@@ -18,7 +18,7 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import Hydra.Cluster.Fixture (Actor, actorName, toExternalCommitActor)
+import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
@@ -76,13 +76,13 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
     failure $
       show me <> " must not be in " <> show them
 
-  moveFile me "vk"
-  moveFile me "sk"
-  moveFile (toExternalCommitActor me) "vk"
-  moveFile (toExternalCommitActor me) "sk"
+  copyFile me "vk"
+  copyFile me "sk"
+  copyFile (fundsOf me) "vk"
+  copyFile (fundsOf me) "sk"
 
   forM_ them $ \actor ->
-    moveFile actor "vk"
+    copyFile actor "vk"
   pure $
     Direct
       defaultDirectChainConfig
@@ -96,7 +96,7 @@ chainConfigFor me targetDir nodeSocket hydraScriptsTxId them contestationPeriod 
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
   actorFileName actor fileType = actorName actor <.> fileType
 
-  moveFile actor fileType = do
+  copyFile actor fileType = do
     let fileName = actorFileName actor fileType
         filePath = actorFilePath actor fileType
     readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
