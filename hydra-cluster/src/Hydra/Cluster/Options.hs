@@ -41,15 +41,13 @@ parseOptions =
         Nothing
         ( long "devnet"
             <> help
-              ( toString $
-                  unlines
-                    [ "Create a local cardano devnet by running a cardano-node, "
-                    , "start a hydra-node and open a single-party head in it. "
-                    , "Generates a wallet key pair and commits some into the head using it. "
-                    , "The keys are available on the state-directory. This is useful as a "
-                    , "sandbox for development and testing."
-                    ]
-              )
+              "Create a local cardano devnet by running a cardano-node, start a\
+              \hydra-node and open a single-party head in it. Generates a wallet\
+              \key pair and commits some ADA into the head using it. The head is\
+              \also simulating some traffic on this UTxO by re-spending it to\
+              \the same key constantly. The keys are available on the\
+              \state-directory. This is useful as a sandbox for development and\
+              \testing."
         )
 
   parseStateDirectory =

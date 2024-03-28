@@ -848,9 +848,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       Data.Aeson.Success u ->
         failAfter 5 $ waitForUTxO networkId nodeSocket u
 
---
--- Fixtures
---
+-- * Fixtures
 
 aliceCommittedToHead :: Num a => a
 aliceCommittedToHead = 20_000_000
@@ -870,9 +868,7 @@ inHeadAddress =
  where
   network = Testnet (NetworkMagic 14)
 
---
--- Helpers
---
+-- * Helpers
 
 int :: Int -> Int
 int = id

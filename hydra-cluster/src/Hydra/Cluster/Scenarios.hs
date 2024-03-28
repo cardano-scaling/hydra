@@ -17,10 +17,10 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((^?))
+import Control.Lens ((^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _JSON)
+import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -32,28 +32,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
   TxOutWithWitness (..),
  )
-import Hydra.Cardano.Api (
-  Coin (..),
-  File (File),
-  PlutusScriptV2,
-  Tx,
-  TxId,
-  UTxO,
-  fromPlutusScript,
-  lovelaceToValue,
-  makeSignedTransaction,
-  mkScriptAddress,
-  mkTxOutDatumHash,
-  mkTxOutDatumInline,
-  mkVkAddress,
-  selectLovelace,
-  signTx,
-  toScriptData,
-  writeFileTextEnvelope,
-  pattern ReferenceScriptNone,
-  pattern TxOut,
-  pattern TxOutDatumNone,
- )
+import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, PlutusScriptV2, Tx, TxId, UTxO, fromPlutusScript, getVerificationKey, isVkTxOut, lovelaceToValue, makeSignedTransaction, mkScriptAddress, mkTxOutDatumHash, mkTxOutDatumInline, mkVkAddress, selectLovelace, signTx, toScriptData, txOutAddress, txOutValue, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -63,8 +42,8 @@ import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.HeadId (HeadId)
-import Hydra.Ledger (IsTx (balance))
-import Hydra.Ledger.Cardano (genKeyPair)
+import Hydra.Ledger (IsTx (balance), txId)
+import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (networkId, startChainFrom)
 import Hydra.Party (Party)
@@ -278,7 +257,7 @@ singlePartyOpenAHead ::
   RunningNode ->
   TxId ->
   -- | Continuation called when the head is open
-  (HydraClient -> IO ()) ->
+  (HydraClient -> SigningKey PaymentKey -> IO ()) ->
   IO ()
 singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
@@ -307,7 +286,7 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
-      callback n1
+      callback n1 walletSk
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
@@ -622,6 +601,45 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- * L2 scenarios
+
+-- | Finds UTxO owned by given key in the head and creates transactions
+-- respending it to the same address as fast as possible, forever.
+-- NOTE: This relies on zero-fee protocol parameters.
+respendUTxO :: HydraClient -> SigningKey PaymentKey -> NominalDiffTime -> IO ()
+respendUTxO client sk delay = do
+  utxo <- getUTxO
+  forever $ respend utxo
+ where
+  getUTxO = do
+    send client $ input "GetUTxO" []
+    waitMatch 10 client $ \v -> do
+      guard $ v ^? key "tag" == Just "GetUTxOResponse"
+      v ^? key "utxo" >>= parseMaybe parseJSON
+
+  vk = getVerificationKey sk
+
+  respend utxo =
+    case UTxO.find (isVkTxOut vk) utxo of
+      Nothing -> fail "no utxo left to spend"
+      Just (txIn, txOut) ->
+        case mkSimpleTx (txIn, txOut) (txOutAddress txOut, txOutValue txOut) sk of
+          Left err ->
+            fail $ "mkSimpleTx failed: " <> show err
+          Right tx -> do
+            utxo' <- submitToHead (signTx sk tx)
+            threadDelay $ realToFrac delay
+            respend utxo'
+
+  submitToHead tx = do
+    send client $ input "NewTx" ["transaction" .= tx]
+    waitMatch 10 client $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $
+        toJSON (txId tx)
+          `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+      v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
 
 -- * Utilities
 
