@@ -13,7 +13,8 @@ import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close)
-import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
+import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign)
@@ -81,7 +82,7 @@ prop_traces =
   closeNonInitial =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close ConfirmedSnapshot{} -> True
+        Close snapshotNumber -> snapshotNumber > 0
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -106,7 +107,7 @@ data State
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Close :: ConfirmedSnapshot Tx -> Action Model ()
+    Close :: SnapshotNumber -> Action Model ()
     Contest :: Action Model ()
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
@@ -121,13 +122,8 @@ instance StateModel Model where
       Final -> pure $ Some Stop
    where
     generateClose = case snapshots of
-      [] -> do
-        -- NOTE: The close validator does not check headId on close with initial snapshot.
-        headId <- arbitrary
-        pure $ Close InitialSnapshot{initialUTxO = u0, headId}
-      xs -> do
-        (snapshot, signatures) <- modelSnapshot <$> elements xs
-        pure $ Close ConfirmedSnapshot{snapshot, signatures}
+      [] -> pure $ Close 0
+      xs -> Close <$> elements xs
 
   -- TODO: shrinkAction to have small snapshots?
 
@@ -153,15 +149,7 @@ instance HasVariables (Action Model a) where
   getAllVariables = mempty
 
 deriving instance Eq (Action Model a)
-
-instance Show (Action Model a) where
-  show = \case
-    ProduceSnapshots{} -> "ProduceSnapshots"
-    Close InitialSnapshot{} -> "Close 0"
-    Close ConfirmedSnapshot{snapshot} -> "Close " <> show (number snapshot)
-    Contest -> "Contest"
-    Fanout -> "Fanout"
-    Stop -> "Stop"
+deriving instance Show (Action Model a)
 
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
@@ -170,33 +158,32 @@ instance RunModel Model IO where
       Open -> putStrLn "=========OPEN======="
       _ -> pure ()
 
-    putStrLn $ "performing action: " <> take 30 (show action) <> "..."
+    putStrLn $ "performing action: " <> show action
 
     case action of
       ProduceSnapshots _snapshots -> pure ()
-      Close snapshot -> do
-        tx <- newCloseTx snapshot
+      Close snapshotNumber -> do
+        tx <- newCloseTx $ correctlySignedSnapshot snapshotNumber
+
         case evaluateTx tx openHeadUTxO of
           Left err ->
-            fail $ show err
+            failure $ show err
           Right redeemerReport ->
             when (any isLeft (Map.elems redeemerReport)) $
               failure . toString . unlines $
                 fromString
                   <$> [ renderTxWithUTxO openHeadUTxO tx
-                      , show snapshot
-                      , ""
                       , "Some redeemers failed: " <> show redeemerReport
                       ]
+
+        case observeHeadTx Fixture.testNetworkId openHeadUTxO tx of
+          Tx.Close{} -> pure ()
+          observation -> failure $ "Expected Close observation, but got " <> show observation
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
 
 -- * Fixtures and glue code
-
--- | Initial UTxO of the open head.
-u0 :: UTxO
-u0 = snapshotUTxO 0
 
 -- | A "random" UTxO distribution for a given snapshot number. This always
 -- contains one UTxO for alice, bob, and carol.
@@ -210,19 +197,26 @@ snapshotUTxO n = (`generateWith` fromIntegral n) . resize 1 $ do
 -- | A model of a correctly signed snapshot. Given a snapshot number a snapshot
 -- signed by all participants (alice, bob and carol) with some UTxO contained is
 -- produced.
-modelSnapshot :: SnapshotNumber -> (Snapshot Tx, MultiSignature (Snapshot Tx))
-modelSnapshot number =
-  (snapshot, signatures)
- where
-  snapshot =
-    Snapshot
-      { headId = mkHeadId Fixture.testPolicyId
-      , number
-      , utxo = snapshotUTxO number
-      , confirmed = []
+correctlySignedSnapshot :: SnapshotNumber -> ConfirmedSnapshot Tx
+correctlySignedSnapshot = \case
+  0 ->
+    InitialSnapshot
+      { -- -- NOTE: The close validator would not check headId on close with
+        -- initial snapshot, but we need to provide it still.
+        headId = mkHeadId Fixture.testPolicyId
+      , initialUTxO = snapshotUTxO 0
       }
+  number -> ConfirmedSnapshot{snapshot, signatures}
+   where
+    snapshot =
+      Snapshot
+        { headId = mkHeadId Fixture.testPolicyId
+        , number
+        , utxo = snapshotUTxO number
+        , confirmed = []
+        }
 
-  signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+    signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
 -- | UTxO of the open head on-chain.
 openHeadUTxO :: UTxO
@@ -240,7 +234,7 @@ openHeadUTxO =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx u0
+        , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO 0
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         }
