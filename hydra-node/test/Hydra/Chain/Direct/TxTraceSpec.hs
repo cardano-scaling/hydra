@@ -1,13 +1,29 @@
 module Hydra.Chain.Direct.TxTraceSpec where
 
-import Hydra.Prelude hiding (Any, State, label)
+import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import GHC.Records (getField)
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map.Strict qualified as Map
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Cardano.Api (CtxUTxO, TxOut, mkTxOutDatumInline)
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Chain.Direct.Fixture qualified as Fixture
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (ChainContext (..), close)
+import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput)
+import Hydra.ContestationPeriod qualified as CP
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (MultiSignature)
-import Hydra.Ledger.Cardano (Tx)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot)
+import Hydra.Ledger (hashUTxO)
+import Hydra.Ledger.Cardano (Tx, genUTxOFor, genVerificationKey)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.Party (partyToChain)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, number)
+import PlutusTx.Builtins (toBuiltin)
+import Test.Hydra.Fixture (genForParty)
+import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
@@ -23,6 +39,7 @@ import Test.QuickCheck.StateModel (
   VarContext,
   runActions,
  )
+import Text.Show (Show (..))
 
 data Model = Model
   { snapshots :: [SignedSnapshot]
@@ -98,7 +115,15 @@ instance HasVariables (Action Model a) where
   getAllVariables = mempty
 
 deriving instance Eq (Action Model a)
-deriving instance Show (Action Model a)
+
+instance Show (Action Model a) where
+  show = \case
+    ProduceSnapshots{} -> "ProduceSnapshots"
+    Close InitialSnapshot{} -> "Close 0"
+    Close ConfirmedSnapshot{snapshot} -> "Close " <> show (number snapshot)
+    Contest -> "Contest"
+    Fanout -> "Fanout"
+    Stop -> "Stop"
 
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
@@ -110,16 +135,20 @@ instance RunModel Model IO where
     putStrLn $ "performing action: " <> take 30 (show action) <> "..."
 
     case action of
-      ProduceSnapshots snapshots -> pure ()
-      Close snapshot -> pure ()
-      -- (tx, utxo) <- pure () -- mkCloseTx snapshot
-      -- case evaluateTx tx utxo of
-      --   Left err ->
-      --     fail $ show err
-      --   Right redeemerReport ->
-      --     when (any isLeft (Map.elems redeemerReport)) $
-      --       fail $
-      --         "Some redeemers failed: " <> show redeemerReport
+      ProduceSnapshots _snapshots -> pure ()
+      Close snapshot -> do
+        tx <- newCloseTx snapshot
+        case evaluateTx tx openHeadUTxO of
+          Left err ->
+            fail $ show err
+          Right redeemerReport ->
+            when (any isLeft (Map.elems redeemerReport)) $
+              failure . toString . unlines $
+                fromString
+                  <$> [ "Some redeemers failed: " <> show redeemerReport
+                      , renderTxWithUTxO openHeadUTxO tx
+                      , show snapshot
+                      ]
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
@@ -171,39 +200,59 @@ prop_runActions actions =
   monadicIO $
     void (runActions actions)
 
-mkCloseTx :: ConfirmedSnapshot Tx -> (Tx, UTxO)
-mkCloseTx snapshot = undefined
+-- * Transaction creation
 
--- where
--- (tx, lookupUTxO)
+openHeadUTxO :: UTxO
+openHeadUTxO =
+  UTxO.singleton (headTxIn, openHeadTxOut)
+    <> registryUTxO testScriptRegistry
+ where
+  headTxIn = arbitrary `generateWith` 42
 
--- tx =
---   closeTx
---     scriptRegistry
---     somePartyCardanoVerificationKey
---     closingSnapshot
---     healthyCloseLowerBoundSlot
---     healthyCloseUpperBoundPointInTime
---     openThreadOutput
---     (mkHeadId Fixture.testPolicyId)
---
--- lookupUTxO =
---   UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
---     <> registryUTxO scriptRegistry
---
--- scriptRegistry = genScriptRegistry `generateWith` 42
---
--- openThreadOutput =
---   OpenThreadOutput
---     { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
---     , openParties = healthyOnChainParties
---     , openContestationPeriod = healthyContestationPeriod
---     }
---
--- closingSnapshot :: ClosingSnapshot
--- closingSnapshot =
---   CloseWithConfirmedSnapshot
---     { snapshotNumber = healthyCloseSnapshotNumber
---     , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
---     , signatures = healthySignature healthyCloseSnapshotNumber
---     }
+openHeadTxOut :: TxOut CtxUTxO
+openHeadTxOut =
+  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId $
+    mkTxOutDatumInline
+      Head.Open
+        { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
+        , utxoHash = toBuiltin $ hashUTxO @Tx u0
+        , contestationPeriod = CP.toChain Fixture.cperiod
+        , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
+        }
+ where
+  u0 = (`generateWith` 42) $ do
+    aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
+    bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
+    carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
+    pure $ aliceUTxO <> bobUTxO <> carolUTxO
+
+-- Re-use Direct.State-level functions with fixtures for the time being.
+newCloseTx :: HasCallStack => ConfirmedSnapshot Tx -> IO Tx
+newCloseTx snapshot =
+  either (failure . show) pure $
+    close
+      aliceChainContext
+      openHeadUTxO
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.testHeadParameters
+      snapshot
+      lowerBound
+      upperBound
+ where
+  lowerBound = 0
+
+  upperBound = (0, posixSecondsToUTCTime 0)
+
+-- | Fixture for the chain context of 'alice' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
+-- TODO: move to Hydra.Chain.Direct.Fixture / into a testlib
+aliceChainContext :: ChainContext
+aliceChainContext =
+  ChainContext
+    { networkId = Fixture.testNetworkId
+    , ownVerificationKey = Fixture.alicePVk
+    , ownParty = Fixture.alice
+    , scriptRegistry = testScriptRegistry
+    }
+
+testScriptRegistry :: ScriptRegistry
+testScriptRegistry = genScriptRegistry `generateWith` 42
