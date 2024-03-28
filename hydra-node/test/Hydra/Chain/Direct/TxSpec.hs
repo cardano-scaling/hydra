@@ -17,7 +17,6 @@ import Data.Map qualified as Map
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
   pparams,
@@ -36,6 +35,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits)
 import Hydra.Party (Party)
+import Test.Hydra.Fixture (genForParty)
 import Test.QuickCheck (
   Property,
   choose,

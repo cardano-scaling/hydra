@@ -1,36 +1,16 @@
 -- | Generators used in mutation testing framework
 module Hydra.Chain.Direct.Contract.Gen where
 
-import Cardano.Crypto.Hash (hashToBytes)
-import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api
 import Hydra.Chain.Direct.Fixture qualified as Fixtures
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Crypto (Hash (HydraKeyHash))
-import Hydra.Party (Party (..))
 import Hydra.Prelude
 import PlutusTx.Builtins (fromBuiltin)
 import Test.QuickCheck (oneof, suchThat, vector)
 
 -- * Party / key utilities
-
--- | Generate some 'a' given the Party as a seed. NOTE: While this is useful to
--- generate party-specific values, it DOES depend on the generator used. For
--- example, `genForParty genVerificationKey` and `genForParty (fst <$>
--- genKeyPair)` do not yield the same verification keys!
-genForParty :: Gen a -> Party -> a
-genForParty gen Party{vkey} =
-  generateWith gen seed
- where
-  seed =
-    fromIntegral
-      . uintegerFromBytes
-      . hydraKeyHashToBytes
-      $ verificationKeyHash vkey
-
-  hydraKeyHashToBytes (HydraKeyHash h) = hashToBytes h
 
 genBytes :: Gen ByteString
 genBytes = arbitrary

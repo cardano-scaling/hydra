@@ -8,7 +8,7 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -24,7 +24,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceSnapshotNumber,
   replaceUtxoHash,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -47,7 +46,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
-import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
+import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -136,7 +135,7 @@ healthyOpenHeadTxIn = generateWith arbitrary 42
 
 healthyOpenHeadTxOut :: TxOut CtxUTxO
 healthyOpenHeadTxOut =
-  mkHeadOutput testNetworkId Fixture.testPolicyId headTxOutDatum
+  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParticipants
  where
   headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
@@ -293,7 +292,7 @@ genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode NotPayingToHead) NotContinueContract <$> do
-        mutatedAddress <- genAddressInEra testNetworkId
+        mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
