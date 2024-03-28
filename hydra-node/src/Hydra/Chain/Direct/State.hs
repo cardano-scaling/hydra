@@ -485,6 +485,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 --  - 'PointInTime' parameter will be used as an upper validity bound and
 --       will define the start of the contestation period.
 -- NB: lower and upper bound slot difference should not exceed contestation period
+-- FIXME: wrong haddocks
 close ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs

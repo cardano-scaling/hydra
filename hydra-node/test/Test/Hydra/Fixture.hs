@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Cardano.Crypto.Hash (hashToBytes)
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Hydra.Cardano.Api (Key (..), PaymentKey, SerialiseAsRawBytes (..), SigningKey, VerificationKey, getVerificationKey)
+import Hydra.Chain (HeadParameters (..))
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Crypto (Hash (..), HydraKey, generateSigningKey)
 import Hydra.Environment (Environment (..))
@@ -84,4 +85,12 @@ testEnvironment =
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
     , participants = deriveOnChainId <$> [alice, bob, carol]
+    }
+
+-- | Head parameters fixture for testing.
+testHeadParameters :: HeadParameters
+testHeadParameters =
+  HeadParameters
+    { contestationPeriod = cperiod
+    , parties = [alice, bob, carol]
     }
