@@ -9,6 +9,7 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (CtxUTxO, TxOut, mkTxOutDatumInline)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close)
@@ -24,7 +25,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof, resize)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -40,6 +41,55 @@ import Test.QuickCheck.StateModel (
   runActions,
  )
 import Text.Show (Show (..))
+
+spec :: Spec
+spec = do
+  prop "generates interesting transaction traces" prop_traces
+  prop "all valid transactions" prop_runActions
+
+prop_traces :: Property
+prop_traces =
+  forAll (arbitrary :: Gen (Actions Model)) $ \(Actions_ _ (Smart _ steps)) ->
+    checkCoverage $
+      True
+        & cover 1 (null steps) "empty"
+        & cover 10 (hasFanout steps) "reach fanout"
+        & cover 5 (countContests steps >= 2) "has multiple contests"
+        & cover 5 (containSomeSnapshots steps) "has some snapshots"
+        & cover 5 (closeNonInitial steps) "close with non initial snapshots"
+ where
+  containSomeSnapshots =
+    any $
+      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+        ProduceSnapshots snapshots -> not $ null snapshots
+        _ -> False
+
+  hasFanout =
+    any $
+      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+        Fanout{} -> True
+        _ -> False
+
+  countContests =
+    length
+      . filter
+        ( \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+            Contest{} -> True
+            _ -> False
+        )
+
+  closeNonInitial =
+    any $
+      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+        Close ConfirmedSnapshot{} -> True
+        _ -> False
+
+prop_runActions :: Actions Model -> Property
+prop_runActions actions =
+  monadicIO $
+    void (runActions actions)
+
+-- * Model
 
 data Model = Model
   { snapshots :: [SignedSnapshot]
@@ -86,7 +136,7 @@ instance StateModel Model where
       Final -> pure $ Some Stop
    where
     generateClose = case snapshots of
-      [] -> fmap Close (InitialSnapshot <$> arbitrary <*> arbitrary)
+      [] -> fmap Close (InitialSnapshot <$> arbitrary <*> pure u0)
       xs -> do
         SignedSnapshot{snapshot, signatures} <- elements xs
         pure $ Close ConfirmedSnapshot{snapshot, signatures}
@@ -145,63 +195,26 @@ instance RunModel Model IO where
             when (any isLeft (Map.elems redeemerReport)) $
               failure . toString . unlines $
                 fromString
-                  <$> [ "Some redeemers failed: " <> show redeemerReport
-                      , renderTxWithUTxO openHeadUTxO tx
+                  <$> [ renderTxWithUTxO openHeadUTxO tx
                       , show snapshot
+                      , ""
+                      , "Some redeemers failed: " <> show redeemerReport
                       ]
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
 
-spec :: Spec
-spec = do
-  prop "generates interesting transaction traces" prop_traces
-  prop "all valid transactions" prop_runActions
+-- * Fixtures and glue code
 
-prop_traces :: Property
-prop_traces =
-  forAll (arbitrary :: Gen (Actions Model)) $ \(Actions_ _ (Smart _ steps)) ->
-    checkCoverage $
-      True
-        & cover 1 (null steps) "empty"
-        & cover 10 (hasFanout steps) "reach fanout"
-        & cover 5 (countContests steps >= 2) "has multiple contests"
-        & cover 5 (containSomeSnapshots steps) "has some snapshots"
-        & cover 5 (closeNonInitial steps) "close with non initial snapshots"
- where
-  containSomeSnapshots =
-    any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        ProduceSnapshots snapshots -> not $ null snapshots
-        _ -> False
+-- | Initial UTxO for the open head.
+u0 :: UTxO
+u0 = (`generateWith` 42) . resize 1 $ do
+  aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
+  bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
+  carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
+  pure $ aliceUTxO <> bobUTxO <> carolUTxO
 
-  hasFanout =
-    any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Fanout{} -> True
-        _ -> False
-
-  countContests =
-    length
-      . filter
-        ( \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-            Contest{} -> True
-            _ -> False
-        )
-
-  closeNonInitial =
-    any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close ConfirmedSnapshot{} -> True
-        _ -> False
-
-prop_runActions :: Actions Model -> Property
-prop_runActions actions =
-  monadicIO $
-    void (runActions actions)
-
--- * Transaction creation
-
+-- | UTxO of the open head on-chain.
 openHeadUTxO :: UTxO
 openHeadUTxO =
   UTxO.singleton (headTxIn, openHeadTxOut)
@@ -209,9 +222,11 @@ openHeadUTxO =
  where
   headTxIn = arbitrary `generateWith` 42
 
-openHeadTxOut :: TxOut CtxUTxO
-openHeadTxOut =
-  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId $
+  openHeadTxOut =
+    mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
+      & addParticipationTokens [Fixture.alicePVk, Fixture.bobPVk, Fixture.carolPVk]
+
+  openHeadDatum =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
@@ -219,12 +234,6 @@ openHeadTxOut =
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         }
- where
-  u0 = (`generateWith` 42) $ do
-    aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
-    bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
-    carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
-    pure $ aliceUTxO <> bobUTxO <> carolUTxO
 
 -- Re-use Direct.State-level functions with fixtures for the time being.
 newCloseTx :: HasCallStack => ConfirmedSnapshot Tx -> IO Tx
