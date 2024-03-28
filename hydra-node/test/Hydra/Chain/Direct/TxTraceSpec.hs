@@ -4,10 +4,10 @@ import Hydra.Prelude hiding (Any, State, label)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import Data.Map.Strict qualified as Map
+import GHC.Records (getField)
+import Hydra.Crypto (MultiSignature)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot)
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
@@ -25,10 +25,25 @@ import Test.QuickCheck.StateModel (
  )
 
 data Model = Model
-  { snapshots :: [ConfirmedSnapshot Tx]
+  { snapshots :: [SignedSnapshot]
   , headState :: State
   }
   deriving (Show)
+
+data SignedSnapshot = SignedSnapshot
+  { snapshot :: Snapshot Tx
+  , signatures :: MultiSignature (Snapshot Tx)
+  }
+  deriving (Eq, Show)
+
+instance Arbitrary SignedSnapshot where
+  arbitrary = do
+    s <- arbitrary
+    pure SignedSnapshot{snapshot = s, signatures = mempty} -- TODO: sign correctly
+
+  shrink SignedSnapshot{snapshot} = do
+    s <- shrink snapshot
+    pure SignedSnapshot{snapshot = s, signatures = mempty} -- TODO: sign correctly
 
 data State
   = Open
@@ -38,7 +53,7 @@ data State
 
 instance StateModel Model where
   data Action Model a where
-    ProduceSnapshots :: [ConfirmedSnapshot Tx] -> Action Model ()
+    ProduceSnapshots :: [SignedSnapshot] -> Action Model ()
     Close :: ConfirmedSnapshot Tx -> Action Model ()
     Contest :: Action Model ()
     Fanout :: Action Model ()
@@ -49,29 +64,28 @@ instance StateModel Model where
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
   arbitraryAction _lookup Model{headState, snapshots} =
     case headState of
-      Open -> Some <$> oneof [generateClose, ProduceSnapshots <$> arbitrary]
+      Open -> Some <$> oneof [ProduceSnapshots <$> arbitrary, generateClose]
       Closed -> Some <$> elements [Contest, Fanout]
       Final -> pure $ Some Stop
    where
     generateClose = case snapshots of
       [] -> fmap Close (InitialSnapshot <$> arbitrary <*> arbitrary)
-      xs -> Close <$> elements xs
+      xs -> do
+        SignedSnapshot{snapshot, signatures} <- elements xs
+        pure $ Close ConfirmedSnapshot{snapshot, signatures}
 
-  -- TODO: shrinkAction to have small snapshots
+  -- TODO: shrinkAction to have small snapshots?
 
   initialState = Model{snapshots = [], headState = Open}
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m Stop _ = m
   nextState m t _ =
-    m
-      { headState =
-          case (headState m, t) of
-            (Open, Close{}) -> Closed
-            (Closed, Contest) -> Closed
-            (Closed, Fanout) -> Final
-            _ -> headState m
-      }
+    case t of
+      ProduceSnapshots snapshots -> m{snapshots = snapshots}
+      Close{} -> m{headState = Closed}
+      Contest -> m{headState = Closed}
+      Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState = Final} Stop = False
@@ -98,14 +112,14 @@ instance RunModel Model IO where
     case action of
       ProduceSnapshots snapshots -> pure ()
       Close snapshot -> pure ()
-        -- (tx, utxo) <- pure () -- mkCloseTx snapshot
-        -- case evaluateTx tx utxo of
-        --   Left err ->
-        --     fail $ show err
-        --   Right redeemerReport ->
-        --     when (any isLeft (Map.elems redeemerReport)) $
-        --       fail $
-        --         "Some redeemers failed: " <> show redeemerReport
+      -- (tx, utxo) <- pure () -- mkCloseTx snapshot
+      -- case evaluateTx tx utxo of
+      --   Left err ->
+      --     fail $ show err
+      --   Right redeemerReport ->
+      --     when (any isLeft (Map.elems redeemerReport)) $
+      --       fail $
+      --         "Some redeemers failed: " <> show redeemerReport
       Contest -> pure ()
       Fanout -> pure ()
       Stop -> pure ()
@@ -124,6 +138,7 @@ prop_traces =
         & cover 10 (hasFanout steps) "reach fanout"
         & cover 5 (countContests steps >= 2) "has multiple contests"
         & cover 5 (containSomeSnapshots steps) "has some snapshots"
+        & cover 5 (closeNonInitial steps) "close with non initial snapshots"
  where
   containSomeSnapshots =
     any $
@@ -144,6 +159,12 @@ prop_traces =
             Contest{} -> True
             _ -> False
         )
+
+  closeNonInitial =
+    any $
+      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+        Close ConfirmedSnapshot{} -> True
+        _ -> False
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
