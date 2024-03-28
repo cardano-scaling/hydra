@@ -17,9 +17,9 @@ import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput, ob
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (MultiSignature, aggregate, sign)
+import Hydra.Crypto (aggregate, sign)
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (Tx, genUTxOFor, genVerificationKey)
+import Hydra.Ledger.Cardano (Tx, adjustUTxO, genUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, number)
@@ -39,6 +39,7 @@ import Test.QuickCheck.StateModel (
   Step ((:=)),
   Var,
   VarContext,
+  mkVar,
   runActions,
  )
 import Text.Show (Show (..))
@@ -95,6 +96,7 @@ prop_runActions actions =
 data Model = Model
   { snapshots :: [SnapshotNumber]
   , headState :: State
+  , utxo :: Var UTxO
   }
   deriving (Show)
 
@@ -107,8 +109,8 @@ data State
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Close :: SnapshotNumber -> Action Model ()
-    Contest :: Action Model ()
+    Close :: SnapshotNumber -> Action Model UTxO
+    Contest :: SnapshotNumber -> Action Model ()
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
@@ -117,25 +119,34 @@ instance StateModel Model where
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
   arbitraryAction _lookup Model{headState, snapshots} =
     case headState of
-      Open -> Some <$> oneof [ProduceSnapshots <$> arbitrary, generateClose]
-      Closed -> Some <$> elements [Contest, Fanout]
+      Open ->
+        oneof
+          [ Some . ProduceSnapshots <$> arbitrary
+          , Some . Close <$> elements (0 : snapshots)
+          ]
+      Closed ->
+        oneof
+          [ Some . Contest <$> elements (0 : snapshots) -- FIXME: needs to depend on currently closed snapshot
+          , pure $ Some Fanout
+          ]
       Final -> pure $ Some Stop
-   where
-    generateClose = case snapshots of
-      [] -> pure $ Close 0
-      xs -> Close <$> elements xs
 
   -- TODO: shrinkAction to have small snapshots?
 
-  initialState = Model{snapshots = [], headState = Open}
+  initialState =
+    Model
+      { snapshots = []
+      , headState = Open
+      , utxo = mkVar 1 -- TODO: what does '1' mean here?
+      }
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m Stop _ = m
-  nextState m t _ =
+  nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{} -> m{headState = Closed}
-      Contest -> m{headState = Closed}
+      Close{} -> m{headState = Closed, utxo = result}
+      Contest{} -> m{headState = Closed}
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
@@ -177,9 +188,14 @@ instance RunModel Model IO where
                       ]
 
         case observeHeadTx Fixture.testNetworkId openHeadUTxO tx of
-          Tx.Close{} -> pure ()
+          Tx.Close{} -> pure () -- TODO: check more things here (or in postcondition)?
           observation -> failure $ "Expected Close observation, but got " <> show observation
-      Contest -> pure ()
+
+        pure $ adjustUTxO tx openHeadUTxO
+      Contest snapshotNumber ->
+        -- FIXME: Implement real contestTx + eval + observation
+        when (snapshotNumber == 0) $
+          failure "Cannot contest initial snapshot"
       Fanout -> pure ()
       Stop -> pure ()
 
