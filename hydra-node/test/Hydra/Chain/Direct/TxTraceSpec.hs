@@ -7,7 +7,7 @@ import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (CtxUTxO, TxOut, mkTxOutDatumInline)
+import Hydra.Cardano.Api (mkTxOutDatumInline)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -16,12 +16,12 @@ import Hydra.Chain.Direct.State (ChainContext (..), close)
 import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (MultiSignature)
+import Hydra.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (Tx, genUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
@@ -92,25 +92,10 @@ prop_runActions actions =
 -- * Model
 
 data Model = Model
-  { snapshots :: [SignedSnapshot]
+  { snapshots :: [SnapshotNumber]
   , headState :: State
   }
   deriving (Show)
-
-data SignedSnapshot = SignedSnapshot
-  { snapshot :: Snapshot Tx
-  , signatures :: MultiSignature (Snapshot Tx)
-  }
-  deriving (Eq, Show)
-
-instance Arbitrary SignedSnapshot where
-  arbitrary = do
-    s <- arbitrary
-    pure SignedSnapshot{snapshot = s, signatures = mempty} -- TODO: sign correctly
-
-  shrink SignedSnapshot{snapshot} = do
-    s <- shrink snapshot
-    pure SignedSnapshot{snapshot = s, signatures = mempty} -- TODO: sign correctly
 
 data State
   = Open
@@ -120,7 +105,7 @@ data State
 
 instance StateModel Model where
   data Action Model a where
-    ProduceSnapshots :: [SignedSnapshot] -> Action Model ()
+    ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
     Close :: ConfirmedSnapshot Tx -> Action Model ()
     Contest :: Action Model ()
     Fanout :: Action Model ()
@@ -136,9 +121,12 @@ instance StateModel Model where
       Final -> pure $ Some Stop
    where
     generateClose = case snapshots of
-      [] -> fmap Close (InitialSnapshot <$> arbitrary <*> pure u0)
+      [] -> do
+        -- NOTE: The close validator does not check headId on close with initial snapshot.
+        headId <- arbitrary
+        pure $ Close InitialSnapshot{initialUTxO = u0, headId}
       xs -> do
-        SignedSnapshot{snapshot, signatures} <- elements xs
+        (snapshot, signatures) <- modelSnapshot <$> elements xs
         pure $ Close ConfirmedSnapshot{snapshot, signatures}
 
   -- TODO: shrinkAction to have small snapshots?
@@ -206,13 +194,35 @@ instance RunModel Model IO where
 
 -- * Fixtures and glue code
 
--- | Initial UTxO for the open head.
+-- | Initial UTxO of the open head.
 u0 :: UTxO
-u0 = (`generateWith` 42) . resize 1 $ do
+u0 = snapshotUTxO 0
+
+-- | A "random" UTxO distribution for a given snapshot number. This always
+-- contains one UTxO for alice, bob, and carol.
+snapshotUTxO :: SnapshotNumber -> UTxO
+snapshotUTxO n = (`generateWith` fromIntegral n) . resize 1 $ do
   aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
   bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
   carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
   pure $ aliceUTxO <> bobUTxO <> carolUTxO
+
+-- | A model of a correctly signed snapshot. Given a snapshot number a snapshot
+-- signed by all participants (alice, bob and carol) with some UTxO contained is
+-- produced.
+modelSnapshot :: SnapshotNumber -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+modelSnapshot number =
+  (snapshot, signatures)
+ where
+  snapshot =
+    Snapshot
+      { headId = mkHeadId Fixture.testPolicyId
+      , number
+      , utxo = snapshotUTxO number
+      , confirmed = []
+      }
+
+  signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
 -- | UTxO of the open head on-chain.
 openHeadUTxO :: UTxO
