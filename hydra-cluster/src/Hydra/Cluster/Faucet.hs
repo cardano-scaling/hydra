@@ -112,7 +112,6 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-
   retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
     let allLovelace = selectLovelace utxoValue
@@ -120,7 +119,7 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
     let otherTokens = filterValue (/= AdaAssetId) utxoValue
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
-    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
+    fee <- calculateTxFee node senderSk utxo faucetAddress 1_500_000
     let returnBalance = allLovelace - fee
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
     submitTransaction networkId nodeSocket tx

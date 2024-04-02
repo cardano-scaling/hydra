@@ -249,6 +249,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         waitFor hydraTracer (10 * blockTime) [n1] $
           output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
       traceRemainingFunds Alice
+      traceRemainingFunds AliceFunds
  where
   hydraTracer = contramap FromHydraNode tracer
 
