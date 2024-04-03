@@ -34,7 +34,7 @@ downloadLatestSnapshotTo tracer network directory = do
           proc "mithril-client" $
             concat
               [ ["--aggregator-endpoint", aggregatorEndpoint]
-              , ["snapshot", "download", "latest"]
+              , ["cardano-db", "download", "latest"]
               , ["--genesis-verification-key", decodeUtf8 genesisKey]
               , ["--download-dir", directory]
               , ["--json"]
