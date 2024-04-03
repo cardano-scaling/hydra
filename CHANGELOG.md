@@ -9,9 +9,16 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 
-## [0.16.0] - UNRELEASED
+## [0.16.0] - 2024-04-03
 
 - Tested with `cardano-node 8.9.0`, `cardano-cli 8.20.3.0` and `mithril 2412.0`.
+
+- **BREAKING** Change to the `hydra-node` logs, monitoring and removal of `log-filter` executable:
+  - Renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
+  - Changed structure of `LogicOutcome` entries.
+  - Added node-level log entry when an input was `DroppedFromQueue`.
+  - In course of this, the `log-filter` executable was removed as nobody is actively using it and other off-the-shelf utilities to manipulate structured JSON logs (`jq` is already quite powerful) are recommended.
+  - Renamed prometheus metric `hydra_head_events -> hydra_head_inputs`.
 
 - **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
   - Overall slight increase in script size.
@@ -19,6 +26,11 @@ changes.
   - Slightly less memory usage in `abort` and may be possible with 6 parties now.
 
 - **BREAKING** Transaction serialization on hydra-node api and persisted data changed.
+
+- Introduce `EventSource` and `EventSink` interfaces in `hydra-node`:
+  - These handles can now be used as "extension points" to make the `hydra-node` store and load its state differently or expose `StateEvent`s to other, external services.
+  - Internal refactoring of persistence mechanism as event source and sink in a backward-compatible way.
+  - More details can be found in [ADR21](https://hydra.family/head-protocol/adr/21/)
 
 - Add metadata to identify Hydra protocol transactions created by `hydra-node`.
 
@@ -40,17 +52,6 @@ changes.
   input instead of the output datum.
   [#1266](https://github.com/input-output-hk/hydra/pull/1266)
 
-- **BREAKING** Change to the `hydra-node` logs, monitoring and removal of `log-filter` executable:
-  - Renamed the `Event` data types to `Input` and consequently log items like `BeginEvent` to `BeginInput`.
-  - Changed structure of `LogicOutcome` entries.
-  - Added node-level log entry when an input was `DroppedFromQueue`.
-  - In course of this, the `log-filter` executable was removed as nobody is actively using it and other off-the-shelf utilities to manipulate structured JSON logs (`jq` is already quite powerful) are recommended.
-  - Renamed prometheus metric `hydra_head_events -> hydra_head_inputs`.
-
-- Introduce `EventSource` and `EventSink` interfaces in `hydra-node`:
-  - These handles can now be used as "extension points" to make the `hydra-node` store and load its state differently or expose `StateEvent`s to other, external services.
-  - Internal refactoring of persistence mechanism as event source and sink in a backward-compatible way.
-  - More details can be found in [ADR21](https://hydra.family/head-protocol/adr/21/)
 
 ## [0.15.0] - 2024-01-18
 

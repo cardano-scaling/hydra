@@ -197,16 +197,17 @@ During development
 
 To perform a release of next `<version>`:
 
-1. Publish hydra scripts onto `preview`, `preprod`, and `mainnet` using the
+1. Make sure all tests are passing.
+2. Publish hydra scripts onto `preview`, `preprod`, and `mainnet` using the
    [smoke test][smoke-test] and put the transaction ids as new `<version>`
    entries into [networks.json](./networks.json).
-2. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
+3. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
-3. Run `./release.sh <version>`
-4. Check if all the bumped versions are correct. In particular, whether the demo
+4. Run `./release.sh <version>`
+5. Check if all the bumped versions are correct. In particular, whether the demo
    and tutorial would still work given the changelog. If everything is fine,
    push the branches `master`, `release` and the `<version>` tag.
-5. Create a github release page containing
+6. Create a github release page containing
    * The released changes (formatted) and giving credit where credit is due
    * Built hydra (and cardano-node) binaries to the release using naming scheme:
      `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux` or
@@ -281,7 +282,7 @@ To conduct this meeting and write this report:
     - Do not forget to record the meeting!
     - Ask for sharing rights after the meeting, by requesting sharing in Google Drive with yourself, and/or ask for making it publicly available.
 
-3. Write the report in [this repository](https://github.com/cardano-scaling/website) 
+3. Write the report in [this repository](https://github.com/cardano-scaling/website)
   - Copy monthly report from last month, update dates, links to slides and closed issues
   - Use slides as starting point, to provide a short and sweet written account of what happened
     + The previous reports should serve as a guideline

@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-explorer
-version:       0.15.0
+version:       0.16.0
 synopsis:      Hydra Explorer
 author:        IOG
 copyright:     2023 IOG
