@@ -46,7 +46,7 @@ curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-linux.tar.gz \
   | tar xz ./bin/cardano-node ./bin/cardano-cli
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2408.0/mithril-2408.0-linux-x64.tar.gz \
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
 chmod +x bin/*
 ```
@@ -61,7 +61,7 @@ curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}
 unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-macos.tar.gz \
   | tar xz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2408.0/mithril-2408.0-macos-x64.tar.gz \
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-macos-x64.tar.gz \
   | tar xz -C bin
 chmod +x bin/*
 ```
@@ -122,7 +122,7 @@ We will be using the `mithril-client` configured to download from
 `preprod` network to download the latest blockchain snapshot:
 
 ```shell
-mithril-client snapshot download latest
+mithril-client cardano-db download latest
 ```
 
 <details>

@@ -11,7 +11,7 @@ changes.
 
 ## [0.16.0] - UNRELEASED
 
-- Tested with `cardano-node 8.9.0`, `cardano-cli 8.20.3.0` and `mithril 2408.0`.
+- Tested with `cardano-node 8.9.0`, `cardano-cli 8.20.3.0` and `mithril 2412.0`.
 
 - **BREAKING** Hydra scripts changed due to updates in the `plutus` toolchain:
   - Overall slight increase in script size.
