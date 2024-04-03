@@ -269,6 +269,11 @@ mockChainAndNetwork tr seedKeys commits = do
     doRollBackward nodes chain numberOfBlocks
     replicateM_ (fromIntegral numberOfBlocks) $
       doRollForward nodes chain
+    -- NOTE: There seems to be a race condition on multiple consecutive
+    -- rollbackAndForward calls, which would require some minimal (1ms) delay
+    -- here. However, waiting here for one blockTime is not wrong and enforces
+    -- rollbacks / chain switches to be not more often than blocks being added.
+    threadDelay blockTime
 
   doRollBackward nodes chain nbBlocks = do
     (slotNum, position, blocks, _) <- readTVarIO chain
