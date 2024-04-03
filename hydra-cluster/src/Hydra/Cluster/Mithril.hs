@@ -11,6 +11,7 @@ import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
 import System.IO.Error (isEOFError)
 import System.Process.Typed (createPipe, getStderr, proc, setStderr, withProcessWait_)
+import Test.Hydra.Prelude (pendingWith)
 
 data MithrilLog
   = StartSnapshotDownload {network :: KnownNetwork, directory :: FilePath}
@@ -23,22 +24,22 @@ data MithrilLog
 -- directory.
 downloadLatestSnapshotTo :: Tracer IO MithrilLog -> KnownNetwork -> FilePath -> IO ()
 downloadLatestSnapshotTo tracer network directory = do
-  case (genesisKeyURLForNetwork network, aggregatorEndpointForNetwork network) of
-    (Just genesisKeyURL, Just aggregatorEndpoint) -> do
-      traceWith tracer StartSnapshotDownload{network, directory}
-      genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
-      let cmd =
-            setStderr createPipe $
-              proc "mithril-client" $
-                concat
-                  [ ["--aggregator-endpoint", aggregatorEndpoint]
-                  , ["snapshot", "download", "latest"]
-                  , ["--genesis-verification-key", decodeUtf8 genesisKey]
-                  , ["--download-dir", directory]
-                  , ["--json"]
-                  ]
-      withProcessWait_ cmd traceStderr
-    _ -> error $ "Network " <> show network <> " not supported by mithril."
+  when (network == Sanchonet) $
+    pendingWith "Mithril deployment of testing-sanchonet requires mithril-client 0.7.8, which is not yet released and does not work on other networks."
+
+  traceWith tracer StartSnapshotDownload{network, directory}
+  genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
+  let cmd =
+        setStderr createPipe $
+          proc "mithril-client" $
+            concat
+              [ ["--aggregator-endpoint", aggregatorEndpoint]
+              , ["snapshot", "download", "latest"]
+              , ["--genesis-verification-key", decodeUtf8 genesisKey]
+              , ["--download-dir", directory]
+              , ["--json"]
+              ]
+  withProcessWait_ cmd traceStderr
  where
   traceStderr p =
     ignoreEOFErrors . forever $ do
@@ -50,16 +51,14 @@ downloadLatestSnapshotTo tracer network directory = do
   ignoreEOFErrors =
     handleJust (guard . isEOFError) (const $ pure ())
 
-  genesisKeyURLForNetwork :: KnownNetwork -> Maybe String
-  genesisKeyURLForNetwork = \case
-    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
-    Sanchonet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
+  genesisKeyURL = case network of
+    Mainnet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
+    Preproduction -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    Preview -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Sanchonet -> "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
 
-  aggregatorEndpointForNetwork :: KnownNetwork -> Maybe String
-  aggregatorEndpointForNetwork = \case
-    Mainnet -> Just "https://aggregator.release-mainnet.api.mithril.network/aggregator"
-    Preproduction -> Just "https://aggregator.release-preprod.api.mithril.network/aggregator"
-    Preview -> Just "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
-    Sanchonet -> Just "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
+  aggregatorEndpoint = case network of
+    Mainnet -> "https://aggregator.release-mainnet.api.mithril.network/aggregator"
+    Preproduction -> "https://aggregator.release-preprod.api.mithril.network/aggregator"
+    Preview -> "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+    Sanchonet -> "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
