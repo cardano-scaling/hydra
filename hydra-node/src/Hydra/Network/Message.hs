@@ -8,7 +8,7 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Hydra.Crypto (Signature)
 import Hydra.Ledger (IsTx (TxIdType), UTxOType)
-import Hydra.Network (NodeId)
+import Hydra.Network (Host, NodeId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
@@ -21,9 +21,44 @@ data NetworkEvent msg
 instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
   arbitrary = genericArbitrary
 
+type HydraVersionedProtocolNumber :: Type
+newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Int}
+  deriving stock (Eq, Show, Generic, Ord)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary HydraVersionedProtocolNumber where
+  arbitrary = genericArbitrary
+
+type KnownHydraVersions :: Type
+data KnownHydraVersions
+  = KnownHydraVersions {fromKnownHydraVersions :: [HydraVersionedProtocolNumber]}
+  | NoKnownHydraVersions
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary KnownHydraVersions where
+  arbitrary = genericArbitrary
+
+type HydraHandshakeRefused :: Type
+data HydraHandshakeRefused = HydraHandshakeRefused
+  { remoteHost :: Host
+  , ourVersion :: HydraVersionedProtocolNumber
+  , theirVersions :: KnownHydraVersions
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary HydraHandshakeRefused where
+  arbitrary = genericArbitrary
+
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
+  | HandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: HydraVersionedProtocolNumber
+      , theirVersions :: KnownHydraVersions
+      }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 

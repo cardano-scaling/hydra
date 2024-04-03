@@ -88,7 +88,7 @@ import Hydra.Ledger (
   applyTransactions,
   txId,
  )
-import Hydra.Network.Message (Connectivity (..), Message (..), NetworkEvent (..))
+import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
@@ -102,6 +102,22 @@ onConnectionEvent = \case
     causes [ClientEffect (ServerOutput.PeerConnected nodeId)]
   Disconnected{nodeId} ->
     causes [ClientEffect (ServerOutput.PeerDisconnected nodeId)]
+  HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
+    causes
+      [ ClientEffect
+          ( ServerOutput.PeerHandshakeFailure
+              { remoteHost
+              , ourVersion = getVersion ourVersion
+              , theirVersions = getKnownVersions theirVersions
+              }
+          )
+      ]
+   where
+    getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
+
+    getKnownVersions = \case
+      NoKnownHydraVersions -> []
+      KnownHydraVersions{fromKnownHydraVersions} -> getVersion <$> fromKnownHydraVersions
 
 -- * The Coordinated Head protocol
 

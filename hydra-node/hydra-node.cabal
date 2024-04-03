@@ -95,6 +95,7 @@ library
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
+    Hydra.Network.Ouroboros.VersionedProtocol
     Hydra.Network.Reliability
     Hydra.Node
     Hydra.Node.InputQueue

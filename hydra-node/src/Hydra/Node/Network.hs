@@ -79,8 +79,14 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Connectivity, Message, NetworkEvent (..))
-import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
+import Hydra.Network.Message (
+  Connectivity (..),
+  HydraHandshakeRefused (..),
+  HydraVersionedProtocolNumber (..),
+  Message,
+  NetworkEvent (..),
+ )
+import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -110,6 +116,9 @@ data NetworkConfiguration m = NetworkConfiguration
   -- ^ This node's id.
   }
 
+currentHydraVersionedProtocol :: HydraVersionedProtocolNumber
+currentHydraVersionedProtocol = MkHydraVersionedProtocolNumber 1
+
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
   forall tx.
@@ -121,7 +130,7 @@ withNetwork ::
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (NetworkEvent (Message tx)) (Message tx) ()
 withNetwork tracer configuration callback action = do
-  let localhost = Host{hostname = show host, port}
+  let localHost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
   messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
@@ -130,7 +139,16 @@ withNetwork tracer configuration callback action = do
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
-              withOuroborosNetwork (contramap Network tracer) localhost peers
+              withOuroborosNetwork
+                (contramap Network tracer)
+                HydraNetworkConfig
+                  { protocolVersion = currentHydraVersionedProtocol
+                  , localHost
+                  , remoteHosts = peers
+                  }
+                ( \HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
+                    callback . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
+                )
 
   withHeartbeat nodeId reliability (callback . mapHeartbeat) $ \network ->
     action network

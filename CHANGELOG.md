@@ -10,6 +10,12 @@ changes.
 
 ## [0.17.0] - UNRELEASED
 
+- **BREAKING** `hydra-node` `/commit` enpoint now also accepts a _blueprint/draft_
+  transaction together with the `UTxO` which is spent in this transaction. `hydra-node` can
+  still be used like before if the provided `UTxO` is at public key address. In order to spend
+  from a script `UTxO`, and also unlock more involved use-cases, users need to provide additional
+  unsigned transaction that correctly specifies required data (like redeemers, validity ranges etc.)
+
 - Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand.
   - Always responds with the last confirmed UTxO
 
@@ -17,13 +23,10 @@ changes.
 
 - `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network.
 
-## [0.17.0] - UNRELEASED
-
-- **BREAKING** `hydra-node` `/commit` enpoint now also accepts a _blueprint/draft_
-  transaction together with the `UTxO` which is spent in this transaction. `hydra-node` can
-  still be used like before if the provided `UTxO` is at public key address. In order to spend
-  from a script `UTxO`, and also unlock more involved use-cases, users need to provide additional
-  unsigned transaction that correctly specifies required data (like redeemers, validity ranges etc.)
+- Hydra now uses a versioned protocol for handshaking. In the event of a node
+  attempting to connect using a different version of the networking protocol, a
+  `HandshakeFailure` event will be recorded in the logs and sent as a server
+  output on the API.
 
 ## [0.16.0] - 2024-04-03
 

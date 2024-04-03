@@ -1645,6 +1645,26 @@ definitions:
                   nodeId:
                     type: string
 
+              - title: HandshakeFailure
+                type: object
+                additionalProperties: false
+                required:
+                  - tag
+                  - remoteHost
+                  - ourVersion
+                  - theirVersions
+                properties:
+                  tag:
+                    type: string
+                    enum: ["HandshakeFailure"]
+                  remoteHost:
+                    type: object
+                    $ref: "api.yaml#/components/schemas/IP"
+                  ourVersion:
+                    $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
+                  theirVersions:
+                    $ref: "api.yaml#/components/schemas/KnownHydraVersions"
+
       - title: ReceivedMessage
         type: object
         additionalProperties: false
@@ -2110,26 +2130,6 @@ definitions:
             items:
               $ref: "api.yaml#/components/schemas/TxId"
 
-  IP:
-    type: object
-    oneOf:
-      - title: IPv4
-        type: object
-        properties:
-          tag:
-            type: string
-            enum: ["IPv4"]
-          ipv4:
-            type: string
-      - title: IPv6
-        type: string
-        properties:
-          tag:
-            type: string
-            enum: ["IPv6"]
-          ipv6:
-            type: string
-
   RunOptions:
     type: object
     required:
@@ -2164,7 +2164,7 @@ definitions:
         type: string
       host:
         type: object
-        $ref: "logs.yaml#/definitions/IP"
+        $ref: "api.yaml#/components/schemas/IP"
       port:
         type: integer
       peers:
@@ -2172,7 +2172,7 @@ definitions:
         items:
           $ref: "api.yaml#/components/schemas/Peer"
       apiHost:
-        $ref: "logs.yaml#/definitions/IP"
+        $ref: "api.yaml#/components/schemas/IP"
       apiPort:
         type: integer
       monitoringPort:

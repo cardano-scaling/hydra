@@ -74,6 +74,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
+          - $ref: "api.yaml#/components/messages/PeerHandshakeFailure"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
@@ -333,6 +334,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/PeerDisconnected"
 
+    PeerHandshakeFailure:
+      title: PeerHandshakeFailure
+      description: |
+        A peer has failed to negotiate a protocol.
+      payload:
+        $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
+
     HeadIsInitializing:
       title: HeadIsInitializing
       description: |
@@ -494,6 +502,7 @@ components:
         - $ref: "api.yaml#/components/schemas/Greetings"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
         - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
         - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
         - $ref: "api.yaml#/components/schemas/Committed"
         - $ref: "api.yaml#/components/schemas/HeadIsOpen"
@@ -566,6 +575,34 @@ components:
           enum: ["PeerDisconnected"]
         peer:
           $ref: "api.yaml#/components/schemas/NodeId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PeerHandshakeFailure:
+      type: object
+      required:
+        - tag
+        - remoteHost
+        - ourVersion
+        - theirVersions
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PeerHandshakeFailure"]
+        remoteHost:
+          type: object
+          $ref: "api.yaml#/components/schemas/IP"
+        ourVersion:
+          type: integer
+          minimum: 0
+        theirVersions:
+          type: array
+          items:
+            type: integer
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1976,3 +2013,55 @@ components:
 
     # NOTE: We don't want anyone to depend on this!
     ChainState: {}
+
+    IP:
+      type: object
+      oneOf:
+        - title: IPv4
+          type: object
+          properties:
+            tag:
+              type: string
+              enum: ["IPv4"]
+            ipv4:
+              type: string
+        - title: IPv6
+          type: string
+          properties:
+            tag:
+              type: string
+              enum: ["IPv6"]
+            ipv6:
+              type: string
+
+    MkHydraVersionedProtocolNumber:
+      type: object
+      required:
+      - hydraVersionedProtocolNumber
+      properties:
+        hydraVersionedProtocolNumber:
+          type: integer
+          minimum: 0
+        
+    KnownHydraVersions:
+      oneOf:
+        - title: NoKnownHydraVersions
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["NoKnownHydraVersions"]
+        - title: KnownHydraVersions
+          type: object
+          required:
+          - tag
+          - fromKnownHydraVersions
+          properties:
+            tag:
+              type: string
+              enum: ["KnownHydraVersions"]
+            fromKnownHydraVersions:
+              type: array
+              items:
+                $ref: "api.yaml#/components/schemas/MkHydraVersionedProtocolNumber"
