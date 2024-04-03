@@ -21,6 +21,7 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
@@ -112,16 +113,24 @@ returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
+  traceShowM ("RemainingFunds utxo:" <> renderUTxO utxo)
   retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
     let allLovelace = selectLovelace utxoValue
+    traceShowM ("allLovelace:" <> show allLovelace)
     -- select tokens other than ADA here so we can burn it afterwards
     let otherTokens = filterValue (/= AdaAssetId) utxoValue
+    traceShowM ("otherTokens:" <> renderValue otherTokens)
     -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
     -- NOTE: We use the faucet address as the change deliberately here.
-    fee <- calculateTxFee node senderSk utxo faucetAddress 1_500_000
+    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
+    traceShowM ("fee:" <> show fee)
     let returnBalance = allLovelace - fee
-    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
+    traceShowM ("returnBalance:" <> show returnBalance)
+    returnTxBody <- buildTxBody utxo faucetAddress returnBalance otherTokens
+    traceShowM ("returnTxBody:" <> show returnTxBody)
+    let tx = sign senderSk returnTxBody
+    traceShowM ("tx:" <> renderTx tx)
     submitTransaction networkId nodeSocket tx
     void $ awaitTransaction networkId nodeSocket tx
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
