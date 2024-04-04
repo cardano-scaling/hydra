@@ -21,7 +21,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
@@ -107,39 +106,24 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
+returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  traceShowM ("RemainingFunds utxo:" <> renderUTxO utxo)
   retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
     let allLovelace = selectLovelace utxoValue
-    traceShowM ("allLovelace:" <> show allLovelace)
-    -- select tokens other than ADA here so we can burn it afterwards
-    let otherTokens = filterValue (/= AdaAssetId) utxoValue
-    traceShowM ("otherTokens:" <> renderValue otherTokens)
-    -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
-    -- NOTE: We use the faucet address as the change deliberately here.
-    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
-    traceShowM ("fee:" <> show fee)
-    let returnBalance = allLovelace - fee
-    traceShowM ("returnBalance:" <> show returnBalance)
-    returnTxBody <- buildTxBody utxo faucetAddress returnBalance otherTokens
-    traceShowM ("returnTxBody:" <> show returnTxBody)
-    let tx = sign senderSk returnTxBody
-    traceShowM ("tx:" <> renderTx tx)
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress
     submitTransaction networkId nodeSocket tx
     void $ awaitTransaction networkId nodeSocket tx
-    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
+    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = allLovelace}
  where
-  buildTxBody utxo faucetAddress lovelace otherTokens =
-    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace <> negateValue otherTokens) TxOutDatumNone ReferenceScriptNone
-     in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
-          Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-          Right body -> pure body
+  buildTxBody utxo faucetAddress =
+    buildTransaction networkId nodeSocket faucetAddress utxo [] [] >>= \case
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+      Right body -> pure body
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
