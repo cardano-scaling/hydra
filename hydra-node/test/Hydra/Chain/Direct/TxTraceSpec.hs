@@ -83,7 +83,7 @@ prop_traces =
   closeNonInitial =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close snapshotNumber -> snapshotNumber > 0
+        Close{snapshotNumber} -> snapshotNumber > 0
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -108,11 +108,17 @@ data State
   | Final
   deriving (Show, Eq)
 
+data Actor = Alice | Bob | Carol
+  deriving (Show, Eq)
+
+genActor :: Gen Actor
+genActor = elements [Alice, Bob, Carol]
+
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Close :: SnapshotNumber -> Action Model UTxO
-    Contest :: SnapshotNumber -> Action Model UTxO
+    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
+    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
@@ -125,13 +131,19 @@ instance StateModel Model where
         oneof
           [ -- TODO: non-continuous snapshot numbers
             Some . ProduceSnapshots <$> arbitrary
-          , Some . Close <$> elements (0 : snapshots)
+          , do
+              actor <- genActor
+              snapshotNumber <- elements (0 : snapshots)
+              pure $ Some $ Close{actor, snapshotNumber}
           ]
       Closed ->
         oneof
-          [ -- NOTE: Adding 0 to have elements always pass, but precondition
-            -- would disallow contest with 0.
-            Some . Contest <$> elements (0 : snapshots) -- FIXME: needs to depend on currently closed snapshot
+          [ do
+              actor <- genActor
+              -- NOTE: Adding 0 to have elements always pass, but precondition
+              -- would disallow contest with 0.
+              snapshotNumber <- elements (0 : snapshots)
+              pure $ Some $ Contest{actor, snapshotNumber}
           , pure $ Some Fanout
           ]
       Final -> pure $ Some Stop
@@ -150,13 +162,25 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
-      Contest sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
+      Close{snapshotNumber} ->
+        m
+          { headState = Closed
+          , utxoV = result
+          , snapshots = filter (> snapshotNumber) $ snapshots m
+          }
+      Contest{snapshotNumber} ->
+        m
+          { headState = Closed
+          , utxoV = result
+          , snapshots = filter (> snapshotNumber) $ snapshots m
+          }
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState = Final} Stop = False
-  precondition Model{headState} (Contest sn) = headState == Closed && sn /= 0
+  precondition Model{headState = Final} Stop =
+    False
+  precondition Model{headState} Contest{snapshotNumber} =
+    headState == Closed && snapshotNumber /= 0
   precondition _ _ = True
 
 instance HasVariables Model where
@@ -175,19 +199,19 @@ instance RunModel Model IO where
 
     case action of
       ProduceSnapshots _snapshots -> pure ()
-      Close snapshotNumber -> do
-        tx <- newCloseTx $ correctlySignedSnapshot snapshotNumber
+      Close{actor, snapshotNumber} -> do
+        tx <- newCloseTx actor $ correctlySignedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
         observeTxMatching openHeadUTxO tx $ \case
           Tx.Close{} -> Just () -- TODO: check more things here (or in postcondition)?
           _ -> Nothing
         pure $ adjustUTxO tx openHeadUTxO
-      Contest snapshotNumber -> do
+      Contest{actor, snapshotNumber} -> do
         -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
         let utxo = lookupVar utxoV
-        tx <- newContestTx utxo $ correctlySignedSnapshot snapshotNumber
+        tx <- newContestTx utxo actor $ correctlySignedSnapshot snapshotNumber
         validateTx utxo tx
         observeTxMatching utxo tx $ \case
           Tx.Contest{} -> Just () -- TODO: check more things here (or in postcondition)?
@@ -255,11 +279,11 @@ openHeadUTxO =
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
 -- NOTE: This uses fixtures for headId, contestation period and also claims to
 -- close at time 0 resulting in a contestation deadline of 0 + cperiod.
-newCloseTx :: HasCallStack => ConfirmedSnapshot Tx -> IO Tx
-newCloseTx snapshot =
+newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> IO Tx
+newCloseTx actor snapshot =
   either (failure . show) pure $
     close
-      aliceChainContext
+      (actorChainContext actor)
       openHeadUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
@@ -274,11 +298,11 @@ newCloseTx snapshot =
 -- | Creates a contest transaction using given utxo and contesting with given
 -- snapshot. NOTE: This uses fixtures for headId, contestation period and also
 -- claims to contest at time 0.
-newContestTx :: HasCallStack => UTxO -> ConfirmedSnapshot Tx -> IO Tx
-newContestTx spendableUTxO snapshot =
+newContestTx :: HasCallStack => UTxO -> Actor -> ConfirmedSnapshot Tx -> IO Tx
+newContestTx spendableUTxO actor snapshot =
   either (failure . show) pure $
     contest
-      aliceChainContext
+      (actorChainContext actor)
       spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.cperiod
@@ -287,14 +311,21 @@ newContestTx spendableUTxO snapshot =
  where
   currentTime = (0, posixSecondsToUTCTime 0)
 
--- | Fixture for the chain context of 'alice' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
--- TODO: move to Hydra.Chain.Direct.Fixture / into a testlib
-aliceChainContext :: ChainContext
-aliceChainContext =
+-- | Fixture for the chain context of a model 'Actor' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
+actorChainContext :: Actor -> ChainContext
+actorChainContext actor =
   ChainContext
     { networkId = Fixture.testNetworkId
-    , ownVerificationKey = Fixture.alicePVk
-    , ownParty = Fixture.alice
+    , ownVerificationKey =
+        case actor of
+          Alice -> Fixture.alicePVk
+          Bob -> Fixture.bobPVk
+          Carol -> Fixture.carolPVk
+    , ownParty =
+        case actor of
+          Alice -> Fixture.alice
+          Bob -> Fixture.bob
+          Carol -> Fixture.carol
     , scriptRegistry = testScriptRegistry
     }
 
