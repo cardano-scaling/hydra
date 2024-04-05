@@ -5,6 +5,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (mkTxOutDatumInline)
@@ -88,8 +89,7 @@ prop_traces =
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
-  monadicIO $ do
-    print actions
+  monadicIO $
     void (runActions actions)
 
 -- * Model
@@ -99,6 +99,7 @@ data Model = Model
   , headState :: State
   , utxoV :: Var UTxO
   -- ^ Last known, spendable UTxO.
+  , possibleContesters :: [Actor]
   }
   deriving (Show)
 
@@ -111,9 +112,6 @@ data State
 data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
-genActor :: Gen Actor
-genActor = elements [Alice, Bob, Carol]
-
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
@@ -125,28 +123,31 @@ instance StateModel Model where
     Stop :: Action Model ()
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, snapshots} =
+  arbitraryAction _lookup Model{headState, snapshots, possibleContesters} =
     case headState of
       Open ->
         oneof
           [ -- TODO: non-continuous snapshot numbers
             Some . ProduceSnapshots <$> arbitrary
           , do
-              actor <- genActor
+              actor <- elements possibleContesters
               snapshotNumber <- elements (0 : snapshots)
               pure $ Some $ Close{actor, snapshotNumber}
           ]
       Closed ->
-        oneof
-          [ do
-              actor <- genActor
-              -- NOTE: Adding 0 to have elements always pass, but precondition
-              -- would disallow contest with 0.
-              snapshotNumber <- elements (0 : snapshots)
-              pure $ Some $ Contest{actor, snapshotNumber}
-          , pure $ Some Fanout
-          ]
+        case maybeGenContest of
+          Nothing -> genFanout
+          Just contestAction -> oneof [contestAction, genFanout]
       Final -> pure $ Some Stop
+   where
+    genFanout = pure $ Some Fanout
+
+    maybeGenContest
+      | null possibleContesters || null snapshots = Nothing
+      | otherwise = Just $ do
+          actor <- elements possibleContesters
+          snapshotNumber <- elements snapshots
+          pure $ Some Contest{actor, snapshotNumber}
 
   -- TODO: shrinkAction to have small snapshots?
 
@@ -155,6 +156,7 @@ instance StateModel Model where
       { snapshots = []
       , headState = Open
       , utxoV = mkVar 1 -- TODO: what does '1' mean here?
+      , possibleContesters = allActors
       }
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -162,17 +164,19 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{snapshotNumber} ->
+      Close{actor, snapshotNumber} ->
         m
           { headState = Closed
           , utxoV = result
           , snapshots = filter (> snapshotNumber) $ snapshots m
+          , possibleContesters = allActors \\ [actor]
           }
-      Contest{snapshotNumber} ->
+      Contest{actor, snapshotNumber} ->
         m
           { headState = Closed
           , utxoV = result
           , snapshots = filter (> snapshotNumber) $ snapshots m
+          , possibleContesters = possibleContesters m \\ [actor]
           }
       Fanout -> m{headState = Final}
 
@@ -195,8 +199,6 @@ deriving instance Show (Action Model a)
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
   perform Model{utxoV} action lookupVar = do
-    putStrLn $ "performing action: " <> show action
-
     case action of
       ProduceSnapshots _snapshots -> pure ()
       Close{actor, snapshotNumber} -> do
@@ -221,6 +223,10 @@ instance RunModel Model IO where
       Stop -> pure ()
 
 -- * Fixtures and glue code
+
+-- | List of all model actors corresponding to the fixtures used.
+allActors :: [Actor]
+allActors = [Alice, Bob, Carol]
 
 -- | A "random" UTxO distribution for a given snapshot number. This always
 -- contains one UTxO for alice, bob, and carol.
@@ -255,7 +261,7 @@ correctlySignedSnapshot = \case
 
     signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
--- | UTxO of the open head on-chain.
+-- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId, parties, and cperiod.
 openHeadUTxO :: UTxO
 openHeadUTxO =
   UTxO.singleton (headTxIn, openHeadTxOut)
@@ -277,8 +283,9 @@ openHeadUTxO =
         }
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
--- NOTE: This uses fixtures for headId, contestation period and also claims to
--- close at time 0 resulting in a contestation deadline of 0 + cperiod.
+-- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
+-- contestation period and also claims to close at time 0 resulting in a
+-- contestation deadline of 0 + cperiod.
 newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> IO Tx
 newCloseTx actor snapshot =
   either (failure . show) pure $
