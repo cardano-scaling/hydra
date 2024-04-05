@@ -177,41 +177,20 @@ instance RunModel Model IO where
       ProduceSnapshots _snapshots -> pure ()
       Close snapshotNumber -> do
         tx <- newCloseTx $ correctlySignedSnapshot snapshotNumber
-
-        case evaluateTx tx openHeadUTxO of
-          Left err ->
-            failure $ show err
-          Right redeemerReport ->
-            when (any isLeft (Map.elems redeemerReport)) $
-              failure . toString . unlines $
-                fromString
-                  <$> [ renderTxWithUTxO openHeadUTxO tx
-                      , "Some redeemers failed: " <> show redeemerReport
-                      ]
-
+        validateTx openHeadUTxO tx
         case observeHeadTx Fixture.testNetworkId openHeadUTxO tx of
           Tx.Close{} -> pure () -- TODO: check more things here (or in postcondition)?
           observation -> failure $ "Expected Close observation, but got " <> show observation
 
         pure $ adjustUTxO tx openHeadUTxO
       Contest snapshotNumber -> do
-        -- FIXME: Implement real contestTx + eval + observation
         -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
+
         let utxo = lookupVar utxoV
         tx <- newContestTx utxo $ correctlySignedSnapshot snapshotNumber
-        case evaluateTx tx utxo of
-          Left err ->
-            failure $ show err
-          Right redeemerReport ->
-            when (any isLeft (Map.elems redeemerReport)) $
-              failure . toString . unlines $
-                fromString
-                  <$> [ renderTxWithUTxO utxo tx
-                      , "Some redeemers failed: " <> show redeemerReport
-                      ]
-
+        validateTx utxo tx
         pure ()
       Fanout -> pure ()
       Stop -> pure ()
@@ -315,3 +294,20 @@ aliceChainContext =
 
 testScriptRegistry :: ScriptRegistry
 testScriptRegistry = genScriptRegistry `generateWith` 42
+
+-- * Helpers
+
+-- | Thin wrapper around 'evaluateTx' that fails with 'failure' if any of the
+-- scripts/redeemers fail to evaluate.
+validateTx :: (HasCallStack, MonadThrow m) => UTxO -> Tx -> m ()
+validateTx utxo tx =
+  case evaluateTx tx utxo of
+    Left err ->
+      failure $ show err
+    Right redeemerReport ->
+      when (any isLeft (Map.elems redeemerReport)) $
+        failure . toString . unlines $
+          fromString
+            <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
+                , "Some redeemers failed: " <> show redeemerReport
+                ]
