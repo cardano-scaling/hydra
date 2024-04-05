@@ -13,7 +13,7 @@ import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close, contest)
-import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
+import Hydra.Chain.Direct.Tx (HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
@@ -112,7 +112,7 @@ instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
     Close :: SnapshotNumber -> Action Model UTxO
-    Contest :: SnapshotNumber -> Action Model ()
+    Contest :: SnapshotNumber -> Action Model UTxO
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
@@ -151,7 +151,7 @@ instance StateModel Model where
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
       Close sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
-      Contest{} -> m{headState = Closed}
+      Contest{} -> m{headState = Closed, utxoV = result}
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
@@ -178,20 +178,21 @@ instance RunModel Model IO where
       Close snapshotNumber -> do
         tx <- newCloseTx $ correctlySignedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
-        case observeHeadTx Fixture.testNetworkId openHeadUTxO tx of
-          Tx.Close{} -> pure () -- TODO: check more things here (or in postcondition)?
-          observation -> failure $ "Expected Close observation, but got " <> show observation
-
+        observeTxMatching openHeadUTxO tx $ \case
+          Tx.Close{} -> Just () -- TODO: check more things here (or in postcondition)?
+          _ -> Nothing
         pure $ adjustUTxO tx openHeadUTxO
       Contest snapshotNumber -> do
         -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
-
         let utxo = lookupVar utxoV
         tx <- newContestTx utxo $ correctlySignedSnapshot snapshotNumber
         validateTx utxo tx
-        pure ()
+        observeTxMatching utxo tx $ \case
+          Tx.Contest{} -> Just () -- TODO: check more things here (or in postcondition)?
+          _ -> Nothing
+        pure $ adjustUTxO tx utxo
       Fanout -> pure ()
       Stop -> pure ()
 
@@ -316,3 +317,12 @@ validateTx utxo tx =
             <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
                 , "Some redeemers failed: " <> show redeemerReport
                 ]
+
+-- | Expect to observe a transaction matching given predicate. This fails with
+-- 'failure' if the predicate yields 'Nothing'.
+observeTxMatching :: (HasCallStack, MonadThrow m) => UTxO -> Tx -> (HeadObservation -> Maybe a) -> m a
+observeTxMatching utxo tx predicate = do
+  let res = observeHeadTx Fixture.testNetworkId utxo tx
+  case predicate res of
+    Just a -> pure a
+    Nothing -> failure $ "Observation result not matching expectation, got " <> show res
