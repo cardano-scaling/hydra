@@ -151,7 +151,7 @@ instance StateModel Model where
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
       Close sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
-      Contest{} -> m{headState = Closed, utxoV = result}
+      Contest sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
