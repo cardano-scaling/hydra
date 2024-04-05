@@ -150,7 +150,7 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{} -> m{headState = Closed, utxoV = result}
+      Close sn -> m{headState = Closed, utxoV = result, snapshots = filter (> sn) $ snapshots m}
       Contest{} -> m{headState = Closed}
       Fanout -> m{headState = Final}
 
@@ -251,7 +251,9 @@ openHeadUTxO =
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         }
 
--- Re-use Direct.State-level functions with fixtures for the time being.
+-- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
+-- NOTE: This uses fixtures for headId, contestation period and also claims to
+-- close at time 0 resulting in a contestation deadline of 0 + cperiod.
 newCloseTx :: HasCallStack => ConfirmedSnapshot Tx -> IO Tx
 newCloseTx snapshot =
   either (failure . show) pure $
@@ -268,6 +270,9 @@ newCloseTx snapshot =
 
   upperBound = (0, posixSecondsToUTCTime 0)
 
+-- | Creates a contest transaction using given utxo and contesting with given
+-- snapshot. NOTE: This uses fixtures for headId, contestation period and also
+-- claims to contest at time 0.
 newContestTx :: HasCallStack => UTxO -> ConfirmedSnapshot Tx -> IO Tx
 newContestTx spendableUTxO snapshot =
   either (failure . show) pure $
