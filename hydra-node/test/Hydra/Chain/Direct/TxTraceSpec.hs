@@ -12,7 +12,7 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), close)
+import Hydra.Chain.Direct.State (ChainContext (..), close, contest)
 import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
@@ -88,7 +88,8 @@ prop_traces =
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
-  monadicIO $
+  monadicIO $ do
+    print actions
     void (runActions actions)
 
 -- * Model
@@ -96,7 +97,8 @@ prop_runActions actions =
 data Model = Model
   { snapshots :: [SnapshotNumber]
   , headState :: State
-  , utxo :: Var UTxO
+  , utxoV :: Var UTxO
+  -- ^ Last known, spendable UTxO.
   }
   deriving (Show)
 
@@ -104,7 +106,7 @@ data State
   = Open
   | Closed
   | Final
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance StateModel Model where
   data Action Model a where
@@ -121,12 +123,15 @@ instance StateModel Model where
     case headState of
       Open ->
         oneof
-          [ Some . ProduceSnapshots <$> arbitrary
+          [ -- TODO: non-continuous snapshot numbers
+            Some . ProduceSnapshots <$> arbitrary
           , Some . Close <$> elements (0 : snapshots)
           ]
       Closed ->
         oneof
-          [ Some . Contest <$> elements (0 : snapshots) -- FIXME: needs to depend on currently closed snapshot
+          [ -- NOTE: Adding 0 to have elements always pass, but precondition
+            -- would disallow contest with 0.
+            Some . Contest <$> elements (0 : snapshots) -- FIXME: needs to depend on currently closed snapshot
           , pure $ Some Fanout
           ]
       Final -> pure $ Some Stop
@@ -137,7 +142,7 @@ instance StateModel Model where
     Model
       { snapshots = []
       , headState = Open
-      , utxo = mkVar 1 -- TODO: what does '1' mean here?
+      , utxoV = mkVar 1 -- TODO: what does '1' mean here?
       }
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -145,12 +150,13 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{} -> m{headState = Closed, utxo = result}
+      Close{} -> m{headState = Closed, utxoV = result}
       Contest{} -> m{headState = Closed}
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState = Final} Stop = False
+  precondition Model{headState} (Contest sn) = headState == Closed && sn /= 0
   precondition _ _ = True
 
 instance HasVariables Model where
@@ -164,11 +170,7 @@ deriving instance Show (Action Model a)
 
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
-  perform m action _lookup = do
-    case headState m of
-      Open -> putStrLn "=========OPEN======="
-      _ -> pure ()
-
+  perform Model{utxoV} action lookupVar = do
     putStrLn $ "performing action: " <> show action
 
     case action of
@@ -192,10 +194,25 @@ instance RunModel Model IO where
           observation -> failure $ "Expected Close observation, but got " <> show observation
 
         pure $ adjustUTxO tx openHeadUTxO
-      Contest snapshotNumber ->
+      Contest snapshotNumber -> do
         -- FIXME: Implement real contestTx + eval + observation
+        -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
+        let utxo = lookupVar utxoV
+        tx <- newContestTx utxo $ correctlySignedSnapshot snapshotNumber
+        case evaluateTx tx utxo of
+          Left err ->
+            failure $ show err
+          Right redeemerReport ->
+            when (any isLeft (Map.elems redeemerReport)) $
+              failure . toString . unlines $
+                fromString
+                  <$> [ renderTxWithUTxO utxo tx
+                      , "Some redeemers failed: " <> show redeemerReport
+                      ]
+
+        pure ()
       Fanout -> pure ()
       Stop -> pure ()
 
@@ -271,6 +288,19 @@ newCloseTx snapshot =
   lowerBound = 0
 
   upperBound = (0, posixSecondsToUTCTime 0)
+
+newContestTx :: HasCallStack => UTxO -> ConfirmedSnapshot Tx -> IO Tx
+newContestTx spendableUTxO snapshot =
+  either (failure . show) pure $
+    contest
+      aliceChainContext
+      spendableUTxO
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.cperiod
+      snapshot
+      currentTime
+ where
+  currentTime = (0, posixSecondsToUTCTime 0)
 
 -- | Fixture for the chain context of 'alice' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
 -- TODO: move to Hydra.Chain.Direct.Fixture / into a testlib

@@ -534,6 +534,7 @@ contest ::
   HeadId ->
   ContestationPeriod ->
   ConfirmedSnapshot Tx ->
+  -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
   Either ContestTxError Tx
 contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime = do
