@@ -167,12 +167,12 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{actor, snapshotNumber} ->
+      Close{snapshotNumber} ->
         m
           { headState = Closed
           , utxoV = result
           , snapshots = filter (> snapshotNumber) $ snapshots m
-          , alreadyContested = actor : alreadyContested m
+          , alreadyContested = []
           }
       Contest{actor, snapshotNumber} ->
         m
