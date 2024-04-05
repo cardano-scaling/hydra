@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import CardanoClient (RunningNode (..))
 import CardanoNode (withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
-import Hydra.Cardano.Api (AssetId (AdaAssetId), selectAsset, txOutValue)
+import Hydra.Cardano.Api (AssetId (AdaAssetId), Coin (..), selectAsset, txOutValue)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -14,7 +14,7 @@ import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Logging (showLogsOnFailure)
-import Test.QuickCheck (elements, generate)
+import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -30,27 +30,29 @@ spec = do
               -- 10 unique outputs
               length (fold utxos) `shouldBe` 10
   describe "returnFundsToFaucet" $
-    it "seedFromFaucet and returnFundsToFaucet should work together" $ do
-      showLogsOnFailure "FaucetSpec" $ \tracer ->
-        withTempDir "hydra-cluster" $ \tmpDir ->
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
-            let faucetTracer = contramap FromFaucet tracer
-            actor <- generate $ elements [Alice, Bob, Carol]
-            (vk, _) <- keysFor actor
-            (faucetVk, _) <- keysFor Faucet
-            initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-            seeded <- seedFromFaucet node vk 100_000_000 faucetTracer
-            returnFundsToFaucet faucetTracer node actor
-            remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
-            finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-            foldMap txOutValue remaining `shouldBe` mempty
+    prop "seedFromFaucet and returnFundsToFaucet should work together" $
+      withMaxSuccess 10 $
+        forAll (Coin <$> choose (1000000, 10000000000)) $ \coin -> do
+          showLogsOnFailure "FaucetSpec" $ \tracer ->
+            withTempDir "hydra-cluster" $ \tmpDir ->
+              withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node@RunningNode{networkId, nodeSocket} -> do
+                let faucetTracer = contramap FromFaucet tracer
+                actor <- generate $ elements [Alice, Bob, Carol]
+                (vk, _) <- keysFor actor
+                (faucetVk, _) <- keysFor Faucet
+                initialFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+                seeded <- seedFromFaucet node vk coin faucetTracer
+                returnFundsToFaucet faucetTracer node actor
+                remaining <- queryUTxOFor networkId nodeSocket QueryTip vk
+                finalFaucetFunds <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+                foldMap txOutValue remaining `shouldBe` mempty
 
-            -- check the faucet has one utxo extra in the end
-            length seeded `shouldBe` length remaining + 1
+                -- check the faucet has one utxo extra in the end
+                length seeded `shouldBe` length remaining + 1
 
-            let initialFaucetValue = selectAsset (foldMap txOutValue initialFaucetFunds) AdaAssetId
-            let finalFaucetValue = selectAsset (foldMap txOutValue finalFaucetFunds) AdaAssetId
-            let difference = initialFaucetValue - finalFaucetValue
-            -- difference between starting faucet amount and final one should
-            -- just be the amount of paid fees
-            difference `shouldSatisfy` (< 340_000)
+                let initialFaucetValue = selectAsset (foldMap txOutValue initialFaucetFunds) AdaAssetId
+                let finalFaucetValue = selectAsset (foldMap txOutValue finalFaucetFunds) AdaAssetId
+                let difference = initialFaucetValue - finalFaucetValue
+                -- difference between starting faucet amount and final one should
+                -- just be the amount of paid fees
+                difference `shouldSatisfy` (< 340_000)
