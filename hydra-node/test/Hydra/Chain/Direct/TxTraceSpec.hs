@@ -128,7 +128,7 @@ instance StateModel Model where
     case headState of
       Open ->
         oneof
-          [ -- TODO: non-continuous snapshot numbers
+          [ -- NOTE: non-continuous snapshot numbers are allowed in this model
             Some . ProduceSnapshots <$> arbitrary
           , do
               actor <- elements allActors
@@ -152,13 +152,11 @@ instance StateModel Model where
           snapshotNumber <- elements snapshots
           pure $ Some Contest{actor, snapshotNumber}
 
-  -- TODO: shrinkAction to have small snapshots?
-
   initialState =
     Model
       { snapshots = []
       , headState = Open
-      , utxoV = mkVar 1 -- TODO: what does '1' mean here?
+      , utxoV = mkVar (-1)
       , alreadyContested = []
       }
 
@@ -208,17 +206,13 @@ instance RunModel Model IO where
         tx <- newCloseTx actor $ correctlySignedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
         observeTxMatching openHeadUTxO tx $ \case
-          Tx.Close{} -> Just () -- TODO: check more things here (or in postcondition)?
+          Tx.Close{} -> Just ()
           _ -> Nothing
         pure $ adjustUTxO tx openHeadUTxO
       Contest{actor, snapshotNumber} -> do
-        -- NOTE: Should not happen anymore
-        when (snapshotNumber == 0) $
-          failure "Cannot contest initial snapshot"
         let utxo = lookupVar utxoV
         tx <- newContestTx utxo actor $ correctlySignedSnapshot snapshotNumber
         validateTx utxo tx
-
         observation@Tx.ContestObservation{contesters} <-
           observeTxMatching utxo tx $ \case
             Tx.Contest obs -> Just obs
@@ -231,7 +225,6 @@ instance RunModel Model IO where
                   , toString $ pShowNoColor observation
                   , "Transaction: " <> renderTxWithUTxO utxo tx
                   ]
-
         pure $ adjustUTxO tx utxo
       Fanout -> pure ()
       Stop -> pure ()
