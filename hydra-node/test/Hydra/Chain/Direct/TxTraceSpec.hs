@@ -84,7 +84,7 @@ prop_traces =
   closeNonInitial =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close{snapshotNumber} -> snapshotNumber > 0
+        Close _ snapshotNumber -> snapshotNumber > 0
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -115,8 +115,8 @@ data Actor = Alice | Bob | Carol
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
-    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
+    Close :: Actor -> SnapshotNumber -> Action Model UTxO
+    Contest :: Actor -> SnapshotNumber -> Action Model (UTxO, Tx.ContestObservation)
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
@@ -132,7 +132,7 @@ instance StateModel Model where
           , do
               actor <- elements possibleContesters
               snapshotNumber <- elements (0 : snapshots)
-              pure $ Some $ Close{actor, snapshotNumber}
+              pure $ Some $ Close actor snapshotNumber
           ]
       Closed ->
         case maybeGenContest of
@@ -147,7 +147,7 @@ instance StateModel Model where
       | otherwise = Just $ do
           actor <- elements possibleContesters
           snapshotNumber <- elements snapshots
-          pure $ Some Contest{actor, snapshotNumber}
+          pure . Some $ Contest actor snapshotNumber
 
   -- TODO: shrinkAction to have small snapshots?
 
@@ -164,26 +164,27 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close{actor, snapshotNumber} ->
+      Close actor snapshotNumber ->
         m
           { headState = Closed
           , utxoV = result
           , snapshots = filter (> snapshotNumber) $ snapshots m
           , possibleContesters = allActors \\ [actor]
           }
-      Contest{actor, snapshotNumber} ->
-        m
-          { headState = Closed
-          , utxoV = result
-          , snapshots = filter (> snapshotNumber) $ snapshots m
-          , possibleContesters = possibleContesters m \\ [actor]
-          }
+      Contest actor snapshotNumber ->
+        let (utxoV, _) = result
+         in m
+              { headState = Closed
+              , utxoV
+              , snapshots = filter (> snapshotNumber) $ snapshots m
+              , possibleContesters = possibleContesters m \\ [actor]
+              }
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState = Final} Stop =
     False
-  precondition Model{headState} Contest{snapshotNumber} =
+  precondition Model{headState} (Contest _ snapshotNumber) =
     headState == Closed && snapshotNumber /= 0
   precondition _ _ = True
 
@@ -201,24 +202,24 @@ instance RunModel Model IO where
   perform Model{utxoV} action lookupVar = do
     case action of
       ProduceSnapshots _snapshots -> pure ()
-      Close{actor, snapshotNumber} -> do
+      Close actor snapshotNumber -> do
         tx <- newCloseTx actor $ correctlySignedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
         observeTxMatching openHeadUTxO tx $ \case
           Tx.Close{} -> Just () -- TODO: check more things here (or in postcondition)?
           _ -> Nothing
         pure $ adjustUTxO tx openHeadUTxO
-      Contest{actor, snapshotNumber} -> do
+      Contest actor snapshotNumber -> do
         -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
         let utxo = lookupVar utxoV
         tx <- newContestTx utxo actor $ correctlySignedSnapshot snapshotNumber
         validateTx utxo tx
-        observeTxMatching utxo tx $ \case
-          Tx.Contest{} -> Just () -- TODO: check more things here (or in postcondition)?
+        contestObservation <- observeTxMatching utxo tx $ \case
+          Tx.Contest obs -> Just obs
           _ -> Nothing
-        pure $ adjustUTxO tx utxo
+        pure (adjustUTxO tx utxo, contestObservation)
       Fanout -> pure ()
       Stop -> pure ()
 
