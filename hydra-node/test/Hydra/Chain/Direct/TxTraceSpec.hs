@@ -43,6 +43,7 @@ import Test.QuickCheck.StateModel (
   mkVar,
   runActions,
  )
+import Text.Pretty.Simple (pShowNoColor)
 import Text.Show (Show (..))
 
 spec :: Spec
@@ -84,7 +85,7 @@ prop_traces =
   closeNonInitial =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close _ snapshotNumber -> snapshotNumber > 0
+        Close{snapshotNumber} -> snapshotNumber > 0
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -99,7 +100,7 @@ data Model = Model
   , headState :: State
   , utxoV :: Var UTxO
   -- ^ Last known, spendable UTxO.
-  , possibleContesters :: [Actor]
+  , alreadyContested :: [Actor]
   }
   deriving (Show)
 
@@ -115,24 +116,24 @@ data Actor = Alice | Bob | Carol
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Close :: Actor -> SnapshotNumber -> Action Model UTxO
-    Contest :: Actor -> SnapshotNumber -> Action Model (UTxO, Tx.ContestObservation)
+    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
+    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, snapshots, possibleContesters} =
+  arbitraryAction _lookup Model{headState, snapshots, alreadyContested} =
     case headState of
       Open ->
         oneof
           [ -- TODO: non-continuous snapshot numbers
             Some . ProduceSnapshots <$> arbitrary
           , do
-              actor <- elements possibleContesters
+              actor <- elements allActors
               snapshotNumber <- elements (0 : snapshots)
-              pure $ Some $ Close actor snapshotNumber
+              pure $ Some $ Close{actor, snapshotNumber}
           ]
       Closed ->
         case maybeGenContest of
@@ -142,12 +143,14 @@ instance StateModel Model where
    where
     genFanout = pure $ Some Fanout
 
+    possibleContesters = allActors \\ alreadyContested
+
     maybeGenContest
       | null possibleContesters || null snapshots = Nothing
       | otherwise = Just $ do
           actor <- elements possibleContesters
           snapshotNumber <- elements snapshots
-          pure . Some $ Contest actor snapshotNumber
+          pure $ Some Contest{actor, snapshotNumber}
 
   -- TODO: shrinkAction to have small snapshots?
 
@@ -156,7 +159,7 @@ instance StateModel Model where
       { snapshots = []
       , headState = Open
       , utxoV = mkVar 1 -- TODO: what does '1' mean here?
-      , possibleContesters = allActors
+      , alreadyContested = []
       }
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -164,27 +167,26 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Close actor snapshotNumber ->
+      Close{actor, snapshotNumber} ->
         m
           { headState = Closed
           , utxoV = result
           , snapshots = filter (> snapshotNumber) $ snapshots m
-          , possibleContesters = allActors \\ [actor]
+          , alreadyContested = actor : alreadyContested m
           }
-      Contest actor snapshotNumber ->
-        let (utxoV, _) = result
-         in m
-              { headState = Closed
-              , utxoV
-              , snapshots = filter (> snapshotNumber) $ snapshots m
-              , possibleContesters = possibleContesters m \\ [actor]
-              }
+      Contest{actor, snapshotNumber} ->
+        m
+          { headState = Closed
+          , utxoV = result
+          , snapshots = filter (> snapshotNumber) $ snapshots m
+          , alreadyContested = actor : alreadyContested m
+          }
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState = Final} Stop =
     False
-  precondition Model{headState} (Contest _ snapshotNumber) =
+  precondition Model{headState} Contest{snapshotNumber} =
     headState == Closed && snapshotNumber /= 0
   precondition _ _ = True
 
@@ -199,27 +201,38 @@ deriving instance Show (Action Model a)
 
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
-  perform Model{utxoV} action lookupVar = do
+  perform Model{utxoV, alreadyContested} action lookupVar = do
     case action of
       ProduceSnapshots _snapshots -> pure ()
-      Close actor snapshotNumber -> do
+      Close{actor, snapshotNumber} -> do
         tx <- newCloseTx actor $ correctlySignedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
         observeTxMatching openHeadUTxO tx $ \case
           Tx.Close{} -> Just () -- TODO: check more things here (or in postcondition)?
           _ -> Nothing
         pure $ adjustUTxO tx openHeadUTxO
-      Contest actor snapshotNumber -> do
+      Contest{actor, snapshotNumber} -> do
         -- NOTE: Should not happen anymore
         when (snapshotNumber == 0) $
           failure "Cannot contest initial snapshot"
         let utxo = lookupVar utxoV
         tx <- newContestTx utxo actor $ correctlySignedSnapshot snapshotNumber
         validateTx utxo tx
-        contestObservation <- observeTxMatching utxo tx $ \case
-          Tx.Contest obs -> Just obs
-          _ -> Nothing
-        pure (adjustUTxO tx utxo, contestObservation)
+
+        observation@Tx.ContestObservation{contesters} <-
+          observeTxMatching utxo tx $ \case
+            Tx.Contest obs -> Just obs
+            _ -> Nothing
+        let newContesters = actor : alreadyContested
+        unless (length contesters == length newContesters) $
+          failure . toString . unlines $
+            fromString
+              <$> [ "Expected contesters " <> show newContesters <> ", but observed only " <> show contesters
+                  , toString $ pShowNoColor observation
+                  , "Transaction: " <> renderTxWithUTxO utxo tx
+                  ]
+
+        pure $ adjustUTxO tx utxo
       Fanout -> pure ()
       Stop -> pure ()
 
