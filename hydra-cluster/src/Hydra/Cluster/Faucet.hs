@@ -121,6 +121,8 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
     traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = allLovelace}
  where
   buildTxBody utxo faucetAddress =
+    -- Here we specify no outputs in the transaction so that a change output with the
+    -- entire value is created and paid to the faucet address.
     buildTransaction networkId nodeSocket faucetAddress utxo [] [] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> pure body
