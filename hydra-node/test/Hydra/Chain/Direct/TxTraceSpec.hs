@@ -40,7 +40,6 @@ import Test.QuickCheck.StateModel (
   Step ((:=)),
   Var,
   VarContext,
-  mkVar,
   runActions,
  )
 import Text.Pretty.Simple (pShowNoColor)
@@ -104,8 +103,8 @@ prop_runActions actions =
 data Model = Model
   { snapshots :: [SnapshotNumber]
   , headState :: State
-  , utxoV :: Var UTxO
-  -- ^ Last known, spendable UTxO.
+  , utxoV :: Maybe (Var UTxO)
+  -- ^ Last known, spendable UTxO. Use 'openHeadUTxO' if not defined.
   , alreadyContested :: [Actor]
   }
   deriving (Show)
@@ -171,7 +170,7 @@ instance StateModel Model where
     Model
       { snapshots = []
       , headState = Open
-      , utxoV = mkVar (-1)
+      , utxoV = Nothing
       , alreadyContested = []
       }
 
@@ -180,18 +179,23 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Decrement{} -> m{headState = Open}
+      Decrement{} ->
+        m
+          { headState = Open
+          , utxoV = Just result
+          -- TODO: filter snapshots
+          }
       Close{snapshotNumber} ->
         m
           { headState = Closed
-          , utxoV = result
+          , utxoV = Just result
           , snapshots = filter (> snapshotNumber) $ snapshots m
           , alreadyContested = []
           }
       Contest{actor, snapshotNumber} ->
         m
           { headState = Closed
-          , utxoV = result
+          , utxoV = Just result
           , snapshots = filter (> snapshotNumber) $ snapshots m
           , alreadyContested = actor : alreadyContested m
           }
@@ -219,8 +223,7 @@ instance RunModel Model IO where
     case action of
       ProduceSnapshots _snapshots -> pure ()
       Decrement{actor, snapshotNumber} -> do
-        -- FIXME: use lookupVar utxoV
-        let utxo = lookupVar utxoV
+        let utxo = maybe openHeadUTxO lookupVar utxoV
         tx <- newDecrementTx utxo actor $ signedSnapshot snapshotNumber
         validateTx utxo tx
         observeTxMatching openHeadUTxO tx $ \case
@@ -228,14 +231,15 @@ instance RunModel Model IO where
           _ -> Nothing
         pure $ adjustUTxO tx utxo
       Close{actor, snapshotNumber} -> do
-        tx <- newCloseTx actor $ confirmedSnapshot snapshotNumber
-        validateTx openHeadUTxO tx
-        observeTxMatching openHeadUTxO tx $ \case
+        let utxo = maybe openHeadUTxO lookupVar utxoV
+        tx <- newCloseTx utxo actor $ confirmedSnapshot snapshotNumber
+        validateTx utxo tx
+        observeTxMatching utxo tx $ \case
           Tx.Close{} -> Just ()
           _ -> Nothing
-        pure $ adjustUTxO tx openHeadUTxO
+        pure $ adjustUTxO tx utxo
       Contest{actor, snapshotNumber} -> do
-        let utxo = lookupVar utxoV
+        let utxo = maybe openHeadUTxO lookupVar utxoV
         tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
         validateTx utxo tx
         observation@Tx.ContestObservation{contesters} <-
@@ -340,12 +344,12 @@ newDecrementTx utxo actor (snapshot, signatures) =
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
 -- contestation period and also claims to close at time 0 resulting in a
 -- contestation deadline of 0 + cperiod.
-newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> IO Tx
-newCloseTx actor snapshot =
+newCloseTx :: HasCallStack => UTxO -> Actor -> ConfirmedSnapshot Tx -> IO Tx
+newCloseTx utxo actor snapshot =
   either (failure . show) pure $
     close
       (actorChainContext actor)
-      openHeadUTxO
+      utxo
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       snapshot
