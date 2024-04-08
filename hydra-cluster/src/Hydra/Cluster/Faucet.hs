@@ -106,32 +106,26 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node@RunningNode{networkId, nodeSocket} sender = do
+returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-
   retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
     let allLovelace = selectLovelace utxoValue
-    -- select tokens other than ADA here so we can burn it afterwards
-    let otherTokens = filterValue (/= AdaAssetId) utxoValue
-    -- XXX: Using a hard-coded high-enough value to satisfy the min utxo value.
-    -- NOTE: We use the faucet address as the change deliberately here.
-    fee <- calculateTxFee node senderSk utxo faucetAddress 1_000_000
-    let returnBalance = allLovelace - fee
-    tx <- sign senderSk <$> buildTxBody utxo faucetAddress returnBalance otherTokens
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress
     submitTransaction networkId nodeSocket tx
     void $ awaitTransaction networkId nodeSocket tx
-    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = returnBalance}
+    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = allLovelace}
  where
-  buildTxBody utxo faucetAddress lovelace otherTokens =
-    let theOutput = TxOut faucetAddress (lovelaceToValue lovelace <> negateValue otherTokens) TxOutDatumNone ReferenceScriptNone
-     in buildTransaction networkId nodeSocket faucetAddress utxo [] [theOutput] >>= \case
-          Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-          Right body -> pure body
+  buildTxBody utxo faucetAddress =
+    -- Here we specify no outputs in the transaction so that a change output with the
+    -- entire value is created and paid to the faucet address.
+    buildTransaction networkId nodeSocket faucetAddress utxo [] [] >>= \case
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+      Right body -> pure body
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
