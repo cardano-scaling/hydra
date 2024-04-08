@@ -13,12 +13,12 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), close, contest)
+import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement)
 import Hydra.Chain.Direct.Tx (HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (aggregate, sign)
+import Hydra.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -27,7 +27,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, oneof, resize)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, getPositive, listOf1, oneof, resize)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -61,6 +61,7 @@ prop_traces =
         & cover 5 (countContests steps >= 2) "has multiple contests"
         & cover 5 (containSomeSnapshots steps) "has some snapshots"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
+        & cover 10 (hasDecrement steps) "has decrements"
  where
   containSomeSnapshots =
     any $
@@ -83,9 +84,14 @@ prop_traces =
         )
 
   closeNonInitial =
+    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+      Close{snapshotNumber} -> snapshotNumber > 0
+      _ -> False
+
+  hasDecrement =
     any $
       \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Close{snapshotNumber} -> snapshotNumber > 0
+        Decrement{} -> True
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -116,6 +122,7 @@ data Actor = Alice | Bob | Carol
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
+    Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
     Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
     Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
     Fanout :: Action Model ()
@@ -127,20 +134,28 @@ instance StateModel Model where
   arbitraryAction _lookup Model{headState, snapshots, alreadyContested} =
     case headState of
       Open ->
-        oneof
+        oneof $
           [ -- NOTE: non-continuous snapshot numbers are allowed in this model
-            Some . ProduceSnapshots <$> arbitrary
+            Some . ProduceSnapshots <$> listOf1 (getPositive <$> arbitrary)
           , do
               actor <- elements allActors
               snapshotNumber <- elements (0 : snapshots)
               pure $ Some $ Close{actor, snapshotNumber}
           ]
+            <> maybeToList maybeGenDecrement
       Closed ->
-        case maybeGenContest of
-          Nothing -> genFanout
-          Just contestAction -> oneof [contestAction, genFanout]
+        oneof $
+          genFanout
+            : maybeToList maybeGenContest
       Final -> pure $ Some Stop
    where
+    maybeGenDecrement
+      | null snapshots = Nothing
+      | otherwise = Just $ do
+          actor <- elements allActors
+          snapshotNumber <- elements snapshots
+          pure $ Some Decrement{actor, snapshotNumber}
+
     genFanout = pure $ Some Fanout
 
     possibleContesters = allActors \\ alreadyContested
@@ -165,6 +180,7 @@ instance StateModel Model where
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
+      Decrement{} -> m{headState = Open}
       Close{snapshotNumber} ->
         m
           { headState = Closed
@@ -182,11 +198,11 @@ instance StateModel Model where
       Fanout -> m{headState = Final}
 
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState = Final} Stop =
-    False
-  precondition Model{headState} Contest{snapshotNumber} =
-    headState == Closed && snapshotNumber /= 0
-  precondition _ _ = True
+  precondition Model{headState} = \case
+    Stop -> headState /= Final
+    Decrement{} -> headState == Open -- TODO: assert what to decrement still there
+    Contest{snapshotNumber} -> headState == Closed && snapshotNumber /= 0
+    _ -> True
 
 instance HasVariables Model where
   getAllVariables = mempty
@@ -202,8 +218,17 @@ instance RunModel Model IO where
   perform Model{utxoV, alreadyContested} action lookupVar = do
     case action of
       ProduceSnapshots _snapshots -> pure ()
+      Decrement{actor, snapshotNumber} -> do
+        -- FIXME: use lookupVar utxoV
+        let utxo = lookupVar utxoV
+        tx <- newDecrementTx utxo actor $ signedSnapshot snapshotNumber
+        validateTx utxo tx
+        observeTxMatching openHeadUTxO tx $ \case
+          Tx.Decrement{} -> Just ()
+          _ -> Nothing
+        pure $ adjustUTxO tx utxo
       Close{actor, snapshotNumber} -> do
-        tx <- newCloseTx actor $ correctlySignedSnapshot snapshotNumber
+        tx <- newCloseTx actor $ confirmedSnapshot snapshotNumber
         validateTx openHeadUTxO tx
         observeTxMatching openHeadUTxO tx $ \case
           Tx.Close{} -> Just ()
@@ -211,7 +236,7 @@ instance RunModel Model IO where
         pure $ adjustUTxO tx openHeadUTxO
       Contest{actor, snapshotNumber} -> do
         let utxo = lookupVar utxoV
-        tx <- newContestTx utxo actor $ correctlySignedSnapshot snapshotNumber
+        tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
         validateTx utxo tx
         observation@Tx.ContestObservation{contesters} <-
           observeTxMatching utxo tx $ \case
@@ -247,8 +272,25 @@ snapshotUTxO n = (`generateWith` fromIntegral n) . resize 1 $ do
 -- | A model of a correctly signed snapshot. Given a snapshot number a snapshot
 -- signed by all participants (alice, bob and carol) with some UTxO contained is
 -- produced.
-correctlySignedSnapshot :: SnapshotNumber -> ConfirmedSnapshot Tx
-correctlySignedSnapshot = \case
+signedSnapshot :: SnapshotNumber -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot number =
+  (snapshot, signatures)
+ where
+  snapshot =
+    Snapshot
+      { headId = mkHeadId Fixture.testPolicyId
+      , number
+      , utxo = snapshotUTxO number
+      , confirmed = []
+      , utxoToDecommit = Nothing
+      }
+
+  signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+
+-- | A model of a confirmed snapshot (either initial or later confirmed), based
+-- on 'signedSnapshot'.
+confirmedSnapshot :: SnapshotNumber -> ConfirmedSnapshot Tx
+confirmedSnapshot = \case
   0 ->
     InitialSnapshot
       { -- -- NOTE: The close validator would not check headId on close with
@@ -258,16 +300,7 @@ correctlySignedSnapshot = \case
       }
   number -> ConfirmedSnapshot{snapshot, signatures}
    where
-    snapshot =
-      Snapshot
-        { headId = mkHeadId Fixture.testPolicyId
-        , number
-        , utxo = snapshotUTxO number
-        , confirmed = []
-        , utxoToDecommit = Nothing
-        }
-
-    signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+    (snapshot, signatures) = signedSnapshot number
 
 -- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId, parties, and cperiod.
 openHeadUTxO :: UTxO
@@ -290,6 +323,18 @@ openHeadUTxO =
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
         }
+
+-- | Creates a decrement transaction using given utxo and given snapshot.
+newDecrementTx :: HasCallStack => UTxO -> Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> IO Tx
+newDecrementTx utxo actor (snapshot, signatures) =
+  either (failure . show) pure $
+    decrement
+      (actorChainContext actor)
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.testHeadParameters
+      utxo
+      snapshot
+      signatures
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
