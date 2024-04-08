@@ -35,14 +35,15 @@ import Test.QuickCheck.StateModel (
   Any (..),
   HasVariables (getAllVariables),
   LookUp,
+  PostconditionM,
   RunModel (..),
   StateModel (..),
   Step ((:=)),
   Var,
   VarContext,
+  counterexamplePost,
   runActions,
  )
-import Text.Pretty.Simple (pShowNoColor)
 import Text.Show (Show (..))
 
 spec :: Spec
@@ -103,36 +104,49 @@ prop_runActions actions =
 data Model = Model
   { snapshots :: [SnapshotNumber]
   , headState :: State
-  , utxoV :: Maybe (Var UTxO)
-  -- ^ Last known, spendable UTxO. Use 'openHeadUTxO' if not defined.
+  , lastResult :: Maybe (Var TxResult)
   , alreadyContested :: [Actor]
   }
   deriving (Show)
 
 data State
-  = Open
-  | Closed
+  = Open {latestSnapshot :: SnapshotNumber}
+  | Closed {latestSnapshot :: SnapshotNumber}
   | Final
   deriving (Show, Eq)
 
 data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
+data TxResult = TxResult
+  { newUTxO :: UTxO
+  , validationError :: Maybe String
+  , observation :: HeadObservation
+  }
+
 instance StateModel Model where
   data Action Model a where
     ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
-    Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
-    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
-    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model UTxO
+    Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
+    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
+    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Fanout :: Action Model ()
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
 
+  initialState =
+    Model
+      { snapshots = []
+      , headState = Open 0
+      , lastResult = Nothing
+      , alreadyContested = []
+      }
+
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
   arbitraryAction _lookup Model{headState, snapshots, alreadyContested} =
     case headState of
-      Open ->
+      Open{} ->
         oneof $
           [ -- NOTE: non-continuous snapshot numbers are allowed in this model
             Some . ProduceSnapshots <$> listOf1 (getPositive <$> arbitrary)
@@ -142,7 +156,7 @@ instance StateModel Model where
               pure $ Some $ Close{actor, snapshotNumber}
           ]
             <> maybeToList maybeGenDecrement
-      Closed ->
+      Closed{} ->
         oneof $
           genFanout
             : maybeToList maybeGenContest
@@ -166,47 +180,51 @@ instance StateModel Model where
           snapshotNumber <- elements snapshots
           pure $ Some Contest{actor, snapshotNumber}
 
-  initialState =
-    Model
-      { snapshots = []
-      , headState = Open
-      , utxoV = Nothing
-      , alreadyContested = []
-      }
+  precondition :: Model -> Action Model a -> Bool
+  precondition Model{headState, snapshots} action =
+    case (headState, action) of
+      (Final, Stop) -> False
+      (Open{latestSnapshot}, Decrement{snapshotNumber}) ->
+        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+      -- TODO: assert what to decrement still there
+      (Open{latestSnapshot}, Close{snapshotNumber}) ->
+        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+      (Open{}, Contest{}) -> False
+      (Closed{latestSnapshot}, Contest{snapshotNumber}) ->
+        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+      _ -> True
+
+  validFailingAction :: Model -> Action Model a -> Bool
+  validFailingAction Model{headState} action =
+    case (headState, action) of
+      (Open{latestSnapshot}, Decrement{snapshotNumber}) -> snapshotNumber <= latestSnapshot
+      (Open{latestSnapshot}, Close{snapshotNumber}) -> snapshotNumber < latestSnapshot
+      (Closed{latestSnapshot}, Contest{snapshotNumber}) -> snapshotNumber <= latestSnapshot
+      _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m Stop _ = m
   nextState m t result =
     case t of
       ProduceSnapshots snapshots -> m{snapshots = snapshots}
-      Decrement{} ->
+      Decrement{snapshotNumber} ->
         m
-          { headState = Open
-          , utxoV = Just result
-          -- TODO: filter snapshots
+          { headState = Open snapshotNumber
+          , lastResult = Just result
           }
       Close{snapshotNumber} ->
         m
-          { headState = Closed
-          , utxoV = Just result
-          , snapshots = filter (> snapshotNumber) $ snapshots m
+          { headState = Closed snapshotNumber
+          , lastResult = Just result
           , alreadyContested = []
           }
       Contest{actor, snapshotNumber} ->
         m
-          { headState = Closed
-          , utxoV = Just result
-          , snapshots = filter (> snapshotNumber) $ snapshots m
+          { headState = Closed snapshotNumber
+          , lastResult = Just result
           , alreadyContested = actor : alreadyContested m
           }
       Fanout -> m{headState = Final}
-
-  precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState} = \case
-    Stop -> headState /= Final
-    Decrement{} -> headState == Open -- TODO: assert what to decrement still there
-    Contest{snapshotNumber} -> headState == Closed && snapshotNumber /= 0
-    _ -> True
 
 instance HasVariables Model where
   getAllVariables = mempty
@@ -219,44 +237,46 @@ deriving instance Show (Action Model a)
 
 instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
-  perform Model{utxoV, alreadyContested} action lookupVar = do
+  perform Model{lastResult} action lookupVar = do
     case action of
       ProduceSnapshots _snapshots -> pure ()
       Decrement{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO lookupVar utxoV
+        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newDecrementTx utxo actor $ signedSnapshot snapshotNumber
-        validateTx utxo tx
-        observeTxMatching openHeadUTxO tx $ \case
-          Tx.Decrement{} -> Just ()
-          _ -> Nothing
-        pure $ adjustUTxO tx utxo
+        performTx utxo tx
       Close{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO lookupVar utxoV
+        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newCloseTx utxo actor $ confirmedSnapshot snapshotNumber
-        validateTx utxo tx
-        observeTxMatching utxo tx $ \case
-          Tx.Close{} -> Just ()
-          _ -> Nothing
-        pure $ adjustUTxO tx utxo
+        performTx utxo tx
       Contest{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO lookupVar utxoV
+        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
-        validateTx utxo tx
-        observation@Tx.ContestObservation{contesters} <-
-          observeTxMatching utxo tx $ \case
-            Tx.Contest obs -> Just obs
-            _ -> Nothing
-        let newContesters = actor : alreadyContested
-        unless (length contesters == length newContesters) $
-          failure . toString . unlines $
-            fromString
-              <$> [ "Expected contesters " <> show newContesters <> ", but observed only " <> show contesters
-                  , toString $ pShowNoColor observation
-                  , "Transaction: " <> renderTxWithUTxO utxo tx
-                  ]
-        pure $ adjustUTxO tx utxo
+        performTx utxo tx
       Fanout -> pure ()
       Stop -> pure ()
+
+  postcondition (_modelBefore, modelAfter) action _lookup result = do
+    counterexamplePost (show action)
+    case action of
+      Decrement{} -> expectValid result $ \case
+        Tx.Decrement{} -> pure True
+        _ -> pure False
+      Close{} -> expectValid result $ \case
+        Tx.Close{} -> pure True
+        _ -> pure False
+      Contest{} -> expectValid result $ \case
+        Tx.Contest Tx.ContestObservation{contesters} -> do
+          counterexamplePost $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
+          pure $ length contesters == length (alreadyContested modelAfter)
+        _ -> pure False
+      _ -> pure True
+
+  postconditionOnFailure (_modelBefore, _modelAfter) action _lookup result =
+    case action of
+      Decrement{} -> expectInvalid result
+      Close{} -> expectInvalid result
+      Contest{} -> expectInvalid result
+      _ -> pure True
 
 -- * Fixtures and glue code
 
@@ -286,7 +306,7 @@ signedSnapshot number =
       , number
       , utxo = snapshotUTxO number
       , confirmed = []
-      , utxoToDecommit = Nothing
+      , utxoToDecommit = Nothing -- TODO: have pending decrements
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -399,26 +419,41 @@ testScriptRegistry = genScriptRegistry `generateWith` 42
 
 -- * Helpers
 
--- | Thin wrapper around 'evaluateTx' that fails with 'failure' if any of the
--- scripts/redeemers fail to evaluate.
-validateTx :: (HasCallStack, MonadThrow m) => UTxO -> Tx -> m ()
-validateTx utxo tx =
-  case evaluateTx tx utxo of
-    Left err ->
-      failure $ show err
-    Right redeemerReport ->
-      when (any isLeft (Map.elems redeemerReport)) $
-        failure . toString . unlines $
-          fromString
-            <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
-                , "Some redeemers failed: " <> show redeemerReport
-                ]
+-- | Perform a transaction by evaluating and observing it. This produces a
+-- 'TxResult' that also contains the new UTxO and can be used to assert expected
+-- success / failure.
+performTx :: Monad m => UTxO -> Tx -> m TxResult
+performTx utxo tx =
+  pure
+    TxResult
+      { newUTxO = adjustUTxO tx utxo
+      , validationError
+      , observation = observeHeadTx Fixture.testNetworkId utxo tx
+      }
+ where
+  validationError =
+    case evaluateTx tx utxo of
+      Left err ->
+        Just $ show err
+      Right redeemerReport
+        | any isLeft (Map.elems redeemerReport) ->
+            Just . toString . unlines $
+              fromString
+                <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
+                    , "Some redeemers failed: " <> show redeemerReport
+                    ]
+        | otherwise -> Nothing
 
--- | Expect to observe a transaction matching given predicate. This fails with
--- 'failure' if the predicate yields 'Nothing'.
-observeTxMatching :: (HasCallStack, MonadThrow m) => UTxO -> Tx -> (HeadObservation -> Maybe a) -> m a
-observeTxMatching utxo tx predicate = do
-  let res = observeHeadTx Fixture.testNetworkId utxo tx
-  case predicate res of
-    Just a -> pure a
-    Nothing -> failure $ "Observation result not matching expectation, got " <> show res
+-- | Assertion helper to check whether a 'TxResult' was valid and the expected
+-- 'HeadObservation' could be made. To be used in 'postcondition'.
+expectValid :: Monad m => TxResult -> (HeadObservation -> PostconditionM m Bool) -> PostconditionM m Bool
+expectValid TxResult{validationError = Just err} _ =
+  counterexamplePost err $> False
+expectValid TxResult{observation} fn =
+  counterexamplePost ("Wrong observation: " <> show observation) >> fn observation
+
+-- | Assertion helper to check whether a 'TxResult' was invalid.
+expectInvalid :: Monad m => TxResult -> PostconditionM m Bool
+expectInvalid = \case
+  TxResult{validationError = Nothing} -> False <$ counterexamplePost "Expected to fail validation"
+  _ -> pure True
