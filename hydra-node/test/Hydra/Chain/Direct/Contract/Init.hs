@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -28,6 +27,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genValue)
 import Hydra.OnChainId (OnChainId, genOnChainId)
 import Hydra.Party (Party)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
+import Test.Hydra.Fixture (genForParty)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import Prelude qualified
 

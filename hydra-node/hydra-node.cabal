@@ -290,6 +290,7 @@ test-suite tests
     Hydra.Chain.Direct.StateSpec
     Hydra.Chain.Direct.TimeHandleSpec
     Hydra.Chain.Direct.TxSpec
+    Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
@@ -363,6 +364,7 @@ test-suite tests
     , lens-aeson
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
+    , pretty-simple
     , QuickCheck
     , quickcheck-dynamic                                                >=3.3.1   && <3.4
     , quickcheck-instances

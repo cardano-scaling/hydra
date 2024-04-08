@@ -479,12 +479,9 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
--- | Construct a close transaction based on the 'OpenState' and a confirmed
--- snapshot.
---  - 'SlotNo' parameter will be used as the 'Tx' lower bound.
---  - 'PointInTime' parameter will be used as an upper validity bound and
---       will define the start of the contestation period.
--- NB: lower and upper bound slot difference should not exceed contestation period
+-- | Construct a close transaction spending the head output in given 'UTxO',
+-- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
+-- difference should not exceed contestation period.
 close ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
@@ -533,6 +530,7 @@ contest ::
   HeadId ->
   ContestationPeriod ->
   ConfirmedSnapshot Tx ->
+  -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
   Either ContestTxError Tx
 contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime = do

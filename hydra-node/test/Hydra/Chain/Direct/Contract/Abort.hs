@@ -11,7 +11,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Gen (genForParty)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -42,7 +41,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (STNotBurned))
 import Hydra.Ledger.Cardano (genAddressInEra, genVerificationKey)
 import Hydra.Party (Party, partyToChain)
-import Test.Hydra.Fixture (cperiod)
+import Test.Hydra.Fixture (cperiod, genForParty)
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat)
 
 --

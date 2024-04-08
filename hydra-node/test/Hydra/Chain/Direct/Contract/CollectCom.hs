@@ -11,7 +11,7 @@ import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -52,6 +52,7 @@ import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party, partyToChain)
 import Hydra.Plutus.Orphans ()
 import PlutusTx.Builtins (toBuiltin)
+import Test.Hydra.Fixture (genForParty)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 

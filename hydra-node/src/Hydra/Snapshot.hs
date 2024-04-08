@@ -82,10 +82,12 @@ instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Sn
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
 
--- | A snapshot that can be used to close a head with. Either the initial one, or when it was signed by all parties, i.e. it is confirmed.
+-- | A snapshot that can be used to close a head with. Either the initial one,
+-- or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
   = InitialSnapshot
-      { headId :: HeadId
+      { -- XXX: 'headId' is actually unused. Only 'getSnapshot' forces this to exist.
+        headId :: HeadId
       , initialUTxO :: UTxOType tx
       }
   | ConfirmedSnapshot

@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (label)
 import Data.Maybe (fromJust)
 
 import Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.Contract.Gen (genForParty, genHash, genMintedOrBurnedValue)
+import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -48,7 +48,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
-import Test.Hydra.Fixture (aliceSk, bobSk, carolSk)
+import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
