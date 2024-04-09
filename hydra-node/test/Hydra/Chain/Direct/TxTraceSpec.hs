@@ -8,7 +8,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline)
+import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, renderUTxO)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -282,9 +282,17 @@ instance RunModel Model IO where
           counterexamplePost $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
           pure $ length contesters == length (alreadyContested modelAfter)
         _ -> pure False
-      Fanout{} -> expectValid result $ \case
-        Tx.Fanout{} -> pure True
-        _ -> pure False
+      Fanout{snapshotNumber} -> do
+        valid <- expectValid result $ \case
+          Tx.Fanout{} -> pure True
+          _ -> pure False
+        correctlyFannedOut <- case result of
+          TxResult{newUTxO} -> do
+            counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO newUTxO)
+            counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshotNumber))
+            pure $ newUTxO == snapshotUTxO snapshotNumber
+        -- XXX: PostconditionM does not allow case specific counterexamples like Property(M)
+        pure $ valid && correctlyFannedOut
       _ -> pure True
 
   postconditionOnFailure (modelBefore, _modelAfter) action _lookup result = do
