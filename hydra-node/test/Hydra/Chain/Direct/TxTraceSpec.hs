@@ -5,7 +5,6 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, renderUTxO)
@@ -96,8 +95,7 @@ prop_runActions actions =
 -- * Model
 
 data Model = Model
-  { snapshots :: [SnapshotNumber]
-  , headState :: State
+  { headState :: State
   , lastResult :: Maybe (Var TxResult)
   , alreadyContested :: [Actor]
   }
@@ -120,7 +118,6 @@ data TxResult = TxResult
 
 instance StateModel Model where
   data Action Model a where
-    ProduceSnapshots :: [SnapshotNumber] -> Action Model ()
     Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
@@ -131,77 +128,64 @@ instance StateModel Model where
 
   initialState =
     Model
-      { snapshots = [] -- TODO: could be replaced by using latestSnapshot
-      , headState = Open 0
+      { headState = Open 0 -- TODO: move latestSnapshot out?
       , lastResult = Nothing
       , alreadyContested = []
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, snapshots, alreadyContested} =
+  arbitraryAction _lookup Model{headState} =
     case headState of
       Open{} ->
-        oneof $
-          [ -- NOTE: non-continuous snapshot numbers are allowed in this model
-            Some . ProduceSnapshots <$> listOf1 (getPositive <$> arbitrary)
+        oneof
+          [ do
+              actor <- elements allActors
+              snapshotNumber <- arbitrary
+              pure $ Some $ Close{actor, snapshotNumber}
           , do
               actor <- elements allActors
-              snapshotNumber <- elements (0 : snapshots)
-              pure $ Some $ Close{actor, snapshotNumber}
+              snapshotNumber <- arbitrary
+              pure $ Some Decrement{actor, snapshotNumber}
           ]
-            <> maybeToList maybeGenDecrement
       Closed{latestSnapshot} ->
-        oneof $
+        oneof
           [ do
               snapshotNumber <-
                 frequency
                   [ (2, pure latestSnapshot)
-                  , (1, elements $ latestSnapshot : snapshots)
+                  , (1, arbitrary)
                   ]
               pure . Some $ Fanout{snapshotNumber}
+          , do
+              actor <- elements allActors
+              snapshotNumber <- arbitrary
+              pure $ Some Contest{actor, snapshotNumber}
           ]
-            <> maybeToList maybeGenContest
       Final -> pure $ Some Stop
-   where
-    maybeGenDecrement
-      | null snapshots = Nothing
-      | otherwise = Just $ do
-          actor <- elements allActors
-          snapshotNumber <- elements snapshots
-          pure $ Some Decrement{actor, snapshotNumber}
-
-    possibleContesters = allActors \\ alreadyContested
-
-    maybeGenContest
-      | null possibleContesters || null snapshots = Nothing
-      | otherwise = Just $ do
-          actor <- elements possibleContesters
-          snapshotNumber <- elements snapshots
-          pure $ Some Contest{actor, snapshotNumber}
 
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, snapshots} action =
+  precondition Model{headState, alreadyContested} action =
     case (headState, action) of
       (Final, Stop) -> False
       (Open{latestSnapshot}, Decrement{snapshotNumber}) ->
-        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+        snapshotNumber > latestSnapshot
       -- TODO: assert what to decrement still there
       (Open{latestSnapshot}, Close{snapshotNumber}) ->
-        snapshotNumber `elem` snapshots && snapshotNumber >= latestSnapshot
+        snapshotNumber >= latestSnapshot
       (Open{}, Contest{}) -> False
-      (Closed{latestSnapshot}, Contest{snapshotNumber}) ->
-        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+      (Closed{latestSnapshot}, Contest{actor, snapshotNumber}) ->
+        actor `notElem` alreadyContested && snapshotNumber > latestSnapshot
       (Open{}, Fanout{}) -> False
       (Closed{latestSnapshot}, Fanout{snapshotNumber}) ->
-        snapshotNumber `elem` snapshots && snapshotNumber == latestSnapshot
+        snapshotNumber == latestSnapshot
       _ -> True
 
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState} action =
+  validFailingAction Model{headState, alreadyContested} action =
     case (headState, action) of
       (Open{latestSnapshot}, Decrement{snapshotNumber}) -> snapshotNumber <= latestSnapshot
       (Open{latestSnapshot}, Close{snapshotNumber}) -> snapshotNumber < latestSnapshot
-      (Closed{latestSnapshot}, Contest{snapshotNumber}) -> snapshotNumber <= latestSnapshot
+      (Closed{latestSnapshot}, Contest{actor, snapshotNumber}) -> snapshotNumber <= latestSnapshot || actor `elem` alreadyContested
       (Closed{latestSnapshot}, Fanout{snapshotNumber}) -> snapshotNumber /= latestSnapshot
       _ -> False
 
@@ -209,7 +193,6 @@ instance StateModel Model where
   nextState m Stop _ = m
   nextState m t result =
     case t of
-      ProduceSnapshots snapshots -> m{snapshots = snapshots}
       Decrement{snapshotNumber} ->
         m
           { headState = Open snapshotNumber
@@ -242,7 +225,6 @@ instance RunModel Model IO where
   perform :: Model -> Action Model a -> LookUp IO -> IO a
   perform Model{lastResult} action lookupVar = do
     case action of
-      ProduceSnapshots _snapshots -> pure ()
       Decrement{actor, snapshotNumber} -> do
         let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newDecrementTx utxo actor $ signedSnapshot snapshotNumber
