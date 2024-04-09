@@ -13,7 +13,7 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement)
+import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement, fanout)
 import Hydra.Chain.Direct.Tx (HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
@@ -130,7 +130,7 @@ instance StateModel Model where
     Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
-    Fanout :: Action Model ()
+    Fanout :: Action Model TxResult
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
@@ -252,10 +252,14 @@ instance RunModel Model IO where
         let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
         performTx utxo tx
-      Fanout -> pure ()
+      Fanout -> do
+        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
+        tx <- newFanoutTx utxo Alice
+        performTx utxo tx
       Stop -> pure ()
 
-  postcondition (_modelBefore, modelAfter) action _lookup result = do
+  postcondition (modelBefore, modelAfter) action _lookup result = do
+    counterexamplePost (show modelBefore)
     counterexamplePost (show action)
     case action of
       Decrement{} -> expectValid result $ \case
@@ -268,6 +272,9 @@ instance RunModel Model IO where
         Tx.Contest Tx.ContestObservation{contesters} -> do
           counterexamplePost $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
           pure $ length contesters == length (alreadyContested modelAfter)
+        _ -> pure False
+      Fanout{} -> expectValid result $ \case
+        Tx.Fanout{} -> pure True
         _ -> pure False
       _ -> pure True
 
@@ -397,6 +404,20 @@ newContestTx spendableUTxO actor snapshot =
       currentTime
  where
   currentTime = (0, posixSecondsToUTCTime 0)
+
+-- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
+-- seedTxIn and contestatio deadline.
+newFanoutTx :: HasCallStack => UTxO -> Actor -> IO Tx
+newFanoutTx spendableUTxO actor =
+  either (failure . show) pure $
+    fanout
+      (actorChainContext actor)
+      spendableUTxO
+      Fixture.testSeedInput
+      mempty
+      deadline
+ where
+  deadline = 60
 
 -- | Fixture for the chain context of a model 'Actor' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
 actorChainContext :: Actor -> ChainContext
