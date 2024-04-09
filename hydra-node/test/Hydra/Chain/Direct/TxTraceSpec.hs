@@ -8,7 +8,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (mkTxOutDatumInline)
+import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -130,7 +130,7 @@ instance StateModel Model where
     Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
-    Fanout :: Action Model TxResult
+    Fanout :: {snapshotNumber :: SnapshotNumber} -> Action Model TxResult
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
@@ -158,8 +158,8 @@ instance StateModel Model where
             <> maybeToList maybeGenDecrement
       Closed{} ->
         oneof $
-          genFanout
-            : maybeToList maybeGenContest
+          maybeToList maybeGenFanout
+            <> maybeToList maybeGenContest
       Final -> pure $ Some Stop
    where
     maybeGenDecrement
@@ -169,7 +169,11 @@ instance StateModel Model where
           snapshotNumber <- elements snapshots
           pure $ Some Decrement{actor, snapshotNumber}
 
-    genFanout = pure $ Some Fanout
+    maybeGenFanout
+      | null snapshots = Nothing
+      | otherwise = Just $ do
+          snapshotNumber <- elements snapshots
+          pure $ Some Fanout{snapshotNumber}
 
     possibleContesters = allActors \\ alreadyContested
 
@@ -192,6 +196,9 @@ instance StateModel Model where
       (Open{}, Contest{}) -> False
       (Closed{latestSnapshot}, Contest{snapshotNumber}) ->
         snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+      (Open{}, Fanout{}) -> False
+      (Closed{latestSnapshot}, Fanout{snapshotNumber}) ->
+        snapshotNumber `elem` snapshots && snapshotNumber == latestSnapshot
       _ -> True
 
   validFailingAction :: Model -> Action Model a -> Bool
@@ -200,6 +207,7 @@ instance StateModel Model where
       (Open{latestSnapshot}, Decrement{snapshotNumber}) -> snapshotNumber <= latestSnapshot
       (Open{latestSnapshot}, Close{snapshotNumber}) -> snapshotNumber < latestSnapshot
       (Closed{latestSnapshot}, Contest{snapshotNumber}) -> snapshotNumber <= latestSnapshot
+      (Closed{latestSnapshot}, Fanout{snapshotNumber}) -> snapshotNumber /= latestSnapshot
       _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -224,7 +232,7 @@ instance StateModel Model where
           , lastResult = Just result
           , alreadyContested = actor : alreadyContested m
           }
-      Fanout -> m{headState = Final}
+      Fanout{} -> m{headState = Final}
 
 instance HasVariables Model where
   getAllVariables = mempty
@@ -252,9 +260,9 @@ instance RunModel Model IO where
         let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
         tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
         performTx utxo tx
-      Fanout -> do
+      Fanout{snapshotNumber} -> do
         let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
-        tx <- newFanoutTx utxo Alice
+        tx <- newFanoutTx utxo Alice snapshotNumber
         performTx utxo tx
       Stop -> pure ()
 
@@ -406,18 +414,20 @@ newContestTx spendableUTxO actor snapshot =
   currentTime = (0, posixSecondsToUTCTime 0)
 
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
--- seedTxIn and contestatio deadline.
-newFanoutTx :: HasCallStack => UTxO -> Actor -> IO Tx
-newFanoutTx spendableUTxO actor =
+-- seedTxIn and contestation period. Consequently, the lower bound used is
+-- precisely at the maximum deadline slot as if everyone contested.
+newFanoutTx :: HasCallStack => UTxO -> Actor -> SnapshotNumber -> IO Tx
+newFanoutTx spendableUTxO actor snapshotNumber =
   either (failure . show) pure $
     fanout
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      mempty
+      (snapshotUTxO snapshotNumber)
       deadline
  where
-  deadline = 60
+  CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
+  deadline = SlotNo $ fromIntegral contestationPeriod * fromIntegral (length allActors)
 
 -- | Fixture for the chain context of a model 'Actor' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
 actorChainContext :: Actor -> ChainContext
