@@ -75,8 +75,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature, numberOfDecommitOutputs}) ->
       checkDecrement ctx parties snapshotNumber contestationPeriod headId signature numberOfDecommitOutputs
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId}, Close{signature}) ->
-      checkClose ctx parties initialUtxoHash signature contestationPeriod headId
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber}, Close{signature}) ->
+      checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
       checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId
     (Closed{parties, utxoHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs}) ->
@@ -298,8 +298,9 @@ checkClose ::
   [Signature] ->
   ContestationPeriod ->
   CurrencySymbol ->
+  SnapshotNumber ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -308,7 +309,12 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     && mustInitializeContesters
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headPolicyId)
+    && checkSnapshotNumber
  where
+  checkSnapshotNumber =
+    traceIfFalse $(errorCode TooOldSnapshot) $
+      closedSnapshotNumber >= snapshotNumber
+
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
@@ -326,7 +332,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
     case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
       Just
         Closed
-          { snapshotNumber
+          { snapshotNumber = sn
           , utxoHash
           , utxoToDecommitHash
           , parties = p
@@ -334,7 +340,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId =
           , headId
           , contesters
           , contestationPeriod
-          } -> (snapshotNumber, utxoHash, utxoToDecommitHash, p, contestationDeadline, contestationPeriod, headId, contesters)
+          } -> (sn, utxoHash, utxoToDecommitHash, p, contestationDeadline, contestationPeriod, headId, contesters)
       _ -> traceError $(errorCode WrongStateInOutputDatum)
 
   checkSnapshot
