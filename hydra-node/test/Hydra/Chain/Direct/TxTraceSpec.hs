@@ -188,7 +188,7 @@ instance StateModel Model where
         snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
       -- TODO: assert what to decrement still there
       (Open{latestSnapshot}, Close{snapshotNumber}) ->
-        snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
+        snapshotNumber `elem` snapshots && snapshotNumber >= latestSnapshot
       (Open{}, Contest{}) -> False
       (Closed{latestSnapshot}, Contest{snapshotNumber}) ->
         snapshotNumber `elem` snapshots && snapshotNumber > latestSnapshot
