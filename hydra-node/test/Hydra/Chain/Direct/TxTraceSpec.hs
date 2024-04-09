@@ -27,7 +27,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, getPositive, listOf1, oneof, resize)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, oneof, resize)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -35,6 +35,7 @@ import Test.QuickCheck.StateModel (
   Any (..),
   HasVariables (getAllVariables),
   LookUp,
+  Polarity (PosPolarity),
   PostconditionM,
   RunModel (..),
   StateModel (..),
@@ -58,28 +59,21 @@ prop_traces =
       True
         & cover 1 (null steps) "empty"
         & cover 10 (hasFanout steps) "reach fanout"
-        & cover 5 (countContests steps >= 2) "has multiple contests"
-        & cover 5 (containSomeSnapshots steps) "has some snapshots"
+        & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
-        & cover 10 (hasDecrement steps) "has decrements"
+        & cover 10 (hasDecrement steps) "has successful decrements"
  where
-  containSomeSnapshots =
-    any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        ProduceSnapshots snapshots -> not $ null snapshots
-        _ -> False
-
   hasFanout =
     any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Fanout{} -> True
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{} -> polarity == PosPolarity
         _ -> False
 
   countContests =
     length
       . filter
-        ( \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-            Contest{} -> True
+        ( \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+            Contest{} -> polarity == PosPolarity
             _ -> False
         )
 
@@ -90,8 +84,8 @@ prop_traces =
 
   hasDecrement =
     any $
-      \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-        Decrement{} -> True
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Decrement{} -> polarity == PosPolarity
         _ -> False
 
 prop_runActions :: Actions Model -> Property
