@@ -27,7 +27,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, getPositive, listOf1, oneof, resize)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, getPositive, listOf1, oneof, resize)
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -156,9 +156,16 @@ instance StateModel Model where
               pure $ Some $ Close{actor, snapshotNumber}
           ]
             <> maybeToList maybeGenDecrement
-      Closed{} ->
+      Closed{latestSnapshot} ->
         oneof $
-          maybeToList maybeGenFanout
+          [ do
+              snapshotNumber <-
+                frequency
+                  [ (2, pure latestSnapshot)
+                  , (1, elements $ latestSnapshot : snapshots)
+                  ]
+              pure . Some $ Fanout{snapshotNumber}
+          ]
             <> maybeToList maybeGenContest
       Final -> pure $ Some Stop
    where
@@ -168,12 +175,6 @@ instance StateModel Model where
           actor <- elements allActors
           snapshotNumber <- elements snapshots
           pure $ Some Decrement{actor, snapshotNumber}
-
-    maybeGenFanout
-      | null snapshots = Nothing
-      | otherwise = Just $ do
-          snapshotNumber <- elements snapshots
-          pure $ Some Fanout{snapshotNumber}
 
     possibleContesters = allActors \\ alreadyContested
 
