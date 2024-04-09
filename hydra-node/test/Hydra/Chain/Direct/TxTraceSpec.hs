@@ -137,7 +137,7 @@ instance StateModel Model where
 
   initialState =
     Model
-      { snapshots = []
+      { snapshots = [] -- TODO: could be replaced by using latestSnapshot
       , headState = Open 0
       , lastResult = Nothing
       , alreadyContested = []
@@ -271,7 +271,9 @@ instance RunModel Model IO where
         _ -> pure False
       _ -> pure True
 
-  postconditionOnFailure (_modelBefore, _modelAfter) action _lookup result =
+  postconditionOnFailure (modelBefore, _modelAfter) action _lookup result = do
+    counterexamplePost (show modelBefore)
+    counterexamplePost (show action)
     case action of
       Decrement{} -> expectInvalid result
       Close{} -> expectInvalid result
