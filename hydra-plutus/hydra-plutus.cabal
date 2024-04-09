@@ -69,10 +69,10 @@ library
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
-    , plutus-core          >=1.21 && <1.22
-    , plutus-ledger-api    >=1.21 && <1.22
-    , plutus-tx            >=1.21 && <1.22
-    , plutus-tx-plugin     >=1.21 && <1.22
+    , plutus-core          >=1.21
+    , plutus-ledger-api    >=1.21
+    , plutus-tx            >=1.21
+    , plutus-tx-plugin     >=1.21
     , QuickCheck
     , serialise
     , template-haskell
