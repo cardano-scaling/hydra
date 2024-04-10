@@ -9,18 +9,11 @@ import Bench.EndToEnd (bench)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Cardano.Binary (decodeFull, serialize)
-import Data.Aeson (eitherDecodeFileStrict')
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Cardano.Api (
-  ShelleyBasedEra (..),
-  ShelleyGenesis (..),
-  fromLedgerPParams,
- )
+import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
-import Options.Applicative (
-  execParser,
- )
+import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, takeFileName, (</>))
@@ -47,12 +40,7 @@ main =
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    pparams <-
-      eitherDecodeFileStrict' ("config" </> "devnet" </> "genesis-shelley.json") >>= \case
-        Left err -> fail $ show err
-        Right shelleyGenesis ->
-          pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
-    dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
+    dataset <- generateConstantUTxODataset defaultPParams (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.cbor"
     saveDataset datasetPath dataset
     run outputDirectory timeoutSeconds startingNodeId [datasetPath]

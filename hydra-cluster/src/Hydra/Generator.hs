@@ -6,7 +6,7 @@ import Hydra.Prelude hiding (size)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (mkGenesisTx)
 import Control.Monad (foldM)
-import Data.Default (def)
+import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano (genSigningKey, generateOneTransfer)
@@ -42,7 +42,7 @@ instance FromCBOR Dataset where
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
     sk <- genSigningKey
-    genDatasetConstantUTxO sk defaultProtocolParameters (n `div` 10) n
+    genDatasetConstantUTxO sk defaultPParams (n `div` 10) n
 
 data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
@@ -83,14 +83,11 @@ instance ToCBOR ClientDataset where
 instance FromCBOR ClientDataset where
   fromCBOR = ClientDataset <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
-defaultProtocolParameters :: ProtocolParameters
-defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
-
 -- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
 -- The sequence of transactions generated consist only of simple payments from
 -- and to arbitrary keys controlled by the individual clients.
 generateConstantUTxODataset ::
-  ProtocolParameters ->
+  PParams ->
   -- | Number of clients
   Int ->
   -- | Number of transactions
@@ -103,7 +100,7 @@ generateConstantUTxODataset pparams nClients nTxs = do
 genDatasetConstantUTxO ::
   -- | The faucet signing key
   SigningKey PaymentKey ->
-  ProtocolParameters ->
+  PParams ->
   -- | Number of clients
   Int ->
   -- | Number of transactions

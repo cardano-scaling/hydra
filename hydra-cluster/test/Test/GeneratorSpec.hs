@@ -13,7 +13,6 @@ import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
-  defaultProtocolParameters,
   genDatasetConstantUTxO,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
@@ -44,7 +43,7 @@ prop_keepsUTxOConstant =
       let ledgerEnv = newLedgerEnv defaultPParams
       -- XXX: non-exhaustive pattern match
       pure $
-        forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $
+        forAll (genDatasetConstantUTxO faucetSk defaultPParams 1 n) $
           \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
                 finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
