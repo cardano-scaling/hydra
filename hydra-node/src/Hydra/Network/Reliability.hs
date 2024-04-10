@@ -217,14 +217,14 @@ withReliability ::
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
   -- | Our persistence handle
-  MessagePersistence m msg ->
+  MessagePersistence m outbound ->
   -- | Our own party identifier.
   Party ->
   -- | Other parties' identifiers.
   [Party] ->
   -- | Underlying network component providing consuming and sending channels.
-  NetworkComponent m (Authenticated (ReliableMsg (Heartbeat msg))) (ReliableMsg (Heartbeat msg)) a ->
-  NetworkComponent m (Authenticated (Heartbeat msg)) (Heartbeat msg) a
+  NetworkComponent m (Authenticated (ReliableMsg (Heartbeat inbound))) (ReliableMsg (Heartbeat outbound)) a ->
+  NetworkComponent m (Authenticated (Heartbeat inbound)) (Heartbeat outbound) a
 withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
   acksCache <- loadAcks >>= newTVarIO
   sentMessages <- loadMessages >>= newTVarIO . Seq.fromList
