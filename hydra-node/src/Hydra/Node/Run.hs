@@ -93,15 +93,11 @@ run opts = do
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer (connectionMessages server) networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
+            withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
               connect chain network server wetHydraNode
                 >>= runHydraNode
  where
-  connectionMessages Server{sendOutput} = \case
-    Connected nodeid -> sendOutput $ PeerConnected nodeid
-    Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)

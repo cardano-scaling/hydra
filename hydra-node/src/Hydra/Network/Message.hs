@@ -11,11 +11,48 @@ import Hydra.Ledger (IsTx (TxIdType), UTxOType)
 import Hydra.Network (NodeId)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
+data NetworkMessage msg
+  = ConnectivityMessage Connectivity
+  | OffchainProtocolMessage msg
+  deriving stock (Generic)
+
+instance Arbitrary msg => Arbitrary (NetworkMessage msg) where
+  arbitrary = genericArbitrary
+
+instance ToCBOR msg => ToCBOR (NetworkMessage msg) where
+  toCBOR = \case
+    ConnectivityMessage connectivity ->
+      toCBOR ("ConnectivityMessage" :: Text) <> toCBOR connectivity
+    OffchainProtocolMessage msgTx ->
+      toCBOR ("OffchainProtocolMessage" :: Text) <> toCBOR msgTx
+
+instance FromCBOR msg => FromCBOR (NetworkMessage msg) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ConnectivityMessage" :: Text) -> ConnectivityMessage <$> fromCBOR
+      "OffchainProtocolMessage" -> OffchainProtocolMessage <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded NetworkMessage"
+
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR Connectivity where
+  toCBOR = \case
+    Connected nodeId -> toCBOR ("Connected" :: Text) <> toCBOR nodeId
+    Disconnected nodeId -> toCBOR ("Disconnected" :: Text) <> toCBOR nodeId
+
+instance FromCBOR Connectivity where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Connected" :: Text) -> Connected <$> fromCBOR
+      "Disconnected" -> Disconnected <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+
+instance Arbitrary Connectivity where
+  arbitrary = genericArbitrary
 
 data Message tx
   = ReqTx {transaction :: tx}

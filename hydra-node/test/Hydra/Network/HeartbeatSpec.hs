@@ -14,9 +14,6 @@ spec = parallel $ do
   let captureOutgoing msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
 
-      captureIncoming receivedMessages msg =
-        atomically $ modifyTVar' receivedMessages (msg :)
-
       nodeId = NodeId "node_id-1"
 
       otherNodeId = NodeId "node_id-2"
@@ -25,7 +22,7 @@ spec = parallel $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat ()])
 
-          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \_ ->
+          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \_ ->
             threadDelay 1.1
 
           readTVarIO sentMessages
@@ -36,7 +33,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Connectivity])
 
-          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Ping otherNodeId)) noop $ \_ ->
+          withHeartbeat nodeId (\incoming _ -> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -47,7 +44,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Connectivity])
 
-          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId ())) noop $ \_ ->
+          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId ())) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -58,7 +55,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Connectivity])
 
-          withHeartbeat nodeId (captureIncoming receivedMessages) (\incoming _ -> incoming (Data otherNodeId ()) >> incoming (Ping otherNodeId)) noop $ \_ ->
+          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId ()) >> incoming (Ping otherNodeId)) noop $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -74,7 +71,7 @@ spec = parallel $ do
                   (action (Network noop))
                   (incoming (Ping otherNodeId) >> threadDelay 4 >> incoming (Ping otherNodeId) >> threadDelay 7)
 
-          withHeartbeat nodeId (captureIncoming receivedMessages) component noop $ \_ ->
+          withHeartbeat nodeId component noop $ \_ ->
             threadDelay 20
 
           readTVarIO receivedMessages
@@ -85,7 +82,7 @@ spec = parallel $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat ()])
 
-          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast ()
             threadDelay 1
@@ -98,7 +95,7 @@ spec = parallel $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat ()])
 
-          withHeartbeat nodeId noop (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat nodeId (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast ()
             threadDelay 3.6

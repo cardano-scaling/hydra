@@ -224,7 +224,7 @@ spec = parallel $ do
         (waitForAllMessages messagesToSend sentMessageContainer)
 
   reliabilityStack persistence underlyingNetwork tracer nodeId party peers =
-    withHeartbeat nodeId noop $
+    withHeartbeat nodeId $
       withFlipHeartbeats $
         withReliability tracer persistence party peers underlyingNetwork
 
