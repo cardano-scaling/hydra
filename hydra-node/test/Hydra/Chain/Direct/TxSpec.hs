@@ -126,12 +126,12 @@ spec =
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
                                 Right ledgerTx ->
-                                  let actualExecutionCost = getMinFeeTx pparams ledgerTx
+                                  let minFeeWithoutRefScripts = getMinFeeTx pparams ledgerTx 0
                                       fee = txFee' apiTx
                                       apiTx = fromLedgerTx ledgerTx
-                                   in actualExecutionCost > Coin 0 && fee > actualExecutionCost
+                                   in minFeeWithoutRefScripts > Coin 0 && fee > minFeeWithoutRefScripts
                                         & label "Ok"
-                                        & counterexample ("Execution cost: " <> show actualExecutionCost)
+                                        & counterexample ("Min fee: " <> show minFeeWithoutRefScripts)
                                         & counterexample ("Fee: " <> show fee)
                                         & counterexample ("Tx: " <> show apiTx)
                                         & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))

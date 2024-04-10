@@ -5,7 +5,14 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (EraTx (getMinFeeTx), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (
+  EraTx (getMinFeeTx),
+  EraTxBody (feeTxBodyL, inputsTxBodyL),
+  PParams,
+  bodyTxL,
+  coinTxOutL,
+  outputsTxBodyL,
+ )
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -74,6 +81,7 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
   (.&&.),
+  (===),
  )
 import Prelude qualified
 
@@ -259,7 +267,7 @@ hasLowFees pparams tx =
 
   actualFee = tx ^. bodyTxL . feeTxBodyL
 
-  minFee = getMinFeeTx pparams tx
+  minFee = getMinFeeTx pparams tx 0
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =
@@ -267,7 +275,7 @@ isBalanced utxo originalTx balancedTx =
       out' = outputBalance balancedTx
       out = outputBalance originalTx
       fee = (view feeTxBodyL . body) balancedTx
-   in coin (deltaValue out' inp') == fee
+   in coin (deltaValue out' inp') === fee
         & counterexample ("Fee:             " <> show fee)
         & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
         & counterexample ("Added value:     " <> show (coin inp'))
