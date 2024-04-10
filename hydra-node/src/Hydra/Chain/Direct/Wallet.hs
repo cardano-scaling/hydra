@@ -28,9 +28,9 @@ import Cardano.Ledger.Alonzo.TxWits (
 import Cardano.Ledger.Api (
   TransactionScriptFailure,
   bodyTxL,
+  calcMinFeeTx,
   collateralInputsTxBodyL,
   ensureMinCoinTxOut,
-  estimateMinFeeTx,
   evalTxExUnits,
   feeTxBodyL,
   inputsTxBodyL,
@@ -306,7 +306,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an aditional witness (we will sign this tx later)
-  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0
+  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
