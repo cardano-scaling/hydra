@@ -19,7 +19,7 @@ import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL,
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
-import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
+import Cardano.Ledger.Core (ppMaxTxSizeL)
 import Cardano.Ledger.Plutus (PlutusDatums (unPlutusDatums), PlutusLanguage (decodePlutusRunnable), PlutusRunnable (..), PlutusWithContext (..))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
@@ -43,8 +43,8 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   IsCardanoEra (cardanoEra),
   LedgerEpochInfo (..),
-  LedgerEra,
   LedgerProtocolParameters (..),
+  PParams,
   ProtocolParametersConversionError,
   ScriptExecutionError (ScriptErrorMissingScript),
   ScriptWitnessIndex,
@@ -239,7 +239,7 @@ prepareTxScripts tx utxo = do
 -- should not matter).
 -- XXX: Load and use mainnet parameters from a file which we can easily review
 -- to be in sync with mainnet.
-pparams :: PParams LedgerEra
+pparams :: PParams
 pparams =
   def
     & ppMaxTxSizeL .~ fromIntegral maxTxSize

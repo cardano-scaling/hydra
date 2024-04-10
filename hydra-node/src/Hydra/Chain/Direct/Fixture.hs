@@ -17,7 +17,7 @@ import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import Cardano.Ledger.Core (ppMinFeeAL, ppMinFeeBL)
 import Cardano.Slotting.Time qualified as Slotting
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
+  PParams,
   PolicyId,
   TxIn,
   genTxIn,
@@ -51,7 +52,8 @@ testSeedInput = generateWith genTxIn 42
 defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv = newLedgerEnv defaultPParams
 
-defaultPParams :: PParams LedgerEra
+-- | Default protocol parameters with zeroed fees and prices.
+defaultPParams :: PParams
 defaultPParams =
   pparams
     & ppPricesL

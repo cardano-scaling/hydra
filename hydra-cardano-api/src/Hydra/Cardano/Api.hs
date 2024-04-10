@@ -19,7 +19,6 @@ module Hydra.Cardano.Api (
   Era,
   LedgerEra,
   ledgerEraVersion,
-  LedgerProtocolParameters (..),
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -31,7 +30,7 @@ module Hydra.Cardano.Api (
   -- * Extras
   module Extras,
 
-  -- * Re-exports from @cardano-api@
+  -- * Re-exports from @cardano-api@, @cardano-api-classy@ and @cardano-ledger@
   module X,
 ) where
 
@@ -92,6 +91,7 @@ import Cardano.Api.Shelley as X (
   Address (..),
   Hash (HeaderHash),
   Key (..),
+  LedgerProtocolParameters (..),
   PlutusScriptOrReferenceInput (PScript),
   PoolId,
   ProtocolParameters (..),
@@ -114,7 +114,6 @@ import Cardano.Ledger.Coin as X (Coin (..))
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  LedgerProtocolParameters,
   Map,
   StandardCrypto,
   ledgerEraVersion,
@@ -239,6 +238,10 @@ pattern PlutusScriptSerialised{plutusScriptSerialised} <-
   where
     PlutusScriptSerialised =
       Cardano.Api.Shelley.PlutusScriptSerialised
+
+-- ** PParams
+
+type PParams = Ledger.PParams (ShelleyLedgerEra Era)
 
 -- ** Script
 

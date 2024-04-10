@@ -5,7 +5,6 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
 import Data.Aeson (KeyValue ((.=)), Value (Object), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -17,7 +16,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   HashableScriptData,
   KeyWitnessInCtx (..),
-  LedgerEra,
+  PParams,
   PlutusScript,
   ScriptDatum (InlineScriptDatum, ScriptDatumForTxIn),
   ScriptWitnessInCtx (ScriptWitnessForSpending),
@@ -152,7 +151,7 @@ instance Arbitrary TransactionSubmitted where
 httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  PParams LedgerEra ->
+  PParams ->
   -- | A means to get the 'HeadId' if initializing the Head.
   (STM IO) (Maybe HeadId) ->
   Application

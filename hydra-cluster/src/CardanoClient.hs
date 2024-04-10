@@ -126,7 +126,7 @@ waitForUTxO networkId nodeSocket utxo =
 
 mkGenesisTx ::
   NetworkId ->
-  ProtocolParameters ->
+  PParams ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Amount of initialFunds

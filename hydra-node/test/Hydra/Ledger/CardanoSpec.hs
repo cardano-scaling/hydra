@@ -9,7 +9,6 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
-import Cardano.Ledger.Core (PParams ())
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
@@ -117,7 +116,7 @@ roundtripFromAndToApi utxo =
 -- | Test that the 'ProtocolParameters' To/FromJSON instances to roundtrip. Note
 -- that we use the ledger 'PParams' type to generate values, but the cardano-api
 -- type 'ProtocolParameters' is used for the serialization.
-roundtripProtocolParameters :: PParams LedgerEra -> Property
+roundtripProtocolParameters :: PParams -> Property
 roundtripProtocolParameters pparams = do
   case Aeson.decode (Aeson.encode expected) of
     Nothing ->

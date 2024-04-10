@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams (..))
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -19,6 +18,8 @@ import Text.Printf (printf)
 
 -- XXX: This should be re-exported by cardano-api
 -- https://github.com/IntersectMBO/cardano-api/issues/447
+
+import Cardano.Ledger.Core qualified as Ledger
 import Ouroboros.Network.Protocol.LocalStateQuery.Type (Target (..))
 
 data QueryException
@@ -268,7 +269,7 @@ queryProtocolParameters ::
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   QueryPoint ->
-  IO (PParams LedgerEra)
+  IO PParams
 queryProtocolParameters networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $ do
     (AnyCardanoEra era) <- queryCurrentEraExpr
@@ -279,9 +280,9 @@ queryProtocolParameters networkId socket queryPoint =
   encodeToEra eraToEncode pparams =
     case eitherDecode' (encode pparams) of
       Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (anyCardanoEra eraToEncode) (Text.pack e)
-      Right (ok :: PParams LedgerEra) -> pure ok
+      Right ok -> pure ok
 
-  coercePParamsToLedgerEra :: CardanoEra era -> PParams (ShelleyLedgerEra era) -> IO (PParams LedgerEra)
+  coercePParamsToLedgerEra :: CardanoEra era -> Ledger.PParams (ShelleyLedgerEra era) -> IO PParams
   coercePParamsToLedgerEra era pparams =
     case era of
       ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (anyCardanoEra ByronEra)

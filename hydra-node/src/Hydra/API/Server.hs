@@ -4,7 +4,6 @@ module Hydra.API.Server where
 
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
-import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
@@ -22,7 +21,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
-import Hydra.Cardano.Api (LedgerEra)
+import Hydra.Cardano.Api (PParams)
 import Hydra.Chain (
   Chain (..),
   IsChainState,
@@ -66,7 +65,7 @@ withAPIServer ::
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
-  PParams LedgerEra ->
+  PParams ->
   ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
   handle onIOException $ do
