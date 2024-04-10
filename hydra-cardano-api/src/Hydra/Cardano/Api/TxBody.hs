@@ -23,6 +23,7 @@ findRedeemerSpending ::
   TxIn ->
   Maybe a
 findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
+  -- TODO: address this deprecation
   ptr <- strictMaybeToMaybe $ redeemerPointer body (AlonzoSpending . AsItem $ toLedgerTxIn txIn)
   lookupRedeemer ptr scriptData
 
@@ -32,6 +33,7 @@ findRedeemerMinting ::
   PolicyId ->
   Maybe a
 findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) pid = do
+  -- TODO: address this deprecation
   ptr <- strictMaybeToMaybe $ redeemerPointer body (AlonzoMinting . AsItem $ toLedgerPolicyID pid)
   lookupRedeemer ptr scriptData
 

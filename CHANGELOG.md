@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.17.0] - UNRELEASED
+
+- **DO NOT RELEASE** Currently broken against `cardano-node 8.9.0` in `conway`!
+
+- **BREAKING** Hydra scripts changed due to updates in `cardano-api` and the `plutus` toolchain:
+  - No significant change in transaction size or budgets.
+  - Re-export `PParams` type alias on latest `Era` in `Hydra.Cardano.Api`
 
 ## [0.16.0] - 2024-04-03
 
