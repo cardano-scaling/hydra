@@ -42,31 +42,6 @@ buildRaw ins outs fee =
       & setTxOuts outs
       & setTxFee (TxFeeExplicit fee)
 
-calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Coin
-calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
-  let tx = makeSignedTransaction [] body
-      noByronWitnesses = 0
-   in estimateTransactionFee
-        shelleyBasedEra
-        networkId
-        (protocolParamTxFeeFixed pparams)
-        (protocolParamTxFeePerByte pparams)
-        tx
-        inputs
-        outputs
-        noByronWitnesses
-        witnesses
-
-data Sizes = Sizes
-  { inputs :: Int
-  , outputs :: Int
-  , witnesses :: Int
-  }
-  deriving stock (Eq, Show)
-
-defaultSizes :: Sizes
-defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
-
 -- | Sign a transaction body with given signing key.
 sign :: SigningKey PaymentKey -> TxBody -> Tx
 sign signingKey body =
@@ -144,7 +119,8 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
       networkId
       (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
 
-  fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = length recipients + 1, witnesses = 1} pparams
+  fee = evaluateTransactionFee shelleyBasedEra pparams rawTx 0 0 0
+
   rawTx = case buildRaw [initialInput] [] 0 of
     Left err -> error $ "Fail to build genesis transactions: " <> show err
     Right tx -> tx
