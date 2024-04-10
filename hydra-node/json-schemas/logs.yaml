@@ -1578,20 +1578,17 @@ definitions:
         required:
           - tag
           - ttl
-          - message
-          - party
+          - networkEvent
         description: >-
-          Input representing some message received from peers on the network.
+          Input representing some network event message received from peers on the network.
         properties:
           tag:
             type: string
             enum: ["NetworkInput"]
-          message:
-            $ref: "logs.yaml#/definitions/Message"
+          networkEvent:
+            $ref: "logs.yaml#/definitions/NetworkEvent"
           ttl:
             type: number
-          party:
-            $ref: "api.yaml#/components/schemas/Party"
       - title: ChainInput
         type: object
         additionalProperties: false
@@ -1607,6 +1604,62 @@ definitions:
             enum: ["ChainInput"]
           chainEvent:
             $ref: "logs.yaml#/definitions/ChainEvent"
+
+  NetworkEvent:
+    oneOf:
+      - title: ConnectivityEvent
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - contents
+        properties:
+          tag:
+            type: string
+            enum: ["ConnectivityEvent"]
+          contents:
+            oneOf:
+              - title: Connected
+                type: object
+                additionalProperties: false
+                required:
+                  - tag
+                  - nodeId
+                properties:
+                  tag:
+                    type: string
+                    enum: ["Connected"]
+                  nodeId:
+                    type: string
+
+              - title: Disconnected
+                type: object
+                additionalProperties: false
+                required:
+                  - tag
+                  - nodeId
+                properties:
+                  tag:
+                    type: string
+                    enum: ["Disconnected"]
+                  nodeId:
+                    type: string
+
+      - title: ReceivedMessage
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - sender
+          - msg
+        properties:
+          tag:
+            type: string
+            enum: ["ReceivedMessage"]
+          sender:
+            $ref: "api.yaml#/components/schemas/Party"
+          msg:
+            $ref: "logs.yaml#/definitions/Message"
 
   Message:
     description: >-

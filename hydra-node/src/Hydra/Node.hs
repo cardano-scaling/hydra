@@ -52,8 +52,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
-import Hydra.Network.Authenticate (Authenticated (..))
-import Hydra.Network.Message (Message)
+import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
@@ -202,9 +201,8 @@ wireClientInput node = enqueue . ClientInput
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
-wireNetworkInput :: DraftHydraNode tx m -> (Authenticated (Message tx) -> m ())
-wireNetworkInput node (Authenticated msg otherParty) =
-  enqueue $ NetworkInput defaultTTL otherParty msg
+wireNetworkInput :: DraftHydraNode tx m -> NetworkEvent (Message tx) -> m ()
+wireNetworkInput node = enqueue . NetworkInput defaultTTL
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
@@ -275,8 +273,8 @@ stepHydraNode node = do
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
-      NetworkInput ttl aParty msg
-        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) aParty msg}
+      NetworkInput ttl msg
+        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
   Environment{party} = env
@@ -331,7 +329,7 @@ processEffects node tracer inputId effects = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> broadcast hn msg >> enqueue (NetworkInput defaultTTL party msg)
+      NetworkEffect msg -> broadcast hn msg >> enqueue (NetworkInput defaultTTL (ReceivedMessage{sender = party, msg}))
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->

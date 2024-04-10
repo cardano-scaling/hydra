@@ -19,6 +19,7 @@ import Data.Vector qualified as Vector
 import Hydra.Network (Network (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
+import Hydra.Network.Message (Connectivity)
 import Hydra.Network.Reliability (MessagePersistence (..), ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
 import Hydra.Persistence (
@@ -224,7 +225,7 @@ spec = parallel $ do
         (waitForAllMessages messagesToSend sentMessageContainer)
 
   reliabilityStack persistence underlyingNetwork tracer nodeId party peers =
-    withHeartbeat nodeId noop $
+    withHeartbeat nodeId $
       withFlipHeartbeats $
         withReliability tracer persistence party peers underlyingNetwork
 
@@ -280,9 +281,9 @@ captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
 captureIncoming receivedMessages msg =
   atomically $ modifyTVar' receivedMessages (`snoc` msg)
 
-capturePayload :: MonadSTM m => TVar m (Vector msg) -> Authenticated (Heartbeat msg) -> m ()
-capturePayload receivedMessages Authenticated{payload} = case payload of
-  Data _ msg ->
+capturePayload :: MonadSTM m => TVar m (Vector msg) -> Either Connectivity (Authenticated (Heartbeat msg)) -> m ()
+capturePayload receivedMessages = \case
+  Right Authenticated{payload = Data _ msg} ->
     atomically $ modifyTVar' receivedMessages (`snoc` msg)
   _ -> pure ()
 

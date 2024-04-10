@@ -51,7 +51,7 @@ import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
+import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, hydrate, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue))
 import Hydra.NodeSpec (createPersistenceInMemory)
@@ -685,7 +685,10 @@ createMockNetwork node nodes =
     let otherNodes = filter (\n -> getParty n /= getParty node) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getParty node)
+  handleMessage HydraNode{inputQueue} msg =
+    enqueue inputQueue . NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+
+  sender = getParty node
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
