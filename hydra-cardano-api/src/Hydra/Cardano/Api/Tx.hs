@@ -17,7 +17,7 @@ import Cardano.Ledger.Alonzo.TxAuxData (translateAlonzoTxAuxData)
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (
   AlonzoPlutusPurpose (..),
-  AsIndex (..),
+  AsIx (..),
   ConwayPlutusPurpose (..),
   EraTx (mkBasicTx),
   addrTxOutL,
@@ -151,13 +151,13 @@ convertConwayTx =
       $ Map.toList redeemerMap
 
   translatePlutusPurpose ::
-    Conway.ConwayPlutusPurpose Ledger.AsIndex (Ledger.ConwayEra StandardCrypto) ->
-    Maybe (Ledger.AlonzoPlutusPurpose Ledger.AsIndex (Ledger.BabbageEra StandardCrypto))
+    Conway.ConwayPlutusPurpose Ledger.AsIx (Ledger.ConwayEra StandardCrypto) ->
+    Maybe (Ledger.AlonzoPlutusPurpose Ledger.AsIx (Ledger.BabbageEra StandardCrypto))
   translatePlutusPurpose = \case
-    ConwaySpending (AsIndex ix) -> Just $ AlonzoSpending (AsIndex ix)
-    ConwayMinting (AsIndex ix) -> Just $ AlonzoMinting (AsIndex ix)
-    ConwayCertifying (AsIndex ix) -> Just $ AlonzoCertifying (AsIndex ix)
-    ConwayRewarding (AsIndex ix) -> Just $ AlonzoRewarding (AsIndex ix)
+    ConwaySpending (AsIx ix) -> Just $ AlonzoSpending (AsIx ix)
+    ConwayMinting (AsIx ix) -> Just $ AlonzoMinting (AsIx ix)
+    ConwayCertifying (AsIx ix) -> Just $ AlonzoCertifying (AsIx ix)
+    ConwayRewarding (AsIx ix) -> Just $ AlonzoRewarding (AsIx ix)
     ConwayVoting{} -> Nothing
     ConwayProposing{} -> Nothing
 

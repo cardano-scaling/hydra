@@ -3,7 +3,7 @@ module Hydra.Cardano.Api.TxBody where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AlonzoPlutusPurpose (..), AsIndex, AsItem (..), PlutusPurpose)
+import Cardano.Ledger.Api (AlonzoPlutusPurpose (..), AsItem (..), AsIx, PlutusPurpose)
 import Cardano.Ledger.Babbage.Core (redeemerPointer)
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import Cardano.Ledger.Core qualified as Ledger
@@ -53,7 +53,7 @@ findScriptMinting (getTxBody -> ShelleyTxBody _ _ scripts _ _ _) pid = do
 
 lookupRedeemer ::
   Plutus.FromData a =>
-  PlutusPurpose AsIndex LedgerEra ->
+  PlutusPurpose AsIx LedgerEra ->
   TxBodyScriptData Era ->
   Maybe a
 lookupRedeemer ptr scriptData = do
