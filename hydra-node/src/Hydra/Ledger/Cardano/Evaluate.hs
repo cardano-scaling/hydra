@@ -217,13 +217,13 @@ prepareTxScripts tx utxo = do
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(PlutusWithContext protocolVersion script arguments _exUnits _costModel) -> do
+  programs <- forM results $ \PlutusWithContext{pwcProtocolVersion, pwcScript, pwcDatums} -> do
     (PlutusRunnable x) <-
-      case script of
+      case pwcScript of
         Right runnable -> pure runnable
-        Left serialised -> left show $ decodePlutusRunnable protocolVersion serialised
-    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion x (unPlutusDatums arguments)
+        Left serialised -> left show $ decodePlutusRunnable pwcProtocolVersion serialised
+    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion pwcProtocolVersion
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion x (unPlutusDatums pwcDatums)
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat . UnrestrictedProgram <$> programs
