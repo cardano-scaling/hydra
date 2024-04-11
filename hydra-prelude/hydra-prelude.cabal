@@ -29,6 +29,7 @@ library
     , generic-random
     , gitrev
     , io-classes         >=1.0.0.0
+    , pretty-simple
     , QuickCheck
     , relude
     , si-timers          >=1.0.0.0

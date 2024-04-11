@@ -26,16 +26,16 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, oneof, resize)
-import Test.QuickCheck.Monadic (monadicIO)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, resize)
+import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions (..),
   Any (..),
   HasVariables (getAllVariables),
-  LookUp,
   Polarity (PosPolarity),
   PostconditionM,
+  Realized,
   RunModel (..),
   StateModel (..),
   Step ((:=)),
@@ -89,14 +89,18 @@ prop_traces =
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
-  monadicIO $
+  monadic runAppMProperty $ do
     void (runActions actions)
+ where
+  runAppMProperty :: AppM Property -> Property
+  runAppMProperty action = ioProperty $ do
+    utxoV <- newIORef openHeadUTxO
+    runReaderT (runAppM action) utxoV
 
 -- * Model
 
 data Model = Model
   { headState :: State
-  , lastResult :: Maybe (Var TxResult)
   , alreadyContested :: [Actor]
   }
   deriving (Show)
@@ -111,8 +115,7 @@ data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
 data TxResult = TxResult
-  { newUTxO :: UTxO
-  , tx :: Tx
+  { tx :: Tx
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
@@ -130,7 +133,6 @@ instance StateModel Model where
   initialState =
     Model
       { headState = Open 0 -- TODO: move latestSnapshot out?
-      , lastResult = Nothing
       , alreadyContested = []
       }
 
@@ -192,23 +194,20 @@ instance StateModel Model where
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m Stop _ = m
-  nextState m t result =
+  nextState m t _result =
     case t of
       Decrement{snapshotNumber} ->
         m
           { headState = Open snapshotNumber
-          , lastResult = Just result
           }
       Close{snapshotNumber} ->
         m
           { headState = Closed snapshotNumber
-          , lastResult = Just result
           , alreadyContested = []
           }
       Contest{actor, snapshotNumber} ->
         m
           { headState = Closed snapshotNumber
-          , lastResult = Just result
           , alreadyContested = actor : alreadyContested m
           }
       Fanout{} -> m{headState = Final}
@@ -222,26 +221,36 @@ instance HasVariables (Action Model a) where
 deriving instance Eq (Action Model a)
 deriving instance Show (Action Model a)
 
-instance RunModel Model IO where
-  perform :: Model -> Action Model a -> LookUp IO -> IO a
-  perform Model{lastResult} action lookupVar = do
+-- | Application monad to perform model actions. Currently it only keeps a
+-- 'UTxO' which is updated whenever transactions are valid in 'performTx'.
+newtype AppM a = AppM {runAppM :: ReaderT (IORef UTxO) IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFail, MonadThrow)
+
+instance MonadReader UTxO AppM where
+  ask = AppM $ ask >>= liftIO . readIORef
+
+  local f action = do
+    utxo <- ask
+    r <- newIORef (f utxo)
+    AppM $ local (const r) $ runAppM action
+
+instance MonadState UTxO AppM where
+  get = ask
+  put utxo = AppM $ ask >>= liftIO . flip writeIORef utxo
+
+type instance Realized AppM a = a
+
+instance RunModel Model AppM where
+  perform Model{} action _lookupVar = do
     case action of
-      Decrement{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
-        tx <- newDecrementTx utxo actor $ signedSnapshot snapshotNumber
-        performTx utxo tx
-      Close{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
-        tx <- newCloseTx utxo actor $ confirmedSnapshot snapshotNumber
-        performTx utxo tx
-      Contest{actor, snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
-        tx <- newContestTx utxo actor $ confirmedSnapshot snapshotNumber
-        performTx utxo tx
-      Fanout{snapshotNumber} -> do
-        let utxo = maybe openHeadUTxO (newUTxO . lookupVar) lastResult
-        tx <- newFanoutTx utxo Alice snapshotNumber
-        performTx utxo tx
+      Decrement{actor, snapshotNumber} ->
+        performTx =<< newDecrementTx actor (signedSnapshot snapshotNumber)
+      Close{actor, snapshotNumber} ->
+        performTx =<< newCloseTx actor (confirmedSnapshot snapshotNumber)
+      Contest{actor, snapshotNumber} ->
+        performTx =<< newContestTx actor (confirmedSnapshot snapshotNumber)
+      Fanout{snapshotNumber} ->
+        performTx =<< newFanoutTx Alice snapshotNumber
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = do
@@ -285,6 +294,35 @@ instance RunModel Model IO where
       Close{} -> expectInvalid result
       Contest{} -> expectInvalid result
       _ -> pure True
+
+-- | Perform a transaction by evaluating and observing it. This updates the
+-- 'UTxO' in the 'AppM' if a transaction is valid and produces a 'TxResult' that
+-- can be used to assert expected success / failure.
+performTx :: Tx -> AppM TxResult
+performTx tx = do
+  utxo <- get
+  let validationError = getValidationError utxo
+  when (isNothing validationError) $ do
+    put $ adjustUTxO tx utxo
+  pure
+    TxResult
+      { tx
+      , validationError
+      , observation = observeHeadTx Fixture.testNetworkId utxo tx
+      }
+ where
+  getValidationError utxo =
+    case evaluateTx tx utxo of
+      Left err ->
+        Just $ show err
+      Right redeemerReport
+        | any isLeft (Map.elems redeemerReport) ->
+            Just . toString . unlines $
+              fromString
+                <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
+                    , "Some redeemers failed: " <> show redeemerReport
+                    ]
+        | otherwise -> Nothing
 
 -- * Fixtures and glue code
 
@@ -357,14 +395,15 @@ openHeadUTxO =
         }
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
-newDecrementTx :: HasCallStack => UTxO -> Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> IO Tx
-newDecrementTx utxo actor (snapshot, signatures) =
+newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
+newDecrementTx actor (snapshot, signatures) = do
+  spendableUTxO <- get
   either (failure . show) pure $
     decrement
       (actorChainContext actor)
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
-      utxo
+      spendableUTxO
       snapshot
       signatures
 
@@ -372,12 +411,13 @@ newDecrementTx utxo actor (snapshot, signatures) =
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
 -- contestation period and also claims to close at time 0 resulting in a
 -- contestation deadline of 0 + cperiod.
-newCloseTx :: HasCallStack => UTxO -> Actor -> ConfirmedSnapshot Tx -> IO Tx
-newCloseTx utxo actor snapshot =
+newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
+newCloseTx actor snapshot = do
+  spendableUTxO <- get
   either (failure . show) pure $
     close
       (actorChainContext actor)
-      utxo
+      spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       snapshot
@@ -391,8 +431,9 @@ newCloseTx utxo actor snapshot =
 -- | Creates a contest transaction using given utxo and contesting with given
 -- snapshot. NOTE: This uses fixtures for headId, contestation period and also
 -- claims to contest at time 0.
-newContestTx :: HasCallStack => UTxO -> Actor -> ConfirmedSnapshot Tx -> IO Tx
-newContestTx spendableUTxO actor snapshot =
+newContestTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
+newContestTx actor snapshot = do
+  spendableUTxO <- get
   either (failure . show) pure $
     contest
       (actorChainContext actor)
@@ -407,8 +448,9 @@ newContestTx spendableUTxO actor snapshot =
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
-newFanoutTx :: HasCallStack => UTxO -> Actor -> SnapshotNumber -> IO Tx
-newFanoutTx spendableUTxO actor snapshotNumber =
+newFanoutTx :: HasCallStack => Actor -> SnapshotNumber -> AppM Tx
+newFanoutTx actor snapshotNumber = do
+  spendableUTxO <- get
   either (failure . show) pure $
     fanout
       (actorChainContext actor)
@@ -442,32 +484,6 @@ testScriptRegistry :: ScriptRegistry
 testScriptRegistry = genScriptRegistry `generateWith` 42
 
 -- * Helpers
-
--- | Perform a transaction by evaluating and observing it. This produces a
--- 'TxResult' that also contains the new UTxO and can be used to assert expected
--- success / failure.
-performTx :: Monad m => UTxO -> Tx -> m TxResult
-performTx utxo tx =
-  pure
-    TxResult
-      { newUTxO = adjustUTxO tx utxo
-      , tx
-      , validationError
-      , observation = observeHeadTx Fixture.testNetworkId utxo tx
-      }
- where
-  validationError =
-    case evaluateTx tx utxo of
-      Left err ->
-        Just $ show err
-      Right redeemerReport
-        | any isLeft (Map.elems redeemerReport) ->
-            Just . toString . unlines $
-              fromString
-                <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
-                    , "Some redeemers failed: " <> show redeemerReport
-                    ]
-        | otherwise -> Nothing
 
 -- | Assertion helper to check whether a 'TxResult' was valid and the expected
 -- 'HeadObservation' could be made. To be used in 'postcondition'.

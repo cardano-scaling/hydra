@@ -1,3 +1,6 @@
+-- NOTE: Usage of 'trace' is accepted here.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,
@@ -35,6 +38,8 @@ module Hydra.Prelude (
   decodeBase16,
   (?>),
   withFile,
+  spy,
+  spy',
 ) where
 
 import Cardano.Binary (
@@ -154,6 +159,7 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Random (mkQCGen)
+import Text.Pretty.Simple (pShow)
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'
 -- instances for data-types. In the case where more advanced or tailored
@@ -249,3 +255,11 @@ withFile fp mode action =
   System.IO.withFile fp mode (try . action) >>= \case
     Left (e :: IOException) -> throwIO e
     Right x -> pure x
+
+-- | Like 'traceShow', but with pretty printing of the value.
+spy :: Show a => a -> a
+spy a = trace (toString $ pShow a) a
+
+-- | Like 'spy' but prefixed with a label.
+spy' :: Show a => String -> a -> a
+spy' msg a = trace (msg <> ": " <> toString (pShow a)) a

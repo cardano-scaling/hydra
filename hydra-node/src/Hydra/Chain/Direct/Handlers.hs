@@ -16,6 +16,7 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  NetworkId,
   Tx,
   TxId,
   chainPointToSlotNo,
