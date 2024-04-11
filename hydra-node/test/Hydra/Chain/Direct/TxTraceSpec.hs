@@ -3,7 +3,7 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
+import Cardano.Api.UTxO (UTxO, (\\))
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -26,7 +26,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, resize)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, resize, sublistOf)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -78,7 +78,7 @@ prop_traces =
 
   closeNonInitial =
     any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshotNumber} -> snapshotNumber > 0
+      Close{snapshot} -> snapshot > 0
       _ -> False
 
   hasDecrement =
@@ -90,6 +90,7 @@ prop_traces =
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
   monadic runAppMProperty $ do
+    print actions
     void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -101,10 +102,42 @@ prop_runActions actions =
 
 data Model = Model
   { headState :: State
-  , latestSnapshot :: SnapshotNumber
+  , latestSnapshot :: ModelSnapshot
   , alreadyContested :: [Actor]
   }
   deriving (Show)
+
+-- | A snapshot that may have pending decommits (= augmented).
+data ModelSnapshot = Normal SnapshotNumber | Augmented SnapshotNumber
+  deriving (Show, Eq)
+
+snapshotNumber :: ModelSnapshot -> SnapshotNumber
+snapshotNumber = \case
+  Normal n -> n
+  Augmented n -> n
+
+isAugmented :: ModelSnapshot -> Bool
+isAugmented = \case
+  Normal{} -> False
+  Augmented{} -> True
+
+instance Ord ModelSnapshot where
+  compare a b = compare (snapshotNumber a) (snapshotNumber b)
+
+instance Num ModelSnapshot where
+  a + b = Normal $ snapshotNumber a + snapshotNumber b
+  a - b = Normal $ snapshotNumber a - snapshotNumber b
+  a * b = Normal $ snapshotNumber a * snapshotNumber b
+  abs = Normal . abs . snapshotNumber
+  signum = Normal . signum . snapshotNumber
+  fromInteger = Normal . fromInteger
+
+instance Arbitrary ModelSnapshot where
+  arbitrary = oneof [Normal <$> arbitrary, Augmented <$> arbitrary]
+
+  shrink = \case
+    Normal n -> Normal <$> shrink n
+    Augmented n -> Augmented <$> shrink n
 
 data State
   = Open
@@ -123,10 +156,10 @@ data TxResult = TxResult
 
 instance StateModel Model where
   data Action Model a where
-    Decrement :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
-    Close :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
-    Contest :: {actor :: Actor, snapshotNumber :: SnapshotNumber} -> Action Model TxResult
-    Fanout :: {snapshotNumber :: SnapshotNumber} -> Action Model TxResult
+    Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
+    Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
+    Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
+    Fanout :: {snapshot :: ModelSnapshot} -> Action Model TxResult
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
@@ -145,75 +178,79 @@ instance StateModel Model where
         oneof
           [ do
               actor <- elements allActors
-              snapshotNumber <- latestSnapshot `orSometimes` arbitrary
-              pure $ Some $ Close{actor, snapshotNumber}
+              snapshot <- latestSnapshot `orSometimes` arbitrary
+              pure $ Some $ Close{actor, snapshot}
           , do
               actor <- elements allActors
-              snapshotNumber <- (latestSnapshot + 1) `orSometimes` arbitrary
-              pure $ Some Decrement{actor, snapshotNumber}
+              snapshot <- (latestSnapshot + 1) `orSometimes` (Augmented <$> arbitrary)
+              pure $ Some Decrement{actor, snapshot}
           ]
       Closed{} ->
         oneof
           [ do
-              snapshotNumber <- latestSnapshot `orSometimes` arbitrary
-              pure . Some $ Fanout{snapshotNumber}
+              snapshot <- latestSnapshot `orSometimes` arbitrary
+              pure . Some $ Fanout{snapshot}
           , do
               actor <- elements allActors
-              snapshotNumber <- (latestSnapshot + 1) `orSometimes` arbitrary
-              pure $ Some Contest{actor, snapshotNumber}
+              snapshot <- (latestSnapshot + 1) `orSometimes` arbitrary
+              pure $ Some Contest{actor, snapshot}
           ]
       Final -> pure $ Some Stop
 
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState, latestSnapshot, alreadyContested} = \case
     Stop -> headState /= Final
-    Decrement{snapshotNumber} ->
+    Decrement{snapshot} ->
       -- TODO: assert what to decrement still there
       headState == Open
-        && snapshotNumber > latestSnapshot
-    Close{snapshotNumber} ->
-      headState == Open
-        && snapshotNumber >= latestSnapshot
-    Contest{actor, snapshotNumber} ->
+        && snapshot > latestSnapshot
+        && isAugmented snapshot
+    Close{snapshot} ->
+      snapshot /= Augmented 0 -- TODO: don't generate this one
+        && headState == Open
+        && snapshot >= latestSnapshot
+    Contest{actor, snapshot} ->
       headState == Closed
         && actor `notElem` alreadyContested
-        && snapshotNumber > latestSnapshot
-    Fanout{snapshotNumber} ->
+        && snapshot > latestSnapshot
+    Fanout{snapshot} ->
       headState == Closed
-        && snapshotNumber == latestSnapshot
+        && snapshot == latestSnapshot
 
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{latestSnapshot, alreadyContested} = \case
-    Decrement{snapshotNumber} ->
-      snapshotNumber <= latestSnapshot
-    Close{snapshotNumber} ->
-      snapshotNumber < latestSnapshot
-    Contest{actor, snapshotNumber} ->
-      snapshotNumber <= latestSnapshot
-        || actor `elem` alreadyContested
-    Fanout{snapshotNumber} ->
-      snapshotNumber /= latestSnapshot
+  validFailingAction Model{headState, latestSnapshot, alreadyContested} = \case
+    Decrement{snapshot} ->
+      snapshot <= latestSnapshot
+    Close{snapshot} ->
+      snapshot < latestSnapshot
+    Contest{actor, snapshot} ->
+      headState == Closed -- TODO: gracefully fail in perform instead?
+        && ( snapshot <= latestSnapshot
+              || actor `elem` alreadyContested
+           )
+    Fanout{snapshot} ->
+      snapshot /= latestSnapshot
     _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
     case t of
       Stop -> m
-      Decrement{snapshotNumber} ->
+      Decrement{snapshot} ->
         m
           { headState = Open
-          , latestSnapshot = snapshotNumber
+          , latestSnapshot = snapshot
           }
-      Close{snapshotNumber} ->
+      Close{snapshot} ->
         m
           { headState = Closed
-          , latestSnapshot = snapshotNumber
+          , latestSnapshot = snapshot
           , alreadyContested = []
           }
-      Contest{actor, snapshotNumber} ->
+      Contest{actor, snapshot} ->
         m
           { headState = Closed
-          , latestSnapshot = snapshotNumber
+          , latestSnapshot = snapshot
           , alreadyContested = actor : alreadyContested m
           }
       Fanout{} -> m{headState = Final}
@@ -249,14 +286,14 @@ type instance Realized AppM a = a
 instance RunModel Model AppM where
   perform Model{} action _lookupVar = do
     case action of
-      Decrement{actor, snapshotNumber} ->
-        performTx =<< newDecrementTx actor (signedSnapshot snapshotNumber)
-      Close{actor, snapshotNumber} ->
-        performTx =<< newCloseTx actor (confirmedSnapshot snapshotNumber)
-      Contest{actor, snapshotNumber} ->
-        performTx =<< newContestTx actor (confirmedSnapshot snapshotNumber)
-      Fanout{snapshotNumber} ->
-        performTx =<< newFanoutTx Alice snapshotNumber
+      Decrement{actor, snapshot} ->
+        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
+      Close{actor, snapshot} ->
+        performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
+      Contest{actor, snapshot} ->
+        performTx =<< newContestTx actor (confirmedSnapshot snapshot)
+      Fanout{snapshot} ->
+        performTx =<< newFanoutTx Alice snapshot
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = do
@@ -274,7 +311,7 @@ instance RunModel Model AppM where
           counterexamplePost $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
           pure $ length contesters == length (alreadyContested modelAfter)
         _ -> pure False
-      Fanout{snapshotNumber} -> do
+      Fanout{snapshot} -> do
         valid <- expectValid result $ \case
           Tx.Fanout{} -> pure True
           _ -> pure False
@@ -286,8 +323,8 @@ instance RunModel Model AppM where
             let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
             let fannedOut = utxoFromTx tx
             counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
-            counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshotNumber))
-            pure $ sorted fannedOut == sorted (snapshotUTxO snapshotNumber)
+            counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
+            pure $ sorted fannedOut == sorted (snapshotUTxO snapshot)
         -- XXX: PostconditionM does not allow case specific counterexamples like Property(M)
         pure $ valid && correctlyFannedOut
       _ -> pure True
@@ -336,43 +373,51 @@ performTx tx = do
 allActors :: [Actor]
 allActors = [Alice, Bob, Carol]
 
--- | A "random" UTxO distribution for a given snapshot number. This always
+-- | A "random" UTxO distribution for a given 'ModelSnapshot'. This always
 -- contains one UTxO for alice, bob, and carol.
-snapshotUTxO :: SnapshotNumber -> UTxO
-snapshotUTxO n = (`generateWith` fromIntegral n) . resize 1 $ do
-  aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
-  bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
-  carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
-  pure $ aliceUTxO <> bobUTxO <> carolUTxO
+snapshotUTxO :: ModelSnapshot -> UTxO
+snapshotUTxO snapshot =
+  (`generateWith` fromIntegral (snapshotNumber snapshot)) . resize 1 $ do
+    aliceUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.alice)
+    bobUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.bob)
+    carolUTxO <- genUTxOFor (genVerificationKey `genForParty` Fixture.carol)
+    pure $ aliceUTxO <> bobUTxO <> carolUTxO
 
--- | A model of a correctly signed snapshot. Given a snapshot number a snapshot
--- signed by all participants (alice, bob and carol) with some UTxO contained is
--- produced.
-signedSnapshot :: SnapshotNumber -> (Snapshot Tx, MultiSignature (Snapshot Tx))
-signedSnapshot number =
+-- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
+-- all participants (alice, bob and carol) with some UTxO contained is produced.
+signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot ms =
   (snapshot, signatures)
  where
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
-      , number
-      , utxo = snapshotUTxO number
+      , number = snapshotNumber ms
       , confirmed = []
-      , utxoToDecommit = Nothing -- TODO: have pending decrements
+      , utxo
+      , utxoToDecommit
       }
+
+  (utxo, utxoToDecommit) = case ms of
+    Normal _ -> (allUTxO, Nothing)
+    Augmented number -> (`generateWith` fromIntegral number) $ do
+      toDecommit <- UTxO.fromPairs <$> sublistOf (UTxO.pairs allUTxO)
+      pure (allUTxO \\ toDecommit, Just toDecommit)
+
+  allUTxO = snapshotUTxO ms
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
--- | A model of a confirmed snapshot (either initial or later confirmed), based
--- on 'signedSnapshot'.
-confirmedSnapshot :: SnapshotNumber -> ConfirmedSnapshot Tx
+-- | A confirmed snapshot (either initial or later confirmed), based on
+-- 'signedSnapshot'.
+confirmedSnapshot :: ModelSnapshot -> ConfirmedSnapshot Tx
 confirmedSnapshot = \case
   0 ->
     InitialSnapshot
       { -- -- NOTE: The close validator would not check headId on close with
         -- initial snapshot, but we need to provide it still.
         headId = mkHeadId Fixture.testPolicyId
-      , initialUTxO = snapshotUTxO 0
+      , initialUTxO = snapshotUTxO (Normal 0)
       }
   number -> ConfirmedSnapshot{snapshot, signatures}
    where
@@ -394,7 +439,7 @@ openHeadUTxO =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO 0
+        , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO (Normal 0)
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
@@ -454,15 +499,15 @@ newContestTx actor snapshot = do
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
-newFanoutTx :: HasCallStack => Actor -> SnapshotNumber -> AppM Tx
-newFanoutTx actor snapshotNumber = do
+newFanoutTx :: HasCallStack => Actor -> ModelSnapshot -> AppM Tx
+newFanoutTx actor snapshot = do
   spendableUTxO <- get
   either (failure . show) pure $
     fanout
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (snapshotUTxO snapshotNumber)
+      (snapshotUTxO snapshot)
       deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
