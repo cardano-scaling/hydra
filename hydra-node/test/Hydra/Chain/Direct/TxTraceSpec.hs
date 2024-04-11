@@ -1,3 +1,12 @@
+-- | Stateful model-based testing of the transactions created by the "Direct"
+-- chain modules.
+--
+-- The model is focusing on transitions between Open and Closed states of the
+-- head right now. Snapshots are only modeled "in proxy" where we generate
+-- snapshot numbers and the fact whether they have something to decommit or not,
+-- but not the actual snapshot contents. All snapshots are correctly signed by a
+-- fixed list of participants and other fixtures are used for head parameters
+-- etc.
 module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
@@ -13,7 +22,7 @@ import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement, fanout)
-import Hydra.Chain.Direct.Tx (HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
+import Hydra.Chain.Direct.Tx (FanoutTxError, HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
@@ -44,6 +53,7 @@ import Test.QuickCheck.StateModel (
   counterexamplePost,
   runActions,
  )
+import Text.Pretty.Simple (pPrint)
 import Text.Show (Show (..))
 
 spec :: Spec
@@ -149,10 +159,11 @@ data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
 data TxResult = TxResult
-  { tx :: Tx
+  { tx :: Maybe Tx
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
+  deriving (Eq)
 
 instance StateModel Model where
   data Action Model a where
@@ -229,7 +240,8 @@ instance StateModel Model where
               || actor `elem` alreadyContested
            )
     Fanout{snapshot} ->
-      snapshot /= latestSnapshot
+      headState == Closed -- TODO: gracefully fail in perform instead?
+        && snapshot /= latestSnapshot
     _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -292,8 +304,11 @@ instance RunModel Model AppM where
         performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
       Contest{actor, snapshot} ->
         performTx =<< newContestTx actor (confirmedSnapshot snapshot)
-      Fanout{snapshot} ->
-        performTx =<< newFanoutTx Alice snapshot
+      Fanout{snapshot} -> do
+        pPrint action
+        newFanoutTx Alice snapshot >>= \case
+          Left _ -> pure $ TxResult{tx = Nothing, validationError = Nothing, observation = Tx.NoHeadTx}
+          Right tx -> performTx tx
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = do
@@ -316,7 +331,8 @@ instance RunModel Model AppM where
           Tx.Fanout{} -> pure True
           _ -> pure False
         correctlyFannedOut <- case result of
-          TxResult{tx} -> do
+          TxResult{tx = Nothing} -> False <$ counterexamplePost "Failed to construct transaction"
+          TxResult{tx = Just tx} -> do
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
@@ -336,7 +352,17 @@ instance RunModel Model AppM where
       Decrement{} -> expectInvalid result
       Close{} -> expectInvalid result
       Contest{} -> expectInvalid result
+      Fanout{} -> do
+        invalid <- expectInvalid result
+        failedToConstruct <-
+          if result == failedToBuild
+            then pure True
+            else False <$ counterexamplePost "Expected failure to build transaction"
+        pure $ invalid || failedToConstruct
       _ -> pure True
+
+failedToBuild :: TxResult
+failedToBuild = TxResult{tx = Nothing, validationError = Nothing, observation = Tx.NoHeadTx}
 
 -- | Perform a transaction by evaluating and observing it. This updates the
 -- 'UTxO' in the 'AppM' if a transaction is valid and produces a 'TxResult' that
@@ -346,10 +372,11 @@ performTx tx = do
   utxo <- get
   let validationError = getValidationError utxo
   when (isNothing validationError) $ do
+    liftIO $ putStrLn "valid, updating UTXO"
     put $ adjustUTxO tx utxo
   pure
     TxResult
-      { tx
+      { tx = Just tx
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
@@ -394,8 +421,8 @@ signedSnapshot ms =
       { headId = mkHeadId Fixture.testPolicyId
       , number = snapshotNumber ms
       , confirmed = []
-      , utxo
-      , utxoToDecommit
+      , utxo = allUTxO
+      , utxoToDecommit = Nothing -- FIXME
       }
 
   (utxo, utxoToDecommit) = case ms of
@@ -499,10 +526,10 @@ newContestTx actor snapshot = do
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
-newFanoutTx :: HasCallStack => Actor -> ModelSnapshot -> AppM Tx
+newFanoutTx :: Actor -> ModelSnapshot -> AppM (Either FanoutTxError Tx)
 newFanoutTx actor snapshot = do
   spendableUTxO <- get
-  either (failure . show) pure $
+  pure $
     fanout
       (actorChainContext actor)
       spendableUTxO
