@@ -145,25 +145,21 @@ instance StateModel Model where
         oneof
           [ do
               actor <- elements allActors
-              snapshotNumber <- arbitrary
+              snapshotNumber <- latestSnapshot `orSometimes` arbitrary
               pure $ Some $ Close{actor, snapshotNumber}
           , do
               actor <- elements allActors
-              snapshotNumber <- arbitrary
+              snapshotNumber <- (latestSnapshot + 1) `orSometimes` arbitrary
               pure $ Some Decrement{actor, snapshotNumber}
           ]
       Closed{} ->
         oneof
           [ do
-              snapshotNumber <-
-                frequency
-                  [ (2, pure latestSnapshot)
-                  , (1, arbitrary)
-                  ]
+              snapshotNumber <- latestSnapshot `orSometimes` arbitrary
               pure . Some $ Fanout{snapshotNumber}
           , do
               actor <- elements allActors
-              snapshotNumber <- arbitrary
+              snapshotNumber <- (latestSnapshot + 1) `orSometimes` arbitrary
               pure $ Some Contest{actor, snapshotNumber}
           ]
       Final -> pure $ Some Stop
@@ -508,3 +504,8 @@ expectInvalid :: Monad m => TxResult -> PostconditionM m Bool
 expectInvalid = \case
   TxResult{validationError = Nothing} -> False <$ counterexamplePost "Expected to fail validation"
   _ -> pure True
+
+-- | Generate sometimes a value with given generator, bur more often just use
+-- the given value.
+orSometimes :: a -> Gen a -> Gen a
+orSometimes a gen = frequency [(2, pure a), (1, gen)]
