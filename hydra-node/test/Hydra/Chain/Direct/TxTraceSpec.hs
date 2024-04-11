@@ -101,13 +101,14 @@ prop_runActions actions =
 
 data Model = Model
   { headState :: State
+  , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   }
   deriving (Show)
 
 data State
-  = Open {latestSnapshot :: SnapshotNumber}
-  | Closed {latestSnapshot :: SnapshotNumber}
+  = Open
+  | Closed
   | Final
   deriving (Show, Eq)
 
@@ -132,12 +133,13 @@ instance StateModel Model where
 
   initialState =
     Model
-      { headState = Open 0 -- TODO: move latestSnapshot out?
+      { headState = Open
+      , latestSnapshot = 0
       , alreadyContested = []
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState} =
+  arbitraryAction _lookup Model{headState, latestSnapshot} =
     case headState of
       Open{} ->
         oneof
@@ -150,7 +152,7 @@ instance StateModel Model where
               snapshotNumber <- arbitrary
               pure $ Some Decrement{actor, snapshotNumber}
           ]
-      Closed{latestSnapshot} ->
+      Closed{} ->
         oneof
           [ do
               snapshotNumber <-
@@ -167,47 +169,55 @@ instance StateModel Model where
       Final -> pure $ Some Stop
 
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, alreadyContested} action =
-    case (headState, action) of
-      (Final, Stop) -> False
-      (Open{latestSnapshot}, Decrement{snapshotNumber}) ->
-        snapshotNumber > latestSnapshot
+  precondition Model{headState, latestSnapshot, alreadyContested} = \case
+    Stop -> headState /= Final
+    Decrement{snapshotNumber} ->
       -- TODO: assert what to decrement still there
-      (Open{latestSnapshot}, Close{snapshotNumber}) ->
-        snapshotNumber >= latestSnapshot
-      (Open{}, Contest{}) -> False
-      (Closed{latestSnapshot}, Contest{actor, snapshotNumber}) ->
-        actor `notElem` alreadyContested && snapshotNumber > latestSnapshot
-      (Open{}, Fanout{}) -> False
-      (Closed{latestSnapshot}, Fanout{snapshotNumber}) ->
-        snapshotNumber == latestSnapshot
-      _ -> True
+      headState == Open
+        && snapshotNumber > latestSnapshot
+    Close{snapshotNumber} ->
+      headState == Open
+        && snapshotNumber >= latestSnapshot
+    Contest{actor, snapshotNumber} ->
+      headState == Closed
+        && actor `notElem` alreadyContested
+        && snapshotNumber > latestSnapshot
+    Fanout{snapshotNumber} ->
+      headState == Closed
+        && snapshotNumber == latestSnapshot
 
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, alreadyContested} action =
-    case (headState, action) of
-      (Open{latestSnapshot}, Decrement{snapshotNumber}) -> snapshotNumber <= latestSnapshot
-      (Open{latestSnapshot}, Close{snapshotNumber}) -> snapshotNumber < latestSnapshot
-      (Closed{latestSnapshot}, Contest{actor, snapshotNumber}) -> snapshotNumber <= latestSnapshot || actor `elem` alreadyContested
-      (Closed{latestSnapshot}, Fanout{snapshotNumber}) -> snapshotNumber /= latestSnapshot
-      _ -> False
+  validFailingAction Model{latestSnapshot, alreadyContested} = \case
+    Decrement{snapshotNumber} ->
+      snapshotNumber <= latestSnapshot
+    Close{snapshotNumber} ->
+      snapshotNumber < latestSnapshot
+    Contest{actor, snapshotNumber} ->
+      snapshotNumber <= latestSnapshot
+        || actor `elem` alreadyContested
+    Fanout{snapshotNumber} ->
+      snapshotNumber /= latestSnapshot
+    _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
-  nextState m Stop _ = m
   nextState m t _result =
     case t of
+      Stop -> m
       Decrement{snapshotNumber} ->
         m
-          { headState = Open snapshotNumber
+          { headState = Open
+          , latestSnapshot = snapshotNumber
           }
       Close{snapshotNumber} ->
         m
-          { headState = Closed snapshotNumber
+          { headState = Closed
+          , latestSnapshot = snapshotNumber
           , alreadyContested = []
           }
       Contest{actor, snapshotNumber} ->
         m
-          { headState = Closed snapshotNumber
+          { headState = Closed
+          , latestSnapshot = snapshotNumber
           , alreadyContested = actor : alreadyContested m
           }
       Fanout{} -> m{headState = Final}
