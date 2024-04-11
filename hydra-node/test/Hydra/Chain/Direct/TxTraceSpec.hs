@@ -7,7 +7,7 @@ import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, renderUTxO)
+import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, renderUTxO, selectLovelace, txOutAddress, txOutValue)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -18,7 +18,7 @@ import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (MultiSignature, aggregate, sign)
-import Hydra.Ledger (hashUTxO)
+import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
@@ -112,6 +112,7 @@ data Actor = Alice | Bob | Carol
 
 data TxResult = TxResult
   { newUTxO :: UTxO
+  , tx :: Tx
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
@@ -263,10 +264,15 @@ instance RunModel Model IO where
           Tx.Fanout{} -> pure True
           _ -> pure False
         correctlyFannedOut <- case result of
-          TxResult{newUTxO} -> do
-            counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO newUTxO)
+          TxResult{tx} -> do
+            -- NOTE: Sort `[TxOut]` by the address and values. We want to make
+            -- sure that the fanout outputs match what we had in the open Head
+            -- exactly.
+            let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
+            let fannedOut = utxoFromTx tx
+            counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
             counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshotNumber))
-            pure $ newUTxO == snapshotUTxO snapshotNumber
+            pure $ sorted fannedOut == sorted (snapshotUTxO snapshotNumber)
         -- XXX: PostconditionM does not allow case specific counterexamples like Property(M)
         pure $ valid && correctlyFannedOut
       _ -> pure True
@@ -445,6 +451,7 @@ performTx utxo tx =
   pure
     TxResult
       { newUTxO = adjustUTxO tx utxo
+      , tx
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
