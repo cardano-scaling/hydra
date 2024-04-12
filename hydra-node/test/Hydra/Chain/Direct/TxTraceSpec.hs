@@ -16,7 +16,7 @@ import Cardano.Api.UTxO (UTxO, (\\))
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, renderUTxO, selectLovelace, txOutAddress, txOutValue)
+import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, selectLovelace, throwError, txOutAddress, txOutValue)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -53,7 +53,6 @@ import Test.QuickCheck.StateModel (
   counterexamplePost,
   runActions,
  )
-import Text.Pretty.Simple (pPrint)
 import Text.Show (Show (..))
 
 spec :: Spec
@@ -305,64 +304,60 @@ instance RunModel Model AppM where
       Contest{actor, snapshot} ->
         performTx =<< newContestTx actor (confirmedSnapshot snapshot)
       Fanout{snapshot} -> do
-        pPrint action
         newFanoutTx Alice snapshot >>= \case
           Left _ -> pure $ TxResult{tx = Nothing, validationError = Nothing, observation = Tx.NoHeadTx}
           Right tx -> performTx tx
       Stop -> pure ()
 
-  postcondition (modelBefore, modelAfter) action _lookup result = do
-    counterexamplePost (show modelBefore)
-    counterexamplePost (show action)
+  postcondition (modelBefore, modelAfter) action _lookup result = runPostconditionM' $ do
+    counterexample' (show modelBefore)
+    counterexample' (show action)
     case action of
       Decrement{} -> expectValid result $ \case
-        Tx.Decrement{} -> pure True
-        _ -> pure False
+        Tx.Decrement{} -> pure ()
+        _ -> fail "Expected Decrement"
       Close{} -> expectValid result $ \case
-        Tx.Close{} -> pure True
-        _ -> pure False
+        Tx.Close{} -> pure ()
+        _ -> fail "Expected Close"
       Contest{} -> expectValid result $ \case
         Tx.Contest Tx.ContestObservation{contesters} -> do
-          counterexamplePost $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
-          pure $ length contesters == length (alreadyContested modelAfter)
-        _ -> pure False
+          counterexample' $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
+          guard $ length contesters == length (alreadyContested modelAfter)
+        _ -> fail "Expected Contest"
       Fanout{snapshot} -> do
-        valid <- expectValid result $ \case
-          Tx.Fanout{} -> pure True
-          _ -> pure False
-        correctlyFannedOut <- case result of
-          TxResult{tx = Nothing} -> False <$ counterexamplePost "Failed to construct transaction"
+        case result of
+          TxResult{tx = Nothing} -> fail "Failed to construct transaction"
           TxResult{tx = Just tx} -> do
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
             let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
             let fannedOut = utxoFromTx tx
-            counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
-            counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
-            pure $ sorted fannedOut == sorted (snapshotUTxO snapshot)
-        -- XXX: PostconditionM does not allow case specific counterexamples like Property(M)
-        pure $ valid && correctlyFannedOut
-      _ -> pure True
+            -- counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
+            -- counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
+            guard $ sorted fannedOut == sorted (snapshotUTxO snapshot)
 
-  postconditionOnFailure (modelBefore, _modelAfter) action _lookup result = do
-    counterexamplePost (show modelBefore)
-    counterexamplePost (show action)
+        expectValid result $ \case
+          Tx.Fanout{} -> pure ()
+          _ -> fail "Expected Fanout"
+      _ -> pure ()
+
+  postconditionOnFailure (modelBefore, _modelAfter) action _lookup result = runPostconditionM' $ do
+    counterexample' (show modelBefore)
+    counterexample' (show action)
     case action of
       Decrement{} -> expectInvalid result
       Close{} -> expectInvalid result
       Contest{} -> expectInvalid result
       Fanout{} -> do
-        invalid <- expectInvalid result
-        failedToConstruct <-
-          if result == failedToBuild
-            then pure True
-            else False <$ counterexamplePost "Expected failure to build transaction"
-        pure $ invalid || failedToConstruct
-      _ -> pure True
+        case result of
+          TxResult{validationError = Nothing} -> counterexample' "Expected to fail validation"
+          _ -> fulfilled
 
-failedToBuild :: TxResult
-failedToBuild = TxResult{tx = Nothing, validationError = Nothing, observation = Tx.NoHeadTx}
+        case result of
+          TxResult{tx = Just _} -> counterexample' "Expected failure to build transaction"
+          _ -> fulfilled
+      _ -> pure ()
 
 -- | Perform a transaction by evaluating and observing it. This updates the
 -- 'UTxO' in the 'AppM' if a transaction is valid and produces a 'TxResult' that
@@ -372,7 +367,6 @@ performTx tx = do
   utxo <- get
   let validationError = getValidationError utxo
   when (isNothing validationError) $ do
-    liftIO $ putStrLn "valid, updating UTXO"
     put $ adjustUTxO tx utxo
   pure
     TxResult
@@ -424,12 +418,6 @@ signedSnapshot ms =
       , utxo = allUTxO
       , utxoToDecommit = Nothing -- FIXME
       }
-
-  (utxo, utxoToDecommit) = case ms of
-    Normal _ -> (allUTxO, Nothing)
-    Augmented number -> (`generateWith` fromIntegral number) $ do
-      toDecommit <- UTxO.fromPairs <$> sublistOf (UTxO.pairs allUTxO)
-      pure (allUTxO \\ toDecommit, Just toDecommit)
 
   allUTxO = snapshotUTxO ms
 
@@ -563,19 +551,44 @@ testScriptRegistry = genScriptRegistry `generateWith` 42
 
 -- * Helpers
 
+-- | Run a short-cutting variant of PostconditionM which produces 'True' if it
+-- reaches the end, or 'False' if 'fail' is used.
+runPostconditionM' :: Monad m => PostconditionM' m () -> PostconditionM m Bool
+runPostconditionM' (PostconditionM' action) =
+  runExceptT action >>= \case
+    Left Nothing -> pure True
+    Left (Just err) -> counterexamplePost err $> False
+    Right () -> pure True
+
+newtype PostconditionM' m a = PostconditionM' (ExceptT (Maybe String) (PostconditionM m) a)
+  deriving newtype (Functor, Applicative, Alternative, Monad)
+
+instance Monad m => MonadFail (PostconditionM' m) where
+  fail = PostconditionM' . throwError . Just
+
+-- | Short-cut a postcondition monad like 'fail', but in a successful way. This
+-- is useful to not have unrelated counterexample' outputs.
+fulfilled :: Monad m => PostconditionM' m ()
+fulfilled = PostconditionM' $ throwError Nothing
+
+-- | Add given message in case the postcondition fails.
+counterexample' :: Monad m => String -> PostconditionM' m ()
+counterexample' msg = PostconditionM' $ ExceptT $ counterexamplePost msg $> Right ()
+
 -- | Assertion helper to check whether a 'TxResult' was valid and the expected
 -- 'HeadObservation' could be made. To be used in 'postcondition'.
-expectValid :: Monad m => TxResult -> (HeadObservation -> PostconditionM m Bool) -> PostconditionM m Bool
+expectValid :: Monad m => TxResult -> (HeadObservation -> PostconditionM' m a) -> PostconditionM' m a
 expectValid TxResult{validationError = Just err} _ =
-  counterexamplePost err $> False
-expectValid TxResult{observation} fn =
-  counterexamplePost ("Wrong observation: " <> show observation) >> fn observation
+  fail err
+expectValid TxResult{observation} fn = do
+  counterexample' $ "Wrong observation: " <> show observation
+  fn observation
 
 -- | Assertion helper to check whether a 'TxResult' was invalid.
-expectInvalid :: Monad m => TxResult -> PostconditionM m Bool
+expectInvalid :: Monad m => TxResult -> PostconditionM' m ()
 expectInvalid = \case
-  TxResult{validationError = Nothing} -> False <$ counterexamplePost "Expected to fail validation"
-  _ -> pure True
+  TxResult{validationError = Nothing} -> fail "Expected to fail validation"
+  _ -> pure ()
 
 -- | Generate sometimes a value with given generator, bur more often just use
 -- the given value.
