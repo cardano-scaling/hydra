@@ -110,6 +110,7 @@ data NetworkConfiguration m = NetworkConfiguration
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
+  forall msg tx.
   (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
   -- | Tracer to use for logging messages.
   Tracer IO (LogEntry tx msg) ->
@@ -125,7 +126,8 @@ withNetwork tracer connectionMessages configuration callback action = do
       numberOfParties = length $ me : otherParties
   messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
 
-  let reliability =
+  let reliability :: NetworkComponent IO (Heartbeat (Authenticated msg)) (Heartbeat msg) ()
+      reliability =
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
@@ -161,8 +163,8 @@ configureMessagePersistence tracer persistenceDir numberOfParties = do
   pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
 
 withFlipHeartbeats ::
-  NetworkComponent m (Authenticated (Heartbeat msg)) msg1 a ->
-  NetworkComponent m (Heartbeat (Authenticated msg)) msg1 a
+  NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
+  NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
 withFlipHeartbeats withBaseNetwork callback =
   withBaseNetwork unwrapHeartbeats
  where

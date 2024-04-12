@@ -51,8 +51,9 @@ instance FromCBOR msg => FromCBOR (Signed msg) where
 -- Only verified messages are pushed downstream to the internal network for the
 -- node to consume and process. Non-verified messages get discarded.
 withAuthentication ::
-  ( SignableRepresentation msg
-  , ToJSON msg
+  ( SignableRepresentation inbound
+  , ToJSON inbound
+  , SignableRepresentation outbound
   ) =>
   Tracer m AuthLog ->
   -- The party signing key
@@ -60,9 +61,9 @@ withAuthentication ::
   -- Other party members
   [Party] ->
   -- The underlying raw network.
-  NetworkComponent m (Signed msg) (Signed msg) a ->
+  NetworkComponent m (Signed inbound) (Signed outbound) a ->
   -- The node internal authenticated network.
-  NetworkComponent m (Authenticated msg) msg a
+  NetworkComponent m (Authenticated inbound) outbound a
 withAuthentication tracer signingKey parties withRawNetwork callback action = do
   withRawNetwork checkSignature authenticate
  where

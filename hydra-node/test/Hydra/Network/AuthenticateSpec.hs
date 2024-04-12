@@ -33,6 +33,8 @@ spec = parallel $ do
           receivedMessages <- newTVarIO []
 
           withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
             nullTracer
             aliceSk
             [bob]
@@ -53,6 +55,8 @@ spec = parallel $ do
           receivedMessages <- newTVarIO []
 
           withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
             nullTracer
             aliceSk
             [bob]
@@ -73,6 +77,8 @@ spec = parallel $ do
           receivedMessages <- newTVarIO []
 
           withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
             nullTracer
             aliceSk
             [bob, carol]
@@ -92,10 +98,18 @@ spec = parallel $ do
         sentMsgs = runSimOrThrow $ do
           sentMessages <- newTVarIO []
 
-          withAuthentication nullTracer bobSk [] (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
-            threadDelay 0.6
-            broadcast someMessage
-            threadDelay 1
+          withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
+            nullTracer
+            bobSk
+            []
+            (captureOutgoing sentMessages)
+            noop
+            $ \Network{broadcast} -> do
+              threadDelay 0.6
+              broadcast someMessage
+              threadDelay 1
 
           readTVarIO sentMessages
 
@@ -108,8 +122,16 @@ spec = parallel $ do
           traces <- newTVarIO []
 
           let tracer = traceInTVar traces "AuthenticateSpec"
-          withAuthentication tracer aliceSk [bob, carol] (\incoming _ -> incoming signedMsg) noop $ \_ ->
-            threadDelay 1
+          withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
+            tracer
+            aliceSk
+            [bob, carol]
+            (\incoming _ -> incoming signedMsg)
+            noop
+            $ \_ ->
+              threadDelay 1
 
           readTVarIO traces
 

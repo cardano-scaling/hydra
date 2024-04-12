@@ -92,10 +92,10 @@ withHeartbeat ::
   -- | Callback listening to peers' status change as computed by the `withIncomingHeartbeat` layer.
   ConnectionMessages m ->
   -- | Underlying `NetworkComponent` for sending and consuming `Heartbeat` messages.
-  NetworkComponent m (Heartbeat msg1) (Heartbeat msg) a ->
+  NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a ->
   -- | Returns a network component that can be used to send and consume arbitrary messages.
   -- This layer will take care of peeling out/wrapping messages into `Heartbeat`s.
-  NetworkComponent m msg1 msg a
+  NetworkComponent m inbound outbound a
 withHeartbeat nodeId connectionMessages withNetwork =
   withIncomingHeartbeat connectionMessages $
     withOutgoingHeartbeat nodeId withNetwork
@@ -107,8 +107,8 @@ withIncomingHeartbeat ::
   ConnectionMessages m ->
   -- | Underlying `NetworkComponent`.
   -- We only care about the fact it notifies us with `Heartbeat` messages.
-  NetworkComponent m (Heartbeat msg1) msg a ->
-  NetworkComponent m msg1 msg a
+  NetworkComponent m (Heartbeat inbound) outbound a ->
+  NetworkComponent m inbound outbound a
 withIncomingHeartbeat connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
@@ -119,8 +119,8 @@ updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   ConnectionMessages m ->
-  NetworkCallback msg m ->
-  NetworkCallback (Heartbeat msg) m
+  NetworkCallback inbound m ->
+  NetworkCallback (Heartbeat inbound) m
 updateStateFromIncomingMessages heartbeatState connectionMessages callback = \case
   Data nodeId msg -> notifyAlive nodeId >> callback msg
   Ping nodeId -> notifyAlive nodeId
@@ -143,8 +143,8 @@ withOutgoingHeartbeat ::
   NodeId ->
   -- | Underlying `NetworkComponent`.
   -- We only care about the fact it allows us to broadcast `Heartbeat` messages.
-  NetworkComponent m msg1 (Heartbeat msg) a ->
-  NetworkComponent m msg1 msg a
+  NetworkComponent m inbound (Heartbeat outbound) a ->
+  NetworkComponent m inbound outbound a
 withOutgoingHeartbeat nodeId withNetwork callback action = do
   lastSent <- newTVarIO Nothing
   withNetwork callback $ \network ->
@@ -155,8 +155,8 @@ updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   NodeId ->
   TVar m (Maybe Time) ->
-  Network m (Heartbeat msg) ->
-  Network m msg
+  Network m (Heartbeat outbound) ->
+  Network m outbound
 updateStateFromOutgoingMessages nodeId lastSent Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
@@ -172,7 +172,7 @@ checkHeartbeatState ::
   ) =>
   NodeId ->
   TVar m (Maybe Time) ->
-  Network m (Heartbeat msg) ->
+  Network m (Heartbeat outbound) ->
   m ()
 checkHeartbeatState nodeId lastSent Network{broadcast} =
   forever $ do
