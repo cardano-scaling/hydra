@@ -22,6 +22,10 @@ module Hydra.Network (
   readPort,
 
   -- * Utility functions
+  mapInbound,
+  mapInboundM,
+  contramapOutbound,
+  contramapOutboundM,
   close,
 ) where
 
@@ -50,6 +54,9 @@ newtype Network m msg = Network
 instance Contravariant (Network m) where
   contramap f (Network bcast) = Network $ \msg -> bcast (f msg)
 
+contramapNetworkM :: Monad m => (msg' -> m msg) -> Network m msg -> Network m msg'
+contramapNetworkM f (Network bcast) = Network $ f >=> bcast
+
 -- | Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
 
@@ -57,6 +64,32 @@ type NetworkCallback msg m = msg -> m ()
 --
 -- A `NetworkComponent` can have different inbound and outbound message types.
 type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Network m outbound -> m a) -> m a
+
+mapInbound ::
+  (inbound -> inbound') ->
+  NetworkComponent m inbound outbound a ->
+  NetworkComponent m inbound' outbound a
+mapInbound f withBaseNetwork callback = withBaseNetwork (callback . f)
+
+mapInboundM ::
+  Monad m =>
+  (inbound -> m inbound') ->
+  NetworkComponent m inbound outbound a ->
+  NetworkComponent m inbound' outbound a
+mapInboundM f withBaseNetwork callback = withBaseNetwork (f >=> callback)
+
+contramapOutbound ::
+  (outbound' -> outbound) ->
+  NetworkComponent m inbound outbound a ->
+  NetworkComponent m inbound outbound' a
+contramapOutbound f withBaseNetwork callback action = withBaseNetwork callback (action . contramap f)
+
+contramapOutboundM ::
+  Monad m =>
+  (outbound' -> m outbound) ->
+  NetworkComponent m inbound outbound a ->
+  NetworkComponent m inbound outbound' a
+contramapOutboundM f withBaseNetwork callback action = withBaseNetwork callback (action . contramapNetworkM f)
 
 -- * Types used by concrete implementations
 
