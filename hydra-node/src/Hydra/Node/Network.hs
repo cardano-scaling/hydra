@@ -167,8 +167,8 @@ withNodeLogic ::
   (Connectivity -> m ()) ->
   NetworkComponent m (NetworkMessage inbound) outbound a ->
   NetworkComponent m inbound outbound a
-withNodeLogic sendOutput withBaseNetwork callback =
-  withBaseNetwork $ nodeLogicCallback sendOutput callback
+withNodeLogic sendOutput withBaseNetwork =
+  withBaseNetwork . nodeLogicCallback sendOutput
 
 nodeLogicCallback ::
   (Connectivity -> m ()) ->

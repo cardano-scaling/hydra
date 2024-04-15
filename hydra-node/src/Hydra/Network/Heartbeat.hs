@@ -24,7 +24,7 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
+import Hydra.Network (Network (..), NetworkComponent, NodeId, contramapOutboundM, mapInboundM)
 import Hydra.Network.Message (Connectivity (..), NetworkMessage (..))
 
 data HeartbeatState = HeartbeatState
@@ -87,53 +87,49 @@ withHeartbeat ::
   ) =>
   -- | This node's id, used to identify `Heartbeat` messages broadcast to peers.
   NodeId ->
+  (Heartbeat inbound -> m inbound) ->
+  (outbound -> m (Heartbeat outbound)) ->
   -- | Underlying `NetworkComponent` for sending and consuming `Heartbeat` messages.
   NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a ->
   -- | Returns a network component that can be used to send and consume arbitrary messages.
   -- This layer will take care of peeling out/wrapping messages into `Heartbeat`s.
   NetworkComponent m inbound outbound a
-withHeartbeat nodeId withNetwork =
-  withIncomingHeartbeat $
-    withOutgoingHeartbeat nodeId withNetwork
+withHeartbeat nodeId f g withNetwork = mapInboundM f $ contramapOutboundM g
 
--- | Handles only the /incoming/ `Heartbeat` messages and peers' status detection.
-withIncomingHeartbeat ::
-  (MonadAsync m, MonadDelay m) =>
-  -- | Underlying `NetworkComponent`.
-  -- We only care about the fact it notifies us with `Heartbeat` messages.
-  NetworkComponent m (Heartbeat inbound) outbound a ->
-  NetworkComponent m inbound outbound a
-withIncomingHeartbeat withNetwork callback action = do
-  heartbeat <- newTVarIO initialHeartbeatState
-  withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
-    withAsync (checkRemoteParties heartbeat) $ \_ ->
-      action network
+cataHeartbeat ::
+  forall inbound a.
+  (NodeId -> a) ->
+  (NodeId -> inbound -> a) ->
+  Heartbeat inbound ->
+  a
+cataHeartbeat pingCallback dataCallback = \case
+  Data nodeId msg -> dataCallback nodeId msg
+  Ping nodeId -> pingCallback nodeId
 
-updateStateFromIncomingMessages ::
-  (MonadSTM m, MonadMonotonicTime m) =>
+notifyAlive ::
+  MonadSTM m =>
+  MonadMonotonicTime m =>
+  (NetworkMessage msg -> m ()) ->
   TVar m HeartbeatState ->
-  NetworkCallback inbound m ->
-  NetworkCallback (Heartbeat inbound) m
-updateStateFromIncomingMessages heartbeatState callback = \case
-  Data nodeId msg -> notifyAlive nodeId >> callback msg
-  Ping nodeId -> notifyAlive nodeId
- where
-  notifyAlive peer = do
-    now <- getMonotonicTime
-    atomically $
-      modifyTVar' heartbeatState $ \s ->
-        s
-          { alive = Map.insert peer now (alive s)
-          , suspected = peer `Set.delete` suspected s
-          }
+  NodeId ->
+  m ()
+notifyAlive callback heartbeatState peer = do
+  now <- getMonotonicTime
+  aliveSet <- alive <$> readTVarIO heartbeatState
+  unless (peer `Map.member` aliveSet) $
+    callback $
+      ConnectivityMessage (Connected peer)
+  atomically $
+    modifyTVar' heartbeatState $ \s ->
+      s
+        { alive = Map.insert peer now (alive s)
+        , suspected = peer `Set.delete` suspected s
+        }
 
 -- | Handles only the /outgoing/  `Heartbeat` messages as needed.
 withOutgoingHeartbeat ::
   (MonadAsync m, MonadDelay m) =>
-  -- | This node's id, used to identify `Heartbeat` messages broadcast to peers.
   NodeId ->
-  -- | Underlying `NetworkComponent`.
-  -- We only care about the fact it allows us to broadcast `Heartbeat` messages.
   NetworkComponent m inbound (Heartbeat outbound) a ->
   NetworkComponent m inbound outbound a
 withOutgoingHeartbeat nodeId withNetwork callback action = do
