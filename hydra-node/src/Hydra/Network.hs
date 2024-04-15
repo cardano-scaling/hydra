@@ -26,6 +26,7 @@ module Hydra.Network (
   mapInboundM,
   contramapOutbound,
   contramapOutboundM,
+  sequenceInbound,
   close,
 ) where
 
@@ -90,6 +91,13 @@ contramapOutboundM ::
   NetworkComponent m inbound outbound a ->
   NetworkComponent m inbound outbound' a
 contramapOutboundM f withBaseNetwork callback action = withBaseNetwork callback (action . contramapNetworkM f)
+
+sequenceInbound ::
+  Traversable t =>
+  Applicative f =>
+  NetworkComponent m (t (f inbound)) outbound a ->
+  NetworkComponent m (f (t inbound)) outbound a
+sequenceInbound withBaseNetwork callback = withBaseNetwork (callback . sequenceA)
 
 -- * Types used by concrete implementations
 
