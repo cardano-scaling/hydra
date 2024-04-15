@@ -75,9 +75,10 @@ import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
 import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
+import Hydra.Network (Host (..), IP, NetworkCallback, NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
+import Hydra.Network.Message (Connectivity, NetworkMessage (..))
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
@@ -114,11 +115,12 @@ withNetwork ::
   (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
   -- | Tracer to use for logging messages.
   Tracer IO (LogEntry tx msg) ->
+  (Connectivity -> IO ()) ->
   -- | Callback/observer for connectivity changes in peers.
   NetworkConfiguration IO ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer configuration callback action = do
+withNetwork tracer sendOutput configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
@@ -129,7 +131,8 @@ withNetwork tracer configuration callback action = do
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
-              withOuroborosNetwork (contramap Network tracer) localhost peers
+              withNodeLogic sendOutput $
+                withOuroborosNetwork (contramap Network tracer) localhost peers
 
   withHeartbeat nodeId reliability callback $ \network ->
     action network
@@ -159,6 +162,21 @@ configureMessagePersistence tracer persistenceDir numberOfParties = do
       throwIO $ ParameterMismatch paramsMismatch
     _ -> pure ackPersistence
   pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
+
+withNodeLogic ::
+  (Connectivity -> m ()) ->
+  NetworkComponent m (NetworkMessage inbound) outbound a ->
+  NetworkComponent m inbound outbound a
+withNodeLogic sendOutput withBaseNetwork callback =
+  withBaseNetwork $ nodeLogicCallback sendOutput callback
+
+nodeLogicCallback ::
+  (Connectivity -> m ()) ->
+  NetworkCallback inbound m ->
+  NetworkCallback (NetworkMessage inbound) m
+nodeLogicCallback sendOutput callback = \case
+  ConnectivityMessage x -> sendOutput x
+  OffchainProtocolMessage msg -> callback msg
 
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
