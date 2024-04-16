@@ -334,13 +334,16 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
       filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
     let p =
           ( hydraNodeProcess $
+              -- NOTE: Using 0.0.0.0 over 127.0.0.1 will make the hydra-node
+              -- crash if it can't bind the interface and make tests fail more
+              -- obvious when e.g. a hydra-node instance is already running.
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
-                , host = "127.0.0.1"
+                , host = "0.0.0.0"
                 , port = fromIntegral $ 5_000 + hydraNodeId
                 , peers
-                , apiHost = "127.0.0.1"
+                , apiHost = "0.0.0.0"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
                 , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
                 , hydraSigningKey
