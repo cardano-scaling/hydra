@@ -96,24 +96,13 @@ withHeartbeat ::
   -- | Returns a network component that can be used to send and consume arbitrary messages.
   -- This layer will take care of peeling out/wrapping messages into `Heartbeat`s.
   NetworkComponent m inbound outbound a
-withHeartbeat nodeId connectionMessages withNetwork =
-  withIncomingHeartbeat connectionMessages $
-    withOutgoingHeartbeat nodeId withNetwork
-
--- | Handles only the /incoming/ `Heartbeat` messages and peers' status detection.
-withIncomingHeartbeat ::
-  (MonadAsync m, MonadDelay m) =>
-  -- | Callback listening to peers' status change as computed by the `withIncomingHeartbeat` layer.
-  ConnectionMessages m ->
-  -- | Underlying `NetworkComponent`.
-  -- We only care about the fact it notifies us with `Heartbeat` messages.
-  NetworkComponent m (Heartbeat inbound) outbound a ->
-  NetworkComponent m inbound outbound a
-withIncomingHeartbeat connectionMessages withNetwork callback action = do
+withHeartbeat nodeId connectionMessages withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
+  lastSent <- newTVarIO Nothing
   withNetwork (updateStateFromIncomingMessages heartbeat connectionMessages callback) $ \network ->
     withAsync (checkRemoteParties heartbeat connectionMessages) $ \_ ->
-      action network
+      withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
+        action (updateStateFromOutgoingMessages nodeId lastSent network)
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
@@ -135,21 +124,6 @@ updateStateFromIncomingMessages heartbeatState connectionMessages callback = \ca
           { alive = Map.insert peer now (alive s)
           , suspected = peer `Set.delete` suspected s
           }
-
--- | Handles only the /outgoing/  `Heartbeat` messages as needed.
-withOutgoingHeartbeat ::
-  (MonadAsync m, MonadDelay m) =>
-  -- | This node's id, used to identify `Heartbeat` messages broadcast to peers.
-  NodeId ->
-  -- | Underlying `NetworkComponent`.
-  -- We only care about the fact it allows us to broadcast `Heartbeat` messages.
-  NetworkComponent m inbound (Heartbeat outbound) a ->
-  NetworkComponent m inbound outbound a
-withOutgoingHeartbeat nodeId withNetwork callback action = do
-  lastSent <- newTVarIO Nothing
-  withNetwork callback $ \network ->
-    withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
-      action (updateStateFromOutgoingMessages nodeId lastSent network)
 
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
