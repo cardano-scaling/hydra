@@ -41,7 +41,7 @@ spec = do
 
     describe "findRunningCardanoNode" $ do
       it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
-        withCardanoNodeOnKnownNetwork tr tmp Sanchonet $ \_ -> do
+        withCardanoNodeOnKnownNetwork tr tmp Preview $ \_ -> do
           findRunningCardanoNode tr tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
@@ -49,6 +49,8 @@ spec = do
           findRunningCardanoNode tr tmp Preview `shouldReturn` Just runningNode
 
   forEachKnownNetwork "withCardanoNodeOnKnownNetwork starts synchronizing within 10 seconds" $ \network -> do
+    when (network == Sanchonet) $
+      pendingWith "cardano-node 8.9 not anymore supported on sanchonet"
     -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
     -- synchronize the whole chain before continuing.
     setupTracerAndTempDir $ \(tr, tmp) ->
