@@ -27,35 +27,26 @@ import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
-  DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
-  ScriptInfo (..),
   TransactionSubmitted (..),
-  TxOutWithWitness (..),
  )
 import Hydra.Cardano.Api (
   Coin (..),
   File (File),
   Key (SigningKey),
   PaymentKey,
-  PlutusScriptV2,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   Tx,
   TxId,
   UTxO,
-  fromPlutusScript,
   getVerificationKey,
   isVkTxOut,
   lovelaceToValue,
   makeShelleyKeyWitness,
   makeSignedTransaction,
-  mkScriptAddress,
-  mkTxOutDatumHash,
-  mkTxOutDatumInline,
   mkVkAddress,
   selectLovelace,
   signTx,
-  toScriptData,
   txOutAddress,
   txOutValue,
   utxoFromTx,
@@ -108,7 +99,6 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.QuickCheck (choose, generate, oneof)

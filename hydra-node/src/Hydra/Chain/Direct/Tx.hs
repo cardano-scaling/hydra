@@ -554,20 +554,22 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         }
 
   headOutputAfter =
+    traceShow headOutputBefore $
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   headDatumAfter =
-    mkTxOutDatumInline
-      Head.Closed
-        { snapshotNumber
-        , utxoHash = toBuiltin utxoHashBytes
-        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
-        , parties = openParties
-        , contestationDeadline
-        , contestationPeriod = openContestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , contesters = []
-        }
+    traceShow snapshotNumber $
+      mkTxOutDatumInline
+        Head.Closed
+          { snapshotNumber
+          , utxoHash = toBuiltin utxoHashBytes
+          , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
+          , parties = openParties
+          , contestationDeadline
+          , contestationPeriod = openContestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , contesters = []
+          }
 
   snapshotNumber = toInteger $ case closing of
     CloseWithInitialSnapshot{} -> 0
