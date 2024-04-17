@@ -12,7 +12,7 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO, (\\))
+import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -35,7 +35,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, nu
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, resize, sublistOf)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, resize)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -158,7 +158,7 @@ data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
 data TxResult = TxResult
-  { tx :: Maybe Tx
+  { tx :: Either String Tx
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
@@ -305,7 +305,7 @@ instance RunModel Model AppM where
         performTx =<< newContestTx actor (confirmedSnapshot snapshot)
       Fanout{snapshot} -> do
         newFanoutTx Alice snapshot >>= \case
-          Left _ -> pure $ TxResult{tx = Nothing, validationError = Nothing, observation = Tx.NoHeadTx}
+          Left err -> pure $ TxResult{tx = Left (show err), validationError = Nothing, observation = Tx.NoHeadTx}
           Right tx -> performTx tx
       Stop -> pure ()
 
@@ -326,8 +326,8 @@ instance RunModel Model AppM where
         _ -> fail "Expected Contest"
       Fanout{snapshot} -> do
         case result of
-          TxResult{tx = Nothing} -> fail "Failed to construct transaction"
-          TxResult{tx = Just tx} -> do
+          TxResult{tx = Left err} -> fail $ "Failed to construct transaction: " <> err
+          TxResult{tx = Right tx} -> do
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
@@ -351,12 +351,12 @@ instance RunModel Model AppM where
       Contest{} -> expectInvalid result
       Fanout{} -> do
         case result of
+          TxResult{validationError = Just _} -> fulfilled
           TxResult{validationError = Nothing} -> counterexample' "Expected to fail validation"
-          _ -> fulfilled
 
         case result of
-          TxResult{tx = Just _} -> counterexample' "Expected failure to build transaction"
-          _ -> fulfilled
+          TxResult{tx = Left _} -> fulfilled
+          TxResult{tx = Right _} -> counterexample' "Expected failure to build transaction"
       _ -> pure ()
 
 -- | Perform a transaction by evaluating and observing it. This updates the
@@ -370,7 +370,7 @@ performTx tx = do
     put $ adjustUTxO tx utxo
   pure
     TxResult
-      { tx = Just tx
+      { tx = Right tx
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
