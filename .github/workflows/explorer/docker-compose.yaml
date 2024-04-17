@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:8.9.0
+    image: ghcr.io/intersectmbo/cardano-node:8.10.0-pre
     volumes:
       - /srv/var/cardano/state-sanchonet:/data
     environment:
@@ -26,7 +26,5 @@ services:
       [ "--node-socket", "/data/node.socket"
       , "--testnet-magic", "4"
       , "--api-port", "8080"
-      # NOTE: Block in which current master scripts were published
-      , "--start-chain-from", "21830575.4fa28d6c6f6541fd5c73d715d69f3dd7751e7b4d7dc1213cb02d30c5a0db609b"
       ]
     restart: always
