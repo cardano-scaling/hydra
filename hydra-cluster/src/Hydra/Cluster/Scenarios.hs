@@ -50,6 +50,7 @@ import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getSnapshotUTxO,
   input,
   output,
   requestCommitTx,
@@ -620,15 +621,9 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 -- NOTE: This relies on zero-fee protocol parameters.
 respendUTxO :: HydraClient -> SigningKey PaymentKey -> NominalDiffTime -> IO ()
 respendUTxO client sk delay = do
-  utxo <- getUTxO
+  utxo <- getSnapshotUTxO client
   forever $ respend utxo
  where
-  getUTxO = do
-    send client $ input "GetUTxO" []
-    waitMatch 10 client $ \v -> do
-      guard $ v ^? key "tag" == Just "GetUTxOResponse"
-      v ^? key "utxo" >>= parseMaybe parseJSON
-
   vk = getVerificationKey sk
 
   respend utxo =

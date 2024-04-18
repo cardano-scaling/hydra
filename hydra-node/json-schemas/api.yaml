@@ -296,6 +296,7 @@ components:
     GetUTxO:
       title: GetUTxO
       description: |
+        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
         Asynchronously access the current UTxO set of the Hydra node. This eventually triggers a UTxO event from the server.
       payload:
         type: object
@@ -424,6 +425,7 @@ components:
     GetUTxOResponse:
       title: GetUTxOResponse
       description: |
+        DEPRECATED: Use the `GET /snapshot/utxo http endpoint` to query the confirmed UTxO set.
         Emitted as a result of a `GetUTxO` to reflect the current UTxO of the underlying node.
       payload:
         $ref: "api.yaml#/components/schemas/GetUTxOResponse"

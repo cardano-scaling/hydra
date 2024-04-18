@@ -83,6 +83,7 @@ import Hydra.Options
 import HydraNode (
   HydraClient (..),
   getMetrics,
+  getSnapshotUTxO,
   input,
   output,
   requestCommitTx,
@@ -822,8 +823,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
       snapshot <- v ^? key "snapshot"
       guard $ snapshot == expectedSnapshot
 
-    send n1 $ input "GetUTxO" []
-    waitFor hydraTracer 10 [n1] $ output "GetUTxOResponse" ["utxo" .= newUTxO, "headId" .= headId]
+    (toJSON <$> getSnapshotUTxO n1) `shouldReturn` toJSON newUTxO
 
     send n1 $ input "Close" []
     deadline <- waitMatch 3 n1 $ \v -> do
