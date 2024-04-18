@@ -12,7 +12,13 @@ export interface HeadsDataService {
 const HeadsDataContext: React.Context<HeadsDataService> =
   React.createContext({} as HeadsDataService)
 
-export const useHeadsDataContext = () => useContext(HeadsDataContext)
+export const useHeadsDataContext = () => {
+  const context = useContext(HeadsDataContext)
+  if (!context) {
+      throw new Error("useHeadsDataContext must be used within a HeadsDataProvider")
+  }
+  return context
+}
 
 export const HeadsDataProvider: React.FC<any> = ({
     children

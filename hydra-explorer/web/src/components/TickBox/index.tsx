@@ -2,6 +2,7 @@
 
 import { TickState } from "@/app/model"
 import useDataFetcher from "@/hooks/DataFetcher"
+import { useCardanoExplorer } from "@/providers/CardanoExplorer"
 import { useState } from "react"
 
 const TickBox = () => {
@@ -13,6 +14,8 @@ const TickBox = () => {
         setFetchedData: setTick,
         setError,
     })
+
+    const explorer = useCardanoExplorer()
 
     return (
         <div className="container mx-auto mt-8">
@@ -33,7 +36,7 @@ const TickBox = () => {
                                 <tr>
                                     <td className="truncate text-center border px-4 py-2">{tick?.blockNo}</td>
                                     <td className="truncate text-center border px-4 py-2">
-                                        <a href={`https://sancho.cexplorer.io/block/${tick?.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                        <a href={explorer.block(tick?.point.blockHash)} target="_blank" className="text-blue-300 hover:text-blue-500">
                                             {tick?.point.blockHash}
                                         </a>
                                     </td>

@@ -5,6 +5,7 @@ import { HeadState } from "@/app/model"
 import { useHeadsData } from "@/providers/HeadsDataProvider"
 import HeadDetails from "../HeadDetails"
 import { totalLovelaceValueLocked } from '@/utils'
+import { useCardanoExplorer } from '@/providers/CardanoExplorer'
 
 const HeadsTable: React.FC = () => {
     const { heads, error } = useHeadsData()
@@ -13,6 +14,8 @@ const HeadsTable: React.FC = () => {
     const handleRowClick = (head: HeadState) => {
         setSelectedHead(head)
     }
+
+    const explorer = useCardanoExplorer()
 
     return (
         <div className="container mx-auto mt-12 overflow-y-auto">
@@ -36,7 +39,7 @@ const HeadsTable: React.FC = () => {
                             {heads?.sort((a, b) => b.blockNo - a.blockNo).map((head, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
                                     <td className="truncate text-center border px-4 py-2">
-                                        <a href={`https://sancho.cexplorer.io/policy/${head.headId}/mint`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                        <a href={explorer.mintPolicy(head.headId)} target="_blank" className="text-blue-300 hover:text-blue-500">
                                             {head.headId}
                                         </a>
                                     </td>
@@ -44,7 +47,7 @@ const HeadsTable: React.FC = () => {
                                     <td className="truncate text-center border px-4 py-2">{head.point.slot}</td>
                                     <td className="truncate text-center border px-4 py-2">{head.blockNo}</td>
                                     <td className="truncate text-center border px-4 py-2">
-                                        <a href={`https://sancho.cexplorer.io/block/${head.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                                        <a href={explorer.block(head.point.blockHash)} target="_blank" className="text-blue-300 hover:text-blue-500">
                                             {head.point.blockHash}
                                         </a>
                                     </td>
