@@ -119,6 +119,21 @@
               ];
               treefmt = pkgs.treefmt;
             };
+            hydra-plutus = lu.tee-check {
+              name = "hydra-plutus";
+              src = self;
+              exe = "${packages.hydra-plutus-tests}/bin/tests";
+            };
+            plutus-cbor = lu.tee-check {
+              name = "plutus-cbor";
+              src = self;
+              exe = "${packages.plutus-cbor-tests}/bin/tests";
+            };
+            plutus-merkle-tree = lu.tee-check {
+              name = "plutus-merkle-tree";
+              src = self;
+              exe = "${packages.plutus-merkle-tree-tests}/bin/tests";
+            };
           };
 
           devShells = import ./nix/hydra/shell.nix {
