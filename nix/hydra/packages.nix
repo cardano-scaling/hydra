@@ -97,6 +97,11 @@ rec {
   hydra-explorer-static =
     musl64Pkgs.hydra-explorer.components.exes.hydra-explorer;
 
+  hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
+    export PATH=$PATH:${hydra-node}/bin
+    ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
+  '';
+
   hydra-explorer-web =
     import "${self}/hydra-explorer/web/hydra-explorer.nix" { inherit pkgs; };
 
