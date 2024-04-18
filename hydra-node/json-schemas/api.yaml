@@ -133,6 +133,25 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+  /snapshot/utxo:
+    servers:
+      - localhost-http
+    subscribe:
+      operationId: getConfirmedUTxO
+      description: |
+        Get latest confirmed UTxO.
+
+        Possible responses of this endpoint are:
+          * 200: UTxO of latest confirmed snapshot
+          * 404: when head was never open
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/UTxO"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
   /protocol-parameters:
     servers:
       - localhost-http

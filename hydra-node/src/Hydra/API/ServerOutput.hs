@@ -240,7 +240,7 @@ projectHeadStatus headStatus = \case
   HeadIsFinalized{} -> Final
   _other -> headStatus
 
--- | Projection function related to 'snapshotUtxo' field in 'Greetings' message.
+-- | Projection of latest confirmed snapshot UTxO.
 projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Hydra.Snapshot.utxo snapshot

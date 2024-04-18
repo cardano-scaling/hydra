@@ -10,13 +10,16 @@ import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (fromLedgerPParams, serialiseToTextEnvelope, shelleyBasedEra)
 import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
+import Hydra.Ledger (UTxOType)
 import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, shouldRespondWith, with)
-import Test.QuickCheck.Property (counterexample, forAll, property)
+import Test.Hspec.Wai.Internal (withApplication)
+import Test.QuickCheck.Property (counterexample, cover, forAll, property, withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -70,9 +73,11 @@ spec = do
 -- TODO: we should add more tests for other routes here (eg. /commit)
 apiServerSpec :: Spec
 apiServerSpec = do
-  with (return webServer) $ do
-    describe "API should respond correctly" $
-      describe "GET /protocol-parameters" $ do
+  describe "API should respond correctly" $ do
+    let getNothing = pure Nothing
+
+    describe "GET /protocol-parameters" $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getNothing) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -88,9 +93,31 @@ apiServerSpec = do
             `shouldRespondWith` 200
               { matchBody = matchJSON $ fromLedgerPParams shelleyBasedEra defaultPParams
               }
- where
-  webServer = httpApp nullTracer dummyChainHandle defaultPParams getHeadId
-  getHeadId = pure Nothing
+
+    describe "GET /snapshot/utxo" $ do
+      prop "responds correctly" $ \utxo -> do
+        let getUTxO = pure utxo
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
+          get "/snapshot/utxo"
+            `shouldRespondWith` case utxo of
+              Nothing -> 404
+              Just u -> 200{matchBody = matchJSON u}
+
+      prop "ok response matches schema" $ \(utxo :: UTxOType Tx) ->
+        withMaxSuccess 4
+          . cover 1 (null utxo) "empty"
+          . cover 1 (not $ null utxo) "non empty"
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            let getUTxO = pure $ Just utxo
+            withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
+              get "/snapshot/utxo"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
+                  }
 
 -- * Helpers
 
