@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { HeadState, HeadMember } from '@/app/model'
 import MemberCommitDetails from '../MemberCommitDetails'
+import { useCardanoExplorer } from '@/providers/CardanoExplorer'
 
 interface HeadDetailsProps {
     head: HeadState
@@ -36,6 +37,8 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
         }
     }, [onClose, showMemberCommitDetails])
 
+    const explorer = useCardanoExplorer()
+
     return (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
             <div className="bg-gray-800 p-6 rounded-lg shadow-xl relative overflow-auto max-h-screen">
@@ -50,7 +53,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Head ID</h3>
                         <p>
-                            <a href={`https://sancho.cexplorer.io/policy/${head.headId}/mint`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                            <a href={explorer.mintPolicy(head.headId)} target="_blank" className="text-blue-300 hover:text-blue-500">
                                 {head.headId}
                             </a>
                         </p>
@@ -58,9 +61,15 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Seed Tx In</h3>
                         <p>
-                            <a href={`https://sancho.cexplorer.io/tx/${head.seedTxIn}`} target="_blank" className="text-blue-300 hover:text-blue-500">
-                                {head.seedTxIn}
-                            </a>
+                            {head.seedTxIn && (
+                                <a
+                                    href={explorer.tx(head.seedTxIn)}
+                                    target="_blank"
+                                    className="text-blue-300 hover:text-blue-500"
+                                >
+                                    {head.seedTxIn}
+                                </a>
+                            )}
                         </p>
                     </div>
                     <div className="border p-4">
@@ -86,7 +95,7 @@ const HeadDetails: React.FC<HeadDetailsProps> = ({ head, onClose }) => {
                     <div className="border p-4">
                         <h3 className="text-lg font-semibold mb-2">Point</h3>
                         <p>
-                            Block Hash: <a href={`https://sancho.cexplorer.io/block/${head.point.blockHash}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                            Block Hash: <a href={explorer.block(head.point.blockHash)} target="_blank" className="text-blue-300 hover:text-blue-500">
                                 {head.point.blockHash}
                             </a> <br />
                             Slot: {head.point.slot}

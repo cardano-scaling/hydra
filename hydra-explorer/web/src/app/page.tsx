@@ -7,9 +7,11 @@ import TickBox from "@/components/TickBox"
 import HeadsTable from "@/components/HeadsTable"
 import { HeadsDataProvider } from "@/providers/HeadsDataProvider"
 import HeadsDashboard from "@/components/HeadsDashboard"
+import { CardanoExplorerProvider } from "@/providers/CardanoExplorer"
 
 
 export default function Home() {
+
   return (
     <main className="items-center">
       <div className="">
@@ -42,16 +44,20 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex items-start space-x-4">
-                <div>
-                  <TickBox />
-                </div>
-                <div>
-                  <IntervalSetter />
-                </div>
+              <CardanoExplorerProvider network={process.env.NETWORK_URL || "preview"}>
+                <div className="flex items-start space-x-4">
+                  <div>
+                    <TickBox />
+                  </div>
+                  <div>
+                    <IntervalSetter />
+                  </div>
 
-              </div>
-              <HeadsTable />
+                </div>
+                <HeadsTable />
+              </CardanoExplorerProvider>
+
+
             </HeadsDataProvider>
           </div>
 

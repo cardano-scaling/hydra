@@ -12,7 +12,13 @@ export interface IntervalSettingService {
 const IntervalContext: React.Context<IntervalSettingService> =
     React.createContext({} as IntervalSettingService)
 
-export const useIntervalContext = () => useContext(IntervalContext)
+export const useIntervalContext = () => {
+    const context = useContext(IntervalContext)
+    if (!context) {
+        throw new Error("useIntervalContext must be used within a IntervalSettingProvider")
+    }
+    return context
+}
 
 const IntervalSettingProvider: React.FC<any> = ({
     children

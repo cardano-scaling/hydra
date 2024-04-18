@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react'
 import { HeadMember } from '@/app/model'
+import { useCardanoExplorer } from '@/providers/CardanoExplorer'
 
 interface MemberCommitDetailsProps {
   member: HeadMember
@@ -22,6 +23,8 @@ const MemberCommitDetails: React.FC<MemberCommitDetailsProps> = ({ member, onClo
       window.removeEventListener('keydown', handleKeyPress)
     }
   }, [onClose])
+
+  const explorer = useCardanoExplorer()
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
@@ -50,12 +53,12 @@ const MemberCommitDetails: React.FC<MemberCommitDetailsProps> = ({ member, onClo
                     return (
                       <tr key={index} className={`${index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-600'}`}>
                         <td className="truncate text-center border px-4 py-2">
-                          <a href={`https://sancho.cexplorer.io/tx/${txId}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                          <a href={explorer.tx(txId)} target="_blank" className="text-blue-300 hover:text-blue-500">
                             {txId}
                           </a>#{txIx}
                         </td>
                         <td className="truncate text-center border px-4 py-2">
-                          <a href={`https://sancho.cexplorer.io/address/${commit.address}`} target="_blank" className="text-blue-300 hover:text-blue-500">
+                          <a href={explorer.address(commit.address)} target="_blank" className="text-blue-300 hover:text-blue-500">
                             {commit.address}
                           </a>
                         </td>
