@@ -27,6 +27,6 @@ services:
       , "--testnet-magic", "2"
       , "--api-port", "8080"
       # NOTE: Block in which current master scripts were published
-      , "--start-chain-from", "45411263.16b5173db4b7b4075dbb39a23564be7066082e9a581ba62566ca9946fb1c829e"
+      , "--start-chain-from", "45386581.4a362bfca7cf840575c17b6cbb531588bc8e907beb5a6a28890877fb16be1cd3"
       ]
     restart: always
