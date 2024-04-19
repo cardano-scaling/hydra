@@ -112,7 +112,7 @@ returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
 
   (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  retryOnExceptions tracer $ do
+  unless (null utxo) . retryOnExceptions tracer $ do
     let utxoValue = balance @Tx utxo
     let allLovelace = selectLovelace utxoValue
     tx <- sign senderSk <$> buildTxBody utxo faucetAddress
