@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.17.0] - UNRELEASED
+
+- Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand.
+  - Always responds with the last confirmed UTxO
+
+- _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
 
 ## [0.16.0] - 2024-04-03
 

@@ -186,6 +186,21 @@ requestCommitTx :: HydraClient -> UTxO -> IO Tx
 requestCommitTx client =
   requestCommitTx' client . fmap (`TxOutWithWitness` Nothing)
 
+-- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we usually
+-- avoid parsing responses using the same data types as the system under test,
+-- this parses the response as a 'UTxO' type as we often need to pick it apart.
+getSnapshotUTxO :: HydraClient -> IO UTxO
+getSnapshotUTxO HydraClient{hydraNodeId} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http "127.0.0.1" /: "snapshot" /: "utxo")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse UTxO))
+      (Req.port $ 4_000 + hydraNodeId)
+
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
   failAfter 3 $

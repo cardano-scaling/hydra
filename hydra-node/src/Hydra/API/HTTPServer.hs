@@ -36,9 +36,9 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadId (HeadId)
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Tracer, traceWith)
-import Network.HTTP.Types (status200, status400, status500)
+import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,
   Request (pathInfo, requestMethod),
@@ -150,19 +150,29 @@ instance Arbitrary TransactionSubmitted where
 
 -- | Hydra HTTP server
 httpApp ::
+  IsTx tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   -- | A means to get the 'HeadId' if initializing the Head.
-  (STM IO) (Maybe HeadId) ->
+  IO (Maybe HeadId) ->
+  -- | Get latest confirmed UTxO snapshot.
+  IO (Maybe (UTxOType tx)) ->
   Application
-httpApp tracer directChain pparams getInitializingHeadId request respond = do
+httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
+    ("GET", ["snapshot", "utxo"]) ->
+      -- XXX: Should ensure the UTxO is of the right head and the head is still
+      -- open. This is something we should fix on the "read model" side of the
+      -- server.
+      getConfirmedUTxO >>= \case
+        Nothing -> respond notFound
+        Just utxo -> respond $ okJSON utxo
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
         >>= handleDraftCommitUtxo directChain getInitializingHeadId
@@ -256,7 +266,7 @@ httpApp tracer directChain pparams getInitializingHeadId request respond = do
 handleDraftCommitUtxo ::
   Chain tx IO ->
   -- | A means to get the 'HeadId' if initializing the Head.
-  (STM IO) (Maybe HeadId) ->
+  IO (Maybe HeadId) ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
@@ -265,17 +275,17 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right DraftCommitTxRequest{utxoToCommit} -> do
-      atomically getInitializingHeadId >>= \case
+      getInitializingHeadId >>= \case
         Just headId -> do
           draftCommitTx headId (fromTxOutWithWitness <$> utxoToCommit) <&> \case
             Left e ->
               -- Distinguish between errors users can actually benefit from and
               -- other errors that are turned into 500 responses.
               case e of
-                CannotCommitReferenceScript -> return400 e
-                CommittedTooMuchADAForMainnet _ _ -> return400 e
-                UnsupportedLegacyOutput _ -> return400 e
-                walletUtxoErr@SpendingNodeUtxoForbidden -> return400 walletUtxoErr
+                CannotCommitReferenceScript -> badRequest e
+                CommittedTooMuchADAForMainnet _ _ -> badRequest e
+                UnsupportedLegacyOutput _ -> badRequest e
+                walletUtxoErr@SpendingNodeUtxoForbidden -> badRequest walletUtxoErr
                 _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
             Right commitTx ->
               responseLBS status200 [] (Aeson.encode $ DraftCommitTxResponse commitTx)
@@ -312,11 +322,17 @@ handleSubmitUserTx directChain body = do
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
     Right txToSubmit -> do
       try (submitTx txToSubmit) <&> \case
-        Left (e :: PostTxError Tx) -> return400 e
+        Left (e :: PostTxError Tx) -> badRequest e
         Right _ ->
           responseLBS status200 [] (Aeson.encode TransactionSubmitted)
  where
   Chain{submitTx} = directChain
 
-return400 :: IsChainState tx => PostTxError tx -> Response
-return400 = responseLBS status400 [] . Aeson.encode . toJSON
+badRequest :: IsChainState tx => PostTxError tx -> Response
+badRequest = responseLBS status400 [] . Aeson.encode . toJSON
+
+notFound :: Response
+notFound = responseLBS status404 [] ""
+
+okJSON :: ToJSON a => a -> Response
+okJSON = responseLBS status200 [] . Aeson.encode

@@ -592,23 +592,20 @@ head.
 
 First, we need to select a UTxO to spend. We can do this either by looking at
 the `utxo` field of the last `HeadIsOpen` or `SnapshotConfirmed` message, or
-query the API for the current UTxO set through the websocket session:
+query the API for the current UTxO set:
 
-```json title="Websocket API"
-{ "tag": "GetUTxO" }
+```shell
+curl -s 127.0.0.1:4001/snapshot/utxo | jq
 ```
 
 From the response, we would need to select a UTxO that is owned by `alice` to
-spend. We can do that also via the `snapshotUtxo` field in the `Greetings`
-message and using this `websocat` and `jq` invocation:
+spend:
 
 <!-- TODO: make this for both parties -->
 
 ```shell
-websocat -U "ws://0.0.0.0:4001?history=no" \
-  | jq "select(.tag == \"Greetings\") \
-    | .snapshotUtxo \
-    | with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
+curl -s 127.0.0.1:4001/snapshot/utxo \
+  | jq "with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
   > utxo.json
 ```
 
