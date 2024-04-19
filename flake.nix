@@ -100,7 +100,7 @@
 
         in
         rec {
-          legacyPackages = pkgs;
+          legacyPackages = hsPkgs;
 
           packages =
             hydraPackages //
