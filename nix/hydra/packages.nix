@@ -37,7 +37,7 @@ let
     # Using mkDerivation instead of runCommand to make sure to use the same
     # stdenv as the original drv (important to determine targetPlatform).
     drv.stdenv.mkDerivation {
-      name = "${exe}-with-revision";
+      name = "${exe}";
       phases = [ "buildPhase" ];
       buildPhase = ''
         set -e
