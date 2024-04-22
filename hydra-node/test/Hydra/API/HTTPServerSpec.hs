@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (UTxOType)
 import Hydra.Ledger.Cardano (Tx)
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -89,7 +90,7 @@ apiServerSpec = do
     let getNothing = pure Nothing
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp nullTracer dummyChainHandle defaultPParams getNothing getNothing) $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getNothing) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -108,7 +109,7 @@ apiServerSpec = do
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
           get "/snapshot/utxo"
             `shouldRespondWith` case utxo of
               Nothing -> 404
@@ -121,7 +122,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams getNothing getUTxO) $ do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -163,7 +164,7 @@ apiServerSpec = do
               _ -> property
         checkCoverage $
           coverage $
-            withApplication (httpApp nullTracer (failingChainHandle postTxError) defaultPParams getHeadId getNothing) $ do
+            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) defaultPParams getHeadId getNothing) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` expectedResponse
 

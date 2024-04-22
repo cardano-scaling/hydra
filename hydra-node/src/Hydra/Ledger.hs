@@ -52,6 +52,8 @@ class
   -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
   hashUTxO :: UTxOType tx -> ByteString
 
+  txSpendingUTxO :: UTxOType tx -> tx
+
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural
   deriving stock (Ord, Eq, Show, Generic)

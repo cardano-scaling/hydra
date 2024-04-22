@@ -22,8 +22,8 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
-import Hydra.Cardano.Api (LedgerEra, Tx)
-import Hydra.Chain (Chain (..))
+import Hydra.Cardano.Api (HasTextEnvelope, LedgerEra)
+import Hydra.Chain (Chain (..), IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -58,14 +58,16 @@ type ServerCallback tx m = ClientInput tx -> m ()
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
+  forall tx.
+  (IsChainState tx, HasTextEnvelope tx) =>
   IP ->
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput Tx) IO ->
+  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
-  Chain Tx IO ->
+  Chain tx IO ->
   PParams LedgerEra ->
-  ServerComponent Tx IO ()
+  ServerComponent tx IO ()
 withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO

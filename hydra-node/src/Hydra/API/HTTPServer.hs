@@ -20,7 +20,6 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToTextEnvelope,
   shelleyBasedEra,
-  txSpendingUTxO,
  )
 import Hydra.Chain (Chain (..), CommitBlueprintTx (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
@@ -129,13 +128,17 @@ instance Arbitrary TransactionSubmitted where
 
 -- | Hydra HTTP server
 httpApp ::
+  forall tx.
+  IsTx tx =>
+  IsChainState tx =>
+  HasTextEnvelope tx =>
   Tracer IO APIServerLog ->
-  Chain Tx IO ->
+  Chain tx IO ->
   PParams LedgerEra ->
   -- | A means to get the 'HeadId' if initializing the Head.
   IO (Maybe HeadId) ->
   -- | Get latest confirmed UTxO snapshot.
-  IO (Maybe (UTxOType Tx)) ->
+  IO (Maybe (UTxOType tx)) ->
   Application
 httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO request respond = do
   traceWith tracer $
@@ -169,7 +172,12 @@ httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO reques
 
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo ::
-  Chain Tx IO ->
+  forall tx.
+  IsTx tx =>
+  IsChainState tx =>
+  HasTextEnvelope tx =>
+  IsTx tx =>
+  Chain tx IO ->
   -- | A means to get the 'HeadId' if initializing the Head.
   IO (Maybe HeadId) ->
   -- | Request body.
@@ -178,7 +186,7 @@ handleDraftCommitUtxo ::
 handleDraftCommitUtxo directChain getInitializingHeadId body = do
   getInitializingHeadId >>= \case
     Just headId -> do
-      case Aeson.eitherDecode' body of
+      case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
         Left err ->
           pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
         Right FullCommitRequest{blueprintTx, utxo} -> do
@@ -187,7 +195,7 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
           let blueprintTx = txSpendingUTxO utxoToCommit
           draftCommit headId utxoToCommit blueprintTx
     -- XXX: This is not really an internal server error
-    Nothing -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError Tx))
+    Nothing -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   draftCommit headId lookupUTxO blueprintTx =
     draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} <&> \case
@@ -205,7 +213,9 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
-  Chain Tx IO ->
+  forall tx.
+  IsTx tx =>
+  Chain tx IO ->
   -- | Request body.
   LBS.ByteString ->
   IO Response

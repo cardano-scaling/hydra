@@ -118,6 +118,8 @@ instance IsTx Tx where
   -- NOTE: See note from `Head.hashTxOuts`.
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
+  txSpendingUTxO = Hydra.Cardano.Api.txSpendingUTxO
+
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
 
