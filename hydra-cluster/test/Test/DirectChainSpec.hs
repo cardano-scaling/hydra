@@ -27,7 +27,6 @@ import Hydra.Cardano.Api (
   lovelaceToValue,
   signTx,
   txOutValue,
-  txSpendingUTxO,
   unFile,
  )
 import Hydra.Chain (

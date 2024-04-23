@@ -12,7 +12,6 @@ module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
 
-import Cardano.Api.HasTypeProxy (HasTypeProxy (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (
   object,
@@ -22,7 +21,6 @@ import Data.Aeson (
  )
 import Data.List (maximum)
 import Data.Set qualified as Set
-import Hydra.Cardano.Api (HasTextEnvelope, SerialiseAsCBOR, textEnvelopeType)
 import Hydra.Chain (ChainStateType, IsChainState (..))
 import Hydra.Ledger (
   ChainSlot (..),
@@ -57,7 +55,10 @@ instance IsTx SimpleTx where
 
   txSpendingUTxO utxo =
     SimpleTx
-       {txSimpleId = 0, txInputs = utxo, txOutputs = mempty}
+      { txSimpleId = 0
+      , txInputs = utxo
+      , txOutputs = mempty
+      }
 
 instance Arbitrary SimpleTx where
   shrink = genericShrink
@@ -88,15 +89,6 @@ instance FromCBOR SimpleTx where
       <$> fromCBOR
       <*> fromCBOR
       <*> fromCBOR
-
-instance HasTextEnvelope SimpleTx where
-  textEnvelopeType _ = "SimpleTx"
-
-instance HasTypeProxy SimpleTx where
-  data AsType SimpleTx = AsSimpleTx
-  proxyToAsType _ = AsSimpleTx
-
-deriving instance SerialiseAsCBOR SimpleTx
 
 -- * Simple chain state
 

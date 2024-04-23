@@ -1845,8 +1845,6 @@ components:
         {
           "blueprintTx": {
             "cborHex": "...",
-            "description": "",
-            "txId": "f3400aaa72812d275ae05f6133da8dbdeea772137c1d943dd150495ee77ffa64",
             "type": "Tx BabbageEra"
           },
           "utxo": {

@@ -338,7 +338,7 @@ commit ::
   HeadId ->
   -- | Spendable 'UTxO'
   UTxO ->
-  -- | 'UTxO' to commit.
+  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys
   UTxO ->
   Either (PostTxError Tx) Tx
 commit ctx headId spendableUTxO lookupUTxO =

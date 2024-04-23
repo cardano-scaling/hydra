@@ -12,13 +12,9 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Cardano.Api (
-  HasTextEnvelope,
   LedgerEra,
   Tx,
-  deserialiseFromTextEnvelope,
   fromLedgerPParams,
-  proxyToAsType,
-  serialiseToTextEnvelope,
   shelleyBasedEra,
  )
 import Hydra.Chain (Chain (..), CommitBlueprintTx (..), IsChainState, PostTxError (..), draftCommitTx)
@@ -41,18 +37,13 @@ newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   }
   deriving stock (Generic)
 
-deriving stock instance IsTx tx => Show (DraftCommitTxResponse tx)
+deriving stock instance Show tx => Show (DraftCommitTxResponse tx)
 
-instance HasTextEnvelope tx => ToJSON (DraftCommitTxResponse tx) where
-  toJSON (DraftCommitTxResponse tx) =
-    toJSON $ serialiseToTextEnvelope (Just "Hydra commit transaction") tx
+instance IsTx tx => ToJSON (DraftCommitTxResponse tx) where
+  toJSON (DraftCommitTxResponse tx) = toJSON tx
 
-instance HasTextEnvelope tx => FromJSON (DraftCommitTxResponse tx) where
-  parseJSON v = do
-    env <- parseJSON v
-    case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
-      Left e -> fail $ show e
-      Right tx -> pure $ DraftCommitTxResponse tx
+instance IsTx tx => FromJSON (DraftCommitTxResponse tx) where
+  parseJSON v = DraftCommitTxResponse <$> parseJSON v
 
 instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
   arbitrary = genericArbitrary
@@ -70,10 +61,10 @@ data DraftCommitTxRequest tx
       }
   deriving stock (Generic)
 
-deriving stock instance IsTx tx => Eq (DraftCommitTxRequest tx)
-deriving stock instance IsTx tx => Show (DraftCommitTxRequest tx)
+deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DraftCommitTxRequest tx)
+deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequest tx)
 
-instance IsTx tx => ToJSON (DraftCommitTxRequest tx) where
+instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
     FullCommitRequest{blueprintTx, utxo} ->
       object
@@ -83,7 +74,7 @@ instance IsTx tx => ToJSON (DraftCommitTxRequest tx) where
     SimpleCommitRequest{utxoToCommit} ->
       toJSON utxoToCommit
 
-instance IsTx tx => FromJSON (DraftCommitTxRequest tx) where
+instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest tx) where
   parseJSON v = fullVariant v <|> simpleVariant v
    where
     fullVariant = withObject "FullCommitRequest" $ \o -> do
@@ -129,9 +120,7 @@ instance Arbitrary TransactionSubmitted where
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
-  IsTx tx =>
   IsChainState tx =>
-  HasTextEnvelope tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
@@ -173,10 +162,7 @@ httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO reques
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo ::
   forall tx.
-  IsTx tx =>
   IsChainState tx =>
-  HasTextEnvelope tx =>
-  IsTx tx =>
   Chain tx IO ->
   -- | A means to get the 'HeadId' if initializing the Head.
   IO (Maybe HeadId) ->
@@ -214,7 +200,7 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
   forall tx.
-  IsTx tx =>
+  FromJSON tx =>
   Chain tx IO ->
   -- | Request body.
   LBS.ByteString ->

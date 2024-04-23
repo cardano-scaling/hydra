@@ -22,7 +22,7 @@ import Hydra.API.ServerOutput (
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
-import Hydra.Cardano.Api (HasTextEnvelope, LedgerEra)
+import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..), IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
@@ -59,7 +59,7 @@ type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
 withAPIServer ::
   forall tx.
-  (IsChainState tx, HasTextEnvelope tx) =>
+  IsChainState tx =>
   IP ->
   PortNumber ->
   Party ->

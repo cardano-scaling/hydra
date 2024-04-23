@@ -374,8 +374,8 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
           let unsignedTx = makeSignedTransaction [] body
           let clientPayload =
                 Aeson.object
-                  [ "blueprintTx" Aeson..= toJSON unsignedTx
-                  , "utxo" Aeson..= toJSON utxoToCommit
+                  [ "blueprintTx" .= unsignedTx
+                  , "utxo" .= utxoToCommit
                   ]
           res <-
             runReq defaultHttpConfig $
@@ -383,10 +383,10 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
                 POST
                 (http "127.0.0.1" /: "commit")
                 (ReqBodyJson clientPayload)
-                (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+                (Proxy :: Proxy (JsonResponse Tx))
                 (port $ 4000 + hydraNodeId)
 
-          let DraftCommitTxResponse{commitTx} = responseBody res
+          let commitTx = responseBody res
           let signedTx = signTx someExternalSk commitTx
           submitTx node signedTx
 

@@ -73,14 +73,6 @@ cardano-cli transaction build-raw \
   --out-file tx.json
 ```
 
-We will also need pre-calculated tx-id:
-
-```shell
-cardano-cli transaction txid --tx-body-file tx.json
-
-3e94dc4236b76cfc543e662e80b93adfa11aa9b75535dad2d0c8d59963b52f9c
-```
-
 So now we have the _blueprint_ transaction present in the `tx.json` file.
 
 In order to have `hydra-node` give us a draft commit transaction we need to:
@@ -142,7 +134,6 @@ This is the valid json request:
   "blueprintTx": {
     "cborHex": "84a3008182582014ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a900018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a007a12000200a0f5f6",
     "description": "",
-    "txId": "3e94dc4236b76cfc543e662e80b93adfa11aa9b75535dad2d0c8d59963b52f9c",
     "type": "Tx BabbageEra"
   },
   "utxo": {
