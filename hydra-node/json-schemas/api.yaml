@@ -1838,7 +1838,7 @@ components:
         - utxo
       properties:
         blueptintTx:
-          $ref: "api.yaml#/components/schemas/Tx"
+          $ref: "api.yaml#/components/schemas/Transaction"
         utxo:
           $ref: "api.yaml#/components/schemas/UTxO"
       example:
