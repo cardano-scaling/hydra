@@ -213,31 +213,6 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
     ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
     _otherScriptExecutionError -> False
 
--- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
-propTransactionEvaluates :: (Tx, UTxO) -> Property
-propTransactionEvaluates (tx, lookupUTxO) =
-  case evaluateTx tx lookupUTxO of
-    Left err ->
-      property False
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Phase-1 validation failed: " <> show err)
-    Right redeemerReport ->
-      all isRight (Map.elems redeemerReport)
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Redeemer report: " <> show redeemerReport)
-        & counterexample "Phase-2 validation failed"
-
--- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
-propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
-propTransactionFailsEvaluation (tx, lookupUTxO) =
-  case evaluateTx tx lookupUTxO of
-    Left _ -> property True
-    Right redeemerReport ->
-      any isLeft redeemerReport
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Redeemer report: " <> show redeemerReport)
-        & counterexample "Phase-2 validation should have failed"
-
 -- * Mutations
 
 -- | Existential wrapper 'SomeMutation' and some label type.

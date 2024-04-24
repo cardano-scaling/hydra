@@ -26,7 +26,7 @@ import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
-import Hydra.Chain.Direct.Contract.Mutation (propMutation, propTransactionEvaluates)
+import Hydra.Chain.Direct.Contract.Mutation (propMutation)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 import Hydra.Contract.Commit qualified as Commit
@@ -44,6 +44,7 @@ import Hydra.Ledger.Cardano (
   genUTxOWithSimplifiedAddresses,
   shrinkUTxO,
  )
+import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()

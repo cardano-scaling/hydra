@@ -14,7 +14,6 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -25,6 +24,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   getTxBody,
   getTxId,
+  txIns',
  )
 import Hydra.Chain (
   Chain (..),
@@ -32,6 +32,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   ChainStateType,
+  CommitBlueprintTx (..),
   HeadParameters (..),
   IsChainState,
   OnChainTx (..),
@@ -157,19 +158,20 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , -- Handle that creates a draft commit tx using the user utxo.
+    , -- Handle that creates a draft commit tx using the user utxo and a _blueprint_ transaction.
       -- Possible errors are handled at the api server level.
-      draftCommitTx = \headId utxoToCommit -> do
+      draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         walletUtxos <- atomically getUTxO
         let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
-        let userTxIns = Set.toList $ UTxO.inputSet utxoToCommit
+        let CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
+        let userTxIns = txIns' blueprintTx
         let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
         -- prevent trying to spend internal wallet's utxo
         if null matchedWalletUtxo
           then
-            traverse (finalizeTx wallet ctx spendableUTxO (fst <$> utxoToCommit)) $
-              commit' ctx headId spendableUTxO utxoToCommit
+            traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
+              commit' ctx headId spendableUTxO commitBlueprintTx
           else pure $ Left SpendingNodeUtxoForbidden
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
@@ -200,7 +202,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             } ::
             PostTxError Tx
         )
-    Left e -> do
+    Left e ->
       throwIO
         ( InternalWalletError
             { headUTxO

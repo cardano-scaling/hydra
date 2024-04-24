@@ -12,7 +12,7 @@ info:
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
     See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
 
-    Users can also use the HTTP endpoint to draft a commit tx using their own utxo.
+    Users can also use the HTTP endpoint to draft a commit tx using their own utxo, potentially including a blueprint tx as part of the draft.
 
     > By default, a Hydra node listens for TCP WebSocket connections on port `tcp/4001` . This can be changed using `--port`.
 
@@ -122,7 +122,6 @@ channels:
       description: |
         Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
-          * CannotCommitReferenceScript - 400 bad request
           * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
           * SpendingNodeUtxoForbidden - 400 bad request
@@ -469,56 +468,7 @@ components:
         Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
         Script utxos must provide a witness, regulars can omit this.
       payload:
-        $ref: "api.yaml#/components/schemas/UTxOWithWitness"
-        example:
-          {
-            "0406060506030602040508060506060306050406020207000508040704040203#89": {
-              "address": "addr_test1vz66ue36465w2qq40005h2hadad6pnjht8mu6sgplsfj74q9pm4f4",
-              "value": {
-                "lovelace": 7620669
-              }
-            },
-            "6f066e0f6ba373c0ea7d8b47aefd7e14d1a781698cd052d0254afe65e039b083#0": {
-              "address": "addr_test1wqv4z4hc0u5e2c3sppfdu8ckn82hfegpkjagsm4t8ttvlycg9mkca",
-              "datum": null,
-              "datumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
-              "inlineDatum": null,
-              "referenceScript": null,
-              "value": {
-                "lovelace": 1034400
-              },
-              "witness": {
-                "datum": "02",
-                "plutusV2Script": {
-                  "cborHex": "484701000022200101",
-                  "description": "",
-                  "type": "PlutusScriptV2"
-                },
-                "redeemer": "01"
-              }
-            },
-            "87a0c1e14be2cd8c385b6fe5a40b024b7201da9df375542029d91ccaba01ac82#0": {
-                "address": "addr_test1wqv4z4hc0u5e2c3sppfdu8ckn82hfegpkjagsm4t8ttvlycg9mkca",
-                "datum": null,
-                "inlineDatum": {
-                  "int": 2
-                },
-                "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
-                "referenceScript": null,
-                "value": {
-                  "lovelace": 905100
-                },
-                "witness": {
-                  "datum": null,
-                  "plutusV2Script": {
-                    "cborHex": "484701000022200101",
-                    "description": "",
-                    "type": "PlutusScriptV2"
-                  },
-                  "redeemer": "01"
-                }
-              }
-          }
+        $ref: "api.yaml#/components/schemas/DraftCommitTxRequest"
 
     DraftCommitTxResponse:
       title: DraftCommitTxResponse
@@ -1508,17 +1458,6 @@ components:
               enum: ["UnsupportedLegacyOutput"]
             byronAddress:
               $ref: "api.yaml#/components/schemas/ByronAddress"
-        - title: CannotCommitReferenceScript
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          description: >-
-            The UTxO provided to commit contains a reference script, which is currently not supported.
-          properties:
-            tag:
-              type: string
-              enum: ["CannotCommitReferenceScript"]
         - title: NoSeedInput
           type: object
           additionalProperties: false
@@ -1845,66 +1784,6 @@ components:
               contentEncoding: base16
             - type: "null"
 
-    TxOutWithWitness:
-      type: object
-      description: |
-        A single transaction output with optional witness to spend it.
-        Some notes related to witness field:
-          - When it is present we are treating the output as a script output.
-          - When `inlineDatum` is present we ignore the `witness.datum` field.
-      required:
-      - address
-      - value
-      additionalProperties: false
-      properties:
-        address:
-          $ref: "api.yaml#/components/schemas/Address"
-        value:
-          $ref: "api.yaml#/components/schemas/Value"
-        referenceScript:
-          oneOf:
-            - $ref: "api.yaml#/components/schemas/Script"
-            - type: "null"
-        datumhash:
-          oneOf:
-            - type: string
-              contentEncoding: base16
-            - type: "null"
-        inlineDatum:
-          oneOf:
-            - type: object
-            - type: "null"
-        inlineDatumhash:
-          oneOf:
-            - type: string
-              contentEncoding: base16
-            - type: "null"
-        datum:
-          oneOf:
-            - type: string
-              contentEncoding: base16
-            - type: "null"
-        witness:
-          oneOf:
-            - $ref: "api.yaml#/components/schemas/Witness"
-            - type: "null"
-
-    Witness:
-      type: object
-      description: |
-        A script witness
-      required:
-      - datum
-      - plutusV2Script
-      - redeemer
-      additionalProperties: false
-      properties:
-        datum:
-          type: string
-        plutusV2Script:
-          $ref: "api.yaml#/components/schemas/PlutusV2Script"
-        redeemer:
-          type: string
     HydraNodeVersion:
       type: string
       description: |
@@ -1945,50 +1824,55 @@ components:
             }
         }
 
-    UTxOWithWitness:
+    DraftCommitTxRequest:
       type: object
-      propertyNames:
-        pattern: "^[0-9a-f]{64}#[0-9]+$"
       items:
-        $ref: "api.yaml#/components/schemas/TxOutWithWitness"
+        oneof:
+          - $ref: "api.yaml#/components/schemas/UTxO"
+          - $ref: "api.yaml#/components/schemas/FullCommitRequest"
+
+    FullCommitRequest:
+      type: object
+      required:
+        - blueprintTx
+        - utxo
+      properties:
+        blueptintTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
       example:
         {
-            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
-                "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
-                "value": {
-                    "lovelace": 7620669
+          "blueprintTx": {
+            "cborHex": "...",
+            "type": "Tx BabbageEra"
+          },
+          "utxo": {
+            "e44bdebd6bd7f54f081b5945a5e30521833fd3944f4f4d13de309d36ac5f9615#80": {
+              "address": "addr1zyhxu2ejxercjqwz3yzv3nx5qjup37n5x2eskf4kna2rpdcqdjxnpvxsxr0plavuw385mqg2ts0zlqkm9r879kgn5vysfkfu4t",
+              "datum": null,
+              "datumhash": "aa218e748e45df83c4fe14759280170edcce8f1c45d52d555b8038b50d6cd29e",
+              "inlineDatum": null,
+              "referenceScript": {
+                "script": {
+                  "cborHex": "...",
+                  "description": "",
+                  "type": "SimpleScript"
                 },
-                "witness": {
-                  "datum": "02",
-                  "plutusV2Script": {
-                      "cborHex": "420606",
-                      "description": "",
-                      "type": "PlutusScriptV2"
-                  },
-                  "redeemer": "21"
-                }
+                "scriptLanguage": "SimpleScriptLanguage"
+              },
+              "value": {
+                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                  "32": 2
+                },
+                "lovelace": 1
+              }
             }
+          }
         }
 
     # END OF SERVER OUTPUT SCHEMAS
 
-    ScriptInfo:
-      description: |
-        Script data needed to spend user provided utxo.
-        If datum field is ommitted we expect inline datum to be present.
-      required:
-      - redeemer
-      - plutusV2Script
-      payload:
-        type: object
-        properties:
-          redeemer:
-            $ref: "api.yaml#/components/schemas/Cbor"
-          datum:
-            $ref: "api.yaml#/components/schemas/Cbor"
-          plutusV2Script:
-            type: object
-            $ref: "api.yaml#/components/schemas/PlutusV2Script"
 
     PlutusV2Script:
       type: object

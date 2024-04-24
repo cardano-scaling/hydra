@@ -59,6 +59,7 @@ import Hydra.Cardano.Api (
   toLedgerTx,
   toLedgerUTxO,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
@@ -75,7 +76,7 @@ import Ouroboros.Consensus.HardFork.History (
 import PlutusCore qualified as PLC
 import PlutusLedgerApi.Common (mkTermToEvaluate)
 import PlutusLedgerApi.Common qualified as Plutus
-import Test.QuickCheck (choose)
+import Test.QuickCheck (Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
 import UntypedPlutusCore qualified as UPLC
@@ -350,6 +351,35 @@ slotLength = mkSlotLength 1
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
+
+-- * Properties
+
+-- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
+propTransactionEvaluates :: (Tx, UTxO) -> Property
+propTransactionEvaluates (tx, lookupUTxO) =
+  case evaluateTx tx lookupUTxO of
+    Left err ->
+      property False
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      all isRight (Map.elems redeemerReport)
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample "Phase-2 validation failed"
+
+-- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
+propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
+propTransactionFailsEvaluation (tx, lookupUTxO) =
+  case evaluateTx tx lookupUTxO of
+    Left _ -> property True
+    Right redeemerReport ->
+      any isLeft redeemerReport
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample "Phase-2 validation should have failed"
+
+-- * Generators
 
 genPointInTime :: Gen (SlotNo, UTCTime)
 genPointInTime = do

@@ -19,12 +19,6 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
-  CtxUTxO,
-  Tx,
-  TxOut,
-  UTxO',
-  WitCtxTxIn,
-  Witness,
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Environment (Environment (..))
@@ -137,8 +131,6 @@ data PostTxError tx
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
-  | -- | Comitting reference scripts is not supported right now.
-    CannotCommitReferenceScript
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel
   | NoFuelUTXOFound
@@ -234,6 +226,11 @@ class
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot
 
+-- | _Blueprint/Draft_ transaction paired with the 'UTxO' which resolves it's inputs.
+-- The transaction inputs are committed to a `Head` and the 'lookupUTxO' is expected
+-- to contain these inputs.
+data CommitBlueprintTx tx = CommitBlueprintTx {lookupUTxO :: UTxOType tx, blueprintTx :: tx}
+
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
   { postTx :: MonadThrow m => PostChainTx tx -> m ()
@@ -247,11 +244,12 @@ data Chain tx m = Chain
   , draftCommitTx ::
       MonadThrow m =>
       HeadId ->
-      UTxO' (TxOut CtxUTxO, Witness WitCtxTxIn) ->
-      m (Either (PostTxError Tx) Tx)
+      CommitBlueprintTx tx ->
+      m (Either (PostTxError tx) tx)
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
-  -- information to spend from a script. Errors are handled at the call site.
-  , submitTx :: MonadThrow m => Tx -> m ()
+  -- a _blueprint_ transaction which spends these outputs.
+  -- Errors are handled at the call site.
+  , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --
   -- Throws at least 'PostTxError'.

@@ -5,15 +5,13 @@ module Hydra.Chain.Direct.Contract.Commit where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
--- Arbitrary VerificationKey instance
-import Hydra.Chain.Direct.TxSpec ()
-
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL)
 import Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
 import Control.Lens (mapped, (%~))
 import Data.List qualified as List
 import Data.Maybe (fromJust)
+import Hydra.Chain (CommitBlueprintTx (..))
 import Hydra.Chain.Direct.Contract.Gen (genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -32,6 +30,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Ledger.Cardano (
   genAddressInEra,
+  genSigningKey,
   genUTxOAdaOnlyOfSize,
   genValue,
   genVerificationKey,
@@ -48,7 +47,7 @@ healthyCommitTx =
   (tx', lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyIntialTxIn, toUTxOContext healthyInitialTxOut)
+    UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
 
@@ -57,14 +56,16 @@ healthyCommitTx =
   setOutputsMinValue =
     bodyTxL . outputsTxBodyL . mapped %~ setMinCoinTxOut Fixture.pparams
 
+  blueprintTx = txSpendingUTxO healthyCommittedUTxO
+
   tx =
     commitTx
       Fixture.testNetworkId
       scriptRegistry
       (mkHeadId Fixture.testPolicyId)
       commitParty
-      (healthyCommittedUTxO <&> (,KeyWitness KeyWitnessForSpending))
-      (healthyIntialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
+      CommitBlueprintTx{lookupUTxO = healthyCommittedUTxO, blueprintTx}
+      (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -73,11 +74,14 @@ healthyCommitTx =
   commitParty :: Party
   commitParty = generateWith arbitrary 42
 
-commitVerificationKey :: VerificationKey PaymentKey
-commitVerificationKey = generateWith arbitrary 42
+commitSigningKey :: SigningKey PaymentKey
+commitSigningKey = genSigningKey `generateWith` 42
 
-healthyIntialTxIn :: TxIn
-healthyIntialTxIn = generateWith arbitrary 42
+commitVerificationKey :: VerificationKey PaymentKey
+commitVerificationKey = getVerificationKey commitSigningKey
+
+healthyInitialTxIn :: TxIn
+healthyInitialTxIn = generateWith arbitrary 42
 
 healthyInitialTxOut :: TxOut CtxTx
 healthyInitialTxOut =
@@ -122,7 +126,7 @@ genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (Just $ toErrorCode WrongHeadIdInCommitDatum) NonContinuousHeadId <$> do
-        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyInitialTxIn))
         let mutateHeadId =
               modifyInlineDatum $
                 \((party, mCommit, _headId) :: Commit.DatumType) ->
@@ -148,7 +152,7 @@ genCommitMutation (tx, _utxo) =
             [ RemoveInput removedTxIn
             , ChangeOutput 0 mutatedCommitTxOut
             , ChangeInput
-                healthyIntialTxIn
+                healthyInitialTxIn
                 (toUTxOContext healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
             ]
@@ -158,12 +162,12 @@ genCommitMutation (tx, _utxo) =
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
       SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) UsePTFromDifferentHead <$> do
-        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyIntialTxIn))
+        otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyInitialTxIn))
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId commitTxOut)
             , ChangeInput
-                healthyIntialTxIn
+                healthyInitialTxIn
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
             ]

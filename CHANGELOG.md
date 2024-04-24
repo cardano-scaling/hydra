@@ -15,6 +15,14 @@ changes.
 
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
 
+## [0.17.0] - UNRELEASED
+
+- **BREAKING** `hydra-node` `/commit` enpoint now also accepts a _blueprint/draft_
+  transaction together with the `UTxO` which is spent in this transaction. `hydra-node` can
+  still be used like before if the provided `UTxO` is at public key address. In order to spend
+  from a script `UTxO`, and also unlock more involved use-cases, users need to provide additional
+  unsigned transaction that correctly specifies required data (like redeemers, validity ranges etc.)
+
 ## [0.16.0] - 2024-04-03
 
 - Tested with `cardano-node 8.9.0`, `cardano-cli 8.20.3.0` and `mithril 2412.0`.

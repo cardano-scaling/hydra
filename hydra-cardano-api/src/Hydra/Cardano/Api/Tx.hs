@@ -67,7 +67,8 @@ import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
-import Hydra.Cardano.Api.TxIn (mkTxIn)
+import Data.Set qualified as Set
+import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
 
 -- * Extras
 
@@ -173,6 +174,17 @@ signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
   witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
+
+-- | Create a transaction spending all given `UTxO`.
+txSpendingUTxO :: UTxO -> Tx Era
+txSpendingUTxO utxo =
+  fromLedgerTx $
+    mkBasicTx
+      ( mkBasicTxBody
+          & inputsTxBodyL .~ (toLedgerTxIn `Set.map` inputs)
+      )
+ where
+  inputs = UTxO.inputSet utxo
 
 -- | Get the UTxO that are produced by some transaction.
 -- XXX: Defined here to avoid cyclic module dependency

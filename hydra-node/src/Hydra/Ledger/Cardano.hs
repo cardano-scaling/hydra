@@ -15,7 +15,9 @@ import Hydra.Ledger.Cardano.Builder
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
-import Cardano.Ledger.Api (updateTxBodyL)
+import Cardano.Ledger.Api (
+  updateTxBodyL,
+ )
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -114,6 +116,8 @@ instance IsTx Tx where
 
   -- NOTE: See note from `Head.hashTxOuts`.
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
+
+  txSpendingUTxO = Hydra.Cardano.Api.txSpendingUTxO
 
 instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
@@ -365,7 +369,6 @@ genTxOut =
         [ fromLedgerTxOut <$> arbitrary
         , notMultiAsset . fromLedgerTxOut <$> arbitrary
         ]
-
   notMultiAsset =
     modifyTxOutValue (lovelaceToValue . selectLovelace)
 

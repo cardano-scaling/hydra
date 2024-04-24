@@ -250,7 +250,21 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 
 ## External commits
 
-While the `hydra-node` holds funds to fuel protocol transactions, any wallet can be used to commit funds into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify multiple UTxO (belonging to public key or script address) and returns a draft transaction. This transaction is already balanced and all fees are paid by the funds held by the `hydra-node`, but is missing witnesses for the public key outputs to commit. Hence, an integrated wallet would need to sign this transaction and submit it to the Cardano network. See the [api documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+While the `hydra-node` holds funds to fuel protocol transactions, any wallet can be used to commit funds into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify either:
+ - a `UTxO` set of outputs to commit (belonging to public keys) or
+ - a _blueprint_ transaction together with the `UTxO` which resolves it.
+
+and eventually returns a commit transaction.
+
+This transaction is already balanced and all fees are paid by the funds held by the `hydra-node`. Hence, an integrated wallet would need to sign this transaction and submit it to the Cardano network. See the [api documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+
+If the user wants to use some `UTxO` they own and commit it to a `Head` then they need to send the appropriate JSON representation of said `UTxO` to the `/commit` API endpoint.
+
+Using a _blueprint_ transaction with `/commit` allows for more flexibility since `hydra-node` only adds needed commit transaction data without removing any additional information specified in the _blueprint_ transaction. For example, any present reference inputs, redeemers or validity ranges will be kept.
+
+> Note: It is important to note that any **outputs** of a blueprint transaction will not be considered, only inputs are used to commit funds to the `Head`. `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
+
+You can take a look at the small example on how to commit to a `Head` using blueprint transaction [here](/docs/blueprint_transaction.md)
 
 ## Generating transactions for the WebSocket API
 

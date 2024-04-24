@@ -53,6 +53,13 @@ instance IsTx SimpleTx where
   balance = Set.size
   hashUTxO = toStrict . foldMap (serialise . unSimpleTxIn)
 
+  txSpendingUTxO utxo =
+    SimpleTx
+      { txSimpleId = 0
+      , txInputs = utxo
+      , txOutputs = mempty
+      }
+
 instance Arbitrary SimpleTx where
   shrink = genericShrink
   arbitrary = genericArbitrary

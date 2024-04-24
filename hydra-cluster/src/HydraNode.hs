@@ -20,11 +20,10 @@ import Data.Aeson.Types (Pair)
 import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as T
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), TxOutWithWitness (..))
+import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (HydraKey)
-import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
@@ -168,23 +167,19 @@ waitForAll tracer delay nodes expected = do
         _ ->
           tryNext c msgs stillExpected
 
--- | Create a commit tx using the hydra-node for later submission
-requestCommitTx' :: HydraClient -> UTxO' TxOutWithWitness -> IO Tx
-requestCommitTx' HydraClient{hydraNodeId} utxos =
+-- | Helper to make it easy to obtain a commit tx using some wallet utxo.
+-- Create a commit tx using the hydra-node for later submission.
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
+requestCommitTx HydraClient{hydraNodeId} utxos =
   runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
     Req.req
       POST
       (Req.http "127.0.0.1" /: "commit")
-      (ReqBodyJson $ DraftCommitTxRequest utxos)
-      (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
+      (ReqBodyJson $ SimpleCommitRequest @Tx utxos)
+      (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port $ 4_000 + hydraNodeId)
-
--- | Helper to make it easy to obtain a commit tx using a wallet utxo
-requestCommitTx :: HydraClient -> UTxO -> IO Tx
-requestCommitTx client =
-  requestCommitTx' client . fmap (`TxOutWithWitness` Nothing)
 
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we usually
 -- avoid parsing responses using the same data types as the system under test,

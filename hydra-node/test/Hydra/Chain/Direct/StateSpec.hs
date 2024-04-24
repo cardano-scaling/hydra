@@ -43,8 +43,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   applyMutation,
   modifyInlineDatum,
-  propTransactionEvaluates,
-  propTransactionFailsEvaluation,
   replaceHeadId,
   replacePolicyIdWith,
  )
@@ -111,7 +109,6 @@ import Hydra.Ledger.Cardano (
   genTxOut,
   genTxOutAdaOnly,
   genTxOutByron,
-  genTxOutWithReferenceScript,
   genUTxO1,
   genUTxOSized,
  )
@@ -119,6 +116,8 @@ import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
   genValidityBoundsFromContestationPeriod,
   maxTxSize,
+  propTransactionEvaluates,
+  propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
@@ -272,16 +271,6 @@ spec = parallel $ do
         pure $
           case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left UnsupportedLegacyOutput{} -> property True
-            _ -> property False
-
-    prop "reject committing outputs with reference scripts" $
-      monadicST $ do
-        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
-        utxo <- pick $ genUTxO1 genTxOutWithReferenceScript
-        pure $
-          case commit ctx headId (getKnownUTxO stInitial) utxo of
-            Left CannotCommitReferenceScript{} -> property True
             _ -> property False
 
     prop "reject Commits with more than maxMainnetLovelace Lovelace" $

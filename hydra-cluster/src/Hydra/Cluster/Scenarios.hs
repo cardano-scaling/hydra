@@ -25,16 +25,10 @@ import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
 import Data.Set qualified as Set
-import Hydra.API.HTTPServer (
-  DraftCommitTxRequest (..),
-  DraftCommitTxResponse (..),
-  ScriptInfo (..),
-  TransactionSubmitted (..),
-  TxOutWithWitness (..),
- )
-import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, PlutusScriptV2, Tx, TxId, UTxO, fromPlutusScript, getVerificationKey, isVkTxOut, lovelaceToValue, makeSignedTransaction, mkScriptAddress, mkTxOutDatumHash, mkTxOutDatumInline, mkVkAddress, selectLovelace, signTx, toScriptData, txOutAddress, txOutValue, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
+import Hydra.API.HTTPServer (DraftCommitTxResponse (..), TransactionSubmitted (..))
+import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, Tx, TxId, UTxO, getVerificationKey, isVkTxOut, lovelaceToValue, makeSignedTransaction, mkVkAddress, selectLovelace, signTx, txOutAddress, txOutValue, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
-import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
@@ -76,7 +70,6 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.QuickCheck (choose, generate)
@@ -217,7 +210,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         returnFundsToFaucet tracer node AliceFunds
   )
     $ do
-      refuelIfNeeded tracer node Alice 25_000_000
+      refuelIfNeeded tracer node Alice 55_000_000
       -- Start hydra-node on chain tip
       tip <- queryTip networkId nodeSocket
       contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
@@ -302,149 +295,108 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
--- | Exercise committing a script utxo that uses inline datums.
-singlePartyCommitsExternalScriptWithInlineDatum ::
+-- | Single hydra-node where the commit is done using some wallet UTxO.
+singlePartyCommitsFromExternal ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
   TxId ->
   IO ()
-singlePartyCommitsExternalScriptWithInlineDatum tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
-    let hydraNodeId = 1
-    let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer node Alice 25_000_000
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      -- Prepare a script output on the network
-      -- FIXME: spending validators have 3 arguments? does this succeed still? is it not run?
-      let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
-          scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
-          reedemer = 1 :: Integer
-          datum = 2 :: Integer
-          scriptInfo = ScriptInfo (toScriptData reedemer) Nothing script
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node scriptAddress (mkTxOutDatumInline datum)
+        (walletVk, walletSk) <- keysFor AliceFunds
+        utxoToCommit <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+        -- Commit the script output
+        res <-
+          runReq defaultHttpConfig $
+            req
+              POST
+              (http "127.0.0.1" /: "commit")
+              (ReqBodyJson utxoToCommit)
+              (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+              (port $ 4000 + hydraNodeId)
 
-      -- Commit the script output using known witness
-      let clientPayload =
-            DraftCommitTxRequest
-              { utxoToCommit =
-                  UTxO.singleton
-                    ( scriptTxIn
-                    , TxOutWithWitness
-                        { txOut = scriptTxOut
-                        , witness = Just scriptInfo
-                        }
-                    )
-              }
-      res <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
-            (port $ 4000 + hydraNodeId)
-      let DraftCommitTxResponse{commitTx} = responseBody res
-      submitTx node commitTx
+        let DraftCommitTxResponse{commitTx} = responseBody res
+        submitTx node $ signTx walletSk commitTx
 
-      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        guard $ v ^? key "tag" == Just "HeadIsOpen"
-        pure $ v ^? key "utxo"
-      lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
- where
-  RunningNode{networkId, nodeSocket, blockTime} = node
-
--- | Single hydra-node where the commit is done from an external UTxO owned by a
--- script which requires providing script, datum and redeemer instead of
--- signing the transaction.
-singlePartyCommitsFromExternalScript ::
-  Tracer IO EndToEndLog ->
-  FilePath ->
-  RunningNode ->
-  TxId ->
-  IO ()
-singlePartyCommitsFromExternalScript tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
-    let hydraNodeId = 1
-    let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      -- Prepare a script output on the network
-      let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
-          scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
-          reedemer = 1 :: Integer
-          datum = 2 :: Integer
-          scriptInfo = ScriptInfo (toScriptData reedemer) (Just $ toScriptData datum) script
-      (scriptTxIn, scriptTxOut) <- createOutputAtAddress node scriptAddress (mkTxOutDatumHash datum)
-
-      -- Commit the script output using known witness
-      let clientPayload =
-            DraftCommitTxRequest
-              { utxoToCommit =
-                  UTxO.singleton
-                    ( scriptTxIn
-                    , TxOutWithWitness
-                        { txOut = scriptTxOut
-                        , witness = Just scriptInfo
-                        }
-                    )
-              }
-      res <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload)
-            (Proxy :: Proxy (JsonResponse DraftCommitTxResponse))
-            (port $ 4000 + hydraNodeId)
-
-      let DraftCommitTxResponse{commitTx} = responseBody res
-      submitTx node commitTx
-
-      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        guard $ v ^? key "tag" == Just "HeadIsOpen"
-        pure $ v ^? key "utxo"
-      lockedUTxO `shouldBe` Just (toJSON $ UTxO.singleton (scriptTxIn, scriptTxOut))
- where
-  RunningNode{networkId, nodeSocket, blockTime} = node
-
-singlePartyCannotCommitExternallyWalletUtxo ::
-  Tracer IO EndToEndLog ->
-  FilePath ->
-  RunningNode ->
-  TxId ->
-  IO ()
-singlePartyCannotCommitExternallyWalletUtxo tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 25_000_000
-    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
-    let hydraNodeId = 1
-    let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
-      send n1 $ input "Init" []
-      _headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-
-      -- these keys should mimic external wallet keys needed to sign the commit tx
-
-      -- internal wallet uses the actor keys internally so we need to use utxo
-      -- present at this public key
-      (userVk, _userSk) <- keysFor Alice
-      -- submit the tx using our external user key to get a utxo to commit
-      utxoToCommit <- seedFromFaucet node userVk 2_000_000 (contramap FromFaucet tracer)
-      -- Request to build a draft commit tx from hydra-node
-      requestCommitTx n1 utxoToCommit `shouldThrow` expectErrorStatus 400 (Just "SpendingNodeUtxoForbidden")
+        lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "headId" == Just (toJSON headId)
+          guard $ v ^? key "tag" == Just "HeadIsOpen"
+          pure $ v ^? key "utxo"
+        lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
  where
   RunningNode{nodeSocket, blockTime} = node
+
+-- | Single hydra-node where the commit is done from a raw transaction
+-- blueprint.
+singlePartyCommitsFromExternalTxBlueprint ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 20_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    (someExternalVk, someExternalSk) <- generate genKeyPair
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      someUTxO <- seedFromFaucet node someExternalVk 10_000_000 (contramap FromFaucet tracer)
+      utxoToCommit <- seedFromFaucet node someExternalVk 5_000_000 (contramap FromFaucet tracer)
+      let someAddress = mkVkAddress networkId someExternalVk
+      let someOutput =
+            TxOut
+              someAddress
+              (lovelaceToValue $ Coin 2_000_000)
+              TxOutDatumNone
+              ReferenceScriptNone
+      buildTransaction networkId nodeSocket someAddress utxoToCommit (fst <$> UTxO.pairs someUTxO) [someOutput] >>= \case
+        Left e -> failure $ show e
+        Right body -> do
+          let unsignedTx = makeSignedTransaction [] body
+          let clientPayload =
+                Aeson.object
+                  [ "blueprintTx" .= unsignedTx
+                  , "utxo" .= utxoToCommit
+                  ]
+          res <-
+            runReq defaultHttpConfig $
+              req
+                POST
+                (http "127.0.0.1" /: "commit")
+                (ReqBodyJson clientPayload)
+                (Proxy :: Proxy (JsonResponse Tx))
+                (port $ 4000 + hydraNodeId)
+
+          let commitTx = responseBody res
+          let signedTx = signTx someExternalSk commitTx
+          submitTx node signedTx
+
+          lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+            guard $ v ^? key "headId" == Just (toJSON headId)
+            guard $ v ^? key "tag" == Just "HeadIsOpen"
+            pure $ v ^? key "utxo"
+          lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that

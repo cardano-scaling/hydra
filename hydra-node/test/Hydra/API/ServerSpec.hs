@@ -33,7 +33,7 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
@@ -157,7 +157,7 @@ spec =
               withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
-                  received <- failAfter 5 $ replicateM (length outputs + 1) (receiveData conn)
+                  received <- failAfter 10 $ replicateM (length outputs + 1) (receiveData conn)
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do

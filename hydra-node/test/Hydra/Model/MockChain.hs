@@ -31,11 +31,7 @@ import GHC.IO.Exception (userError)
 import Hydra.API.Server (Server (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (
-  Chain (..),
-  PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters),
-  initHistory,
- )
+import Hydra.Chain (Chain (..), CommitBlueprintTx (..), PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -191,7 +187,7 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit nodes (party, utxoToCommit) = do
+  simulateCommit nodes (party, lookupUTxO) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "simulateCommit: Could not find matching HydraNode"
@@ -205,9 +201,10 @@ mockChainAndNetwork tr seedKeys commits = do
                 Initial InitialState{headId} -> headId
                 Open OpenState{headId} -> headId
                 Closed ClosedState{headId} -> headId
+              blueprintTx = txSpendingUTxO lookupUTxO
           -- NOTE: We don't need to sign a tx here since the MockChain
           -- doesn't actually validate transactions using a real ledger.
-          eTx <- draftCommitTx hId $ (,KeyWitness KeyWitnessForSpending) <$> utxoToCommit
+          eTx <- draftCommitTx hId CommitBlueprintTx{lookupUTxO, blueprintTx}
           case eTx of
             Left e -> throwIO e
             Right tx -> submitTx tx

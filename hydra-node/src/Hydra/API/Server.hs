@@ -23,21 +23,21 @@ import Hydra.API.ServerOutput (
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
 import Hydra.Cardano.Api (LedgerEra)
-import Hydra.Chain (
-  Chain (..),
-  IsChainState,
- )
+import Hydra.Chain (Chain (..), IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..))
+import Network.HTTP.Types (status500)
+import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
   setBeforeMainLoop,
   setHost,
   setOnException,
+  setOnExceptionResponse,
   setPort,
  )
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -88,6 +88,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
             & setHost (fromString $ show host)
             & setPort (fromIntegral port)
             & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+            & setOnExceptionResponse (responseLBS status500 [] . show)
             & setBeforeMainLoop notifyServerRunning
     race_
       ( do
