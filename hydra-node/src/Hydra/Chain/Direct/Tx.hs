@@ -554,11 +554,9 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         }
 
   headOutputAfter =
-    traceShow headOutputBefore $
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   headDatumAfter =
-    traceShow snapshotNumber $
       mkTxOutDatumInline
         Head.Closed
           { snapshotNumber
