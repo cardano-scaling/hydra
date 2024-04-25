@@ -440,6 +440,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       -- NOTE: at this point 'utxoToDecommit' is populated
       & addOutputs (headOutput' : map toTxContext decommitOutputs)
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
  where
   headRedeemer =
     toScriptData $
@@ -557,17 +558,17 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   headDatumAfter =
-      mkTxOutDatumInline
-        Head.Closed
-          { snapshotNumber
-          , utxoHash = toBuiltin utxoHashBytes
-          , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
-          , parties = openParties
-          , contestationDeadline
-          , contestationPeriod = openContestationPeriod
-          , headId = headIdToCurrencySymbol headId
-          , contesters = []
-          }
+    mkTxOutDatumInline
+      Head.Closed
+        { snapshotNumber
+        , utxoHash = toBuiltin utxoHashBytes
+        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
+        , parties = openParties
+        , contestationDeadline
+        , contestationPeriod = openContestationPeriod
+        , headId = headIdToCurrencySymbol headId
+        , contesters = []
+        }
 
   snapshotNumber = toInteger $ case closing of
     CloseWithInitialSnapshot{} -> 0
