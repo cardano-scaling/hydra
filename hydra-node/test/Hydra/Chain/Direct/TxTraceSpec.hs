@@ -14,11 +14,13 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (SlotNo (..), mkTxOutDatumInline, selectLovelace, throwError, txOutAddress, txOutValue)
+import Hydra.Cardano.Api
+  (Coin, SlotNo (..), mkTxOutDatumInline, modifyTxOutValue, selectLovelace, throwError, toTxContext, txOutAddress, txOutValue, txOuts')
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
+import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens, isHeadOutput)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement, fanout)
@@ -162,7 +164,7 @@ data TxResult = TxResult
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 instance StateModel Model where
   data Action Model a where
@@ -298,7 +300,7 @@ instance RunModel Model AppM where
   perform Model{} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} ->
-        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
+        performDecrementTx =<< newDecrementTx actor (signedSnapshot snapshot)
       Close{actor, snapshot} ->
         performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
       Contest{actor, snapshot} ->
@@ -365,7 +367,7 @@ instance RunModel Model AppM where
 performTx :: Tx -> AppM TxResult
 performTx tx = do
   utxo <- get
-  let validationError = getValidationError utxo
+  let validationError = getValidationError tx utxo
   when (isNothing validationError) $ do
     put $ adjustUTxO tx utxo
   pure
@@ -374,19 +376,40 @@ performTx tx = do
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
+
+performDecrementTx :: Tx -> AppM TxResult
+performDecrementTx tx = do
+  utxo <- get
+  let validationError = getValidationError tx utxo
+  when (isNothing validationError) $ do
+    put $ removeDecrementOutputs utxo
+  pure
+    TxResult
+      { tx = Right tx
+      , validationError
+      , observation = observeHeadTx Fixture.testNetworkId utxo tx
+      }
  where
-  getValidationError utxo =
-    case evaluateTx tx utxo of
-      Left err ->
-        Just $ show err
-      Right redeemerReport
-        | any isLeft (Map.elems redeemerReport) ->
-            Just . toString . unlines $
-              fromString
-                <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
-                    , "Some redeemers failed: " <> show redeemerReport
-                    ]
-        | otherwise -> Nothing
+  removeDecrementOutputs utxo =
+    let outs = txOuts' tx
+        utxoList = UTxO.pairs utxo
+     in UTxO.UTxO $
+          Map.fromList $
+            List.filter (\(_, o) -> toTxContext o `notElem` outs) utxoList
+
+getValidationError :: Tx -> UTxO -> Maybe String
+getValidationError tx utxo =
+  case evaluateTx tx utxo of
+    Left err ->
+      Just $ show err
+    Right redeemerReport
+      | any isLeft (Map.elems redeemerReport) ->
+          Just . toString . unlines $
+            fromString
+              <$> [ "Transaction evaluation failed: " <> renderTxWithUTxO utxo tx
+                  , "Some redeemers failed: " <> show redeemerReport
+                  ]
+      | otherwise -> Nothing
 
 -- * Fixtures and glue code
 
@@ -416,12 +439,45 @@ signedSnapshot ms =
       , number = snapshotNumber ms
       , confirmed = []
       , utxo = allUTxO
-      , utxoToDecommit = Nothing -- FIXME
+      , utxoToDecommit = Nothing
       }
-
   allUTxO = snapshotUTxO ms
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+
+addUTxOToDecrement :: Snapshot Tx -> UTxO -> (Snapshot Tx, UTxO)
+addUTxOToDecrement snapshot spendableUTxO = do
+  let (headUTxO, rest) = splitHeadUTxO spendableUTxO
+  -- NOTE: since we negate the head output value by the amount of decommitted
+  -- value we need to pick here some utxo that has less value than the head
+  -- output since utxo is generated randomly and add it's value to the head
+  -- output. We probably want to model this more precisely in the future.
+  let headValue = getLovelace headUTxO
+  let pairs = UTxO.pairs $ utxo snapshot
+  let possibleDecommitUTxO =
+        filter (\(i, o) -> getLovelace (UTxO.singleton (i, o)) > headValue) pairs
+  case possibleDecommitUTxO of
+    [] -> (snapshot{utxoToDecommit = Just mempty}, headUTxO <> rest)
+    _ -> do
+      let toDecommit = elements possibleDecommitUTxO `generateWith` 42
+      let decommitValue = txOutValue $ snd toDecommit
+      let (headIn, headOut) = List.head $ UTxO.pairs headUTxO
+      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue))
+      let toKeep = List.filter (/= toDecommit) pairs
+      ( snapshot
+          { utxo = UTxO.fromPairs toKeep
+          , utxoToDecommit = Just $ UTxO.singleton toDecommit
+          }
+        , newHeadOutput <> rest
+        )
+
+getLovelace :: UTxO -> Coin
+getLovelace utxo = foldMap (selectLovelace . txOutValue . snd) (UTxO.pairs utxo)
+
+splitHeadUTxO :: UTxO -> (UTxO, UTxO)
+splitHeadUTxO allUTxO =
+  let (headIn, headOut) = List.head $ List.filter (isHeadOutput . snd) (UTxO.pairs allUTxO)
+   in (UTxO.singleton (headIn, headOut), UTxO.filter (/= headOut) allUTxO)
 
 -- | A confirmed snapshot (either initial or later confirmed), based on
 -- 'signedSnapshot'.
@@ -464,13 +520,15 @@ openHeadUTxO =
 newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
 newDecrementTx actor (snapshot, signatures) = do
   spendableUTxO <- get
+  let (snapshotWithDecrement, newSpendableUTxO) = addUTxOToDecrement snapshot spendableUTxO
+  put newSpendableUTxO
   either (failure . show) pure $
     decrement
       (actorChainContext actor)
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
-      spendableUTxO
-      snapshot
+      newSpendableUTxO
+      snapshotWithDecrement
       signatures
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.

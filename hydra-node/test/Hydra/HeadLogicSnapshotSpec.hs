@@ -114,8 +114,8 @@ spec = do
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
-          step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
+          step (receiveMessage $ ReqSn 1 [] Nothing)
+          step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           getState
@@ -125,7 +125,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
+          step (receiveMessage $ ReqSn 1 [] Nothing)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           getState
@@ -138,7 +138,7 @@ spec = do
           notLeaderEnv = envFor carolSk
 
         let initiateSigningASnapshot actor =
-              step (NetworkInput defaultTTL actor $ ReqSn 1 [] Nothing)
+              step (receiveMessageFrom actor $ ReqSn 1 [] Nothing)
             newTxBeforeSnapshotAcknowledged =
               step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
 
@@ -154,8 +154,8 @@ spec = do
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (NetworkInput defaultTTL alice $ ReqSn 1 [] Nothing)
-          step (NetworkInput defaultTTL carol $ ReqTx $ aValidTx 1)
+          step (receiveMessage $ ReqSn 1 [] Nothing)
+          step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           step (ackFrom bobSk bob)

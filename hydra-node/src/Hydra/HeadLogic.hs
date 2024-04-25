@@ -898,10 +898,10 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ otherParty (ReqSn sn txIds decommitTx)) ->
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sn txIds decommitTx})) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState otherParty sn txIds decommitTx
-  (Open openState, NetworkInput _ otherParty (AckSn snapshotSignature sn)) ->
+    onOpenNetworkReqSn env ledger openState sender sn txIds decommitTx
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
@@ -921,7 +921,7 @@ update env ledger st ev = case (st, ev) of
     noop
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
-  (Open openState, NetworkInput ttl _ (ReqDec{transaction})) ->
+  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ttl openState transaction
   ( Open OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnDecrementTx{headId}}
