@@ -159,12 +159,12 @@ instance FromJSON Tx where
               pure tx
 
 instance Arbitrary Tx where
-  -- TODO: shrinker!
   arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
    where
     withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
       let body' = body & set updateTxBodyL SNothing
        in tx{Ledger.body = body'}
+  shrink tx = fromLedgerTx <$> shrink (toLedgerTx tx)
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleTx ::
