@@ -66,15 +66,17 @@ healthyCloseTx =
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
 
+  datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
+
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
@@ -105,15 +107,17 @@ healthyCloseInitialTx =
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
 
+  initialDatum = toUTxOContext (mkTxOutDatumInline $ healthyOpenHeadDatum{Head.snapshotNumber = 0})
+
   lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   openThreadOutput =
     OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut)
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
@@ -134,12 +138,10 @@ healthyCloseUpperBoundPointInTime :: PointInTime
 healthyOpenHeadTxIn :: TxIn
 healthyOpenHeadTxIn = generateWith arbitrary 42
 
-healthyOpenHeadTxOut :: TxOut CtxUTxO
-healthyOpenHeadTxOut =
+healthyOpenHeadTxOut :: TxOutDatum CtxUTxO -> TxOut CtxUTxO
+healthyOpenHeadTxOut headTxOutDatum =
   mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParticipants
- where
-  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
@@ -359,7 +361,7 @@ genCloseMutation (tx, _utxo) =
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
             , ChangeInput
                 healthyOpenHeadTxIn
-                (replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyOpenHeadTxOut)
+                (replacePolicyIdWith Fixture.testPolicyId otherHeadId $ healthyOpenHeadTxOut datum)
                 ( Just $
                     toScriptData
                       ( Head.Close
@@ -389,6 +391,8 @@ genCloseMutation (tx, _utxo) =
     pure (SlotNo lowerValidityBound, SlotNo upperValidityBound, adjustedContestationDeadline)
 
   headTxOut = fromJust $ txOuts' tx !!? 0
+
+  datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
