@@ -37,7 +37,7 @@
         "aarch64-darwin"
         "aarch64-linux"
       ];
-      perSystem = { config, system, ... }:
+      perSystem = { pkgs, config, lib, system, ... }:
         let
           compiler = "ghc964";
 
@@ -104,9 +104,8 @@
 
           packages =
             hydraPackages //
-            prefixAttrs "docker-" hydraImages // {
-              spec = import ./spec { inherit pkgs; };
-            };
+            (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) //
+            { spec = import ./spec { inherit pkgs; }; };
 
           checks = let lu = inputs.lint-utils.linters.${system}; in {
             hlint = lu.hlint { src = self; hlint = pkgs.hlint; };
@@ -134,7 +133,15 @@
               src = self;
               exe = "${packages.plutus-merkle-tree-tests}/bin/tests";
             };
-          };
+          } //
+          (if pkgs.stdenv.isLinux then
+            {
+              inherit (packages)
+                docker-hydra-explorer
+                docker-hydra-node
+                docker-hydra-tui
+                docker-hydraw;
+            } else { });
 
           devShells = import ./nix/hydra/shell.nix {
             inherit inputs pkgs hsPkgs system compiler;
