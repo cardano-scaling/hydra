@@ -4,8 +4,7 @@ import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent, IsChainState)
-import Hydra.Network.Message (Message)
-import Hydra.Party (Party)
+import Hydra.Network.Message (Message, NetworkEvent)
 
 type TTL = Natural
 
@@ -19,7 +18,7 @@ data Input tx
     --
     --  * `ttl` is a simple counter that's decreased every time the event is
     --    reenqueued due to a wait. It's default value is `defaultTTL`
-    NetworkInput {ttl :: TTL, party :: Party, message :: Message tx}
+    NetworkInput {ttl :: TTL, networkEvent :: NetworkEvent (Message tx)}
   | -- | Input received from the chain via a "Hydra.Chain".
     ChainInput {chainEvent :: ChainEvent tx}
   deriving stock (Generic)

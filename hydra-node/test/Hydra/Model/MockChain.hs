@@ -66,7 +66,7 @@ import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
+import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Party (Party (..), deriveParty, getParty)
@@ -347,7 +347,10 @@ createMockNetwork draftNode nodes =
     let otherNodes = filter (\n -> getParty n /= getParty draftNode) allNodes
     mapM_ (`handleMessage` msg) otherNodes
 
-  handleMessage HydraNode{inputQueue} = enqueue inputQueue . NetworkInput defaultTTL (getParty draftNode)
+  handleMessage HydraNode{inputQueue} msg =
+    enqueue inputQueue . NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
+
+  sender = getParty draftNode
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m

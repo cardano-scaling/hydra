@@ -88,13 +88,20 @@ import Hydra.Ledger (
   applyTransactions,
   txId,
  )
-import Hydra.Network.Message (Message (..))
+import Hydra.Network.Message (Connectivity (..), Message (..), NetworkEvent (..))
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 defaultTTL :: TTL
 defaultTTL = 5
+
+onConnectionEvent :: Connectivity -> Outcome tx
+onConnectionEvent = \case
+  Connected{nodeId} ->
+    causes [ClientEffect (ServerOutput.PeerConnected nodeId)]
+  Disconnected{nodeId} ->
+    causes [ClientEffect (ServerOutput.PeerDisconnected nodeId)]
 
 -- * The Coordinated Head protocol
 
@@ -691,6 +698,8 @@ update ::
   Input tx ->
   Outcome tx
 update env ledger st ev = case (st, ev) of
+  (_, NetworkInput _ (ConnectivityEvent conn)) ->
+    onConnectionEvent conn
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
@@ -713,14 +722,14 @@ update env ledger st ev = case (st, ev) of
     onOpenClientClose openState
   (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
-  (Open openState, NetworkInput ttl _ (ReqTx tx)) ->
+  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ otherParty (ReqSn sn txIds)) ->
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sn txIds})) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState otherParty sn txIds
-  (Open openState, NetworkInput _ otherParty (AckSn snapshotSignature sn)) ->
+    onOpenNetworkReqSn env ledger openState sender sn txIds
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     -- XXX: ttl == 0 not handled for AckSn
-    onOpenNetworkAckSn env openState otherParty snapshotSignature sn
+    onOpenNetworkAckSn env openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
     )

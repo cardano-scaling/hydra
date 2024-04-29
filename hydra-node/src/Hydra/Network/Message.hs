@@ -9,13 +9,26 @@ import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Hydra.Crypto (Signature)
 import Hydra.Ledger (IsTx (TxIdType), UTxOType)
 import Hydra.Network (NodeId)
+import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
+
+data NetworkEvent msg
+  = ConnectivityEvent Connectivity
+  | ReceivedMessage {sender :: Party, msg :: msg}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
+  arbitrary = genericArbitrary
 
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary Connectivity where
+  arbitrary = genericArbitrary
 
 data Message tx
   = ReqTx {transaction :: tx}

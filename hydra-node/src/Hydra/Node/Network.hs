@@ -73,11 +73,13 @@ import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Crypto (HydraKey, SigningKey)
+import Hydra.Ledger (IsTx)
 import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
-import Hydra.Network.Authenticate (Authenticated (Authenticated), Signed, withAuthentication)
-import Hydra.Network.Heartbeat (ConnectionMessages, Heartbeat (..), withHeartbeat)
+import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
+import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
+import Hydra.Network.Message (Connectivity, Message, NetworkEvent (..))
 import Hydra.Network.Ouroboros (TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
@@ -110,33 +112,35 @@ data NetworkConfiguration m = NetworkConfiguration
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
-  forall msg tx.
-  (ToCBOR msg, ToJSON msg, FromJSON msg, FromCBOR msg) =>
+  forall tx.
+  IsTx tx =>
   -- | Tracer to use for logging messages.
-  Tracer IO (LogEntry tx msg) ->
-  -- | Callback/observer for connectivity changes in peers.
-  ConnectionMessages IO ->
+  Tracer IO (LogEntry tx (Message tx)) ->
   -- | The network configuration
   NetworkConfiguration IO ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
-  NetworkComponent IO (Authenticated msg) msg ()
-withNetwork tracer connectionMessages configuration callback action = do
+  NetworkComponent IO (NetworkEvent (Message tx)) (Message tx) ()
+withNetwork tracer configuration callback action = do
   let localhost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
   messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
 
-  let reliability :: NetworkComponent IO (Heartbeat (Authenticated msg)) (Heartbeat msg) ()
-      reliability =
+  let reliability =
         withFlipHeartbeats $
           withReliability (contramap Reliability tracer) messagePersistence me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork (contramap Network tracer) localhost peers
 
-  withHeartbeat nodeId connectionMessages reliability callback $ \network ->
+  withHeartbeat nodeId reliability (callback . mapHeartbeat) $ \network ->
     action network
  where
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
+
+  mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
+  mapHeartbeat = \case
+    Left connectivity -> ConnectivityEvent connectivity
+    Right (Authenticated{payload, party}) -> ReceivedMessage{sender = party, msg = payload}
 
 -- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
 --

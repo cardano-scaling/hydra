@@ -2,8 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Hydra.API.Server (Server (..), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.Server (withAPIServer)
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
  )
@@ -25,7 +24,6 @@ import Hydra.Ledger.Cardano.Configuration (
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network.Message (Connectivity (..))
 import Hydra.Node (
   chainStateHistory,
   connect,
@@ -93,15 +91,11 @@ run opts = do
           withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer (connectionMessages server) networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
+            withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
               connect chain network server wetHydraNode
                 >>= runHydraNode
  where
-  connectionMessages Server{sendOutput} = \case
-    Connected nodeid -> sendOutput $ PeerConnected nodeid
-    Disconnected nodeid -> sendOutput $ PeerDisconnected nodeid
-
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)

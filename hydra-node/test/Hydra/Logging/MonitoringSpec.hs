@@ -5,12 +5,8 @@ import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
-import Hydra.HeadLogic (
-  Effect (ClientEffect),
-  Input (NetworkInput),
-  defaultTTL,
- )
-import Hydra.HeadLogicSpec (testSnapshot)
+import Hydra.HeadLogic (Effect (ClientEffect))
+import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
@@ -27,8 +23,8 @@ spec =
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-        traceWith tracer (Node $ BeginInput alice 0 (NetworkInput defaultTTL alice (ReqTx (aValidTx 42))))
-        traceWith tracer (Node $ BeginInput alice 1 (NetworkInput defaultTTL alice (ReqTx (aValidTx 43))))
+        traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx (aValidTx 42))))
+        traceWith tracer (Node $ BeginInput alice 1 (receiveMessage (ReqTx (aValidTx 43))))
         threadDelay 0.1
         traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 (utxoRefs [1]) [43, 42]) mempty)))
 

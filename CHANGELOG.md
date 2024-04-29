@@ -15,6 +15,8 @@ changes.
 
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
 
+- `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network.
+
 ## [0.17.0] - UNRELEASED
 
 - **BREAKING** `hydra-node` `/commit` enpoint now also accepts a _blueprint/draft_
