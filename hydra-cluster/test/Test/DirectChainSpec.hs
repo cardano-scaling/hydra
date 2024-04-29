@@ -5,6 +5,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
@@ -17,6 +18,8 @@ import CardanoClient (
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
+import Control.Lens ((<>~))
+import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
@@ -24,11 +27,16 @@ import Hydra.Cardano.Api (
   PaymentKey,
   TxOut,
   UTxO',
+  fromLedgerTx,
   lovelaceToValue,
   signTx,
+  toLedgerKeyHash,
+  toLedgerTx,
   txOutValue,
   unFile,
+  verificationKeyHash,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
@@ -79,7 +87,7 @@ import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
-import Test.QuickCheck (generate)
+import Test.QuickCheck (choose, generate)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -239,6 +247,38 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             (_, aliceExternalSk) <- generate genKeyPair
             externalCommit node aliceChain aliceExternalSk headId mempty
             aliceChain `observesInTime` OnCommitTx headId alice mempty
+
+  it "can commit with multiple required signatures" $ \tracer -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        -- Alice setup
+        (aliceCardanoVk, _) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
+          \aliceChain@DirectChainTest{postTx} -> do
+            -- Scenario
+            participants <- loadParticipants [Alice]
+            let headParameters = HeadParameters cperiod [alice]
+            postTx $ InitTx{participants, headParameters}
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
+
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            newAliceUTxO <- seedFromFaucet node aliceExternalVk 3_000_000 (contramap FromFaucet tracer)
+
+            numberOfKeyWits <- generate $ choose (2, 10)
+            randomKeys <- generate $ replicateM numberOfKeyWits genKeyPair
+
+            let blueprintTx =
+                  fromLedgerTx
+                    ( toLedgerTx (txSpendingUTxO newAliceUTxO)
+                        & bodyTxL . reqSignerHashesTxBodyL
+                          <>~ Set.fromList (toLedgerKeyHash . verificationKeyHash . fst <$> randomKeys)
+                    )
+
+            externalCommit' node aliceChain (aliceExternalSk : fmap snd randomKeys) headId newAliceUTxO blueprintTx
+            aliceChain `observesInTime` OnCommitTx headId alice newAliceUTxO
 
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -527,10 +567,24 @@ externalCommit ::
   IO ()
 externalCommit node hydraClient externalSk headId utxoToCommit = do
   let blueprintTx = txSpendingUTxO utxoToCommit
+  externalCommit' node hydraClient [externalSk] headId utxoToCommit blueprintTx
+
+externalCommit' ::
+  RunningNode ->
+  DirectChainTest Tx IO ->
+  [SigningKey PaymentKey] ->
+  HeadId ->
+  UTxO' (TxOut CtxUTxO) ->
+  Tx ->
+  IO ()
+externalCommit' node hydraClient externalSks headId utxoToCommit blueprintTx = do
   commitTx <- draftCommitTx headId utxoToCommit blueprintTx
-  let signedTx = signTx externalSk commitTx
+  let signedTx = everybodySigns commitTx externalSks
   submitTx node signedTx
  where
+  everybodySigns tx' [] = tx'
+  everybodySigns tx' (sk : sks) = everybodySigns (signTx sk tx') sks
+
   DirectChainTest{draftCommitTx} = hydraClient
 
 -- | Load key files for given 'Actor's (see keysFor) and directly convert them to 'OnChainId'.
