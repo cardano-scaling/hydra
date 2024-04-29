@@ -36,7 +36,6 @@ import Hydra.Cardano.Api (
   unFile,
   verificationKeyHash,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),

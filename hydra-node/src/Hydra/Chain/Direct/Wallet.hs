@@ -38,6 +38,7 @@ import Cardano.Ledger.Api (
   ppMaxTxExUnitsL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
+  reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   witsTxL,
  )
@@ -311,9 +312,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
           & bodyTxL . feeTxBodyL .~ Coin 10_000_000
-      -- XXX: Not hard-code but parameterize to make this flexible enough for
-      -- later signing and commit transactions with more than one sig
-      additionalWitnesses = 2
+      -- We add one additional witness for the fee input
+      additionalWitnesses = 1 + length (partialTx ^. bodyTxL . reqSignerHashesTxBodyL)
 
   -- Balance tx with a change output and computed fee
   change <-
