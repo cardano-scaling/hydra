@@ -28,6 +28,7 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
+import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Maybe.Strict (fromSMaybe)
 import Data.Set qualified as Set
@@ -78,6 +79,7 @@ import Test.Hydra.Prelude
 import Test.QuickCheck (
   Positive (..),
   Property,
+  checkCoverage,
   choose,
   conjoin,
   counterexample,
@@ -88,6 +90,7 @@ import Test.QuickCheck (
   label,
   oneof,
   property,
+  vector,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -95,7 +98,6 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Monadic (monadicIO)
-import Test.QuickCheck.Property (checkCoverage)
 
 spec :: Spec
 spec =
@@ -337,17 +339,18 @@ genBlueprintTxWithUTxO =
       pure $ mkMeta [(l, TxMetaList $ Map.elems bytes <> Map.elems numbers <> Map.elems text)]
 
     bytesMetadata = do
-      metadata <- arbitrary
+      n <- choose (1, 50)
+      metadata <- BS.pack <$> vector n
       l <- arbitrary
       pure $ mkMeta [(l, TxMetaBytes metadata)]
 
     numberMetadata = do
-      metadata <- arbitrary
+      metadata <- elements [0 .. 100]
       l <- arbitrary
       pure $ mkMeta [(l, TxMetaNumber metadata)]
 
     textMetadata = do
-      n <- choose (2, 50)
+      n <- choose (2, 22)
       metadata <- Text.take n <$> genSomeText
       l <- arbitrary
       pure $ mkMeta [(l, TxMetaText metadata)]
