@@ -33,7 +33,7 @@ import Cardano.Ledger.Api (
   unRedeemers,
   witsTxL,
  )
-import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Cardano.Ledger.BaseTypes (StrictMaybe (..), fromSMaybe)
 import Control.Lens ((.~), (<>~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -255,7 +255,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
         & bodyTxL . referenceInputsTxBodyL <>~ Set.fromList [toLedgerTxIn initialScriptRef]
         & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
         & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
-        & bodyTxL . auxDataHashTxBodyL .~ SJust (hashAlonzoTxAuxData txAuxMetadata)
+        & bodyTxL . auxDataHashTxBodyL .~ combinedMetadata
         & bodyTxL . mintTxBodyL .~ mempty
         & auxDataTxL .~ addMetadata txAuxMetadata
     existingWits = toLedgerTx blueprintTx ^. witsTxL
@@ -338,6 +338,12 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
   TxMetadata commitMetadataMap = commitMetadata
 
   txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata commitMetadataMap) []
+
+  combinedMetadata =
+    let existingMetadataMap = fromSMaybe mempty $ getAuxMetadata <$> toLedgerTx blueprintTx ^. auxDataTxL
+     in SJust . hashAlonzoTxAuxData $
+          mkAlonzoTxAuxData @[] @LedgerEra (Map.union (toShelleyMetadata commitMetadataMap) existingMetadataMap) []
+
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 
 commitMetadata :: TxMetadata
