@@ -8,7 +8,7 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
+import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), mkAlonzoTxAuxData)
 import Cardano.Ledger.Api (
   AlonzoPlutusPurpose (AlonzoSpending),
   Metadatum,
@@ -16,10 +16,12 @@ import Cardano.Ledger.Api (
   bodyTxL,
   inputsTxBodyL,
   outputsTxBodyL,
+  ppProtocolVersionL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
   reqSignerHashesTxBodyL,
   unRedeemers,
+  validateTxAuxData,
   vldtTxBodyL,
   witsTxL,
  )
@@ -32,6 +34,7 @@ import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text qualified as Text
 import Hydra.Cardano.Api
+import Hydra.Cardano.Api.Prelude (fromShelleyMetadata, toShelleyMetadata)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
@@ -87,6 +90,7 @@ import Test.QuickCheck (
   property,
   vectorOf,
   withMaxSuccess,
+  (.&&.),
   (===),
  )
 import Test.QuickCheck.Instances.Semigroup ()
@@ -214,7 +218,11 @@ spec =
                   & counterexample ("Commit transaction failed to evaluate: " <> renderTxWithUTxO spendableUTxO commitTx')
               , let blueprintMetadata = fromSMaybe mempty $ getAuxMetadata <$> blueprintTx ^. auxDataTxL
                     commitMetadata = fromSMaybe mempty $ getAuxMetadata <$> tx ^. auxDataTxL
-                 in blueprintMetadata `Map.isSubmapOf` commitMetadata
+                 in ( blueprintMetadata
+                        `Map.isSubmapOf` commitMetadata
+                        .&&. prop_validateTxMetadata blueprintMetadata
+                        .&&. prop_validateTxMetadata commitMetadata
+                    )
                       & counterexample ("blueprint metadata: " <> show blueprintMetadata)
                       & counterexample ("commit metadata: " <> show commitMetadata)
               , let blueprintValidity = blueprintBody ^. vldtTxBodyL
@@ -247,6 +255,11 @@ spec =
                       & counterexample ("blueprint reference inputs: " <> show blueprintRefInputs)
                       & counterexample ("commit reference inputs: " <> show commitRefInputs)
               ]
+
+prop_validateTxMetadata :: Map Word64 Metadatum -> Bool
+prop_validateTxMetadata metadataMap = do
+  let txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata $ fromShelleyMetadata metadataMap) []
+  validateTxAuxData (pparams ^. ppProtocolVersionL) txAuxMetadata
 
 getAuxMetadata :: AlonzoTxAuxData LedgerEra -> Map Word64 Metadatum
 getAuxMetadata (AlonzoTxAuxData metadata _ _) = metadata
