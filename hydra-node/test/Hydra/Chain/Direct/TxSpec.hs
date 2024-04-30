@@ -8,10 +8,11 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), mkAlonzoTxAuxData)
+import Cardano.Ledger.Alonzo.TxAuxData (hashAlonzoTxAuxData, mkAlonzoTxAuxData)
 import Cardano.Ledger.Api (
-  AlonzoPlutusPurpose (AlonzoSpending),
   Metadatum,
+  AlonzoPlutusPurpose (AlonzoSpending),
+  auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
   inputsTxBodyL,
@@ -30,7 +31,7 @@ import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
-import Data.Maybe.Strict (fromSMaybe)
+import Data.Maybe.Strict (StrictMaybe (..), fromSMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text qualified as Text
@@ -218,15 +219,23 @@ spec =
                   & counterexample ("Blueprint transaction failed to evaluate: " <> renderTxWithUTxO lookupUTxO blueprintTx')
               , propTransactionEvaluates (commitTx', spendableUTxO)
                   & counterexample ("Commit transaction failed to evaluate: " <> renderTxWithUTxO spendableUTxO commitTx')
-              , let blueprintMetadata = fromSMaybe mempty $ getAuxMetadata <$> blueprintTx ^. auxDataTxL
-                    commitMetadata = fromSMaybe mempty $ getAuxMetadata <$> tx ^. auxDataTxL
-                 in ( blueprintMetadata
-                        `Map.isSubmapOf` commitMetadata
-                        .&&. prop_validateTxMetadata blueprintMetadata
-                        .&&. prop_validateTxMetadata commitMetadata
+              , let blueprintMetadataVal = fromSMaybe mempty $ getAuxMetadata <$> blueprintTx ^. auxDataTxL
+                    commitMetadataVal = fromSMaybe mempty $ getAuxMetadata <$> tx ^. auxDataTxL
+                    TxMetadata commitMetadata' = commitMetadata
+                    commitMetadataHash = tx ^. bodyTxL . auxDataHashTxBodyL
+                    expectedMetadataHash =
+                      SJust $
+                        hashAlonzoTxAuxData $
+                          mkAlonzoTxAuxData @[] @LedgerEra (Map.union (toShelleyMetadata commitMetadata') blueprintMetadataVal) []
+                 in ( blueprintMetadataVal `Map.isSubmapOf` commitMetadataVal
+                        .&&. prop_validateTxMetadata blueprintMetadataVal
+                        .&&. prop_validateTxMetadata (toShelleyMetadata commitMetadata')
+                        .&&. commitMetadataHash === expectedMetadataHash
                     )
-                      & counterexample ("blueprint metadata: " <> show blueprintMetadata)
-                      & counterexample ("commit metadata: " <> show commitMetadata)
+                      & counterexample ("blueprint metadata: " <> show blueprintMetadataVal)
+                      & counterexample ("commit metadata: " <> show commitMetadataVal)
+                      & counterexample ("expected metadata hash: " <> show expectedMetadataHash)
+                      & counterexample ("commit metadata hash: " <> show commitMetadataHash)
               , let blueprintValidity = blueprintBody ^. vldtTxBodyL
                     commitValidity = commitTxBody ^. vldtTxBodyL
                  in blueprintValidity === commitValidity
@@ -262,9 +271,6 @@ prop_validateTxMetadata :: Map Word64 Metadatum -> Bool
 prop_validateTxMetadata metadataMap = do
   let txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata $ fromShelleyMetadata metadataMap) []
   validateTxAuxData (pparams ^. ppProtocolVersionL) txAuxMetadata
-
-getAuxMetadata :: AlonzoTxAuxData LedgerEra -> Map Word64 Metadatum
-getAuxMetadata (AlonzoTxAuxData metadata _ _) = metadata
 
 genBlueprintTxWithUTxO :: Gen (UTxO, Tx)
 genBlueprintTxWithUTxO =

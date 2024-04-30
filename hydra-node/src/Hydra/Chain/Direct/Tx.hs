@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), hashAlonzoTxAuxDat
 import Cardano.Ledger.Api (
   AlonzoPlutusPurpose (..),
   AsIndex (..),
+  Metadatum,
   Redeemers (..),
   auxDataHashTxBodyL,
   auxDataTxL,
@@ -334,10 +335,16 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
 
-  TxMetadata metadataMap = mkHydraHeadV1TxName "CommitTx"
+  TxMetadata commitMetadataMap = commitMetadata
 
-  txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata metadataMap) []
+  txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata commitMetadataMap) []
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
+
+commitMetadata :: TxMetadata
+commitMetadata = mkHydraHeadV1TxName "CommitTx"
+
+getAuxMetadata :: AlonzoTxAuxData LedgerEra -> Map Word64 Metadatum
+getAuxMetadata (AlonzoTxAuxData metadata _ _) = metadata
 
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =
