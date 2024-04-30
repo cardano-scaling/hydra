@@ -319,17 +319,38 @@ genBlueprintTxWithUTxO =
       )
 
   addRandomMetadata (utxo, txbody) = do
-    mtdt <- oneof [randomMetadata, pure TxMetadataNone]
+    mtdt <-
+      oneof $
+        ( fmap TxMetadataInEra
+            <$> [bytesMetadata, numberMetadata, textMetadata, listMetadata]
+        )
+          <> [pure TxMetadataNone]
     pure (utxo, txbody{txMetadata = mtdt})
    where
-    randomMetadata = do
+    mkMeta = TxMetadata . Map.fromList
+
+    listMetadata = do
+      TxMetadata bytes <- bytesMetadata
+      TxMetadata numbers <- numberMetadata
+      TxMetadata text <- textMetadata
+      l <- arbitrary
+      pure $ mkMeta [(l, TxMetaList $ Map.elems bytes <> Map.elems numbers <> Map.elems text)]
+
+    bytesMetadata = do
+      metadata <- arbitrary
+      l <- arbitrary
+      pure $ mkMeta [(l, TxMetaBytes metadata)]
+
+    numberMetadata = do
+      metadata <- arbitrary
+      l <- arbitrary
+      pure $ mkMeta [(l, TxMetaNumber metadata)]
+
+    textMetadata = do
       n <- choose (2, 50)
       metadata <- Text.take n <$> genSomeText
       l <- arbitrary
-      pure $
-        TxMetadataInEra $
-          TxMetadata $
-            Map.fromList [(l, TxMetaText metadata)]
+      pure $ mkMeta [(l, TxMetaText metadata)]
 
   removeRandomInputs (utxo, txbody) = do
     someInput <- elements $ txIns txbody
