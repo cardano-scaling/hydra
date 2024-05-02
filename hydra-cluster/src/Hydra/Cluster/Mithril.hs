@@ -24,8 +24,8 @@ data MithrilLog
 -- directory.
 downloadLatestSnapshotTo :: Tracer IO MithrilLog -> KnownNetwork -> FilePath -> IO ()
 downloadLatestSnapshotTo tracer network directory = do
-  when (network == Sanchonet) $
-    pendingWith "Mithril deployment of testing-sanchonet requires mithril-client 0.7.8, which is not yet released and does not work on other networks."
+  when (network == Sanchonet || network == Preview) $
+    pendingWith "Mithril deployment of testing-sanchonet requires mithril-client 0.8.0, which is not yet released and does not work on other networks."
 
   traceWith tracer StartSnapshotDownload{network, directory}
   genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
