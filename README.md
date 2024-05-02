@@ -88,6 +88,10 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 
 Please follow our [Contributing Guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CODE-OF-CONDUCT.md).
 
+## 🙏 Credits
+
+- Logo created by Alexander Wende
+
 ---
 
 <p align="center">
