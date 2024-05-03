@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
   AlonzoPlutusPurpose (..),
   AsIndex (..),
+  AsItem (..),
   EraTxAuxData (hashTxAuxData),
   Redeemers (..),
   auxDataHashTxBodyL,
@@ -32,6 +33,7 @@ import Cardano.Ledger.Api (
   unRedeemers,
   witsTxL,
  )
+import Cardano.Ledger.Babbage.Core (redeemerPointerInverse)
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Control.Lens ((.~), (<>~), (^.))
 import Data.Aeson qualified as Aeson
@@ -246,26 +248,16 @@ commitTx ::
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
 commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, out, vkh) =
-  let
-    ledgerBlueprintTx =
-      toLedgerTx blueprintTx
-        & bodyTxL . inputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialInput)
-        & bodyTxL . referenceInputsTxBodyL <>~ Set.fromList [toLedgerTxIn initialScriptRef]
-        & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
-        & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
-        & bodyTxL . mintTxBodyL .~ mempty
-        & addMetadata (mkHydraHeadV1TxName "CommitTx")
-    existingWits = toLedgerTx blueprintTx ^. witsTxL
-    allInputs = ledgerBlueprintTx ^. bodyTxL . inputsTxBodyL
-    blueprintRedeemers = unRedeemers $ toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL
-    resolved = resolveRedeemers blueprintRedeemers committedTxIns
-    wits =
-      witsTxL
-        .~ ( existingWits
-              & rdmrsTxWitsL .~ Redeemers (Map.fromList $ reassociate resolved allInputs)
-           )
-   in
-    fromLedgerTx $ ledgerBlueprintTx & wits
+  -- NOTE: We use the cardano-ledger-api functions here such that we can use the
+  -- blueprint transaction as a starting point (cardano-api does not allow
+  -- convenient transaction modifications).
+  fromLedgerTx $
+    toLedgerTx blueprintTx
+      & spendFromInitial
+      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
+      & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
+      & bodyTxL . mintTxBodyL .~ mempty
+      & addMetadata (mkHydraHeadV1TxName "CommitTx")
  where
   addMetadata (TxMetadata newMetadata) tx =
     let
@@ -280,42 +272,49 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
         & auxDataTxL .~ SJust newAuxData
         & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
 
-  -- re-associates final commit tx inputs with the redeemer data from blueprint tx
-  reassociate resolved allInputs =
-    foldl'
-      ( \newRedeemerData txin ->
-          let key = mkSpendingKey $ Set.findIndex txin allInputs
-           in case find (\(txin', _) -> txin == txin') resolved of
-                Nothing -> newRedeemerData
-                Just (_, d) ->
-                  (key, d) : newRedeemerData
-      )
-      []
-      allInputs
+  spendFromInitial tx =
+    let newRedeemers =
+          resolveSpendingRedeemers tx
+            & Map.insert (toLedgerTxIn initialInput) (toLedgerData @LedgerEra initialRedeemer)
+        newInputs = tx ^. bodyTxL . inputsTxBodyL <> Set.singleton (toLedgerTxIn initialInput)
+     in tx
+          & bodyTxL . inputsTxBodyL .~ newInputs
+          & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
+          & witsTxL . rdmrsTxWitsL .~ mkRedeemers newRedeemers newInputs
 
-  -- Creates a list of 'TxIn' paired with redeemer data and also adds the initial txIn and it's redeemer.
-  resolveRedeemers existingRedeemerMap blueprintInputs =
-    (toLedgerTxIn initialInput, (toLedgerData @LedgerEra initialRedeemer, ExUnits 0 0))
-      : foldl'
-        ( \pairs txin ->
-            let key = mkSpendingKey $ Set.findIndex txin blueprintInputs
-             in case Map.lookup key existingRedeemerMap of
-                  Nothing -> pairs
-                  Just d -> (txin, d) : pairs
+  -- Make redeemers (with zeroed units) from a TxIn -> Data map and a set of transaction inputs
+  mkRedeemers resolved inputs =
+    Redeemers . Map.fromList $
+      foldl'
+        ( \newRedeemerData txin ->
+            let ix = fromIntegral $ Set.findIndex txin inputs
+             in case Map.lookup txin resolved of
+                  Nothing -> newRedeemerData
+                  Just d ->
+                    (AlonzoSpending (AsIndex ix), (d, ExUnits 0 0)) : newRedeemerData
         )
         []
-        committedTxIns
+        inputs
 
-  mkSpendingKey i = AlonzoSpending (AsIndex $ fromIntegral i)
+  -- Create a TxIn -> Data map of all spending redeemers
+  resolveSpendingRedeemers tx =
+    Map.foldMapWithKey
+      ( \p (d, _ex) ->
+          -- XXX: Should soon be available through cardano-ledger-api again
+          case redeemerPointerInverse (tx ^. bodyTxL) p of
+            SJust (AlonzoSpending (AsItem txIn)) -> Map.singleton txIn d
+            _ -> mempty
+      )
+      (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
 
   initialScriptRef =
     fst (initialReference scriptRegistry)
 
   initialRedeemer =
     toScriptData . Initial.redeemer $
-      Initial.ViaCommit (toPlutusTxOutRef . fromLedgerTxIn <$> Set.toList committedTxIns)
+      Initial.ViaCommit (toPlutusTxOutRef <$> committedTxIns)
 
-  committedTxIns = toLedgerTx blueprintTx ^. bodyTxL . inputsTxBodyL
+  committedTxIns = txIns' blueprintTx
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
@@ -327,7 +326,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     mkScriptAddress @PlutusScriptV2 networkId commitScript
 
   utxoToCommit =
-    UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) (txIns' blueprintTx)
+    UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns
 
   commitValue =
     txOutValue out <> foldMap txOutValue utxoToCommit
