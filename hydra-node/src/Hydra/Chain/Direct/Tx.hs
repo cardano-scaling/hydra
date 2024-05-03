@@ -14,18 +14,17 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
-import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..), hashAlonzoTxAuxData)
+import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
   AlonzoPlutusPurpose (..),
   AsIndex (..),
-  Metadatum,
+  EraTxAuxData (hashTxAuxData),
   Redeemers (..),
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
   inputsTxBodyL,
   mintTxBodyL,
-  mkAlonzoTxAuxData,
   outputsTxBodyL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
@@ -33,7 +32,7 @@ import Cardano.Ledger.Api (
   unRedeemers,
   witsTxL,
  )
-import Cardano.Ledger.BaseTypes (StrictMaybe (..), fromSMaybe)
+import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Control.Lens ((.~), (<>~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -42,7 +41,6 @@ import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
-import Hydra.Cardano.Api.Prelude (toShelleyMetadata)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
@@ -255,9 +253,8 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
         & bodyTxL . referenceInputsTxBodyL <>~ Set.fromList [toLedgerTxIn initialScriptRef]
         & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
         & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
-        & bodyTxL . auxDataHashTxBodyL .~ combinedMetadata
         & bodyTxL . mintTxBodyL .~ mempty
-        & auxDataTxL .~ addMetadata txAuxMetadata
+        & addMetadata (mkHydraHeadV1TxName "CommitTx")
     existingWits = toLedgerTx blueprintTx ^. witsTxL
     allInputs = ledgerBlueprintTx ^. bodyTxL . inputsTxBodyL
     blueprintRedeemers = unRedeemers $ toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL
@@ -270,15 +267,18 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
    in
     fromLedgerTx $ ledgerBlueprintTx & wits
  where
-  addMetadata newMetadata@(AlonzoTxAuxData metadata' _ _) =
-    case toLedgerTx blueprintTx ^. auxDataTxL of
-      SNothing -> SJust newMetadata
-      SJust (AlonzoTxAuxData metadata timeLocks languageMap) ->
-        SJust $
-          AlonzoTxAuxData
-            (Map.union metadata metadata')
-            timeLocks
-            languageMap
+  addMetadata (TxMetadata newMetadata) tx =
+    let
+      newMetadataMap = toShelleyMetadata newMetadata
+      newAuxData =
+        case toLedgerTx blueprintTx ^. auxDataTxL of
+          SNothing -> AlonzoTxAuxData newMetadataMap mempty mempty
+          SJust (AlonzoTxAuxData metadata timeLocks languageMap) ->
+            AlonzoTxAuxData (Map.union metadata newMetadataMap) timeLocks languageMap
+     in
+      tx
+        & auxDataTxL .~ SJust newAuxData
+        & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
 
   -- re-associates final commit tx inputs with the redeemer data from blueprint tx
   reassociate resolved allInputs =
@@ -335,19 +335,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
   commitDatum =
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
 
-  TxMetadata commitMetadataMap = commitMetadata
-
-  txAuxMetadata = mkAlonzoTxAuxData @[] @LedgerEra (toShelleyMetadata commitMetadataMap) []
-
-  combinedMetadata =
-    let existingMetadataMap = fromSMaybe mempty $ getAuxMetadata <$> toLedgerTx blueprintTx ^. auxDataTxL
-     in SJust . hashAlonzoTxAuxData $
-          mkAlonzoTxAuxData @[] @LedgerEra (Map.union (toShelleyMetadata commitMetadataMap) existingMetadataMap) []
-
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
-
-commitMetadata :: TxMetadata
-commitMetadata = mkHydraHeadV1TxName "CommitTx"
 
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =
