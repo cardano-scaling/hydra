@@ -209,69 +209,49 @@ spec =
         forAllBlind arbitrary $ \chainContext -> do
           let ChainContext{networkId, ownVerificationKey, ownParty, scriptRegistry} =
                 chainContext{ownVerificationKey = getVerificationKey commitSigningKey, networkId = testNetworkId}
-          forAll genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx') -> do
-            let commitTx' =
-                  commitTx
-                    networkId
-                    scriptRegistry
-                    (mkHeadId Fixture.testPolicyId)
-                    ownParty
-                    CommitBlueprintTx{lookupUTxO, blueprintTx = blueprintTx'}
-                    (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, verificationKeyHash ownVerificationKey)
-            let blueprintTx = toLedgerTx blueprintTx'
-            let blueprintBody = blueprintTx ^. bodyTxL
-            let tx = toLedgerTx commitTx'
-            let commitTxBody = tx ^. bodyTxL
+          forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
+            counterexample ("Blueprint tx: " <> renderTxWithUTxO lookupUTxO blueprintTx) $ do
+              let createdTx =
+                    commitTx
+                      networkId
+                      scriptRegistry
+                      (mkHeadId Fixture.testPolicyId)
+                      ownParty
+                      CommitBlueprintTx{lookupUTxO, blueprintTx}
+                      (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, verificationKeyHash ownVerificationKey)
+              counterexample ("\n\n\nCommit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
+                let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
+                let commitTxBody = toLedgerTx createdTx ^. bodyTxL
+                let spendableUTxO =
+                      UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
+                        <> lookupUTxO
+                        <> registryUTxO scriptRegistry
 
-            let spendableUTxO =
-                  UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
-                    <> lookupUTxO
-                    <> registryUTxO scriptRegistry
-
-            conjoin
-              [ propTransactionEvaluates (blueprintTx', lookupUTxO)
-                  & counterexample ("Blueprint transaction failed to evaluate: " <> renderTxWithUTxO lookupUTxO blueprintTx')
-              , propTransactionEvaluates (commitTx', spendableUTxO)
-                  & counterexample ("Commit transaction failed to evaluate: " <> renderTxWithUTxO spendableUTxO commitTx')
-              , conjoin
-                  [ getAuxMetadata blueprintTx' `Map.isSubmapOf` getAuxMetadata commitTx'
-                      & counterexample ("blueprint metadata: " <> show (getAuxMetadata blueprintTx'))
-                      & counterexample ("commit metadata: " <> show (getAuxMetadata commitTx'))
-                  , propHasValidAuxData blueprintTx'
-                      & counterexample "Blueprint tx has invalid aux data"
-                  , propHasValidAuxData commitTx'
-                      & counterexample "Commit tx has invalid aux data"
+                conjoin
+                  [ propTransactionEvaluates (blueprintTx, lookupUTxO)
+                      & counterexample "Blueprint transaction failed to evaluate"
+                  , propTransactionEvaluates (createdTx, spendableUTxO)
+                      & counterexample "Commit transaction failed to evaluate"
+                  , conjoin
+                      [ getAuxMetadata blueprintTx `propIsSubmapOf` getAuxMetadata createdTx
+                          & counterexample "Blueprint metadata incomplete"
+                      , propHasValidAuxData blueprintTx
+                          & counterexample "Blueprint tx has invalid aux data"
+                      , propHasValidAuxData createdTx
+                          & counterexample "Commit tx has invalid aux data"
+                      ]
+                  , blueprintBody ^. vldtTxBodyL === commitTxBody ^. vldtTxBodyL
+                      & counterexample "Validity range mismatch"
+                  , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. inputsTxBodyL)
+                      & counterexample "Blueprint inputs missing"
+                  , property
+                      ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))
+                      & counterexample "Blueprint outputs not discarded"
+                  , (blueprintBody ^. reqSignerHashesTxBodyL) `propIsSubsetOf` (commitTxBody ^. reqSignerHashesTxBodyL)
+                      & counterexample "Blueprint required signatures missing"
+                  , (blueprintBody ^. referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. referenceInputsTxBodyL)
+                      & counterexample "Blueprint reference inputs missing"
                   ]
-              , let blueprintValidity = blueprintBody ^. vldtTxBodyL
-                    commitValidity = commitTxBody ^. vldtTxBodyL
-                 in blueprintValidity === commitValidity
-                      & counterexample ("blueprint validity: " <> show blueprintValidity)
-                      & counterexample ("commit validity: " <> show commitValidity)
-              , let blueprintInputs = blueprintBody ^. inputsTxBodyL
-                    commitInputs = commitTxBody ^. inputsTxBodyL
-                 in property (blueprintInputs `Set.isSubsetOf` commitInputs)
-                      & counterexample ("blueprint inputs: " <> show blueprintInputs)
-                      & counterexample ("commit inputs: " <> show commitInputs)
-              , let blueprintOutputs = toList $ blueprintBody ^. outputsTxBodyL
-                    commitOutputs = toList $ commitTxBody ^. outputsTxBodyL
-                 in property
-                      ( all
-                          (`notElem` blueprintOutputs)
-                          commitOutputs
-                      )
-                      & counterexample ("blueprint outputs: " <> show blueprintOutputs)
-                      & counterexample ("commit outputs: " <> show commitOutputs)
-              , let blueprintSigs = blueprintBody ^. reqSignerHashesTxBodyL
-                    commitSigs = commitTxBody ^. reqSignerHashesTxBodyL
-                 in property (blueprintSigs `Set.isSubsetOf` commitSigs)
-                      & counterexample ("blueprint signatures: " <> show blueprintSigs)
-                      & counterexample ("commit signatures: " <> show commitSigs)
-              , let blueprintRefInputs = blueprintBody ^. referenceInputsTxBodyL
-                    commitRefInputs = commitTxBody ^. referenceInputsTxBodyL
-                 in property (blueprintRefInputs `Set.isSubsetOf` commitRefInputs)
-                      & counterexample ("blueprint reference inputs: " <> show blueprintRefInputs)
-                      & counterexample ("commit reference inputs: " <> show commitRefInputs)
-              ]
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
@@ -289,6 +269,18 @@ propHasValidAuxData tx =
   hashConsistent auxData =
     toLedgerTx tx ^. bodyTxL . auxDataHashTxBodyL === SJust (hashTxAuxData auxData)
       & counterexample "Auxiliary data hash inconsistent"
+
+-- | Check whether one set 'isSubsetOf' of another with nice counter examples.
+propIsSubsetOf :: (Show a, Ord a) => Set a -> Set a -> Property
+propIsSubsetOf as bs =
+  as `Set.isSubsetOf` bs
+    & counterexample (show as <> "\n  is not a subset of\n" <> show bs)
+
+-- | Check whether one map 'isSubmapOf' of another with nice counter examples.
+propIsSubmapOf :: (Show k, Show v, Ord k, Eq v) => Map k v -> Map k v -> Property
+propIsSubmapOf as bs =
+  as `Map.isSubmapOf` bs
+    & counterexample (show as <> "\n  is not a submap of\n" <> show bs)
 
 genBlueprintTxWithUTxO :: Gen (UTxO, Tx)
 genBlueprintTxWithUTxO =
