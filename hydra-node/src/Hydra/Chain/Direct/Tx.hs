@@ -343,9 +343,6 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
 commitMetadata :: TxMetadata
 commitMetadata = mkHydraHeadV1TxName "CommitTx"
 
-getAuxMetadata :: AlonzoTxAuxData LedgerEra -> Map Word64 Metadatum
-getAuxMetadata (AlonzoTxAuxData metadata _ _) = metadata
-
 mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
 mkCommitDatum party utxo headId =
   Commit.datum (partyToChain party, commits, headId)
