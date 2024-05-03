@@ -27,13 +27,13 @@ export default function Home() {
 
               <div className="flex ">
                 <h1 className="text-3xl font-bold flex items-center">
-                  <div className="mr-2">
+                  <div className="mr-4">
                     <Image
                       src="/hydra.svg"
                       alt="Hydra Logo"
                       className="dark:invert"
-                      width={100}
-                      height={24}
+                      width={50}
+                      height={50}
                       priority
                     />
                   </div>

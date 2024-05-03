@@ -6,6 +6,13 @@
         fill: #000;
         stroke-width: 0px;
       }
+      @media (prefers-color-scheme: dark) {
+        .cls-1 {
+          fill: white;
+          stroke: black;
+          stroke-width: 4px;
+        }
+      }
     </style>
   </defs>
   <path class="cls-1" d="M750.68,589.43s.23-38.11-20.2-80.85c-47.39-99.11-192.51-262.52-637.32-187.02L6,471.04l90.6,70.64c54-21.48,416.22-226.88,654.08,47.74ZM151.47,391.09l-30.03,48.34-48.34-30.03,78.37-18.31Z"/>
