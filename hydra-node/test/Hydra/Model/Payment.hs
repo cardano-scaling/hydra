@@ -81,7 +81,6 @@ instance HasVariables Payment where
   getAllVariables _ = mempty
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
--- FIXME: Missing method implementation
 instance IsTx Payment where
   type TxIdType Payment = Int
   type UTxOType Payment = [(CardanoSigningKey, Value)]
@@ -90,6 +89,10 @@ instance IsTx Payment where
   txSpendingUTxO = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
+  txSpendingUTxO = \case
+    [] -> error "nothing to spend spending"
+    [(from, value)] -> Payment{from, to = from, value}
+    _ -> error "cant spend from multiple utxo in one payment"
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
