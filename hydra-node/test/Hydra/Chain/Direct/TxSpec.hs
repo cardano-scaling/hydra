@@ -5,13 +5,14 @@
 -- "direct" chain component.
 module Hydra.Chain.Direct.TxSpec where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (hashAlonzoTxAuxData, mkAlonzoTxAuxData)
 import Cardano.Ledger.Api (
-  Metadatum,
   AlonzoPlutusPurpose (AlonzoSpending),
+  Metadatum,
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
@@ -25,18 +26,15 @@ import Cardano.Ledger.Api (
   validateTxAuxData,
   vldtTxBodyL,
   witsTxL,
+  pattern ShelleyTxAuxData,
  )
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
-import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..), fromSMaybe)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Data.Text qualified as Text
-import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Prelude (fromShelleyMetadata, toShelleyMetadata)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
@@ -73,8 +71,8 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
-import Hydra.PersistenceSpec (genSomeText)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
+import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -89,9 +87,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   label,
-  oneof,
   property,
-  vector,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -327,39 +323,8 @@ genBlueprintTxWithUTxO =
       )
 
   addRandomMetadata (utxo, txbody) = do
-    mtdt <-
-      oneof $
-        ( fmap TxMetadataInEra
-            <$> [bytesMetadata, numberMetadata, textMetadata, listMetadata]
-        )
-          <> [pure TxMetadataNone]
+    mtdt <- genMetadata
     pure (utxo, txbody{txMetadata = mtdt})
-   where
-    mkMeta = TxMetadata . Map.fromList
-
-    listMetadata = do
-      TxMetadata bytes <- bytesMetadata
-      TxMetadata numbers <- numberMetadata
-      TxMetadata text <- textMetadata
-      l <- arbitrary
-      pure $ mkMeta [(l, TxMetaList $ Map.elems bytes <> Map.elems numbers <> Map.elems text)]
-
-    bytesMetadata = do
-      n <- choose (1, 50)
-      metadata <- BS.pack <$> vector n
-      l <- arbitrary
-      pure $ mkMeta [(l, TxMetaBytes metadata)]
-
-    numberMetadata = do
-      metadata <- elements [0 .. 100]
-      l <- arbitrary
-      pure $ mkMeta [(l, TxMetaNumber metadata)]
-
-    textMetadata = do
-      n <- choose (2, 22)
-      metadata <- Text.take n <$> genSomeText
-      l <- arbitrary
-      pure $ mkMeta [(l, TxMetaText metadata)]
 
   removeRandomInputs (utxo, txbody) = do
     someInput <- elements $ txIns txbody
@@ -371,6 +336,11 @@ genBlueprintTxWithUTxO =
       ( utxo <> utxoToSpend
       , txbody{txInsCollateral = TxInsCollateral $ toList (UTxO.inputSet utxoToSpend)}
       )
+
+genMetadata :: Gen TxMetadataInEra
+genMetadata =
+  genMetadata' @LedgerEra >>= \(ShelleyTxAuxData m) ->
+    pure . TxMetadataInEra . TxMetadata $ fromShelleyMetadata m
 
 prop_interestingBlueprintTx :: Property
 prop_interestingBlueprintTx = do

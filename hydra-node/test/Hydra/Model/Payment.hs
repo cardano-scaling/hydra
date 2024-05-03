@@ -81,6 +81,7 @@ instance HasVariables Payment where
   getAllVariables _ = mempty
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
+-- FIXME: Missing method implementation
 instance IsTx Payment where
   type TxIdType Payment = Int
   type UTxOType Payment = [(CardanoSigningKey, Value)]
