@@ -94,7 +94,6 @@ import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
-  Positive (..),
   Property,
   checkCoverage,
   choose,
@@ -290,11 +289,10 @@ genBlueprintTxWithUTxO =
       >>= addSomeReferenceInputs
       >>= addValidityRange
       >>= addRandomMetadata
-      >>= removeRandomInputs
       >>= addCollateralInput
  where
   spendingPubKeyOutput (utxo, txbody) = do
-    utxoToSpend <- (genUTxOAdaOnlyOfSize . getPositive) . Positive =<< choose (0, 50)
+    utxoToSpend <- genUTxOAdaOnlyOfSize =<< choose (0, 3)
     pure
       ( utxo <> utxoToSpend
       , txbody & addVkInputs (toList $ UTxO.inputSet utxoToSpend)
@@ -303,8 +301,7 @@ genBlueprintTxWithUTxO =
   spendSomeScriptInputs (utxo, txbody) = do
     let alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 3
     datum <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
-    redeemer <-
-      unsafeHashableScriptData . fromPlutusData <$> arbitrary -- . B . BS.pack <$> vector n
+    redeemer <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     let genTxOut = do
           value <- genValue
           let scriptAddress = mkScriptAddress testNetworkId alwaysSucceedingScript
@@ -340,10 +337,6 @@ genBlueprintTxWithUTxO =
     mtdt <- genMetadata
     pure (utxo, txbody{txMetadata = mtdt})
 
-  removeRandomInputs (utxo, txbody) = do
-    someInput <- elements $ txIns txbody
-    pure (utxo, txbody{txIns = [someInput]})
-
   addCollateralInput (utxo, txbody) = do
     utxoToSpend <- genUTxOAdaOnlyOfSize 1
     pure
@@ -369,6 +362,7 @@ prop_interestingBlueprintTx = do
       True
       & cover 1 (spendsFromScript (utxo, tx)) "blueprint spends script UTxO"
       & cover 1 (spendsFromPubKey (utxo, tx)) "blueprint spends pub key UTxO"
+      & cover 1 (spendsFromPubKey (utxo, tx) && spendsFromScript (utxo, tx)) "blueprint spends from script AND pub key"
       & cover 1 (hasReferenceInputs tx) "blueprint has reference input"
  where
   hasReferenceInputs tx =
