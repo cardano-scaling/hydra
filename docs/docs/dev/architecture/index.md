@@ -31,6 +31,34 @@ _Network_ component is responsible for all of the communications related to the 
 
 Messages are exchanged between nodes on different internal transitions and are authenticated using each peer _Hydra Key_: Each message sent is signed by the emitter and the signature is verified by the transmitter.
 
+##### Authentication & Authorization
+
+The messages exchanged through the _Hydra Network_ layer between
+participants are authenticated: Each message is
+[signed](https://github.com/input-output-hk/hydra/issues/727) using
+the [Hydra signing key](/docs/getting-started/glossary#signing-key) of the emitting party which is identified by
+the corresponding [verification key](/docs/getting-started/glossary#verification-key). When a message with an unknown
+or incorrect signature is received, it is dropped and a notification
+is logged.
+
+Messages are however not encrypted and therefore, if confidentiality is
+required, some external mechanism needs to be put in place to prevent
+other parties from observing the messages exchanged within a Head.
+
+##### Fault tolerance
+
+The Hydra Head protocol guarantees safety of all (honest)
+participants' funds, but does not in itself guarantee liveness, hence
+all parties involved in a Hydra Head must be online and reactive for
+the protocol to make progress.
+
+This implies that, should one or several participants' hydra-node
+become _permanently_ unreachable from the others, through a crash, or
+a network partition, no more transactions can happen in the Head and
+it must be closed. However, the [Hydra network
+layer](https://hydra.family/head-protocol/unstable/haddock/hydra-node/Hydra-Node-Network.html)
+is tolerant to _transient_ disconnections and (non-Byzantine) crashes.
+
 ### Chain Interaction
 
 #### Chain
