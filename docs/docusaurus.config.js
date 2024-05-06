@@ -33,11 +33,6 @@ const config = {
     },
   ],
 
-  i18n: {
-    defaultLocale: "en",
-    locales: ["en", "fr", "ja", "es"],
-  },
-
   presets: [
     [
       "classic",
@@ -183,10 +178,6 @@ const config = {
           {
             href: "https://github.com/input-output-hk/hydra",
             label: "GitHub",
-            position: "right",
-          },
-          {
-            type: "localeDropdown",
             position: "right",
           },
         ],

@@ -16,6 +16,10 @@ changes.
   from a script `UTxO`, and also unlock more involved use-cases, users need to provide additional
   unsigned transaction that correctly specifies required data (like redeemers, validity ranges etc.)
 
+- Update navigation and re-organized documentation website https://hydra.family
+  - Updated logos
+  - Removed localization as it got outdated and on-demand site translation tools exist.
+
 - Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand.
   - Always responds with the last confirmed UTxO
 

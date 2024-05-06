@@ -42,31 +42,4 @@ nix build .#haddocks -o docs/static/haddock
 
 # Translating
 
-Translations of the documentation are provided in the `i18n/{lang}` folder (for example `i18n/fr` for French). Translations of both the content and the various website elements (such as buttons, headers etc...) are needed. To initialize a new language translation (e.g. `fr`), run the following command:
-
-```console
-$ yarn write-translations --locale fr
-```
-
-This command will pre-generate all the website elements which need to be translated into French (locale `fr`) in JSON files. Translations have to be provided for each items in generated JSON files, mapping ids to messages as such:
-
-```json
-{
-  "theme.TOCCollapsible.toggleButtonLabel": {
-    "message": "Sur cette page",
-    "description": "The label used by the button on the collapsible TOC component"
-  }
-}
-```
-
-> Note that only the value of the key `message` needs to be translated, the `description` simply provides context regarding the translated element and is automatically generated.
-
-In addition content files themselves (markdown) need to be copied under their respective directories, and then translated. Here is a table that summarizes the correspondence between the default website structure and their localized versions:
-
-| default          | translations                                                        |
-| ---------------- | ------------------------------------------------------------------- |
-| `docs/`          | `i18n/{lang}/docusaurus-plugin-content-docs/current/`               |
-| `benchmarks/`    | `i18n/{lang}/docusaurus-plugin-content-docs-benchmarks/current/`    |
-| `core-concepts/` | `i18n/{lang}/docusaurus-plugin-content-docs-core-concepts/current/` |
-| `topologies/`    | `i18n/{lang}/docusaurus-plugin-content-docs-topologies/current/`    |
-| `adr/`           | `i18n/{lang}/docusaurus-plugin-content-blog/current/`               |
+While we supported and encouraged contributing translations in the past, we turned off internationalization features as translations inevitably became out-of-date and on-demand translation of website became significantly better with AI language models. Nontheless, if you feel like we should offer translated pages and want to contribute that, please don't hesitate to file an [issue](https://github.com/input-output-hk/hydra/issues/new/choose).
