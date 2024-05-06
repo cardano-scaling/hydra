@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Prepare environment to run the demo cluster, then launches docker-compose demo.
-# If there's already a demo running, bail out.
+# Prepare environment to run the demo cluster, then launches docker compose
+# demo. If there's already a demo running, bail out.
 set -e
 
 SCRIPT_DIR=$(dirname $(realpath $0))
@@ -25,7 +25,7 @@ fi
 "${SCRIPT_DIR}/prepare-devnet.sh"
 ${DOCKER_COMPOSE_CMD} up -d cardano-node
 "${SCRIPT_DIR}/seed-devnet.sh"
-${DOCKER_COMPOSE_CMD} --profile hydra-node up -d
-echo >&2 -e "\n# Launch TUI on hydra-node-1: ${DOCKER_COMPOSE_CMD} --profile tui run hydra-tui-1"
+${DOCKER_COMPOSE_CMD} up -d hydra-node-{1,2,3}
+echo >&2 -e "\n# Launch TUI on hydra-node-1: ${DOCKER_COMPOSE_CMD} run hydra-tui-1"
 echo >&2 -e "\n# Stop the demo: ${DOCKER_COMPOSE_CMD} down\n"
-${DOCKER_COMPOSE_CMD} --profile tui run hydra-tui-1
+${DOCKER_COMPOSE_CMD} run hydra-tui-1

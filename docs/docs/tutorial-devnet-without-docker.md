@@ -2,10 +2,9 @@
 sidebar_position: 3
 ---
 
-# Without Docker
+# Quickstart without Docker
 
 ```mdx-code-block
-import TerminalWindow from '@site/src/components/TerminalWindow';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 ```
@@ -29,11 +28,9 @@ All further commands are written as if executed from the `demo` folder in the pr
 Allowing the `demo/.envrc` will ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
 :::
 
-## Setting-up The Chain
+## Set up the devnet
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
-
-<TerminalWindow>
 
 ```
 ./prepare-devnet.sh
@@ -48,24 +45,16 @@ cardano-node run \
   --shelley-vrf-key vrf.skey
 ```
 
-</TerminalWindow>
-
-## Seeding The Network
-
 From the `demo` folder you can use the `seed-devnet.sh` script by passing it the path/command to a cardano-cli and hydra-node executable to use, instead of having it using the Docker container. For example:
-
-<TerminalWindow>
 
 ```
 export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
 ./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
 ```
 
-</TerminalWindow>
-
 Note, should you want to use `cabal`, pass the invocation for example like this `"cabal exec hydra-node --"`.
 
-## Setting-up The Hydra Network
+## Start Hydra nodes
 
 Then, in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
 
@@ -78,7 +67,6 @@ If you don't see any connected peers in the tui it probably means that your syst
 <Tabs>
 
 <TabItem value="Alice">
-<TerminalWindow>
 
 ```
 source .env && hydra-node \
@@ -98,11 +86,9 @@ source .env && hydra-node \
   --persistence-dir devnet/persistence/alice
 ```
 
-</TerminalWindow>
 </TabItem>
 
 <TabItem value="Bob">
-<TerminalWindow>
 
 ```
 source .env && hydra-node \
@@ -122,11 +108,9 @@ source .env && hydra-node \
   --persistence-dir devnet/persistence/bob
 ```
 
-</TerminalWindow>
 </TabItem>
 
 <TabItem value="Carol">
-<TerminalWindow>
 
 ```
 source .env && hydra-node \
@@ -146,7 +130,6 @@ source .env && hydra-node \
   --persistence-dir devnet/persistence/carol
 ```
 
-</TerminalWindow>
 </TabItem>
 
 
@@ -155,7 +138,7 @@ source .env && hydra-node \
 
 If things go well, the nodes should start logging once connected to the chain.
 
-## Running The Clients
+## Run Hydra clients
 
 Connect to the nodes using hydra-tui.
 
@@ -163,7 +146,6 @@ Connect to the nodes using hydra-tui.
 <Tabs>
 
 <TabItem value="Alice">
-<TerminalWindow>
 
 ```
 hydra-tui \
@@ -173,11 +155,9 @@ hydra-tui \
   --node-socket devnet/node.socket
 ```
 
-</TerminalWindow>
 </TabItem>
 
 <TabItem value="Bob">
-<TerminalWindow>
 
 ```
 hydra-tui \
@@ -187,11 +167,9 @@ hydra-tui \
   --node-socket devnet/node.socket
 ```
 
-</TerminalWindow>
 </TabItem>
 
 <TabItem value="Carol">
-<TerminalWindow>
 
 ```
 hydra-tui \
@@ -201,7 +179,6 @@ hydra-tui \
   --node-socket devnet/node.socket
 ```
 
-</TerminalWindow>
 </TabItem>
 
 </Tabs>

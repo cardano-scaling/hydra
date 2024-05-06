@@ -27,8 +27,6 @@ services:
     build:
       context: ../
       target: hydra-node
-    profiles:
-      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet:/devnet
@@ -64,8 +62,6 @@ services:
     build:
       context: ../
       target: hydra-node
-    profiles:
-      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet:/devnet
@@ -101,8 +97,6 @@ services:
     build:
       context: ../
       target: hydra-node
-    profiles:
-      - hydra-node
     volumes:
       - .:/keys:ro
       - ./devnet:/devnet
@@ -137,8 +131,6 @@ services:
     build:
        context: ../
        target: hydra-tui
-    profiles:
-      - tui
     command:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/devnet/node.socket"
@@ -156,8 +148,6 @@ services:
     build:
        context: ../
        target: hydra-tui
-    profiles:
-      - tui
     command:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/devnet/node.socket"
@@ -175,8 +165,6 @@ services:
     build:
        context: ../
        target: hydra-tui
-    profiles:
-      - tui
     command:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/devnet/node.socket"

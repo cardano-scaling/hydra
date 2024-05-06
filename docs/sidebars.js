@@ -18,9 +18,9 @@ module.exports = {
       className: "sidebar-header",
     },
     {
-      type: "link",
-      href: "/",
-      label: "Getting started",
+      type: "doc",
+      id: "tutorial-devnet",
+      label: "Quickstart using a devnet",
     },
     {
       type: "doc",

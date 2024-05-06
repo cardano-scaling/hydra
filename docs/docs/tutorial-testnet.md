@@ -1,7 +1,3 @@
----
-sidebar_position: 2
----
-
 # Open a head on testnet
 
 This tutorial will show you how to use `hydra-node` on the `preprod` Cardano
