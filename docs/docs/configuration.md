@@ -1,6 +1,8 @@
 # Configuration
 
-Running a Hydra head means running a Hydra node connected to some other Hydra nodes and connected to a Cardano node. A working [cardano-node](https://github.com/input-output-hk/cardano-node/) is therefore a pre-requisite for running a Hydra head. In this guide, we won't go over details about running a Cardano node and we invite you to look for existing documentation on the matter if need be.
+Running a Hydra head means running a Hydra node connected to some other Hydra nodes and connected to a Cardano node.
+
+A working [cardano-node](https://github.com/input-output-hk/cardano-node/) is therefore a pre-requisite for running a Hydra head. In this guide, we won't go over details about running a Cardano node and we invite you to look for existing documentation on the matter if need be.
 
 :::tip cardano-node & cardano-cli
 We recommend using containers and the [official Docker image](https://hub.docker.com/r/inputoutput/cardano-node) for running a Cardano node.
@@ -8,159 +10,49 @@ We recommend using containers and the [official Docker image](https://hub.docker
 This image contains both `cardano-node` and `cardano-cli`. The latter is handy to run various commands, for example to create addresses and to generate keys.
 :::
 
-## Hydra-node options...
+The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use `--help` to get a description of all options:
 
-The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use the `--help` option to get a description of all options:
-
-```
-hydra-node - Implementation of the Hydra Head protocol
-
-Usage: hydra-node ([-q|--quiet] (-n|--node-id NODE-ID) [-h|--host IP]
-                    [-p|--port PORT] [-P|--peer ARG] [--api-host IP]
-                    [--api-port PORT] [--monitoring-port PORT]
-                    [--hydra-signing-key FILE] [--hydra-verification-key FILE]
-                    [--hydra-scripts-tx-id TXID] [--persistence-dir DIR]
-                    [--mainnet | --testnet-magic NATURAL] [--node-socket FILE]
-                    [--cardano-signing-key FILE]
-                    [--cardano-verification-key FILE]
-                    [--start-chain-from SLOT.HEADER_HASH]
-                    [--contestation-period CONTESTATION-PERIOD]
-                    [--ledger-protocol-parameters FILE] |
-                    COMMAND) [--version] [--script-info]
-
-  Starts a Hydra Node
-
-Available options:
-  -q,--quiet               Turns off logging.
-  -n,--node-id NODE-ID     The Hydra node identifier used on the Hydra network.
-                           It is important to have a unique identifier in order
-                           to be able to distinguish between connected peers.
-  -h,--host IP             Listen address for incoming Hydra network
-                           connections. (default: 127.0.0.1)
-  -p,--port PORT           Listen port for incoming Hydra network connections.
-                           (default: 5001)
-  -P,--peer ARG            A peer address in the form <host>:<port>, where
-                           <host> can be an IP address, or a host name. Can be
-                           provided multiple times, once for each peer (current
-                           maximum limit is 4 peers).
-  --api-host IP            Listen address for incoming client API connections.
-                           (default: 127.0.0.1)
-  --api-port PORT          Listen port for incoming client API connections.
-                           (default: 4001)
-  --monitoring-port PORT   Listen port for monitoring and metrics via
-                           prometheus. If left empty, monitoring server is not
-                           started.
-  --hydra-signing-key FILE Hydra signing key used by our hydra-node.
-                           (default: "hydra.sk")
-  --hydra-verification-key FILE
-                           Hydra verification key of another party in the Head.
-                           Can be provided multiple times, once for each
-                           participant (current maximum limit is 4 ).
-  --hydra-scripts-tx-id TXID
-                           The transaction which is expected to have published
-                           Hydra scripts as reference scripts in its outputs.
-                           Note: All scripts need to be in the first 10 outputs.
-                           See release notes for pre-published versions. You can
-                           use the 'publish-scripts' sub-command to publish them
-                           yourself.
-  --persistence-dir DIR    The directory where the Hydra Head state is stored.Do
-                           not edit these files manually!
-  --mainnet                Use the mainnet magic id.
-  --testnet-magic NATURAL  Network identifier for a testnet to connect to. We
-                           only need to provide the magic number here. For
-                           example: '2' is the 'preview' network. See
-                           https://book.world.dev.cardano.org/environments.html
-                           for available networks. (default: 42)
-  --node-socket FILE       Filepath to local unix domain socket used to
-                           communicate with the cardano node.
-                           (default: "node.socket")
-  --cardano-signing-key FILE
-                           Cardano signing key of our hydra-node. This will be
-                           used to authorize Hydra protocol transactions for
-                           heads the node takes part in and any funds owned by
-                           this key will be used as 'fuel'.
-                           (default: "cardano.sk")
-  --cardano-verification-key FILE
-                           Cardano verification key of another party in the
-                           Head. Can be provided multiple times, once for each
-                           participant (current maximum limit is 4).
-  --start-chain-from SLOT.HEADER_HASH
-                           The id of the block we want to start observing the
-                           chain from. If not given, uses the chain tip at
-                           startup. Composed by the slot number, a separator
-                           ('.') and the hash of the block header. For example:
-                           52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04.
-  --contestation-period CONTESTATION-PERIOD
-                           Contestation period for close transaction in seconds.
-                           If this value is not in sync with other participants
-                           hydra-node will ignore the initial tx. Additionally,
-                           this value needs to make sense compared to the
-                           current network we are running. (default: 60s)
-  --ledger-protocol-parameters FILE
-                           Path to protocol parameters used in the Hydra Head.
-                           See manual how to configure this.
-                           (default: "protocol-parameters.json")
-  --version                Show version
-  --script-info            Dump script info as JSON
-  -h,--help                Show this help text
-
-Available commands:
-  publish-scripts          Publish Hydra's Plutus scripts on chain to be used
-                           by the hydra-node as --hydra-script-tx-id.
-
-                            ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                            ┃              ⚠ WARNING ⚠              ┃
-                            ┣═══════════════════════════════════════┫
-                            ┃    This costs money. About 50 Ada.    ┃
-                            ┃ Spent using the provided signing key. ┃
-                            ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```shell
+hydra-node --help
 ```
 
-:::info Dynamic Configuration
-
-We realise that the command-line in its current form isn't as user-friendly as it could, and is somewhat cumbersome to use for setting up large clusters.
-
-There are however plans to make the configuration more user-friendly and configurable dynamically; see [#240](https://github.com/input-output-hk/hydra/issues/240) & [ADR-15](/adr/15)
-:::
-
-## ...and Where to Find Them
+Below we document selected aspects of the configuration. See the [tutorial](./tutorial) for an end-to-end guide or individual _How to_ articles for more details.
 
 ### Cardano Keys
 
-The previous section describes the various options and elements needed to setup a Hydra node. In this section, we'll show how to obtain some of those elements. First, let's start with the Cardano keys (`--cardano-signing-key` and `--cardano-verification-key`).
+In a head, every participant is authenticated by two sets of keys. The first are used to identify a participant on the Cardano L1 and hold ADA to pay fees. Every `hydra-node` needs to be given a `--cardano-signing-key` and for each other participant of the head, we need to provide their `--cardano-verification-key`.
 
-In a head, every participant is authenticated by two sets of keys, one key pair is a plain Ed25519 public/private key pair quite common on Cardano already. Such a key pair can be generated using the `cardano-cli` as follows:
+Such a key pair can be generated using the `cardano-cli` as follows:
 
-```mdx-code-block
-<TerminalWindow>
-cardano-cli address key-gen --verification-key-file cardano.vk --signing-key-file cardano.sk
-</TerminalWindow>
+```shell
+cardano-cli address key-gen \
+  --verification-key-file cardano.vk \
+  --signing-key-file cardano.sk
 ```
 
-From there, each participant is expected to share their verification key with other participants. To start a node, one will need its **own signing key** and **other participants' verification key**. Those keys are currently used to authenticate on-chain transactions which drives the execution of the Hydra protocol. They prevent unsolicited actors to fiddle with the head life-cycle (for instance, someone external to the head could otherwise _abort_ an initialised head). While this wouldn't put head participants' funds at risk, it is still an annoyance that one wants to prevent.
+These keys are currently used to authenticate on-chain transactions which drives the execution of the Hydra protocol. They prevent unsolicited actors to fiddle with the head life-cycle (for instance, someone external to the head could otherwise _abort_ an initialised head). While this wouldn't put head participants' funds at risk, it is still an annoyance that one wants to prevent.
 
 ### Hydra keys
 
-The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys will be key pairs used within MuSig2 aggregated multi-signature scheme. At present however, the aggregated multisig cryptography is [yet to be implemented](https://github.com/input-output-hk/hydra/issues/193) and the Hydra nodes are a naive, but secure multi-signature scheme based on Ed25519 keys.
+The second set of keys are the so-called Hydra keys, which are used for multi-signing snapshots within a Head. While in the long-run, those keys may be used in an aggregated multi-signature scheme. At present however, Hydra keys are also Ed25519 keys.
 
-These are similar to cardano keys but are used only in the layer 2. We provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra/tree/master/demo).
-
-Alternatively, unique keys can be generated using `hydra-node`:
+These are similar to cardano keys but are only on the layer 2. New keys can be generated using `hydra-node`:
 
 ```mdx-code-block
-<TerminalWindow>
 hydra-node gen-hydra-key --output-file my-key
-</TerminalWindow>
 ```
 
 This will create two files, `my-key.sk` and `my-key.vk` containing Hydra keys suitable for use inside a head.
 
+Alternatively, we provide demo key pairs as `alice.{vk,sk}`, `bob.{vk,sk}` and `carol.{vk,sk}` in our [demo folder](https://github.com/input-output-hk/hydra/tree/master/demo). These should obviously not be used in production.
+
+
 ### Contestation Period
 
-Contestation period is an argument to the hydra-node, expressed as a number of seconds, for example:
+The contestation period is a protocol parameter and given as a number of seconds, for example:
 
 ```
-$ hydra-node ... --contestation-period 120s
+hydra-node --contestation-period 120s
 ```
 
 Contestation period is used in:
