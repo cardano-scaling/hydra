@@ -1,14 +1,4 @@
----
-sidebar_position: 3
----
-
-# QuickStart
-
-```mdx-code-block
-import TerminalWindow from '@site/src/components/TerminalWindow';
-```
-
-> Your first steps with a `hydra-node`.
+# Configuration
 
 Running a Hydra head means running a Hydra node connected to some other Hydra nodes and connected to a Cardano node. A working [cardano-node](https://github.com/input-output-hk/cardano-node/) is therefore a pre-requisite for running a Hydra head. In this guide, we won't go over details about running a Cardano node and we invite you to look for existing documentation on the matter if need be.
 

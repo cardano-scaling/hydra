@@ -35,12 +35,12 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "getting-started/installation",
+      id: "installation",
       label: "Installation",
     },
     {
       type: "doc",
-      id: "getting-started/quickstart",
+      id: "configuration",
       label: "Configuration",
     },
     {
