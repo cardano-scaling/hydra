@@ -4,34 +4,19 @@ sidebar_position: 2
 
 # Installation
 
-```mdx-code-block
-import TerminalWindow from '@site/src/components/TerminalWindow';
-```
+### Docker
 
-> Where to get Hydra from?
+The quickest way to get a `hydra-node` installed and running is to use our Docker images:
 
-## Using Docker
-
-The quickest way to get a hydra-node running is to use our Docker images:
-
-````mdx-code-block
-<TerminalWindow>
-
-```
+```shell
 docker pull ghcr.io/input-output-hk/hydra-node
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
-</TerminalWindow>
-````
+### Prebuilt binaries
 
-## Using prebuilt static binaries
+We provide statically linked (as much as possible) binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms as attachment of our [github releases](https://github.com/input-output-hk/hydra/releases).
 
-We provide builds for `hydra-node` and `hydra-tui` as statically
-linked `x86_64-linux` binaries. These binaries can be found in our CI or
-attached to [github releases](https://github.com/input-output-hk/hydra/releases)
-starting with version `0.8.1`.
+### Build from source
 
-## Building from source
-
-While using docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We do recommend using [nix](https://nixos.org/download.html) for this though and the instructions can be found in our [Contributing Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md).
+While using docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We do recommend using [nix](https://nixos.org/download.html) for this and the instructions can be found in our [Contributing Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md).
