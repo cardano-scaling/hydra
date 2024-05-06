@@ -2,9 +2,9 @@
 sidebar_position: 99
 ---
 
-# Commit using blueprint transaction
+# Commit using a blueprint
 
- This is a small walk-through on how to use `cardano-cli` to assemble everything needed to commit funds to a `Head` using blueprint transaction.
+ This is a small walk-through on how to use `cardano-cli` to assemble everything needed to commit funds to a `Head` using a so-called blueprint transaction.
 
  Example assumes you have the hydra-node repo at your disposal together with `hydra-node`, `hydra-tui`, `cardano-cli` and `curl` binaries.
 

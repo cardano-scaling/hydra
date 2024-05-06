@@ -38,7 +38,7 @@ The second set of keys are the so-called Hydra keys, which are used for multi-si
 
 These are similar to cardano keys but are only on the layer 2. New keys can be generated using `hydra-node`:
 
-```mdx-code-block
+```
 hydra-node gen-hydra-key --output-file my-key
 ```
 
@@ -97,10 +97,11 @@ transaction.
 
 Hydra makes use of reference scripts to reduce the size of transactions driving the Head's lifecycle. In principle, reference scripts will be published with each release and the corresponding transaction id will be advertised in the release notes. However, if you do want to play around with this and provide alternative versions, you can do so by first publishing the scripts yourself via the `publish-scripts` command:
 
-```mdx-code-block
-<TerminalWindow>
-hydra-node publish-scripts --testnet-magic 42 --node-socket /path/to/node.socket --cardano-signing-key cardano.sk
-</TerminalWindow>
+```shell
+hydra-node publish-scripts \
+  --testnet-magic 42 \
+  --node-socket /path/to/node.socket \
+  --cardano-signing-key cardano.sk
 ```
 
 On success, this commands outputs a transaction id ready to be used. The provided key is expected to hold funds (> 50 ADA), and will be used to create multiple **UNSPENDABLE** UTxO entries on-chain, each carrying a script that can be later referenced by the Hydra node.
@@ -115,24 +116,20 @@ We provide existing files in [hydra-cluster/config](https://github.com/input-out
 Note that many of protocol-parameters are actually irrelevant in the context of Hydra (for example, there's no treasury or stake pool inside a head; consequently, parameters configuring the reward incentive or delegation rules are pointless and unused).
 :::
 
-### Fuel
+### Fuel vs. Funds
 
-Finally, one last bit necessary to get Hydra nodes up and running is to add funds to their "internal wallet". All the transactions driving the Head lifecycle (Init, Abort, Close, ...) need to be submitted to the layer 1, and hence they cost money!
+All the transactions driving the Head lifecycle (Init, Abort, Close, ...) need to be submitted to the layer 1, and hence they cost money! For that, any UTxO owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. We sometimes this **fuel**.
 
-For that, any funds owned by the `--cardano-signing-key` given to the `--hydra-node` will be considered spendable to pay fees or use as collateral for these Hydra protocol transactions. Consequently, sending some ADA-only funds to the address of this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
+Consequently, sending some ADA to the address of this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
 
-<TerminalWindow>
-
-```sh
+```shell
 cardano-cli address build --verification-key-file cardano.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
 ```
 
-</TerminalWindow>
+<!-- TODO: this part below feels ab it odd here, rather move to API or how-to? -->
 
-## External commits
-
-While the `hydra-node` holds funds to fuel protocol transactions, any wallet can be used to commit funds into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify either:
+While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to commit **funds** into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, which allows to specify either:
  - a `UTxO` set of outputs to commit (belonging to public keys) or
  - a _blueprint_ transaction together with the `UTxO` which resolves it.
 
@@ -146,7 +143,7 @@ Using a _blueprint_ transaction with `/commit` allows for more flexibility since
 
 > Note: It is important to note that any **outputs** of a blueprint transaction will not be considered, only inputs are used to commit funds to the `Head`. `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
 
-You can take a look at the small example on how to commit to a `Head` using blueprint transaction [here](/docs/blueprint_transaction.md)
+For more details refere to the [how to](./how-to/commit-blueprint) about committing to a `Head` using blueprint transaction.
 
 ## Generating transactions for the WebSocket API
 
