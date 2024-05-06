@@ -1,4 +1,4 @@
-# Quickstart using a devnet
+# Getting started
 
 To get started quickly, let's walk you through our standard demo setup consisting of 
 
@@ -6,9 +6,9 @@ To get started quickly, let's walk you through our standard demo setup consistin
 - a single `cardano-node` producing blocks used as a (very fast) local `devnet`;
 - the `hydra-tui` example clients to interact with the individual Hydra nodes.
 
-This tutorial will be using [Docker](https://www.docker.com/get-started) to install and the nodes, so make sure to have it installed. If you want to explore alternative ways of running the tools, see this [devnet tutorial](./tutorial-devnet-without-docker.md) variant or the [testnet tutorial](./tutorial-testnet.md) does use pre-built binaries, while documentation pages on [installation](../installation) and [configuration](../configuration) provide more details.
+This tutorial will be using [Docker](https://www.docker.com/get-started) to install and the nodes, so make sure to have it installed. If you want to explore alternative ways of running the tools, see this [tutorial variant](./getting-started-without-docker.md) or the [testnet tutorial](./tutorial.md) does use pre-built binaries, while documentation pages on [installation](./installation) and [configuration](./configuration) provide more details.
 
-Also, the `hydra-tui` does use the HTTP/WebSocket API provided by the `hydra-node` behind the scenes. The [testnet tutorial](./tutorial-testnet.md) will show how to use this API using low-level commands or see the [API reference](/api-reference).
+Also, the `hydra-tui` does use the HTTP/WebSocket API provided by the `hydra-node` behind the scenes. The [testnet tutorial](./tutorial.md) will show how to use this API using low-level commands or see the [API reference](/api-reference).
 
 <details>
 <summary>Video demonstration (a bit dated)</summary>
@@ -21,7 +21,7 @@ Also, the `hydra-tui` does use the HTTP/WebSocket API provided by the `hydra-nod
 These instructions have been tested only on Linux environments (Ubuntu, NixOS). If you're on Windows or Mac OS X, you might need to adapt to use [Volumes](https://docs.docker.com/storage/volumes/).
 :::
 
-## Getting started
+## Preparation
 
 All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository, switch into the demo folder and pull the latest docker images:
 

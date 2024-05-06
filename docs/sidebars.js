@@ -19,12 +19,12 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "tutorial-devnet",
-      label: "Quickstart using a devnet",
+      id: "getting-started",
+      label: "Getting started",
     },
     {
       type: "doc",
-      id: "tutorial-testnet",
+      id: "tutorial",
       label: "Open a head on testnet",
     },
     {

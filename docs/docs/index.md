@@ -30,7 +30,7 @@ implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 :::
 
-Now, without further ado, read more about the protocol [on the next page](./protocol-overview.md) or jump right in to [getting started using a local devnet](./tutorial-devnet.md).
+Now, without further ado, read more about the protocol [on the next page](./protocol-overview) or jump right in to [getting started using a local devnet](./getting-started).
 
 [known-issues]: ./known-issues.md
 [license]: https://github.com/input-output-hk/hydra/blob/master/LICENSE

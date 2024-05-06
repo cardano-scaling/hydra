@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Quickstart without Docker
+# Getting started without Docker
 
 ```mdx-code-block
 import Tabs from '@theme/Tabs';

@@ -179,7 +179,7 @@ update_api_version() {
 
 update_tutorial_version() {
   local version="$1"
-  local tutorial_file=docs/docs/tutorial-testnet.md
+  local tutorial_file=docs/docs/tutorial.md
   sed -i"" -e "s,\(version=\).*,\1$version," $tutorial_file
 }
 
