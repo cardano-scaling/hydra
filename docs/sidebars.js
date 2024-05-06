@@ -3,7 +3,7 @@ module.exports = {
     {
       type: "doc",
       label: "Welcome",
-      id: "getting-started/index",
+      id: "index",
     },
     {
       type: "doc",

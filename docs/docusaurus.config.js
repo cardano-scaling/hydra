@@ -156,12 +156,12 @@ const config = {
         },
         items: [
           {
-            to: "/docs/getting-started",
+            to: "/docs",
             label: "User Manual",
             position: "left",
           },
           {
-            to: "/docs/dev/overview",
+            to: "/docs/dev",
             label: "Developer Documentation",
             position: "left",
           },
