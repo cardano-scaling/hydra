@@ -1,8 +1,4 @@
----
-sidebar_position: 1
----
-
-# Overview
+# Protocol overview
 
 Hydra is the layer 2 scalability solution for Cardano, which aims to increase transaction speed through low latency and high throughput and minimize transaction cost.
 

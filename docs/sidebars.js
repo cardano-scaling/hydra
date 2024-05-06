@@ -6,8 +6,8 @@ module.exports = {
       id: "getting-started/index",
     },
     {
-      type: "link",
-      href: "/",
+      type: "doc",
+      id: "protocol-overview",
       label: "Protocol overview",
     },
     "known-issues",
@@ -32,6 +32,11 @@ module.exports = {
       value: "<small><b>Documentation</b></small>",
       defaultStyle: true,
       className: "sidebar-header",
+    },
+    {
+      type: "doc",
+      id: "getting-started/installation",
+      label: "Installation",
     },
     {
       type: "doc",
