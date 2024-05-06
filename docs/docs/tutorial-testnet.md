@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-# Tutorial
+# Open a head on testnet
 
 This tutorial will show you how to use `hydra-node` on the `preprod` Cardano
 network to open a layer-two state channel between two actors using the Hydra
@@ -13,7 +13,7 @@ This setup is also known as the [Basic Hydra Head](/topologies/basic) topology
 and we will be creating the "green" Hydra Head between `X` and `Y` as shown
 below:
 
-![](../../topologies/basic/basic-hydra-head.jpg)
+![](../topologies/basic/basic-hydra-head.jpg)
 
 ## What you will need
 

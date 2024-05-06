@@ -29,7 +29,7 @@ jobs:
       shell: python
       run: |
         import re
-        with open("docs/docs/tutorial/index.md", "r") as tutorial:
+        with open("docs/docs/tutorial-testnet.md", "r") as tutorial:
             body = tutorial.read()
             usedCardanoNodeVersions = re.findall(r"cardano-node-([0-9]+\.[0-9]+\.[0-9]+)-.*\.tar\.gz", body)
 
@@ -50,7 +50,7 @@ jobs:
       shell: python
       run: |
         import re
-        with open("docs/docs/tutorial/index.md", "r") as tutorial:
+        with open("docs/docs/tutorial-testnet.md", "r") as tutorial:
             body = tutorial.read()
             usedMithrilEndpoints = re.findall(r"AGGREGATOR_ENDPOINT=(.*)", body)
 
