@@ -1,7 +1,5 @@
 # Frequently Asked Questions
 
-> And their answers!
-
 <details>
 <summary>When Hydra?</summary>
 
@@ -57,7 +55,7 @@ Setting protocol parameters with `fee > 0` will enforce that transactions in the
 </details>
 
 <details>
-<summary> Is it possible to us a different protocol parameters in the Hydra Head?</summary>
+<summary> Is it possible to use different protocol parameters in the Hydra Head?</summary>
 
 In principle, yes! The ledger used for L2 transactions is configurable and can use the same or different protocol parameters as the L1. **But there is a catch!** If UTxOs get snapshotted on the L2, they can only be fanned out on the L1 **exactly** like they were snapshotted.
 

@@ -56,6 +56,11 @@ module.exports = {
       ],
     },
     {
+      type: "doc",
+      id: "faq",
+      label: "FAQ",
+    },
+    {
       type: "html",
       value: "<small><b>Reference</b></small>",
       defaultStyle: true,
