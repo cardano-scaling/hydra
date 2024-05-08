@@ -36,8 +36,8 @@ Messages are exchanged between nodes on different internal transitions and are a
 The messages exchanged through the _Hydra Network_ layer between
 participants are authenticated: Each message is
 [signed](https://github.com/input-output-hk/hydra/issues/727) using
-the [Hydra signing key](/docs/getting-started/glossary#signing-key) of the emitting party which is identified by
-the corresponding [verification key](/docs/getting-started/glossary#verification-key). When a message with an unknown
+the Hydra signing key of the emitting party which is identified by
+the corresponding verification key. When a message with an unknown
 or incorrect signature is received, it is dropped and a notification
 is logged.
 
