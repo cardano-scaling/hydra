@@ -32,6 +32,7 @@ import Cardano.Ledger.Api (
   datsTxWitsL,
   feeTxBodyL,
   hashScriptTxWitsL,
+  hashTxAuxData,
   inputsTxBodyL,
   isValidTxL,
   mintTxBodyL,
@@ -56,7 +57,7 @@ import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage qualified as Ledger
 import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.Babbage.TxWits (upgradeTxDats)
-import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
+import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe, strictMaybeToMaybe)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.Scripts (PlutusScript (..))
 import Cardano.Ledger.Conway.Scripts qualified as Conway
@@ -225,7 +226,9 @@ toLedgerTx = \case
             & hashScriptTxWitsL .~ scripts
             & datsTxWitsL .~ datums
             & rdmrsTxWitsL .~ redeemers
-     in mkBasicTx body
+     in mkBasicTx
+          -- TODO: Test that aux data hash is correctly updated in conversions
+          (body & auxDataHashTxBodyL .~ maybe SNothing (SJust . hashTxAuxData) auxData)
           & isValidTxL .~ toLedgerScriptValidity validity
           & auxDataTxL .~ maybeToStrictMaybe auxData
           & witsTxL .~ wits
