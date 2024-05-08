@@ -224,7 +224,7 @@ const config = {
             items: [
               {
                 label: "Haskell Packages",
-                to: "/docs/haskell_packages",
+                to: "/docs/dev/haskell-packages",
               },
               {
                 label: "Monthly reports",
