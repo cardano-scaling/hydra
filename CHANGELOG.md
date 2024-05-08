@@ -32,6 +32,9 @@ changes.
   `HandshakeFailure` event will be recorded in the logs and sent as a server
   output on the API.
 
+- Make `hydra-cluster --devnet` more configurable
+  - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO.
+
 ## [0.16.0] - 2024-04-03
 
 - Tested with `cardano-node 8.9.0`, `cardano-cli 8.20.3.0` and `mithril 2412.0`.
