@@ -166,6 +166,11 @@ const config = {
             position: "left",
           },
           {
+            to: "/core-concepts",
+            label: "Core Concepts",
+            position: "right",
+          },
+          {
             to: "/topologies",
             label: "Topologies",
             position: "right",
