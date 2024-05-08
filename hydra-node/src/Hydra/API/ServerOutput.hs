@@ -15,7 +15,7 @@ import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx, UTxOType, ValidationError)
-import Hydra.Network (NodeId)
+import Hydra.Network (Host, NodeId)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
@@ -53,6 +53,11 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
 data ServerOutput tx
   = PeerConnected {peer :: NodeId}
   | PeerDisconnected {peer :: NodeId}
+  | PeerHandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: Int
+      , theirVersions :: [Int]
+      }
   | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
@@ -129,6 +134,7 @@ instance
   shrink = \case
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
+    PeerHandshakeFailure rh ov tv -> PeerHandshakeFailure <$> shrink rh <*> shrink ov <*> shrink tv
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
@@ -178,6 +184,7 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
+    PeerHandshakeFailure{} -> encodedResponse
     HeadIsInitializing{} -> encodedResponse
     Committed{} -> encodedResponse
     HeadIsOpen{} -> encodedResponse

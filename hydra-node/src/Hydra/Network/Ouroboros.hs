@@ -2,15 +2,19 @@
 -- This implements a dumb 'FireForget' protocol and maintains one connection to each peer.
 -- Contrary to other protocols implemented in Ouroboros, this is a push-based protocol.
 module Hydra.Network.Ouroboros (
-  withOuroborosNetwork,
   withIOManager,
-  TraceOuroborosNetwork,
-  WithHost,
   module Hydra.Network,
-  encodeTraceSendRecvFireForget,
+  module Hydra.Network.Ouroboros,
+  module Hydra.Network.Ouroboros.VersionedProtocol,
 ) where
 
 import Control.Monad.Class.MonadAsync (wait)
+import Hydra.Network.Ouroboros.VersionedProtocol (
+  HydraNetworkConfig (..),
+  HydraVersionedProtocolData (..),
+  hydraVersionedProtocolCodec,
+  hydraVersionedProtocolDataCodec,
+ )
 import Hydra.Prelude
 
 import Codec.CBOR.Term (Term)
@@ -27,13 +31,19 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.Map.Strict as Map
-import Hydra.Logging (Tracer, nullTracer)
+import Data.Text qualified as T
+import Hydra.Logging (Tracer (..), nullTracer)
 import Hydra.Network (
   Host (..),
   Network (..),
   NetworkCallback,
   NetworkComponent,
   PortNumber,
+ )
+import Hydra.Network.Message (
+  HydraHandshakeRefused (..),
+  HydraVersionedProtocolNumber (..),
+  KnownHydraVersions (..),
  )
 import Hydra.Network.Ouroboros.Client as FireForget (
   FireForgetClient (..),
@@ -53,9 +63,13 @@ import Network.Mux.Compat (
  )
 import Network.Socket (
   AddrInfo (addrAddress),
+  NameInfoFlag (..),
   SockAddr,
+  Socket,
   defaultHints,
   getAddrInfo,
+  getNameInfo,
+  getPeerName,
  )
 import Network.TypedProtocol.Codec (
   AnyMessageAndAgency (..),
@@ -69,7 +83,7 @@ import Ouroboros.Network.ErrorPolicy (
   WithAddr (WithAddr),
   nullErrorPolicies,
  )
-import Ouroboros.Network.IOManager (withIOManager)
+import Ouroboros.Network.IOManager (IOManager, withIOManager)
 import Ouroboros.Network.Mux (
   MiniProtocol (
     MiniProtocol,
@@ -86,15 +100,9 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
   mkMiniProtocolCbFromPeer,
  )
-import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
-import Ouroboros.Network.Protocol.Handshake.Type (Handshake, Message (..), RefuseReason (..))
-import Ouroboros.Network.Protocol.Handshake.Unversioned (
-  UnversionedProtocol,
-  unversionedHandshakeCodec,
-  unversionedProtocol,
-  unversionedProtocolDataCodec,
- )
-import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion, queryVersion)
+import Ouroboros.Network.Protocol.Handshake.Codec (codecHandshake, noTimeLimitsHandshake)
+import Ouroboros.Network.Protocol.Handshake.Type (Handshake, HandshakeProtocolError (..), Message (..), RefuseReason (..))
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion, queryVersion, simpleSingletonVersions)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (makeSocketBearer, socketSnocket)
 import Ouroboros.Network.Socket (
@@ -122,10 +130,10 @@ withOuroborosNetwork ::
   (ToCBOR outbound, FromCBOR outbound) =>
   (ToCBOR inbound, FromCBOR inbound) =>
   Tracer IO (WithHost (TraceOuroborosNetwork outbound)) ->
-  Host ->
-  [Host] ->
+  HydraNetworkConfig ->
+  (HydraHandshakeRefused -> IO ()) ->
   NetworkComponent IO inbound outbound ()
-withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
+withOuroborosNetwork tracer HydraNetworkConfig{protocolVersion, localHost, remoteHosts} handshakeCallback networkCallback between = do
   bchan <- newBroadcastTChanIO
   let newBroadcastChannel = atomically $ dupTChan bchan
   -- NOTE: There should only be one `IOManager` instance per process. Should we
@@ -139,12 +147,34 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             { broadcast = atomically . writeTChan bchan
             }
  where
+  resolveSockAddr :: Host -> IO SockAddr
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
+  getHost :: SockAddr -> IO Host
+  getHost sockAddr = do
+    (mHost, mPort) <- getNameInfo [NI_NUMERICHOST, NI_NUMERICSERV] True True sockAddr
+    maybe (error "getNameInfo failed.. do proper error handling") pure $ do
+      host <- T.pack <$> mHost
+      port <- readMaybe =<< mPort
+      pure $ Host host port
+
+  connect ::
+    IOManager ->
+    IO t ->
+    ( t ->
+      OuroborosApplicationWithMinimalCtx
+        InitiatorMode
+        SockAddr
+        LByteString
+        IO
+        ()
+        Void
+    ) ->
+    IO Void
   connect iomgr newBroadcastChannel app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
@@ -158,8 +188,33 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       (contramap (WithHost localHost . TraceErrorPolicy) tracer)
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr newBroadcastChannel app)
+      ( \sock ->
+          actualConnect iomgr newBroadcastChannel app sock `catch` \e -> do
+            host <- getHost =<< getPeerName sock
+            onHandshakeError host e
+      )
 
+  onHandshakeError :: Host -> HandshakeProtocolError HydraVersionedProtocolNumber -> IO ()
+  onHandshakeError remoteHost = \case
+    HandshakeError (VersionMismatch theirVersions _) -> do
+      handshakeCallback
+        HydraHandshakeRefused
+          { ourVersion = protocolVersion
+          , theirVersions = KnownHydraVersions theirVersions
+          , remoteHost
+          }
+    _ ->
+      handshakeCallback
+        HydraHandshakeRefused
+          { ourVersion = protocolVersion
+          , theirVersions = NoKnownHydraVersions
+          , remoteHost
+          }
+
+  subscriptionParams ::
+    SockAddr ->
+    [SockAddr] ->
+    SubscriptionParams a IPSubscriptionTarget
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
       { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
@@ -168,24 +223,36 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs (length remoteAddrs)
       }
 
+  actualConnect ::
+    IOManager ->
+    IO t ->
+    (t -> OuroborosApplicationWithMinimalCtx 'InitiatorMode SockAddr LByteString IO () Void) ->
+    Socket ->
+    IO ()
   actualConnect iomgr newBroadcastChannel app sn = do
     chan <- newBroadcastChannel
     connectToNodeSocket
       iomgr
-      unversionedHandshakeCodec
+      (codecHandshake hydraVersionedProtocolCodec)
       noTimeLimitsHandshake
-      unversionedProtocolDataCodec
+      hydraVersionedProtocolDataCodec
       networkConnectTracers
       (HandshakeCallbacks acceptableVersion queryVersion)
-      (unversionedProtocol (app chan))
+      (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (app chan))
       sn
    where
+    networkConnectTracers :: NetworkConnectTracers SockAddr HydraVersionedProtocolNumber
     networkConnectTracers =
       NetworkConnectTracers
         { nctMuxTracer = nullTracer
-        , nctHandshakeTracer = nullTracer
+        , nctHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
         }
 
+  withServerListening ::
+    IOManager ->
+    OuroborosApplicationWithMinimalCtx 'ResponderMode SockAddr LByteString IO a b ->
+    IO b ->
+    IO ()
   withServerListening iomgr app continuation = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
@@ -199,25 +266,28 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         networkState
         (AcceptedConnectionsLimit maxBound maxBound 0)
         localAddr
-        unversionedHandshakeCodec
+        (codecHandshake hydraVersionedProtocolCodec)
         noTimeLimitsHandshake
-        unversionedProtocolDataCodec
+        hydraVersionedProtocolDataCodec
         (HandshakeCallbacks acceptableVersion queryVersion)
-        (unversionedProtocol (SomeResponderApplication app))
+        (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (SomeResponderApplication app))
         nullErrorPolicies
       $ \_addr serverAsync -> do
         race_ (wait serverAsync) continuation
    where
+    notConfigureSocket :: a -> b -> IO ()
     notConfigureSocket _ _ = pure ()
 
+    networkServerTracers :: NetworkServerTracers SockAddr HydraVersionedProtocolNumber
     networkServerTracers =
       NetworkServerTracers
         { nstMuxTracer = nullTracer
-        , nstHandshakeTracer = nullTracer
+        , nstHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
         , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
         , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
         }
 
+    onIOException :: IOException -> IO ()
     onIOException ioException =
       throwIO $
         NetworkServerListenException
@@ -307,7 +377,7 @@ data TraceOuroborosNetwork msg
   = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))
   | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
   | TraceAcceptPolicy AcceptConnectionsPolicyTrace
-  | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
+  | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake HydraVersionedProtocolNumber CBOR.Term)))
   | TraceSendRecv (TraceSendRecv (FireForget msg))
 
 -- NOTE: cardano-node would have orphan ToObject instances for most of these
@@ -346,7 +416,7 @@ encodeWithAddr (WithAddr addr ev) =
     ]
 
 encodeTraceSendRecvHandshake ::
-  WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)) ->
+  WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake HydraVersionedProtocolNumber CBOR.Term)) ->
   [Aeson.Pair]
 encodeTraceSendRecvHandshake = \case
   WithMuxBearer peerId (TraceSendMsg (AnyMessageAndAgency agency msg)) ->
@@ -363,7 +433,7 @@ encodeTraceSendRecvHandshake = \case
       ++ encodeMsg msg
  where
   encodeMsg ::
-    Message (Handshake UnversionedProtocol Term) from to ->
+    Message (Handshake HydraVersionedProtocolNumber Term) from to ->
     [Aeson.Pair]
   encodeMsg = \case
     MsgProposeVersions versions ->

@@ -448,6 +448,7 @@ spec =
           let input = connectivityChanged ttl connectivityMessage
           let outcome = update bobEnv ledger headState input
           stateChanges outcome `shouldBe` []
+          outcome `hasEffectSatisfying` \case ClientEffect{} -> True; _ -> False
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
         let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
