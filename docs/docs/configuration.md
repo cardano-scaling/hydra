@@ -2,14 +2,6 @@
 
 Running a Hydra head means running a Hydra node connected to some other Hydra nodes and connected to a Cardano node.
 
-A working [cardano-node](https://github.com/input-output-hk/cardano-node/) is therefore a pre-requisite for running a Hydra head. In this guide, we won't go over details about running a Cardano node and we invite you to look for existing documentation on the matter if need be.
-
-:::tip cardano-node & cardano-cli
-We recommend using containers and the [official Docker image](https://hub.docker.com/r/inputoutput/cardano-node) for running a Cardano node.
-
-This image contains both `cardano-node` and `cardano-cli`. The latter is handy to run various commands, for example to create addresses and to generate keys.
-:::
-
 The entire configuration of the `hydra-node` is provided through command-line options. Options are used to configure various elements of the network, API, chain connection and used ledger. You can use `--help` to get a description of all options:
 
 ```shell
@@ -95,7 +87,17 @@ transaction.
 
 ### Reference Scripts
 
-Hydra makes use of reference scripts to reduce the size of transactions driving the Head's lifecycle. In principle, reference scripts will be published with each release and the corresponding transaction id will be advertised in the release notes. However, if you do want to play around with this and provide alternative versions, you can do so by first publishing the scripts yourself via the `publish-scripts` command:
+The `hydra-node` makes use of reference scripts to reduce the size of transactions driving the Head's lifecycle. To reference the right scripts, the `--hydra-scripts-tx-id` needs to be provided. When provided, the `hydra-node` checks whether the right scripts are available at this transaction on-chain.
+
+You can also check against which scripts a hydra-node was compiled using:
+
+```shell
+hydra-node --script-info
+```
+
+For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish the hydra scripts on each new release and advertise transaction ids on the [release notes](https://github.com/input-output-hk/hydra/releases) and on the repository in [`networks.json`](https://github.com/input-output-hk/hydra/blob/master/networks.json).
+
+If you want to publish the scripts yourself, you can do so using the `publish-scripts` command:
 
 ```shell
 hydra-node publish-scripts \
@@ -145,6 +147,26 @@ Using a _blueprint_ transaction with `/commit` allows for more flexibility since
 
 For more details refere to the [how to](./how-to/commit-blueprint) about committing to a `Head` using blueprint transaction.
 
+## Connect to Cardano
+
+The `hydra-node` needs to be connected to the cardano network (unless it runs in [offline mode](./configuration.md#offline-mode)). 
+
+Currently a direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) is a pre-requisite and please refer to existing documentation on starting a node, e.g. on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano) or [use mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
+
+To specify how to connect to the local cardano-node, use `--node-socket` and `--testnet-magic`:
+
+```shell
+hydra-node \
+  --testnet-magic 42 \
+  --node-socket devnet/node.socket \
+```
+
+The `hydra-node` is compatible with the Cardano `mainnet` network, and can consequently operate using **real funds**. Please be sure to read the [known issues](/docs/known-issues) to fully understand the limitations and consequences of running Hydra nodes on mainnet. To choose `mainnet`, use `--mainnet` instead of `--testnet-magic`. 
+
+## Offline mode
+
+TODO integrate https://github.com/input-output-hk/hydra/pull/1414
+
 ## Generating transactions for the WebSocket API
 
 To perform a transaction within an initialized Head via the WebSocket API of Hydra Node, use the commands below and send the output to the node:
@@ -186,9 +208,3 @@ The `--tx-in` value is a UTxO obtained from the `GET /snapshot/utxo` request. Fo
 We provide sample node configurations that will help you get started hosting a Hydra node on virtual machines in the Cloud in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/gcp/). In particular, this setup contains a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) specification which gives a good template for configuring cardano-node + hydra-node services. It also offers various useful scripts to setup your cluster.
 
 > Note: This setup is meant to configure your cluster for devnet network. If you want to run the node on mainnet check out _Running on Mainnet_ paragraph.
-
-## Running on Mainnet
-
-Hydra node is compatible with the mainnet network. To choose this network you need to specify `--mainnet` flag for the network id in the hydra-node arguments. We publish the hydra scripts on each new release and you can find them on the [release page](https://github.com/input-output-hk/hydra/releases) (look for section _Hydra Scripts_).
-
-Please be sure to read the [relevant section](/docs/known-issues) section to fully understand the limitations and consequences of running Hydra nodes on mainnet.
