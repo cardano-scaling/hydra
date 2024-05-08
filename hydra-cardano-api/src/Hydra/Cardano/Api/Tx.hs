@@ -227,7 +227,6 @@ toLedgerTx = \case
             & datsTxWitsL .~ datums
             & rdmrsTxWitsL .~ redeemers
      in mkBasicTx
-          -- TODO: Test that aux data hash is correctly updated in conversions
           (body & auxDataHashTxBodyL .~ maybe SNothing (SJust . hashTxAuxData) auxData)
           & isValidTxL .~ toLedgerScriptValidity validity
           & auxDataTxL .~ maybeToStrictMaybe auxData
@@ -237,12 +236,13 @@ toLedgerTx = \case
 fromLedgerTx :: Ledger.Tx (ShelleyLedgerEra Era) -> Tx Era
 fromLedgerTx ledgerTx =
   Tx
-    (ShelleyTxBody shelleyBasedEra body scripts scriptsData (strictMaybeToMaybe auxData) validity)
+    (ShelleyTxBody shelleyBasedEra body' scripts scriptsData (strictMaybeToMaybe auxData) validity)
     (fromLedgerTxWitness wits)
  where
   -- XXX: The suggested way (by the ledger team) forward is to use lenses to
   -- introspect ledger transactions.
   Ledger.AlonzoTx body wits isValid auxData = ledgerTx
+  body' = body & auxDataHashTxBodyL .~ (hashTxAuxData <$> auxData)
 
   scripts =
     Map.elems $ Ledger.txscripts' wits
