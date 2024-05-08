@@ -166,11 +166,3 @@ The `hydra-node` is compatible with the Cardano `mainnet` network, and can conse
 ## Offline mode
 
 TODO integrate https://github.com/input-output-hk/hydra/pull/1414
-
-## Example Setup
-
-### Google Cloud w/ Terraform
-
-We provide sample node configurations that will help you get started hosting a Hydra node on virtual machines in the Cloud in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/gcp/). In particular, this setup contains a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) specification which gives a good template for configuring cardano-node + hydra-node services. It also offers various useful scripts to setup your cluster.
-
-> Note: This setup is meant to configure your cluster for devnet network. If you want to run the node on mainnet check out _Running on Mainnet_ paragraph.

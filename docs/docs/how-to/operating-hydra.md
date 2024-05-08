@@ -10,6 +10,14 @@ import TerminalWindow from '@site/src/components/TerminalWindow';
 
 This page aims at helping Hydra users troubleshoot issues when running their own instances of `hydra-node` and participate in a Hydra Head.
 
+## Example Setup
+
+We provide sample node configurations that will help you get started hosting a Hydra node on virtual machines in the Cloud in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/). 
+
+### Google Cloud w/ Terraform
+
+This setup contains a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) which gives a good template for configuring cardano-node + hydra-node services. It also offers various useful scripts to setup your cluster.
+
 ## Logs
 
 Following [ADR-9](/adr/9) design principles, the `hydra-node` provides [JSON](https://json.org) formatted logs on the `stdout` stream, one line per log item. The log items follow a [JSON schema](https://github.com/input-output-hk/hydra/blob/master/hydra-node/json-schemas/logs.yaml). This logging capability is kept voluntarily simple and non configurable in order to ease integration of Hydra logging into more general log analysis infrastructure, whether a custom ELK stack, third-party services, docker sidecars...
