@@ -9,7 +9,7 @@ This setup is also known as the [Basic Hydra Head](/topologies/basic) topology
 and we will be creating the "green" Hydra Head between `X` and `Y` as shown
 below:
 
-![](../topologies/basic/basic-hydra-head.jpg)
+![](../../topologies/basic/basic-hydra-head.jpg)
 
 ## What you will need
 

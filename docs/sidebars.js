@@ -24,7 +24,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "tutorial",
+      id: "tutorial/index",
       label: "Open a head on testnet",
     },
     {
