@@ -640,7 +640,7 @@ will print the `NewTx` command to copy paste into an already open websocket
 connection:
 
 ```shell
-cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .cborHex}'
+cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}'
 ```
 
 The transation will be validated by both `hydra-node`s and either result in a
