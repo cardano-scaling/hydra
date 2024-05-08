@@ -2,7 +2,7 @@
 sidebar_position: 6
 ---
 
-# Operating a Hydra Node
+# Operate a Hydra Node
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';

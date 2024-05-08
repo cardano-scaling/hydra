@@ -1,3 +1,7 @@
+---
+sidebar_position: 2
+---
+
 # Submit a transaction
 
 To submit a transaction to an already open Head, you need to use `NewTx` command of the WebSocket API.
