@@ -22,7 +22,7 @@ instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
   arbitrary = genericArbitrary
 
 type HydraVersionedProtocolNumber :: Type
-newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Int}
+newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Natural}
   deriving stock (Eq, Show, Generic, Ord)
   deriving anyclass (ToJSON, FromJSON)
 

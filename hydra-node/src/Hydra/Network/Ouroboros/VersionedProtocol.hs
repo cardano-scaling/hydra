@@ -4,6 +4,8 @@ import Hydra.Prelude
 
 import Codec.CBOR.Term qualified as CBOR
 import Data.Text qualified as T
+import GHC.Natural (naturalFromInteger, naturalToInteger)
+import GHC.Num (integerToInt)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (HydraVersionedProtocolNumber (..))
 import Network.TypedProtocol.Pipelined ()
@@ -15,10 +17,10 @@ hydraVersionedProtocolCodec :: CodecCBORTerm (String, Maybe Int) HydraVersionedP
 hydraVersionedProtocolCodec = CodecCBORTerm{encodeTerm, decodeTerm}
  where
   encodeTerm :: HydraVersionedProtocolNumber -> CBOR.Term
-  encodeTerm x = CBOR.TInt $ hydraVersionedProtocolNumber x
+  encodeTerm x = CBOR.TInt $ integerToInt . naturalToInteger $ hydraVersionedProtocolNumber x
 
   decodeTerm :: CBOR.Term -> Either (String, Maybe Int) HydraVersionedProtocolNumber
-  decodeTerm (CBOR.TInt x) = Right $ MkHydraVersionedProtocolNumber x
+  decodeTerm (CBOR.TInt x) = Right $ MkHydraVersionedProtocolNumber (naturalFromInteger (toInteger x))
   decodeTerm _ = Left ("unknown tag", Nothing)
 
 type HydraVersionedProtocolData :: Type

@@ -4208,17 +4208,17 @@
             "tag": "PeerConnected"
         },
         {
-            "ourVersion": -1,
+            "ourVersion": 5,
             "remoteHost": {
                 "hostname": "0.0.0.6",
                 "port": 4
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                2,
-                3,
-                3,
-                -3
+                0,
+                1,
+                1,
+                3
             ]
         },
         {
@@ -4234,18 +4234,18 @@
             "utxo": {}
         },
         {
-            "ourVersion": -5,
+            "ourVersion": 1,
             "remoteHost": {
                 "hostname": "0.0.0.7",
                 "port": 1
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                -2,
+                4,
+                6,
+                2,
                 5,
-                -4,
-                -1,
-                1
+                3
             ]
         },
         {
@@ -5433,19 +5433,19 @@
             }
         },
         {
-            "ourVersion": 2,
+            "ourVersion": 0,
             "remoteHost": {
                 "hostname": "0.0.0.0",
                 "port": 6
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                -4,
-                1,
-                6,
                 2,
-                2,
-                -4
+                5,
+                4,
+                0,
+                0,
+                2
             ]
         },
         {
@@ -6635,17 +6635,17 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "ourVersion": 4,
+            "ourVersion": 2,
             "remoteHost": {
                 "hostname": "0.0.0.2",
                 "port": 3
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                1,
-                5,
-                -3,
-                -3
+                3,
+                3,
+                3,
+                3
             ]
         },
         {
@@ -7311,19 +7311,19 @@
             }
         },
         {
-            "ourVersion": -3,
+            "ourVersion": 3,
             "remoteHost": {
                 "hostname": "0.0.0.2",
                 "port": 5
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                5,
-                -6,
-                -3,
+                3,
                 0,
-                1,
-                -4
+                5,
+                6,
+                5,
+                2
             ]
         },
         {
@@ -7866,15 +7866,15 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "ourVersion": -1,
+            "ourVersion": 5,
             "remoteHost": {
                 "hostname": "0.0.0.0",
                 "port": 5
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                -4,
-                0
+                2,
+                6
             ]
         },
         {
@@ -9259,18 +9259,18 @@
             }
         },
         {
-            "ourVersion": -4,
+            "ourVersion": 2,
             "remoteHost": {
                 "hostname": "0.0.0.1",
                 "port": 4
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
-                1,
-                6,
-                -4,
-                -4,
-                1
+                0,
+                4,
+                2,
+                2,
+                4
             ]
         },
         {
@@ -11582,19 +11582,19 @@
             }
         },
         {
-            "ourVersion": -2,
+            "ourVersion": 6,
             "remoteHost": {
                 "hostname": "0.0.0.3",
                 "port": 2
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
+                4,
+                3,
                 6,
-                5,
-                2,
-                -2,
-                0,
-                6
+                4,
+                6,
+                5
             ]
         },
         {
@@ -11803,7 +11803,7 @@
             "tag": "Greetings"
         },
         {
-            "ourVersion": -5,
+            "ourVersion": 1,
             "remoteHost": {
                 "hostname": "0.0.0.2",
                 "port": 5
