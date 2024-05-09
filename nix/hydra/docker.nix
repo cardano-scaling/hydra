@@ -3,10 +3,9 @@
 
 { hydraPackages # as defined in packages.nix
 , system
-, nixpkgs
+, pkgs
 }:
 let
-  pkgs = import nixpkgs { inherit system; };
 in
 {
   hydra-node = pkgs.dockerTools.buildImage {

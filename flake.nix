@@ -1,7 +1,17 @@
 {
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs";
-    haskellNix.url = "github:input-output-hk/haskell.nix";
+    haskellNix.url = "github:input-output-hk/haskell.nix?ref=angerman/fix-aarch64-musl";
+    hackageNix = {
+      url = "github:input-output-hk/hackage.nix";
+      flake = false;
+    };
+    haskellNix.inputs.hackage.follows = "hackageNix";
+    iserv-proxy = {
+      url = "github:stable-haskell/iserv-proxy?ref=iserv-syms";
+      flake = false;
+    };
+    haskellNix.inputs.iserv-proxy.follows = "iserv-proxy";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-parts.url = "github:hercules-ci/flake-parts";
     lint-utils = {
@@ -43,39 +53,40 @@
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
+          overlays = [
+            # This overlay contains libsodium and libblst libraries
+            inputs.iohk-nix.overlays.crypto
+            # This overlay contains pkg-config mappings via haskell.nix to use the
+            # crypto libraries above
+            inputs.iohk-nix.overlays.haskell-nix-crypto
+            # Keep haskell.nix as the last overlay!
+            #
+            # Reason: haskell.nix modules/overlays neds to be last
+            # https://github.com/input-output-hk/haskell.nix/issues/1954
+            inputs.haskellNix.overlay
+            # Custom static libs used for darwin build
+            (import ./nix/static-libs.nix)
+            inputs.nix-npm-buildpackage.overlays.default
+            # Specific versions of tools we require
+            (final: prev: {
+              apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+              cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+              cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
+              cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.3.0";
+              fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.1.0";
+              haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
+                src = inputs.hls;
+                cabalProject = builtins.readFile (src + "/cabal.project");
+              };
+              hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+              cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
+              cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
+              mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
+            })
+          ];
+
           pkgs = import nixpkgs {
-            inherit system;
-            overlays = [
-              # This overlay contains libsodium and libblst libraries
-              inputs.iohk-nix.overlays.crypto
-              # This overlay contains pkg-config mappings via haskell.nix to use the
-              # crypto libraries above
-              inputs.iohk-nix.overlays.haskell-nix-crypto
-              # Keep haskell.nix as the last overlay!
-              #
-              # Reason: haskell.nix modules/overlays neds to be last
-              # https://github.com/input-output-hk/haskell.nix/issues/1954
-              inputs.haskellNix.overlay
-              # Custom static libs used for darwin build
-              (import ./nix/static-libs.nix)
-              inputs.nix-npm-buildpackage.overlays.default
-              # Specific versions of tools we require
-              (final: prev: {
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
-                cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-                cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
-                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.3.0";
-                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.1.0";
-                haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-                  src = inputs.hls;
-                  cabalProject = builtins.readFile (src + "/cabal.project");
-                };
-                hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
-                cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
-                cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
-                mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
-              })
-            ];
+            inherit system overlays;
           };
 
           inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
@@ -85,13 +96,31 @@
             compiler-nix-name = compiler;
           };
 
+          hsPkgsArm = import ./nix/hydra/project.nix {
+            inherit inputMap;
+            pkgs = pkgs.pkgsCross.aarch64-multiplatform-musl;
+            compiler-nix-name = compiler;
+          };
+
+
           hydraPackages = import ./nix/hydra/packages.nix {
             inherit system pkgs inputs hsPkgs self;
             gitRev = self.rev or "dirty";
           };
 
+          hydraPackagesArm = import ./nix/hydra/packages.nix {
+            inherit system inputs hsPkgs self;
+            pkgs = pkgs.pkgsCross.aarch64-multiplatform-musl;
+            gitRev = self.rev or "dirty";
+          };
+
           hydraImages = import ./nix/hydra/docker.nix {
-            inherit hydraPackages system nixpkgs;
+            inherit hydraPackages system pkgs;
+          };
+
+          hydraImagesArm = import ./nix/hydra/docker.nix {
+            inherit hydraPackages system;
+            pkgs = pkgs.pkgsCross.aarch64-multiplatform-musl;
           };
 
           prefixAttrs = s: attrs:
@@ -100,7 +129,11 @@
 
         in
         rec {
-          legacyPackages = hsPkgs;
+          legacyPackages = hsPkgs // {
+            aarch64 =
+              hsPkgsArm //
+                (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImagesArm) else { });
+          };
 
           packages =
             hydraPackages //
