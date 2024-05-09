@@ -1720,8 +1720,7 @@ components:
       properties:
         type:
           type: string
-          enum:
-            - "Tx BabbageEra"
+          enum: ["Tx BabbageEra", "Unwitnessed Tx BabbageEra", "Witnessed Tx BabbageEra"]
         description:
           type: string
         cborHex:
@@ -2042,7 +2041,7 @@ components:
         hydraVersionedProtocolNumber:
           type: integer
           minimum: 0
-        
+
     KnownHydraVersions:
       oneOf:
         - title: NoKnownHydraVersions
