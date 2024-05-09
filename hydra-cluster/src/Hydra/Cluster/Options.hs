@@ -12,6 +12,7 @@ data Options = Options
   , stateDirectory :: Maybe FilePath
   , publishHydraScripts :: PublishOrReuse
   , useMithril :: UseMithril
+  , scenario :: Scenario
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -24,6 +25,10 @@ data UseMithril = NotUseMithril | UseMithril
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+data Scenario = Idle | RespendUTxO
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 parseOptions :: Parser Options
 parseOptions =
   Options
@@ -31,6 +36,7 @@ parseOptions =
     <*> parseStateDirectory
     <*> parsePublishHydraScripts
     <*> parseUseMithril
+    <*> parseScenario
  where
   parseKnownNetwork =
     flag' (Just Preview) (long "preview" <> help "The preview testnet")
@@ -85,4 +91,12 @@ parseOptions =
             \When setting this, ensure that there is no db/ in --state-directory. \
             \If not set, the cardano-node will synchronize the network given the current \
             \cardano-node state in --state-directory."
+      )
+
+  parseScenario =
+    flag
+      Idle
+      RespendUTxO
+      ( long "busy"
+          <> help "Start respending the same UTxO with a 100ms delay (only for devnet)."
       )

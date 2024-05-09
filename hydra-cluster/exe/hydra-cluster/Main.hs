@@ -6,7 +6,7 @@ import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardan
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
-import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), UseMithril (UseMithril), parseOptions)
+import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -34,11 +34,14 @@ run options =
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
             singlePartyOpenAHead tracer workDir node txId $ \client walletSk -> do
-              -- Start respending the same UTxO with a 100ms delay.
-              -- XXX: Should make this configurable
-              respendUTxO client walletSk 0.1
+              case scenario of
+                Idle -> forever $ pure ()
+                RespendUTxO -> do
+                  -- Start respending the same UTxO with a 100ms delay.
+                  -- XXX: Should make this configurable
+                  respendUTxO client walletSk 0.1
  where
-  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario} = options
 
   withRunningCardanoNode tracer workDir network action =
     findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
