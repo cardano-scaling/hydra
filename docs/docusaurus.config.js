@@ -33,11 +33,6 @@ const config = {
     },
   ],
 
-  i18n: {
-    defaultLocale: "en",
-    locales: ["en", "fr", "ja", "es"],
-  },
-
   presets: [
     [
       "classic",
@@ -46,6 +41,8 @@ const config = {
         docs: {
           editUrl,
           editLocalizedFiles: true,
+          sidebarPath: require.resolve("./sidebars.js"),
+          sidebarCollapsible: false,
         },
         blog: {
           path: "adr",
@@ -125,6 +122,11 @@ const config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
+          // Docs restructuring (2024-05-08)
+          {
+            from: "/core-concepts/specification",
+            to: "/docs/dev/specification",
+          },
           // Use cases section re-organized (2023-07-25)
           {
             from: "/use-cases/poker-game",
@@ -159,42 +161,33 @@ const config = {
         },
         items: [
           {
-            to: "/docs/getting-started",
+            to: "/docs",
             label: "User Manual",
             position: "left",
           },
           {
-            to: "/api-reference",
-            label: "API Reference",
+            to: "/docs/dev",
+            label: "Developer Documentation",
             position: "left",
           },
           {
             to: "/core-concepts",
             label: "Core Concepts",
-            position: "left",
-          },
-          {
-            to: "/benchmarks",
-            label: "Benchmarks",
-            position: "left",
+            position: "right",
           },
           {
             to: "/topologies",
             label: "Topologies",
-            position: "left",
+            position: "right",
           },
           {
             to: "/use-cases",
             label: "Use Cases",
-            position: "left",
+            position: "right",
           },
           {
             href: "https://github.com/input-output-hk/hydra",
             label: "GitHub",
-            position: "right",
-          },
-          {
-            type: "localeDropdown",
             position: "right",
           },
         ],
@@ -241,7 +234,7 @@ const config = {
             items: [
               {
                 label: "Haskell Packages",
-                to: "/docs/haskell_packages",
+                to: "/docs/dev/haskell-packages",
               },
               {
                 label: "Monthly reports",

@@ -4,6 +4,10 @@ sidebar_position: 4
 
 # API Behavior
 
+:::caution Deprecated
+This page will soon move into the [API reference](/api-reference) itself.
+:::
+
 This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](pathname:///haddock/hydra-node/Hydra-API-ClientInput.html#t:ClientInput) and what [ServerOutputs](pathname:///haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](/api-reference/) for more details about individual API messages. The only discrepancy is http `POST /commit` action which is not a state transition but a user action that submits a commit transaction which should produce `Committed` output.
 
 The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_machine) language where transitions are labeled: `input [condition] / output`. When two outputs (e.g. `A` and `B`) are expected we write `A,B`, while `{A,B}` denotes mutual exclusiveness of outputs.

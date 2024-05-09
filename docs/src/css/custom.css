@@ -26,6 +26,11 @@
   background-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Custom sidebar section headers */
+.sidebar-header {
+  opacity: 0.9;
+}
+
 /* Ensure footer is drawn over api reference side bar. */
 .footer {
   z-index: 20;
@@ -91,7 +96,7 @@
   }
 }
 
-svg.architecture{
+svg.architecture {
   width: 100% !important;
   height: 100% !important;
 }

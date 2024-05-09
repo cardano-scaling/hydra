@@ -1,8 +1,4 @@
----
-sidebar_position: 2
----
-
-# Tutorial
+# Open a head on testnet
 
 This tutorial will show you how to use `hydra-node` on the `preprod` Cardano
 network to open a layer-two state channel between two actors using the Hydra
@@ -384,11 +380,7 @@ With all these parameters defined, we now pick a HYDRA_VERSION of the Head proto
 want to use. This is defined by the `hydra-node --HYDRA_VERSION` itself and the
 `--hydra-scripts-tx-id` which point to scripts published on-chain.
 
-For all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs
-of the `hydra-node` and common Cardano networks, the scripts do get
-pre-published and we can just use them. See the [user
-manual](../getting-started/quickstart#reference-scripts) for more information
-how to publish scripts yourself.
+For all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks, the scripts do get pre-published and we can just use them. See the [user manual](../configuration#reference-scripts) for more information how to publish scripts yourself.
 
 Let's start the `hydra-node` with all these parameters now:
 
@@ -644,7 +636,7 @@ will print the `NewTx` command to copy paste into an already open websocket
 connection:
 
 ```shell
-cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .cborHex}'
+cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}'
 ```
 
 The transation will be validated by both `hydra-node`s and either result in a
