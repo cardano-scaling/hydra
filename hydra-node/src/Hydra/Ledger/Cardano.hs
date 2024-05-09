@@ -130,31 +130,33 @@ instance FromCBOR Tx where
         (fail . toString . toLazyText . build)
         (pure . fromLedgerTx)
 
+txType :: Tx -> Text
+txType tx' = case getTxWitnesses tx' of
+  [] -> "Unwitnessed Tx BabbageEra"
+  _ -> "Witnessed Tx BabbageEra"
+
 instance ToJSON Tx where
   toJSON tx =
-    let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
-     in object
-          [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-          , "txId" .= txId tx
-          , "type" .= envelopeType
-          , "description" .= Aeson.String mempty
-          ]
+    object
+      [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
+      , "txId" .= txId tx
+      , "type" .= txType tx
+      , "description" .= Aeson.String mempty
+      ]
 
 instance FromJSON Tx where
   parseJSON =
     withObject "Tx" $ \o -> do
-      let TextEnvelopeType envelopeType = textEnvelopeType (proxyToAsType (Proxy @Tx))
       hexText <- o .: "cborHex"
       ty <- o .: "type"
-      guard (envelopeType == ty)
       bytes <- decodeBase16 hexText
-
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left e -> fail $ show e
         Right tx ->
           (o .:? "txId") >>= \case
             Nothing -> pure tx
             Just txid' -> do
+              guard (txType tx == ty)
               guard (txid' == txId tx)
               pure tx
 

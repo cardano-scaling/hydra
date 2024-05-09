@@ -55,8 +55,8 @@ data ServerOutput tx
   | PeerDisconnected {peer :: NodeId}
   | PeerHandshakeFailure
       { remoteHost :: Host
-      , ourVersion :: Int
-      , theirVersions :: [Int]
+      , ourVersion :: Natural
+      , theirVersions :: [Natural]
       }
   | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
   | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
