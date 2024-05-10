@@ -17,8 +17,18 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api
-  (Coin, SlotNo (..), mkTxOutDatumInline, modifyTxOutValue, selectLovelace, throwError, toTxContext, txOutAddress, txOutValue, txOuts')
+import Hydra.Cardano.Api (
+  Coin,
+  SlotNo (..),
+  mkTxOutDatumInline,
+  modifyTxOutValue,
+  selectLovelace,
+  throwError,
+  toTxContext,
+  txOutAddress,
+  txOutValue,
+  txOuts',
+ )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens, isHeadOutput)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -516,11 +526,15 @@ openHeadUTxO =
         , snapshotNumber = 0
         }
 
--- | Creates a decrement transaction using given utxo and given snapshot.
+-- | Creates a decrement transaction using given utxo and given snapshot and
+-- also re-signes the snapshot since we alter it here.
 newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
-newDecrementTx actor (snapshot, signatures) = do
+newDecrementTx actor (snapshot, _) = do
   spendableUTxO <- get
   let (snapshotWithDecrement, newSpendableUTxO) = addUTxOToDecrement snapshot spendableUTxO
+  let signatures =
+        aggregate
+          [sign sk snapshotWithDecrement | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
   put newSpendableUTxO
   either (failure . show) pure $
     decrement
