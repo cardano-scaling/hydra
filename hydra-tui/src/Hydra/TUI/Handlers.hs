@@ -276,6 +276,8 @@ handleHydraEventsInfo = \case
     warn time $ "Invalid command: " <> show clientInput
   Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
     info time $ "Head closed with snapshot number " <> show snapshotNumber
+  Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
+    info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
   Update TimedServerOutput{time, output = TxValid{}} ->
     report Success time "Transaction submitted successfully!"
   Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
