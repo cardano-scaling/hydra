@@ -24,10 +24,8 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
   selectLovelace,
   throwError,
-  toTxContext,
   txOutAddress,
   txOutValue,
-  txOuts',
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens, isHeadOutput)
@@ -310,7 +308,7 @@ instance RunModel Model AppM where
   perform Model{} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} ->
-        performDecrementTx =<< newDecrementTx actor (signedSnapshot snapshot)
+        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
       Close{actor, snapshot} ->
         performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
       Contest{actor, snapshot} ->
@@ -386,26 +384,6 @@ performTx tx = do
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
-
-performDecrementTx :: Tx -> AppM TxResult
-performDecrementTx tx = do
-  utxo <- get
-  let validationError = getValidationError tx utxo
-  when (isNothing validationError) $ do
-    put $ removeDecrementOutputs utxo
-  pure
-    TxResult
-      { tx = Right tx
-      , validationError
-      , observation = observeHeadTx Fixture.testNetworkId utxo tx
-      }
- where
-  removeDecrementOutputs utxo =
-    let outs = txOuts' tx
-        utxoList = UTxO.pairs utxo
-     in UTxO.UTxO $
-          Map.fromList $
-            List.filter (\(_, o) -> toTxContext o `notElem` outs) utxoList
 
 getValidationError :: Tx -> UTxO -> Maybe String
 getValidationError tx utxo =
