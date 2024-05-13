@@ -85,7 +85,7 @@ library
   build-depends:
     , aeson
     , async
-    , base                                         >=4.7     && <5
+    , base                  >=4.7 && <5
     , bytestring
     , cardano-slotting
     , containers
@@ -103,7 +103,6 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
-    , plutus-ledger-api:plutus-ledger-api-testlib  >=1.9.1.0
     , process
     , QuickCheck
     , req
@@ -164,6 +163,7 @@ test-suite tests
     , directory
     , filepath
     , hspec
+    , hspec-golden-aeson
     , http-client
     , http-conduit
     , hydra-cardano-api
@@ -202,9 +202,6 @@ benchmark bench-e2e
   build-depends:
     , aeson
     , base                  >=4.7 && <5
-    , base16-bytestring
-    , bytestring
-    , cardano-binary
     , containers
     , directory
     , filepath
