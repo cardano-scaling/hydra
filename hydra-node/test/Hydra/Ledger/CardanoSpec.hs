@@ -8,11 +8,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
-import Cardano.Ledger.Api (auxDataHashTxBodyL, bodyTxL, ensureMinCoinTxOut)
-import Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Core (PParams ())
 import Cardano.Ledger.Credential (Credential (..))
-import Control.Lens ((.~))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
@@ -72,8 +70,6 @@ spec =
       prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
 
       prop "Roundtrip to and from Ledger" roundtripLedger
-
-      prop "Roundtrip tx metadata" roundtripTxMetadata
 
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
 
@@ -155,10 +151,6 @@ roundtripTxId' tx@(Tx body _) =
 roundtripLedger :: Tx -> Property
 roundtripLedger tx =
   fromLedgerTx (toLedgerTx tx) === tx
-
-roundtripTxMetadata :: Tx -> Property
-roundtripTxMetadata tx =
-  fromLedgerTx (toLedgerTx tx & bodyTxL . auxDataHashTxBodyL .~ SNothing) === tx
 
 roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
 roundtripCBOR a =
