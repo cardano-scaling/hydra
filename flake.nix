@@ -19,7 +19,7 @@
       flake = false;
     };
     cardano-node.url = "github:intersectmbo/cardano-node/8.9.0";
-    mithril.url = "github:input-output-hk/mithril/2412.0";
+    mithril.url = "github:input-output-hk/mithril/2418.1";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
   };
 

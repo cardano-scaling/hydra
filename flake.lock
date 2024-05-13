@@ -1613,16 +1613,16 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1711106908,
-        "narHash": "sha256-uaMHVdqo07q+D03/wgN0T21X6kRhxt/dxoApV5NjkIU=",
+        "lastModified": 1714464175,
+        "narHash": "sha256-DQVuHnDg9FdOlFPGK9KSNXCVl1vxYcYCKk/cBN/JEdo=",
         "owner": "input-output-hk",
         "repo": "mithril",
-        "rev": "2e462c013abff0504f5ee53452b4edf6c20acf33",
+        "rev": "512fe8d0b72e27f38b76cddca3d22877505156b0",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "ref": "2412.0",
+        "ref": "2418.1",
         "repo": "mithril",
         "type": "github"
       }
