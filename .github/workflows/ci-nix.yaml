@@ -153,7 +153,7 @@ jobs:
             options: '-o $(pwd)/../benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: 'datasets datasets/3-nodes.cbor datasets/1-node.cbor --output-directory $(pwd)/../benchmarks --timeout 1000s'
+            options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
           - package: plutus-merkle-tree
             bench: on-chain-cost
             options: '$(pwd)/../benchmarks'

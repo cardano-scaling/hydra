@@ -23,6 +23,7 @@ import Hydra.Ledger.Cardano.Configuration (
   LedgerEnv,
   newLedgerEnv,
  )
+import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
@@ -33,6 +34,7 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = parallel $ do
+  roundtripSpecs (Proxy @Dataset)
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
 
 prop_keepsUTxOConstant :: Property

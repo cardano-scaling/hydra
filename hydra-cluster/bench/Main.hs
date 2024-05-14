@@ -8,22 +8,17 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (bench)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
-import Cardano.Binary (decodeFull, serialize)
-import Data.Aeson (eitherDecodeFileStrict')
-import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Lazy qualified as LBS
+import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
 import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
-import Options.Applicative (
-  execParser,
- )
+import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
-import System.FilePath (takeDirectory, takeFileName, (</>))
+import System.FilePath (takeFileName, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
@@ -53,12 +48,12 @@ main =
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
     dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
-    let datasetPath = workDir </> "dataset.cbor"
+    let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
     run outputDirectory timeoutSeconds startingNodeId [datasetPath]
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    let datasetPath = benchDir </> "dataset.cbor"
+    let datasetPath = benchDir </> "dataset.json"
     putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
     run outputDirectory timeoutSeconds startingNodeId [datasetPath]
 
@@ -83,13 +78,12 @@ main =
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
     putStrLn $ "Reading dataset from: " <> f
-    readFileBS f >>= either (die . show) pure . (decodeFull . LBS.fromStrict . Base16.decodeLenient)
+    eitherDecodeFileStrict' f >>= either (die . show) pure
 
   saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset f dataset = do
     putStrLn $ "Writing dataset to: " <> f
-    createDirectoryIfMissing True $ takeDirectory f
-    writeFileBS f $ Base16.encode $ LBS.toStrict $ serialize dataset
+    encodeFile f dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure
