@@ -23,6 +23,8 @@ changes.
 - Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand.
   - Always responds with the last confirmed UTxO
 
+- Set [CORS](https://fetch.spec.whatwg.org/#http-cors-protocol) headers on `hydra-node` API to allow requests from any origin `*`.
+
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
 
 - `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network.

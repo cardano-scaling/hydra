@@ -41,6 +41,7 @@ import Network.Wai.Handler.Warp (
   setPort,
  )
 import Network.Wai.Handler.WebSockets (websocketsOr)
+import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
@@ -93,8 +94,9 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
     race_
       ( do
           traceWith tracer (APIServerStarted port)
-          runSettings serverSettings $
-            websocketsOr
+          runSettings serverSettings
+            . simpleCors
+            $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel)
               (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP))
