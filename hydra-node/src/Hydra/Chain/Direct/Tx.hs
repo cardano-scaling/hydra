@@ -570,13 +570,10 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contesters = []
         }
 
-  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber) = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, mempty, 0)
-    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn} -> (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn)
-
-  signature = case closing of
-    CloseWithInitialSnapshot{} -> mempty
-    CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
+  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature) = case closing of
+    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, mempty, 0, mempty)
+    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s} ->
+      (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s)
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
