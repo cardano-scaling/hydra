@@ -170,6 +170,7 @@ library
     , unliftio
     , vector
     , wai
+    , wai-cors
     , wai-websockets
     , warp
     , websockets
