@@ -570,13 +570,9 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contesters = []
         }
 
-  snapshotNumber = toInteger $ case closing of
-    CloseWithInitialSnapshot{} -> 0
-    CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
-
-  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes) = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, mempty)
-    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash} -> (closeUtxoHash, closeUtxoToDecommitHash)
+  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber) = case closing of
+    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, mempty, 0)
+    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn} -> (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn)
 
   signature = case closing of
     CloseWithInitialSnapshot{} -> mempty
