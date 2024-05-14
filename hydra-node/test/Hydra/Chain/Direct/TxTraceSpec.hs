@@ -250,8 +250,9 @@ instance StateModel Model where
               || actor `elem` alreadyContested
            )
     Fanout{snapshot} ->
-      headState == Closed -- TODO: gracefully fail in perform instead?
-        && snapshot /= latestSnapshot
+      headState /= Closed -- TODO: gracefully fail in perform instead?
+      -- TODO: why can't we produce failing action like this here? seed 1761217658
+      -- headState == Closed && snapshot /= latestSnapshot
     _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -434,16 +435,18 @@ signedSnapshot ms =
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
-addUTxOToDecrement :: Snapshot Tx -> UTxO -> UTxO
-addUTxOToDecrement snapshot spendableUTxO = do
-  let (headUTxO, rest) = splitHeadUTxO spendableUTxO
-  let headValue = getLovelace headUTxO
+-- | Adds a decommit value to the head UTxO. Decrement tx subtracts this value
+-- from the Head so we need to make sure it is present in the UTxO since our
+-- snapshots are just generated out of thin air.
+addDecrementValue :: Snapshot Tx -> UTxO -> UTxO
+addDecrementValue snapshot spendableUTxO = do
   case utxoToDecommit snapshot of
     Nothing -> spendableUTxO
     Just toDecommit -> do
       let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs toDecommit)
+      let (headUTxO, rest) = splitHeadUTxO spendableUTxO
       let (headIn, headOut) = List.head $ UTxO.pairs headUTxO
-      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue)) <> toDecommit
+      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue))
       newHeadOutput <> rest
 
 getLovelace :: UTxO -> Coin
@@ -504,16 +507,16 @@ openHeadUTxO =
 newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
 newDecrementTx actor (snapshot, signatures) = do
   spendableUTxO <- get
-  let newSpendableUTxO = addUTxOToDecrement snapshot spendableUTxO
+  let newSpendableUTxO = addDecrementValue snapshot spendableUTxO
   put newSpendableUTxO
   either (failure . show) pure $
-          decrement
-            (actorChainContext actor)
-            (mkHeadId Fixture.testPolicyId)
-            Fixture.testHeadParameters
-            newSpendableUTxO
-            snapshot
-            signatures
+    decrement
+      (actorChainContext actor)
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.testHeadParameters
+      newSpendableUTxO
+      snapshot
+      signatures
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
