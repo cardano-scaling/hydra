@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   mkTxOutDatumInline,
   modifyTxOutValue,
+  renderUTxO,
   selectLovelace,
   throwError,
   txOutAddress,
@@ -427,37 +428,23 @@ signedSnapshot ms =
       , number = snapshotNumber ms
       , confirmed = []
       , utxo = allUTxO
-      , utxoToDecommit = Nothing
+      , utxoToDecommit = decommitUTxO
       }
-  allUTxO = snapshotUTxO ms
+  (allUTxO, decommitUTxO) = pickUTxOToDecommit $ snapshotUTxO ms
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
-addUTxOToDecrement :: Snapshot Tx -> UTxO -> (Snapshot Tx, UTxO)
+addUTxOToDecrement :: Snapshot Tx -> UTxO -> UTxO
 addUTxOToDecrement snapshot spendableUTxO = do
   let (headUTxO, rest) = splitHeadUTxO spendableUTxO
-  -- NOTE: since we negate the head output value by the amount of decommitted
-  -- value we need to pick here some utxo that has less value than the head
-  -- output since utxo is generated randomly and add it's value to the head
-  -- output. We probably want to model this more precisely in the future.
   let headValue = getLovelace headUTxO
-  let pairs = UTxO.pairs $ utxo snapshot
-  let possibleDecommitUTxO =
-        filter (\(i, o) -> getLovelace (UTxO.singleton (i, o)) > headValue) pairs
-  case possibleDecommitUTxO of
-    [] -> (snapshot{utxoToDecommit = Just mempty}, headUTxO <> rest)
-    _ -> do
-      let toDecommit = elements possibleDecommitUTxO `generateWith` 42
-      let decommitValue = txOutValue $ snd toDecommit
+  case utxoToDecommit snapshot of
+    Nothing -> spendableUTxO
+    Just toDecommit -> do
+      let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs toDecommit)
       let (headIn, headOut) = List.head $ UTxO.pairs headUTxO
-      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue))
-      let toKeep = List.filter (/= toDecommit) pairs
-      ( snapshot
-          { utxo = UTxO.fromPairs toKeep
-          , utxoToDecommit = Just $ UTxO.singleton toDecommit
-          }
-        , newHeadOutput <> rest
-        )
+      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue)) <> toDecommit
+      newHeadOutput <> rest
 
 getLovelace :: UTxO -> Coin
 getLovelace utxo = foldMap (selectLovelace . txOutValue . snd) (UTxO.pairs utxo)
@@ -466,6 +453,15 @@ splitHeadUTxO :: UTxO -> (UTxO, UTxO)
 splitHeadUTxO allUTxO =
   let (headIn, headOut) = List.head $ List.filter (isHeadOutput . snd) (UTxO.pairs allUTxO)
    in (UTxO.singleton (headIn, headOut), UTxO.filter (/= headOut) allUTxO)
+
+pickUTxOToDecommit :: UTxO -> (UTxO, Maybe UTxO)
+pickUTxOToDecommit utxo = do
+  let pairs = UTxO.pairs utxo
+  case pairs of
+    [] -> (utxo, Nothing)
+    _ -> do
+      let toDecommit = elements pairs `generateWith` 42
+      (UTxO.fromPairs $ filter (/= toDecommit) pairs, Just $ UTxO.singleton toDecommit)
 
 -- | A confirmed snapshot (either initial or later confirmed), based on
 -- 'signedSnapshot'.
@@ -504,24 +500,20 @@ openHeadUTxO =
         , snapshotNumber = 0
         }
 
--- | Creates a decrement transaction using given utxo and given snapshot and
--- also re-signes the snapshot since we alter it here.
+-- | Creates a decrement transaction using given utxo and given snapshot.
 newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
-newDecrementTx actor (snapshot, _) = do
+newDecrementTx actor (snapshot, signatures) = do
   spendableUTxO <- get
-  let (snapshotWithDecrement, newSpendableUTxO) = addUTxOToDecrement snapshot spendableUTxO
-  let signatures =
-        aggregate
-          [sign sk snapshotWithDecrement | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+  let newSpendableUTxO = addUTxOToDecrement snapshot spendableUTxO
   put newSpendableUTxO
   either (failure . show) pure $
-    decrement
-      (actorChainContext actor)
-      (mkHeadId Fixture.testPolicyId)
-      Fixture.testHeadParameters
-      newSpendableUTxO
-      snapshotWithDecrement
-      signatures
+          decrement
+            (actorChainContext actor)
+            (mkHeadId Fixture.testPolicyId)
+            Fixture.testHeadParameters
+            newSpendableUTxO
+            snapshot
+            signatures
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
