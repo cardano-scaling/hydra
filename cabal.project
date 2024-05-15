@@ -35,10 +35,6 @@ packages:
 package *
   ghc-options: -j8
 
--- Warnings as errors for local packages
-program-options
-  ghc-options: -Werror
-
 -- Always build tests and benchmarks of local packages
 tests: True
 benchmarks: True

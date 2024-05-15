@@ -112,9 +112,8 @@ Besides these general build instructions, some components might document
 additional steps and useful tools in their `README.md` files, e.g. the
 [docs](./docs/README.md) or the [hydra-cluster](./hydra-cluster/README.md)
 
-Warnings are treated as errors for the whole project. To ease development, it
-might be handy to it off locally in a `cabal.project.local` with: `cabal
-configure --ghc-options -Wwarn`.
+While warnings are not treated as errors during builds, CI will check for it
+before we merge any contributions.
 
 ### Coding standards
 

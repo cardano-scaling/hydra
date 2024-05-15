@@ -98,6 +98,23 @@
             with pkgs.lib.attrsets;
             mapAttrs' (name: value: nameValuePair (s + name) value) attrs;
 
+          addWerror = x: x.override { ghcOptions = [ "-Werror" ]; };
+
+          componentsToWerrors = n: x:
+            builtins.listToAttrs
+              ([
+                {
+                  name = "${n}-werror";
+                  value = addWerror x.components.library;
+                }
+              ]) // lib.attrsets.mergeAttrsList (map
+              (y:
+                lib.mapAttrs'
+                  (k: v: {
+                    name = "${n}-${y}-${k}-werror";
+                    value = addWerror v;
+                  })
+                  x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
         in
         rec {
           legacyPackages = hsPkgs;
@@ -133,7 +150,20 @@
               src = self;
               exe = "${packages.plutus-merkle-tree-tests}/bin/tests";
             };
-          } //
+          } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
+            "cardano-api-classy"
+            "hydra-cardano-api"
+            "hydra-chain-observer"
+            "hydra-cluster"
+            "hydra-explorer"
+            "hydra-node"
+            "hydra-plutus"
+            "hydra-plutus-extras"
+            "hydra-test-utils"
+            "hydra-tui"
+            "plutus-cbor"
+            "plutus-merkle-tree"
+          ]) //
           (if pkgs.stdenv.isLinux then
             {
               inherit (packages)

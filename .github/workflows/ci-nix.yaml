@@ -233,6 +233,31 @@ jobs:
         body-file: comment-body.md
         reactions: rocket
 
+  nix-flake-check:
+    name: "nix flake check"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v26
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v14
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Nix Flake Check
+      run: |
+        nix flake check -L
+
+
   build-specification:
     name: "Build specification using nix"
     runs-on: ubuntu-latest
