@@ -250,9 +250,9 @@ instance StateModel Model where
               || actor `elem` alreadyContested
            )
     Fanout{snapshot} ->
-      headState /= Closed -- TODO: gracefully fail in perform instead?
-      -- TODO: why can't we produce failing action like this here? seed 1761217658
-      -- headState == Closed && snapshot /= latestSnapshot
+      headState == Closed -- TODO: gracefully fail in perform instead?
+      -- TODO: why can't we have this condition too? It causes CannotFindHeadOutput... errors
+      -- && snapshot /= latestSnapshot
     _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -562,12 +562,14 @@ newContestTx actor snapshot = do
 newFanoutTx :: Actor -> ModelSnapshot -> AppM (Either FanoutTxError Tx)
 newFanoutTx actor snapshot = do
   spendableUTxO <- get
+  let (snapshot', _) = signedSnapshot snapshot
   pure $
     fanout
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (snapshotUTxO snapshot)
+      (utxo snapshot')
+      (utxoToDecommit snapshot')
       deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod

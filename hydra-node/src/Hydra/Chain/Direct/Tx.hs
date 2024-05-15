@@ -664,7 +664,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit} sig (slotNo, 
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  utxoToDecommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+  utxoToDecommitHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
 
 data FanoutTxError
   = CannotFindHeadOutputToFanout
@@ -681,6 +681,8 @@ fanoutTx ::
   ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
+  -- | Snapshotted decommit UTxO to fanout on layer 1
+  Maybe UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -688,12 +690,12 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs orderedTxOutsToFanout
+      & addOutputs orderedTxOutsToFanout -- <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
@@ -707,13 +709,22 @@ fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScr
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =
-    toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+    toScriptData $
+      Head.Fanout
+        { numberOfFanoutOutputs = fromIntegral $ length utxo
+        , numberOfDecommitOutputs = fromIntegral $ maybe 0 length utxoToDecommit
+        }
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
+
+  orderedTxOutsToDecommit =
+    case utxoToDecommit of
+      Nothing -> []
+      Just decommitUTxO -> toTxContext <$> toList decommitUTxO
 
 data AbortTxError
   = OverlappingInputs
