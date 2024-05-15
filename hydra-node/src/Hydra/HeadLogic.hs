@@ -835,9 +835,9 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  cause OnChainEffect{postChainTx = FanoutTx{utxo, headSeed, contestationDeadline}}
+  cause OnChainEffect{postChainTx = FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline}}
  where
-  Snapshot{utxo} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToDecommit} = getSnapshot confirmedSnapshot
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline} = closedState
 

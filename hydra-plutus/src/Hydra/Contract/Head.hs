@@ -79,8 +79,8 @@ headValidator oldState input ctx =
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
       checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId
-    (Closed{parties, utxoHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs}) ->
-      checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ctx headId parties
+    (Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
+      checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutputs numberOfDecommitOutputs ctx headId parties
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -484,13 +484,15 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
 
 checkFanout ::
   BuiltinByteString ->
+  BuiltinByteString ->
   POSIXTime ->
+  Integer ->
   Integer ->
   ScriptContext ->
   CurrencySymbol ->
   [Party] ->
   Bool
-checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} currencySymbol parties =
+checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutputs numberOfDecommitOutputs ScriptContext{scriptContextTxInfo = txInfo} currencySymbol parties =
   mustBurnAllHeadTokens minted currencySymbol parties
     && hasSameUTxOHash
     && afterContestationDeadline
@@ -499,9 +501,10 @@ checkFanout utxoHash contestationDeadline numberOfFanoutOutputs ScriptContext{sc
 
   hasSameUTxOHash =
     traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
-      fannedOutUtxoHash == utxoHash
-
+      fannedOutUtxoHash == utxoHash -- && decommitUtxoHash == utxoToDecommitHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+
+  decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
 
   TxInfo{txInfoOutputs} = txInfo
 

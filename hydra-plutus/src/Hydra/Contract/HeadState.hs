@@ -64,7 +64,7 @@ data Input
       { signature :: [Signature]
       }
   | Abort
-  | Fanout {numberOfFanoutOutputs :: Integer}
+  | Fanout {numberOfFanoutOutputs :: Integer, numberOfDecommitOutputs :: Integer}
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

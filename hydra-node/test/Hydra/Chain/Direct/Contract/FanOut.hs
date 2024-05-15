@@ -43,6 +43,8 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       healthyFanoutUTxO
+      -- TODO: add something to decommit here
+      Nothing
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
