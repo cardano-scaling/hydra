@@ -86,7 +86,6 @@ instance IsTx Payment where
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
   txId = error "undefined"
-  txSpendingUTxO = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
   txSpendingUTxO = \case

@@ -10,19 +10,10 @@ changes.
 
 ## [0.17.0] - UNRELEASED
 
-- **BREAKING** `hydra-node` `/commit` enpoint now also accepts a _blueprint/draft_
-  transaction together with the `UTxO` which is spent in this transaction. `hydra-node` can
-  still be used like before if the provided `UTxO` is at public key address. In order to spend
-  from a script `UTxO`, and also unlock more involved use-cases, users need to provide additional
-  unsigned transaction that correctly specifies required data (like redeemers, validity ranges etc.)
-
-- **BREAKING** `hydra-node` `/commit` endpoint now also accepts a
-  _blueprint/draft_ transaction together with the `UTxO` which is spent in this
-  transaction. `hydra-node` can still be used like before if the provided
-  `UTxO` is at public key address. In order to spend from a script `UTxO`, and
-  also unlock more involved use-cases, users need to provide additional
-  unsigned transaction that correctly specifies required data (like redeemers,
-  validity ranges etc.)
+- **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts:o
+  - Instead of the custom `witness` extension of `UTxO`, the endpoint now accepts a _blueprint_ transaction together with the `UTxO` which is spent in this transaction.
+  - Usage is still the same for commiting "normal" `UTxO` owned by public key addresses.
+  - Spending from a script `UTxO` now needs the `blueprintTx` request type, which also unlocks more involved use-cases, where the commit transaction should also satisfy script spending constraints (like additional signers, validity ranges etc.)
 
 - Update navigation and re-organized documentation website https://hydra.family
   - Updated logos
@@ -44,7 +35,6 @@ changes.
 
 - Make `hydra-cluster --devnet` more configurable
   - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO.
-
 
 ## [0.16.0] - 2024-04-03
 
