@@ -102,8 +102,10 @@ import Cardano.Api.Shelley as X (
   fromAlonzoCostModels,
   fromAlonzoPrices,
   fromPlutusData,
+  fromShelleyMetadata,
   toAlonzoPrices,
   toPlutusData,
+  toShelleyMetadata,
   toShelleyNetwork,
  )
 import Cardano.Api.UTxO (

@@ -86,9 +86,12 @@ instance IsTx Payment where
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
   txId = error "undefined"
-  txSpendingUTxO = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
+  txSpendingUTxO = \case
+    [] -> error "nothing to spend spending"
+    [(from, value)] -> Payment{from, to = from, value}
+    _ -> error "cant spend from multiple utxo in one payment"
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =

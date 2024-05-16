@@ -2,13 +2,6 @@ module Hydra.Cardano.Api.Tx where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.KeyWitness (
-  fromLedgerTxWitness,
-  toLedgerBootstrapWitness,
-  toLedgerKeyWitness,
- )
-import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
-
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Allegra.Scripts (translateTimelock)
 import Cardano.Ledger.Alonzo qualified as Ledger
@@ -31,7 +24,6 @@ import Cardano.Ledger.Api (
   dataTxOutL,
   datsTxWitsL,
   feeTxBodyL,
-  hashScriptTxWitsL,
   inputsTxBodyL,
   isValidTxL,
   mintTxBodyL,
@@ -54,9 +46,8 @@ import Cardano.Ledger.Api (
  )
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage qualified as Ledger
-import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.Babbage.TxWits (upgradeTxDats)
-import Cardano.Ledger.BaseTypes (maybeToStrictMaybe, strictMaybeToMaybe)
+import Cardano.Ledger.BaseTypes (maybeToStrictMaybe)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.Scripts (PlutusScript (..))
 import Cardano.Ledger.Conway.Scripts qualified as Conway
@@ -206,53 +197,14 @@ txFee' (getTxBody -> TxBody body) =
 
 -- | Convert a cardano-api 'Tx' into a matching cardano-ledger 'Tx'.
 toLedgerTx ::
-  forall era.
-  ( Ledger.EraCrypto (ShelleyLedgerEra era) ~ StandardCrypto
-  , Ledger.AlonzoEraTx (ShelleyLedgerEra era)
-  ) =>
   Tx era ->
   Ledger.Tx (ShelleyLedgerEra era)
-toLedgerTx = \case
-  Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
-    let (datums, redeemers) =
-          case scriptsData of
-            TxBodyScriptData _ ds rs -> (ds, rs)
-            TxBodyNoScriptData -> (mempty, Ledger.Redeemers mempty)
-        wits =
-          mkBasicTxWits
-            & addrTxWitsL .~ toLedgerKeyWitness vkWits
-            & bootAddrTxWitsL .~ toLedgerBootstrapWitness vkWits
-            & hashScriptTxWitsL .~ scripts
-            & datsTxWitsL .~ datums
-            & rdmrsTxWitsL .~ redeemers
-     in mkBasicTx body
-          & isValidTxL .~ toLedgerScriptValidity validity
-          & auxDataTxL .~ maybeToStrictMaybe auxData
-          & witsTxL .~ wits
+toLedgerTx (ShelleyTx _era tx) = tx
 
 -- | Convert a cardano-ledger's 'Tx' in the Babbage era into a cardano-api 'Tx'.
-fromLedgerTx :: Ledger.Tx (ShelleyLedgerEra Era) -> Tx Era
-fromLedgerTx ledgerTx =
-  Tx
-    (ShelleyTxBody shelleyBasedEra body scripts scriptsData (strictMaybeToMaybe auxData) validity)
-    (fromLedgerTxWitness wits)
- where
-  -- XXX: The suggested way (by the ledger team) forward is to use lenses to
-  -- introspect ledger transactions.
-  Ledger.AlonzoTx body wits isValid auxData = ledgerTx
-
-  scripts =
-    Map.elems $ Ledger.txscripts' wits
-
-  scriptsData :: TxBodyScriptData Era
-  scriptsData =
-    TxBodyScriptData
-      alonzoEraOnwards
-      (Ledger.txdats' wits)
-      (Ledger.txrdmrs' wits)
-
-  validity = case isValid of
-    Ledger.IsValid True ->
-      TxScriptValidity alonzoEraOnwards ScriptValid
-    Ledger.IsValid False ->
-      TxScriptValidity alonzoEraOnwards ScriptInvalid
+fromLedgerTx ::
+  IsShelleyBasedEra era =>
+  Ledger.Tx (ShelleyLedgerEra era) ->
+  Tx era
+fromLedgerTx =
+  ShelleyTx shelleyBasedEra
