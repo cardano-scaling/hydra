@@ -1,0 +1,41 @@
+name: "CI (Darwin)"
+
+# Limit concurrent runs of this workflow within a single PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+    - master
+    - release
+  pull_request:
+  schedule:
+    # Everyday at 4:00 AM
+    - cron: "0 4 * * *"
+
+jobs:
+  nix-flake-check-darwin:
+    name: "nix flake check (darwin)"
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v26
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v14
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Nix Flake Check
+      run: |
+        nix flake check -L
