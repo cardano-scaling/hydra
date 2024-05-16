@@ -43,10 +43,11 @@ data InitialUTxOParseException = InitialUTxOParseException String
   deriving stock (Show)
 
 instance Exception InitialUTxOParseException where
-  displayException (InitialUTxOParseException err)
-    = "Failed to parse initial UTXO: " <> err <> ". Example UTXO: "
-        <> "{\"1541287c2598ffc682742c961a96343ac64e9b9030e6b03a476bb18c8c50134d#0\":{\"address\":\"addr_test1vqg9ywrpx6e50uam03nlu0ewunh3yrscxmjayurmkp52lfskgkq5k\",\"datum\":null,\"datumhash\":null,\"inlineDatum \":null,\"referenceScript\":null,\"value\":{\"lovelace\":100000000}},\"39786f186d94d8dd0b4fcf05d1458b18cd5fd8c6823364612f4a3c11b77e7cc7#0\":{\"address\":\"addr_test1vru2drx33ev6dt8gfq245r5k0tmy7ngqe79va69de9dxkrg09c7d3\",\"datum\":null,\"datumhash\":null,\"inlineDatum\":null,\"referenceScript\":null,\"value\":{\"lovelace\":100000000}}}"
-
+  displayException (InitialUTxOParseException err) =
+    "Failed to parse initial UTXO: "
+      <> err
+      <> ". Example UTXO: "
+      <> "{\"1541287c2598ffc682742c961a96343ac64e9b9030e6b03a476bb18c8c50134d#0\":{\"address\":\"addr_test1vqg9ywrpx6e50uam03nlu0ewunh3yrscxmjayurmkp52lfskgkq5k\",\"datum\":null,\"datumhash\":null,\"inlineDatum \":null,\"referenceScript\":null,\"value\":{\"lovelace\":100000000}},\"39786f186d94d8dd0b4fcf05d1458b18cd5fd8c6823364612f4a3c11b77e7cc7#0\":{\"address\":\"addr_test1vru2drx33ev6dt8gfq245r5k0tmy7ngqe79va69de9dxkrg09c7d3\",\"datum\":null,\"datumhash\":null,\"inlineDatum\":null,\"referenceScript\":null,\"value\":{\"lovelace\":100000000}}}"
 
 -- | Load the given genesis file or use defaults specific to the offline mode.
 loadGenesisFile :: Maybe FilePath -> IO (GenesisParameters ShelleyEra)
@@ -58,7 +59,7 @@ loadGenesisFile ledgerGenesisFile =
         now <- getCurrentTime
         -- TODO: uses internal cardano-api lib
         pure shelleyGenesisDefaults{sgSystemStart = now}
-      Just fp -> do 
+      Just fp -> do
         jsonVal <- Json.eitherDecodeFileStrict fp >>= either fail pure -- just crash if we can't read the file
         case Json.parseEither (parseJSON @(ShelleyGenesis StandardCrypto)) jsonVal of
           Right a -> pure a
