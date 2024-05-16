@@ -435,23 +435,6 @@ signedSnapshot ms =
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
--- | Adds a decommit value to the head UTxO. Decrement tx subtracts this value
--- from the Head so we need to make sure it is present in the UTxO since our
--- snapshots are just generated out of thin air.
-addDecrementValue :: Snapshot Tx -> UTxO -> UTxO
-addDecrementValue snapshot spendableUTxO = do
-  case utxoToDecommit snapshot of
-    Nothing -> spendableUTxO
-    Just toDecommit -> do
-      let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs toDecommit)
-      let (headUTxO, rest) = splitHeadUTxO spendableUTxO
-      let (headIn, headOut) = List.head $ UTxO.pairs headUTxO
-      let newHeadOutput = UTxO.singleton (headIn, headOut & modifyTxOutValue (<> decommitValue))
-      newHeadOutput <> rest
-
-getLovelace :: UTxO -> Coin
-getLovelace utxo = foldMap (selectLovelace . txOutValue . snd) (UTxO.pairs utxo)
-
 splitHeadUTxO :: UTxO -> (UTxO, UTxO)
 splitHeadUTxO allUTxO =
   let (headIn, headOut) = List.head $ List.filter (isHeadOutput . snd) (UTxO.pairs allUTxO)
@@ -507,14 +490,12 @@ openHeadUTxO =
 newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
 newDecrementTx actor (snapshot, signatures) = do
   spendableUTxO <- get
-  let newSpendableUTxO = addDecrementValue snapshot spendableUTxO
-  put newSpendableUTxO
   either (failure . show) pure $
     decrement
       (actorChainContext actor)
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
-      newSpendableUTxO
+      spendableUTxO
       snapshot
       signatures
 
