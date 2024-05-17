@@ -17,7 +17,7 @@ Multiple Event Sinks may be used simultaneously, but currently only one Event So
 The default Hydra file-based persistence is implemented as an Event Sink and Source pair. They do not need to be used in tandem; it is possible to use the default Event Source which processes previous transactions from a file on disk, combined with an Event Sink which could, for example, store new transactions on S3, on several machines, or not at all.
 
 To see a basic example of an Event Sink that sends new transactions over UDP please refer to [this fork](https://github.com/ffakenz/hydra/tree/udp-sink).
-For a more complex example using S3 and AWS Kinesis as Event Sources and Sinks, see the doug_hydra_changes branch [here](github.com/SundaeSwap-finance/hydra). In particular, see [hydra-node/src/Hydra/Events/AWS/Kinesis.hs](https://github.com/SundaeSwap-finance/hydra/blob/f27e51c001e7b64c3679eab4efd9f17f08db53fe/hydra-node/src/Hydra/Events/AWS/Kinesis.hs)
+For a more complex example using S3 and AWS Kinesis as Event Sources and Sinks, see the doug_hydra_changes branch [here](https://github.com/SundaeSwap-finance/hydra). In particular, see [hydra-node/src/Hydra/Events/AWS/Kinesis.hs](https://github.com/SundaeSwap-finance/hydra/blob/f27e51c001e7b64c3679eab4efd9f17f08db53fe/hydra-node/src/Hydra/Events/AWS/Kinesis.hs)
 
 Currently, there is no CLI API to toggle which sources and sinks are utilized, this must be done by the implementor of the sources and sinks. See the source and sink example, [here](https://github.com/SundaeSwap-finance/hydra/blob/4785bd86a03b92ba8fa8fb34c9d485a1e2f4f7d7/hydra-node/src/Hydra/Node/Run.hs#L97), where the Event Sinks and Source are toggled by added CLI Options.
 
