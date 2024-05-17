@@ -2,7 +2,7 @@
 sidebar_position: 4
 ---
 
-# Configure Event Source and Sinks
+# Extend the node with event source and sinks
 
 Some use-cases exist, where many features of the Hydra platform are useful, but interfacing with the entire Hydra node, especially with respect to IO, is impractical. For a use-case which calls for different persistence requirements from the Hydra default, it initially might seem there are two options:
 
