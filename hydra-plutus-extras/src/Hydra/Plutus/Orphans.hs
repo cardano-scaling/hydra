@@ -12,7 +12,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
 import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
+import PlutusTx.Prelude (BuiltinByteString, Eq, fromBuiltin, toBuiltin)
 import Test.QuickCheck (choose, vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 
@@ -31,8 +31,8 @@ instance Arbitrary Value where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-instance (Arbitrary k, Arbitrary v) => Arbitrary (AssocMap.Map k v) where
-  arbitrary = AssocMap.fromList <$> arbitrary
+instance (PlutusTx.Prelude.Eq k, Arbitrary k, Arbitrary v) => Arbitrary (AssocMap.Map k v) where
+  arbitrary = AssocMap.safeFromList <$> arbitrary
 
 instance Arbitrary POSIXTime where
   arbitrary = POSIXTime <$> arbitrary

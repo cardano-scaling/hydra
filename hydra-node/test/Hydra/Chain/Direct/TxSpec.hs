@@ -186,7 +186,7 @@ spec =
                                           ErrTranslationError{} -> "Transaction context translation error"
                                       )
                                 Right ledgerTx ->
-                                  let actualExecutionCost = getMinFeeTx pparams ledgerTx
+                                  let actualExecutionCost = getMinFeeTx pparams ledgerTx 0
                                       fee = txFee' apiTx
                                       apiTx = fromLedgerTx ledgerTx
                                    in actualExecutionCost > Coin 0 && fee > actualExecutionCost
