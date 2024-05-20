@@ -695,7 +695,7 @@ fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlot
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs orderedTxOutsToFanout -- <> orderedTxOutsToDecommit)
+      & addOutputs (orderedTxOutsToFanout <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
