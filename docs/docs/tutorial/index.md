@@ -37,7 +37,7 @@ components of the Cardano ecosystem, putting them in a `bin/` directory:
 
 ```shell
 mkdir -p bin
-version=0.16.0
+version=0.17.0
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-linux.tar.gz \
@@ -52,7 +52,7 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
-version=0.16.0
+version=0.17.0
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-macos.tar.gz \
@@ -388,7 +388,7 @@ Let's start the `hydra-node` with all these parameters now:
 <TabItem value="alice" label="Alice">
 
 ```shell
-version=0.16.0
+version=0.17.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
@@ -411,7 +411,7 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-version=0.16.0
+version=0.17.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \

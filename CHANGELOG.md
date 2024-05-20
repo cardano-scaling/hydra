@@ -8,33 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.17.0] - UNRELEASED
+## [0.17.0] - 2024-05-20
 
-- **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts:o
+- **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/input-output-hk/hydra/pull/1380):
   - Instead of the custom `witness` extension of `UTxO`, the endpoint now accepts a _blueprint_ transaction together with the `UTxO` which is spent in this transaction.
   - Usage is still the same for commiting "normal" `UTxO` owned by public key addresses.
   - Spending from a script `UTxO` now needs the `blueprintTx` request type, which also unlocks more involved use-cases, where the commit transaction should also satisfy script spending constraints (like additional signers, validity ranges etc.)
 
-- Update navigation and re-organized documentation website https://hydra.family
+- _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
+
+- Update navigation and re-organized documentation website https://hydra.family [#1440](https://github.com/input-output-hk/hydra/pull/1440)
   - Updated logos
   - Removed localization as it got outdated and on-demand site translation tools exist.
 
-- Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand.
+- Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand. [#1398](https://github.com/input-output-hk/hydra/pull/1398)
   - Always responds with the last confirmed UTxO
 
-- Set [CORS](https://fetch.spec.whatwg.org/#http-cors-protocol) headers on `hydra-node` API to allow requests from any origin `*`.
+- Set [CORS](https://fetch.spec.whatwg.org/#http-cors-protocol) headers on `hydra-node` API to allow requests from any origin `*`. [#1434](https://github.com/input-output-hk/hydra/pull/1434)
 
-- _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
-
-- `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network.
+- `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network. [#1396](https://github.com/input-output-hk/hydra/pull/1396)
 
 - Hydra now uses a versioned protocol for handshaking. In the event of a node
   attempting to connect using a different version of the networking protocol, a
   `HandshakeFailure` event will be recorded in the logs and sent as a server
-  output on the API.
+  output on the API. [#1381](https://github.com/input-output-hk/hydra/pull/1381)
 
 - Make `hydra-cluster --devnet` more configurable
-  - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO.
+  - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO. [#1420](https://github.com/input-output-hk/hydra/pull/1420)
 
 ## [0.16.0] - 2024-04-03
 
