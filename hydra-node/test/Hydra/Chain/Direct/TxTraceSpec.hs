@@ -18,11 +18,8 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
-  Coin,
   SlotNo (..),
   mkTxOutDatumInline,
-  modifyTxOutValue,
-  renderUTxO,
   selectLovelace,
   throwError,
   txOutAddress,
@@ -42,7 +39,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Fixture qualified as Fixture
@@ -119,45 +116,47 @@ prop_runActions actions =
     runReaderT (runAppM action) utxoV
 
 -- * Model
+data ModelUTxO = A | B | C
+  deriving (Show, Eq)
+
+instance Arbitrary ModelUTxO where
+  arbitrary = elements [A, B, C]
+
+  shrink = \case
+    A -> []
+    B -> [A]
+    C -> [B]
 
 data Model = Model
   { headState :: State
   , latestSnapshot :: ModelSnapshot
   , alreadyContested :: [Actor]
+  , utxoInHead :: [ModelUTxO]
   }
   deriving (Show)
 
 -- | A snapshot that may have pending decommits (= augmented).
-data ModelSnapshot = Normal SnapshotNumber | Augmented SnapshotNumber
+data ModelSnapshot = ModelSnapshot {snNumber :: SnapshotNumber, snModel :: [ModelUTxO]}
   deriving (Show, Eq)
 
 snapshotNumber :: ModelSnapshot -> SnapshotNumber
-snapshotNumber = \case
-  Normal n -> n
-  Augmented n -> n
-
-isAugmented :: ModelSnapshot -> Bool
-isAugmented = \case
-  Normal{} -> False
-  Augmented{} -> True
+snapshotNumber ModelSnapshot{snNumber} = snNumber
 
 instance Ord ModelSnapshot where
   compare a b = compare (snapshotNumber a) (snapshotNumber b)
 
 instance Num ModelSnapshot where
-  a + b = Normal $ snapshotNumber a + snapshotNumber b
-  a - b = Normal $ snapshotNumber a - snapshotNumber b
-  a * b = Normal $ snapshotNumber a * snapshotNumber b
-  abs = Normal . abs . snapshotNumber
-  signum = Normal . signum . snapshotNumber
-  fromInteger = Normal . fromInteger
+  a + b = ModelSnapshot{snNumber = snapshotNumber a + snapshotNumber b, snModel = snModel a <> snModel b}
+  a - b = ModelSnapshot{snNumber = snapshotNumber a - snapshotNumber b, snModel = snModel a <> snModel b}
+  a * b = ModelSnapshot{snNumber = snapshotNumber a * snapshotNumber b, snModel = snModel a <> snModel b}
+  abs m = ModelSnapshot{snNumber = abs $ snapshotNumber m, snModel = snModel m}
+  signum m = ModelSnapshot{snNumber = signum $ snapshotNumber m, snModel = snModel m}
+  fromInteger x = ModelSnapshot{snNumber = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x, snModel = []}
 
 instance Arbitrary ModelSnapshot where
-  arbitrary = oneof [Normal <$> arbitrary, Augmented <$> arbitrary]
+  arbitrary = ModelSnapshot <$> arbitrary <*> arbitrary
 
-  shrink = \case
-    Normal n -> Normal <$> shrink n
-    Augmented n -> Augmented <$> shrink n
+  shrink ModelSnapshot{snNumber, snModel} = ModelSnapshot <$> shrink snNumber <*> shrink snModel
 
 data State
   = Open
@@ -190,6 +189,7 @@ instance StateModel Model where
       { headState = Open
       , latestSnapshot = 0
       , alreadyContested = []
+      , utxoInHead = []
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -203,7 +203,7 @@ instance StateModel Model where
               pure $ Some $ Close{actor, snapshot}
           , do
               actor <- elements allActors
-              snapshot <- (latestSnapshot + 1) `orSometimes` (Augmented <$> arbitrary)
+              snapshot <- (latestSnapshot + 1) `orSometimes` arbitrary
               pure $ Some Decrement{actor, snapshot}
           ]
       Closed{} ->
@@ -225,10 +225,8 @@ instance StateModel Model where
       -- TODO: assert what to decrement still there
       headState == Open
         && snapshot > latestSnapshot
-        && isAugmented snapshot
     Close{snapshot} ->
-      snapshot /= Augmented 0 -- TODO: don't generate this one
-        && headState == Open
+      headState == Open
         && snapshot >= latestSnapshot
     Contest{actor, snapshot} ->
       headState == Closed
@@ -251,8 +249,7 @@ instance StateModel Model where
            )
     Fanout{snapshot} ->
       headState == Closed -- TODO: gracefully fail in perform instead?
-      -- TODO: why can't we have this condition too? It causes CannotFindHeadOutput... errors
-      -- && snapshot /= latestSnapshot
+        && snapshot /= latestSnapshot
     _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -458,7 +455,7 @@ confirmedSnapshot = \case
       { -- -- NOTE: The close validator would not check headId on close with
         -- initial snapshot, but we need to provide it still.
         headId = mkHeadId Fixture.testPolicyId
-      , initialUTxO = snapshotUTxO (Normal 0)
+      , initialUTxO = snapshotUTxO 0
       }
   number -> ConfirmedSnapshot{snapshot, signatures}
    where
@@ -480,7 +477,7 @@ openHeadUTxO =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO (Normal 0)
+        , utxoHash = toBuiltin $ hashUTxO @Tx $ snapshotUTxO (ModelSnapshot 0 [])
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0

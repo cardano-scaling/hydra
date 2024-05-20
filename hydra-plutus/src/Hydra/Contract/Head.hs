@@ -501,7 +501,7 @@ checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutpu
 
   hasSameUTxOHash =
     traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
-      fannedOutUtxoHash == utxoHash -- && decommitUtxoHash == utxoToDecommitHash
+      fannedOutUtxoHash == utxoHash && decommitUtxoHash == utxoToDecommitHash
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
   decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
