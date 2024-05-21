@@ -14,8 +14,8 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   txOutValue,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens, isHeadOutput)
+import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement, fanout)
@@ -74,7 +74,7 @@ prop_traces =
       True
         & cover 1 (null steps) "empty"
         & cover 10 (hasFanout steps) "reach fanout"
-        & cover 10 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+        & cover 5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
         & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
@@ -142,21 +142,26 @@ data Model = Model
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: Set ModelUTxO
+  , utxoToDecrement :: Set ModelUTxO
   }
   deriving (Show)
 
+-- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
+-- simplified form of 'UTxO'.
+data ModelSnapshot = ModelSnapshot
+  { snapshotNumber :: SnapshotNumber
+  , snapshotUTxO :: Set ModelUTxO
+  , decommitUTxO :: Set ModelUTxO
+  }
+  deriving (Show, Eq, Ord, Generic)
+
 instance Num ModelSnapshot where
-  a + b = ModelSnapshot{snapshotNumber = snapshotNumber a + snapshotNumber b, snapshotUTxO = snapshotUTxO a <> snapshotUTxO b}
+  a + b = ModelSnapshot{snapshotNumber = snapshotNumber a + snapshotNumber b, snapshotUTxO = snapshotUTxO a <> snapshotUTxO b, decommitUTxO = decommitUTxO a <> decommitUTxO b}
   _ - _ = error "undefined"
   _ * _ = error "undefined"
   abs _ = error "undefined"
   signum _ = error "undefined"
-  fromInteger x = ModelSnapshot{snapshotNumber = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x, snapshotUTxO = mempty}
-
--- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
--- simplified form of 'UTxO'.
-data ModelSnapshot = ModelSnapshot {snapshotNumber :: SnapshotNumber, snapshotUTxO :: Set ModelUTxO}
-  deriving (Show, Eq, Ord, Generic)
+  fromInteger x = ModelSnapshot{snapshotNumber = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x, snapshotUTxO = mempty, decommitUTxO = mempty}
 
 instance Arbitrary ModelSnapshot where
   arbitrary = genericArbitrary
@@ -195,6 +200,7 @@ instance StateModel Model where
       , latestSnapshot = 0
       , alreadyContested = []
       , utxoInHead = fromList [A]
+      , utxoToDecrement = mempty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -204,17 +210,37 @@ instance StateModel Model where
         oneof
           [ do
               actor <- elements allActors
-              snapshot <- ModelSnapshot{snapshotNumber = latestSnapshot, snapshotUTxO = utxoInHead} `orSometimes` arbitrary
+              snapshot <-
+                ModelSnapshot
+                  { snapshotNumber = latestSnapshot
+                  , snapshotUTxO = utxoInHead
+                  , -- TODO: test close with something to decommit
+                    decommitUTxO = mempty
+                  }
+                  `orSometimes` arbitrary
               pure $ Some $ Close{actor, snapshot}
-              -- , do
-              --     actor <- elements allActors
-              --     snapshot <- (latestSnapshot + 1) `orSometimes` arbitrary
-              --     pure $ Some Decrement{actor, snapshot}
+          , do
+              actor <- elements allActors
+              someUTxO <- elements (Set.toList utxoInHead)
+              snapshot <-
+                ModelSnapshot
+                  { snapshotNumber = latestSnapshot + 1
+                  , snapshotUTxO = Set.delete someUTxO utxoInHead
+                  , decommitUTxO = Set.fromList [someUTxO]
+                  }
+                  `orSometimes` arbitrary
+              pure $ Some Decrement{actor, snapshot}
           ]
       Closed{} ->
         oneof
           [ do
-              snapshot <- ModelSnapshot{snapshotNumber = latestSnapshot, snapshotUTxO = utxoInHead} `orSometimes` arbitrary
+              snapshot <-
+                ModelSnapshot
+                  { snapshotNumber = latestSnapshot
+                  , snapshotUTxO = utxoInHead
+                  , decommitUTxO = mempty
+                  }
+                  `orSometimes` arbitrary
               pure . Some $ Fanout{snapshot}
           , do
               actor <- elements allActors
@@ -230,6 +256,13 @@ instance StateModel Model where
       -- TODO: assert what to decrement still there
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
+        && not (null utxoInHead)
+        && (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
+        && not (null $ decommitUTxO snapshot)
+        && (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+            && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot)))
+     where
+      Model{utxoInHead = initialUTxOInHead} = initialState
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -241,14 +274,17 @@ instance StateModel Model where
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshotNumber snapshot > latestSnapshot
+        && not (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
 
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, latestSnapshot, alreadyContested} = \case
+  validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
     Decrement{snapshot} ->
       snapshotNumber snapshot <= latestSnapshot
+        || null (decommitUTxO snapshot)
+        || not (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
     Close{snapshot} ->
       snapshotNumber snapshot < latestSnapshot
     Contest{actor, snapshot} ->
@@ -269,6 +305,9 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
+          , utxoInHead =
+              Set.filter (\a -> Set.member a (decommitUTxO snapshot)) (utxoInHead m)
+          , utxoToDecrement = decommitUTxO snapshot
           }
       Close{snapshot} ->
         m
@@ -276,6 +315,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
+          , utxoToDecrement = decommitUTxO snapshot
           }
       Contest{actor, snapshot} ->
         m
@@ -283,6 +323,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
+          , utxoToDecrement = decommitUTxO snapshot
           }
       Fanout{} -> m{headState = Final}
 
@@ -318,7 +359,7 @@ instance RunModel Model AppM where
   perform Model{} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} ->
-        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
+        performTx =<< newDecrementTx actor (decommitSnapshot snapshot)
       Close{actor, snapshot} ->
         performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
       Contest{actor, snapshot} ->
@@ -415,14 +456,31 @@ getValidationError tx utxo =
 allActors :: [Actor]
 allActors = [Alice, Bob, Carol]
 
--- | A "random" UTxO distribution for a given 'ModelSnapshot'. This always
--- contains one UTxO for alice, bob, and carol.
+-- | A "random" UTxO distribution for a given 'ModelSnapshot'.
 generateUTxOFromModelSnapshot :: ModelSnapshot -> UTxO
 generateUTxOFromModelSnapshot snapshot =
   foldMap go (snapshotUTxO snapshot)
+    <> foldMap go (decommitUTxO snapshot)
  where
   go modelUTxO =
     (`generateWith` fromEnum modelUTxO) $ genUTxO1 genTxOut
+
+-- TODO: dry with signedSnapshot
+decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+decommitSnapshot ms =
+  (snapshot, signatures)
+ where
+  snapshot =
+    Snapshot
+      { headId = mkHeadId Fixture.testPolicyId
+      , number = snapshotNumber ms
+      , confirmed = []
+      , utxo = generateUTxOFromModelSnapshot ms{decommitUTxO = mempty}
+      , utxoToDecommit =
+          let toDecommit = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
+           in if null toDecommit then Nothing else Just toDecommit
+      }
+  signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
 -- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
 -- all participants (alice, bob and carol) with some UTxO contained is produced.
@@ -438,23 +496,7 @@ signedSnapshot ms =
       , utxo = generateUTxOFromModelSnapshot ms
       , utxoToDecommit = Nothing
       }
-  -- (allUTxO, decommitUTxO) = pickUTxOToDecommit $ generateUTxOFromModelSnapshot ms
-
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
-
-splitHeadUTxO :: UTxO -> (UTxO, UTxO)
-splitHeadUTxO allUTxO =
-  let (headIn, headOut) = List.head $ List.filter (isHeadOutput . snd) (UTxO.pairs allUTxO)
-   in (UTxO.singleton (headIn, headOut), UTxO.filter (/= headOut) allUTxO)
-
-pickUTxOToDecommit :: UTxO -> (UTxO, Maybe UTxO)
-pickUTxOToDecommit utxo = do
-  let pairs = UTxO.pairs utxo
-  case pairs of
-    [] -> (utxo, Nothing)
-    _ -> do
-      let toDecommit = elements pairs `generateWith` 42
-      (UTxO.fromPairs $ filter (/= toDecommit) pairs, Just $ UTxO.singleton toDecommit)
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
@@ -466,7 +508,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{snapshotNumber} =
         { -- -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]))
+        , initialUTxO = generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
@@ -487,7 +529,7 @@ openHeadUTxO =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]))
+        , utxoHash = toBuiltin $ hashUTxO @Tx $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
