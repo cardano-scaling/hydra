@@ -205,33 +205,9 @@ instance StateModel Model where
   arbitraryAction _lookup Model{headState, latestSnapshot, utxoInHead} =
     case headState of
       Open{} ->
-        oneof
+        oneof $
           [ do
               actor <- elements allActors
-              snapshot <-
-                ModelSnapshot
-                  { snapshotNumber = latestSnapshot
-                  , snapshotUTxO = utxoInHead
-                  , -- TODO: test close with something to decommit
-                    decommitUTxO = mempty
-                  }
-                  `orSometimes` arbitrary
-              pure $ Some $ Close{actor, snapshot}
-          , do
-              actor <- elements allActors
-              someUTxO <- elements (Set.toList utxoInHead)
-              snapshot <-
-                ModelSnapshot
-                  { snapshotNumber = latestSnapshot + 1
-                  , snapshotUTxO = Set.delete someUTxO utxoInHead
-                  , decommitUTxO = Set.fromList [someUTxO]
-                  }
-                  `orSometimes` arbitrary
-              pure $ Some Decrement{actor, snapshot}
-          ]
-      Closed{} ->
-        oneof
-          [ do
               snapshot <-
                 ModelSnapshot
                   { snapshotNumber = latestSnapshot
@@ -239,12 +215,47 @@ instance StateModel Model where
                   , decommitUTxO = mempty
                   }
                   `orSometimes` arbitrary
-              pure . Some $ Fanout{snapshot}
-          , do
-              actor <- elements allActors
-              snapshot <- arbitrary
-              pure $ Some Contest{actor, snapshot}
+              pure $ Some $ Close{actor, snapshot}
           ]
+            <> [ do
+                actor <- elements allActors
+                someUTxOToDecrement <- oneof $ pure <$> Set.toList utxoInHead
+                snapshot <-
+                  ModelSnapshot
+                    { snapshotNumber = latestSnapshot + 1
+                    , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
+                    , decommitUTxO = Set.fromList [someUTxOToDecrement]
+                    }
+                    `orSometimes` arbitrary
+                pure $ Some Decrement{actor, snapshot}
+               | not (null utxoInHead)
+               ]
+      Closed{} ->
+        oneof $
+          [ do
+              let snapshot =
+                    ModelSnapshot
+                      { snapshotNumber = latestSnapshot
+                      , snapshotUTxO = utxoInHead
+                      , decommitUTxO = mempty
+                      }
+              -- `orSometimes` arbitrary
+              pure $ Some $ Fanout{snapshot}
+          ]
+            <> [ do
+                actor <- elements allActors
+                -- TODO: dry
+                someUTxOToDecrement <- oneof $ pure <$> Set.toList utxoInHead
+                snapshot <-
+                  ModelSnapshot
+                    { snapshotNumber = latestSnapshot + 1
+                    , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
+                    , decommitUTxO = Set.fromList [someUTxOToDecrement]
+                    }
+                    `orSometimes` arbitrary
+                pure $ Some Contest{actor, snapshot}
+               | not (null utxoInHead)
+               ]
       Final -> pure $ Some Stop
 
   precondition :: Model -> Action Model a -> Bool
