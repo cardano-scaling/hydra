@@ -476,15 +476,15 @@ decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 decommitSnapshot ms =
   (snapshot, signatures)
  where
+  utxo = generateUTxOFromModelSnapshot ms{decommitUTxO = mempty}
+  toDecommit = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
       , number = snapshotNumber ms
       , confirmed = []
-      , utxo = generateUTxOFromModelSnapshot ms{decommitUTxO = mempty}
-      , utxoToDecommit =
-          let toDecommit = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
-           in if null toDecommit then Nothing else Just toDecommit
+      , utxo
+      , utxoToDecommit = if null toDecommit || null utxo then Nothing else Just toDecommit
       }
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
