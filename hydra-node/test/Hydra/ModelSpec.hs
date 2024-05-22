@@ -247,11 +247,11 @@ headOpensIfAllPartiesCommit = do
  where
   eventually' a = action (Wait 1000) >> action_ a
 
-  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const [])) >>= action_
+  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const True) (const [])) >>= action_
 
   initHead = do
     WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const [])) >>= action_
+    forAllQ (withGenQ (genInit hydraParties) (const True) (const [])) >>= action_
 
   everybodyCommit = do
     WorldState{hydraParties, hydraState} <- getModelStateDL
@@ -436,7 +436,7 @@ runRunMonadIOSimGen f = do
 
 nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
 nonConflictingTx st =
-  withGenQ (genPayment st) (const [])
+  withGenQ (genPayment st) (const True) (const [])
     `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 eventually :: Action WorldState () -> DL WorldState ()
