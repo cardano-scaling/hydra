@@ -125,25 +125,25 @@ data CommitMutation
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode WrongHeadIdInCommitDatum) NonContinuousHeadId <$> do
+    [ SomeMutation (pure $ toErrorCode WrongHeadIdInCommitDatum) NonContinuousHeadId <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyInitialTxIn))
         let mutateHeadId =
               modifyInlineDatum $
                 \((party, mCommit, _headId) :: Commit.DatumType) ->
                   (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
-    , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
         pure $ commitTxOut{txOutValue = mutatedValue}
-    , SomeMutation (Just $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
+    , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
-    , SomeMutation (Just $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
+    , SomeMutation (pure $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= aCommittedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
-    , SomeMutation (Just $ toErrorCode MissingCommittedTxOutInOutputDatum) RecordAllCommittedUTxO <$> do
+    , SomeMutation (map toErrorCode [MismatchCommittedTxOutInDatum, MissingCommittedTxOutInOutputDatum]) RecordAllCommittedUTxO <$> do
         (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
         -- Leave out not-committed value
         let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
@@ -156,12 +156,12 @@ genCommitMutation (tx, _utxo) =
                 (toUTxOContext healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
             ]
-    , SomeMutation (Just $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
+    , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
     , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (Just $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) UsePTFromDifferentHead <$> do
+      SomeMutation (pure $ toErrorCode CouldNotFindTheCorrectCurrencySymbolInTokens) UsePTFromDifferentHead <$> do
         otherHeadId <- fmap headPolicyId (arbitrary `suchThat` (/= healthyInitialTxIn))
         pure $
           Changes
@@ -171,7 +171,7 @@ genCommitMutation (tx, _utxo) =
                 (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
             ]
-    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
+    , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where

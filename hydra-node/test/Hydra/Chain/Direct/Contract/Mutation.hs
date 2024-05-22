@@ -180,15 +180,15 @@ import Test.QuickCheck.Instances ()
 -- structurally valid and having passed "level 1" checks.
 propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedError} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation, expectedErrors} ->
     (tx, utxo)
       & applyMutation mutation
-      & propTransactionFailsPhase2 expectedError
+      & propTransactionFailsPhase2 expectedErrors
       & genericCoverTable [label]
       & checkCoverage
 
 -- | Expect a phase-2 evaluation failure of given 'Tx' and 'UTxO'.
-propTransactionFailsPhase2 :: Maybe Text -> (Tx, UTxO) -> Property
+propTransactionFailsPhase2 :: [Text] -> (Tx, UTxO) -> Property
 propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
   case evaluateTx tx lookupUTxO of
     Left err ->
@@ -198,17 +198,18 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
     Right redeemerReport ->
       let errors = lefts $ Map.elems redeemerReport
        in case mExpectedError of
-            Nothing ->
+            [] ->
               not (null errors)
                 & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                 & counterexample ("Redeemer report: " <> show redeemerReport)
                 & counterexample "Phase-2 validation should have failed"
-            Just expectedError ->
-              any (matchesErrorMessage expectedError) errors
+            expectedErrors ->
+              any (\x -> any (`matchesErrorMessage` x) expectedErrors) errors
                 & counterexample ("Mutated transaction: " <> renderTxWithUTxO lookupUTxO tx)
                 & counterexample ("Redeemer report: " <> show redeemerReport)
-                & counterexample ("Phase-2 validation should have failed with error message: " <> show expectedError)
+                & counterexample ("Phase-2 validation should have failed with one of error messages: " <> show expectedErrors)
  where
+  matchesErrorMessage :: Text -> ScriptExecutionError -> Bool
   matchesErrorMessage errMsg = \case
     ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
     _otherScriptExecutionError -> False
@@ -224,7 +225,7 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
 data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
-  { expectedError :: Maybe Text
+  { expectedErrors :: [Text]
   , label :: lbl
   , mutation :: Mutation
   }
