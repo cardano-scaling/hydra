@@ -142,7 +142,6 @@ data Model = Model
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: Set ModelUTxO
-  , utxoToDecrement :: Set ModelUTxO
   }
   deriving (Show)
 
@@ -200,7 +199,6 @@ instance StateModel Model where
       , latestSnapshot = 0
       , alreadyContested = []
       , utxoInHead = fromList [A]
-      , utxoToDecrement = mempty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -307,7 +305,6 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , utxoInHead =
               Set.filter (\a -> Set.member a (decommitUTxO snapshot)) (utxoInHead m)
-          , utxoToDecrement = decommitUTxO snapshot
           }
       Close{snapshot} ->
         m
@@ -315,7 +312,6 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
-          , utxoToDecrement = decommitUTxO snapshot
           }
       Contest{actor, snapshot} ->
         m
@@ -323,7 +319,6 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
-          , utxoToDecrement = decommitUTxO snapshot
           }
       Fanout{} -> m{headState = Final}
 
