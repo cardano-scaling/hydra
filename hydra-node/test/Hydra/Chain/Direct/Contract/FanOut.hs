@@ -110,9 +110,9 @@ data FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
+    [ SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
-    , SomeMutation (Just $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
+    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
@@ -120,10 +120,10 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
+    , SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- genSlotBefore $ slotNoFromUTCTime systemStart slotLength healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
-    , SomeMutation (Just $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
+    , SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
         (token, _) <- elements burntTokens
         changeMintedTokens tx (valueFromList [(token, 1)])
     ]
