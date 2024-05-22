@@ -265,25 +265,34 @@ instance StateModel Model where
       -- TODO: assert what to decrement still there
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && not (null utxoInHead)
-        && (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
-        && not (null $ decommitUTxO snapshot)
-        && (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-            && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot)))
+        && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
+        && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+              && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
+           )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
           then snapshotUTxO snapshot == initialUTxOInHead
-          else snapshotNumber snapshot >= latestSnapshot
+          else
+            snapshotNumber snapshot >= latestSnapshot
+              && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
+              && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+                    && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
+                 )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshotNumber snapshot > latestSnapshot
-        && not (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
+        && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+              && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
+           )
+        && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
+     where
+      Model{utxoInHead = initialUTxOInHead} = initialState
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
@@ -314,8 +323,7 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead =
-              Set.filter (\a -> Set.member a (decommitUTxO snapshot)) (utxoInHead m)
+          , utxoInHead = decommitUTxO snapshot Set.\\ utxoInHead m
           }
       Close{snapshot} ->
         m
