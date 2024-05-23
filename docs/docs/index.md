@@ -1,10 +1,18 @@
 # Welcome
 
-Hydra is a layer-two scalability solution for Cardano, which aims to increase
-the speed of transactions (low latency, high throughput) and minimize
-transaction cost.
+This section is a user manual for Hydra node operators. 
 
-This is the user manual for `hydra-node`, an implementation of the Hydra Head protocol, as originally published [here](https://eprint.iacr.org/2020/299.pdf). The `hydra-node` interfaces the Cardano blockchain, connects to other `hydra-node`s on a dedicated overlay network, runs a simplified (coordinated) Hydra Head protocol, and provides an API to clients.
+Hydra node is an implementation of the Hydra Head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
+
+Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra Heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency. 
+
+To run a Hydra node, participants should:
+
+* **Install and configure the node**: set up the Hydra node software, ensuring it is properly configured to connect with other Hydra nodes and the Cardano mainnet.
+* **Participate in Hydra heads**: collaborate with other nodes to create and manage Hydra heads, enabling batch processing of transactions off-chain.
+* **Synchronize with Cardano**: maintain synchronization with the main chain to ensure the security and finality of transactions processed by the Hydra heads.
+
+Navigate through tutorials and documentation guides to get started. If you want to learn more about Hydra, see the [developer documentation section](https://hydra.family/head-protocol/docs/dev). If you're interested in building, see the [core concencepts section](https://hydra.family/head-protocol/core-concepts).
 
 :::warning Mainnet Availability disclaimer
 
@@ -29,8 +37,3 @@ AVAILABLE’ basis, without any representations or warranties of any kind. All
 implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 :::
-
-Now, without further ado, read more about the protocol [on the next page](./protocol-overview) or jump right in to [getting started using a local devnet](./getting-started).
-
-[known-issues]: ./known-issues.md
-[license]: https://github.com/input-output-hk/hydra/blob/master/LICENSE
