@@ -29,8 +29,17 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), close, contest, decrement, fanout)
-import Hydra.Chain.Direct.Tx (FanoutTxError, HeadObservation, headIdToCurrencySymbol, mkHeadId, mkHeadOutput, observeHeadTx)
+import Hydra.Chain.Direct.State (ChainContext (..), DecrementTxError, close, contest, decrement, fanout)
+import Hydra.Chain.Direct.Tx (
+  CloseTxError,
+  ContestTxError,
+  FanoutTxError,
+  HeadObservation (NoHeadTx),
+  headIdToCurrencySymbol,
+  mkHeadId,
+  mkHeadOutput,
+  observeHeadTx,
+ )
 import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
@@ -183,8 +192,11 @@ data State
 data Actor = Alice | Bob | Carol
   deriving (Show, Eq)
 
+-- | Result of constructing and performing a transaction. Notably there are
+-- three stages to this which can fail: construction, validation, and
+-- observation. Results from all stages are needed to express post-conditions.
 data TxResult = TxResult
-  { tx :: Either String Tx
+  { constructedTx :: Either String Tx
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
@@ -270,6 +282,8 @@ instance StateModel Model where
                ]
       Final -> pure $ Some Stop
 
+  -- Determine actions we want to perform and expect to work. If this is False,
+  -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
   precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
     Stop -> headState /= Final
@@ -291,6 +305,9 @@ instance StateModel Model where
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
 
+  -- Determine actions we want to perform and want to see failing. If this is
+  -- False, the action is discarded (e.g. it's invalid or we don't want to see
+  -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
     Decrement{snapshot} ->
@@ -377,9 +394,7 @@ instance RunModel Model AppM where
       Contest{actor, snapshot} ->
         performTx =<< newContestTx actor (confirmedSnapshot snapshot)
       Fanout{snapshot} -> do
-        newFanoutTx Alice snapshot >>= \case
-          Left err -> pure $ TxResult{tx = Left (show err), validationError = Nothing, observation = Tx.NoHeadTx}
-          Right tx -> performTx tx
+        performTx =<< newFanoutTx Alice snapshot
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = runPostconditionM' $ do
@@ -399,8 +414,8 @@ instance RunModel Model AppM where
         _ -> fail "Expected Contest"
       Fanout{snapshot} -> do
         case result of
-          TxResult{tx = Left err} -> fail $ "Failed to construct transaction: " <> err
-          TxResult{tx = Right tx} -> do
+          TxResult{constructedTx = Left err} -> fail $ "Failed to construct transaction: " <> err
+          TxResult{constructedTx = Right tx} -> do
             -- NOTE: Sort `[TxOut]` by the address and values. We want to make
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
@@ -432,20 +447,27 @@ instance RunModel Model AppM where
 -- | Perform a transaction by evaluating and observing it. This updates the
 -- 'UTxO' in the 'AppM' if a transaction is valid and produces a 'TxResult' that
 -- can be used to assert expected success / failure.
-performTx :: Tx -> AppM TxResult
-performTx tx = do
-  utxo <- get
-  let validationError = getValidationError tx utxo
-  when (isNothing validationError) $ do
-    put $ adjustUTxO tx utxo
-  pure
-    TxResult
-      { -- TODO: this is wonky since there could be validation errors but we
-        -- set the tx as Right?
-        tx = Right tx
-      , validationError
-      , observation = observeHeadTx Fixture.testNetworkId utxo tx
-      }
+performTx :: Show err => Either err Tx -> AppM TxResult
+performTx = \case
+  Left err ->
+    pure
+      TxResult
+        { constructedTx = Left $ show err
+        , validationError = Nothing
+        , observation = NoHeadTx
+        }
+  Right tx -> do
+    utxo <- get
+    let validationError = getValidationError tx utxo
+    when (isNothing validationError) $ do
+      put $ adjustUTxO tx utxo
+    let observation = observeHeadTx Fixture.testNetworkId utxo tx
+    pure
+      TxResult
+        { constructedTx = Right tx
+        , validationError
+        , observation
+        }
 
 getValidationError :: Tx -> UTxO -> Maybe String
 getValidationError tx utxo =
@@ -547,10 +569,10 @@ openHeadUTxO =
         }
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
-newDecrementTx :: HasCallStack => Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM Tx
+newDecrementTx :: Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM (Either DecrementTxError Tx)
 newDecrementTx actor (snapshot, signatures) = do
   spendableUTxO <- get
-  either (failure . show) pure $
+  pure $
     decrement
       (actorChainContext actor)
       (mkHeadId Fixture.testPolicyId)
@@ -563,10 +585,10 @@ newDecrementTx actor (snapshot, signatures) = do
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
 -- contestation period and also claims to close at time 0 resulting in a
 -- contestation deadline of 0 + cperiod.
-newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
+newCloseTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either CloseTxError Tx)
 newCloseTx actor snapshot = do
   spendableUTxO <- get
-  either (failure . show) pure $
+  pure $
     close
       (actorChainContext actor)
       spendableUTxO
@@ -583,10 +605,10 @@ newCloseTx actor snapshot = do
 -- | Creates a contest transaction using given utxo and contesting with given
 -- snapshot. NOTE: This uses fixtures for headId, contestation period and also
 -- claims to contest at time 0.
-newContestTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
+newContestTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either ContestTxError Tx)
 newContestTx actor snapshot = do
   spendableUTxO <- get
-  either (failure . show) pure $
+  pure $
     contest
       (actorChainContext actor)
       spendableUTxO
