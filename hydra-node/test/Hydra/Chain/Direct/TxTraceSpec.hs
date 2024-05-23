@@ -144,7 +144,8 @@ prop_runActions actions =
     utxoV <- newIORef openHeadUTxO
     runReaderT (runAppM action) utxoV
 
--- * Model
+-- * ============================== MODEL WORLD ==========================
+
 data ModelUTxO = A | B | C
   deriving (Show, Eq, Ord, Generic, Enum)
 
@@ -197,6 +198,7 @@ data Actor = Alice | Bob | Carol
 -- observation. Results from all stages are needed to express post-conditions.
 data TxResult = TxResult
   { constructedTx :: Either String Tx
+  , spendableUTxO :: UTxO
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
@@ -363,6 +365,8 @@ instance HasVariables (Action Model a) where
 deriving instance Eq (Action Model a)
 deriving instance Show (Action Model a)
 
+-- * ============================== REAL WORLD ==========================
+
 -- | Application monad to perform model actions. Currently it only keeps a
 -- 'UTxO' which is updated whenever transactions are valid in 'performTx'.
 newtype AppM a = AppM {runAppM :: ReaderT (IORef UTxO) IO a}
@@ -435,11 +439,7 @@ instance RunModel Model AppM where
       Decrement{} -> either (const fulfilled) expectInvalid result
       Close{} -> either (const fulfilled) expectInvalid result
       Contest{} -> either (const fulfilled) expectInvalid result
-      Fanout{} -> do
-        case result of
-          Left _ -> fulfilled
-          -- TODO: revisit this if we still want to assert the tx validation errors are there (match on `TxResult`)
-          Right _ -> counterexample' "Expected to fail validation"
+      Fanout{} -> either (const fulfilled) expectInvalid result
       _ -> pure ()
 
 -- | Perform a transaction by evaluating and observing it. This updates the
@@ -447,10 +447,12 @@ instance RunModel Model AppM where
 -- can be used to assert expected success / failure.
 performTx :: Show err => Either err Tx -> AppM TxResult
 performTx = \case
-  Left err ->
+  Left err -> do
+    utxo <- get
     pure
       TxResult
         { constructedTx = Left $ show err
+        , spendableUTxO = utxo
         , validationError = Nothing
         , observation = NoHeadTx
         }
@@ -463,6 +465,7 @@ performTx = \case
     pure
       TxResult
         { constructedTx = Right tx
+        , spendableUTxO = utxo
         , validationError
         , observation
         }
@@ -686,7 +689,8 @@ counterexample' msg = PostconditionM' $ ExceptT $ counterexamplePost msg $> Righ
 -- | Assertion helper to check whether a 'TxResult' was valid and the expected
 -- 'HeadObservation' could be made. To be used in 'postcondition'.
 expectValid :: Monad m => TxResult -> (HeadObservation -> PostconditionM' m a) -> PostconditionM' m a
-expectValid TxResult{validationError = Just err} _ =
+expectValid TxResult{validationError = Just err} _ = do
+  counterexample' "Expected to pass validation"
   fail err
 expectValid TxResult{observation} fn = do
   counterexample' $ "Wrong observation: " <> show observation
@@ -695,7 +699,13 @@ expectValid TxResult{observation} fn = do
 -- | Assertion helper to check whether a 'TxResult' was invalid.
 expectInvalid :: Monad m => TxResult -> PostconditionM' m ()
 expectInvalid = \case
-  TxResult{validationError = Nothing} -> fail "Expected to fail validation"
+  TxResult{validationError = Nothing, constructedTx, spendableUTxO} -> do
+    counterexample' "Expected to fail validation"
+    case constructedTx of
+      Left err -> counterexample' $ "But construction failed with:" <> err
+      Right tx -> do
+        counterexample' $ renderTxWithUTxO spendableUTxO tx
+    fail ""
   _ -> pure ()
 
 -- | Generate sometimes a value with given generator, bur more often just use
