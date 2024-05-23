@@ -290,6 +290,7 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
+        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -310,11 +311,8 @@ instance StateModel Model where
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
-    Decrement{snapshot} ->
+    Decrement{} ->
       headState == Open
-        && ( snapshotNumber snapshot <= latestSnapshot
-              || decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-           )
     Close{snapshot} ->
       headState == Open
         && snapshotNumber snapshot < latestSnapshot
@@ -338,7 +336,7 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead = decommitUTxO snapshot Set.\\ utxoInHead m
+          , utxoInHead = utxoInHead m Set.\\ decommitUTxO snapshot
           }
       Close{snapshot} ->
         m
