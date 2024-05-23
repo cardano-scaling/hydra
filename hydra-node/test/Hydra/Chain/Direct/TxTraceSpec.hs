@@ -20,6 +20,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   mkTxOutDatumInline,
+  modifyTxOutValue,
   selectLovelace,
   throwError,
   txOutAddress,
@@ -493,12 +494,14 @@ allActors = [Alice, Bob, Carol]
 -- | A "random" UTxO distribution for a given 'ModelSnapshot'.
 generateUTxOFromModelSnapshot :: ModelSnapshot -> (UTxO, UTxO)
 generateUTxOFromModelSnapshot snapshot =
-  ( foldMap go (snapshotUTxO snapshot)
-  , foldMap go (decommitUTxO snapshot)
+  ( foldMap realWorldModelUTxO (snapshotUTxO snapshot)
+  , foldMap realWorldModelUTxO (decommitUTxO snapshot)
   )
- where
-  go modelUTxO =
-    (`generateWith` fromEnum modelUTxO) $ genUTxO1 genTxOut
+
+-- | Map a 'ModelUTxO' to a real-world 'UTxO'.
+realWorldModelUTxO :: ModelUTxO -> UTxO
+realWorldModelUTxO modelUTxO =
+  (`generateWith` fromEnum modelUTxO) $ genUTxO1 genTxOut
 
 -- TODO: dry with signedSnapshot
 decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
@@ -559,15 +562,19 @@ openHeadUTxO =
   openHeadTxOut =
     mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
       & addParticipationTokens [Fixture.alicePVk, Fixture.bobPVk, Fixture.carolPVk]
+      & modifyTxOutValue (<> foldMap txOutValue inHeadUTxO)
+
   openHeadDatum =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx $ fst $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
+        , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
         }
+
+  inHeadUTxO = foldMap realWorldModelUTxO (utxoInHead initialState)
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
 newDecrementTx :: Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM (Either DecrementTxError Tx)
@@ -700,12 +707,12 @@ expectValid TxResult{observation} fn = do
 expectInvalid :: Monad m => TxResult -> PostconditionM' m ()
 expectInvalid = \case
   TxResult{validationError = Nothing, constructedTx, spendableUTxO} -> do
-    counterexample' "Expected to fail validation"
+    counterexample' "Expected tx to fail validation"
     case constructedTx of
       Left err -> counterexample' $ "But construction failed with:" <> err
       Right tx -> do
         counterexample' $ renderTxWithUTxO spendableUTxO tx
-    fail ""
+    fail "But it did not fail"
   _ -> pure ()
 
 -- | Generate sometimes a value with given generator, bur more often just use
