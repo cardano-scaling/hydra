@@ -162,30 +162,30 @@ data DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDecrementMutation (tx, utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
+    [ SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (Just $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
+    , SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
         Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx))) <*> pure (fromIntegral $ length utxo - 1)
-    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
+    , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) ChangeOutputValue <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Skip the first output since this is the Head output.
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (Just $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
-    , SomeMutation (Just $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
     ]
  where
