@@ -20,7 +20,6 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   mkTxOutDatumInline,
-  renderUTxO,
   selectLovelace,
   throwError,
   txOutAddress,
@@ -40,7 +39,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), getSnapshot, number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof)
@@ -50,7 +49,7 @@ import Test.QuickCheck.StateModel (
   Actions (..),
   Any (..),
   HasVariables (getAllVariables),
-  Polarity (PosPolarity),
+  Polarity (..),
   PostconditionM,
   Realized,
   RunModel (..),
@@ -80,6 +79,7 @@ prop_traces =
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
         & cover 5 (hasDecrement steps) "has successful decrements"
+        & cover 1 (hasNegativeDecrement steps) "has negative decrements"
  where
   hasFanout =
     any $
@@ -118,10 +118,16 @@ prop_traces =
         Decrement{} -> polarity == PosPolarity
         _ -> False
 
+  hasNegativeDecrement =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Decrement{} -> polarity == NegPolarity
+        _ -> False
+
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
   monadic runAppMProperty $ do
-    print actions
+    -- print actions
     void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -209,13 +215,16 @@ instance StateModel Model where
         oneof $
           [ do
               actor <- elements allActors
+              someUTxOToDecrement <-
+                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+
               snapshot <-
                 ModelSnapshot
                   { snapshotNumber = latestSnapshot
                   , snapshotUTxO = utxoInHead
-                  , decommitUTxO = mempty
+                  , decommitUTxO = someUTxOToDecrement
                   }
-                  `orSometimes` arbitrary
+                  `orArbitrary` arbitrary
               pure $ Some $ Close{actor, snapshot}
           ]
             <> [ do
@@ -227,20 +236,22 @@ instance StateModel Model where
                     , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
                     , decommitUTxO = Set.fromList [someUTxOToDecrement]
                     }
-                    `orSometimes` arbitrary
+                    `orArbitrary` arbitrary
                 pure $ Some Decrement{actor, snapshot}
                | not (null utxoInHead)
                ]
       Closed{} ->
         oneof $
           [ do
-              let snapshot =
-                    ModelSnapshot
-                      { snapshotNumber = latestSnapshot
-                      , snapshotUTxO = utxoInHead
-                      , decommitUTxO = mempty
-                      }
-              -- `orSometimes` arbitrary
+              someUTxOToDecrement <-
+                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+              snapshot <-
+                ModelSnapshot
+                  { snapshotNumber = latestSnapshot
+                  , snapshotUTxO = utxoInHead
+                  , decommitUTxO = someUTxOToDecrement
+                  }
+                  `orArbitrary` arbitrary
               pure $ Some $ Fanout{snapshot}
           ]
             <> [ do
@@ -253,7 +264,7 @@ instance StateModel Model where
                     , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
                     , decommitUTxO = Set.fromList [someUTxOToDecrement]
                     }
-                    `orSometimes` arbitrary
+                    `orArbitrary` arbitrary
                 pure $ Some Contest{actor, snapshot}
                | not (null utxoInHead)
                ]
@@ -265,7 +276,6 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -277,10 +287,31 @@ instance StateModel Model where
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshotNumber snapshot > latestSnapshot
-        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
+
+  validFailingAction :: Model -> Action Model a -> Bool
+  validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
+    Decrement{snapshot} ->
+      headState == Open
+        && ( snapshotNumber snapshot <= latestSnapshot
+              || decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+           )
+    Close{snapshot} ->
+      headState == Open
+        && snapshotNumber snapshot < latestSnapshot
+    Contest{actor, snapshot} ->
+      headState == Closed
+        && ( snapshotNumber snapshot <= latestSnapshot
+              || actor `elem` alreadyContested
+           )
+    Fanout{snapshot} ->
+      headState == Closed
+        && ( snapshotNumber snapshot /= latestSnapshot
+              || snapshotUTxO snapshot /= utxoInHead
+           )
+    _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
@@ -535,17 +566,15 @@ newDecrementTx actor (snapshot, signatures) = do
 newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
 newCloseTx actor snapshot = do
   spendableUTxO <- get
-  traceShow "close utxo" $
-    traceShow (renderUTxO $ utxo $ getSnapshot snapshot) $
-      either (failure . show) pure $
-        close
-          (actorChainContext actor)
-          spendableUTxO
-          (mkHeadId Fixture.testPolicyId)
-          Fixture.testHeadParameters
-          snapshot
-          lowerBound
-          upperBound
+  either (failure . show) pure $
+    close
+      (actorChainContext actor)
+      spendableUTxO
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.testHeadParameters
+      snapshot
+      lowerBound
+      upperBound
  where
   lowerBound = 0
 
@@ -557,16 +586,14 @@ newCloseTx actor snapshot = do
 newContestTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
 newContestTx actor snapshot = do
   spendableUTxO <- get
-  traceShow "contest utxo" $
-    traceShow (renderUTxO $ utxo $ getSnapshot snapshot) $
-      either (failure . show) pure $
-        contest
-          (actorChainContext actor)
-          spendableUTxO
-          (mkHeadId Fixture.testPolicyId)
-          Fixture.cperiod
-          snapshot
-          currentTime
+  either (failure . show) pure $
+    contest
+      (actorChainContext actor)
+      spendableUTxO
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.cperiod
+      snapshot
+      currentTime
  where
   currentTime = (0, posixSecondsToUTCTime 0)
 
@@ -577,16 +604,14 @@ newFanoutTx :: Actor -> ModelSnapshot -> AppM (Either FanoutTxError Tx)
 newFanoutTx actor snapshot = do
   spendableUTxO <- get
   let (snapshot', _) = signedSnapshot snapshot
-  traceShow "fanout utxo" $
-    traceShow (renderUTxO $ utxo snapshot') $
-      pure $
-        fanout
-          (actorChainContext actor)
-          spendableUTxO
-          Fixture.testSeedInput
-          (utxo snapshot')
-          (utxoToDecommit snapshot')
-          deadline
+  pure $
+    fanout
+      (actorChainContext actor)
+      spendableUTxO
+      Fixture.testSeedInput
+      (utxo snapshot')
+      (utxoToDecommit snapshot')
+      deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
   deadline = SlotNo $ fromIntegral contestationPeriod * fromIntegral (length allActors)
@@ -655,5 +680,5 @@ expectInvalid = \case
 
 -- | Generate sometimes a value with given generator, bur more often just use
 -- the given value.
-orSometimes :: a -> Gen a -> Gen a
-orSometimes a gen = frequency [(2, pure a), (1, gen)]
+orArbitrary :: a -> Gen a -> Gen a
+orArbitrary a gen = frequency [(1, pure a), (1, gen)]
