@@ -314,22 +314,22 @@ instance StateModel Model where
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
-    Decrement{} ->
-      headState == Open
-    Close{snapshot} ->
-      headState == Open
-        && snapshotNumber snapshot < latestSnapshot
-    Contest{actor, snapshot} ->
-      headState == Closed
-        && ( snapshotNumber snapshot <= latestSnapshot
-              || actor `elem` alreadyContested
-           )
-    Fanout{snapshot} ->
-      headState == Closed
-        && ( snapshotNumber snapshot /= latestSnapshot
-              || snapshotUTxO snapshot /= utxoInHead
-           )
-    _ -> False
+    -- Decrement{} ->
+    --   headState == Open
+    -- Close{snapshot} ->
+    --   headState == Open
+    --     && snapshotNumber snapshot < latestSnapshot
+    -- Contest{actor, snapshot} ->
+    --   headState == Closed
+    --     && ( snapshotNumber snapshot <= latestSnapshot
+    --           || actor `elem` alreadyContested
+    --        )
+    -- Fanout{snapshot} ->
+    --   headState == Closed
+    --     && ( snapshotNumber snapshot /= latestSnapshot
+    --           || snapshotUTxO snapshot /= utxoInHead
+    --        )
+    _ -> True
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
