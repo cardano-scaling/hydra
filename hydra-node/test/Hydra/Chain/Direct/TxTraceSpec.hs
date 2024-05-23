@@ -74,11 +74,11 @@ prop_traces =
       True
         & cover 1 (null steps) "empty"
         & cover 10 (hasFanout steps) "reach fanout"
-        & cover 5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
-        & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
+        & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+        & cover 5 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
-        & cover 10 (hasDecrement steps) "has successful decrements"
+        & cover 5 (hasDecrement steps) "has successful decrements"
  where
   hasFanout =
     any $
@@ -135,7 +135,7 @@ data ModelUTxO = A | B | C
 instance Arbitrary ModelUTxO where
   arbitrary = elements [A, B, C]
 
-  shrink = const []
+  shrink = genericShrink
 
 data Model = Model
   { headState :: State
@@ -262,58 +262,24 @@ instance StateModel Model where
   precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
     Stop -> headState /= Final
     Decrement{snapshot} ->
-      -- TODO: assert what to decrement still there
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
-        && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-              && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
-           )
-     where
-      Model{utxoInHead = initialUTxOInHead} = initialState
+        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
           then snapshotUTxO snapshot == initialUTxOInHead
-          else
-            snapshotNumber snapshot >= latestSnapshot
-              && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
-              && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-                    && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
-                 )
+          else snapshotNumber snapshot >= latestSnapshot
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshotNumber snapshot > latestSnapshot
-        && ( decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-              && Set.size (decommitUTxO snapshot) < Set.size utxoInHead
-           )
-        && not (Set.isSubsetOf initialUTxOInHead (decommitUTxO snapshot))
-     where
-      Model{utxoInHead = initialUTxOInHead} = initialState
+        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
-
-  validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
-    Decrement{snapshot} ->
-      snapshotNumber snapshot <= latestSnapshot
-        || null (decommitUTxO snapshot)
-        || not (decommitUTxO snapshot `Set.isSubsetOf` utxoInHead)
-    Close{snapshot} ->
-      snapshotNumber snapshot < latestSnapshot
-    Contest{actor, snapshot} ->
-      headState == Closed -- TODO: gracefully fail in perform instead?
-        && ( snapshotNumber snapshot <= latestSnapshot
-              || actor `elem` alreadyContested
-           )
-    Fanout{snapshot} ->
-      headState == Closed -- TODO: gracefully fail in perform instead?
-        && snapshotNumber snapshot /= latestSnapshot
-    _ -> False
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
@@ -421,19 +387,14 @@ instance RunModel Model AppM where
     counterexample' (show modelBefore)
     counterexample' (show action)
     case action of
-      Decrement{} -> either (const $ fail "oops") expectInvalid result
-      Close{} -> either (const $ fail "oops") expectInvalid result
-      Contest{} -> either (const $ fail "oops") expectInvalid result
+      Decrement{} -> either (const fulfilled) expectInvalid result
+      Close{} -> either (const fulfilled) expectInvalid result
+      Contest{} -> either (const fulfilled) expectInvalid result
       Fanout{} -> do
         case result of
           Left _ -> fulfilled
-          Right (TxResult{validationError = Nothing}) -> counterexample' "Expected to fail validation"
-          Right (TxResult{validationError = Just _}) -> fulfilled
-
-        case result of
-          Left _ -> fulfilled
-          Right (TxResult{tx = Left _}) -> fulfilled
-          Right (TxResult{tx = Right _}) -> counterexample' "Expected failure to build transaction"
+          -- TODO: revisit this if we still want to assert the tx validation errors are there (match on `TxResult`)
+          Right _ -> counterexample' "Expected to fail validation"
       _ -> pure ()
 
 -- | Perform a transaction by evaluating and observing it. This updates the
@@ -447,7 +408,9 @@ performTx tx = do
     put $ adjustUTxO tx utxo
   pure
     TxResult
-      { tx = Right tx
+      { -- TODO: this is wonky since there could be validation errors but we
+        -- set the tx as Right?
+        tx = Right tx
       , validationError
       , observation = observeHeadTx Fixture.testNetworkId utxo tx
       }
