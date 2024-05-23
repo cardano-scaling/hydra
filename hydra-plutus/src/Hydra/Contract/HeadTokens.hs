@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+-- Avoid trace calls to be optimized away.
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
--- Avoid trace calls to be optimized away when inlining functions.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:no-simplifier-inline #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
