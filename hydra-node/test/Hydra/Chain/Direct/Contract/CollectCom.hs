@@ -207,10 +207,10 @@ genCollectComMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (Just $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
+    , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
-    , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
+    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes

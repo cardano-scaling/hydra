@@ -438,9 +438,9 @@ runRunMonadIOSimGen f = do
           }
     runReaderT (runMonad (eval f)) (RunState v)
 
-nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
-nonConflictingTx st =
-  withGenQ (genPayment st) (const True) (const [])
+nonConflictingTx :: Payment.CardanoSigningKey -> WorldState -> Quantification (Party, Payment.Payment)
+nonConflictingTx to st =
+  withGenQ (genPayment to st) (const True) (const [])
     `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 eventually :: Action WorldState () -> DL WorldState ()

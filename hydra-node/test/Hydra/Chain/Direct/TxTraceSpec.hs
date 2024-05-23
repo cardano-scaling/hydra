@@ -421,17 +421,19 @@ instance RunModel Model AppM where
     counterexample' (show modelBefore)
     counterexample' (show action)
     case action of
-      Decrement{} -> expectInvalid result
-      Close{} -> expectInvalid result
-      Contest{} -> expectInvalid result
+      Decrement{} -> either (const $ fail "oops") expectInvalid result
+      Close{} -> either (const $ fail "oops") expectInvalid result
+      Contest{} -> either (const $ fail "oops") expectInvalid result
       Fanout{} -> do
         case result of
-          TxResult{validationError = Just _} -> fulfilled
-          TxResult{validationError = Nothing} -> counterexample' "Expected to fail validation"
+          Left _ -> fulfilled
+          Right (TxResult{validationError = Nothing}) -> counterexample' "Expected to fail validation"
+          Right (TxResult{validationError = Just _}) -> fulfilled
 
         case result of
-          TxResult{tx = Left _} -> fulfilled
-          TxResult{tx = Right _} -> counterexample' "Expected failure to build transaction"
+          Left _ -> fulfilled
+          Right (TxResult{tx = Left _}) -> fulfilled
+          Right (TxResult{tx = Right _}) -> counterexample' "Expected failure to build transaction"
       _ -> pure ()
 
 -- | Perform a transaction by evaluating and observing it. This updates the
