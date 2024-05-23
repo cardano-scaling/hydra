@@ -20,6 +20,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   SlotNo (..),
   mkTxOutDatumInline,
+  renderUTxO,
   selectLovelace,
   throwError,
   txOutAddress,
@@ -39,7 +40,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof)
@@ -376,7 +377,7 @@ instance RunModel Model AppM where
             let fannedOut = utxoFromTx tx
             -- counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
             -- counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
-            guard $ sorted fannedOut == sorted (generateUTxOFromModelSnapshot snapshot)
+            guard $ sorted fannedOut == sorted (fst $ generateUTxOFromModelSnapshot snapshot)
 
         expectValid result $ \case
           Tx.Fanout{} -> pure ()
@@ -436,10 +437,11 @@ allActors :: [Actor]
 allActors = [Alice, Bob, Carol]
 
 -- | A "random" UTxO distribution for a given 'ModelSnapshot'.
-generateUTxOFromModelSnapshot :: ModelSnapshot -> UTxO
+generateUTxOFromModelSnapshot :: ModelSnapshot -> (UTxO, UTxO)
 generateUTxOFromModelSnapshot snapshot =
-  foldMap go (snapshotUTxO snapshot)
-    <> foldMap go (decommitUTxO snapshot)
+  ( foldMap go (snapshotUTxO snapshot)
+  , foldMap go (decommitUTxO snapshot)
+  )
  where
   go modelUTxO =
     (`generateWith` fromEnum modelUTxO) $ genUTxO1 genTxOut
@@ -449,8 +451,7 @@ decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 decommitSnapshot ms =
   (snapshot, signatures)
  where
-  utxo = generateUTxOFromModelSnapshot ms{decommitUTxO = mempty}
-  toDecommit = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
+  (utxo, toDecommit) = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
@@ -472,7 +473,7 @@ signedSnapshot ms =
       { headId = mkHeadId Fixture.testPolicyId
       , number = snapshotNumber ms
       , confirmed = []
-      , utxo = generateUTxOFromModelSnapshot ms
+      , utxo = fst $ generateUTxOFromModelSnapshot ms
       , utxoToDecommit = Nothing
       }
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -487,7 +488,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{snapshotNumber} =
         { -- -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
+        , initialUTxO = fst $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
@@ -508,7 +509,7 @@ openHeadUTxO =
     mkTxOutDatumInline
       Head.Open
         { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO @Tx $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
+        , utxoHash = toBuiltin $ hashUTxO @Tx $ fst $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
@@ -534,15 +535,17 @@ newDecrementTx actor (snapshot, signatures) = do
 newCloseTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
 newCloseTx actor snapshot = do
   spendableUTxO <- get
-  either (failure . show) pure $
-    close
-      (actorChainContext actor)
-      spendableUTxO
-      (mkHeadId Fixture.testPolicyId)
-      Fixture.testHeadParameters
-      snapshot
-      lowerBound
-      upperBound
+  traceShow "close utxo" $
+    traceShow (renderUTxO $ utxo $ getSnapshot snapshot) $
+      either (failure . show) pure $
+        close
+          (actorChainContext actor)
+          spendableUTxO
+          (mkHeadId Fixture.testPolicyId)
+          Fixture.testHeadParameters
+          snapshot
+          lowerBound
+          upperBound
  where
   lowerBound = 0
 
@@ -554,14 +557,16 @@ newCloseTx actor snapshot = do
 newContestTx :: HasCallStack => Actor -> ConfirmedSnapshot Tx -> AppM Tx
 newContestTx actor snapshot = do
   spendableUTxO <- get
-  either (failure . show) pure $
-    contest
-      (actorChainContext actor)
-      spendableUTxO
-      (mkHeadId Fixture.testPolicyId)
-      Fixture.cperiod
-      snapshot
-      currentTime
+  traceShow "contest utxo" $
+    traceShow (renderUTxO $ utxo $ getSnapshot snapshot) $
+      either (failure . show) pure $
+        contest
+          (actorChainContext actor)
+          spendableUTxO
+          (mkHeadId Fixture.testPolicyId)
+          Fixture.cperiod
+          snapshot
+          currentTime
  where
   currentTime = (0, posixSecondsToUTCTime 0)
 
@@ -572,14 +577,16 @@ newFanoutTx :: Actor -> ModelSnapshot -> AppM (Either FanoutTxError Tx)
 newFanoutTx actor snapshot = do
   spendableUTxO <- get
   let (snapshot', _) = signedSnapshot snapshot
-  pure $
-    fanout
-      (actorChainContext actor)
-      spendableUTxO
-      Fixture.testSeedInput
-      (utxo snapshot')
-      (utxoToDecommit snapshot')
-      deadline
+  traceShow "fanout utxo" $
+    traceShow (renderUTxO $ utxo snapshot') $
+      pure $
+        fanout
+          (actorChainContext actor)
+          spendableUTxO
+          Fixture.testSeedInput
+          (utxo snapshot')
+          (utxoToDecommit snapshot')
+          deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
   deadline = SlotNo $ fromIntegral contestationPeriod * fromIntegral (length allActors)
