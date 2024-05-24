@@ -52,7 +52,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, withMaxSuccess)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -75,7 +75,7 @@ import Text.Show (Show (..))
 spec :: Spec
 spec = do
   prop "generates interesting transaction traces" prop_traces
-  prop "all valid transactions" prop_runActions
+  prop "all valid transactions" $ withMaxSuccess 500 prop_runActions
 
 prop_traces :: Property
 prop_traces =
@@ -86,8 +86,13 @@ prop_traces =
         & cover 10 (hasFanout steps) "reach fanout"
         & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
         & cover 5 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
+        & cover 5 (fanoutWithDecrement steps) "fanout with something to decrement"
+        & cover 5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
+        & cover 5 (closeWithDecrement steps) "close with something to decrement"
+        & cover 5 (closeWithSomeUTxO steps) "close with some UTxO"
+        & cover 5 (closeWithSomeUTxOAndDecrement steps) "close with some UTxO and something to decrement"
         & cover 5 (hasDecrement steps) "has successful decrements"
  where
   hasFanout =
@@ -108,6 +113,20 @@ prop_traces =
         Fanout{snapshot = ModelSnapshot{snapshotUTxO}} -> polarity == PosPolarity && not (null snapshotUTxO)
         _ -> False
 
+  fanoutWithDecrement =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{snapshot = ModelSnapshot{decommitUTxO}} ->
+          polarity == PosPolarity && (not . null $ decommitUTxO)
+        _ -> False
+
+  fanoutWithSomeUTxOAndDecrement =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{snapshot = ModelSnapshot{snapshotUTxO, decommitUTxO}} ->
+          polarity == PosPolarity && not (null snapshotUTxO) && (not . null $ decommitUTxO)
+        _ -> False
+
   countContests =
     length
       . filter
@@ -119,6 +138,21 @@ prop_traces =
   closeNonInitial =
     any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
       Close{snapshot} -> snapshot > 0
+      _ -> False
+
+  closeWithDecrement =
+    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+      Close{snapshot} -> snapshot > 0 && (not . null $ decommitUTxO snapshot)
+      _ -> False
+
+  closeWithSomeUTxO =
+    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+      Close{snapshot} -> snapshot > 0 && (not . null $ snapshotUTxO snapshot)
+      _ -> False
+
+  closeWithSomeUTxOAndDecrement =
+    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+      Close{snapshot} -> snapshot > 0 && (not . null $ snapshotUTxO snapshot) && (not . null $ decommitUTxO snapshot)
       _ -> False
 
   hasDecrement =
