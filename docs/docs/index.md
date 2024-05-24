@@ -37,3 +37,8 @@ AVAILABLE’ basis, without any representations or warranties of any kind. All
 implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 :::
+
+Now, without further ado, you can learn more about the protocol by visiting the [protocol overview page](./protocol-overview) or directly dive into [getting started using a local devnet](./getting-started).
+
+[known-issues]: ./known-issues.md
+[license]: https://github.com/input-output-hk/hydra/blob/master/LICENSE
