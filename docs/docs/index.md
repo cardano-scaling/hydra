@@ -20,6 +20,7 @@ The Hydra Head protocol version 0.10.0 or newer is compatible with the Cardano
 mainnet, which means it is possible to run a `hydra-node` on mainnet using real
 funds.
 
+
 Before running a `hydra-node` to take part in the Hydra Head protocol,
 developers are strongly encouraged to review the [known issues][known-issues] in
 the documentation in order to understand the current limitations and the
