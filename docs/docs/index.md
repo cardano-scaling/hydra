@@ -1,6 +1,6 @@
 # Welcome
 
-This section is a user manual for Hydra node operators. 
+This section is a manual for users interested in running a Hydra node.
 
 Hydra node is an implementation of the Hydra Head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
 
@@ -12,14 +12,13 @@ To run a Hydra node, participants should:
 * **Participate in Hydra heads**: collaborate with other nodes to create and manage Hydra heads, enabling batch processing of transactions off-chain.
 * **Synchronize with Cardano**: maintain synchronization with the main chain to ensure the security and finality of transactions processed by the Hydra heads.
 
-Navigate through tutorials and documentation guides to get started. If you want to learn more about Hydra, see the [developer documentation section](https://hydra.family/head-protocol/docs/dev). If you're interested in building, see the [core concencepts section](https://hydra.family/head-protocol/core-concepts).
+Navigate through tutorials and documentation guides to get started. If you want to learn more about core concepts, see [this section](https://hydra.family/head-protocol/core-concepts). If you're interested in building, see [developer documentation](https://hydra.family/head-protocol/docs/dev).
 
-:::warning Mainnet Availability disclaimer
+:::warning Mainnet availability disclaimer
 
 The Hydra Head protocol version 0.10.0 or newer is compatible with the Cardano
 mainnet, which means it is possible to run a `hydra-node` on mainnet using real
 funds.
-
 
 Before running a `hydra-node` to take part in the Hydra Head protocol,
 developers are strongly encouraged to review the [known issues][known-issues] in
@@ -33,7 +32,7 @@ entirely at your own risk.
 You also acknowledge and agree to have an adequate understanding of the risks
 associated with use of the Hydra Head protocol version 0.10.0 or newer and that
 all information and materials published, distributed or otherwise made available
-on hydra.family and Hydra Github Repository is available on an ‘AS IS’ and ‘AS
+on hydra.family and Hydra GitHub repository is available on an ‘AS IS’ and ‘AS
 AVAILABLE’ basis, without any representations or warranties of any kind. All
 implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
