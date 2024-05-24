@@ -1,4 +1,4 @@
-## Known issues and limitations
+# Known issues and limitations
 
 Before running a Hydra node on the Cardano mainnet, it is important to be aware of several known issues and limitations. Operating a Hydra node requires a deep understanding of the underlying infrastructure, and you may risk your funds if you are unfamiliar with the implementation and usage processes.
 
