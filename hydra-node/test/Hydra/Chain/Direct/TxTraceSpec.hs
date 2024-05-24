@@ -545,7 +545,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{snapshotNumber} =
         { -- -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = fst $ generateUTxOFromModelSnapshot (ModelSnapshot 0 (fromList [A]) (fromList []))
+        , initialUTxO = fst $ generateUTxOFromModelSnapshot modelSnapshot
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
