@@ -89,7 +89,6 @@ prop_traces =
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
         & cover 5 (hasDecrement steps) "has successful decrements"
-        & cover 1 (hasNegativeDecrement steps) "has negative decrements"
  where
   hasFanout =
     any $
@@ -125,13 +124,7 @@ prop_traces =
   hasDecrement =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{} -> polarity == PosPolarity
-        _ -> False
-
-  hasNegativeDecrement =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{} -> polarity == NegPolarity
+        Decrement{snapshot} -> polarity == PosPolarity && (not . null $ decommitUTxO snapshot)
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -227,33 +220,38 @@ instance StateModel Model where
   arbitraryAction _lookup Model{headState, latestSnapshot, utxoInHead} =
     case headState of
       Open{} ->
-        oneof $
-          [ do
-              actor <- elements allActors
-              someUTxOToDecrement <-
-                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
-
-              snapshot <-
-                ModelSnapshot
-                  { snapshotNumber = latestSnapshot
-                  , snapshotUTxO = utxoInHead
-                  , decommitUTxO = someUTxOToDecrement
-                  }
-                  `orArbitrary` arbitrary
-              pure $ Some $ Close{actor, snapshot}
-          ]
-            <> [ do
+        frequency $
+          [
+            ( 1
+            , do
                 actor <- elements allActors
-                someUTxOToDecrement <- oneof $ pure <$> Set.toList utxoInHead
+                someUTxOToDecrement <-
+                  if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
                 snapshot <-
                   ModelSnapshot
-                    { snapshotNumber = latestSnapshot + 1
-                    , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
-                    , decommitUTxO = Set.fromList [someUTxOToDecrement]
+                    { snapshotNumber = latestSnapshot
+                    , snapshotUTxO = utxoInHead
+                    , decommitUTxO = someUTxOToDecrement
                     }
                     `orArbitrary` arbitrary
-                pure $ Some Decrement{actor, snapshot}
-               | not (null utxoInHead)
+                pure $ Some $ Close{actor, snapshot}
+            )
+          ]
+            <> [
+                 ( 10
+                 , do
+                    actor <- elements allActors
+                    someUTxOToDecrement <-
+                      if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+                    snapshot <-
+                      ModelSnapshot
+                        { snapshotNumber = latestSnapshot + 1
+                        , snapshotUTxO = utxoInHead Set.\\ someUTxOToDecrement
+                        , decommitUTxO = someUTxOToDecrement
+                        }
+                        `orMoreOftenArbitrary` arbitrary
+                    pure $ Some Decrement{actor, snapshot}
+                 )
                ]
       Closed{} ->
         oneof $
@@ -313,23 +311,10 @@ instance StateModel Model where
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
+  validFailingAction Model{headState, utxoInHead} = \case
     Decrement{snapshot} ->
       headState == Open
         && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
-    -- Close{snapshot} ->
-    --   headState == Open
-    --     && snapshotNumber snapshot < latestSnapshot
-    -- Contest{actor, snapshot} ->
-    --   headState == Closed
-    --     && ( snapshotNumber snapshot <= latestSnapshot
-    --           || actor `elem` alreadyContested
-    --        )
-    -- Fanout{snapshot} ->
-    --   headState == Closed
-    --     && ( snapshotNumber snapshot /= latestSnapshot
-    --           || snapshotUTxO snapshot /= utxoInHead
-    --        )
     _ -> True
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -720,3 +705,6 @@ expectInvalid = \case
 -- the given value.
 orArbitrary :: a -> Gen a -> Gen a
 orArbitrary a gen = frequency [(1, pure a), (1, gen)]
+
+orMoreOftenArbitrary :: a -> Gen a -> Gen a
+orMoreOftenArbitrary a gen = frequency [(1, pure a), (10, gen)]
