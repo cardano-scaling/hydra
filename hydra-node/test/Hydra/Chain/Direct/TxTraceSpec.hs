@@ -14,11 +14,14 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Coin (Coin (..))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.Natural (naturalToInteger)
 import Hydra.Cardano.Api (
   SlotNo (..),
+  lovelaceToValue,
   mkTxOutDatumInline,
   modifyTxOutValue,
   selectLovelace,
@@ -52,7 +55,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, withMaxSuccess)
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -76,6 +79,8 @@ spec :: Spec
 spec = do
   prop "generates interesting transaction traces" prop_traces
   prop "all valid transactions" $ withMaxSuccess 500 prop_runActions
+  prop "realWorldModelUTxO preserves addition" $ \u1 u2 -> do
+    realWorldModelUTxO (u1 `customSemigroup` u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
 
 prop_traces :: Property
 prop_traces =
@@ -174,11 +179,45 @@ prop_runActions actions =
 
 -- * ============================== MODEL WORLD ==========================
 
-data ModelUTxO = A | B | C
-  deriving (Show, Eq, Ord, Generic, Enum)
+data SingleUTxO = A Natural | B Natural | C Natural
+  deriving (Show, Eq, Ord, Generic)
 
-instance Arbitrary ModelUTxO where
-  arbitrary = elements [A, B, C]
+type ModelUTxO = Set SingleUTxO
+
+customSemigroup :: ModelUTxO -> ModelUTxO -> ModelUTxO
+customSemigroup u1 u2 =
+  if null u1
+    then u2
+    else
+      foldl'
+        ( \uFinal -> \case
+            A balance ->
+              foldMap
+                ( \case
+                    A balance' -> Set.singleton $ A (balance' + balance)
+                    other -> Set.fromList [other, A balance]
+                )
+                uFinal
+            B balance ->
+              foldMap
+                ( \case
+                    B balance' -> Set.singleton $ B (balance' + balance)
+                    other -> Set.fromList [other, B balance]
+                )
+                uFinal
+            C balance ->
+              foldMap
+                ( \case
+                    C balance' -> Set.singleton $ C (balance' + balance)
+                    other -> Set.fromList [other, C balance]
+                )
+                uFinal
+        )
+        u1
+        u2
+
+instance Arbitrary SingleUTxO where
+  arbitrary = oneof [A <$> arbitrary, B <$> arbitrary, C <$> arbitrary]
 
   shrink = genericShrink
 
@@ -186,7 +225,7 @@ data Model = Model
   { headState :: State
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
-  , utxoInHead :: Set ModelUTxO
+  , utxoInHead :: ModelUTxO
   }
   deriving (Show)
 
@@ -194,8 +233,8 @@ data Model = Model
 -- simplified form of 'UTxO'.
 data ModelSnapshot = ModelSnapshot
   { snapshotNumber :: SnapshotNumber
-  , snapshotUTxO :: Set ModelUTxO
-  , decommitUTxO :: Set ModelUTxO
+  , snapshotUTxO :: ModelUTxO
+  , decommitUTxO :: ModelUTxO
   }
   deriving (Show, Eq, Ord, Generic)
 
@@ -247,7 +286,7 @@ instance StateModel Model where
       { headState = Open
       , latestSnapshot = 0
       , alreadyContested = []
-      , utxoInHead = fromList [A]
+      , utxoInHead = fromList [A 10]
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -515,14 +554,22 @@ allActors = [Alice, Bob, Carol]
 -- | A "random" UTxO distribution for a given 'ModelSnapshot'.
 generateUTxOFromModelSnapshot :: ModelSnapshot -> (UTxO, UTxO)
 generateUTxOFromModelSnapshot snapshot =
-  ( foldMap realWorldModelUTxO (snapshotUTxO snapshot)
-  , foldMap realWorldModelUTxO (decommitUTxO snapshot)
+  ( realWorldModelUTxO (snapshotUTxO snapshot)
+  , realWorldModelUTxO (decommitUTxO snapshot)
   )
 
 -- | Map a 'ModelUTxO' to a real-world 'UTxO'.
 realWorldModelUTxO :: ModelUTxO -> UTxO
-realWorldModelUTxO modelUTxO =
-  (`generateWith` fromEnum modelUTxO) $ genUTxO1 genTxOut
+realWorldModelUTxO =
+  foldMap
+    ( \case
+        A balance -> generateWith (genUTxOWithBalance balance) 1
+        B balance -> generateWith (genUTxOWithBalance balance) 2
+        C balance -> generateWith (genUTxOWithBalance balance) 3
+    )
+ where
+  genUTxOWithBalance b =
+    genUTxO1 (modifyTxOutValue (const $ lovelaceToValue (Coin $ naturalToInteger b)) <$> genTxOut)
 
 -- TODO: dry with signedSnapshot
 decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
@@ -595,7 +642,7 @@ openHeadUTxO =
         , snapshotNumber = 0
         }
 
-  inHeadUTxO = foldMap realWorldModelUTxO (utxoInHead initialState)
+  inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
 newDecrementTx :: Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM (Either DecrementTxError Tx)
