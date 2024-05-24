@@ -314,8 +314,9 @@ instance StateModel Model where
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
-    -- Decrement{} ->
-    --   headState == Open
+    Decrement{snapshot} ->
+      headState == Open
+        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
     -- Close{snapshot} ->
     --   headState == Open
     --     && snapshotNumber snapshot < latestSnapshot
@@ -508,7 +509,7 @@ decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 decommitSnapshot ms =
   (snapshot, signatures)
  where
-  (utxo, toDecommit) = generateUTxOFromModelSnapshot ms{snapshotUTxO = mempty}
+  (utxo, toDecommit) = generateUTxOFromModelSnapshot ms
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
