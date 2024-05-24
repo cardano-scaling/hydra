@@ -1,17 +1,18 @@
-## **Known issues and limitations**
+## Known issues and limitations
 
 Before running a Hydra node on the Cardano mainnet, it is important to be aware of several known issues and limitations. Operating a Hydra node requires a deep understanding of the underlying infrastructure, and you may risk your funds if you are unfamiliar with the implementation and usage processes.
 
-**Head protocol limits**
+### Head protocol limits
 
 Due to the limitations on transaction sizes and execution budgets on Cardano, the Hydra protocol has the following constraints:
 
-**Maximum number of participants. **The protocol can handle only a limited number of participants in a Hydra head. The exact limit is determined by the cost of the ``Collectcom`` transaction. When attempting to configure too many peers, the Hydra node will inform you of the current maximum allowed participants upon startup. For more information,[ see the cost of the collection transaction.](https://hydra.family/head-protocol/unstable/benchmarks/transaction-cost/#cost-of-collectcom-transaction)
+- The protocol can only handle a maximum number of participants in a head (see [the cost of CollectCom transaction](/benchmarks/transaction-cost/#cost-of-collectcom-transaction)). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
 
-* **Access to funds.** Participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:
-    * The Hydra head cannot be finalized if it holds more than approximately 80 assets (as per the cost of the ``Fanout`` transaction). Although the head can still be closed, finalization may not be possible under these conditions.
-    * Tokens that are minted and not burned within an open Hydra head will prevent the head from being finalized.
-    * If one or more participants commit UTXOs that are too large to be processed together in a ``CollectCom`` or  ``Abort`` transaction, the Hydra head will remain stuck in the initializing stage.
+Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:
+
+- The Hydra head cannot be _finalized_ if it holds more than approximately 80 assets (see [the cost of FanOut transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-fanout-transaction) for latest numbers), although it can be _closed_
+- Tokens that are minted and not burned within an open Hydra head will prevent the head from being _finalized_
+- If one or more participants commit UTXOs that are too large to be processed together in a `CollectCom` or  `Abort` transaction, the Hydra head will remain stuck in the _initialising_ stage.
 
 See these resources for additional information about reducing the risk of locking up funds in a Hydra head:
 
