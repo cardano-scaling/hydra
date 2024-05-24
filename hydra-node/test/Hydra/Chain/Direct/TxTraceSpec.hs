@@ -346,6 +346,7 @@ instance StateModel Model where
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, utxoInHead} = \case
+    Stop -> False
     Decrement{snapshot} ->
       headState == Open
         && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
