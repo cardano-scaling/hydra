@@ -32,7 +32,7 @@ data Dataset = Dataset
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
     sk <- genSigningKey
-    genDatasetConstantUTxO sk defaultProtocolParameters (n `div` 10) n
+    genDatasetConstantUTxO sk (n `div` 10) n
 
 data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
@@ -79,26 +79,24 @@ defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
 -- The sequence of transactions generated consist only of simple payments from
 -- and to arbitrary keys controlled by the individual clients.
 generateConstantUTxODataset ::
-  ProtocolParameters ->
   -- | Number of clients
   Int ->
   -- | Number of transactions
   Int ->
   IO Dataset
-generateConstantUTxODataset pparams nClients nTxs = do
+generateConstantUTxODataset nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
-  generate $ genDatasetConstantUTxO faucetSk pparams nClients nTxs
+  generate $ genDatasetConstantUTxO faucetSk nClients nTxs
 
 genDatasetConstantUTxO ::
   -- | The faucet signing key
   SigningKey PaymentKey ->
-  ProtocolParameters ->
   -- | Number of clients
   Int ->
   -- | Number of transactions
   Int ->
   Gen Dataset
-genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
+genDatasetConstantUTxO faucetSk nClients nTxs = do
   clientKeys <- replicateM nClients arbitrary
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
@@ -109,7 +107,6 @@ genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   let fundingTransaction =
         mkGenesisTx
           networkId
-          pparams
           faucetSk
           (Coin availableInitialFunds)
           clientFunds

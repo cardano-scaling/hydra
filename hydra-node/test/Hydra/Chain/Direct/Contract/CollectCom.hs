@@ -44,7 +44,7 @@ import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput))
+import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (genAddressInEra, genUTxOAdaOnlyOfSize, genVerificationKey)
@@ -204,10 +204,10 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (Just $ toErrorCode NotPayingToHead) NotContinueContract <$> do
+    [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (Just $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
+    , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
         -- Remove a random asset and quantity from headOutput
         removedValue <- do
           let allAssets = valueToList $ txOutValue headTxOut
@@ -228,15 +228,15 @@ genCollectComMutation (tx, _utxo) =
             [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
             , AppendOutput extractionTxOut
             ]
-    , SomeMutation (Just $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation (Just $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
+    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
             [ ChangeInputHeadDatum $ replaceParties moreParties healthyCollectComInitialDatum
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties headTxOut
             ]
-    , SomeMutation (Just $ toErrorCode STNotSpent) MutateHeadId <$> do
+    , SomeMutation (pure $ toErrorCode STNotSpent) MutateHeadId <$> do
         -- XXX: This mutation is unrealistic. It would only change the headId in
         -- the value, but not in the datum. This is not allowed by the protocol
         -- prior to this transaction.
@@ -245,10 +245,10 @@ genCollectComMutation (tx, _utxo) =
             <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
-    , SomeMutation (Just $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
+    , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (Just $ toErrorCode ExpectedSingleCommitOutput) MutateCommitToInitial <$> do
+    , SomeMutation (map toErrorCode [ExpectedSingleCommitOutput, LockedValueDoesNotMatch]) MutateCommitToInitial <$> do
         -- By changing a commit output to an initial, we simulate a situation
         -- where we do pretend to have collected every commit, but we just
         -- changed one back to be an initial. This should be caught by the
@@ -262,9 +262,9 @@ genCollectComMutation (tx, _utxo) =
                 (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
             , AddScript $ fromPlutusScript Initial.validatorScript
             ]
-    , SomeMutation (Just $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
+    , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , SomeMutation (Just $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput <$> do
+    , SomeMutation (pure $ toErrorCode STIsMissingInTheOutput) RemoveSTFromOutput <$> do
         let out = List.head $ txOuts' tx
         let stAssetId = AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName
         let newValue = filterValue (/= stAssetId) (txOutValue out)

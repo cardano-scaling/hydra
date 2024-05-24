@@ -34,28 +34,12 @@ buildScriptAddress script networkId =
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut CtxTx] -> Coin -> Either TxBodyError TxBody
-buildRaw ins outs fee =
+buildRaw :: [TxIn] -> [TxOut CtxTx] -> Either TxBodyError TxBody
+buildRaw ins outs =
   createAndValidateTransactionBody $
     defaultTxBodyContent
       & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       & setTxOuts outs
-      & setTxFee (TxFeeExplicit fee)
-
-calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Coin
-calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
-  let tx = makeSignedTransaction [] body
-      noByronWitnesses = 0
-   in estimateTransactionFee
-        shelleyBasedEra
-        networkId
-        (protocolParamTxFeeFixed pparams)
-        (protocolParamTxFeePerByte pparams)
-        tx
-        inputs
-        outputs
-        noByronWitnesses
-        witnesses
 
 data Sizes = Sizes
   { inputs :: Int
@@ -126,7 +110,6 @@ waitForUTxO networkId nodeSocket utxo =
 
 mkGenesisTx ::
   NetworkId ->
-  ProtocolParameters ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Amount of initialFunds
@@ -134,8 +117,8 @@ mkGenesisTx ::
   -- | Recipients and amounts to pay in this transaction.
   [(VerificationKey PaymentKey, Coin)] ->
   Tx
-mkGenesisTx networkId pparams signingKey initialAmount recipients =
-  case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) fee of
+mkGenesisTx networkId signingKey initialAmount recipients =
+  case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) of
     Left err -> error $ "Fail to build genesis transations: " <> show err
     Right tx -> sign signingKey tx
  where
@@ -144,18 +127,13 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
       networkId
       (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
 
-  fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = length recipients + 1, witnesses = 1} pparams
-  rawTx = case buildRaw [initialInput] [] 0 of
-    Left err -> error $ "Fail to build genesis transactions: " <> show err
-    Right tx -> tx
-
   totalSent = foldMap snd recipients
 
   changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
   changeOutput =
     TxOut
       changeAddr
-      (lovelaceToValue $ initialAmount - totalSent - fee)
+      (lovelaceToValue $ initialAmount - totalSent)
       TxOutDatumNone
       ReferenceScriptNone
 
