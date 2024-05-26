@@ -29,4 +29,9 @@
         "cardano-vk": "582032a1809179372d87cb118785fa9f415fd2dd2f3dda66b9fea47def53a20bed99",
         "hydra-vk": "58200f23a3124d401d89e8f6cfb724eb00ac073c74edc93a4db9b0889c999f2415fe"
     }
+    "reza": {
+        "peer": "87.212.22.225:5551",
+        "cardano-vk": "58204840c39a37560dac5c59fcc67d09f7a5be3633b8474c10c14d972ed62dc1ab19",
+        "hydra-vk": "5820f715cf470ad4ca7b51416c5ee2cce82f9bea9ba7fd8052bac6433a9450a39e10"
+    }
 }
