@@ -259,7 +259,8 @@ hasLowFees pparams tx =
 
   actualFee = tx ^. bodyTxL . feeTxBodyL
 
-  minFee = getMinFeeTx pparams tx
+  minFee :: Coin
+  minFee = getMinFeeTx pparams tx 0
 
 isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =

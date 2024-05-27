@@ -18,7 +18,7 @@
       url = "github:cardano-scaling/haskell-language-server?ref=2.6-patched";
       flake = false;
     };
-    cardano-node.url = "github:intersectmbo/cardano-node/8.9.0";
+    cardano-node.url = "github:intersectmbo/cardano-node/8.11.0-pre";
     mithril.url = "github:input-output-hk/mithril/2418.1";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
   };

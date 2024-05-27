@@ -61,4 +61,4 @@ spec =
               let difference = initialFaucetValue - finalFaucetValue
               -- difference between starting faucet amount and final one should
               -- just be the amount of paid fees
-              difference `shouldSatisfy` (< 340_000)
+              difference `shouldSatisfy` (< 400_000)

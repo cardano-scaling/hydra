@@ -40,7 +40,7 @@ mkdir -p bin
 version=0.17.0
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
-curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-linux.tar.gz \
+curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-linux.tar.gz \
   | tar xz ./bin/cardano-node ./bin/cardano-cli
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
@@ -55,7 +55,7 @@ mkdir -p bin
 version=0.17.0
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
-curl -L -o - https://github.com/input-output-hk/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-macos.tar.gz \
+curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-macos.tar.gz \
   | tar xz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-macos-x64.tar.gz \
   | tar xz -C bin

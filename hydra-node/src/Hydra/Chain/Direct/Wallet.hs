@@ -14,10 +14,10 @@ import Cardano.Ledger.Alonzo.Plutus.Context (ContextError)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AlonzoPlutusPurpose (AlonzoSpending),
-  AsIndex (..),
+  AsIx (..),
   ExUnits (ExUnits),
   plutusScriptLanguage,
-  unAsIndex,
+  unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
   AlonzoTxWits (..),
@@ -239,7 +239,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {scriptFailure :: (PlutusPurpose AsIndex LedgerEra, TransactionScriptFailure LedgerEra)}
+  | ErrScriptExecutionFailed {scriptFailure :: (PlutusPurpose AsIx LedgerEra, TransactionScriptFailure LedgerEra)}
   | ErrTranslationError (ContextError LedgerEra)
   deriving stock (Show)
 
@@ -307,7 +307,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an aditional witness (we will sign this tx later)
-  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0
+  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -366,7 +366,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
     changeOut = totalIn <> invert totalOut
     refScript = SNothing
 
-  adjustRedeemers :: Set TxIn -> Set TxIn -> Map (PlutusPurpose AsIndex LedgerEra) ExUnits -> Redeemers LedgerEra -> Redeemers LedgerEra
+  adjustRedeemers :: Set TxIn -> Set TxIn -> Map (PlutusPurpose AsIx LedgerEra) ExUnits -> Redeemers LedgerEra -> Redeemers LedgerEra
   adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
     Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
    where
@@ -377,12 +377,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
     adjustOne (ptr, (d, _exUnits)) =
       case ptr of
         AlonzoSpending idx
-          | fromIntegral (unAsIndex idx) `elem` differences ->
-              (AlonzoSpending (AsIndex (unAsIndex idx + 1)), (d, executionUnitsFor ptr))
+          | fromIntegral (unAsIx idx) `elem` differences ->
+              (AlonzoSpending (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 
-    executionUnitsFor :: PlutusPurpose AsIndex LedgerEra -> ExUnits
+    executionUnitsFor :: PlutusPurpose AsIx LedgerEra -> ExUnits
     executionUnitsFor ptr =
       let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
           ExUnits totalMem totalCpu = foldMap identity estimatedCosts
@@ -418,7 +418,7 @@ estimateScriptsCost ::
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
   Babbage.AlonzoTx LedgerEra ->
-  Either ErrCoverFee (Map (PlutusPurpose AsIndex LedgerEra) ExUnits)
+  Either ErrCoverFee (Map (PlutusPurpose AsIx LedgerEra) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
     Left translationError ->
