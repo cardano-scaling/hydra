@@ -160,10 +160,11 @@ prop_traces =
       _ -> False
 
   hasDecrement =
-    any $
+    all $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{snapshot} -> polarity == PosPolarity && sum (Map.elems (decommitUTxO snapshot)) > 0
+        Decrement{snapshot} -> polarity == PosPolarity && sum (Map.elems (decommitUTxO snapshot)) < initialAmount
         _ -> False
+
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
@@ -238,6 +239,9 @@ data TxResult = TxResult
   }
   deriving (Eq, Show)
 
+initialAmount :: Natural
+initialAmount = 10
+
 instance StateModel Model where
   data Action Model a where
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
@@ -253,7 +257,7 @@ instance StateModel Model where
       { headState = Open
       , latestSnapshot = 0
       , alreadyContested = []
-      , utxoInHead = fromList [(A, 0)]
+      , utxoInHead = fromList [(A, initialAmount)]
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
