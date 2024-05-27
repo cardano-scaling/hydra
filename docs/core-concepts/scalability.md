@@ -4,71 +4,36 @@ sidebar_position: 2
 
 # Scalability
 
-Any decentralized system is fundamentally limited in its scalability. This also
-applies to blockchains and is rooted in the fact that security is achieved
-through massive global replication of transactions. The more decentralized the
-system is, the more time and other resources are used up to process
-transactions. This is also often called the blockchain trilemma, where
-_decentralization_, _security_ and _scalability_ counter-act each other.
+Decentralized systems, including blockchains, face fundamental scalability limitations due to their reliance on global transaction replication to ensure security. This constraint is commonly known as the blockchain trilemma, where _decentralization_, _security_, and _scalability_ counteract each other. Although Cardano employs an efficient consensus algorithm, its global distribution among thousands of block-producing nodes results in block creation approximately every twenty seconds. During peak transaction times, this can lead to increased settlement times as transactions may not be included in the immediate next block.
 
-Even though Cardano uses a very efficient consensus algorithm, the fact that
-it's distributed globally between thousands of block-producing nodes (with quite
-a low bar in system requirements) will have it create a block on average every
-20 seconds.
+There are two primary approaches to scaling systems: vertical and horizontal scaling.
 
-These limitations ultimately mean that any state can only change in discrete
-steps of this duration. Besides, given peak hours on the blockchain when there
-is a transaction queue, the time required to settle and confirm a transaction
-might also be higher, further increasing the effective settlement time. This is
-because your transaction might not be added to the next block, but the second or
-even third one coming.
+## Vertical scaling
 
-## Vertical and horizontal scaling
+Vertical scaling enhances system performance by increasing resources available to existing system instances. For Cardano, this could involve increasing block size or reducing block time. However, vertical scaling is limited by network latency and the processing power of block-producing nodes. Each block requires roughly five seconds to propagate through the network, ensuring security through multiple validation steps. Raising system requirements can reduce decentralization, as fewer individuals may be able to run such nodes.
 
-In general, there are two ways of scaling systems: **vertical** and
-**horizontal**. Both try to increase resources available to the system to
-achieve better overall performance.
+## Horizontal scaling
 
-For vertical scaling, the performance of the system is increased by adding
-resources available to the already existing instances of the system. For
-Cardano, this practically means increasing the block size or reducing the block
-time. This is a great way to initially scale the system, but is ultimately
-limited by network latency and processing power of block-producing nodes. To
-ensure the security of the system, each block has roughly 5 seconds to propagate
-through the network, which includes relaying and validating it through multiple
-hops. At some point, driving the system requirements up will also reduce the
-level of decentralization, as less individuals will be able to run such a node.
-
-Scaling a system horizontally, means to increase performance of the overall
-system by adding more individual instances alongside each other. Practically,
-this could mean that besides the main chain, multiple side chains are spun up
-that do the same thing, each "x" seconds all instances create a block. Unlike
-vertical scaling, horizontal scaling does not have a direct limit, there can be
-many side chains that are connected to the layer one. A major downside to this
-way of scaling is that any state of the system is split into multiple pieces.
-Each instance is blind to what is happening on the other instances and moving
-state between instances results requires additional work (the state is sharded).
+Horizontal scaling improves overall system performance by adding more instances alongside each other. This might involve creating multiple sidechains that operate in parallel to the main chain, each producing blocks at regular intervals. Unlike vertical scaling, horizontal scaling has no direct limit, allowing many sidechains to connect to the layer 1 blockchain. However, this method fragments the system state, necessitating additional work to transfer state between instances.
 
 ![Horizontal & Vertical scaling](./horizontal-vertical-scaling.png)
 
-## State channels
+## Layer 1 and layer 2 solutions
 
-The Hydra Head protocol is a form of state channel and can be mostly classified
-as a horizontal scaling solution. While multiple instances of them can be
-deployed to off-load and increase the scalability of the overall system, it
-provides for a flexible way to decide on the level of decentralization of each
-instance and provides a mostly frictionless way to transfer state between the
-mainchain and the individual Hydra heads (through it _isomorphic_ nature).
+Layer 1 solutions aim to improve scalability by adapting the underlying ledger protocols directly. However, they face inherent limitations due to the complexity of the settlement process, which involves extensive data exchange among a large, dynamic set of participants.
+
+Layer 2 solutions, such as state channels, offer an alternative approach by overlaying new protocols on top of the blockchain. These solutions allow parties to securely transfer funds to an off-chain protocol instance, conduct transactions independently of the blockchain, and return the final state to the blockchain when needed. This method does not require additional trust assumptions beyond those of the underlying blockchain and can be highly efficient when all participants behave as expected.
+
+Read more about layer 2 solutions and their types in the next section. 
+
+
+## State channels and the Hydra Head protocol
+
+The Hydra Head protocol is a form of state channel and can be classified as a horizontal scaling solution. Multiple instances can be deployed to offload transactions and enhance the overall scalability of the system. It provides a flexible way to determine the level of decentralization for each instance and offers a mostly frictionless method to transfer state between the main chain and individual Hydra heads due to its isomorphic nature. 
 
 ![State Channel](./state-channel.png)
 
-State channels allow to take parts of the state from the layer one blockchain
-and validate its progress elsewhere between only those parties who are concerned
-about this state. Then, after this computation is done, the parties return the
-final state on which all parties agree back to layer one. This construction
-means that the 20 second block time limit no longer applies and state can be
-evolved as fast as only the involved parties approve.
+State channels allow parts of the state from the layer 1 blockchain to be validated off-chain by the concerned parties. Once the computation is complete, the parties return the final agreed-upon state to the layer 1 blockchain. This construction eliminates the 20-second block time limit, enabling state evolution as quickly as the involved parties approve.
 
-In conclusion, Hydra Head will allow operators to strike the fundamental
-trade-off between decentralization, security and scalability different than the
-underlying blockchain to serve the needs of individual applications.
+In conclusion, the Hydra Head protocol enables operators to balance the trade-off between decentralization, security, and scalability differently from the underlying blockchain, thereby meeting the specific needs of individual applications.
+
