@@ -16,7 +16,6 @@ import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Coin (Coin (..))
 import Data.Map.Strict qualified as Map
-import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Natural (naturalToInteger)
 import Hydra.Cardano.Api (
@@ -79,8 +78,8 @@ spec :: Spec
 spec = do
   prop "generates interesting transaction traces" prop_traces
   prop "all valid transactions" $ withMaxSuccess 500 prop_runActions
-  prop "realWorldModelUTxO preserves addition" $ \u1 u2 -> do
-    realWorldModelUTxO (u1 `customSemigroup` u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
+  prop "realWorldModelUTxO preserves addition" $ \u1 u2 ->
+    realWorldModelUTxO (u1 <> u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
 
 prop_traces :: Property
 prop_traces =
@@ -163,7 +162,7 @@ prop_traces =
   hasDecrement =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{snapshot} -> polarity == PosPolarity && (not . null $ decommitUTxO snapshot)
+        Decrement{snapshot} -> polarity == PosPolarity && sum (Map.elems (decommitUTxO snapshot)) > 0
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -179,45 +178,13 @@ prop_runActions actions =
 
 -- * ============================== MODEL WORLD ==========================
 
-data SingleUTxO = A Natural | B Natural | C Natural
+data SingleUTxO = A | B | C
   deriving (Show, Eq, Ord, Generic)
 
-type ModelUTxO = Set SingleUTxO
-
-customSemigroup :: ModelUTxO -> ModelUTxO -> ModelUTxO
-customSemigroup u1 u2 =
-  if null u1
-    then u2
-    else
-      foldl'
-        ( \uFinal -> \case
-            A balance ->
-              foldMap
-                ( \case
-                    A balance' -> Set.singleton $ A (balance' + balance)
-                    other -> Set.fromList [other, A balance]
-                )
-                uFinal
-            B balance ->
-              foldMap
-                ( \case
-                    B balance' -> Set.singleton $ B (balance' + balance)
-                    other -> Set.fromList [other, B balance]
-                )
-                uFinal
-            C balance ->
-              foldMap
-                ( \case
-                    C balance' -> Set.singleton $ C (balance' + balance)
-                    other -> Set.fromList [other, C balance]
-                )
-                uFinal
-        )
-        u1
-        u2
+type ModelUTxO = Map SingleUTxO Natural
 
 instance Arbitrary SingleUTxO where
-  arbitrary = oneof [A <$> arbitrary, B <$> arbitrary, C <$> arbitrary]
+  arbitrary = elements [A, B, C]
 
   shrink = genericShrink
 
@@ -286,7 +253,7 @@ instance StateModel Model where
       { headState = Open
       , latestSnapshot = 0
       , alreadyContested = []
-      , utxoInHead = fromList [A 10]
+      , utxoInHead = fromList [(A, 0)]
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -299,7 +266,7 @@ instance StateModel Model where
             , do
                 actor <- elements allActors
                 someUTxOToDecrement <-
-                  if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+                  if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
                 snapshot <-
                   ModelSnapshot
                     { snapshotNumber = latestSnapshot
@@ -315,11 +282,11 @@ instance StateModel Model where
                  , do
                     actor <- elements allActors
                     someUTxOToDecrement <-
-                      if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+                      if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
                     snapshot <-
                       ModelSnapshot
                         { snapshotNumber = latestSnapshot + 1
-                        , snapshotUTxO = utxoInHead Set.\\ someUTxOToDecrement
+                        , snapshotUTxO = utxoInHead Map.\\ someUTxOToDecrement
                         , decommitUTxO = someUTxOToDecrement
                         }
                         `orMoreOftenArbitrary` arbitrary
@@ -330,7 +297,7 @@ instance StateModel Model where
         oneof $
           [ do
               someUTxOToDecrement <-
-                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure $ Set.fromList []
+                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
               snapshot <-
                 ModelSnapshot
                   { snapshotNumber = latestSnapshot
@@ -343,12 +310,12 @@ instance StateModel Model where
             <> [ do
                 actor <- elements allActors
                 -- TODO: dry
-                someUTxOToDecrement <- oneof $ pure <$> Set.toList utxoInHead
+                someUTxOToDecrement <- oneof $ pure <$> Map.toList utxoInHead
                 snapshot <-
                   ModelSnapshot
                     { snapshotNumber = latestSnapshot + 1
-                    , snapshotUTxO = Set.delete someUTxOToDecrement utxoInHead
-                    , decommitUTxO = Set.fromList [someUTxOToDecrement]
+                    , snapshotUTxO = Map.delete (fst someUTxOToDecrement) utxoInHead
+                    , decommitUTxO = Map.fromList [someUTxOToDecrement]
                     }
                     `orArbitrary` arbitrary
                 pure $ Some Contest{actor, snapshot}
@@ -364,7 +331,7 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+        && decommitUTxO snapshot `Map.isSubmapOf` utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -388,7 +355,7 @@ instance StateModel Model where
     Stop -> False
     Decrement{snapshot} ->
       headState == Open
-        && decommitUTxO snapshot `Set.isSubsetOf` utxoInHead
+        && decommitUTxO snapshot `Map.isSubmapOf` utxoInHead
     _ -> True
 
   nextState :: Model -> Action Model a -> Var a -> Model
@@ -399,7 +366,7 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead = utxoInHead m Set.\\ decommitUTxO snapshot
+          , utxoInHead = utxoInHead m Map.\\ decommitUTxO snapshot
           }
       Close{snapshot} ->
         m
@@ -561,11 +528,12 @@ generateUTxOFromModelSnapshot snapshot =
 -- | Map a 'ModelUTxO' to a real-world 'UTxO'.
 realWorldModelUTxO :: ModelUTxO -> UTxO
 realWorldModelUTxO =
-  foldMap
-    ( \case
-        A balance -> generateWith (genUTxOWithBalance balance) 1
-        B balance -> generateWith (genUTxOWithBalance balance) 2
-        C balance -> generateWith (genUTxOWithBalance balance) 3
+  Map.foldMapWithKey
+    ( \k balance ->
+        case k of
+          A -> generateWith (genUTxOWithBalance balance) 1
+          B -> generateWith (genUTxOWithBalance balance) 2
+          C -> generateWith (genUTxOWithBalance balance) 3
     )
  where
   genUTxOWithBalance b =
