@@ -16,10 +16,10 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Coin (Coin (..))
-import Data.Map (isSubmapOf, (\\))
+import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.Natural (naturalToInteger)
+import GHC.Natural (naturalFromInteger, naturalToInteger)
 import Hydra.Cardano.Api (
   SlotNo (..),
   lovelaceToValue,
@@ -288,7 +288,8 @@ instance StateModel Model where
                     decommitUTxO <-
                       if null utxoInHead
                         then pure mempty
-                        else Map.fromList <$> sublistOf (Map.toList utxoInHead)
+                        else -- TODO: this is not taking partial values for a key
+                          Map.fromList <$> sublistOf (Map.toList utxoInHead)
                     snapshot <-
                       ModelSnapshot
                         { snapshotNumber = latestSnapshot + 1
@@ -337,7 +338,10 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && decommitUTxO snapshot `isSubmapOf` utxoInHead
+        -- XXX: you are decrementing from existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+        -- XXX: your tx is balanced with the utxo in the head
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -381,7 +385,14 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead = utxoInHead m \\ decommitUTxO snapshot
+          , utxoInHead =
+              -- XXX: remove the balance
+              let currentUTxOInHead = Map.map naturalToInteger $ utxoInHead m
+                  utxoToDecommit = Map.map (negate . naturalToInteger) $ decommitUTxO snapshot
+                  balancedUTxOInHead =
+                    Map.map sum $
+                      Map.unionWith (++) (Map.map (: []) currentUTxOInHead) (Map.map (: []) utxoToDecommit)
+               in Map.map naturalFromInteger balancedUTxOInHead
           }
       Close{snapshot} ->
         m
@@ -433,7 +444,7 @@ instance RunModel Model AppM where
   perform Model{} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} ->
-        performTx =<< newDecrementTx actor (decommitSnapshot snapshot)
+        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
       Close{actor, snapshot} ->
         performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
       Contest{actor, snapshot} ->
@@ -551,9 +562,10 @@ realWorldModelUTxO =
   genUTxOWithBalance b =
     genUTxO1 (modifyTxOutValue (const $ lovelaceToValue (Coin $ naturalToInteger b)) <$> genTxOut)
 
--- TODO: dry with signedSnapshot
-decommitSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
-decommitSnapshot ms =
+-- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
+-- all participants (alice, bob and carol) with some UTxO contained is produced.
+signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot ms =
   (snapshot, signatures)
  where
   (utxo, toDecommit) = generateUTxOFromModelSnapshot ms
@@ -564,22 +576,6 @@ decommitSnapshot ms =
       , confirmed = []
       , utxo
       , utxoToDecommit = if null toDecommit || null utxo then Nothing else Just toDecommit
-      }
-  signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
-
--- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
--- all participants (alice, bob and carol) with some UTxO contained is produced.
-signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
-signedSnapshot ms =
-  (snapshot, signatures)
- where
-  snapshot =
-    Snapshot
-      { headId = mkHeadId Fixture.testPolicyId
-      , number = snapshotNumber ms
-      , confirmed = []
-      , utxo = fst $ generateUTxOFromModelSnapshot ms
-      , utxoToDecommit = Nothing
       }
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
