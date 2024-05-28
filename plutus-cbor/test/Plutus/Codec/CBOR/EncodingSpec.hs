@@ -185,7 +185,7 @@ genSomeValue =
           encodeMap
             (\(SomeValue k _ _ encodeKey) -> encodeKey k)
             (\(SomeValue v _ _ encodeValue) -> encodeValue v)
-            . Plutus.Map.fromList
+            . Plutus.Map.unsafeFromList
     return $ SomeValue val shrinkMap encodeCborg encodeOurs
 
   genSomeMapIndef :: Int -> Gen SomeValue
@@ -206,7 +206,7 @@ genSomeValue =
           encodeMapIndef
             (\(SomeValue k _ _ encodeKey) -> encodeKey k)
             (\(SomeValue v _ _ encodeValue) -> encodeValue v)
-            . Plutus.Map.fromList
+            . Plutus.Map.unsafeFromList
     return $ SomeValue val shrinkMap encodeCborg encodeOurs
 
   genSomeTag :: Gen SomeValue

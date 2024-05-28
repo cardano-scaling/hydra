@@ -62,6 +62,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
@@ -218,7 +219,7 @@ prepareTxScripts tx utxo = do
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(PlutusWithContext protocolVersion script arguments _exUnits _costModel) -> do
+  programs <- forM results $ \(PlutusWithContext protocolVersion script _ arguments _exUnits _costModel) -> do
     (PlutusRunnable x) <-
       case script of
         Right runnable -> pure runnable
@@ -319,6 +320,7 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
       , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
+      , eraGenesisWin = GenesisWindow 1
       }
 
 eraHistoryWithoutHorizon :: EraHistory
@@ -341,6 +343,7 @@ eraHistoryWithoutHorizon =
       , -- NOTE: unused if the 'eraEnd' is already defined, but would be used to
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
+      , eraGenesisWin = GenesisWindow 1
       }
 
 epochSize :: EpochSize

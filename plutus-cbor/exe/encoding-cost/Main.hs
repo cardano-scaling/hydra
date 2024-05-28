@@ -119,16 +119,16 @@ genValue = do
   assetName <- genTokenName
   pure $
     Plutus.Value $
-      Plutus.Map.fromList
-        [(policyId, Plutus.Map.fromList [(assetName, n)])]
+      Plutus.Map.safeFromList
+        [(policyId, Plutus.Map.safeFromList [(assetName, n)])]
 
 genAdaOnlyValue :: Gen Plutus.Value
 genAdaOnlyValue = do
   n <- genAssetQuantity
   pure $
     Plutus.Value $
-      Plutus.Map.fromList
-        [(Plutus.adaSymbol, Plutus.Map.fromList [(Plutus.adaToken, n)])]
+      Plutus.Map.safeFromList
+        [(Plutus.adaSymbol, Plutus.Map.safeFromList [(Plutus.adaToken, n)])]
 
 genAssetQuantity :: Gen Integer
 genAssetQuantity = choose (1, 4_294_967_296) -- NOTE: 2**32

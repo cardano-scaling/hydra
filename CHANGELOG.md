@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.18.0] - Unreleased
+
+- **DO NOT RELEASE** as the tested `cardano-node` version is not intended to be used on `mainnet` yet.
+- Tested with `cardano-node 8.11.0` and `cardano-cli 8.23.1.0`.
+
 ## [0.17.0] - 2024-05-20
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/input-output-hk/hydra/pull/1380):
