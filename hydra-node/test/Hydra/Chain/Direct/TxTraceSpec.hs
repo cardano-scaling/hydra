@@ -1,6 +1,7 @@
 -- | Stateful model-based testing of the transactions created by the "Direct"
 -- chain modules.
 --
+-- FIXME: update description of tactics
 -- The model is focusing on transitions between Open and Closed states of the
 -- head right now. Snapshots are only modeled "in proxy" where we generate
 -- snapshot numbers and the fact whether they have something to decommit or not,
@@ -15,6 +16,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Coin (Coin (..))
+import Data.Map (isSubmapOf, (\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Natural (naturalToInteger)
@@ -54,7 +56,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -165,7 +167,6 @@ prop_traces =
         Decrement{snapshot} -> polarity == PosPolarity && sum (Map.elems (decommitUTxO snapshot)) < initialAmount
         _ -> False
 
-
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
   monadic runAppMProperty $ do
@@ -179,15 +180,14 @@ prop_runActions actions =
 
 -- * ============================== MODEL WORLD ==========================
 
-data SingleUTxO = A | B | C
-  deriving (Show, Eq, Ord, Generic)
-
-type ModelUTxO = Map SingleUTxO Natural
+data SingleUTxO = A | B | C | D | E
+  deriving (Show, Eq, Ord, Enum, Generic)
 
 instance Arbitrary SingleUTxO where
-  arbitrary = elements [A, B, C]
-
+  arbitrary = genericArbitrary
   shrink = genericShrink
+
+type ModelUTxO = Map SingleUTxO Natural
 
 data Model = Model
   { headState :: State
@@ -285,15 +285,17 @@ instance StateModel Model where
                  ( 10
                  , do
                     actor <- elements allActors
-                    someUTxOToDecrement <-
-                      if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
+                    decommitUTxO <-
+                      if null utxoInHead
+                        then pure mempty
+                        else Map.fromList <$> sublistOf (Map.toList utxoInHead)
                     snapshot <-
                       ModelSnapshot
                         { snapshotNumber = latestSnapshot + 1
-                        , snapshotUTxO = utxoInHead Map.\\ someUTxOToDecrement
-                        , decommitUTxO = someUTxOToDecrement
+                        , snapshotUTxO = utxoInHead \\ decommitUTxO
+                        , decommitUTxO
                         }
-                        `orMoreOftenArbitrary` arbitrary
+                        `orArbitrary` arbitrary
                     pure $ Some Decrement{actor, snapshot}
                  )
                ]
@@ -335,7 +337,7 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
-        && decommitUTxO snapshot `Map.isSubmapOf` utxoInHead
+        && decommitUTxO snapshot `isSubmapOf` utxoInHead
     Close{snapshot} ->
       headState == Open
         && if snapshotNumber snapshot == 0
@@ -357,10 +359,19 @@ instance StateModel Model where
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, utxoInHead} = \case
     Stop -> False
+    -- Only filter non-matching states as we are not interested in these kind of
+    -- verification failures.
     Decrement{snapshot} ->
       headState == Open
-        && decommitUTxO snapshot `Map.isSubmapOf` utxoInHead
-    _ -> True
+        -- Ignore decrements that would decommit more than the current UTxO as these are not gracefully failing.
+        -- TODO: make them fail gracefully and test this?
+        && sum (decommitUTxO snapshot) <= sum utxoInHead
+    Close{} ->
+      headState == Open
+    Contest{} ->
+      headState == Closed
+    Fanout{} ->
+      headState == Closed
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
@@ -370,7 +381,7 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead = utxoInHead m Map.\\ decommitUTxO snapshot
+          , utxoInHead = utxoInHead m \\ decommitUTxO snapshot
           }
       Close{snapshot} ->
         m
@@ -534,10 +545,7 @@ realWorldModelUTxO :: ModelUTxO -> UTxO
 realWorldModelUTxO =
   Map.foldMapWithKey
     ( \k balance ->
-        case k of
-          A -> generateWith (genUTxOWithBalance balance) 1
-          B -> generateWith (genUTxOWithBalance balance) 2
-          C -> generateWith (genUTxOWithBalance balance) 3
+        genUTxOWithBalance balance `generateWith` fromEnum k
     )
  where
   genUTxOWithBalance b =
@@ -758,7 +766,4 @@ expectInvalid = \case
 -- | Generate sometimes a value with given generator, bur more often just use
 -- the given value.
 orArbitrary :: a -> Gen a -> Gen a
-orArbitrary a gen = frequency [(1, pure a), (1, gen)]
-
-orMoreOftenArbitrary :: a -> Gen a -> Gen a
-orMoreOftenArbitrary a gen = frequency [(1, pure a), (10, gen)]
+orArbitrary a gen = frequency [(2, pure a), (1, gen)]
