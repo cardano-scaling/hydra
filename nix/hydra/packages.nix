@@ -66,7 +66,7 @@ rec {
   release =
     packaging.asZip
       { name = "hydra-${pkgs.hostPlatform.system}"; }
-      [ hydra-node hydra-tui ];
+      [ hydra-node hydra-tui hydra-cluster ];
 
   release-static =
     packaging.asZip
