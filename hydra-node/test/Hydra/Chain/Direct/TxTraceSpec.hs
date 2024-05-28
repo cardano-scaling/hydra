@@ -56,7 +56,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -296,7 +296,7 @@ instance StateModel Model where
                         , snapshotUTxO = utxoInHead \\ decommitUTxO
                         , decommitUTxO
                         }
-                        `orArbitrary` arbitrary
+                        `orArbitrary` orFailingDecrement latestSnapshot utxoInHead
                     pure $ Some Decrement{actor, snapshot}
                  )
                ]
@@ -367,9 +367,11 @@ instance StateModel Model where
     -- verification failures.
     Decrement{snapshot} ->
       headState == Open
-        -- Ignore decrements that would decommit more than the current UTxO as these are not gracefully failing.
+        -- XXX: Ignore unbalanced decrements.
         -- TODO: make them fail gracefully and test this?
-        && sum (decommitUTxO snapshot) <= sum utxoInHead
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+        -- XXX: Decrement has to work with existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Close{} ->
       headState == Open
     Contest{} ->
@@ -762,4 +764,22 @@ expectInvalid = \case
 -- | Generate sometimes a value with given generator, bur more often just use
 -- the given value.
 orArbitrary :: a -> Gen a -> Gen a
-orArbitrary a gen = frequency [(2, pure a), (1, gen)]
+orArbitrary a gen = frequency [(1, pure a), (2, gen)]
+
+orFailingDecrement :: SnapshotNumber -> ModelUTxO -> Gen ModelSnapshot
+orFailingDecrement latestSnapshot utxoInHead =
+  let positiveValues = Map.filter (> 0) utxoInHead
+   in if size positiveValues > 1
+        then traceShow "PEPE" $ do
+          let x = Map.keys utxoInHead
+          let y = Map.elems utxoInHead
+          x' <- shuffle x
+          let shuffledUTxOInHead = Map.fromList $ zip x' y
+          decommitUTxO <- if null utxoInHead then pure mempty else Map.fromList <$> sublistOf (Map.toList shuffledUTxOInHead)
+          pure $
+            ModelSnapshot
+              { snapshotNumber = latestSnapshot + 1
+              , snapshotUTxO = utxoInHead \\ decommitUTxO
+              , decommitUTxO
+              }
+        else traceShow "PEPE 2" $ arbitrary
