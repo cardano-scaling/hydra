@@ -48,7 +48,7 @@ library
     , plutus-tx
     , text
 
-executable tests
+test-suite tests
   import:             project-config
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
