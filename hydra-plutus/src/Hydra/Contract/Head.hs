@@ -653,9 +653,8 @@ verifySnapshotSignature parties headId snapshotNumber utxoHash utxoToDecommitHas
 {-# INLINEABLE verifySnapshotSignature #-}
 
 verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party signed =
-  traceIfFalse $(errorCode PartySignatureVerificationFailed) $
-    verifyEd25519Signature (vkey party) message signed
+verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party =
+    verifyEd25519Signature (vkey party) message
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
