@@ -10,6 +10,7 @@ import Cardano.Api.UTxO as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -42,9 +43,8 @@ healthyFanoutTx =
   tx =
     fanoutTx
       scriptRegistry
-      healthyFanoutUTxO
-      -- TODO: add something to decommit here
-      Nothing
+      (fst healthyFanoutSnapshotUTxO)
+      (Just $ snd healthyFanoutSnapshotUTxO)
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
@@ -79,12 +79,15 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   slotNoToUTCTime systemStart slotLength $ healthySlotNo - 1
 
+healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
+healthyFanoutSnapshotUTxO = generateWith (splitUTxO healthyFanoutUTxO) 42
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
     { snapshotNumber = 1
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthyFanoutUTxO
-    , utxoToDecommitHash = toBuiltin $ hashUTxO @Tx mempty
+    , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
+    , utxoToDecommitHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
     , parties =
         partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
@@ -129,6 +132,8 @@ genFanoutMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
         (token, _) <- elements burntTokens
         changeMintedTokens tx (valueFromList [(token, 1)])
+    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
+        arbitrary >>= genOutput
     ]
  where
   burntTokens =
