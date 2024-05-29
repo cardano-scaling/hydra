@@ -111,6 +111,8 @@ data FanoutMutation
   | MutateValidityBeforeDeadline
   | -- | Meant to test that the minting policy is burning all PTs and ST present in tx
     MutateThreadTokenQuantity
+  | -- | Alter the fanout redeemer in order to trigger output hash missmatches.
+    MutateFanoutRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -134,6 +136,16 @@ genFanoutMutation (tx, _utxo) =
         changeMintedTokens tx (valueFromList [(token, 1)])
     , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
+    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
+        let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
+        n <- elements [1 .. 3]
+        pure (Head.Fanout noOfUtxoToOutputs (noOfUtxoDecommitToOutputs - n))
+    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
+        let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
+        n <- elements [1 .. 3]
+        pure (Head.Fanout (noOfUtxoToOutputs - n) noOfUtxoDecommitToOutputs)
     ]
  where
   burntTokens =
