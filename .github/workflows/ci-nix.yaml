@@ -45,16 +45,8 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: ❓ Test (Pure)
-      if: ${{ matrix.package == 'hydra-plutus'
-           || matrix.package == 'plutus-cbor'
-           || matrix.package == 'plutus-merkle-tree' }}
-      run: |
-        nix build .#checks.x86_64-linux.${{ matrix.package }}
-
-    - name: ❓ Test (Impure)
-      if: ${{ matrix.package == 'hydra-cluster'
-           || matrix.package == 'hydra-node' }}
+    - name: ❓ Test
+      if: ${{ matrix.package != 'hydra-tui' }}
       run: |
         cd ${{ matrix.package }}
         nix build .#${{ matrix.package }}-tests

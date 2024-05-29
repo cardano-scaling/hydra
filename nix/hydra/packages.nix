@@ -121,10 +121,18 @@ rec {
 
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
-  plutus-cbor-tests = nativePkgs.plutus-cbor.components.exes.tests;
-
-  plutus-merkle-tree-tests = nativePkgs.plutus-merkle-tree.components.exes.tests;
-  hydra-plutus-tests = nativePkgs.hydra-plutus.components.exes.tests;
+  plutus-cbor-tests = pkgs.mkShellNoCC {
+    name = "plutus-cbor-tests";
+    buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
+  };
+  plutus-merkle-tree-tests = pkgs.mkShellNoCC {
+    name = "plutus-merkle-tree-tests";
+    buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
+  };
+  hydra-plutus-tests = pkgs.mkShellNoCC {
+    name = "hydra-plutus-tests";
+    buildInputs = [ nativePkgs.hydra-plutus.components.tests.tests ];
+  };
   hydra-node-tests = pkgs.mkShellNoCC {
     name = "hydra-node-tests";
     buildInputs = [
