@@ -41,7 +41,6 @@ data HeadError
   | NoOutputDatumError
   | UnexpectedNonInlineDatum
   | SignatureVerificationFailed
-  | PartySignatureVerificationFailed
   | NotPayingToHead
   | NotAllValueCollected
   | SnapshotNumberMismatch
@@ -83,7 +82,6 @@ instance ToErrorCode HeadError where
     NoOutputDatumError -> "H32"
     UnexpectedNonInlineDatum -> "H33"
     SignatureVerificationFailed -> "H34"
-    PartySignatureVerificationFailed -> "H35"
-    NotPayingToHead -> "H36"
-    NotAllValueCollected -> "H37"
-    SnapshotNumberMismatch -> "H38"
+    NotPayingToHead -> "H35"
+    NotAllValueCollected -> "H36"
+    SnapshotNumberMismatch -> "H37"
