@@ -221,20 +221,20 @@ We have several reporting and communication practices within the Hydra project.
 Becoming one of the core contributors of the project includes participation in
 core communication processes.
 
-### Weekly update
+### Bi-Weekly update
 
-At the end of each week, we provide updates to
+At the end of every two weeks, we provide updates to
 [cardano-updates](https://IntersectMBO.github.io/cardano-updates/tags/hydra),
 which also serve as a basis for our monthly reports.
 
 To write such an update:
 
 1. Use the contributors tactical meeting agenda to collect bullet points on
-   - **What did the team achieve this week**: past tense summary of done things
+   - **What did the team achieve this sprint**: past tense summary of done things
      (good: "Implemented..", bad: "Started working on.."); use the backlog and
      calendars to collect
 
-   - **What are the goals of next week**: a short look-out onto the backlog and/or
+   - **What are the goals of next sprint**: a short look-out onto the backlog and/or
      roadmap; ask each contributor what they would like to get done next week; always start from scratch and don't carry over things from last week.
 
 2. Enrich the content with useful links and write a high-level summary. This
