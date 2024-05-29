@@ -23,9 +23,11 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
+  replaceUtxoToDecommitHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
@@ -83,12 +85,13 @@ healthyCloseTx =
 
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
-    CloseWithConfirmedSnapshot
-      { snapshotNumber = healthyCloseSnapshotNumber
-      , closeUtxoHash = UTxOHash $ hashUTxO @Tx healthyCloseUTxO
-      , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx mempty
-      , signatures = healthySignature healthyCloseSnapshotNumber
-      }
+    let (utxo, utxoToDecommit) = generateWith (splitUTxO healthyCloseUTxO) 42
+     in CloseWithConfirmedSnapshot
+          { snapshotNumber = healthyCloseSnapshotNumber
+          , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
+          , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
+          , signatures = healthySignature healthyCloseSnapshotNumber
+          }
 
 -- | Healthy close transaction for the specific case were we close a head
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
@@ -143,20 +146,32 @@ healthyOpenHeadTxOut headTxOutDatum =
   mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParticipants
 
+healthyCloseSnapshotUTxO :: (UTxO, UTxO)
+healthyCloseSnapshotUTxO = generateWith (splitUTxO healthyCloseUTxO) 42
+
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  Snapshot
-    { headId = mkHeadId Fixture.testPolicyId
-    , number = healthyCloseSnapshotNumber
-    , utxo = healthyCloseUTxO
-    , confirmed = []
-    , utxoToDecommit = Nothing
-    }
+  let (utxo, utxoToDecommit') = healthyCloseSnapshotUTxO
+   in Snapshot
+        { headId = mkHeadId Fixture.testPolicyId
+        , number = healthyCloseSnapshotNumber
+        , utxo
+        , confirmed = []
+        , utxoToDecommit = Just utxoToDecommit'
+        }
 
 healthyCloseUTxO :: UTxO
 healthyCloseUTxO =
   (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
     `generateWith` 42
+
+healthyCloseUTxOHash :: BuiltinByteString
+healthyCloseUTxOHash =
+  toBuiltin $ hashUTxO @Tx (fst healthyCloseSnapshotUTxO)
+
+healthyCloseUTxOToDecommitHash :: BuiltinByteString
+healthyCloseUTxOToDecommitHash =
+  toBuiltin $ hashUTxO @Tx (snd healthyCloseSnapshotUTxO)
 
 healthyCloseSnapshotNumber :: SnapshotNumber
 healthyCloseSnapshotNumber = 1
@@ -207,14 +222,6 @@ healthyContestationDeadline =
   addUTCTime
     (fromInteger healthyContestationPeriodSeconds)
     (snd healthyCloseUpperBoundPointInTime)
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
-
-healthyClosedUTxO :: UTxO
-healthyClosedUTxO =
-  genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
 
 data CloseMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -333,7 +340,7 @@ genCloseMutation (tx, _utxo) =
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyClosedUTxOHash) . toBuiltin)
+        mutatedUTxOHash <- genHash `suchThat` ((/= healthyCloseUTxOHash) . toBuiltin)
         pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
     , SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
@@ -380,6 +387,9 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- genHash `suchThat` ((/= healthyCloseUTxOToDecommitHash) . toBuiltin)
+        pure $ modifyInlineDatum (replaceUtxoToDecommitHash $ toBuiltin mutatedUTxOHash) headTxOut
     ]
  where
   genOversizedTransactionValidity = do
