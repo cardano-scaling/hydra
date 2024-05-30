@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (
   txOutValue,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Cardano.Api.UTxO (renderUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
@@ -281,24 +282,25 @@ instance StateModel Model where
                 pure $ Some $ Close{actor, snapshot}
             )
           ]
-            <> [
-                 ( 10
+            <> [ ( 10
                  , do
                     actor <- elements allActors
-                    decommitUTxO <-
-                      if null utxoInHead
-                        then pure mempty
-                        else -- TODO: this is not taking partial values for a key
-                          Map.fromList <$> sublistOf (Map.toList utxoInHead)
+                    decommitUTxO <- Map.fromList <$> sublistOf (Map.toList utxoInHead)
+                    decommitUTxO' <-
+                      if null decommitUTxO
+                        then Map.fromList . (: []) <$> elements (Map.toList utxoInHead)
+                        else pure decommitUTxO
                     snapshot <-
                       ModelSnapshot
                         { snapshotNumber = latestSnapshot + 1
-                        , snapshotUTxO = utxoInHead \\ decommitUTxO
-                        , decommitUTxO
+                        , snapshotUTxO = utxoInHead \\ decommitUTxO'
+                        , decommitUTxO = decommitUTxO'
                         }
                         `orArbitrary` orFailingDecrement latestSnapshot utxoInHead
                     pure $ Some Decrement{actor, snapshot}
                  )
+               | -- XXX: We dont want to generate decrements if there is nothing in the head.
+               not (null utxoInHead)
                ]
       Closed{} ->
         oneof $
@@ -577,7 +579,7 @@ signedSnapshot ms =
       , number = snapshotNumber ms
       , confirmed = []
       , utxo
-      , utxoToDecommit = if null toDecommit || null utxo then Nothing else Just toDecommit
+      , utxoToDecommit = Just toDecommit
       }
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
@@ -770,16 +772,20 @@ orFailingDecrement :: SnapshotNumber -> ModelUTxO -> Gen ModelSnapshot
 orFailingDecrement latestSnapshot utxoInHead =
   let positiveValues = Map.filter (> 0) utxoInHead
    in if size positiveValues > 1
-        then traceShow "PEPE" $ do
+        then do
           let x = Map.keys utxoInHead
           let y = Map.elems utxoInHead
           x' <- shuffle x
           let shuffledUTxOInHead = Map.fromList $ zip x' y
-          decommitUTxO <- if null utxoInHead then pure mempty else Map.fromList <$> sublistOf (Map.toList shuffledUTxOInHead)
+          decommitUTxO <- Map.fromList <$> sublistOf (Map.toList shuffledUTxOInHead)
+          decommitUTxO' <-
+            if null decommitUTxO
+              then Map.fromList . (: []) <$> elements (Map.toList shuffledUTxOInHead)
+              else pure decommitUTxO
           pure $
             ModelSnapshot
               { snapshotNumber = latestSnapshot + 1
-              , snapshotUTxO = utxoInHead \\ decommitUTxO
-              , decommitUTxO
+              , snapshotUTxO = utxoInHead \\ decommitUTxO'
+              , decommitUTxO = decommitUTxO'
               }
-        else traceShow "PEPE 2" $ arbitrary
+        else arbitrary
