@@ -162,15 +162,20 @@ data DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDecrementMutation (tx, utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
+    [ -- XXX: parameters cid, ̃kH,n,T stay unchanged
+      SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
+    , -- XXX: Decrement snapshot number s′ is higher than the currently stored snapshot number s
+      SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
+    , -- XXX: ξ is a valid multi-signature of the currency id cid, the current snapshot state η,
+      -- the new snapshot number s′ and state η
+      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
         Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx))) <*> pure (fromIntegral $ length utxo - 1)
-    , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
+    , -- XXX: Transaction is signed by a participant
+      SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeOutputValue <$> do
@@ -179,7 +184,8 @@ genDecrementMutation (tx, utxo) =
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
+    , -- XXX: The value in the head output is decreased accordingly
+      SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
