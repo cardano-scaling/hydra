@@ -16,7 +16,7 @@ import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (Input (..), Signature, SnapshotNumber, State (..))
+import Hydra.Contract.HeadState (Hash, Input (..), Signature, SnapshotNumber, State (..))
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -165,18 +165,8 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       -- would commonly only be a small number of inputs/outputs to pay fees.
       otherValueOut == notCollectedValueIn - txInfoFee txInfo
 
-  (parties', utxoHash, contestationPeriod', headId') =
-    -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
-      Just
-        Open
-          { parties = p
-          , utxoHash = h
-          , contestationPeriod = cp
-          , headId = hId
-          } ->
-          (p, h, cp, hId)
-      _ -> traceError $(errorCode WrongStateInOutputDatum)
+  (utxoHash, parties', _, contestationPeriod', headId') =
+    extractOpenDatum ctx
 
   headAddress = getHeadAddress ctx
 
@@ -253,16 +243,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
   -- outputs of a decommit tx to calculate the expected hash.
   decommitUtxoHash = hashTxOuts decommitOutputs
   (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
-    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
-      Just
-        Open
-          { utxoHash
-          , parties = p
-          , headId
-          , contestationPeriod
-          , snapshotNumber = sn
-          } -> (utxoHash, p, sn, contestationPeriod, headId)
-      _ -> traceError $(errorCode WrongStateInOutputDatum)
+    extractOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
   -- headOutValue = foldMap txOutValue outputs
@@ -328,20 +309,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber =
       tMax - tMin <= cp
 
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
-    -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
-      Just
-        Closed
-          { snapshotNumber = sn
-          , utxoHash
-          , utxoToDecommitHash
-          , parties = p
-          , contestationDeadline
-          , headId
-          , contesters
-          , contestationPeriod
-          } -> (sn, utxoHash, utxoToDecommitHash, p, contestationDeadline, contestationPeriod, headId, contesters)
-      _ -> traceError $(errorCode WrongStateInOutputDatum)
+    extractClosedDatum ctx
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
@@ -455,20 +423,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
       contesters' == contester : contesters
 
   (contestSnapshotNumber, contestUtxoHash, decommitHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
-    -- XXX: fromBuiltinData is super big (and also expensive?)
-    case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
-      Just
-        Closed
-          { snapshotNumber
-          , utxoHash
-          , utxoToDecommitHash
-          , parties = p
-          , contestationDeadline = dl
-          , contestationPeriod = cp
-          , headId = hid
-          , contesters = cs
-          } -> (snapshotNumber, utxoHash, utxoToDecommitHash, p, dl, cp, hid, cs)
-      _ -> traceError $(errorCode WrongStateInOutputDatum)
+    extractClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
@@ -654,7 +609,7 @@ verifySnapshotSignature parties headId snapshotNumber utxoHash utxoToDecommitHas
 
 verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Party -> Signature -> Bool
 verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party =
-    verifyEd25519Signature (vkey party) message
+  verifyEd25519Signature (vkey party) message
  where
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
@@ -682,3 +637,35 @@ validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
+
+extractClosedDatum :: ScriptContext -> (SnapshotNumber, Hash, Hash, [Party], POSIXTime, ContestationPeriod, CurrencySymbol, [PubKeyHash])
+extractClosedDatum ctx =
+  -- XXX: fromBuiltinData is super big (and also expensive?)
+  case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+    Just
+      Closed
+        { snapshotNumber
+        , utxoHash
+        , utxoToDecommitHash
+        , parties = p
+        , contestationDeadline = dl
+        , contestationPeriod = cp
+        , headId = hid
+        , contesters = cs
+        } -> (snapshotNumber, utxoHash, utxoToDecommitHash, p, dl, cp, hid, cs)
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
+{-# INLINEABLE extractClosedDatum #-}
+
+extractOpenDatum :: ScriptContext -> (Hash, [Party], SnapshotNumber, ContestationPeriod, CurrencySymbol)
+extractOpenDatum ctx =
+  case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+    Just
+      Open
+        { utxoHash
+        , parties = p
+        , headId
+        , contestationPeriod
+        , snapshotNumber = sn
+        } -> (utxoHash, p, sn, contestationPeriod, headId)
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
+{-# INLINEABLE extractOpenDatum #-}
