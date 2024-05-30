@@ -432,6 +432,19 @@ spec = parallel $ do
                 waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, utxoToDecommit = utxoRefs [22]}
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId}
 
+    it "can close with decommit in flight" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 -> do
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead chain n1 n2
+              let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
+              send n2 (Decommit{decommitTx})
+              send n1 Close
+              waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+              send n1 Fanout
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
     it "fanout utxo is correct after a decommit" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -440,10 +453,11 @@ spec = parallel $ do
               openHead chain n1 n2
               let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
               send n2 (Decommit{decommitTx})
+              waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, utxoToDecommit = utxoRefs [42]}
               send n1 Close
               waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
               send n1 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
