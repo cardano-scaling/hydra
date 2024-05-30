@@ -32,12 +32,16 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
+import Data.List (findIndex)
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Data.Text qualified as T
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.Natural (naturalFromInteger)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
+import Hydra.Chain.Direct.Contract.Close (healthyContestationPeriodSeconds, healthyOpenHeadDatum, healthyOpenHeadTxOut)
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
@@ -49,7 +53,7 @@ import Hydra.Chain.Direct.Fixture (
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), close, decrement, genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
@@ -69,10 +73,16 @@ import Hydra.Chain.Direct.Tx (
   txInToHeadSeed,
   verificationKeyToOnChainId,
  )
+import Hydra.Chain.Direct.TxTraceSpec (ModelSnapshot (..), generateUTxOFromModelSnapshot, snapshotNumber)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
+import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.HeadState (utxoHash)
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
+import Hydra.Crypto (MultiSignature, aggregate, sign)
+import Hydra.HeadId (HeadId)
+import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (
   adaOnly,
   addInputs,
@@ -87,11 +97,13 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
   unsafeBuildTransaction,
  )
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
+import PlutusLedgerApi.V2 (toBuiltin)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
-import Test.Hydra.Fixture (genForParty)
+import Test.Hydra.Fixture (alice, alicePVk, aliceSk, bob, bobSk, carol, carolSk, genForParty)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,
@@ -105,6 +117,7 @@ import Test.QuickCheck (
   forAllBlind,
   label,
   property,
+  suchThat,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -252,6 +265,98 @@ spec =
                   , (blueprintBody ^. referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. referenceInputsTxBodyL)
                       & counterexample "Blueprint reference inputs missing"
                   ]
+
+    describe "decrementTx" $ do
+      -- prop "generates interesting snapshots" prop_interestingSnapshots
+
+      prop "Validate snapshots against decrement,close and fanout txs" $
+        forAllBlind arbitrary $ \chainContext -> do
+          let ctx@ChainContext{scriptRegistry} =
+                chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
+          forAll genPerfectModelSnapshot $ \modelSnapshot -> do
+            let (utxo', utxoToDecommit') = generateUTxOFromModelSnapshot modelSnapshot
+            let headId' = mkHeadId Fixture.testPolicyId
+            let datum = toUTxOContext (mkTxOutDatumInline $ healthyOpenHeadDatum{utxoHash = toBuiltin $ hashUTxO @Tx utxo'})
+            let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs utxoToDecommit')
+            let spendableUTxO =
+                  UTxO.singleton (generateWith arbitrary 42, modifyTxOutValue (<> decommitValue) (healthyOpenHeadTxOut datum))
+                    <> registryUTxO scriptRegistry
+            let snapshot =
+                  Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit'}
+
+            let signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+            let parameters = HeadParameters (UnsafeContestationPeriod $ naturalFromInteger healthyContestationPeriodSeconds) [alice, bob, carol]
+            let eDecrementTx =
+                  decrement
+                    ctx
+                    headId'
+                    parameters
+                    spendableUTxO
+                    snapshot
+                    signatures
+            case eDecrementTx of
+              Left err -> counterexample ("\n\n\nFailed to produce valid decrement snapshot: " <> show err) $ property False
+              Right decrementTx -> do
+                let snapshotMutations =
+                      [ (mutateSnapshotNumber (1 +) snapshot, Just "H34")
+                      , (mutateSnapshotNumber (\a -> a - 1) snapshot, Just "H34")
+                      , (mutateSnapshotNumber (const 0) snapshot, Just "H16")
+                      ]
+                conjoin $
+                  [ propTransactionEvaluates (decrementTx, spendableUTxO)
+                      & counterexample "Decrement transaction failed to evaluate"
+                  ]
+                    <> [ produceClose ctx spendableUTxO headId' parameters (sn, err) signatures
+                       | (sn, err) <- snapshotMutations
+                       ]
+
+mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
+mutateSnapshotNumber fn snapshot =
+  let sn = fn (number snapshot)
+   in snapshot{number = sn}
+
+produceClose :: ChainContext -> UTxO -> HeadId -> HeadParameters -> (Snapshot Tx, Maybe String) -> MultiSignature (Snapshot Tx) -> Property
+produceClose ctx spendableUTxO headId parameters (snapshot, expectedError) signatures = do
+  let eCloseTx = close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0)
+  case eCloseTx of
+    Left err -> counterexample ("\n\n\nFailed to produce valid close tx: " <> show err) $ property False
+    Right closeTx ->
+      evaluateAndMatchError closeTx spendableUTxO expectedError
+
+-- | Evaluates the transaction and in case the expected error is provided
+-- it will yield green test since we indeed got the expected error.
+evaluateAndMatchError :: Tx -> UTxO -> Maybe String -> Property
+evaluateAndMatchError tx spendableUTxO expectedError =
+  case evaluateTx tx spendableUTxO of
+    Left err ->
+      property False
+        & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      if isJust expectedError
+        then
+          any isLeft (Map.elems redeemerReport) && contains expectedError (show redeemerReport)
+            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample ("Error doesn't match: " <> show expectedError)
+            & counterexample "Phase-2 validation failed"
+        else
+          all isRight (Map.elems redeemerReport)
+            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation failed"
+ where
+  contains Nothing _ = False
+  contains (Just expectedError') searchStr =
+    isJust (findIndex (isPrefixOf expectedError') (tails searchStr))
+
+genPerfectModelSnapshot :: Gen ModelSnapshot
+genPerfectModelSnapshot = do
+  snapshotNumber <- arbitrary
+  (decommit, amount) <- arbitrary
+  let decommitUTxO = Map.fromList [(decommit, amount)]
+  snapshotUTxO <- arbitrary `suchThat` (\a -> all (> amount) (Map.elems a) && (decommit `elem` Map.keys a))
+  pure $ ModelSnapshot{snapshotNumber, snapshotUTxO, decommitUTxO}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
