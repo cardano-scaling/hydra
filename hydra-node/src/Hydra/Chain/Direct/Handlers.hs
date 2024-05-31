@@ -148,7 +148,7 @@ mkChain ::
   LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -162,17 +162,9 @@ mkChain tracer queryTimeHandle wallet@TinyWallet{getUTxO} ctx LocalChainState{ge
       -- Possible errors are handled at the api server level.
       draftCommitTx = \headId commitBlueprintTx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        walletUtxos <- atomically getUTxO
-        let walletTxIns = fromLedgerTxIn <$> Map.keys walletUtxos
-        let CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
-        let userTxIns = txIns' blueprintTx
-        let matchedWalletUtxo = filter (`elem` walletTxIns) userTxIns
-        -- prevent trying to spend internal wallet's utxo
-        if null matchedWalletUtxo
-          then
-            traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-              commit' ctx headId spendableUTxO commitBlueprintTx
-          else pure $ Left SpendingNodeUtxoForbidden
+        let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
+        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
+          commit' ctx headId spendableUTxO commitBlueprintTx
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx

@@ -191,7 +191,6 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
         case e of
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
-          walletUtxoErr@SpendingNodeUtxoForbidden -> badRequest walletUtxoErr
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx

@@ -198,7 +198,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     ScriptFailedInWallet{} -> True
                     _ -> False
 
-  it "can commit" $ \tracer ->
+  it "can commit using external wallet" $ \tracer ->
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
@@ -208,24 +208,37 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@DirectChainTest{postTx} -> do
-            aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+            participants <- loadParticipants [Alice]
+            let headParameters = HeadParameters cperiod [alice]
+            postTx $ InitTx{participants, headParameters}
+            headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
+
+            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+            aliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            externalCommit node aliceChain aliceExternalSk headId aliceUTxO
+
+            aliceChain `observesInTime` OnCommitTx headId alice aliceUTxO
+
+  it "can commit using internal hydra-node wallet" $ \tracer ->
+    withTempDir "hydra-cluster" $ \tmp -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
+        hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+        -- Alice setup
+        (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+        seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
+        withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
+          \aliceChain@DirectChainTest{postTx} -> do
 
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
-
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
-            -- deliberately use alice's key known to hydra-node to trigger the error
+
+            aliceUTxO <- seedFromFaucet node aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
             externalCommit node aliceChain aliceCardanoSk headId aliceUTxO
-              `shouldThrow` \case
-                (SpendingNodeUtxoForbidden :: PostTxError Tx) -> True
-                _ -> False
 
-            (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            newAliceUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
-
-            externalCommit node aliceChain aliceExternalSk headId newAliceUTxO
-            aliceChain `observesInTime` OnCommitTx headId alice newAliceUTxO
+            aliceChain `observesInTime` OnCommitTx headId alice aliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do

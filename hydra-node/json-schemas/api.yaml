@@ -125,7 +125,6 @@ channels:
           * DraftCommitTxResponse - 200 ok
           * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
-          * SpendingNodeUtxoForbidden - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -1586,17 +1585,6 @@ components:
             tag:
               type: string
               enum: ["FailedToDraftTxNotInitializing"]
-        - title: SpendingNodeUtxoForbidden
-          description: |
-            Raised if the user tried to draft a commit tx using internal wallet's utxo.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          properties:
-            tag:
-              type: string
-              enum: ["SpendingNodeUtxoForbidden"]
         - title: InvalidSeed
           description: |
             Raised if the user fails to submit an abort or fanout tx using the wrong seed.

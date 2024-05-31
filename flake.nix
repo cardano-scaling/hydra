@@ -53,7 +53,7 @@
               inputs.iohk-nix.overlays.haskell-nix-crypto
               # Keep haskell.nix as the last overlay!
               #
-              # Reason: haskell.nix modules/overlays neds to be last
+              # Reason: haskell.nix modules/overlays needs to be last
               # https://github.com/input-output-hk/haskell.nix/issues/1954
               inputs.haskellNix.overlay
               # Custom static libs used for darwin build
