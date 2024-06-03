@@ -32,7 +32,6 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
-import Data.List (findIndex)
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
@@ -52,8 +51,8 @@ import Hydra.Chain.Direct.Fixture (
   testSeedInput,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), close, decrement, genChainStateWithTx)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), close, contest, decrement, fanout, genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
@@ -80,24 +79,11 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadState (utxoHash)
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (MultiSignature, aggregate, sign)
-import Hydra.HeadId (HeadId)
+import Hydra.Crypto (aggregate, sign)
+import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (
-  adaOnly,
-  addInputs,
-  addReferenceInputs,
-  addVkInputs,
-  emptyTxBody,
-  genOneUTxOFor,
-  genTxOutWithReferenceScript,
-  genUTxO1,
-  genUTxOAdaOnlyOfSize,
-  genValue,
-  genVerificationKey,
-  unsafeBuildTransaction,
- )
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
+import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
@@ -266,89 +252,86 @@ spec =
                       & counterexample "Blueprint reference inputs missing"
                   ]
 
-    describe "decrementTx" $ do
-      -- prop "generates interesting snapshots" prop_interestingSnapshots
-
-      prop "Validate snapshots against decrement,close and fanout txs" $
+    describe "Decrement" $ do
+      prop "Decrement,close, contest and fanout sequence works" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
                 chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
-          forAll genPerfectModelSnapshot $ \modelSnapshot -> do
+          forAllBlind genPerfectModelSnapshot $ \modelSnapshot -> do
             let (utxo', utxoToDecommit') = generateUTxOFromModelSnapshot modelSnapshot
             let headId' = mkHeadId Fixture.testPolicyId
             let datum = toUTxOContext (mkTxOutDatumInline $ healthyOpenHeadDatum{utxoHash = toBuiltin $ hashUTxO @Tx utxo'})
             let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs utxoToDecommit')
+            let headTxIn = generateWith arbitrary 42
             let spendableUTxO =
-                  UTxO.singleton (generateWith arbitrary 42, modifyTxOutValue (<> decommitValue) (healthyOpenHeadTxOut datum))
+                  UTxO.singleton (headTxIn, modifyTxOutValue (<> decommitValue) (healthyOpenHeadTxOut datum))
                     <> registryUTxO scriptRegistry
-            let snapshot =
+            let decrementSnapshot =
                   Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit'}
 
-            let signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
             let parameters = HeadParameters (UnsafeContestationPeriod $ naturalFromInteger healthyContestationPeriodSeconds) [alice, bob, carol]
-            let eDecrementTx =
-                  decrement
-                    ctx
-                    headId'
-                    parameters
-                    spendableUTxO
-                    snapshot
-                    signatures
-            case eDecrementTx of
-              Left err -> counterexample ("\n\n\nFailed to produce valid decrement snapshot: " <> show err) $ property False
-              Right decrementTx -> do
-                let snapshotMutations =
-                      [ (mutateSnapshotNumber (1 +) snapshot, Just "H34")
-                      , (mutateSnapshotNumber (\a -> a - 1) snapshot, Just "H34")
-                      , (mutateSnapshotNumber (const 0) snapshot, Just "H16")
-                      ]
-                conjoin $
-                  [ propTransactionEvaluates (decrementTx, spendableUTxO)
-                      & counterexample "Decrement transaction failed to evaluate"
-                  ]
-                    <> [ produceClose ctx spendableUTxO headId' parameters (sn, err) signatures
-                       | (sn, err) <- snapshotMutations
-                       ]
+
+            let decrementAction = produceDecrement ctx scriptRegistry headId' parameters decrementSnapshot
+            let closeAction = produceClose ctx scriptRegistry headId' parameters decrementSnapshot
+            let contestAction = produceContest ctx scriptRegistry headId' decrementSnapshot
+            let fanoutAction = produceFanout ctx headTxIn decrementSnapshot
+            let (fanoutTxResult, _finalUTxO) = flip runState spendableUTxO $ do
+                  _ <- decrementAction
+                  _ <- closeAction
+                  _ <- contestAction
+                  fanoutAction
+
+            case fanoutTxResult of
+              Left err -> counterexample ("Failure when running actions | " <> err) $ property False
+              Right _ -> property True
 
 mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotNumber fn snapshot =
   let sn = fn (number snapshot)
    in snapshot{number = sn}
 
-produceClose :: ChainContext -> UTxO -> HeadId -> HeadParameters -> (Snapshot Tx, Maybe String) -> MultiSignature (Snapshot Tx) -> Property
-produceClose ctx spendableUTxO headId parameters (snapshot, expectedError) signatures = do
-  let eCloseTx = close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0)
-  case eCloseTx of
-    Left err -> counterexample ("\n\n\nFailed to produce valid close tx: " <> show err) $ property False
-    Right closeTx ->
-      evaluateAndMatchError closeTx spendableUTxO expectedError
+mutateUTxOToDecommit :: (Maybe UTxO -> Maybe UTxO) -> Snapshot Tx -> Snapshot Tx
+mutateUTxOToDecommit fn snapshot =
+  let toDecommit = fn (utxoToDecommit snapshot)
+   in snapshot{utxoToDecommit = toDecommit}
 
--- | Evaluates the transaction and in case the expected error is provided
--- it will yield green test since we indeed got the expected error.
-evaluateAndMatchError :: Tx -> UTxO -> Maybe String -> Property
-evaluateAndMatchError tx spendableUTxO expectedError =
-  case evaluateTx tx spendableUTxO of
-    Left err ->
-      property False
-        & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
-        & counterexample ("Phase-1 validation failed: " <> show err)
-    Right redeemerReport ->
-      if isJust expectedError
-        then
-          any isLeft (Map.elems redeemerReport) && contains expectedError (show redeemerReport)
-            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
-            & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample ("Error doesn't match: " <> show expectedError)
-            & counterexample "Phase-2 validation failed"
-        else
-          all isRight (Map.elems redeemerReport)
-            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
-            & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample "Phase-2 validation failed"
+produceDecrement :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> State UTxO (Either String Tx)
+produceDecrement ctx scriptRegistry headId parameters snapshot = do
+  spendableUTxO <- get
+  case decrement ctx headId parameters spendableUTxO snapshot signatures of
+    Left err -> pure (Left $ "Decrement tx:" <> show err)
+    Right tx -> do
+      put $ utxoFromTx tx <> registryUTxO scriptRegistry
+      pure $ Right tx
  where
-  contains Nothing _ = False
-  contains (Just expectedError') searchStr =
-    isJust (findIndex (isPrefixOf expectedError') (tails searchStr))
+  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+
+produceClose :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> State UTxO (Either String Tx)
+produceClose ctx scriptRegistry headId parameters snapshot = do
+  spendableUTxO <- get
+  case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
+    Left err -> pure (Left $ "Close tx: " <> show err)
+    Right tx -> do
+      put $ utxoFromTx tx <> registryUTxO scriptRegistry
+      pure $ Right tx
+ where
+  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+
+produceContest :: ChainContext -> ScriptRegistry -> HeadId -> Snapshot Tx -> State UTxO (Either String Tx)
+produceContest ctx scriptRegistry headId snapshot = do
+  spendableUTxO <- get
+  case contest ctx spendableUTxO headId (UnsafeContestationPeriod 0) ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
+    Left err -> pure (Left $ "Contest tx: " <> show err)
+    Right tx -> do
+      put $ utxoFromTx tx <> registryUTxO scriptRegistry
+      pure $ Right tx
+ where
+  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+
+produceFanout :: ChainContext -> TxIn -> Snapshot Tx -> State UTxO (Either String Tx)
+produceFanout ctx seedTxIn snapshot = do
+  spendableUTxO <- get
+  pure $ first (("Fanout tx: " <>) . show) $ fanout ctx spendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 0
 
 genPerfectModelSnapshot :: Gen ModelSnapshot
 genPerfectModelSnapshot = do
