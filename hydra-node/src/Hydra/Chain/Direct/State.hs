@@ -601,9 +601,9 @@ fanout ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Snapshot UTxO to decommit to fanout
-  UTxO ->
   -- | Snapshot UTxO to fanout
+  UTxO ->
+  -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
