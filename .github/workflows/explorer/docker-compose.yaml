@@ -17,7 +17,7 @@ services:
     restart: always
 
   hydra-explorer:
-    image: ghcr.io/input-output-hk/hydra-explorer:unstable
+    image: ghcr.io/input-output-hk/hydra-explorer:0.17.0
     volumes:
     - /srv/var/cardano/state-preview:/data
     ports:
@@ -27,6 +27,6 @@ services:
       , "--testnet-magic", "2"
       , "--api-port", "8080"
       # NOTE: Block in which current master scripts were published
-      , "--start-chain-from", "45386581.4a362bfca7cf840575c17b6cbb531588bc8e907beb5a6a28890877fb16be1cd3"
+      , "--start-chain-from", "49533501.e364500a42220ea47314215679b7e42e9bbb81fa69d1366fe738d8aef900f7ee"
       ]
     restart: always

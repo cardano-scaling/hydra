@@ -61,6 +61,7 @@ prepare_release() {
   update_api_version "$version"
   update_demo_version "$version"
   update_tutorial_version "$version"
+  update_explorer_version "$version"
 
   find . -name '*-e' -exec rm '{}' \; # cleanup BSD sed mess
   
@@ -188,6 +189,14 @@ update_demo_version() {
   (
     cd demo
     sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
+  )
+}
+
+update_explorer_version() {
+  local version="$1"
+  (
+    cd .github/workflows/explorer
+    sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml
   )
 }
 
