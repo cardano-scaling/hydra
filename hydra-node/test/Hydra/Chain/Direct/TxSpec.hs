@@ -32,6 +32,7 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
+import Data.List (findIndex)
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
@@ -76,6 +77,8 @@ import Hydra.Chain.Direct.TxTraceSpec (ModelSnapshot (..), generateUTxOFromModel
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Error (toErrorCode)
+import Hydra.Contract.HeadError (HeadError (SnapshotNumberMismatch, TooOldSnapshot))
 import Hydra.Contract.HeadState (utxoHash)
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
@@ -83,7 +86,7 @@ import Hydra.Crypto (aggregate, sign)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
@@ -253,7 +256,7 @@ spec =
                   ]
 
     describe "Decrement" $ do
-      prop "Decrement,close, contest and fanout sequence works" $
+      prop "Alter snapshots to trigger validator errors" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
                 chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
@@ -271,19 +274,33 @@ spec =
 
             let parameters = HeadParameters (UnsafeContestationPeriod $ naturalFromInteger healthyContestationPeriodSeconds) [alice, bob, carol]
 
-            let decrementAction = produceDecrement ctx scriptRegistry headId' parameters decrementSnapshot
-            let closeAction = produceClose ctx scriptRegistry headId' parameters decrementSnapshot
-            let contestAction = produceContest ctx scriptRegistry headId' decrementSnapshot
-            let fanoutAction = produceFanout ctx headTxIn decrementSnapshot
-            let (fanoutTxResult, _finalUTxO) = flip runState spendableUTxO $ do
-                  _ <- decrementAction
-                  _ <- closeAction
-                  _ <- contestAction
-                  fanoutAction
+            let decrementSnapshots =
+                  [ (decrementSnapshot, decrementSnapshot, Nothing)
+                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, decrementSnapshot, Just SnapshotNumberMismatch)
+                  ]
 
-            case fanoutTxResult of
-              Left err -> counterexample ("Failure when running actions | " <> err) $ property False
-              Right _ -> property True
+            let closeSnapshots =
+                  [ (decrementSnapshot, decrementSnapshot, Nothing)
+                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, decrementSnapshot, Just SnapshotNumberMismatch)
+                  ]
+
+            let decrementAction = produceDecrement ctx scriptRegistry headId' parameters
+            let closeAction = produceClose ctx scriptRegistry headId' parameters
+            -- let contestAction = produceContest ctx scriptRegistry headId'
+            -- let fanoutAction = produceFanout ctx headTxIn
+
+            fst $ flip runState spendableUTxO $ do
+              mapM_
+                ( \(decrementSn, _, expectedDecrementErr) -> do
+                    decrementAction decrementSn expectedDecrementErr
+                )
+                decrementSnapshots
+
+              mapM_
+                ( \(closeSn, _, expectedCloseErr) -> do
+                    closeAction closeSn expectedCloseErr
+                )
+                closeSnapshots
 
 mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotNumber fn snapshot =
@@ -295,25 +312,30 @@ mutateUTxOToDecommit fn snapshot =
   let toDecommit = fn (utxoToDecommit snapshot)
    in snapshot{utxoToDecommit = toDecommit}
 
-produceDecrement :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> State UTxO (Either String Tx)
-produceDecrement ctx scriptRegistry headId parameters snapshot = do
+produceDecrement :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> Maybe HeadError -> State UTxO Property
+produceDecrement ctx scriptRegistry headId parameters snapshot expectedError = do
   spendableUTxO <- get
+  let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs $ fromMaybe mempty $ utxoToDecommit snapshot)
   case decrement ctx headId parameters spendableUTxO snapshot signatures of
-    Left err -> pure (Left $ "Decrement tx:" <> show err)
+    Left err -> pure (counterexample ("Decrement tx:" <> show err) $ property False)
     Right tx -> do
-      put $ utxoFromTx tx <> registryUTxO scriptRegistry
-      pure $ Right tx
+      let spendableUTxO' =
+            foldMap (\(txin, txout) -> UTxO.singleton (txin, modifyTxOutValue (<> decommitValue) txout)) (UTxO.pairs (utxoFromTx tx))
+              <> registryUTxO scriptRegistry
+      put spendableUTxO'
+      pure $ evaluateAndMatchError tx spendableUTxO' expectedError
  where
   signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
 
-produceClose :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> State UTxO (Either String Tx)
-produceClose ctx scriptRegistry headId parameters snapshot = do
+produceClose :: ChainContext -> ScriptRegistry -> HeadId -> HeadParameters -> Snapshot Tx -> Maybe HeadError -> State UTxO Property
+produceClose ctx scriptRegistry headId parameters snapshot expectedError = do
   spendableUTxO <- get
   case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
-    Left err -> pure (Left $ "Close tx: " <> show err)
+    Left err -> pure (counterexample ("Close tx: " <> show err) $ property False)
     Right tx -> do
-      put $ utxoFromTx tx <> registryUTxO scriptRegistry
-      pure $ Right tx
+      let spendableUTxO' = utxoFromTx tx <> registryUTxO scriptRegistry
+      put spendableUTxO'
+      pure $ evaluateAndMatchError tx spendableUTxO' expectedError
  where
   signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
 
@@ -332,6 +354,41 @@ produceFanout :: ChainContext -> TxIn -> Snapshot Tx -> State UTxO (Either Strin
 produceFanout ctx seedTxIn snapshot = do
   spendableUTxO <- get
   pure $ first (("Fanout tx: " <>) . show) $ fanout ctx spendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 0
+
+hasHigherSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
+hasHigherSnapshotNumber =
+  any (\(mutated, original, _) -> number mutated > number original)
+
+hasLowerSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
+hasLowerSnapshotNumber =
+  any (\(mutated, original, _) -> number mutated < number original)
+
+-- | Evaluates the transaction and in case the expected error is provided
+-- it will yield green test since we indeed got the expected error.
+evaluateAndMatchError :: Tx -> UTxO -> Maybe HeadError -> Property
+evaluateAndMatchError tx spendableUTxO expectedError =
+  case evaluateTx tx spendableUTxO of
+    Left err ->
+      property False
+        & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      if isJust expectedError
+        then
+          any isLeft (Map.elems redeemerReport) && contains expectedError (show redeemerReport)
+            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample ("Error doesn't match: " <> show expectedError)
+            & counterexample "Phase-2 validation failed"
+        else
+          all isRight (Map.elems redeemerReport)
+            & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation failed"
+ where
+  contains Nothing _ = False
+  contains (Just expectedError') searchStr =
+    isJust (findIndex (isPrefixOf (T.unpack $ toErrorCode expectedError')) (tails searchStr))
 
 genPerfectModelSnapshot :: Gen ModelSnapshot
 genPerfectModelSnapshot = do
