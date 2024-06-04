@@ -16,7 +16,6 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Coin (Coin (..))
-import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Natural (naturalFromInteger, naturalToInteger)
@@ -56,7 +55,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -324,33 +323,14 @@ instance StateModel Model where
             ( 1
             , do
                 actor <- elements allActors
-                someUTxOToDecrement <-
-                  if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
-                snapshot <-
-                  ModelSnapshot
-                    { snapshotNumber = latestSnapshot
-                    , snapshotUTxO = utxoInHead
-                    , decommitUTxO = someUTxOToDecrement
-                    }
-                    `orArbitrary` arbitrary
+                snapshot <- genSnapshot
                 pure $ Some $ Close{actor, snapshot}
             )
           ]
             <> [ ( 10
                  , do
                     actor <- elements allActors
-                    decommitUTxO <- Map.fromList <$> sublistOf (Map.toList utxoInHead)
-                    decommitUTxO' <-
-                      if null decommitUTxO
-                        then Map.fromList . (: []) <$> elements (Map.toList utxoInHead)
-                        else pure decommitUTxO
-                    snapshot <-
-                      ModelSnapshot
-                        { snapshotNumber = latestSnapshot + 1
-                        , snapshotUTxO = utxoInHead \\ decommitUTxO'
-                        , decommitUTxO = decommitUTxO'
-                        }
-                        `orArbitrary` orFailingDecrement latestSnapshot utxoInHead
+                    snapshot <- genSnapshot
                     pure $ Some Decrement{actor, snapshot}
                  )
                | -- XXX: We dont want to generate decrements if there is nothing in the head.
@@ -359,32 +339,94 @@ instance StateModel Model where
       Closed{} ->
         oneof $
           [ do
-              someUTxOToDecrement <-
-                if not (null utxoInHead) then oneof $ pure <$> [utxoInHead] else pure Map.empty
-              snapshot <-
-                ModelSnapshot
-                  { snapshotNumber = latestSnapshot
-                  , snapshotUTxO = utxoInHead
-                  , decommitUTxO = someUTxOToDecrement
-                  }
-                  `orArbitrary` arbitrary
+              snapshot <- genSnapshot
               pure $ Some $ Fanout{snapshot}
           ]
             <> [ do
-                actor <- elements allActors
-                -- TODO: dry
-                someUTxOToDecrement <- oneof $ pure <$> Map.toList utxoInHead
-                snapshot <-
-                  ModelSnapshot
-                    { snapshotNumber = latestSnapshot + 1
-                    , snapshotUTxO = Map.delete (fst someUTxOToDecrement) utxoInHead
-                    , decommitUTxO = Map.fromList [someUTxOToDecrement]
-                    }
-                    `orArbitrary` arbitrary
-                pure $ Some Contest{actor, snapshot}
-               | not (null utxoInHead)
+                  actor <- elements allActors
+                  snapshot <- genSnapshot
+                  pure $ Some Contest{actor, snapshot}
                ]
       Final -> pure $ Some Stop
+   where
+    genSnapshot = do
+      someUTxOToDecrement <- reduceValues =<< genSubModelOf utxoInHead
+      let balancedUTxOInHead = balanceUTxOInHead utxoInHead someUTxOToDecrement
+      let validSnapshot =
+            ModelSnapshot
+              { snapshotNumber = latestSnapshot
+              , snapshotUTxO = balancedUTxOInHead
+              , decommitUTxO = someUTxOToDecrement
+              }
+      oneof
+        [ -- valid
+          pure validSnapshot
+        , -- unbalanced
+          pure validSnapshot{snapshotUTxO = utxoInHead}
+        , do
+            -- old
+            let snapshotNumber' = if latestSnapshot == 0 then 0 else latestSnapshot - 1
+            pure validSnapshot{snapshotNumber = snapshotNumber'}
+        , -- new
+          pure validSnapshot{snapshotNumber = latestSnapshot + 1}
+        , do
+            -- shuffled
+            someUTxOToDecrement' <- shuffleValues someUTxOToDecrement
+            pure validSnapshot{decommitUTxO = someUTxOToDecrement'}
+        , do
+            -- more in head
+            utxoInHead' <- increaseValues utxoInHead
+            pure validSnapshot{snapshotUTxO = utxoInHead'}
+        , do
+            -- more in decommit
+            someUTxOToDecrement' <- increaseValues =<< genSubModelOf utxoInHead
+            let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
+            pure
+              validSnapshot
+                { snapshotUTxO = balancedUTxOInHead'
+                , decommitUTxO = someUTxOToDecrement'
+                }
+        , arbitrary
+        ]
+
+    genSubModelOf :: ModelUTxO -> Gen ModelUTxO
+    genSubModelOf model = do
+      subset <- sublistOf (Map.toList model)
+      return $ Map.fromList subset
+
+    balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
+      let
+        currentUtxoInHead' = fmap naturalToInteger currentUtxoInHead
+        someUTxOToDecrement' = fmap (negate . naturalToInteger) someUTxOToDecrement
+       in
+        Map.map naturalFromInteger
+          . Map.filter (> 0)
+          . Map.map sum
+          $ Map.unionWith
+            (++)
+            (Map.map (: []) currentUtxoInHead')
+            (Map.map (: []) someUTxOToDecrement')
+
+    reduceValues :: ModelUTxO -> Gen ModelUTxO
+    reduceValues = Map.traverseWithKey reduceValue
+     where
+      reduceValue :: SingleUTxO -> Natural -> Gen Natural
+      reduceValue _ n = do
+        let n' = naturalToInteger n
+        reduction <- choose (0, n')
+        let reduced = if n' < reduction then 0 else n' - reduction
+        return (naturalFromInteger reduced)
+
+    increaseValues :: ModelUTxO -> Gen ModelUTxO
+    increaseValues = Map.traverseWithKey (\_ n -> pure (n + naturalFromInteger 1))
+
+    shuffleValues :: ModelUTxO -> Gen ModelUTxO
+    shuffleValues utxo = do
+      let x = Map.keys utxo
+      let y = Map.elems utxo
+      x' <- shuffle x
+      let shuffledUTxO = Map.fromList $ zip x' y
+      pure shuffledUTxO
 
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
@@ -821,25 +863,3 @@ expectInvalid = \case
 -- the given value.
 orArbitrary :: a -> Gen a -> Gen a
 orArbitrary a gen = frequency [(1, pure a), (2, gen)]
-
-orFailingDecrement :: SnapshotNumber -> ModelUTxO -> Gen ModelSnapshot
-orFailingDecrement latestSnapshot utxoInHead =
-  let positiveValues = Map.filter (> 0) utxoInHead
-   in if size positiveValues > 1
-        then do
-          let x = Map.keys utxoInHead
-          let y = Map.elems utxoInHead
-          x' <- shuffle x
-          let shuffledUTxOInHead = Map.fromList $ zip x' y
-          decommitUTxO <- Map.fromList <$> sublistOf (Map.toList shuffledUTxOInHead)
-          decommitUTxO' <-
-            if null decommitUTxO
-              then Map.fromList . (: []) <$> elements (Map.toList shuffledUTxOInHead)
-              else pure decommitUTxO
-          pure $
-            ModelSnapshot
-              { snapshotNumber = latestSnapshot + 1
-              , snapshotUTxO = utxoInHead \\ decommitUTxO'
-              , decommitUTxO = decommitUTxO'
-              }
-        else arbitrary
