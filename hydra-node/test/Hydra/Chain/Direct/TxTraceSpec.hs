@@ -296,6 +296,20 @@ data TxResult = TxResult
 initialAmount :: Natural
 initialAmount = 10
 
+balanceUTxOInHead :: Ord k => Map k Natural -> Map k Natural -> Map k Natural
+balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
+  let
+    currentUtxoInHead' = fmap naturalToInteger currentUtxoInHead
+    someUTxOToDecrement' = fmap (negate . naturalToInteger) someUTxOToDecrement
+   in
+    Map.map naturalFromInteger
+      . Map.filter (> 0)
+      . Map.map sum
+      $ Map.unionWith
+        (++)
+        (Map.map (: []) currentUtxoInHead')
+        (Map.map (: []) someUTxOToDecrement')
+
 instance StateModel Model where
   data Action Model a where
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
@@ -394,19 +408,6 @@ instance StateModel Model where
       subset <- sublistOf (Map.toList model)
       return $ Map.fromList subset
 
-    balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
-      let
-        currentUtxoInHead' = fmap naturalToInteger currentUtxoInHead
-        someUTxOToDecrement' = fmap (negate . naturalToInteger) someUTxOToDecrement
-       in
-        Map.map naturalFromInteger
-          . Map.filter (> 0)
-          . Map.map sum
-          $ Map.unionWith
-            (++)
-            (Map.map (: []) currentUtxoInHead')
-            (Map.map (: []) someUTxOToDecrement')
-
     reduceValues :: ModelUTxO -> Gen ModelUTxO
     reduceValues = Map.traverseWithKey reduceValue
      where
@@ -485,14 +486,7 @@ instance StateModel Model where
         m
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
-          , utxoInHead =
-              -- XXX: remove the balance
-              let currentUTxOInHead = Map.map naturalToInteger $ utxoInHead m
-                  utxoToDecommit = Map.map (negate . naturalToInteger) $ decommitUTxO snapshot
-                  balancedUTxOInHead =
-                    Map.map sum $
-                      Map.unionWith (++) (Map.map (: []) currentUTxOInHead) (Map.map (: []) utxoToDecommit)
-               in Map.map naturalFromInteger balancedUTxOInHead
+          , utxoInHead = balanceUTxOInHead (utxoInHead m) (decommitUTxO snapshot)
           }
       Close{snapshot} ->
         m
