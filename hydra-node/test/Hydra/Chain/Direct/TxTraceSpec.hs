@@ -31,7 +31,6 @@ import Hydra.Cardano.Api (
   txOutValue,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Cardano.Api.UTxO (renderUTxO)
 import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
@@ -95,13 +94,24 @@ prop_traces =
         & cover 5 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
         & cover 5 (fanoutWithDecrement steps) "fanout with something to decrement"
         & cover 5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
+        & cover 5 (fanoutWithSomeUTxOAndManyDecrements steps) "fanout with some UTxO and many to decrement"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
         & cover 5 (closeWithDecrement steps) "close with something to decrement"
         & cover 5 (closeWithSomeUTxO steps) "close with some UTxO"
         & cover 5 (closeWithSomeUTxOAndDecrement steps) "close with some UTxO and something to decrement"
+        & cover 5 (closeWithSomeUTxOAndManyDecrements steps) "close with some UTxO and many to decrement"
         & cover 5 (hasDecrement steps) "has successful decrements"
+        & cover 5 (hasManyDecrement steps) "has many successful decrements"
  where
+  hasSnapshotUTxO snapshot = not . null $ snapshotUTxO snapshot
+
+  hasNoSnapshotUTxO snapshot = null $ snapshotUTxO snapshot
+
+  hasDecommitValue snapshot = sum (Map.elems (decommitUTxO snapshot)) > 0
+
+  hasManyDecommits snapshot = size (decommitUTxO snapshot) > 1
+
   hasFanout =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
@@ -111,27 +121,44 @@ prop_traces =
   fanoutWithEmptyUTxO =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot = ModelSnapshot{snapshotUTxO}} -> polarity == PosPolarity && null snapshotUTxO
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasNoSnapshotUTxO snapshot
         _ -> False
 
   fanoutWithSomeUTxO =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot = ModelSnapshot{snapshotUTxO}} -> polarity == PosPolarity && not (null snapshotUTxO)
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasSnapshotUTxO snapshot
         _ -> False
 
   fanoutWithDecrement =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot = ModelSnapshot{decommitUTxO}} ->
-          polarity == PosPolarity && (not . null $ decommitUTxO)
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasDecommitValue snapshot
         _ -> False
 
   fanoutWithSomeUTxOAndDecrement =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot = ModelSnapshot{snapshotUTxO, decommitUTxO}} ->
-          polarity == PosPolarity && not (null snapshotUTxO) && (not . null $ decommitUTxO)
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasSnapshotUTxO snapshot
+            && hasDecommitValue snapshot
+        _ -> False
+
+  fanoutWithSomeUTxOAndManyDecrements =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasSnapshotUTxO snapshot
+            && hasDecommitValue snapshot
+            && hasManyDecommits snapshot
         _ -> False
 
   countContests =
@@ -149,23 +176,50 @@ prop_traces =
 
   closeWithDecrement =
     any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} -> snapshot > 0 && (not . null $ decommitUTxO snapshot)
+      Close{snapshot} ->
+        snapshot > 0
+          && hasDecommitValue snapshot
       _ -> False
 
   closeWithSomeUTxO =
     any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} -> snapshot > 0 && (not . null $ snapshotUTxO snapshot)
+      Close{snapshot} ->
+        snapshot > 0
+          && hasSnapshotUTxO snapshot
       _ -> False
 
   closeWithSomeUTxOAndDecrement =
     any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} -> snapshot > 0 && (not . null $ snapshotUTxO snapshot) && (not . null $ decommitUTxO snapshot)
+      Close{snapshot} ->
+        snapshot > 0
+          && hasSnapshotUTxO snapshot
+          && hasDecommitValue snapshot
+      _ -> False
+
+  closeWithSomeUTxOAndManyDecrements =
+    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
+      Close{snapshot} ->
+        snapshot > 0
+          && hasSnapshotUTxO snapshot
+          && hasDecommitValue snapshot
+          && hasManyDecommits snapshot
       _ -> False
 
   hasDecrement =
     all $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{snapshot} -> polarity == PosPolarity && sum (Map.elems (decommitUTxO snapshot)) < initialAmount
+        Decrement{snapshot} ->
+          polarity == PosPolarity
+            && hasDecommitValue snapshot
+        _ -> False
+
+  hasManyDecrement =
+    all $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Decrement{snapshot} ->
+          polarity == PosPolarity
+            && hasDecommitValue snapshot
+            && hasManyDecommits snapshot
         _ -> False
 
 prop_runActions :: Actions Model -> Property
