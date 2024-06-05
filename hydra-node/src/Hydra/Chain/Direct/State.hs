@@ -471,6 +471,7 @@ data DecrementTxError
   = InvalidHeadIdInDecrement {headId :: HeadId}
   | CannotFindHeadOutputInDecrement
   | SnapshotMissingDecrementUTxO
+  | SnapshotDecrementUTxOIsNull
   deriving stock (Show)
 
 decrement ::
@@ -492,7 +493,7 @@ decrement ctx headId headParameters spendableUTxO snapshot signatures = do
       Left SnapshotMissingDecrementUTxO
     Just decrementUTxO
       | null decrementUTxO ->
-          Left SnapshotMissingDecrementUTxO
+          Left SnapshotDecrementUTxOIsNull
     _ ->
       Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO snapshot signatures
  where
