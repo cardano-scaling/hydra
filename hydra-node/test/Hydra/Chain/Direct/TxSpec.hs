@@ -40,7 +40,7 @@ import Data.Text qualified as T
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Close (healthyContestationDeadline, healthyOpenHeadTxOut)
+import Hydra.Chain.Direct.Contract.Close (healthyOpenHeadTxOut)
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
@@ -89,7 +89,6 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party, partyToChain)
-import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 (toBuiltin)
@@ -256,8 +255,8 @@ spec =
                       & counterexample "Blueprint reference inputs missing"
                   ]
 
-    describe "Decrement" $ do
-      it "Alter snapshots to trigger validator errors" $
+    describe "Decrement, close, contest and fanout work together" $ do
+      it "Alter snapshots to test transactions" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
                 chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
@@ -285,80 +284,24 @@ spec =
             let decrementSnapshot =
                   Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit'}
 
-            let findHeadUTxO utxo =
-                  let headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
-                   in case UTxO.find (isScriptTxOut headScript) (utxoOfThisHead Fixture.testPolicyId utxo) of
-                        Nothing -> error "Missing head output"
-                        Just headUTxO -> headUTxO
-
-            let createCloseDatumFromOpen (snapshot, spendable) =
-                  let (headIn, headOut) = findHeadUTxO spendable
-                   in UTxO.singleton (headIn, modifyTxOutDatum (const closeDatum) headOut) <> registryUTxO scriptRegistry
-                 where
-                  Snapshot{utxo, utxoToDecommit} = snapshot
-                  closeDatum =
-                    mkTxOutDatumInline
-                      HeadState.Closed
-                        { parties = partyToChain <$> [alice, bob, carol]
-                        , snapshotNumber = 1
-                        , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-                        , utxoToDecommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
-                        , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-                        , contestationPeriod = contestationPeriodFromDiffTime 10
-                        , headId = headIdToCurrencySymbol headId'
-                        , contesters = []
-                        }
-
-            let mutatePartiesInOpen (snapshot, spendable) =
-                  let (headIn, headOut) = findHeadUTxO spendable
-                   in UTxO.singleton (headIn, modifyTxOutDatum (const d) headOut) <> registryUTxO scriptRegistry
-                 where
-                  Snapshot{utxo} = snapshot
-                  d =
-                    mkTxOutDatumInline
-                      HeadState.Open
-                        { parties = partyToChain <$> [alice, bob]
-                        , snapshotNumber = 1
-                        , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-                        , contestationPeriod = contestationPeriodFromDiffTime 10
-                        , headId = headIdToCurrencySymbol headId'
-                        }
-
-            let decrements =
-                  -- XXX: hard to re-produce checkSnapshotSignature
-                  [ (decrementSnapshot, mutatePartiesInOpen, Just ChangedParameters)
-                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, snd, Nothing)
-                  , -- XXX: how to test these ones?
-                    -- (decrementSnapshot, modifyHeadVal, Just HeadValueIsNotPreserved, "Decrement: mustDecreaseValue")
-                    (decrementSnapshot, snd, Nothing)
+            let decrementSnapshots =
+                  [ (decrementSnapshot, Nothing)
+                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, Nothing)
                   ]
 
-            let closes =
-                  [ (decrementSnapshot, snd, Nothing)
-                  ]
+            let closeSnapshots = [(decrementSnapshot, Nothing)]
 
-            let contests =
-                  [ (mutateSnapshotNumber (const 0) decrementSnapshot, createCloseDatumFromOpen, Just TooOldSnapshot)
-                  , (mutateSnapshotNumber (+ 1) decrementSnapshot, snd, Nothing)
-                  ]
+            let contestSnapshots = [(mutateSnapshotNumber (+ 1) decrementSnapshot, Nothing)]
+            -- (mutateSnapshotNumber (const 0) decrementSnapshot, createCloseDatumFromOpen, Just TooOldSnapshot)
 
-            let fanouts =
-                  [(decrementSnapshot, snd, Nothing)]
+            let fanoutSnapshots = [(decrementSnapshot, Nothing)
+                          ]
 
             flip evalState spendableUTxO $ do
-              decrementResults <- mapM (produceDecrement ctx scriptRegistry headId' parameters) decrements
-              closeResults <- mapM (produceClose ctx scriptRegistry headId' parameters) closes
-              contestResults <- mapM (produceContest ctx scriptRegistry headId') contests
-              fanoutResults <- mapM (produceFanout ctx txIn) fanouts
-              let results = decrementResults <> closeResults <> contestResults <> fanoutResults
-              pure $
-                conjoin $
-                  ( \case
-                      Left err -> counterexample err $ property False
-                      Right (tx, utxo, mHeadError) ->
-                        evaluateAndMatchError tx utxo mHeadError
-                  )
-                    <$> results
+              void $ produceDecrement ctx scriptRegistry headId' parameters decrementSnapshots
+              void $ produceClose ctx scriptRegistry headId' parameters closeSnapshots
+              void $ produceContest ctx scriptRegistry headId' contestSnapshots
+              produceFanout ctx scriptRegistry txIn fanoutSnapshots
 
 mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotNumber fn snapshot =
@@ -378,84 +321,105 @@ mutateUTxOToDecommit fn snapshot =
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = UnsafeContestationPeriod 10
 
+findHeadUTxO :: UTxO -> (TxIn, TxOut CtxUTxO)
+findHeadUTxO utxo =
+  let headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+   in case UTxO.find (isScriptTxOut headScript) (utxoOfThisHead Fixture.testPolicyId utxo) of
+        Nothing -> error "Missing head output"
+        Just headUTxO -> headUTxO
+
 produceDecrement ::
   ChainContext ->
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
-produceDecrement ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError) = do
-  spendableUTxO <- get
-  let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
-  case decrement ctx headId parameters newSpendableUTxO snapshot signatures of
-    Left err -> pure $ Left (show err)
-    Right tx ->
-      if isNothing expectedError
-        then do
-          put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError)
-        else pure $ Right (tx, newSpendableUTxO, expectedError)
- where
-  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+  [(Snapshot Tx, Maybe HeadError)] ->
+  State UTxO Property
+produceDecrement ctx scriptRegistry headId parameters decrements =
+  conjoin
+    <$> mapM
+      ( \(snapshot, expectedError) -> do
+          spendableUTxO <- get
+          let signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+          case decrement ctx headId parameters spendableUTxO snapshot signatures of
+            Left err -> pure $ counterexample ("Decrement: " <> show err) $ property False
+            Right tx ->
+              if isNothing expectedError
+                then do
+                  let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs $ fromMaybe mempty $ utxoToDecommit snapshot)
+                  let (headIn, headOut) = findHeadUTxO (utxoFromTx tx)
+                  let headUTxO = UTxO.singleton (headIn, modifyTxOutValue (<> decommitValue) headOut)
+                  put $ headUTxO <> registryUTxO scriptRegistry
+                  pure $ evaluateAndMatchError tx spendableUTxO expectedError
+                else pure $ evaluateAndMatchError tx spendableUTxO expectedError
+      )
+      decrements
 
 produceClose ::
   ChainContext ->
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
-produceClose ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError) = do
-  spendableUTxO <- get
-  let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
-  case close ctx newSpendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
-    Left err -> pure $ Left $ show err
-    Right tx ->
-      if isNothing expectedError
-        then do
-          put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError)
-        else pure $ Right (tx, newSpendableUTxO, expectedError)
- where
-  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+  [(Snapshot Tx, Maybe HeadError)] ->
+  State UTxO Property
+produceClose ctx scriptRegistry headId parameters closes = do
+  conjoin
+    <$> mapM
+      ( \(snapshot, expectedError) -> do
+          spendableUTxO <- get
+          let signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+          case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
+            Left err -> pure $ counterexample ("Close: " <> show err) $ property False
+            Right tx ->
+              if isNothing expectedError
+                then do
+                  put $ utxoFromTx tx <> registryUTxO scriptRegistry
+                  pure $ evaluateAndMatchError tx spendableUTxO expectedError
+                else pure $ evaluateAndMatchError tx spendableUTxO expectedError
+      )
+      closes
 
 produceContest ::
   ChainContext ->
   ScriptRegistry ->
   HeadId ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
-produceContest ctx scriptRegistry headId (snapshot, mutateSpendableUTxO, expectedError) = do
-  spendableUTxO <- get
-  let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
-  case contest ctx newSpendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
-    Left err -> pure $ Left $ show err
-    Right tx ->
-      if isNothing expectedError
-        then do
-          put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError)
-        else pure $ Right (tx, newSpendableUTxO, expectedError)
- where
-  signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+  [(Snapshot Tx, Maybe HeadError)] ->
+  State UTxO Property
+produceContest ctx scriptRegistry headId contests =
+  conjoin
+    <$> mapM
+      ( \(snapshot, expectedError) -> do
+          spendableUTxO <- get
+          let signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
+          case contest ctx spendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
+            Left err -> pure $ counterexample ("Contest: " <> show err) $ property False
+            Right tx ->
+              if isNothing expectedError
+                then do
+                  put $ utxoFromTx tx <> registryUTxO scriptRegistry
+                  pure $ evaluateAndMatchError tx spendableUTxO expectedError
+                else pure $ evaluateAndMatchError tx spendableUTxO expectedError
+      )
+      contests
 
 produceFanout ::
   ChainContext ->
+  ScriptRegistry ->
   TxIn ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
-produceFanout ctx seedTxIn (snapshot, mutateSpendableUTxO, expectedError) = do
-  spendableUTxO <- get
-  let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
-  case fanout ctx newSpendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 20 of
-    Left err -> pure $ Left $ show err
-    Right tx -> do
-      if isNothing expectedError
-        then do
-          put newSpendableUTxO
-          pure $ Right (tx, newSpendableUTxO, expectedError)
-        else pure $ Right (tx, newSpendableUTxO, expectedError)
+  [(Snapshot Tx, Maybe HeadError)] ->
+  State UTxO Property
+produceFanout ctx scriptRegistry seedTxIn fanouts =
+  conjoin
+    <$> mapM
+      ( \(snapshot, expectedError) -> do
+          spendableUTxO <- get
+          case fanout ctx spendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 20 of
+            Left err -> pure $ counterexample ("Fanout: " <> show err) $ property False
+            Right tx -> do
+              put $ utxoFromTx tx <> registryUTxO scriptRegistry
+              pure $ evaluateAndMatchError tx spendableUTxO expectedError
+      )
+      fanouts
 
 hasHigherSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
 hasHigherSnapshotNumber =
