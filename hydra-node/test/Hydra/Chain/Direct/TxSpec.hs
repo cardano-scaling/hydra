@@ -83,7 +83,7 @@ import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (aggregate, sign)
-import Hydra.Data.ContestationPeriod (addContestationPeriod, contestationPeriodFromDiffTime)
+import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
@@ -108,7 +108,6 @@ import Test.QuickCheck (
   forAllBlind,
   label,
   property,
-  suchThat,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -258,7 +257,7 @@ spec =
                   ]
 
     describe "Decrement" $ do
-      prop "Alter snapshots to trigger validator errors" $
+      it "Alter snapshots to trigger validator errors" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
                 chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
@@ -497,11 +496,10 @@ evaluateAndMatchError tx spendableUTxO expectedError =
 
 genPerfectModelSnapshot :: Gen ModelSnapshot
 genPerfectModelSnapshot = do
-  snapshotNumber <- arbitrary
   (decommit, amount) <- arbitrary
   let decommitUTxO = Map.fromList [(decommit, amount)]
-  snapshotUTxO <- arbitrary `suchThat` (\a -> all (> amount) (Map.elems a) && (decommit `elem` Map.keys a))
-  pure $ ModelSnapshot{snapshotNumber, snapshotUTxO, decommitUTxO}
+  snapshotUTxO' <- arbitrary
+  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
