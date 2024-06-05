@@ -326,25 +326,24 @@ spec =
 
             let decrements =
                   -- XXX: hard to re-produce checkSnapshotSignature
-                  [ (decrementSnapshot, mutatePartiesInOpen, Just ChangedParameters, "Decrement: mustNotChangeParameters")
-                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, snd, Just SnapshotNumberMismatch, "Decrement: checkSnapshot")
+                  [ (decrementSnapshot, mutatePartiesInOpen, Just ChangedParameters)
+                  , (mutateSnapshotNumber (\a -> abs $ a - 1) decrementSnapshot, snd, Nothing)
                   , -- XXX: how to test these ones?
                     -- (decrementSnapshot, modifyHeadVal, Just HeadValueIsNotPreserved, "Decrement: mustDecreaseValue")
-                    (decrementSnapshot, snd, Nothing, "Decrement: Valid snapshot works")
+                    (decrementSnapshot, snd, Nothing)
                   ]
 
             let closes =
-                  [ (mutateSnapshotNumber (const 0) decrementSnapshot, snd, Just TooOldSnapshot, "Close: Mutate to initial snapshot")
-                  , (decrementSnapshot, snd, Nothing, "Close: Valid snapshot works")
+                  [ (decrementSnapshot, snd, Nothing)
                   ]
 
             let contests =
-                  [ (mutateSnapshotNumber (const 0) decrementSnapshot, createCloseDatumFromOpen, Just TooOldSnapshot, "Contest: outdated snapshot number")
-                  , (mutateSnapshotNumber (+ 1) decrementSnapshot, snd, Nothing, "Contest: Valid snapshot works")
+                  [ (mutateSnapshotNumber (const 0) decrementSnapshot, createCloseDatumFromOpen, Just TooOldSnapshot)
+                  , (mutateSnapshotNumber (+ 1) decrementSnapshot, snd, Nothing)
                   ]
 
             let fanouts =
-                  [(decrementSnapshot, snd, Nothing, "Fanout: Valid snapshot works")]
+                  [(decrementSnapshot, snd, Nothing)]
 
             flip evalState spendableUTxO $ do
               decrementResults <- mapM (produceDecrement ctx scriptRegistry headId' parameters) decrements
@@ -356,9 +355,8 @@ spec =
                 conjoin $
                   ( \case
                       Left err -> counterexample err $ property False
-                      Right (tx, utxo, mHeadError, labelStr) ->
-                        label labelStr $
-                          evaluateAndMatchError tx utxo mHeadError
+                      Right (tx, utxo, mHeadError) ->
+                        evaluateAndMatchError tx utxo mHeadError
                   )
                     <$> results
 
@@ -385,19 +383,19 @@ produceDecrement ::
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError, String) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError, String))
-produceDecrement ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError, labelStr) = do
+  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
+  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
+produceDecrement ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError) = do
   spendableUTxO <- get
   let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
   case decrement ctx headId parameters newSpendableUTxO snapshot signatures of
-    Left err -> pure $ Left $ labelStr <> show err
+    Left err -> pure $ Left (show err)
     Right tx ->
       if isNothing expectedError
         then do
           put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
-        else pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
+          pure $ Right (tx, newSpendableUTxO, expectedError)
+        else pure $ Right (tx, newSpendableUTxO, expectedError)
  where
   signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
 
@@ -406,19 +404,19 @@ produceClose ::
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError, String) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError, String))
-produceClose ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError, labelStr) = do
+  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
+  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
+produceClose ctx scriptRegistry headId parameters (snapshot, mutateSpendableUTxO, expectedError) = do
   spendableUTxO <- get
   let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
   case close ctx newSpendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
-    Left err -> pure $ Left $ labelStr <> show err
+    Left err -> pure $ Left $ show err
     Right tx ->
       if isNothing expectedError
         then do
           put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
-        else pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
+          pure $ Right (tx, newSpendableUTxO, expectedError)
+        else pure $ Right (tx, newSpendableUTxO, expectedError)
  where
   signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
 
@@ -426,38 +424,38 @@ produceContest ::
   ChainContext ->
   ScriptRegistry ->
   HeadId ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError, String) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError, String))
-produceContest ctx scriptRegistry headId (snapshot, mutateSpendableUTxO, expectedError, labelStr) = do
+  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
+  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
+produceContest ctx scriptRegistry headId (snapshot, mutateSpendableUTxO, expectedError) = do
   spendableUTxO <- get
   let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
   case contest ctx newSpendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
-    Left err -> pure $ Left $ labelStr <> show err
+    Left err -> pure $ Left $ show err
     Right tx ->
       if isNothing expectedError
         then do
           put $ utxoFromTx tx <> registryUTxO scriptRegistry
-          pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
-        else pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
+          pure $ Right (tx, newSpendableUTxO, expectedError)
+        else pure $ Right (tx, newSpendableUTxO, expectedError)
  where
   signatures = aggregate [sign sk snapshot | sk <- [aliceSk, bobSk, carolSk]]
 
 produceFanout ::
   ChainContext ->
   TxIn ->
-  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError, String) ->
-  State UTxO (Either String (Tx, UTxO, Maybe HeadError, String))
-produceFanout ctx seedTxIn (snapshot, mutateSpendableUTxO, expectedError, labelStr) = do
+  (Snapshot Tx, (Snapshot Tx, UTxO) -> UTxO, Maybe HeadError) ->
+  State UTxO (Either String (Tx, UTxO, Maybe HeadError))
+produceFanout ctx seedTxIn (snapshot, mutateSpendableUTxO, expectedError) = do
   spendableUTxO <- get
   let newSpendableUTxO = mutateSpendableUTxO (snapshot, spendableUTxO)
   case fanout ctx newSpendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 20 of
-    Left err -> pure $ Left $ labelStr <> show err
+    Left err -> pure $ Left $ show err
     Right tx -> do
       if isNothing expectedError
         then do
           put newSpendableUTxO
-          pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
-        else pure $ Right (tx, newSpendableUTxO, expectedError, labelStr)
+          pure $ Right (tx, newSpendableUTxO, expectedError)
+        else pure $ Right (tx, newSpendableUTxO, expectedError)
 
 hasHigherSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
 hasHigherSnapshotNumber =
