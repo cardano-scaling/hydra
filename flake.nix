@@ -148,15 +148,7 @@
             "hydra-tui"
             "plutus-cbor"
             "plutus-merkle-tree"
-          ]) //
-          (if pkgs.stdenv.isLinux then
-            {
-              inherit (packages)
-                docker-hydra-explorer
-                docker-hydra-node
-                docker-hydra-tui
-                docker-hydraw;
-            } else { });
+          ]);
 
           devShells = import ./nix/hydra/shell.nix {
             inherit inputs pkgs hsPkgs system compiler;
