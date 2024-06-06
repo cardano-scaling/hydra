@@ -365,12 +365,13 @@ instance StateModel Model where
    where
     genSnapshot = do
       someUTxOToDecrement <- reduceValues =<< genSubModelOf utxoInHead
-      let balancedUTxOInHead = balanceUTxOInHead utxoInHead someUTxOToDecrement
+      let filteredSomeUTxOToDecrement = Map.filter (> 0) someUTxOToDecrement
+      let balancedUTxOInHead = balanceUTxOInHead utxoInHead filteredSomeUTxOToDecrement
       let validSnapshot =
             ModelSnapshot
               { snapshotNumber = latestSnapshot
               , snapshotUTxO = balancedUTxOInHead
-              , decommitUTxO = someUTxOToDecrement
+              , decommitUTxO = filteredSomeUTxOToDecrement
               }
       oneof
         [ -- valid
@@ -385,7 +386,7 @@ instance StateModel Model where
           pure validSnapshot{snapshotNumber = latestSnapshot + 1}
         , do
             -- shuffled
-            someUTxOToDecrement' <- shuffleValues someUTxOToDecrement
+            someUTxOToDecrement' <- shuffleValues filteredSomeUTxOToDecrement
             pure validSnapshot{decommitUTxO = someUTxOToDecrement'}
         , do
             -- more in head
