@@ -109,7 +109,9 @@ prop_traces =
 
   hasDecommitValue snapshot = sum (Map.elems (decommitUTxO snapshot)) > 0
 
-  hasManyDecommits snapshot = size (decommitUTxO snapshot) > 1
+  hasManyDecommits snapshot =
+    let utxoToDecommit = Map.filter (> 0) (decommitUTxO snapshot)
+     in size utxoToDecommit > 1
 
   hasFanout =
     any $
