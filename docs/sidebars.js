@@ -5,11 +5,6 @@ module.exports = {
       label: "Welcome",
       id: "index",
     },
-    {
-      type: "doc",
-      id: "protocol-overview",
-      label: "Protocol overview",
-    },
     "known-issues",
     {
       type: "html",
