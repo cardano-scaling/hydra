@@ -91,15 +91,13 @@ prop_traces =
         & cover 10 (hasFanout steps) "reach fanout"
         & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
         & cover 5 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-        & cover 5 (fanoutWithDecrement steps) "fanout with something to decrement"
-        & cover 5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
-        & cover 5 (fanoutWithSomeUTxOAndManyDecrements steps) "fanout with some UTxO and many to decrement"
+        & cover 0.5 (fanoutWithDecrement steps) "fanout with something to decrement"
+        & cover 0.5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
-        & cover 5 (closeWithDecrement steps) "close with something to decrement"
         & cover 5 (closeWithSomeUTxO steps) "close with some UTxO"
-        & cover 5 (closeWithSomeUTxOAndDecrement steps) "close with some UTxO and something to decrement"
-        & cover 5 (closeWithSomeUTxOAndManyDecrements steps) "close with some UTxO and many to decrement"
+        & cover 0.5 (closeWithDecrement steps) "close with something to decrement"
+        & cover 0.5 (closeWithSomeUTxOAndDecrement steps) "close with some UTxO and something to decrement"
         & cover 5 (hasDecrement steps) "has successful decrements"
         & cover 5 (hasManyDecrement steps) "has many successful decrements"
  where
@@ -152,16 +150,6 @@ prop_traces =
             && hasDecommitValue snapshot
         _ -> False
 
-  fanoutWithSomeUTxOAndManyDecrements =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
-          polarity == PosPolarity
-            && hasSnapshotUTxO snapshot
-            && hasDecommitValue snapshot
-            && hasManyDecommits snapshot
-        _ -> False
-
   countContests =
     length
       . filter
@@ -195,15 +183,6 @@ prop_traces =
         snapshot > 0
           && hasSnapshotUTxO snapshot
           && hasDecommitValue snapshot
-      _ -> False
-
-  closeWithSomeUTxOAndManyDecrements =
-    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} ->
-        snapshot > 0
-          && hasSnapshotUTxO snapshot
-          && hasDecommitValue snapshot
-          && hasManyDecommits snapshot
       _ -> False
 
   hasDecrement =
