@@ -248,6 +248,7 @@ data Model = Model
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
+  , decommitUTxOInHead :: ModelUTxO
   }
   deriving (Show)
 
@@ -326,6 +327,7 @@ instance StateModel Model where
       , latestSnapshot = 0
       , alreadyContested = []
       , utxoInHead = fromList [(A, initialAmount)]
+      , decommitUTxOInHead = Map.empty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -433,7 +435,7 @@ instance StateModel Model where
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
+  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead, decommitUTxOInHead} = \case
     Stop -> headState /= Final
     Decrement{snapshot} ->
       headState == Open
@@ -445,24 +447,34 @@ instance StateModel Model where
         && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
       headState == Open
-        && if snapshotNumber snapshot == 0
-          then snapshotUTxO snapshot == initialUTxOInHead
-          else snapshotNumber snapshot >= latestSnapshot
+        && ( if snapshotNumber snapshot == 0
+              then snapshotUTxO snapshot == initialUTxOInHead
+              else snapshotNumber snapshot >= latestSnapshot
+           )
+        -- XXX: you are decrementing from existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+        -- XXX: your tx is balanced with the utxo in the head
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshotNumber snapshot > latestSnapshot
+        -- XXX: you are decrementing from existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+        -- XXX: your tx is balanced with the utxo in the head
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
+        && decommitUTxO snapshot == decommitUTxOInHead
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead} = \case
+  validFailingAction Model{headState, utxoInHead, decommitUTxOInHead} = \case
     Stop -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
@@ -472,22 +484,23 @@ instance StateModel Model where
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore decrements that work with non existing utxo in the head
-        && all
-          (`elem` Map.keys utxoInHead)
-          ( Map.keys (decommitUTxO snapshot)
-              <> Map.keys
-                ( snapshotUTxO
-                    snapshot
-                )
-          )
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- XXX: Ignore decrement without something to decommit
         && (not . null $ decommitUTxO snapshot)
-    Close{} ->
+    Close{snapshot} ->
       headState == Open
+        -- XXX: Ignore unbalanced close.
+        -- TODO: make them fail gracefully and test this?
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+        -- XXX: Ignore close that work with non existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Contest{} ->
       headState == Closed
-    Fanout{} ->
+    Fanout{snapshot} ->
       headState == Closed
+        -- XXX: Ignore fanouts which does not preserve the closing head
+        && snapshotUTxO snapshot == utxoInHead
+        && decommitUTxO snapshot == decommitUTxOInHead
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
@@ -505,6 +518,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
+          , decommitUTxOInHead = decommitUTxO snapshot
           }
       Contest{actor, snapshot} ->
         m
