@@ -494,8 +494,13 @@ instance StateModel Model where
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore close that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-    Contest{} ->
+    Contest{snapshot} ->
       headState == Closed
+        -- XXX: Ignore unbalanced close.
+        -- TODO: make them fail gracefully and test this?
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+        -- XXX: Ignore close that work with non existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Fanout{snapshot} ->
       headState == Closed
         -- XXX: Ignore fanouts which does not preserve the closing head
@@ -526,6 +531,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
+          , decommitUTxOInHead = decommitUTxO snapshot
           }
       Fanout{} -> m{headState = Final}
 
