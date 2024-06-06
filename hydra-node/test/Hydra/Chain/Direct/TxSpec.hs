@@ -100,7 +100,6 @@ import Test.QuickCheck (
   counterexample,
   cover,
   elements,
-  expectFailure,
   forAll,
   forAllBlind,
   label,
@@ -108,7 +107,6 @@ import Test.QuickCheck (
   vectorOf,
   withMaxSuccess,
   (.&&.),
-  (.&.),
   (===),
  )
 import Test.QuickCheck.Instances.Semigroup ()
@@ -254,7 +252,7 @@ spec =
                       & counterexample "Blueprint reference inputs missing"
                   ]
 
-    describe "Decrement, close, contest and fanout work together" $ do
+    describe "Chained transactions work" $ do
       it "Alter snapshots to test transactions" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
@@ -302,29 +300,40 @@ spec =
               -- Note that we start with one valid snapshot (signed by everyone) and expect this to
               -- work. After mutating the snapshot we need to re-sign it in case we don't expect signature verification to fail
               -- (eg. we need to increase the contest snapshot number but we re-sign since we don't want to test this change).
-              let validSnapshots =
-                    [ (property True, spendableUTxO, startingSnapshot, signSnapshot startingSnapshot)
+              let validSnapshot = (property True, spendableUTxO, startingSnapshot, signSnapshot startingSnapshot)
+
+              let bumpSnapshotNumber = mutateSnapshotNumber (1 +)
+
+              let bumpSnapshot (a, b, c, _) =
+                    let alteredSnapshot = bumpSnapshotNumber c
+                     in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
+
+              let reAddUTxOToDecommit (a, b, c, _) =
+                    let alteredSnapshot = mutateUTxOToDecommit (const (utxoToDecommit startingSnapshot)) c
+                     in bumpSnapshot (a, b, alteredSnapshot, alteredSnapshot)
+
+              let removeUTxOToDecommit (a, b, c, _) =
+                    let alteredSnapshot = mutateUTxOToDecommit (const Nothing) (bumpSnapshotNumber c)
+                     in (a, b, alteredSnapshot, signSnapshot $ bumpSnapshotNumber c)
+
+              let expectAllValid = counterexample "All Valid" . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . decrementAction
+
+              -- Should be able to close with something to decommit
+              let expectValidCloseWithDecommit = counterexample "Close with something to decommit" . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction
+
+              -- Should not be able to contest if decommit was removed from the snapshot
+              let expectInvalidContestWithRemovedDecommit = counterexample "Contest with removed decommit" . fst4 . fanoutAction . contestAction . removeUTxOToDecommit . closeAction
+
+              -- Close, contest, then re-add what was decremented and try to fanout
+              let expectInvalidFanoutWithRemovedDecommit = counterexample "Fanout with removed decommit" . fst4 . fanoutAction . reAddUTxOToDecommit . contestAction . closeAction
+
+              let expectedInvalid =
+                    [ expectInvalidContestWithRemovedDecommit validSnapshot
+                    , expectInvalidFanoutWithRemovedDecommit validSnapshot
                     ]
+              let expectedValid = [expectAllValid validSnapshot, expectValidCloseWithDecommit validSnapshot]
 
-              let expectAllValid =
-                    let mutation = mutateSnapshotNumber (1 +)
-                     in fst4
-                          . fanoutAction
-                          . contestAction
-                          . (\(a, b, c, _) -> let alteredSnapshot = mutation c in (a, b, alteredSnapshot, signSnapshot alteredSnapshot))
-                          . closeAction
-                          . decrementAction
-
-              let expectInvalidContest =
-                    let validMutation = mutateSnapshotNumber (1 +)
-                        invalidMutation sn = mutateUTxOToDecommit (const Nothing) $ mutateSnapshotNumber (1 +) sn
-                     in fst4
-                          . fanoutAction
-                          . contestAction
-                          . (\(p, utxo, sn, _) -> let alteredSnapshot = invalidMutation (validMutation sn) in (p, utxo, alteredSnapshot, signSnapshot $ validMutation sn))
-                          . closeAction
-              label "Valid snapshot works" (conjoin (fmap expectAllValid validSnapshots))
-                .&. label "Contest with removed utxoToDecommit fails" (expectFailure $ conjoin (fmap expectInvalidContest validSnapshots))
+              conjoin (expectedValid <> expectedInvalid)
 
 mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotNumber fn snapshot =
