@@ -122,11 +122,6 @@ const config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
-          // Docs restructuring (2024-05-08)
-          {
-            from: "/core-concepts/specification",
-            to: "/docs/dev/specification",
-          },
           // Use cases section re-organized (2023-07-25)
           {
             from: "/use-cases/poker-game",

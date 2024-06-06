@@ -10,7 +10,7 @@ contributors to the `hydra-node`.
 On every PR and also for the latest `master`, we do compute typical transaction
 costs in size, memory and cpu usage of the Hydra protocol transactions on
 Cardano. The latest results can be seen
-[here](/benchmarks/transaction-cost/).
+[here](https://hydra.family/head-protocol/benchmarks/transaction-cost/).
 
 Such benchmarks provide a great overview of what "fits" into a given transaction
 in terms of maximum transaction size, percent of maximum memory and cpu budget.
