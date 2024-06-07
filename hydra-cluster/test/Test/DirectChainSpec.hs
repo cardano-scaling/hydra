@@ -203,7 +203,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
-        (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+        (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $

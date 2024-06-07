@@ -13,18 +13,15 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromLedgerTxIn,
   getChainPoint,
   getTxBody,
   getTxId,
-  txIns',
  )
 import Hydra.Chain (
   Chain (..),
