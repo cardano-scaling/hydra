@@ -1,360 +1,837 @@
 {
     "samples": [
         {
-            "contestationDeadline": "1864-05-15T08:58:49.733802395752Z",
             "headId": "04060003080501020502000205040007",
-            "snapshotNumber": 5,
-            "tag": "HeadIsClosed"
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -2,
+                3,
+                4
+            ]
         },
         {
-            "contestationDeadline": "1864-05-12T17:36:33.80104811021Z",
             "headId": "06000407030704020202070805010303",
-            "snapshotNumber": 5,
-            "tag": "HeadIsClosed"
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -5
+            ]
         },
         {
             "headId": "08040306010507070301080102010703",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                6
-            ]
-        },
-        {
-            "headId": "05050504020606060506020002070202",
-            "signatures": {
-                "multiSignature": [
-                    "ec7f7df740b6789b51e429e94b02b069c0e1cf74b46a03fc9744754790343ee054d2f27a2d55726bd10f7ee6b494ce8794d62118c87b3dcc035e3a3f4086c901",
-                    "51f6aeaf9fcd20023e6da2706479ae8bf5a53dcd8d658d54e1f5fdce0b9e4837f7323dde393f9aa509759bd17e75bd60efcca17b1f2d38d9207d9e65ec4bd20e",
-                    "9f100f0e30830a944b99bf073e43d4e7a83211885f28af2773d67a48f1f8286ee2a293fb9fd2cb23245c15454e3dd2beacb453aeecc1934ac20a2a1eae63c309",
-                    "465dde35856a31bda9d3534d22debefa9f3597937388e5f5317b5119df3fabc4a3df2a1d69af358832bbc50b61b4489aaf46c7585397467b5766af7de6b5a10e"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    3,
-                    -1
-                ],
-                "headId": "05000506070106040802080102050100",
-                "snapshotNumber": 6,
-                "utxo": [
-                    6
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "1󽵃𪡰[R",
-            "me": {
-                "vkey": "2d06131a20973527fc8d0b7b3afebe2ba5385e6e5d2ab8ac5b0cd1345efe0399"
-            },
-            "snapshotUtxo": [
-                -4,
-                0,
-                5,
-                6
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "headId": "01020007070106070503000602080304",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 3,
-                "inputs": [
-                    3,
-                    6
-                ],
-                "outputs": [
-                    -6,
-                    -3,
-                    5
-                ]
-            }
-        },
-        {
-            "headId": "04030808060005070001000301020508",
             "party": {
-                "vkey": "cffc6f9c223251bac3c3612a1be6161d9198810e476013c8a87c127f75c4ec38"
+                "vkey": "bca4263d2f4db66396d228856c1311ecacff49d4aad27c3b8410bfc17fb53707"
             },
             "tag": "Committed",
             "utxo": [
-                -5,
-                -2,
-                0,
-                1,
+                -1,
+                2,
                 5,
                 6
             ]
         },
         {
-            "headId": "06060804030406080601070005030608",
-            "tag": "TxValid",
+            "headId": "05010707040401040604040003040800",
+            "tag": "TxInvalid",
             "transaction": {
-                "id": 4,
+                "id": -1,
                 "inputs": [
-                    -4,
-                    -2,
-                    -1,
-                    1,
                     6
                 ],
                 "outputs": [
-                    -3,
-                    1,
-                    5
+                    -1,
+                    3
                 ]
+            },
+            "utxo": [
+                -4,
+                1,
+                6
+            ],
+            "validationError": {
+                "reason": "\u0008\u0002_G"
             }
+        },
+        {
+            "input": "d",
+            "reason": "􋫇􆃗9𦸠",
+            "tag": "InvalidInput"
+        },
+        {
+            "clientInput": {
+                "tag": "Close"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    },
+                    "coordinatedHeadState": {
+                        "allTxs": {
+                            "-6": {
+                                "id": -4,
+                                "inputs": [
+                                    -5,
+                                    -3,
+                                    -1,
+                                    4
+                                ],
+                                "outputs": [
+                                    -4,
+                                    -1,
+                                    3,
+                                    6
+                                ]
+                            },
+                            "3": {
+                                "id": -4,
+                                "inputs": [
+                                    -4,
+                                    1,
+                                    3,
+                                    4
+                                ],
+                                "outputs": [
+                                    3
+                                ]
+                            }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "f5be08c8a2f8d9dab439d69a98583b1f51d1ca61d1ce285a0dc129551f06fe2cc284b2879c7e89551f469aada74028b53961c3d54ad7b63451d52d6794aade0f",
+                                    "e68df550d648b69716d34e964f908f5e2772711b272eee36b7437d045482fde696917ab2d26875b7df6c32a7fc60e144c125a72475a1760ace49aa9b5e22de0f",
+                                    "68699c1e9289caa637e8c4b21118410dd01da4d886a1894752ec13a81e4bd76c71366cf155b7fdd6a7c9aac2f05732ae60e5d15983e7f87c983e98f1f37ba00a"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "01010701040803070503050208060604",
+                                "snapshotNumber": 4,
+                                "utxo": []
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "localTxs": [
+                            {
+                                "id": 0,
+                                "inputs": [
+                                    -5,
+                                    -4,
+                                    2,
+                                    3,
+                                    5
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -4,
+                                    3,
+                                    5
+                                ]
+                            },
+                            {
+                                "id": 5,
+                                "inputs": [
+                                    -3,
+                                    1,
+                                    3,
+                                    6
+                                ],
+                                "outputs": [
+                                    -6,
+                                    2,
+                                    5,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -2,
+                                "inputs": [
+                                    -6,
+                                    1,
+                                    2,
+                                    3,
+                                    5
+                                ],
+                                "outputs": [
+                                    -4,
+                                    -1
+                                ]
+                            },
+                            {
+                                "id": 3,
+                                "inputs": [
+                                    -5,
+                                    -3,
+                                    -1,
+                                    1
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -4,
+                                    -3,
+                                    5,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -2,
+                                "inputs": [
+                                    -1
+                                ],
+                                "outputs": []
+                            }
+                        ],
+                        "localUTxO": [
+                            -2,
+                            2
+                        ],
+                        "seenSnapshot": {
+                            "signatories": {
+                                "9f500cf0b08e8c6c4287fafd200fd99696263070d64c158161758b5b5b0eed69": "e1fadddac1cbe457e90aa7b49be33b6a076a9ba4a3f26a4176e01cec4947b3178809e32c0fd1287150b3d428c5d90f3e568c81f597f53d1c54468a99b342930a"
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [
+                                    -5
+                                ],
+                                "headId": "07080203040303070107040606010605",
+                                "snapshotNumber": 2,
+                                "utxo": [
+                                    3
+                                ]
+                            },
+                            "tag": "SeenSnapshot"
+                        }
+                    },
+                    "currentSlot": 3,
+                    "headId": "00040301050605020306060200010206",
+                    "headSeed": "04040603030300030400020603050808",
+                    "parameters": {
+                        "contestationPeriod": 43200,
+                        "parties": []
+                    }
+                },
+                "tag": "Open"
+            },
+            "tag": "CommandFailed"
+        },
+        {
+            "headId": "04030808060005070001000301020508",
+            "parties": [],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "contestationPeriod": 31536000,
+            "headId": "03050300040507060704040804070506",
+            "participants": [
+                "04030602070307050604050408040203010203020103040608010600",
+                "03080106040303050100010707020403060602030700050008020602",
+                "05000104030700050406010807060002060701000402050208060501"
+            ],
+            "parties": [
+                {
+                    "vkey": "c88f94e6b03bbb6c8dcbcb70dbda670728c270c4420e3c6f8e30a15f4299ac65"
+                },
+                {
+                    "vkey": "1778c352d14e73d6a6db6a371624e4af22be1551f14778ce00f671eb3e654084"
+                },
+                {
+                    "vkey": "084ac9683e55587385a221146d8637032b4bc642c91c4308c88b93c7bea39a55"
+                },
+                {
+                    "vkey": "e7cea663a062c00f5dd525fe6cb446bd557e7cf877dae81671430aa8f07731af"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "peer": "f",
             "tag": "PeerConnected"
         },
         {
-            "contestationPeriod": 79179,
-            "headId": "04000804060208030306040001040002",
-            "participants": [
-                "07000708060200010201020305010804020604010504070803060704",
-                "03020403030007060405040201040605080308040107020803050201",
-                "08060708080608040000030800020102000503000208080608060007",
-                "00060707080606010708070305030506030001070404060001060507",
-                "00080205040001050600000803030106060707050606030702000200"
-            ],
-            "parties": [
-                {
-                    "vkey": "27b2e8a7cdc649c39a79ef439ed56afcc4d9056f14853982f004dbfd2e57abe0"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
-        },
-        {
-            "contestationPeriod": 2592000,
-            "headId": "00000407020707060204010804070106",
-            "participants": [
-                "07020506020604070806020202030200060604020806050801050306",
-                "02050602020802040506070507000601000502050100040105060605",
-                "05040801060106070305070204080802060701050404010105050603"
-            ],
-            "parties": [
-                {
-                    "vkey": "667dddcecb481d5b779214d666081b4ecb1562209458484850b0d2de86a9faf8"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
-        },
-        {
-            "headId": "04070000060008000300070004070100",
-            "signatures": {
-                "multiSignature": [
-                    "fac91f99f93c1c54b8890bcbc706ca35a2d80052ab1848a126c4dd0e8a5eb3ed0a2b03ed9743ec82ca45cdfb1b07c405fe8e60b783cdf0be04d5108d178be909"
+            "postChainTx": {
+                "contestationDeadline": "1864-05-08T15:06:55.945380561162Z",
+                "headSeed": "00010404040201010000080508010303",
+                "tag": "FanoutTx",
+                "utxo": [
+                    -5,
+                    4
                 ]
             },
-            "snapshot": {
-                "confirmedTransactions": [
+            "postTxError": {
+                "headSeed": "01030204020305020503020708000708",
+                "tag": "InvalidSeed"
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "postChainTx": {
+                "contestationDeadline": "1864-05-04T12:36:32.91100370416Z",
+                "headSeed": "03010307000103050502060106000802",
+                "tag": "FanoutTx",
+                "utxo": [
                     -6,
-                    -4,
-                    -1,
-                    -4,
+                    -3,
+                    0,
+                    3,
+                    6
+                ]
+            },
+            "postTxError": {
+                "headUTxO": [
+                    -2,
                     1
                 ],
-                "headId": "01050503000604030708080505010400",
-                "snapshotNumber": 3,
-                "utxo": [
+                "reason": "𮣽􊌟嬲\u00143\u0012",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": -1,
+                    "inputs": [
+                        -2,
+                        2,
+                        3
+                    ],
+                    "outputs": []
+                }
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "headId": "04050105010704010608000802080503",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -5,
+                "inputs": [
                     -4,
                     -3,
                     -2,
                     4
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "06040207010601060106080604000102",
-            "signatures": {
-                "multiSignature": [
-                    "542f34e46b8492665700923bb397a83d7dc2a02ec5fc78ee0ded270b01f6c8bd5845cbb7a08e031f2959e7f54c69e1cb35b75aec3c38cbdd6c1a22f7ac6a9d0d",
-                    "60db10289209cfc1d6468a57596bc2ea25057604f704e0dcf6bbc810cce61b821cf677dad9895dd3fbc3f459b8d1933b7983721fa785e56bfc674d4613bd760c"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    -3,
-                    -2
                 ],
-                "headId": "07030204050500070505050103040607",
-                "snapshotNumber": 6,
-                "utxo": [
-                    -2,
-                    2
+                "outputs": [
+                    -6,
+                    -4,
+                    -1,
+                    1
                 ]
             },
-            "tag": "SnapshotConfirmed"
+            "utxo": [
+                4
+            ],
+            "validationError": {
+                "reason": "\u0018"
+            }
         },
         {
-            "peer": "e",
-            "tag": "PeerConnected"
+            "contestationPeriod": 604800,
+            "headId": "07080607070506040401040801010101",
+            "participants": [
+                "08020304020301040006050808040707020404000604050706050302",
+                "02000100060408020208020508020304050505000002060504060106"
+            ],
+            "parties": [
+                {
+                    "vkey": "a66909fa8d559517fce04d2c34236a88d62e6f13b0bfeb8c1a4011eacf6d8382"
+                },
+                {
+                    "vkey": "af9776352756f94f5388b56b2f6ea070f27379ffe711fa0880b223ccf738a102"
+                },
+                {
+                    "vkey": "936cdfb6c60209107686c935e28824f4f10c29234f30892011b42ce7a0e9b0ef"
+                },
+                {
+                    "vkey": "aeed5e20dc596bb983f6fc2b97c11afc7971f2f4eac8eeaf9385cc14021a340c"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        },
+        {
+            "contestationPeriod": 604800,
+            "headId": "01000303080406020401080705030003",
+            "participants": [
+                "05000506070205000701050003040800030507010105030505020605",
+                "07030104020507050801010402020203020500080107070007080003",
+                "00050802080201070406030700050800030006080201050407030208",
+                "05040504050000070305030307020200080202020503050107080303"
+            ],
+            "parties": [],
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "peer": "x",
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "02010801050107010807000402070102",
-            "signatures": {
-                "multiSignature": [
-                    "d383c1fddbea18714c5d30a8e07df36e99b86302625eb03941c4a4b5b5f12fed84cd50111ec10a4b36a371f3cb8cf9789c5fa4ca0daf62e1f44193005d45c403",
-                    "d1c768839ec2a054351f677683b779664bc63696c8442d297bc5b7854a094193cb8eb47a76eed67b464a2b37e941100b7d1c8882f93eba760d38814b11dd7102"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    -5,
-                    6
-                ],
-                "headId": "05000702050303030500020601070808",
-                "snapshotNumber": 6,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "06030805040303060202060408030400",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -3,
-                2
-            ]
-        },
-        {
-            "headId": "04070101000701000105080508050608",
+            "headId": "04060408040506060207080706000802",
             "tag": "TxInvalid",
             "transaction": {
-                "id": 2,
-                "inputs": [
-                    -6,
-                    4,
-                    6
-                ],
+                "id": 4,
+                "inputs": [],
                 "outputs": [
-                    3,
-                    4
+                    -5,
+                    6
                 ]
             },
             "utxo": [
-                -5,
-                2,
-                3,
-                5
+                -6,
+                -4,
+                1,
+                4,
+                6
             ],
             "validationError": {
-                "reason": "\t"
+                "reason": "ap"
             }
         },
         {
-            "input": "H􄃛 ",
-            "reason": "M",
-            "tag": "InvalidInput"
+            "headId": "06030805040303060202060408030400",
+            "party": {
+                "vkey": "e2fce499b9cb96ee2c1bef5f19226cc1286a568dc1a16aba86bfa36bca27ad50"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -6,
+                -5,
+                0,
+                4
+            ]
         },
         {
-            "contestationPeriod": 43200,
-            "headId": "05040308050301040700060408060100",
-            "participants": [
-                "02040405000707010008060502030803010406030008040303050006",
-                "04030406040402080507030708060601020203020307020805070701"
-            ],
-            "parties": [
-                {
-                    "vkey": "4329c0639b5bd2101b64816e01fec06330778dd922e78bc8032a891bf4f8f8a2"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
+            "headId": "01040501060204070604080508040605",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 1,
+                "inputs": [],
+                "outputs": []
+            }
+        },
+        {
+            "headId": "01040502050203050707030000020001",
+            "tag": "GetUTxOResponse",
+            "utxo": [
+                -6,
+                -4,
+                -1
+            ]
         },
         {
             "postChainTx": {
-                "headId": "04050401030801010604020204060307",
                 "headParameters": {
-                    "contestationPeriod": 22925,
-                    "parties": [
-                        {
-                            "vkey": "4996da586be4e9e1d39be06d7b3d7bb47cdce551f436aa904fe6f7cdb35b8be7"
-                        },
-                        {
-                            "vkey": "4668c9ee689951081ddb39ece0894573b2dd2073c1cf6bb1f8d3fe544c82ff38"
-                        },
-                        {
-                            "vkey": "78d1de3eed07b1a5468413b94bc06d22b6fd16349d1c224f71a89e93e0efd4ab"
-                        },
-                        {
-                            "vkey": "e3d0fe1482be72d5d34738bc433a3b1ffdf3c7d4757356e03cf1e8a9c16922c3"
-                        },
-                        {
-                            "vkey": "35ade7f0266dd0653014dd2d856e9edd0b8db9aced2e64d9de393d4b833f4f5e"
-                        },
-                        {
-                            "vkey": "553fa63169e4331c6e0ac46a3828e177d60c92f1433af11ebe7706f810704f63"
-                        }
-                    ]
+                    "contestationPeriod": 2592000,
+                    "parties": []
                 },
-                "tag": "CollectComTx",
-                "utxo": [
-                    -4,
-                    -3,
-                    -1,
-                    2
-                ]
+                "participants": [
+                    "03050002040003000000070201030804060604010703030304060608"
+                ],
+                "tag": "InitTx"
             },
             "postTxError": {
-                "tag": "SpendingNodeUtxoForbidden"
+                "plutusDebugInfo": "E􌞩j(\u0005E",
+                "plutusFailure": "['",
+                "tag": "PlutusValidationFailed"
             },
             "tag": "PostTxOnChainFailed"
         },
         {
-            "input": "jg?",
-            "reason": "􋲼",
-            "tag": "InvalidInput"
+            "headStatus": "FanoutPossible",
+            "hydraNodeVersion": "b𩫹𪏐u",
+            "me": {
+                "vkey": "aaa09afae2f184e1f52fb3d6dde63174724facc7767f62d68c67027c469f2cba"
+            },
+            "snapshotUtxo": [
+                -4
+            ],
+            "tag": "Greetings"
+        },
+        {
+            "contestationPeriod": 86400,
+            "headId": "04080007020507020107020503050802",
+            "participants": [
+                "08040401010401000100080602010200010103010207080204000406",
+                "07040107050402000708080100050100070000030303050106040107",
+                "00030506050602070804050800020104060706010602050803000706",
+                "03010008050503050504060307030203000500070400040001020802",
+                "02080207030707080301000507080705030603000200050205040704"
+            ],
+            "parties": [],
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "contestationDeadline": "1864-05-15T09:14:02.401927245235Z",
             "headId": "04040104050502050508020506060200",
             "snapshotNumber": 5,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
             "peer": "pkmprq",
             "tag": "PeerConnected"
         },
         {
-            "headId": "07070708030601030106070807060401",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -5
-            ]
+            "headId": "03010005050304070608080201010604",
+            "tag": "ReadyToFanout"
         },
         {
             "headId": "07010105050107050705050400050207",
-            "tag": "HeadIsOpen",
-            "utxo": []
+            "party": {
+                "vkey": "226c429cb555762205d040616b8d5fdf681f5d28ef0007313daa5041f773e12e"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -5,
+                -3
+            ]
         },
         {
             "contestationDeadline": "1864-05-06T20:21:16.349905241018Z",
             "headId": "03020304070404030006050400070806",
             "snapshotNumber": 5,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
-            "headId": "04060104000402060507030705060305",
+            "ourVersion": 4,
+            "remoteHost": {
+                "hostname": "0.0.0.4",
+                "port": 8
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                0
+            ]
+        },
+        {
+            "headId": "02070704060708070303010400050508",
+            "tag": "HeadIsOpen",
+            "utxo": [
+                1,
+                4,
+                5
+            ]
+        },
+        {
+            "headId": "04020305080203020306000504020502",
+            "tag": "HeadIsFinalized",
+            "utxo": []
+        },
+        {
+            "headId": "07020805060405010808010306070705",
             "parties": [
                 {
-                    "vkey": "c41e7eeb129e8af6897a94aaf21048cc9deb7f780b89cd91c3be862bc50b9e17"
+                    "vkey": "ce630ba50768ed2eea2063ae5ecbefd2f9147da767e83982d8cf6d3163eb03d1"
+                },
+                {
+                    "vkey": "5e57a274dcba29c03be09be8b6d7bb59e2d5b70afd77a9feea43aef837896da9"
+                },
+                {
+                    "vkey": "4542fe20f872b5ec44c0e36e2e30d44f19c00d18dab2f43558b34c99f281236d"
+                },
+                {
+                    "vkey": "889f8c09b175b1c510a981034e22fadaf5fabf44693a97dd5a64cadfdec32ac9"
+                },
+                {
+                    "vkey": "277cc164eb8db1776d8b8547fea4e2db66b005547450f813338cfa8465f4eaad"
                 }
             ],
             "tag": "HeadIsInitializing"
         },
         {
-            "contestationDeadline": "1864-05-10T22:47:43.736110712939Z",
-            "headId": "02070704060708070303010400050508",
-            "snapshotNumber": 0,
+            "headId": "05070206070200080300030601070605",
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -2,
+                2,
+                4
+            ]
+        },
+        {
+            "contestationDeadline": "1864-05-08T16:29:31.41956483366Z",
+            "headId": "05060207020800080801000604000608",
+            "snapshotNumber": 3,
             "tag": "HeadIsClosed"
+        },
+        {
+            "headId": "05040105070408000401080308080400",
+            "parties": [
+                {
+                    "vkey": "7e7afc82a417e94038af5c0e2c56b427f5e6228f2c3dda8fef554a2cc2dcaa1b"
+                },
+                {
+                    "vkey": "6551146d398f6cab3987647a73d858961c469adc431a1f9021bbc9c102d26a62"
+                },
+                {
+                    "vkey": "09cf154d26fec83ad115f918f5127774e114415758df560cc849ed588d7e71a5"
+                },
+                {
+                    "vkey": "417b50b9ff7d80f898819ad8d9cc53e10904909a377e65753be4656e8a05eece"
+                },
+                {
+                    "vkey": "d869233c77fdd07582d7158b8ccb78b0202b0606b2fcf3f1bacfcfc7e4224b94"
+                },
+                {
+                    "vkey": "b3aaa5be8f70e5d17081ab355ba4545bb26621cbe9062ed71c0462e054125be8"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "contestationDeadline": "1864-05-04T15:39:30.097351950105Z",
+            "headId": "01020706050508060407010305010306",
+            "snapshotNumber": 4,
+            "tag": "HeadIsContested"
+        },
+        {
+            "postChainTx": {
+                "headId": "05040608050801040307000707070102",
+                "headParameters": {
+                    "contestationPeriod": 36156,
+                    "parties": [
+                        {
+                            "vkey": "a406ab5c3ff314d341b61c1c31dcf52d224d5a61ada8b5de0038188ec8fab33c"
+                        },
+                        {
+                            "vkey": "cc60b085c7618558fac3eeb7530b9cd181dd23098dd9d9e98c19001987c5a6ea"
+                        },
+                        {
+                            "vkey": "1635b613e1b636a7566104f7323c4719f0fa73c7af8ba4cfd08c5fd873ed471b"
+                        },
+                        {
+                            "vkey": "eea09b94168ec8954d5e762a0a97b94f481d59680b0f5dea02e2056dc419e30c"
+                        },
+                        {
+                            "vkey": "852a1ab4f8709669f3439221cb366498d219ec465db335aaff649ed4956d3b83"
+                        }
+                    ]
+                },
+                "tag": "CollectComTx",
+                "utxo": [
+                    -6,
+                    -3,
+                    -2,
+                    1,
+                    3,
+                    4
+                ]
+            },
+            "postTxError": {
+                "byronAddress": "2RhQhCGqYPDorRBAqkV6SwPQeWs26Rdd8bhpsG92PPBLcuTcQa75uSQaojTUHj5kATGY25JHzQcBPPew7Xzy3BUtxnvYgwBwpLu27FKqNBqB1w",
+                "tag": "UnsupportedLegacyOutput"
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "headId": "02010803070405000607040607020103",
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -6,
+                -5,
+                3
+            ]
+        },
+        {
+            "headId": "07020708060505060500000702060706",
+            "tag": "HeadIsOpen",
+            "utxo": []
+        },
+        {
+            "peer": "nzntk",
+            "tag": "PeerConnected"
+        },
+        {
+            "headId": "08030506000105030200010208020501",
+            "tag": "GetUTxOResponse",
+            "utxo": [
+                -6,
+                -5,
+                -1,
+                0,
+                1
+            ]
+        },
+        {
+            "postChainTx": {
+                "contestationDeadline": "1864-05-05T09:19:50.931504947686Z",
+                "headSeed": "07010208040807040205040205040504",
+                "tag": "FanoutTx",
+                "utxo": []
+            },
+            "postTxError": {
+                "headUTxO": [
+                    -5,
+                    -3,
+                    -2,
+                    0,
+                    1
+                ],
+                "reason": "𧫑V􏧡􄿦\u0018?",
+                "tag": "InternalWalletError",
+                "tx": {
+                    "id": 6,
+                    "inputs": [
+                        -3,
+                        -1,
+                        1,
+                        2,
+                        6
+                    ],
+                    "outputs": [
+                        -5
+                    ]
+                }
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "headId": "00010203070608030301010706070202",
+            "parties": [
+                {
+                    "vkey": "ceff977df3f4ca8947d3a1925c8dcd5c7e05f01e0b6a6ea029af4fafe31c3d8c"
+                },
+                {
+                    "vkey": "31ea238e8487bdf5694c8a677d9b66aae6282a28a3c9902d1afccbd19e0ef444"
+                },
+                {
+                    "vkey": "d5fb9f708d13157bd8d4a2e6b4461988edf4ca76099e734c54356dee13e04c10"
+                },
+                {
+                    "vkey": "a617eb6ab4ff3bb52dd1c86efc03a82cf5798eecc0edf047abf4f6307b5fa87d"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "peer": "kxv",
+            "tag": "PeerConnected"
+        },
+        {
+            "headId": "02000803050001020308080800060505",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "headStatus": "Initializing",
+            "hydraNodeVersion": "WB𐅳",
+            "me": {
+                "vkey": "e60077f3dd867e5cb1fd86c87f100cb2545c8ed7346cdedf4ee47fbefa9dee6e"
+            },
+            "snapshotUtxo": [
+                -6,
+                -1,
+                0
+            ],
+            "tag": "Greetings"
+        },
+        {
+            "peer": "zvcr",
+            "tag": "PeerConnected"
+        },
+        {
+            "input": "vi\n\u0010",
+            "reason": "𝑎,﨏g",
+            "tag": "InvalidInput"
+        },
+        {
+            "clientInput": {
+                "tag": "Contest"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 3
+                    }
+                },
+                "tag": "Idle"
+            },
+            "tag": "CommandFailed"
+        },
+        {
+            "contestationDeadline": "1864-05-08T06:18:58.783796166877Z",
+            "headId": "04020305030001020207050208060200",
+            "snapshotNumber": 1,
+            "tag": "HeadIsContested"
+        },
+        {
+            "contestationDeadline": "1864-05-10T22:56:08.271010001786Z",
+            "headId": "07050008010704010002030505040305",
+            "snapshotNumber": 6,
+            "tag": "HeadIsClosed"
+        },
+        {
+            "headId": "00000807030408060602000202040104",
+            "party": {
+                "vkey": "b19db175fcf9d15a5afd11c657d6bb842bee6771cae742091bf75a469b78a5ce"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -5,
+                -4,
+                1,
+                6
+            ]
+        },
+        {
+            "headId": "01080308010406010207040106070808",
+            "signatures": {
+                "multiSignature": [
+                    "1d53bb6aafc2951ce421294e001d890a2d2dc62c1482b40c5664dc3ad4879d849735f778a51bbe72eb6634c044d58699d2aa148b3bb54073149a540dae1ff701",
+                    "8abe12f1647137f783c7b1b9689bd941d0faf99025110bfd79a03178e027b7162184eb48176caed99db73421cd93eea09c7621fc1559c363a6fbc8fd3fa02e0e",
+                    "3f7703e7b067e292399697ea875043bc08bc1f9c0719b64278d5b250626c9d548cdcbf50fe217aa5e7ad3f3f68a3c8252e0067da3e0da3f18dd950337a033809"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    -3,
+                    2
+                ],
+                "headId": "02000208040206010805040804030604",
+                "snapshotNumber": 5,
+                "utxo": [
+                    5
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "clientInput": {
+                "tag": "GetUTxO"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
+                    "confirmedSnapshot": {
+                        "headId": "00030506060704080207060205040007",
+                        "initialUTxO": [],
+                        "tag": "InitialSnapshot"
+                    },
+                    "contestationDeadline": "1864-05-08T10:24:34.486991830024Z",
+                    "headId": "05050201040504050501050507020205",
+                    "headSeed": "08050802040107020204060607040708",
+                    "parameters": {
+                        "contestationPeriod": 24529,
+                        "parties": [
+                            {
+                                "vkey": "8c43b68b1f4d546df60ff0791d7e2dc85d6b0bf8a72140cc8fcc0e82af13d1cf"
+                            },
+                            {
+                                "vkey": "ccec9437c87e59a8381f7fabae074dde7595b3a77b64f779d2c7c565013310af"
+                            },
+                            {
+                                "vkey": "16e0dc41c758f13ea0c5b2a4fd20668fa92b08c20e5be30b05b029d7fcedcfdd"
+                            },
+                            {
+                                "vkey": "350a2c0b8fb97cea96a7a8ba5f7e0a9927ec7dd3af80798d8c2678ddac92ef03"
+                            },
+                            {
+                                "vkey": "3f6170696a04ed195ee69ec9b468305c0ba5ab1f2d03fa4b276b8b3b1545ced4"
+                            }
+                        ]
+                    },
+                    "readyToFanoutSent": true
+                },
+                "tag": "Closed"
+            },
+            "tag": "CommandFailed"
+        },
+        {
+            "peer": "lmjwkaa",
+            "tag": "PeerDisconnected"
         },
         {
             "clientInput": {
@@ -365,397 +842,203 @@
                     "chainState": {
                         "slot": 4
                     },
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": [
-                                "1ff469aa0cc6dc7dcfc692f3679f8f8a125206a0c4d1c81b6159631d7238137689f3e01ae558cec6965ca81a199b2d47f13b17fec776ff5f346c073404f24e0b"
-                            ]
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "headId": "00040104060704030507030106030706",
-                            "snapshotNumber": 3,
-                            "utxo": [
-                                -5,
-                                -3,
-                                -2
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
+                    "committed": {
+                        "081bc12bc8d6e58a3f9c11e08cf7dd29726b006154b987fc095c2b44f4fe8131": [
+                            -5,
+                            -4,
+                            -1,
+                            3,
+                            6
+                        ],
+                        "0d427024f5bfec8a9a2c88cdcf8c70a117b9682c438d8ff0d6470ac3751aad01": [
+                            -5,
+                            -4,
+                            -3,
+                            0,
+                            3
+                        ],
+                        "112d2d9411be959ed5a13859d3c3df266f179df00f0182d13fad6e9d0c64a364": [
+                            -5,
+                            4,
+                            5
+                        ],
+                        "a6a6520be16ac8dd98324753ec137af70b6aa6a97daeddd664f32f73a0ba370c": [
+                            0,
+                            1
+                        ],
+                        "b16c9096309888be31da907b97e3e8f3cfa48bd37cc70efe2d01e1f12fcbbd6b": [],
+                        "b1db4c7c8647f0a715e33ebb2e0aa65d92189e4119add9f700aa160a34954ebe": [
+                            -4,
+                            4
+                        ]
                     },
-                    "contestationDeadline": "1864-05-05T22:31:08.431385497591Z",
-                    "headId": "05080504060805040302010302020208",
-                    "headSeed": "04000504070503050004060400040402",
+                    "headId": "06000602030102030608020307050408",
+                    "headSeed": "01060007000001010000000506080808",
                     "parameters": {
-                        "contestationPeriod": 31536000,
+                        "contestationPeriod": 72740,
                         "parties": [
                             {
-                                "vkey": "f1d0716884ff7785eeec4ad2ab5a2aec04e9b671241569eaf669f12e3f169a75"
+                                "vkey": "27484dc5009597fa24be3682ed997420a17d41d8ae7c7cc0e7f136c1248c4e7b"
                             },
                             {
-                                "vkey": "c4cf140810402ea14d05d5a630c466914faafce27e0fd84ac8023ea39a451268"
-                            },
-                            {
-                                "vkey": "410df3b70d1a18e0cdd11c876b737ce0490cff84a5d06bd71b5284d85368ad68"
-                            },
-                            {
-                                "vkey": "d943af130c9866e09e4fb3235c8463bca51396b7688356687fb068eabb5eeaea"
-                            },
-                            {
-                                "vkey": "eb7abc3a950c4e27ebf9d7330b10b7297d71225a5663e2db76bb662ecf461549"
-                            },
-                            {
-                                "vkey": "87f063923dbaf512221811a4451305a87953972396fbcf64e072f97e643b30d0"
+                                "vkey": "212d1c90960512709b6bcd4663497727c5e42033a60c8c37fefae563e548d5da"
                             }
                         ]
                     },
-                    "readyToFanoutSent": true
+                    "pendingCommits": [
+                        {
+                            "vkey": "96e2cb72f92f0e676400a615203b95bacc39bb1989e99d6516d1d6df25f55db3"
+                        }
+                    ]
                 },
-                "tag": "Closed"
+                "tag": "Initial"
             },
             "tag": "CommandFailed"
         },
         {
-            "headId": "07020805060405010808010306070705",
-            "party": {
-                "vkey": "823f52bc8e73d4daa9d3a54af2485488112467cce5c47eb7dc0d2a2e7452060d"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -3,
-                0,
-                2
-            ]
-        },
-        {
-            "contestationDeadline": "1864-05-04T07:50:41.934761272492Z",
-            "headId": "05070206070200080300030601070605",
-            "snapshotNumber": 0,
-            "tag": "HeadIsClosed"
-        },
-        {
-            "contestationDeadline": "1864-05-08T16:29:31.41956483366Z",
-            "headId": "05060207020800080801000604000608",
-            "snapshotNumber": 3,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "05040105070408000401080308080400",
-            "party": {
-                "vkey": "9102b7d3b0d203574fc42babcb5305a1adb2921077f92c7046e6013281f21f92"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -4,
-                -3,
-                -2,
-                -1
-            ]
-        },
-        {
-            "headId": "03050700020404060502010303030708",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "contestationPeriod": 31536000,
-            "headId": "01010108020704030803030003070108",
-            "participants": [],
+            "headId": "01080705080201080408030602080302",
             "parties": [
                 {
-                    "vkey": "add45f0592cb31937af74cc4c27b6c8a8eaedfd95ead94e7e7d423c74ce5723f"
+                    "vkey": "f6569679406a3adf05ac315c8d3be81efcaec261ae556a11579543313611a4c9"
                 },
                 {
-                    "vkey": "fa23b384fd1cfd0e8b7a373e00a8cafbcd70cd0b19999b70ac46857d0500dcc0"
+                    "vkey": "2db47aa6931e92f7a722ce34de28b95129ebbb3573ef15f748e304b0b2e19363"
+                },
+                {
+                    "vkey": "49eab5af51c046ce0058cf17a647952e48238e39b59afa85a323875b22609e5c"
+                },
+                {
+                    "vkey": "3b7d657bb6c682d404f7f009b577ab5c1d2e8c29286f42719110e215bf74b01b"
+                },
+                {
+                    "vkey": "01d1eb862a0d1dcf0fc70703c83254fa13583342e700833ec1bfadea054fa591"
                 }
             ],
-            "tag": "IgnoredHeadInitializing"
+            "tag": "HeadIsInitializing"
         },
         {
-            "contestationDeadline": "1864-05-14T18:10:17.408586073361Z",
-            "headId": "02010803070405000607040607020103",
-            "snapshotNumber": 6,
-            "tag": "HeadIsClosed"
-        },
-        {
-            "contestationDeadline": "1864-05-08T17:12:41.611319574265Z",
-            "headId": "07020708060505060500000702060706",
-            "snapshotNumber": 0,
-            "tag": "HeadIsClosed"
-        },
-        {
-            "peer": "nzntk",
-            "tag": "PeerConnected"
-        },
-        {
-            "input": "\u0014\u0013\u001f⃫y",
-            "reason": "TZ7",
-            "tag": "InvalidInput"
-        },
-        {
-            "contestationPeriod": 1869,
-            "headId": "05060205030405040404040005080702",
-            "participants": [
-                "06000103020607080206010800010706000203010006070806060508",
-                "08030602010702080301080702020507080601070601030307080407",
-                "01030006010207080705030208050402060502040602020607070508",
-                "08050801020404010706030803040805070406010307040605020005",
-                "06050303010506010705030800050400010702030204020707000101",
-                "05080205000104020402050405080500060103080705040101030403"
-            ],
-            "parties": [
-                {
-                    "vkey": "feea967fc145a4093c6345d0dc29709224076c7f8d9b8d78dafee2ee759ba2cf"
-                },
-                {
-                    "vkey": "889adc316a824c91e96e21d27d4115fba9ec6176b4022cd470958780b9020c8d"
-                },
-                {
-                    "vkey": "a861c0795c143bc080f4b6ba11e80f6992fe7d2166dd53e687a48f7da6361db4"
-                },
-                {
-                    "vkey": "86f5f86cacdbf4b8e11a892840555c340592cbffe12ad6679dbf3235377ff1f2"
-                },
-                {
-                    "vkey": "9b3a048c1e1294801358c6621559fc9ecd5c793cf13aaee967fe4dacc1ca9b72"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
-        },
-        {
-            "headId": "00010203070608030301010706070202",
-            "party": {
-                "vkey": "1da13c131dce829ca7f67a44e34b8820df27cc4fc5c80fb6dd34f401043deb64"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -4,
-                -3,
-                3,
-                4
-            ]
-        },
-        {
-            "peer": "kxv",
-            "tag": "PeerConnected"
-        },
-        {
-            "headId": "07080204060705050407020501080407",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -2,
-                -1
-            ]
-        },
-        {
-            "postChainTx": {
-                "headId": "04020203080204080705070805040805",
-                "headParameters": {
-                    "contestationPeriod": 31536000,
-                    "parties": [
-                        {
-                            "vkey": "eadc6fcb1480918cdc19da9f35b7f9b9ed36ba57538b4f6b29ed45a0b40f6a39"
-                        },
-                        {
-                            "vkey": "a3a712ebf24f4c6d53110b59ab9272c22f58f05782745bb638b9d6d7487f44ee"
-                        }
-                    ]
-                },
-                "tag": "CollectComTx",
-                "utxo": [
-                    -1,
-                    2,
-                    5
-                ]
-            },
-            "postTxError": {
-                "failureReason": "\n႕",
-                "tag": "FailedToPostTx"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "peer": "zvcr",
-            "tag": "PeerConnected"
-        },
-        {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "x珐k𢥦m",
-            "me": {
-                "vkey": "09b21817b9902de454a69c796edf1630a190bb2a535fdff77ee0ac40d7179a3d"
-            },
-            "snapshotUtxo": [
-                -3,
-                2
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "headId": "04050102040203020104050602030301",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 1,
-                "inputs": [
-                    -4,
-                    -3,
-                    0,
-                    2
-                ],
-                "outputs": [
-                    -6,
-                    -2,
-                    1,
-                    4,
-                    5
-                ]
-            }
-        },
-        {
-            "headId": "02060305060407000002040700030802",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "contestationDeadline": "1864-05-10T22:56:08.271010001786Z",
-            "headId": "07050008010704010002030505040305",
-            "snapshotNumber": 6,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "00000807030408060602000202040104",
+            "headId": "02050106030104000003080604070804",
             "tag": "HeadIsOpen",
             "utxo": [
                 -5,
-                -1,
-                4
-            ]
-        },
-        {
-            "headId": "01080308010406010207040106070808",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                -5,
-                -4,
-                0,
-                2
-            ]
-        },
-        {
-            "headId": "06020107010801040302030405020704",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -2
-                ],
-                "outputs": [
-                    -4,
-                    -3,
-                    -1,
-                    5
-                ]
-            }
-        },
-        {
-            "peer": "lmjwkaa",
-            "tag": "PeerDisconnected"
-        },
-        {
-            "headId": "02050601020706020501020305080004",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -3,
-                    -1,
-                    6
-                ],
-                "outputs": [
-                    -6,
-                    -4,
-                    -2,
-                    0
-                ]
-            }
-        },
-        {
-            "headId": "01080705080201080408030602080302",
-            "party": {
-                "vkey": "cb95afcb50d3c6398ff6a8154d4ef8b1d53ca62b5a640051a6f936709d40ecce"
-            },
-            "tag": "Committed",
-            "utxo": [
-                0,
+                1,
                 3
             ]
         },
         {
-            "contestationDeadline": "1864-05-11T14:18:36.445090421111Z",
-            "headId": "02050106030104000003080604070804",
-            "snapshotNumber": 0,
-            "tag": "HeadIsClosed"
+            "contestationPeriod": 43200,
+            "headId": "01070203080001040701000201000200",
+            "participants": [
+                "08020806050200030307070202010408070401080602030303050001",
+                "07070201000606030504060401000301050000070507080603050008",
+                "07070107040008030800010407050404070006070602020708020207"
+            ],
+            "parties": [],
+            "tag": "IgnoredHeadInitializing"
         },
         {
-            "headId": "08040500030806070706030602060404",
-            "tag": "HeadIsFinalized",
+            "headId": "01030407070807080103060508020705",
+            "tag": "HeadIsOpen",
             "utxo": [
-                -5,
                 -4,
-                0,
+                -3,
+                -2,
+                3,
                 5
             ]
         },
         {
-            "contestationDeadline": "1864-05-09T02:20:40.990681904542Z",
-            "headId": "01030407070807080103060508020705",
-            "snapshotNumber": 0,
-            "tag": "HeadIsClosed"
-        },
-        {
-            "headId": "01040807050004050004010207080704",
-            "tag": "ReadyToFanout"
+            "contestationDeadline": "1864-05-08T09:21:47.053352068811Z",
+            "headId": "08010005010402030604000505040006",
+            "snapshotNumber": 4,
+            "tag": "HeadIsContested"
         },
         {
             "headId": "04010800030200030606000602070605",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                -2,
-                0,
-                4
-            ]
+            "signatures": {
+                "multiSignature": [
+                    "d94c8c1103d3855b2535552e9df91f3f860960f4b88e6eb11e6b4346cef8598ab54dfabddc3fa24c61b576bdb6ed03f67b7f42e11cd5a0d63304e7c32e22ab00",
+                    "ac70437af31ef5e7b48d62661bc3210b06a691fafbbc7dffdffbe2900d7296d1d0de0367147330502dbaea3ec041da41b747bc1bbd1a1e0a05466d2be0a2a400",
+                    "8e1cb236f729aa7846f9236e5f38bbd4328da2544e9a096149480e6118cab234e62eacf279b653fbcc05c3d37043f8213f6ca0eb03aea4a911e2455fd23dba03",
+                    "0bd4e7de53d61725069f3cd994e98ef417c71f59715f50fbb4fc3ff615c1e119398d6777d642c3f91c4581201a7ed458821e96ae72b4d5af6c6e87b3815ff00b"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    -2,
+                    -4
+                ],
+                "headId": "05030708020201020107010106050406",
+                "snapshotNumber": 5,
+                "utxo": [
+                    1
+                ]
+            },
+            "tag": "SnapshotConfirmed"
         },
         {
-            "contestationPeriod": 86400,
-            "headId": "01080608020006010800020106040700",
-            "participants": [
-                "03060605000308050803070104030501030703080507000804020204",
-                "05040605030806040701060305040601000703040107080800060106",
-                "01040208010601020308000606050005030800050006020801080402",
-                "01080704070008040708030507010608050300030706080300030308",
-                "05040808060308070407030601070006060802000102030802000407"
-            ],
-            "parties": [
-                {
-                    "vkey": "bbde19aa2d89de53c19b142f0ccaafea00fdab13a720df39da4dbada01489ce7"
+            "postChainTx": {
+                "contestationDeadline": "1864-05-15T14:56:26.01599115919Z",
+                "headSeed": "05010201070605060408080103070004",
+                "tag": "FanoutTx",
+                "utxo": [
+                    -3,
+                    -2,
+                    0
+                ]
+            },
+            "postTxError": {
+                "chainState": {
+                    "slot": 2
                 },
-                {
-                    "vkey": "7fa35a06a27041b78e883877c30cd796390ca2abd4f9daf09b4fd2ac56b1323b"
-                },
-                {
-                    "vkey": "9b91f1199777488875f76f83d64a88a9da06414871cd0a0f598d1a582af9f8f1"
-                },
-                {
-                    "vkey": "1a46603b092c334edc6285a85e13ce244308b13a47b5683c33d7a67960e548c7"
-                },
-                {
-                    "vkey": "a2ec9c730123f0420eb41ea2ef90abe78aee73a8a40628d94b6346bfb241871a"
+                "tag": "InvalidStateToPost",
+                "txTried": {
+                    "confirmedSnapshot": {
+                        "signatures": {
+                            "multiSignature": [
+                                "8143aa886aa19e6e1abd73dc6325dedd3051e4e5572d28f891c014a35825f370e2707ef88b74befc4eae090fb77775459868d20be29b5b01f33f95c166445901"
+                            ]
+                        },
+                        "snapshot": {
+                            "confirmedTransactions": [],
+                            "headId": "05010203050206070001000104020804",
+                            "snapshotNumber": 6,
+                            "utxo": [
+                                -1,
+                                2,
+                                4,
+                                6
+                            ]
+                        },
+                        "tag": "ConfirmedSnapshot"
+                    },
+                    "headId": "03060605000308050803070104030501",
+                    "headParameters": {
+                        "contestationPeriod": 2592000,
+                        "parties": [
+                            {
+                                "vkey": "1706e5f28f40af02daa7dd8362cde5f81d5eebcd38a287502d66d8981ec8fa2e"
+                            },
+                            {
+                                "vkey": "b9031624968c17d7a87becc8dee9202fa3df717f2b4458a1b02c7099d87dba2c"
+                            },
+                            {
+                                "vkey": "2ac39a1e25135f28b0769f6626806eedbf8dc17a23ba31c63839e7a1fb8ae84a"
+                            },
+                            {
+                                "vkey": "9f7ad6d2afccfecf684774dbcf7361bbe757996292ae338a3c57090af69634e8"
+                            }
+                        ]
+                    },
+                    "tag": "ContestTx"
                 }
-            ],
-            "tag": "IgnoredHeadInitializing"
+            },
+            "tag": "PostTxOnChainFailed"
         },
         {
-            "contestationDeadline": "1864-05-09T23:19:09.350167645767Z",
             "headId": "03030303080304040707030500010502",
-            "snapshotNumber": 6,
-            "tag": "HeadIsClosed"
+            "tag": "HeadIsOpen",
+            "utxo": []
         },
         {
             "peer": "wii",
@@ -763,414 +1046,320 @@
         },
         {
             "headId": "08010108000601080807000601040800",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -6,
-                -4,
-                0
-            ]
-        },
-        {
-            "headId": "08020302070806050502080703050305",
-            "signatures": {
-                "multiSignature": []
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    5
-                ],
-                "headId": "06040103040708070108080402050806",
-                "snapshotNumber": 2,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "05000208000002020100040508050705",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                -6,
-                -3,
-                2,
-                5
-            ]
-        },
-        {
-            "input": "2𮣳",
-            "reason": "",
-            "tag": "InvalidInput"
-        },
-        {
-            "headId": "01010203080308030405050401080101",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -5,
-                -2,
-                0,
-                1,
-                3
-            ]
-        },
-        {
-            "postChainTx": {
-                "headId": "04030800050801030607070808060200",
-                "headParameters": {
-                    "contestationPeriod": 48541,
-                    "parties": [
-                        {
-                            "vkey": "1d491ea9ce52f0d4860be05650e9979b40e8ae4005e0ac8938623d62417681ff"
-                        },
-                        {
-                            "vkey": "549481c1df1f89cb231ba1255cfb736ae631dd47cda59637c3f6af827384a69b"
-                        },
-                        {
-                            "vkey": "2db82afb10533eabba2bbcaab7142167d56fa3f89b5907e17923a26a56e80d6e"
-                        },
-                        {
-                            "vkey": "650700f836aa4b4ca83a3bda7ca1e35c14909fecd92b838cc15f576b7321e556"
-                        },
-                        {
-                            "vkey": "688e0b11e0fe6fe8fbb515b9c969cf2788388cfb1bcbd913245a512ff71db9d8"
-                        }
-                    ]
-                },
-                "tag": "CollectComTx",
-                "utxo": [
-                    -5,
-                    -1,
-                    5
-                ]
-            },
-            "postTxError": {
-                "headUTxO": [
-                    -6,
-                    -4,
-                    2,
-                    3,
-                    5
-                ],
-                "reason": "\u001a\u0004f",
-                "tag": "InternalWalletError",
-                "tx": {
-                    "id": 4,
-                    "inputs": [
-                        -5,
-                        -3,
-                        -2,
-                        0,
-                        1,
-                        2
-                    ],
-                    "outputs": [
-                        -6,
-                        -5,
-                        -2,
-                        3,
-                        4
-                    ]
-                }
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "headId": "00010201010604020103020700070200",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -1,
-                1,
-                4
-            ]
-        },
-        {
-            "contestationPeriod": 86400,
-            "headId": "05070806010507010002040404050406",
-            "participants": [],
-            "parties": [
-                {
-                    "vkey": "782946c1390ecb6d85e0df77e686072c144f62c2811a98ae755530c976a6b31c"
-                },
-                {
-                    "vkey": "1458937fdf5fa8087bda3e8c3ebed400384e96e86b3f7bd21bdcd4c4adff85db"
-                },
-                {
-                    "vkey": "56f44d75f1457a3243589c22df69a5901ff6c82fb5adc4044398c820573688ad"
-                },
-                {
-                    "vkey": "cf83a88db28672784ced8c262691535f2093f5afa8b32bda51d98ac5e5cfb9ab"
-                },
-                {
-                    "vkey": "8eacd311079902ab56cd88158c9d3dcc87e05de5070ccbfc697483690b80abc7"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
-        },
-        {
-            "headId": "08030804030100020206070704020703",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "headId": "01060708060003020108020607030706",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -4,
-                    -2
-                ],
-                "outputs": []
-            },
-            "utxo": [
-                -5
-            ],
-            "validationError": {
-                "reason": "U𥳵"
-            }
-        },
-        {
-            "clientInput": {
-                "tag": "Contest"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 5
-                    }
-                },
-                "tag": "Idle"
-            },
-            "tag": "CommandFailed"
-        },
-        {
-            "input": "􃈅S+E",
-            "reason": "",
-            "tag": "InvalidInput"
-        },
-        {
-            "contestationDeadline": "1864-05-10T12:35:34.83548054732Z",
-            "headId": "03050006020702080407070104060600",
-            "snapshotNumber": 6,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "02080203020703000608060807070307",
-            "signatures": {
-                "multiSignature": [
-                    "b33aa69a44bac956851365db9016d8386c3d32776b9a0808ebb7a24c4ac27ef91da22d3c9271b925fa4d089a93bd12e7b098361dcc70f634b694f83e973caf07"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    -2,
-                    -1,
-                    6,
-                    -6,
-                    3,
-                    -1
-                ],
-                "headId": "08080608060405080302050705050201",
-                "snapshotNumber": 0,
-                "utxo": [
-                    -2,
-                    4,
-                    5,
-                    6
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "08070605040607030600010704010101",
-            "signatures": {
-                "multiSignature": [
-                    "f094cb3a32771c71415d0050ca919865ddfacd9aa1f3cc534bc0f2e55813ac23ed46e54b0f081ac1371151ce3e0956932812e84febcfa019a716ff0f43735d02",
-                    "cd1d3819368614dc7c4d4b587c86da0cf4e7aab7e571e01399dfb44eeab4bd86bfb8eccb9524d02bc51286686d2bb37b5df35c35567877a394010c364c360900",
-                    "53ea4c2f1bcf94c1a649a5157f51495ae467f309a4138fb5744e6eb4fd183069af7f9755e25bda9006357781a43619e858b8faab74f564bf20d5e6744092e309"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    2,
-                    -5
-                ],
-                "headId": "02070603080208000807070506010402",
-                "snapshotNumber": 4,
-                "utxo": [
-                    -6,
-                    -2,
-                    0,
-                    1,
-                    5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "03060105080802030708000008060103",
             "party": {
-                "vkey": "32ada07b383511fd548c74a703c6332dbc93ff267eeccc3917585b498f1b74e6"
+                "vkey": "fd5f698e8449bf498928340c93e1c6b980d5b50bc82e3ce2a82aec88b36f57bb"
             },
             "tag": "Committed",
             "utxo": [
-                -6
+                -6,
+                -5,
+                -4,
+                1,
+                2
             ]
         },
         {
-            "headId": "07000406010603040004030107060100",
-            "tag": "HeadIsFinalized",
+            "headId": "08040004080206030406010704080105",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 0,
+                "inputs": [],
+                "outputs": [
+                    5
+                ]
+            },
             "utxo": [
-                4,
+                0,
+                3,
+                5
+            ],
+            "validationError": {
+                "reason": ""
+            }
+        },
+        {
+            "headId": "05000208000002020100040508050705",
+            "signatures": {
+                "multiSignature": [
+                    "27b7c3a06380e7ead560824e0169b083df0670a3a1b488ceaae8f7e75ba61bf0045b00771d856dde41e02a0b1611c68548947908eb9070b324d5ba5d96fb2d04"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    -5,
+                    2,
+                    3,
+                    0,
+                    -6
+                ],
+                "headId": "03000308000207000808080808050807",
+                "snapshotNumber": 6,
+                "utxo": [
+                    -5
+                ]
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "headId": "00040005080206030103070402070300",
+            "tag": "GetUTxOResponse",
+            "utxo": [
+                5,
                 6
             ]
         },
         {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "Jt󻈯{\u0004",
+            "headId": "01010203080308030405050401080101",
+            "party": {
+                "vkey": "d298cd752fc32ef43511509e1285f2c9d9d57fb0a2d5b95491fcd8fed56f6819"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -6,
+                -2,
+                3,
+                6
+            ]
+        },
+        {
+            "headStatus": "Open",
+            "hydraNodeVersion": "\"+)󸍻M0",
             "me": {
-                "vkey": "0cd37d35cded055dc145ac799c96213088d23aef375b28780d23df7915a4fe89"
+                "vkey": "19476fb6078de224a5c6f9385da93b95778ea01c8b6e714da616cd72506fb4bf"
             },
             "snapshotUtxo": [
-                -3,
-                -1,
-                0
+                -2,
+                0,
+                2,
+                4,
+                5
             ],
             "tag": "Greetings"
         },
         {
-            "headId": "05070503080006050703040603030807",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 3,
-                "inputs": [
-                    3,
-                    6
-                ],
-                "outputs": [
-                    6
-                ]
-            },
-            "utxo": [
-                -6,
-                -3,
-                -2,
-                3,
-                4
-            ],
-            "validationError": {
-                "reason": "\u001c\u001f"
-            }
-        },
-        {
-            "clientInput": {
-                "tag": "GetUTxO"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 2
-                    },
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": [
-                                "6a315ecf9f92e7ab6c7d4300518428f9cee5dd0f7995294d9d5c329fb1bccdd206cf525385d1ea11ef588062f0c3c2df47968045434d8b118b764c6894af880d",
-                                "c1264c05fd37b514cd6bf739ad8e11a0b77af8ee98421ecb1a73583f92bcee1c494a9aab433db85b1c1c805fffe52fb2e4fdb0c337ba3514c2e0bc908972cd0a",
-                                "9785eeb1a60a98ce6a58408cf8d4e458a8019d661b286cb25680c9676ad84b505e1226d613cdcfe85bd1bbae5b92e272be21f3e5a7633631c3a2780e8fb8f008",
-                                "3d468e9fc3e0787adf8166ff153c1149806d28c17cc85bfbdcc6bba8c81b160e20d6d8d5ebea1eca569abbc30f43c5b64703de49ae14d24998758479cda94005",
-                                "17eb5d6347bc85295f1553668a7db71a6006f90e2d15f18142425b4b855fb08cde7b8bbb001acefeb25ac950e78342d53af3284278a45fdc8af77933cc9a6504"
-                            ]
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "headId": "07040304040708000707060201030305",
-                            "snapshotNumber": 6,
-                            "utxo": [
-                                -3,
-                                -2,
-                                0,
-                                1
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
-                    },
-                    "contestationDeadline": "1864-05-03T08:33:34.843739845233Z",
-                    "headId": "03070808030100070308010006040300",
-                    "headSeed": "03010205010307080208040408030300",
-                    "parameters": {
-                        "contestationPeriod": 62464,
-                        "parties": [
-                            {
-                                "vkey": "5d0d804895a1ab80d3c8dbff5b33bf33ab6f17444e05e589e6315fe0004823b9"
-                            }
-                        ]
-                    },
-                    "readyToFanoutSent": false
-                },
-                "tag": "Closed"
-            },
-            "tag": "CommandFailed"
-        },
-        {
-            "headId": "03080204020100000801070000060503",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -6,
-                -4,
-                -3,
-                0,
-                1,
-                2
-            ]
+            "headId": "03040402080808070207050607030105",
+            "tag": "ReadyToFanout"
         },
         {
             "postChainTx": {
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "2ae9e9cec574756f93bb327eb34dea38f1a2457444c0fc4d60a26f9adbb6fcee27ad6f0a5c36e4a3c121a1d8a54a3ab58aa78a9d43acf504d022f07f10db1a06",
-                            "1b1fd782bc781633f8d6ef27a751440256b439fe8abadc3a1e6a2b1ca4ff74987ec4d126b062ce7850225454bba7c263d9ac8efb973bb06b7b369c811b28250f",
-                            "b05340dc87ad02989fb60516748ae09d302e2254ce18df3c9252444ebad3728a07ecb21520d78348a97f0cb517637200b7c32b21b9005581683bb79854900c03",
-                            "7821d44d9874dade7872e179c38bdd4dddb3d06f01d839cb724d25eb536b9f8de803ed98e08475d3138e739cd9953c63a17c817c18ca4013ce41457cd18de604",
-                            "94f8dc74a9f604c426eedb51a00720699c1f260564afe24294f857e476990a97d0f68288cf52ce1a1e9914463c2280645ebe95cf3934a48a70d943170abd7e08"
+                            "c548d615ac12791225830fb3f15a527cbd8758cf79ae541fa49d2dcd2ede4efb887892e420e9f3a6a1a3159b6b4b068e59dd51faea250156186efbcdb5c94405",
+                            "620a6798f91f0dbd0ab7aa5bfcb228107f73d349d598ae1e71c9db57356514a26b6099bab7df87212746f7cab93957c0480161753dd2778be6163ebc02675309",
+                            "da31d0fa4d77bde4640f9120f6970936524d0f8796e31eeeba4dcc98e6f57e0f35b7085822e0e158a899a10a9f6849f8c18c3e0a93011279c009d404dd21420d",
+                            "b9a52a63b4aaef05060e5dd22f505d9aa6a59c1344d989a154baae83278eec8855832c2c87855b543a72365bccc3651e04c8ba36ae6a0a1a57dc56eaf6168c09"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "06010703050402020707040408070400",
-                        "snapshotNumber": 6,
-                        "utxo": []
+                        "headId": "05020104020104010001080306060206",
+                        "snapshotNumber": 5,
+                        "utxo": [
+                            -4,
+                            -2,
+                            5
+                        ]
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "headId": "03000302070803080200000305060004",
+                "headId": "02050305080501070403010106070602",
                 "headParameters": {
-                    "contestationPeriod": 86400,
+                    "contestationPeriod": 43200,
                     "parties": [
                         {
-                            "vkey": "c0415870b50a493dd11053e31b78cafda5028cb556e7a6f239fb74377d4aa50c"
+                            "vkey": "f71a538fe15cfc74a06ca8b6e7fdf99337619da640c8a2e7c842a648713d3353"
                         },
                         {
-                            "vkey": "3b0b9774595ffd6b230f1d3e14b7a3d83ea79cd019e67ba91be55890ab924e87"
+                            "vkey": "3c556a17abd058213e183e63be8eba5b437c07ed113dac30a8afc52784d23e4b"
                         },
                         {
-                            "vkey": "8c7196089219f6adc6e678128bc1ca70b02d0cbf8e9cb3ae580c0647686b0f6c"
+                            "vkey": "1993ed63cee133f2076475ff9dff7afd6ba1be91c02570272e898669b5e16f40"
+                        },
+                        {
+                            "vkey": "a75e12f27086e1b1f48946459683c3f04e3f14640b9109e4cbc9cdba263ed69b"
+                        },
+                        {
+                            "vkey": "00c0b4f573278fbd8f8b86f5d9d91742dbe63bc282cec97528048ff8e4d7f180"
                         }
                     ]
                 },
-                "tag": "ContestTx"
+                "tag": "CloseTx"
             },
             "postTxError": {
-                "tag": "FailedToConstructFanoutTx"
+                "failureReason": "󳠷 b塡",
+                "tag": "FailedToPostTx"
             },
             "tag": "PostTxOnChainFailed"
         },
         {
-            "contestationDeadline": "1864-05-13T12:06:23.292906141941Z",
-            "headId": "04040808030608020100020100000706",
-            "snapshotNumber": 2,
+            "contestationDeadline": "1864-05-07T22:37:02.69797754327Z",
+            "headId": "08050302080308070507040204080504",
+            "snapshotNumber": 1,
+            "tag": "HeadIsContested"
+        },
+        {
+            "headId": "02010004060407070302030408030605",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 4,
+                "inputs": [
+                    -4,
+                    5
+                ],
+                "outputs": [
+                    3
+                ]
+            }
+        },
+        {
+            "headId": "04040401020100040808040808000203",
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -1,
+                4
+            ]
+        },
+        {
+            "headId": "08060307000103020504010808030408",
+            "tag": "GetUTxOResponse",
+            "utxo": [
+                -6,
+                -3,
+                2,
+                3
+            ]
+        },
+        {
+            "contestationDeadline": "1864-05-10T12:35:34.83548054732Z",
+            "headId": "03050006020702080407070104060600",
+            "snapshotNumber": 6,
             "tag": "HeadIsClosed"
         },
         {
-            "headId": "05000500070107040207040604010304",
+            "headId": "05040802010207070308040403020705",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 2,
+                "inputs": [
+                    -2,
+                    4,
+                    5,
+                    6
+                ],
+                "outputs": [
+                    -6,
+                    -2,
+                    -1,
+                    3,
+                    6
+                ]
+            },
+            "utxo": [],
+            "validationError": {
+                "reason": "G"
+            }
+        },
+        {
+            "headId": "08030504000604050508020106010207",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -4,
+                "inputs": [
+                    -6,
+                    -2,
+                    0,
+                    1,
+                    5
+                ],
+                "outputs": [
+                    -5,
+                    2
+                ]
+            },
+            "utxo": [
+                -1
+            ],
+            "validationError": {
+                "reason": "Bg𠃖"
+            }
+        },
+        {
+            "headId": "03060105080802030708000008060103",
+            "parties": [
+                {
+                    "vkey": "e14e2e5d6aafa4b1e1d1eda6d887a73c577e160c6dd36ce2ca716720aac22185"
+                },
+                {
+                    "vkey": "601fe99f0e92f28748aea350b4f5210145451ff267b95554cce0b5a0bf9fbb94"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "headId": "07000406010603040004030107060100",
+            "tag": "HeadIsAborted",
+            "utxo": [
+                4,
+                6
+            ]
+        },
+        {
+            "input": "",
+            "reason": "𭖌\u0014",
+            "tag": "InvalidInput"
+        },
+        {
+            "headId": "04070603020607020701030007010804",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 3,
+                "inputs": [],
+                "outputs": [
+                    -3,
+                    6
+                ]
+            }
+        },
+        {
+            "headId": "03040402010607060700020803050406",
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -4,
+                4,
+                5
+            ]
+        },
+        {
+            "headId": "07060403060102070703010003080100",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "headStatus": "Closed",
+            "hydraNodeVersion": "h[_o󰧶",
+            "me": {
+                "vkey": "0a68078d3eef13f9fce730ea2df3bd441b47ce35eefbfc2e1e8d75539db30ed5"
+            },
+            "snapshotUtxo": [],
+            "tag": "Greetings"
+        },
+        {
+            "headId": "04040808030608020100020100000706",
             "tag": "HeadIsOpen",
+            "utxo": [
+                -5,
+                -1,
+                1,
+                3,
+                4
+            ]
+        },
+        {
+            "headId": "05000500070107040207040604010304",
+            "party": {
+                "vkey": "942da80949489944d7a3f15cac106e0c4cd9fde6e2a52f777907211f30ab39ea"
+            },
+            "tag": "Committed",
             "utxo": []
         },
         {
@@ -1181,59 +1370,53 @@
             "contestationDeadline": "1864-05-14T06:24:39.909708681341Z",
             "headId": "01000008000500080800070706070101",
             "snapshotNumber": 6,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
-            "input": "Mꟗ\u0017𡥛J",
-            "reason": "\u0006\u0001y_id",
-            "tag": "InvalidInput"
-        },
-        {
-            "headId": "00030601070103050008080200030208",
+            "headId": "06060003070300060505070604030306",
             "tag": "GetUTxOResponse",
             "utxo": [
-                -5,
-                1
+                -4,
+                -1,
+                1,
+                3,
+                6
             ]
         },
         {
-            "clientInput": {
-                "tag": "Init"
+            "headId": "00030601070103050008080200030208",
+            "signatures": {
+                "multiSignature": [
+                    "6f34538b77370da9883fa46aa5d6dce290554612c96a601afbe3e8f0d8f12ad92292178caf367a9aed2762c730813dc593bcaf42d3023875670513375cafc103"
+                ]
             },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 1
-                    },
-                    "committed": {
-                        "430e24a4afb381edb1c6e525248edaa27b5ce11a796d706aa62693d4f413f87e": [
-                            -5,
-                            -1,
-                            5
-                        ],
-                        "9981b5226243f45493d225b49f83ff584be6201dda952331e405324051f5bf97": [
-                            -2,
-                            1,
-                            2,
-                            3,
-                            5
-                        ]
-                    },
-                    "headId": "05010702050504010108020403080700",
-                    "headSeed": "06060205010507080200010104070802",
-                    "parameters": {
-                        "contestationPeriod": 2592000,
-                        "parties": []
-                    },
-                    "pendingCommits": [
-                        {
-                            "vkey": "99c6269a1e6856fabd5e4c865d88a0d71c4151954bd0ae446dcd9923cf1d3eaf"
-                        }
-                    ]
-                },
-                "tag": "Initial"
+            "snapshot": {
+                "confirmedTransactions": [
+                    -6,
+                    2,
+                    -3,
+                    -6,
+                    6,
+                    2
+                ],
+                "headId": "05010601000406040705070505040603",
+                "snapshotNumber": 3,
+                "utxo": [
+                    -4,
+                    -3,
+                    1,
+                    2,
+                    3
+                ]
             },
-            "tag": "CommandFailed"
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "headId": "00010407080702020205020502080707",
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -2
+            ]
         },
         {
             "peer": "bbaz",
@@ -1243,25 +1426,16 @@
             "contestationDeadline": "1864-05-03T04:18:26.327700486797Z",
             "headId": "02070600000502060707010805030601",
             "snapshotNumber": 6,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
-            "headStatus": "Idle",
-            "hydraNodeVersion": "\u001b𢗄po",
-            "me": {
-                "vkey": "efec2e5d717fd1037f000436597cea106d8b821d292ec01e5fe08ae01769a403"
-            },
-            "snapshotUtxo": [
-                -4,
-                -1,
-                3,
-                4
-            ],
-            "tag": "Greetings"
+            "input": "",
+            "reason": "匸i4`$",
+            "tag": "InvalidInput"
         },
         {
             "headId": "01060305000303040805040602060001",
-            "tag": "HeadIsFinalized",
+            "tag": "HeadIsAborted",
             "utxo": [
                 -4,
                 -3,
@@ -1270,81 +1444,57 @@
             ]
         },
         {
-            "headId": "06080708000400000708000704030408",
-            "signatures": {
-                "multiSignature": [
-                    "4455f097f7aa431ba9a387f447db6070d9de6f1f86d145296f82f5c421f709773e01b2e33f5d9ae74414f9c04c4c61bf86252cf91eec506411f1e1d2373a7809",
-                    "6bf70ba6037e9a4ab391dcdb12dcbf4ce44a49ac960a82b2d5eb25a80917767cdb5845057c95b0371589a3584bac4552a896e9b3f9309c35716eaa131c5bd30b",
-                    "514ebdf102aee15d0189b4935f8d1eede57509ca5e73c0adf807f26cab9cbf09050324c2667be1388c04445ef3772bb898692bfb07313914b95c3138ecf09e00",
-                    "0def7a96e7e631757694945818eb7f7bde8fb6a2c26030cfdd77c867295dc65a0de09c9790615635096937f13159e4f7cf18d7c1d730f7b77f4570e01b8ed00d"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [],
-                "headId": "03020400060507040305000803030405",
-                "snapshotNumber": 3,
-                "utxo": [
+            "headId": "06080501030704040705020105020003",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -3,
+                "inputs": [
                     -6,
                     1,
                     4
-                ]
+                ],
+                "outputs": []
             },
-            "tag": "SnapshotConfirmed"
+            "utxo": [
+                -6,
+                -4,
+                0,
+                1,
+                2,
+                3
+            ],
+            "validationError": {
+                "reason": "*FU?"
+            }
         },
         {
-            "headId": "00020207050808010203050306000802",
-            "tag": "ReadyToFanout"
+            "contestationDeadline": "1864-05-11T03:02:13.97965774449Z",
+            "headId": "08010304000008050407040405050602",
+            "snapshotNumber": 1,
+            "tag": "HeadIsContested"
         },
         {
-            "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "9709924e2017ac74549a0e81684872bd66dc5dbda802739d06bd2c62423a712868ca13a23882de874a9dc573ee723ff812889a55058c3b4a7b7e4a894bc6f80a",
-                            "dd7749035d910e25f2b0c31be57d0534b51f922d68d0c215c3bd70ad98292451393f75b93e20734cd2e7882ae673073c4053d10e95356e850821d56b82200903",
-                            "f1a4005c10e7d1b7715a2a2daab92392b829b9f7dac3b0f3c20e6ab886029fac90b7e06bc1e34dbedf36d15c272f8b2f9c614c78306421f81cba6faa9147350a",
-                            "ef9e20a486e73c5c6c6c7b227732e4160841867fec7657d3ad124dbe30848040e75c20230f134a4e527db0481eb6918af4808a93c8edb447823740c2ba4ffe0a",
-                            "44d46a48161166756ac1188a87ce3e80d13d4b276076d731f8398b86a19b8791096b6257123ff1568f197df5a9baa4b033c72be4c2e1ea91189d0273dca59306"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "07030201080402060506010700080402",
-                        "snapshotNumber": 6,
-                        "utxo": [
-                            0
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "08000505080400020803000705020302",
-                "headParameters": {
-                    "contestationPeriod": 86400,
-                    "parties": [
-                        {
-                            "vkey": "afd838d296cc6b78fb09bccc585ee258e3031902261c8d59d2b1ea13102e8885"
-                        }
-                    ]
-                },
-                "tag": "ContestTx"
+            "headStatus": "Final",
+            "hydraNodeVersion": "@Vfv",
+            "me": {
+                "vkey": "ff8370240fe713edb74613abb79d494e85440291368fb32ee1fad549cc6f507e"
             },
-            "postTxError": {
-                "failureReason": "J􉷾kP",
-                "tag": "FailedToPostTx"
-            },
-            "tag": "PostTxOnChainFailed"
+            "snapshotUtxo": [],
+            "tag": "Greetings"
         },
         {
             "peer": "qici",
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "05080804070302000003080804050302",
-            "tag": "ReadyToFanout"
+            "contestationDeadline": "1864-05-12T02:38:10.463975767132Z",
+            "headId": "04020701070805070102040102010205",
+            "snapshotNumber": 2,
+            "tag": "HeadIsContested"
         },
         {
             "headId": "07070000020605010702020705040006",
-            "tag": "HeadIsFinalized",
+            "tag": "HeadIsAborted",
             "utxo": [
                 -4,
                 -3,
@@ -1354,73 +1504,71 @@
         },
         {
             "headId": "05050508040701080803010007070401",
-            "party": {
-                "vkey": "ac253d20a39600c07c069db2df7c91dfc8de679d5e8d304c162ff7c2b79b0e78"
-            },
-            "tag": "Committed",
-            "utxo": [
-                0
-            ]
+            "parties": [
+                {
+                    "vkey": "b16e6f0f5b4d76345e801958ac8434eeb84aac86eefbf8122c92d5597ad58d0a"
+                },
+                {
+                    "vkey": "098f7742e622af8a15ae7a2a3ffee6df740ff4841cb29335aa3ecdbd2340adb7"
+                }
+            ],
+            "tag": "HeadIsInitializing"
         },
         {
-            "headId": "05030403010504080706020700050304",
-            "tag": "TxInvalid",
+            "headId": "08080505010700030803060406040405",
+            "tag": "TxValid",
             "transaction": {
-                "id": -1,
+                "id": 3,
                 "inputs": [
-                    -6,
-                    -5,
-                    -4,
-                    3,
-                    5,
-                    6
+                    1
                 ],
-                "outputs": []
-            },
-            "utxo": [],
-            "validationError": {
-                "reason": "&"
+                "outputs": [
+                    -6,
+                    -2,
+                    1,
+                    4,
+                    6
+                ]
             }
         },
         {
-            "headId": "08060401060106080802000807070502",
-            "signatures": {
-                "multiSignature": [
-                    "d76b03c09ad9ee382c6b0a47633044518b2fe84ac07ab045ce48036b1796b19043ce3eaa3fbb7add21822f2e8b2b2c6d4ecfa5a6a0ccddf848ebac3207cb6b0c",
-                    "e620f1daca5898295b21a55eabf3c959853797b866074c1d2bc5457b0cd339e9b7f4683032098c998196fae2d857c4df34186fd9c9ad5e257155d9bcbc85660e",
-                    "572919fa116c4cd2b7b064026b986fe633c8c41033a6c82004da69f3cfebacfb059236f5411016ef5f64613f35ceeb3c50deddd2ec583cdf0dc417467f59be04",
-                    "4203aa940cb46634eeb524b646553472151d22b4cc3237d6ac540a1bbc5a81455062bbed1cb28249d37c3de70d2a4e4f436e5298141a236d12695ccd2ba3a708",
-                    "e359b223953c40c9414886034db72458a11d896035858472bf0320df9d46716b704441890790e8aa0f87b4e99d4e102124287fe913c4d1827eef07ad66f56605"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    2,
-                    2,
-                    -4,
-                    2
-                ],
-                "headId": "02020605010407050606080008080005",
-                "snapshotNumber": 1,
-                "utxo": [
+            "headId": "08020302010301060608020806050003",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 3,
+                "inputs": [
                     -6,
                     -4,
                     0
+                ],
+                "outputs": [
+                    -4,
+                    2
                 ]
             },
-            "tag": "SnapshotConfirmed"
+            "utxo": [
+                1,
+                2,
+                3,
+                5
+            ],
+            "validationError": {
+                "reason": "􊁓\u0002-𫮣􀯄"
+            }
         },
         {
             "headId": "02050504050207020004030000080707",
-            "tag": "HeadIsOpen",
+            "party": {
+                "vkey": "fd5bc1603446cf88db3cfee859d04c0be172bbeff8afec6a0812e92cef6e7f1e"
+            },
+            "tag": "Committed",
             "utxo": [
-                -3,
-                6
+                -3
             ]
         },
         {
             "headId": "00050507000808070208060001080001",
-            "tag": "HeadIsFinalized",
+            "tag": "HeadIsAborted",
             "utxo": [
                 -6,
                 -5,
@@ -1428,511 +1576,163 @@
             ]
         },
         {
-            "headId": "04070507070807060107070002080206",
-            "tag": "TxInvalid",
+            "headId": "05000302050404040303000304030606",
+            "tag": "TxValid",
             "transaction": {
-                "id": 4,
+                "id": -5,
                 "inputs": [
+                    -4,
                     -2,
-                    1,
-                    3,
-                    5,
-                    6
+                    0
                 ],
                 "outputs": [
-                    -6,
-                    2,
-                    6
+                    3
                 ]
-            },
-            "utxo": [],
-            "validationError": {
-                "reason": "y\u00122"
             }
         },
         {
-            "headId": "06060407020805000708070603070802",
-            "parties": [
-                {
-                    "vkey": "1dc31379927a5f209ad2eea33e5b3d9b7034a30a7d1b6fdd15c8e2b0721ec799"
-                },
-                {
-                    "vkey": "b0788b5251850674c3148e9c778e8698d05f486099e83afc9b4f5bd8ce5cd978"
-                }
-            ],
-            "tag": "HeadIsInitializing"
+            "contestationPeriod": 604800,
+            "headId": "02030102080607010502070403030308",
+            "participants": [],
+            "parties": [],
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "headId": "01050604010705030208060100040600",
-            "party": {
-                "vkey": "21f92ad97c0bf521ed7df28046dd0dd784f14b2d0f0559bc805f8a3620da7373"
-            },
-            "tag": "Committed",
+            "parties": [],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "contestationPeriod": 45922,
+            "headId": "07040603000103070000070803060401",
+            "participants": [
+                "08060307080102050505010607070501070602040100040402010703"
+            ],
+            "parties": [
+                {
+                    "vkey": "6b02636e568dd8c7600adb38f601c2164958af3c3c712c42dd85e08f77f8adf6"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        },
+        {
+            "headId": "04080406000204000005030802000608",
+            "tag": "HeadIsFinalized",
             "utxo": [
-                4
+                -3,
+                -1,
+                3,
+                6
             ]
         },
         {
-            "headId": "00020408040104000007010202020104",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -5,
-                -2,
-                3
-            ]
+            "headId": "07070501020605010006050204050100",
+            "tag": "HeadIsFinalized",
+            "utxo": []
         },
         {
-            "clientInput": {
-                "tag": "GetUTxO"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 5
-                    },
-                    "coordinatedHeadState": {
-                        "allTxs": {
-                            "-3": {
-                                "id": -1,
-                                "inputs": [
-                                    -6,
-                                    -3,
-                                    2,
-                                    6
-                                ],
-                                "outputs": [
-                                    0,
-                                    2,
-                                    4
-                                ]
-                            },
-                            "3": {
-                                "id": -5,
-                                "inputs": [
-                                    -6,
-                                    -4,
-                                    -2,
-                                    3
-                                ],
-                                "outputs": [
-                                    -4,
-                                    2,
-                                    5
-                                ]
-                            },
-                            "5": {
-                                "id": -2,
-                                "inputs": [
-                                    2,
-                                    6
-                                ],
-                                "outputs": [
-                                    -6,
-                                    -4,
-                                    0,
-                                    5
-                                ]
-                            }
-                        },
-                        "confirmedSnapshot": {
-                            "signatures": {
-                                "multiSignature": []
-                            },
-                            "snapshot": {
-                                "confirmedTransactions": [],
-                                "headId": "01070005000204040500050603030507",
-                                "snapshotNumber": 1,
-                                "utxo": [
-                                    -4,
-                                    -2,
-                                    -1
-                                ]
-                            },
-                            "tag": "ConfirmedSnapshot"
-                        },
-                        "localTxs": [
-                            {
-                                "id": -3,
-                                "inputs": [
-                                    1,
-                                    5
-                                ],
-                                "outputs": [
-                                    -5,
-                                    -1,
-                                    0,
-                                    5
-                                ]
-                            },
-                            {
-                                "id": 6,
-                                "inputs": [],
-                                "outputs": []
-                            },
-                            {
-                                "id": 5,
-                                "inputs": [],
-                                "outputs": [
-                                    5
-                                ]
-                            },
-                            {
-                                "id": -6,
-                                "inputs": [
-                                    -5,
-                                    -4,
-                                    0,
-                                    2,
-                                    4,
-                                    5
-                                ],
-                                "outputs": [
-                                    -2,
-                                    0
-                                ]
-                            },
-                            {
-                                "id": -5,
-                                "inputs": [
-                                    -4
-                                ],
-                                "outputs": [
-                                    -6,
-                                    -2,
-                                    -1,
-                                    4,
-                                    6
-                                ]
-                            },
-                            {
-                                "id": 5,
-                                "inputs": [
-                                    -1
-                                ],
-                                "outputs": [
-                                    -6,
-                                    1,
-                                    2,
-                                    4,
-                                    5
-                                ]
-                            }
-                        ],
-                        "localUTxO": [
-                            -3,
-                            1,
-                            3,
-                            6
-                        ],
-                        "seenSnapshot": {
-                            "signatories": {},
-                            "snapshot": {
-                                "confirmedTransactions": [
-                                    -4,
-                                    2,
-                                    -2,
-                                    4,
-                                    2
-                                ],
-                                "headId": "03000206060100000805050206080208",
-                                "snapshotNumber": 1,
-                                "utxo": [
-                                    -2,
-                                    -1,
-                                    0,
-                                    5
-                                ]
-                            },
-                            "tag": "SeenSnapshot"
-                        }
-                    },
-                    "currentSlot": 2,
-                    "headId": "05020202060202020000080607050502",
-                    "headSeed": "01030203010405020301060806060506",
-                    "parameters": {
-                        "contestationPeriod": 31536000,
-                        "parties": [
-                            {
-                                "vkey": "383776dd78b2b19ba3527b44297f24e75721867183200b91ad7b2b52c1f14f3d"
-                            },
-                            {
-                                "vkey": "989ac4828c21763dfe4665e295c68d463f9157ad812e4f647092c0b3dc1276fe"
-                            }
-                        ]
-                    }
-                },
-                "tag": "Open"
-            },
-            "tag": "CommandFailed"
+            "contestationDeadline": "1864-05-10T12:53:22.899839599114Z",
+            "headId": "05040008010302030408030203030107",
+            "snapshotNumber": 3,
+            "tag": "HeadIsContested"
         },
         {
-            "clientInput": {
-                "tag": "GetUTxO"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 5
-                    },
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": [
-                                "089e0d68bafbbf3773edbb654da544e5d42b70e77dc5cea165e2e765af15bade7a7be94a1e121cff21f76fac0a9369db577726ea31f9e0001afad5c1b690d30c",
-                                "dfff18299489e7350f8faf9fbcb502ea989348bb1b7c50ba00661391b97d157a4057e62a4e816e74e2111198ee19d70217da1c6f9d18a1ebe8ac9fa066844a0e"
-                            ]
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "headId": "00010208010104020701060108060800",
-                            "snapshotNumber": 6,
-                            "utxo": [
-                                -3,
-                                1
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
-                    },
-                    "contestationDeadline": "1864-05-11T16:48:53.470218185429Z",
-                    "headId": "08030802040004000003020506030106",
-                    "headSeed": "07010206070401010602010305070001",
-                    "parameters": {
-                        "contestationPeriod": 43853,
-                        "parties": []
-                    },
-                    "readyToFanoutSent": true
-                },
-                "tag": "Closed"
-            },
-            "tag": "CommandFailed"
-        },
-        {
-            "headId": "00030700050201060102070306070805",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "headId": "04030608050302010307040302030502",
-            "tag": "ReadyToFanout"
+            "contestationDeadline": "1864-05-06T19:17:07.795127732417Z",
+            "headId": "05060704040802070601060701030603",
+            "snapshotNumber": 0,
+            "tag": "HeadIsContested"
         },
         {
             "peer": "zletmh",
             "tag": "PeerDisconnected"
         },
         {
-            "postChainTx": {
-                "contestationDeadline": "1864-05-11T23:01:25.529499486685Z",
-                "headSeed": "06070701010006050606030405030602",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -5,
-                    -2,
-                    3,
+            "headStatus": "Initializing",
+            "hydraNodeVersion": "%",
+            "me": {
+                "vkey": "7a4202828f035801c6104c03f52404f33bb176af7289288dd6bffef93133ca95"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "headId": "00060102060503020703070204070207",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 2,
+                "inputs": [],
+                "outputs": [
+                    -6,
+                    -4,
+                    -3,
+                    1,
+                    2
+                ]
+            }
+        },
+        {
+            "headStatus": "Open",
+            "hydraNodeVersion": ";8+\u001c-",
+            "me": {
+                "vkey": "f45eed59703f6df482ec546781ed156da96ab760121ae7dc781cda5cfa04c333"
+            },
+            "snapshotUtxo": [
+                -4,
+                -1,
+                1,
+                2
+            ],
+            "tag": "Greetings"
+        },
+        {
+            "headStatus": "Initializing",
+            "hydraNodeVersion": ")QM^",
+            "me": {
+                "vkey": "e04fe2605d5891c1b3891ca7547216210331dc7770bc700ad436b72d5d0d1494"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "headId": "05040807060803080100020602080506",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    0,
+                    3
+                ],
+                "outputs": [
                     5
                 ]
-            },
-            "postTxError": {
-                "tag": "NoFuelUTXOFound"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "headId": "00000707070108070107010806040105",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -1,
-                "inputs": [
-                    2
-                ],
-                "outputs": [
-                    -5,
-                    -4,
-                    3,
-                    5,
-                    6
-                ]
-            },
-            "utxo": [
-                -5,
-                -3,
-                0,
-                6
-            ],
-            "validationError": {
-                "reason": ""
             }
         },
         {
-            "postChainTx": {
-                "contestationDeadline": "1864-05-04T05:43:12.059085479264Z",
-                "headSeed": "01080108040100040607070101020002",
-                "tag": "FanoutTx",
-                "utxo": [
-                    -6,
-                    -1,
-                    0,
-                    2,
-                    5,
-                    6
-                ]
-            },
-            "postTxError": {
-                "chainState": {
-                    "slot": 1
-                },
-                "tag": "InvalidStateToPost",
-                "txTried": {
-                    "headSeed": "04060507080501070206000402030407",
-                    "tag": "AbortTx",
-                    "utxo": [
-                        -4,
-                        2,
-                        4
-                    ]
-                }
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "4c13624f88862d8b86267dd5d6d6f2d9f5d49795cf3a0de9f82bf969a506aba64076b9c2e03e6bdfdcb0b90522504383c0d773306e1491a5deb164056251c107",
-                            "0d02eaa056f6828886afc38a8bae2ea8a209bc9daf164b1c0507864dd3fbcb85082e760abc768abf3eb4840588cc7bd7250ae06c480b1d0f9769b747804bc602",
-                            "510801e99cad843fda2628fdd7dda5a8c99fe20ec03a63d9e9729a5ee0cb285c5e4eeab19657e2d9cbf3003f1ce4816001803b15bde0742d2b14540a5b4b080e"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "02080008010804050508030201020403",
-                        "snapshotNumber": 5,
-                        "utxo": [
-                            -2,
-                            3,
-                            6
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "08000303000103030704050003020603",
-                "headParameters": {
-                    "contestationPeriod": 2592000,
-                    "parties": [
-                        {
-                            "vkey": "6c3135d72a97004e0aa02bc5371feaf421bdd22eb6318b042f5000f203e87521"
-                        },
-                        {
-                            "vkey": "7038b1b8f9786a25f127a680097b457f6ea20cb812375990a1780c1f8c546d70"
-                        },
-                        {
-                            "vkey": "f538d46bb679bbeae32660f8d1b49ba24c51390cd72db16c5cf49817d7955626"
-                        },
-                        {
-                            "vkey": "0561d9585af3f91d41be8c4a7e852f36b4a10eda2267ffa0e6c1cdff9a1814e0"
-                        }
-                    ]
-                },
-                "tag": "CloseTx"
-            },
-            "postTxError": {
-                "chainState": {
-                    "slot": 0
-                },
-                "tag": "InvalidStateToPost",
-                "txTried": {
-                    "confirmedSnapshot": {
-                        "signatures": {
-                            "multiSignature": [
-                                "ebddeecc3bc01790c4f058affbda9299aafe0da6c3385c9ae5e7b1b54054fadd4c90e5b573384a9263a631c6489d75b864204fdeabbc49d1b9cafbd610a3600a",
-                                "c7953eab0f83edc97375df45b36442136a0487adb9cfb3a696c70629ad66c51f5ff7f5193c4b2d0fc2492b2e3d8ca096b8048822a57782ac5a9e2c1764539909",
-                                "0fc684f87e20b0fffb8bd3b76f4572c3500cc25d8a4dfd6da27f0c7137948c919a041fd520c83f646aa2167411ce2bce624f1953f3c2a950ac263bdc10d0560c",
-                                "b9d52dd477e7e51f8263bce7a1c4162eef80e15c468f106f9e02fbabe6155e9e9c193234322cd3cbf7b1a876e5bd56c0301d4917635450912cfe8948fb255008",
-                                "a533f10e6335db5561018d88a57295dc91fa7f4da66806b35e74713016c21b710099efa419716a06704ded9da617a058479c01a410342946f82811e6022db90e"
-                            ]
-                        },
-                        "snapshot": {
-                            "confirmedTransactions": [],
-                            "headId": "02040306000707000502050804020700",
-                            "snapshotNumber": 4,
-                            "utxo": [
-                                -4
-                            ]
-                        },
-                        "tag": "ConfirmedSnapshot"
-                    },
-                    "headId": "05050405040602040202060108060103",
-                    "headParameters": {
-                        "contestationPeriod": 43200,
-                        "parties": [
-                            {
-                                "vkey": "0b0e2630b85586f73774081f3c3448142dc6f9eaa0793effec7473b86db37b96"
-                            },
-                            {
-                                "vkey": "281019832a4203c4d6946fe22cb8fe93a7edfee50c8adf6f629ec23ea5de5b6e"
-                            },
-                            {
-                                "vkey": "3d81d50a18583d4b16161e33c6c4755af84827c9374301d8a5b5ab09cddcfed8"
-                            },
-                            {
-                                "vkey": "14daab812bee410dea4ff5cf6e5a63a05f57aaf6351b2a5505ed319835d4c570"
-                            },
-                            {
-                                "vkey": "7c357785a5ace8921baa5ad2297337d985dbc647259f0c9c2799cfb00cb500ec"
-                            }
-                        ]
-                    },
-                    "tag": "ContestTx"
-                }
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "headId": "02010305000603010203050102080206",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 4,
-                "inputs": [
-                    -6,
-                    -4,
-                    -2,
-                    1
-                ],
-                "outputs": [
-                    4
-                ]
-            },
-            "utxo": [
-                -6,
-                -3,
-                0,
-                6
+            "contestationPeriod": 43200,
+            "headId": "00080102080605070804060601040605",
+            "participants": [
+                "03020103050206030706010104060308070208000408060702000002",
+                "07030407050400010306060708060208070105070104020203050202",
+                "06020403010204000504050204060805030105070600060001070508"
             ],
-            "validationError": {
-                "reason": "󺴋N"
-            }
+            "parties": [
+                {
+                    "vkey": "f7940022fd7f2cd92a5ff550a85b2ddf59da61212ccfe296191a5e3b3c8ad6f9"
+                },
+                {
+                    "vkey": "7998139e73809ba00f30494f2703b6df1e1298c2a61a2e72e1cc0c5ff73379a9"
+                },
+                {
+                    "vkey": "71e9bd5d4c6074e22325d86c19711771a6f26d0bb89fd03d0a4bd130f9275de5"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
         },
         {
-            "headId": "00010707060103060404070601050102",
-            "tag": "HeadIsOpen",
+            "headId": "03060102050202050104080208050607",
+            "tag": "HeadIsFinalized",
             "utxo": [
-                -5,
-                -4,
                 -3,
-                4
+                2
             ]
-        },
-        {
-            "clientInput": {
-                "tag": "Close"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 0
-                    }
-                },
-                "tag": "Idle"
-            },
-            "tag": "CommandFailed"
         },
         {
             "peer": "fwqf",
@@ -1940,48 +1740,33 @@
         },
         {
             "headId": "05070701050606010706020505010702",
-            "party": {
-                "vkey": "1c615ee41a41d475519a5118bfda0e33f2f406c8e88c7f1bec0ea2e2bd273af1"
-            },
-            "tag": "Committed",
-            "utxo": []
-        },
-        {
-            "headId": "06050007030003040504040506060803",
             "parties": [
                 {
-                    "vkey": "c7aadc1e959dc0d935c3f1a40f742d134037f26ea34a3d72e55561a3c185e544"
-                },
-                {
-                    "vkey": "a20bf992d382da3cd98bc171229893fa5c1526b315edb8ffd2b4af1e5ca8fada"
-                },
-                {
-                    "vkey": "a412ec5d985662b4d9022476e7855b1e12075c9cdba14f34cd4dc7493edb1e6e"
-                },
-                {
-                    "vkey": "15d20d7df20992ea562f6c2aa95c7fdd76c3bc22050dc1db1f7b88e76f8f7a0f"
-                },
-                {
-                    "vkey": "4505eb640b3e68749ab771b60967cbb85163f326b1be120cea4f1306b38061d1"
-                },
-                {
-                    "vkey": "d0a88d3c3c93f575bf13ac6d9b2b68a04d28a488e4c1aed77020972307ef531c"
+                    "vkey": "bd655c4d97a9c96871b957da5189999ceff4869b370ce4fe5f9e2437afc7cace"
                 }
             ],
             "tag": "HeadIsInitializing"
         },
         {
-            "headId": "05050400000504040605060404060102",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -4,
-                -3,
-                6
+            "ourVersion": 0,
+            "remoteHost": {
+                "hostname": "0.0.0.6",
+                "port": 4
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                1,
+                2,
+                4
             ]
         },
         {
+            "headId": "05070105060005000802080001080202",
+            "tag": "ReadyToFanout"
+        },
+        {
             "headId": "01070507060605020800010705050402",
-            "tag": "HeadIsFinalized",
+            "tag": "HeadIsAborted",
             "utxo": [
                 -5,
                 -2
@@ -1989,88 +1774,22 @@
         },
         {
             "headId": "03020000040107070605050004070803",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                3
-            ]
-        },
-        {
-            "contestationDeadline": "1864-05-14T18:02:45.366820556773Z",
-            "headId": "07010602060806020602010604080106",
-            "snapshotNumber": 2,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "07060204060103080206030205080204",
-            "party": {
-                "vkey": "68724b3c5fdc05bfa76877ee2adb440e5fd97971533fb23fb60c10e922a520e0"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -3,
-                3
-            ]
-        },
-        {
-            "headId": "03040504080205030405010207030601",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "\"",
-            "me": {
-                "vkey": "a996ab2c12511d2211ba8e456b861e6e8c37ff381d8db09fa1241e10495065c2"
-            },
-            "snapshotUtxo": [
-                -5,
-                -4,
-                -2,
-                1,
-                2
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "peer": "hfby",
-            "tag": "PeerDisconnected"
-        },
-        {
-            "headId": "03040708070202020700060308060304",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                2,
-                4,
-                6
-            ]
-        },
-        {
-            "headId": "05030306040608020007010801060008",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -4,
-                4,
-                5
-            ]
-        },
-        {
-            "headId": "02040408070105040108020102010504",
             "signatures": {
-                "multiSignature": [
-                    "c002d5bd2c3f2c0653e2a61031c46fe90938092e5e40273d3761a7dcb08674421a2020e65496eaff388f9b44a85c70867f33bfcab2b68219f2a4650e2e8c9102",
-                    "6177169462001b9f651d6d7fbebf20f2b431c42a2554e7bee2645e344787fc26b9f5f8d02d98a3fb369fb3bd07f32e09145e265c1c20111734cb542fdf947a0f",
-                    "41dd8975d68c2e890c0336694a1f7ff5701a86bb3a8571642aea65c10302b2c405e5ee9e9303ecca1db82b7286dec412da857ae911e3af6bcc69784a3e0d8f0e"
-                ]
+                "multiSignature": []
             },
             "snapshot": {
                 "confirmedTransactions": [
+                    -6,
+                    6,
                     -1,
-                    -2,
-                    -1
+                    2,
+                    5
                 ],
-                "headId": "06020701050408060804050204070301",
-                "snapshotNumber": 4,
+                "headId": "02040101070303010400020304010300",
+                "snapshotNumber": 3,
                 "utxo": [
-                    1,
+                    -2,
+                    2,
                     5,
                     6
                 ]
@@ -2078,21 +1797,100 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "contestationDeadline": "1864-05-11T16:13:24.51859796555Z",
-            "headId": "02040705060703050706060107000707",
-            "snapshotNumber": 3,
+            "contestationDeadline": "1864-05-14T18:02:45.366820556773Z",
+            "headId": "07010602060806020602010604080106",
+            "snapshotNumber": 2,
+            "tag": "HeadIsClosed"
+        },
+        {
+            "headId": "07060204060103080206030205080204",
+            "parties": [
+                {
+                    "vkey": "5643f3920a8dd68dd232444ac4f99f53bbd78e64c7fe6314899f9669ef4fddbb"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "contestationDeadline": "1864-05-10T22:19:50.655162327821Z",
+            "headId": "01050704030005020605050405050508",
+            "snapshotNumber": 1,
             "tag": "HeadIsContested"
         },
         {
-            "headId": "04020307020003060408040002010007",
-            "tag": "HeadIsOpen",
+            "input": "'QQ",
+            "reason": "󵿇",
+            "tag": "InvalidInput"
+        },
+        {
+            "peer": "hfby",
+            "tag": "PeerDisconnected"
+        },
+        {
+            "headId": "03040708070202020700060308060304",
+            "party": {
+                "vkey": "1a0f08fbb89229113eb1e109c82f675e5f127cf782a09ef258dea831cbba2452"
+            },
+            "tag": "Committed",
             "utxo": [
-                1
+                -6,
+                -4,
+                0
+            ]
+        },
+        {
+            "headId": "05030306040608020007010801060008",
+            "party": {
+                "vkey": "e5f98f6708c54e81ebb4374cffef6bb54375b6455c7602524c381d692873ba28"
+            },
+            "tag": "Committed",
+            "utxo": []
+        },
+        {
+            "headId": "05040102060204050101080208010706",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 3,
+                "inputs": [
+                    1,
+                    5,
+                    6
+                ],
+                "outputs": [
+                    -2,
+                    -1
+                ]
+            },
+            "utxo": [
+                -5,
+                -4,
+                3
+            ],
+            "validationError": {
+                "reason": "\u0013聳\u0005"
+            }
+        },
+        {
+            "contestationDeadline": "1864-05-11T16:13:24.51859796555Z",
+            "headId": "02040705060703050706060107000707",
+            "snapshotNumber": 3,
+            "tag": "HeadIsClosed"
+        },
+        {
+            "headId": "04020307020003060408040002010007",
+            "party": {
+                "vkey": "580d2ddfa00d4645580137550c4d373661837b955cc1ed33d5e0a3926ae94acf"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -6,
+                -2,
+                4
             ]
         },
         {
             "headId": "05080305050606050308000705010800",
-            "tag": "HeadIsFinalized",
+            "tag": "HeadIsAborted",
             "utxo": [
                 0,
                 1,
@@ -2103,516 +1901,165 @@
             "contestationDeadline": "1864-05-05T11:58:16.718394373034Z",
             "headId": "03040302020800030002040407030700",
             "snapshotNumber": 1,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
-            "input": "",
-            "reason": "膼􄨠mKG&",
-            "tag": "InvalidInput"
+            "headId": "06070205080107030004040205000707",
+            "tag": "GetUTxOResponse",
+            "utxo": []
         },
         {
-            "headId": "02070108070704000005040605000508",
-            "signatures": {
-                "multiSignature": [
-                    "7a73f08301dd88b0442aa11ec2a45fca5f0b976da436c834d586ea6fea25913bcd11cc629006c5810c0fe7e6715e6351af7a158bcfe858e742ff682e7578590d",
-                    "76b18cdc2cec6eaf71e1e072e889562df3aea39395da1ffbcdc9625df63e8940b0bb57aece8e5f4507591a9b177d6c13a9fc16bbc82e5646b6a3355e083b530a"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    2,
-                    5
-                ],
-                "headId": "06010502030206010007080807040706",
-                "snapshotNumber": 2,
-                "utxo": [
+            "headId": "05000100020604000802050104050704",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 4,
+                "inputs": [
                     -6,
                     0,
                     6
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "08050605000703050001070803080204",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -6,
-                "inputs": [
-                    -5,
-                    -1,
-                    5
                 ],
                 "outputs": [
-                    -3,
-                    0,
                     2,
-                    3
+                    5
                 ]
             },
-            "utxo": [],
+            "utxo": [
+                -3,
+                -2,
+                0,
+                1,
+                4,
+                5
+            ],
             "validationError": {
-                "reason": "𮰜1\u000e"
+                "reason": "q/"
             }
         },
         {
-            "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "b3115a71522a5884572e181a29775a73d1b3e892e47e3be5d1f787aae4d0baeb55d9067ed027965b04052638c3ee5864ef404c1dd518be523006058d06dd840c",
-                            "e1030a99df4d018e461c41e8f1b8def34a22fed651202bdac3ddfaa8f17c4ea5c98b214dbec81149624af0d41401716058ba81c171568e986f52d18521292802"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "02070802030402080206080707070702",
-                        "snapshotNumber": 1,
-                        "utxo": [
-                            0,
-                            2,
-                            5
-                        ]
-                    },
-                    "tag": "ConfirmedSnapshot"
+            "contestationPeriod": 26324,
+            "headId": "08050605000703050001070803080204",
+            "participants": [
+                "06000007080001060401060603070307040102040705020404000408",
+                "07000803030500070406010705030502000105010803080806030301",
+                "01000602080206040106060806060603020704000600060101010700"
+            ],
+            "parties": [
+                {
+                    "vkey": "0999f6bde765f3805ff5a8ddd2ff9a9a3ebb68d1e2c87e080cd5e5cae3b63ff2"
                 },
-                "headId": "03040405070008070807010306040407",
-                "headParameters": {
-                    "contestationPeriod": 72263,
-                    "parties": [
+                {
+                    "vkey": "e43275a834a9156aa1cac5a554c09885839315f7540cf9d7fe2444415d5880c5"
+                },
+                {
+                    "vkey": "2be40eef21c4b4ced1f1058f009bcd2944ca0c98201cff409f800c9fa7e9adc2"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        },
+        {
+            "headStatus": "Final",
+            "hydraNodeVersion": "𜾩5\\gwd",
+            "me": {
+                "vkey": "af8dec6ed528f53409b76e57bdccb12fd8e54129c93ca419c01e61b149857895"
+            },
+            "tag": "Greetings"
+        },
+        {
+            "clientInput": {
+                "tag": "Init"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
+                    "committed": {
+                        "51ec4fd48e9f6ecbe4151807706638c2cd4598468f8637acb0ced5c5d8930dc6": [
+                            -3,
+                            -2,
+                            0,
+                            4
+                        ],
+                        "88b8383a22be30ad0136261fc23a27b02a0f8d7e19f5077131232792daef5bce": [
+                            -4,
+                            5,
+                            6
+                        ]
+                    },
+                    "headId": "03080604080403060404010305000606",
+                    "headSeed": "01070703070205000401020100060505",
+                    "parameters": {
+                        "contestationPeriod": 34543,
+                        "parties": [
+                            {
+                                "vkey": "0270c1e3cb61ecc856a519ea75f7d9f5ad71864f33f5c73564a5d037ff9efae4"
+                            },
+                            {
+                                "vkey": "ccd2615d3378ba22500dfd2553a829f3c8f0531a2dcef10f0ea01ca7a42b0ec0"
+                            },
+                            {
+                                "vkey": "bd581972880fa29f49c9119825e82f469ab01dda985061234be03229216c8c56"
+                            },
+                            {
+                                "vkey": "a55ab5c7da32df0b427cd9893dd619af82064acd294e32a8442137183f3787fb"
+                            },
+                            {
+                                "vkey": "ed997b57e36903f997d3f76dbe297205dd27957c1ad93afd231ddd2cf914d290"
+                            },
+                            {
+                                "vkey": "14a004fe2c297ef7f947aa9832e8dc9a41b3cf04308bd3df71b204a4cb21e0d1"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
                         {
-                            "vkey": "c795db92329a763fa963949774a64051b6651d8a68d12dba120208d60183fd33"
+                            "vkey": "c38a0da8d58ba66c349dadabac72a221ac5c5e77ff6a9372d36a22f1f2bb7cbe"
                         },
                         {
-                            "vkey": "5e3d3a8f5f93e61f71804b63451a3a8d1bf4f922adcbc7cf45bf5c23399afe9a"
+                            "vkey": "c062b341a20c5c6662cfe7251ab6c761945f3e3a6d62fffc9778106379bd5a6a"
                         },
                         {
-                            "vkey": "0a24ad78ae254a3f5cc617b955cd974a2c1d9b772d2e9ff4fa446d6d8055cf31"
-                        },
-                        {
-                            "vkey": "22e94802ec48e0aa9966d11080108919e0acc97df77e005eeabab13297ae35f4"
-                        },
-                        {
-                            "vkey": "85728bd69a43f20653d1b250e3efaafcf0fa33936079cdeac8baa8da2c9bd38f"
-                        },
-                        {
-                            "vkey": "836447be2107e9e32b92b2a37612195dc9dbcdc809305a30ba79196ea4a8a400"
+                            "vkey": "d3a983154b6487f7bd7f63e05d51dd24b83d39d886c2e9daa748938a94025419"
                         }
                     ]
                 },
-                "tag": "ContestTx"
+                "tag": "Initial"
             },
-            "postTxError": {
-                "tag": "FailedToConstructAbortTx"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "headId": "08010204020605000402000806010407",
-            "tag": "TxValid",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -2
-                ],
-                "outputs": [
-                    -4
-                ]
-            }
+            "tag": "CommandFailed"
         },
         {
             "headId": "03050207010001070408080808020706",
-            "tag": "HeadIsOpen",
+            "party": {
+                "vkey": "83e3cf3594c04c5d1f35bc87747f7c4b639b8a82be7c2e05f611959d4c0c12eb"
+            },
+            "tag": "Committed",
             "utxo": [
-                -1
+                -4,
+                0,
+                5
             ]
         },
         {
             "contestationDeadline": "1864-05-12T21:29:30.075792280549Z",
             "headId": "02080503040800060305000605000606",
             "snapshotNumber": 3,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "01020801010602030307030706000202",
-            "tag": "HeadIsAborted",
-            "utxo": []
-        },
-        {
-            "headId": "02030608040106040701060708080802",
-            "tag": "TxValid",
-            "transaction": {
-                "id": -4,
-                "inputs": [
-                    -6,
-                    -2,
-                    0,
-                    4
-                ],
-                "outputs": [
-                    -6,
-                    0,
-                    5,
-                    6
-                ]
-            }
-        },
-        {
-            "headId": "04030404030403050500050405060803",
-            "tag": "ReadyToFanout"
-        },
-        {
-            "headId": "07000200010002070708080800080400",
-            "tag": "GetUTxOResponse",
-            "utxo": []
-        },
-        {
-            "headId": "04020501080402070101030602030503",
-            "signatures": {
-                "multiSignature": [
-                    "6732583fa131f40098f06b14047fda8d6f0787d5849534a13bcebda9d1c7f5ecdcd22b7b354d474bde240bd4f82ef452c0ba4a72a6caa827d7a388d93721c804",
-                    "955c461b31fae64a1ae71b1001d0f71c70be174176add87c9b33b3424bc160d8c3c470aa6a141104bee591dbedfd0e48f7d466ef6f7eabfba80df3d8dccadd01",
-                    "82bab84135863121a5ecf3d9d5369bbcee8555191baea0454caf7a363ae5008d78152d14f1109bfb1e8c56d69285bfa18e21ebc37eb6a1b3df001b5574bf630a"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    2,
-                    1
-                ],
-                "headId": "07080800060404020403050506010002",
-                "snapshotNumber": 3,
-                "utxo": [
-                    -2,
-                    5
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headStatus": "Initializing",
-            "hydraNodeVersion": "",
-            "me": {
-                "vkey": "0fd2558772ac981c80bc34d910a388be0134cc34ceb761a920946904f5e825b0"
-            },
-            "snapshotUtxo": [
-                0,
-                2,
-                4
-            ],
-            "tag": "Greetings"
-        },
-        {
-            "postChainTx": {
-                "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "76cf1db5399099ea5019b0755e663247af9c6424ae26dbef4f0567e1cb632e8b2df7ac97204d2eff7ff5c7bf08d7b8a0544acde831408701c1d8de3118b7e000",
-                            "c31e02ace809f27ab936f05c1e5a4d352667fdd73d93c89e7b6e805a84d979a37627a946b2fd3ff3559c8fffdf40b08081f01c325d3206bd320cde46d0920e0b"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "07040804030804030306040401060005",
-                        "snapshotNumber": 2,
-                        "utxo": []
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "00060604050407010204000307020204",
-                "headParameters": {
-                    "contestationPeriod": 56879,
-                    "parties": [
-                        {
-                            "vkey": "1a8d004b0fb6952ef73dd441f0237b8026db5982548f4bfeecb3c2cbaa384235"
-                        }
-                    ]
-                },
-                "tag": "CloseTx"
-            },
-            "postTxError": {
-                "tag": "FailedToConstructCollectTx"
-            },
-            "tag": "PostTxOnChainFailed"
-        },
-        {
-            "peer": "sspk",
-            "tag": "PeerDisconnected"
-        },
-        {
-            "headId": "02000301070306010300060001030303",
-            "signatures": {
-                "multiSignature": [
-                    "041460d2a1179e23e503d286bf7893518272378bf489115960778b84dc68210d38f763407df25c57db401accff2605caa48c482d6bfadd347cad7a747d98af0a"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    3,
-                    4,
-                    5,
-                    -6,
-                    1
-                ],
-                "headId": "04060607070601030208030408080501",
-                "snapshotNumber": 4,
-                "utxo": [
-                    -4,
-                    6
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "03020600000201010000060304020600",
-            "parties": [
-                {
-                    "vkey": "a8b723ce883bcfe265b8283c9eb5df09b4f01bfa30344ab3787c6846ebeeee86"
-                },
-                {
-                    "vkey": "11563472efb838638835728a76d2def1944398938b89e9cad3da7e04587a26d0"
-                },
-                {
-                    "vkey": "dc8f15446c2a5b719234372d085603e849e7c98ba1fb521bcb2577916f092840"
-                }
-            ],
-            "tag": "HeadIsInitializing"
-        },
-        {
-            "headId": "03040603000708010507040603040800",
-            "tag": "HeadIsFinalized",
-            "utxo": [
-                3
-            ]
-        },
-        {
-            "contestationPeriod": 86400,
-            "headId": "07030101010503080608000603000504",
-            "participants": [
-                "02000307000408030105060808020702070100060704070601000807",
-                "02030103050608060808040806050807030108060007010201000006",
-                "07030303070408070800000104070404030202080000030307040502",
-                "06030605000103040301010303050306070300080500050502080205",
-                "02040300040800030400040800060602030807000708070301030204"
-            ],
-            "parties": [
-                {
-                    "vkey": "9361d4737092250f1e69722064173b79354bd9eeaaf45f383a0d1b3b7b38f2a3"
-                },
-                {
-                    "vkey": "60f1895c6d6960f632dec3cd36b51721e458c8ff9a7c5ea5610493cb8e8fa621"
-                }
-            ],
-            "tag": "IgnoredHeadInitializing"
-        },
-        {
-            "headId": "07010005070708080600040403050606",
-            "signatures": {
-                "multiSignature": [
-                    "6c4295178eee4a6c58e56d7c945856b42212f0c14bcd77eaaaa852545b90379ef9746fe4f3e03901a7d0d33530a39e0853295b2badcbaa2b80b5a24a361cee0a",
-                    "3c7db48da95c8df4fbc302a87075ae29c7d4bcff1c35ff5b417ef433ffa9cdecdee6162677ce23aa1bc821d94b9f214e51791022828febeeaad3c345c421bb05"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [
-                    -2,
-                    3,
-                    -6
-                ],
-                "headId": "06060107020203020207000502000108",
-                "snapshotNumber": 3,
-                "utxo": [
-                    -1,
-                    3,
-                    4
-                ]
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "06030204040304000601070704060808",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                6
-            ]
-        },
-        {
-            "headId": "00010507070102020103030301010200",
-            "parties": [
-                {
-                    "vkey": "6e34c9a106327d711ffc1916e65c832313532bea312be445f76fa54ece4e798b"
-                },
-                {
-                    "vkey": "ca1518c9b42cc11cffa9d161f523229c6bc301802f15b04fce2a263365aa52eb"
-                },
-                {
-                    "vkey": "3378d254d64d3fd2435bb287b16774e6cde4e1f1136bd78293486f499e5f5a74"
-                },
-                {
-                    "vkey": "a46a0790aad7258453105df66db2b0d03510ec29dd719f25957bae829e8d385e"
-                },
-                {
-                    "vkey": "bad12fe42005b1ffb770999a44caa7bda205f4042cedb679e834b8699764a87b"
-                }
-            ],
-            "tag": "HeadIsInitializing"
-        },
-        {
-            "headId": "04070601030800000004080306000506",
-            "party": {
-                "vkey": "96d6a334e1258ba717b23f8bceb59495e59594fe22a71ec67b1442533485cfc8"
-            },
-            "tag": "Committed",
-            "utxo": []
-        },
-        {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "󰟶\u0000p󴼵)7",
-            "me": {
-                "vkey": "46aeb278eea6067aa7ad632ff6d9b2c77b96d71325ed84b0c785e048244c1942"
-            },
-            "snapshotUtxo": [],
-            "tag": "Greetings"
-        },
-        {
-            "headId": "06060403080707020203070402000607",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -5,
-                    -1,
-                    5,
-                    6
-                ],
-                "outputs": [
-                    -1,
-                    2,
-                    4
-                ]
-            }
-        },
-        {
-            "contestationDeadline": "1864-05-08T07:51:44.735091878363Z",
-            "headId": "05000006020500030403050203000703",
-            "snapshotNumber": 1,
             "tag": "HeadIsClosed"
         },
         {
-            "contestationDeadline": "1864-05-08T00:19:18.896000102594Z",
-            "headId": "02040502050608070507030003010206",
-            "snapshotNumber": 5,
-            "tag": "HeadIsContested"
-        },
-        {
-            "contestationDeadline": "1864-05-06T16:48:55.662661830545Z",
-            "headId": "05000101010006070306080505060207",
-            "snapshotNumber": 4,
-            "tag": "HeadIsContested"
-        },
-        {
-            "headId": "08060500070004050200070004060103",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 4,
-                "inputs": [],
-                "outputs": [
-                    -3,
-                    4,
-                    5
-                ]
-            },
-            "utxo": [
-                -6,
-                -5,
-                -3,
-                -1
+            "contestationPeriod": 66918,
+            "headId": "02060507070803000707080806000100",
+            "participants": [
+                "08070802050005060002050807040402020707030604020805050606"
             ],
-            "validationError": {
-                "reason": ""
-            }
-        },
-        {
-            "headId": "05060006050204020700010203030800",
-            "party": {
-                "vkey": "43d5aa7d28d3ba5c7275a1e733ed3c3c5b263151be0b738d004a14ee255ce785"
-            },
-            "tag": "Committed",
-            "utxo": [
-                4
-            ]
-        },
-        {
-            "headId": "05020605050601070702010202070805",
             "parties": [
                 {
-                    "vkey": "6970f60d8dd2afb35ffa8020318d6580062862cbe3d5197851ff3ebaf6a1132d"
+                    "vkey": "6f20106e62d54c3b74fdf05e92c3bb9777d6654a456b15f2e5d7bad339b15f98"
+                },
+                {
+                    "vkey": "417aeba7d6ce8a16fdb78fa7902ccc705c7ba930ddc7081e55464861e1194298"
                 }
             ],
-            "tag": "HeadIsInitializing"
-        },
-        {
-            "headId": "05010602060706070602020400010800",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -5,
-                "inputs": [
-                    -6,
-                    -4,
-                    -3
-                ],
-                "outputs": [
-                    -6,
-                    -5,
-                    -4,
-                    -3,
-                    0
-                ]
-            },
-            "utxo": [
-                -6,
-                2,
-                5,
-                6
-            ],
-            "validationError": {
-                "reason": "𬨬H􊥒􂐌\u0006\u0002"
-            }
-        },
-        {
-            "headId": "03060502040806040500080607000606",
-            "signatures": {
-                "multiSignature": [
-                    "2970539bf512684f84f92903c980cdec313e176c1bae88de7f8ac969941b155a3e76d81ff78850fd7c3b182104c748c29d9448c694764fab2b1189bb81b7a00d",
-                    "4b3fb0d197b8f3ce13a00046245490d549c6ddb69fdb9d6d2dfdf45c3595ca4baf06c15b712269c21676fa26e5613873b0cb5b094fd025bd66a2e51844f56508",
-                    "aa06ecdb7053aede61baf2b86e52bd4d740249f5ce67b21544bb9b8534bcdf79f021d0e30658318c224263f79c2c41780aea8e53854ce94000b84e91c6db8107",
-                    "e99c034cdae2e86eec7f526697e8b1f7dbcdfd9cabdee8429b606bec2266b8ee109540176cc74217fa08842a6e39ba7322a35304372a0df8842c7f1de1e7290b",
-                    "85beae8022e82a243c6b0912f5398057b0ddf4f6e0d22495c944f598080d02b31989781821c26963aa5a8fb9476219642733a5e0f212df454871d4f0af4c8705",
-                    "df21e21ef7b26a83af0a21abd76f90e11ba12e92a825b3fbcdeab3ad7041308332f6c4de9dbeb81b9135dc7c0cec8760b627d8ed6aeb7f98e99dda4b00167c09"
-                ]
-            },
-            "snapshot": {
-                "confirmedTransactions": [],
-                "headId": "02000401000506080004050603040300",
-                "snapshotNumber": 2,
-                "utxo": []
-            },
-            "tag": "SnapshotConfirmed"
-        },
-        {
-            "headId": "04050706080002060407000107070003",
-            "tag": "HeadIsOpen",
-            "utxo": [
-                -1,
-                1,
-                3,
-                5
-            ]
-        },
-        {
-            "headId": "05050705050302060105050000040502",
-            "tag": "HeadIsAborted",
-            "utxo": []
+            "tag": "IgnoredHeadInitializing"
         },
         {
             "clientInput": {
@@ -2623,108 +2070,623 @@
                     "chainState": {
                         "slot": 0
                     },
+                    "committed": {
+                        "16f887e0423362b7f7dee6834dc46b94cde774a9ab62cebc560a53ea925789a9": [
+                            -6,
+                            0,
+                            5
+                        ],
+                        "363685be1882cb8887fed334e1963d7b7a47f3836c557bf88dc14b8a50d49fda": [
+                            -6,
+                            -5,
+                            -3,
+                            -2,
+                            4
+                        ],
+                        "addc7d11ce0c2f57583e7c39a7265b0112da17052900e5140f1e6b17660c27a3": [
+                            -6,
+                            -5,
+                            1,
+                            4,
+                            5,
+                            6
+                        ]
+                    },
+                    "headId": "04010100080200070303020301030003",
+                    "headSeed": "01080808070802000006010100070106",
+                    "parameters": {
+                        "contestationPeriod": 86400,
+                        "parties": [
+                            {
+                                "vkey": "824188793b09fdd978915158cca962a977f0513dd7b3e89db3e8550bd2c18108"
+                            },
+                            {
+                                "vkey": "8a98dbffa2a95e3e0ee00dba40534d5e0b9781632d31c5be97170a951a3c0125"
+                            },
+                            {
+                                "vkey": "a6cdfce634d37c59ea5cdca7dbc4525d6613841389d98a270a2a1f6697b92b96"
+                            },
+                            {
+                                "vkey": "5f7893113bce6be0fccd25f6ffcf7fa1d404a3d4a9e4cd0da2287cfbd1f26084"
+                            },
+                            {
+                                "vkey": "576abbc025416db97db802f03fcebec06a06c4a86196da31145470f4242b45db"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
+                        {
+                            "vkey": "865533f363e8d72305223a656bd2979a960d81dc7008dad3ed40d9b36bebcb83"
+                        },
+                        {
+                            "vkey": "2f65bc8ccbc613af4469c80d9bfc6e7d60f64a52e2951694fbf64290859064e4"
+                        },
+                        {
+                            "vkey": "94838a57ec331c28c4f0335e8e4e05dd66b0d8b2d94659e383b345b54aebe2f1"
+                        }
+                    ]
+                },
+                "tag": "Initial"
+            },
+            "tag": "CommandFailed"
+        },
+        {
+            "contestationDeadline": "1864-05-06T07:12:01.944478098059Z",
+            "headId": "03020207080800020202050808000103",
+            "snapshotNumber": 1,
+            "tag": "HeadIsContested"
+        },
+        {
+            "headId": "07000200010002070708080800080400",
+            "signatures": {
+                "multiSignature": [
+                    "351f04e4ea4a8c6bb7e5a704652993b92ec27fe7fe1842bae5689dd3dd309c2a7a83f03a55c456fb2f2b82c6770027ee479d35c8cfaeb4f49a11d0da29ee4204",
+                    "768dbdff02b48f6c0db36a99697f6ce1169fc26ba3296002bca040b7486f53ef8817f57008219b22603f3264791dc29172d893c508bcee88079b73a957ac430d",
+                    "a2aa080632d9d129cd11c9339d531ec53408781674bcc8d1b63ad69274b11a5c56505c0b1ea809bd1f2b06b23384ba16652d1d70efaa51584d95d7e4abab5d01",
+                    "e54f041ce1dd81b613e0beda5f5e9d37cc26e24959d2366094eb9d8c313a55cdbfb8ad70dda7aa1fed73d8c8f97dfef78ae33f9fd8474e3d92ec7ec9b8f4c80d",
+                    "00ac251c9655d7482da267e01d68c1714c18230a473837303b2562685363876e5515cf7fbef2bf7fd84b170ebadc3b237c7d9e36986b4fad3d100928291f1c03"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    6,
+                    4
+                ],
+                "headId": "01020304080400060307060506000702",
+                "snapshotNumber": 6,
+                "utxo": []
+            },
+            "tag": "SnapshotConfirmed"
+        },
+        {
+            "headId": "04040707020508070601050500080807",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 1,
+                "inputs": [
+                    -2,
+                    5
+                ],
+                "outputs": [
+                    1,
+                    2
+                ]
+            },
+            "utxo": [
+                0,
+                6
+            ],
+            "validationError": {
+                "reason": "\u0007>k"
+            }
+        },
+        {
+            "input": "|𘬕洱K&",
+            "reason": "\u00064kz􊼉",
+            "tag": "InvalidInput"
+        },
+        {
+            "headStatus": "Initializing",
+            "hydraNodeVersion": "󸒣x[pqD",
+            "me": {
+                "vkey": "f7b8b08fbc42a3f45aecd58b639f449ad3d6a0311c33d9b39efadcc3f7d95cb2"
+            },
+            "snapshotUtxo": [
+                -4,
+                2
+            ],
+            "tag": "Greetings"
+        },
+        {
+            "peer": "sspk",
+            "tag": "PeerDisconnected"
+        },
+        {
+            "headId": "00060601070208070503030004010403",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": -2,
+                "inputs": [
+                    -4,
+                    6
+                ],
+                "outputs": [
+                    -6,
+                    1,
+                    3,
+                    4,
+                    5
+                ]
+            },
+            "utxo": [
+                -4,
+                -2,
+                4
+            ],
+            "validationError": {
+                "reason": "Z"
+            }
+        },
+        {
+            "ourVersion": 5,
+            "remoteHost": {
+                "hostname": "0.0.0.3",
+                "port": 2
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                5,
+                4,
+                2,
+                2,
+                2,
+                5
+            ]
+        },
+        {
+            "headId": "03040603000708010507040603040800",
+            "tag": "HeadIsAborted",
+            "utxo": [
+                3
+            ]
+        },
+        {
+            "postChainTx": {
+                "headSeed": "05050104000204010801030706080405",
+                "tag": "AbortTx",
+                "utxo": [
+                    -6,
+                    -4,
+                    1
+                ]
+            },
+            "postTxError": {
+                "tag": "NotEnoughFuel"
+            },
+            "tag": "PostTxOnChainFailed"
+        },
+        {
+            "headId": "03040103080408040104030502080506",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -1,
+                    3,
+                    4
+                ],
+                "outputs": [
+                    -6,
+                    -2,
+                    3
+                ]
+            },
+            "utxo": [
+                2
+            ],
+            "validationError": {
+                "reason": "\u0018􀙊"
+            }
+        },
+        {
+            "contestationPeriod": 86400,
+            "headId": "06060705070100060302030706060805",
+            "participants": [
+                "08030805050703040604030203080103030407010404030302060600",
+                "04040706030303080008030607010805040708080708080607010407",
+                "00040505050001020101050706040401010106040506060301000700",
+                "04060003030502040802080305030102000002010705040600010407"
+            ],
+            "parties": [
+                {
+                    "vkey": "9da68cf15f02de131ac6c665e72079ed0a04cff5ab1ea269cf4bc4f9149734ce"
+                },
+                {
+                    "vkey": "707713ac3f7b48c69a1461382b1e6a19cf61f6860af221aeb7625d29bcbb8461"
+                },
+                {
+                    "vkey": "c0d90dba897129738f6b647bc6ec2ffbcb21dda61009107eb2c3f7bdfa961c10"
+                },
+                {
+                    "vkey": "38996eb470191e4d7189525279dc4b9d87fa5865c95b51ed048dcd27e7a4c5da"
+                },
+                {
+                    "vkey": "1873c4be011456ff2ca97b77c79e537e6987495223789d4a1309913218c5ece2"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        },
+        {
+            "ourVersion": 6,
+            "remoteHost": {
+                "hostname": "0.0.0.0",
+                "port": 4
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                1,
+                5,
+                6
+            ]
+        },
+        {
+            "headId": "04070601030800000004080306000506",
+            "parties": [
+                {
+                    "vkey": "34dfdd3e155fc7cbe5d5c67403a5b70e3848d4dc5b23f9c424a8f8e4f7559330"
+                },
+                {
+                    "vkey": "d6e1f9333d334c91c8e87f4a057a331305dc9762398f62f195b776423e4fc5d5"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "input": "\u0013.L~",
+            "reason": "\u0018\u0015",
+            "tag": "InvalidInput"
+        },
+        {
+            "clientInput": {
+                "tag": "NewTx",
+                "transaction": {
+                    "id": 6,
+                    "inputs": [
+                        -6,
+                        1,
+                        2
+                    ],
+                    "outputs": [
+                        -6,
+                        -4,
+                        2,
+                        4
+                    ]
+                }
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
+                    "committed": {
+                        "0b042dc42986bb12347c4ef20bb80b2da95a1d1fac4ea6a44ecbf68d8d371e86": [
+                            -3,
+                            1,
+                            5
+                        ],
+                        "d9d88d35d13a1685b69a124e661c5f3373624b805ceec410d12d7f801f700c82": [
+                            -4,
+                            2,
+                            3
+                        ]
+                    },
+                    "headId": "02060605010806010201030306080501",
+                    "headSeed": "08060506020003020705000507030704",
+                    "parameters": {
+                        "contestationPeriod": 86400,
+                        "parties": [
+                            {
+                                "vkey": "7ffb34e9d6f17ad39d81b7137e71c46151b807fb1a4984ffefd48619b93519c8"
+                            },
+                            {
+                                "vkey": "65c39723d70a48743a898a767bb003ec5dec072c3a1d6d13279a9d4e8a3bd4d6"
+                            },
+                            {
+                                "vkey": "ae0988101b86a4595614df99bc131883cee0e7fe7c728ae40740c91f8625802b"
+                            },
+                            {
+                                "vkey": "add47825d6b9aaf8c978816968bd50547094fb188697997806e09bd481feac7a"
+                            },
+                            {
+                                "vkey": "5342ac9544fd8fee63b622fd0d68c90c6efc8e907954842a10813c57d542f877"
+                            },
+                            {
+                                "vkey": "c72beeaf571e7d5471f34b578038ac677ea6f0bfb1732083b5b7fd08803720f1"
+                            }
+                        ]
+                    },
+                    "pendingCommits": [
+                        {
+                            "vkey": "442835e268a23038129c8b13371b7f65a6294a09b6248a3faeef3812406fc279"
+                        },
+                        {
+                            "vkey": "c701ce8b73a6925ccbc15ae3ae7a813bb948a03e1598e5df66429e329d852d13"
+                        },
+                        {
+                            "vkey": "4e37e4a6b2f07bbae188ee8c5789b3515f813e96bd32cc6adccf4395ffbc7c25"
+                        },
+                        {
+                            "vkey": "78db63a9d50837af7a25bc9b6aa9855c0c45482024ed69fda41d7a55e0ca27c6"
+                        },
+                        {
+                            "vkey": "641fcdc14ee522e7a6590acc7b1ce1d75150e8e3bf384a20a8d9753188ede9c2"
+                        },
+                        {
+                            "vkey": "dd0f01c96395f24d26a6500eed7f1e327299b4364170635069049ec7b6c808fa"
+                        }
+                    ]
+                },
+                "tag": "Initial"
+            },
+            "tag": "CommandFailed"
+        },
+        {
+            "headId": "05000006020500030403050203000703",
+            "tag": "HeadIsOpen",
+            "utxo": [
+                -4,
+                -2
+            ]
+        },
+        {
+            "contestationDeadline": "1864-05-08T00:19:18.896000102594Z",
+            "headId": "02040502050608070507030003010206",
+            "snapshotNumber": 5,
+            "tag": "HeadIsClosed"
+        },
+        {
+            "contestationDeadline": "1864-05-06T16:48:55.662661830545Z",
+            "headId": "05000101010006070306080505060207",
+            "snapshotNumber": 4,
+            "tag": "HeadIsClosed"
+        },
+        {
+            "headId": "08070004010803020404010602010100",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -3,
+                    0,
+                    1,
+                    3,
+                    6
+                ],
+                "outputs": [
+                    5,
+                    6
+                ]
+            }
+        },
+        {
+            "headId": "05060006050204020700010203030800",
+            "parties": [
+                {
+                    "vkey": "df280c4c7c65ece4eb3d30bd4eb84ae0e0f1810641fa2dbf36409c3b7e918e53"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "ourVersion": 4,
+            "remoteHost": {
+                "hostname": "0.0.0.5",
+                "port": 0
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                2,
+                4,
+                4,
+                5
+            ]
+        },
+        {
+            "headId": "05080407010802080803020504000803",
+            "tag": "TxValid",
+            "transaction": {
+                "id": -2,
+                "inputs": [
+                    -5,
+                    -4,
+                    1
+                ],
+                "outputs": [
+                    -1
+                ]
+            }
+        },
+        {
+            "headId": "00010105020302060101000707040804",
+            "tag": "TxInvalid",
+            "transaction": {
+                "id": 3,
+                "inputs": [],
+                "outputs": []
+            },
+            "utxo": [
+                -5,
+                -2,
+                -1,
+                0,
+                1,
+                4
+            ],
+            "validationError": {
+                "reason": "􆡸󻄵ヽ!X\\"
+            }
+        },
+        {
+            "headId": "04050706080002060407000107070003",
+            "party": {
+                "vkey": "725716f767a3bbf1c12390124e76c3e322ceb32fb1a8f3c0eb685ccfa91efcde"
+            },
+            "tag": "Committed",
+            "utxo": [
+                -6,
+                -5,
+                -4,
+                3
+            ]
+        },
+        {
+            "headId": "05080508070807040306030400060504",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "headId": "05070201030608050202070108000102",
+            "tag": "HeadIsFinalized",
+            "utxo": [
+                -2,
+                1,
+                4
+            ]
+        },
+        {
+            "headId": "08040008050205030001040606050008",
+            "tag": "TxValid",
+            "transaction": {
+                "id": 5,
+                "inputs": [
+                    -6
+                ],
+                "outputs": []
+            }
+        },
+        {
+            "clientInput": {
+                "tag": "Contest"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    },
                     "coordinatedHeadState": {
                         "allTxs": {
-                            "-1": {
-                                "id": -4,
-                                "inputs": [
-                                    -3,
-                                    2,
-                                    3,
-                                    5
-                                ],
-                                "outputs": [
-                                    -3,
-                                    0
-                                ]
-                            },
                             "0": {
-                                "id": -6,
-                                "inputs": [],
-                                "outputs": [
-                                    -5
-                                ]
-                            },
-                            "2": {
-                                "id": 4,
+                                "id": 1,
                                 "inputs": [
-                                    -6,
-                                    -5,
-                                    2,
+                                    -1,
                                     6
                                 ],
-                                "outputs": []
-                            },
-                            "4": {
-                                "id": -2,
-                                "inputs": [
-                                    -6
-                                ],
                                 "outputs": [
-                                    -6,
-                                    -3,
-                                    -2
+                                    -4,
+                                    1,
+                                    2
                                 ]
                             }
                         },
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "51599f503c9d26e4e29ba620eef054357436b9df1673fb242c6e230bf6b96f146e32ef6ab045eb56584b1bd089202597bbb61456295eb24010ed8ad0ae6cf703",
-                                    "780c099c5c296224b6ff2e1cde065826f2898d6b25d3898d77f550d0c8995bdf07c84e446b7e2fd17a65ec075e7cf9caace62cd662835843ea70c482fac51006",
-                                    "8ca6ff3cf072eb27cf258204fc3ffbae26f8aab5c4817f50b2281de2eedeb9d6b80a245992fde6c3765fac359761a2e316b33cb28a6a01d721b7d775f8af7d0c"
+                                    "482f52a8ea34253df7d3a88372d205ffa69a9699d303515841c733c75c1a4670636d553d32a51742f471dd86823a689a93b923030cd88e090ffdbccabe6e5103",
+                                    "2aea0561828c5ff5619b647cdba7202aecaa145cebe5dffaa3eb9772891cb26b83282a42ab21433f8fb07f14ce5f3a9085a7c65bbfd6609c0c781a9bc69ca006",
+                                    "2e617b70bdda86be516cf3479ca257f557a4767eb6858c7574aa1a99f06a81084a54cf1d6543f2cf58e3bed367f0c0e23e95f3f075ec3c3dd2630ebfa3e9480b",
+                                    "8d7abb34461f8e60fa8bf8977ddb6f918ab706e4e4f22d5c8e2de845363d46e72bd85e8cd28993d76993d8fb901892a22a96755b52659624e08ca2154eaeab0a"
                                 ]
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "00050205030204080306010607060103",
+                                "headId": "01070801010406050007050303040800",
                                 "snapshotNumber": 2,
                                 "utxo": [
-                                    1,
+                                    -6,
+                                    -4,
                                     5
                                 ]
                             },
                             "tag": "ConfirmedSnapshot"
                         },
-                        "localTxs": [],
-                        "localUTxO": [
-                            -6,
-                            -5,
-                            1,
-                            3,
-                            4
-                        ],
-                        "seenSnapshot": {
-                            "signatories": {
-                                "2f2364916cf0f1b7140abcd2fd0c074c400137e5a85659f9b1f049bddc319507": "39ea05b5d2e716eadaff15d24e2bf7eca63c7b7af3165a3428aa716a4553abcba5a3c1ee2aa044ec3c0ed627d45206afd922b374dc60f6f054b62144f9ba4601",
-                                "30f12d75603e9f5ac8e6264a7fecabdc8d3fa6d1cffbbd49896dd33a07465fbc": "e1d6930b64cabe270761e3c1a7d3b8606a8f0ca35cb76941b97fde7dd9f95b0e450e4cbe66b8c87eeacccd5096c6aef3ac1c02efbd930b594e9a7ac7aa3bd40f",
-                                "73c0bc5d5ef339991311afc02ad6e6f5f952eaa8163c48c01c19dd96ff920639": "49d8edc945389096937215423d2944a60289170724358103f63cc0d20e14e8e1ba29e87cd95cc848d240af601be04f21b06efa163597e7c128165b1c7aedbc0f",
-                                "e4a47a83380bd4a4a7299fd4f35aeb27ab258928527f480896b87f6eab209310": "acacd2d6594faabc80cf17e829b5bd71ae9e8222667675b1d0144a79c15c092b937b54ba618d51f5c89c12fc13f53a8ea60419cc2a703d70d59da6f325a69b01"
-                            },
-                            "snapshot": {
-                                "confirmedTransactions": [
-                                    -6,
-                                    -6,
-                                    2,
+                        "localTxs": [
+                            {
+                                "id": -4,
+                                "inputs": [
+                                    -4,
+                                    0,
                                     5
                                 ],
-                                "headId": "08010302050501080505000504060700",
-                                "snapshotNumber": 5,
-                                "utxo": [
-                                    -1,
-                                    1,
-                                    6
+                                "outputs": [
+                                    -6,
+                                    -2
                                 ]
                             },
-                            "tag": "SeenSnapshot"
+                            {
+                                "id": 0,
+                                "inputs": [
+                                    -4,
+                                    -2,
+                                    -1,
+                                    3,
+                                    6
+                                ],
+                                "outputs": [
+                                    1,
+                                    4
+                                ]
+                            },
+                            {
+                                "id": 4,
+                                "inputs": [
+                                    -2
+                                ],
+                                "outputs": [
+                                    -3,
+                                    -2
+                                ]
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    -1,
+                                    0,
+                                    3,
+                                    4,
+                                    5
+                                ],
+                                "outputs": [
+                                    -5,
+                                    -1,
+                                    6
+                                ]
+                            }
+                        ],
+                        "localUTxO": [
+                            -4,
+                            -1,
+                            0,
+                            2,
+                            3
+                        ],
+                        "seenSnapshot": {
+                            "lastSeen": 6,
+                            "tag": "LastSeenSnapshot"
                         }
                     },
-                    "currentSlot": 3,
-                    "headId": "05060401070505010800020202070300",
-                    "headSeed": "02020402050104020101080800000204",
+                    "currentSlot": 4,
+                    "headId": "03030405020304030703000701030308",
+                    "headSeed": "07040204050402020106000403070207",
                     "parameters": {
-                        "contestationPeriod": 604800,
-                        "parties": []
+                        "contestationPeriod": 13212,
+                        "parties": [
+                            {
+                                "vkey": "7b6ef655e176246df2aeb67d938f89f33dcc88d034214755e9bc88687d7b1b5c"
+                            },
+                            {
+                                "vkey": "240cadf8804e04dc98f93b1057a6ae610569fd117475ebe6e22e12e80a1f4986"
+                            }
+                        ]
                     }
                 },
                 "tag": "Open"
@@ -2732,112 +2694,150 @@
             "tag": "CommandFailed"
         },
         {
-            "headId": "04060600070406030503080100020508",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 2,
-                "inputs": [
-                    -4,
-                    -1,
-                    3
-                ],
-                "outputs": [
-                    -6,
-                    3
-                ]
-            },
-            "utxo": [
-                2,
-                4,
-                6
-            ],
-            "validationError": {
-                "reason": ""
-            }
-        },
-        {
-            "headId": "01030600040606050100080807020705",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -6,
-                    -2,
-                    -1,
-                    5
-                ],
-                "outputs": [
-                    0
-                ]
-            }
-        },
-        {
             "headId": "05000406070703050605020506030204",
-            "party": {
-                "vkey": "451994db8ec816892266bb71172b77be5b8852c5c2073e8aa0daef595bb0644f"
+            "parties": [
+                {
+                    "vkey": "6711b1662769c4165dd1a2654e06eaa101dcf5bd3d5ec68016f580ce7c1e09e3"
+                },
+                {
+                    "vkey": "91d4daba410224dc5158b8752bd576db5cafb46062a12eda54bd91ff1811d585"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        },
+        {
+            "headId": "04020804000706010005010005030504",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "clientInput": {
+                "tag": "GetUTxO"
             },
-            "tag": "Committed",
-            "utxo": [
-                -5
-            ]
-        },
-        {
-            "headId": "02010308000803020501080508050606",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -1,
-                2
-            ]
-        },
-        {
-            "headId": "07040708070601080004070705050306",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 5,
-                "inputs": [
-                    -2,
-                    4
-                ],
-                "outputs": [
-                    -5,
-                    -4,
-                    1,
-                    2,
-                    5
-                ]
-            }
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 1
+                    },
+                    "coordinatedHeadState": {
+                        "allTxs": {},
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "3cb216ab25698b627da245d14c049cd78b9653224bc448f04f082870145eaa9cddfe0b4bfc89854c0ee28aacebacfae2907762d4a30f85343da6c955493e5408",
+                                    "81da9c8395beb61f02e0f7addb86f5169b38b00aa149d7b04f6669ac0b4496f5318505b0f646de6cf6fe00a04d6b194ce9ace6e59eb3ba7f1a7762954e49540f",
+                                    "b9eb75ce58a78e37338da3174dd16034a78290e37da191fcefb87093c1ad8c996876034221d9ba92eb202894d08c2f0060c1b1560b9b39178ebf57caad4dbc0d",
+                                    "c9ccdf1dbc358abb907e892ef374bc8b41d1993ecc746fdcfb3e7631a7c97b2c0553db5704aedd4adb96ac25ffbf864e75b374ed484536d3676936901ca8d90a",
+                                    "e74214b94ffed0ede89ae92684a072c7f671d79b898e2f927a08de0ce2c4a545cfe0ac8c57f93fee6d47ada58bc110a98de25a7c1eb6e2626f31f0e67c837602"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "05010202050500040605030308080003",
+                                "snapshotNumber": 4,
+                                "utxo": [
+                                    6
+                                ]
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "localTxs": [
+                            {
+                                "id": 6,
+                                "inputs": [
+                                    2
+                                ],
+                                "outputs": []
+                            },
+                            {
+                                "id": 6,
+                                "inputs": [],
+                                "outputs": [
+                                    -4,
+                                    -3,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": 2,
+                                "inputs": [
+                                    4
+                                ],
+                                "outputs": []
+                            },
+                            {
+                                "id": -6,
+                                "inputs": [
+                                    1,
+                                    3,
+                                    5
+                                ],
+                                "outputs": [
+                                    2
+                                ]
+                            },
+                            {
+                                "id": -1,
+                                "inputs": [
+                                    -5,
+                                    -2,
+                                    0,
+                                    3,
+                                    5
+                                ],
+                                "outputs": []
+                            }
+                        ],
+                        "localUTxO": [],
+                        "seenSnapshot": {
+                            "tag": "NoSeenSnapshot"
+                        }
+                    },
+                    "currentSlot": 6,
+                    "headId": "04060503020300070703020402080606",
+                    "headSeed": "03060202030303060808060008080202",
+                    "parameters": {
+                        "contestationPeriod": 86400,
+                        "parties": [
+                            {
+                                "vkey": "d765ce7aedecb7ecca91a3a596d6ada7520e78b58e25345694341175a98c265b"
+                            },
+                            {
+                                "vkey": "8a5ef3c021da0e19d5cb9b57abe957febfacffa7a00cad1d0d991dd4163e25a1"
+                            },
+                            {
+                                "vkey": "87158c2bc162369e8b1d034c8cb24a5b6c7bdc8418a25ae76f834cb0e9ebf662"
+                            },
+                            {
+                                "vkey": "fcdfbcb6b7e7d4915c27f8fd6f52356e9524682f663ea36688acdcb570142078"
+                            }
+                        ]
+                    }
+                },
+                "tag": "Open"
+            },
+            "tag": "CommandFailed"
         },
         {
             "headId": "07060103070706000607010404080000",
-            "party": {
-                "vkey": "fff308c32614996b4cabaf9d246231da6a77618fd2de2dc401d3f4b952abb365"
-            },
-            "tag": "Committed",
-            "utxo": [
-                -6,
-                0
-            ]
+            "parties": [],
+            "tag": "HeadIsInitializing"
         },
         {
-            "headId": "01000102080605020002000201070706",
-            "tag": "TxInvalid",
+            "headId": "07000005060101070402060607070202",
+            "tag": "TxValid",
             "transaction": {
-                "id": -4,
+                "id": -3,
                 "inputs": [
-                    -3,
+                    -4,
+                    0,
+                    2,
                     6
                 ],
                 "outputs": [
-                    -5,
-                    2,
-                    3,
-                    4,
-                    6
+                    -6,
+                    -4,
+                    -2
                 ]
-            },
-            "utxo": [],
-            "validationError": {
-                "reason": ""
             }
         },
         {
@@ -2849,148 +2849,119 @@
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "01020705010201070301040301070207",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 3,
-                "inputs": [
-                    3,
-                    6
-                ],
-                "outputs": [
-                    -1,
-                    1,
-                    6
-                ]
-            }
+            "clientInput": {
+                "tag": "Init"
+            },
+            "state": {
+                "contents": {
+                    "chainState": {
+                        "slot": 4
+                    }
+                },
+                "tag": "Idle"
+            },
+            "tag": "CommandFailed"
         },
         {
-            "headId": "00080302000500040700080303010502",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -3,
-                1,
-                5
-            ]
+            "headId": "06070700000303000300070005060306",
+            "tag": "ReadyToFanout"
         },
         {
             "contestationDeadline": "1864-05-12T19:37:10.113675066691Z",
             "headId": "03030207080506020207050600010208",
             "snapshotNumber": 2,
-            "tag": "HeadIsContested"
+            "tag": "HeadIsClosed"
         },
         {
-            "headId": "01040502060307050801040602040704",
-            "parties": [
-                {
-                    "vkey": "85817b79bd88b30c231ce2f5e95f211008e1a4154b132bee27a11ce9371f8d5a"
-                },
-                {
-                    "vkey": "181a471d5755ed8c5ade0c430deb8ac30b2dde5041fd78405aea687d85f652b2"
-                },
-                {
-                    "vkey": "f3a36c16d90065dc3f9f4bc7b6fe163c13d588be456131fb1900d23baecd8cc2"
-                },
-                {
-                    "vkey": "f56371dfb221325c9a55f6bd1408ac424b86c7634bcaa21891783bed4e134e8b"
-                }
-            ],
-            "tag": "HeadIsInitializing"
+            "ourVersion": 1,
+            "remoteHost": {
+                "hostname": "0.0.0.1",
+                "port": 3
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                3,
+                4,
+                5,
+                3
+            ]
         },
         {
             "headId": "03030103000507060704030506050002",
-            "tag": "GetUTxOResponse",
-            "utxo": []
+            "signatures": {
+                "multiSignature": [
+                    "6611472d6d9cd2b899c8b29eb5db96195f51c4c1122b5af11c7c2393f73390d1d8fc4dc47ef67eb4faafb00ce4b00738587861b61bb35dd756c86a2c87a4170b",
+                    "c4cbbf8e3e4779110b2c4c6a94c431c67adb1c4bfa099ac89cfcfe4f01cdb1f34bf72c808b3125bc628e50b3c6c7ccbee43bcb2d3f5a89f9b4a29db0a773f108",
+                    "959c74db91575acfa4e115ea695c188a9c2abc1a3e331ce5d9d676fa912f8bea1431c52931bac368270206899b8e06d7116ab0eaf291fa3687e5b50451d43a01",
+                    "36b9ef5d0cfff66765101f4d6ee41d516136096adb8e0d9d726f2ea061c9c258c77219076d7fa519399f71d0342f7c4c4741980e6721d8fc8cf8cb27c6d7e708",
+                    "f06ea9d587cd6ade8949b27255b574cf991da552dda409d2c4b974e54818d9e5cccee294455b7a8a272304b7a994d8e26d774c32bbe3975a3d9a44357660590b"
+                ]
+            },
+            "snapshot": {
+                "confirmedTransactions": [
+                    6,
+                    1,
+                    -3
+                ],
+                "headId": "01030301050208040003000308000708",
+                "snapshotNumber": 1,
+                "utxo": []
+            },
+            "tag": "SnapshotConfirmed"
         },
         {
             "peer": "zog",
             "tag": "PeerConnected"
         },
         {
-            "headId": "02080106070105050300030701010407",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -5,
-                -4,
-                4
+            "headId": "00080205070304070208040204050304",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "input": "",
+            "reason": "𭰏%\u0012$𬹦\u0011",
+            "tag": "InvalidInput"
+        },
+        {
+            "headId": "06060303080705080101080706030503",
+            "tag": "ReadyToFanout"
+        },
+        {
+            "ourVersion": 4,
+            "remoteHost": {
+                "hostname": "0.0.0.5",
+                "port": 6
+            },
+            "tag": "PeerHandshakeFailure",
+            "theirVersions": [
+                5
             ]
         },
         {
-            "headStatus": "Open",
-            "hydraNodeVersion": ",􌜔<r",
-            "me": {
-                "vkey": "b16cafd66d6b471e4956b929b98481b95b132fa640d893f0457eaed1058c62ce"
-            },
-            "snapshotUtxo": [],
-            "tag": "Greetings"
-        },
-        {
-            "headId": "06040408030406040608070701060402",
-            "tag": "HeadIsAborted",
-            "utxo": [
-                -6,
-                -2
-            ]
-        },
-        {
-            "headId": "05070105040103010100010803070804",
-            "parties": [
-                {
-                    "vkey": "5700ff1717a4a412a3a40159f8c11fb1e87228b038b5ce6df007f6a09984f9e5"
-                },
-                {
-                    "vkey": "e2c8f7eb91f4c60758a1c322e3a794ff8c831d29e86b5d244ec8ed7addcc08d1"
-                },
-                {
-                    "vkey": "a033e7cd18bd0b0e9107da54602ee0d8f4fffcdc6fcd290d51a0450cfb40314a"
-                },
-                {
-                    "vkey": "40acbd4c493141044ca7ece682eb940adb300ff21a9fd261cd72384859802991"
-                },
-                {
-                    "vkey": "dba9975cc4ea3254a14fd73815f8afcee37ebfe5a857b01162841f2427003dfa"
-                },
-                {
-                    "vkey": "5401f3f2b9153b2786b2aaeb159e5927976667a717ff7287bd0301b555423442"
-                }
-            ],
-            "tag": "HeadIsInitializing"
-        },
-        {
-            "headStatus": "Initializing",
-            "hydraNodeVersion": "\u000b􃶌C𢍾𦞸",
-            "me": {
-                "vkey": "8698be356fb530d7b874718b8f1c38a662d5e66468b7093ec4487ad9d16e16a4"
-            },
-            "snapshotUtxo": [
-                -6,
-                -1,
-                1,
-                2
-            ],
-            "tag": "Greetings"
+            "input": "󶐩",
+            "reason": "𝒃큚𪔅",
+            "tag": "InvalidInput"
         },
         {
             "peer": "n",
             "tag": "PeerDisconnected"
         },
         {
-            "headId": "02040400000101010003080204060507",
-            "tag": "TxInvalid",
+            "headId": "08080803020807050801050600060702",
+            "tag": "TxValid",
             "transaction": {
                 "id": 2,
                 "inputs": [
-                    5
+                    -3,
+                    5,
+                    6
                 ],
                 "outputs": [
                     -4,
-                    -3,
-                    -2
+                    -2,
+                    0,
+                    4
                 ]
-            },
-            "utxo": [],
-            "validationError": {
-                "reason": "{\u0015]"
             }
         }
     ],

@@ -151,12 +151,10 @@ apiServerSpec = do
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
         let expectedResponse =
               case postTxError of
-                SpendingNodeUtxoForbidden -> 400
                 CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
                 _ -> 500
         let coverage = case postTxError of
-              SpendingNodeUtxoForbidden -> cover 1 True "SpendingNodeUtxoForbidden"
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
