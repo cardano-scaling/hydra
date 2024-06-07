@@ -1623,6 +1623,11 @@ components:
               enum: ["FanoutTx"]
             utxo:
               $ref: "api.yaml#/components/schemas/UTxO"
+
+            utxoToDecommit:
+             oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
