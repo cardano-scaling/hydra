@@ -295,12 +295,12 @@ spec =
 
               -- We want to chain decommit/close, contest and fanout actions/txs
               -- here. For this we use the function composition `(.)` and what
-              -- we pass around In between actions are  (Property, UTxO, Snapshot, MultiSignature).
+              -- we pass around In between actions are  ([Bool], UTxO, Snapshot, MultiSignature).
               -- Then we modify snapshot to determine if further actions down the line can suceed or not.
               -- Note that we start with one valid snapshot (signed by everyone) and expect this to
               -- work. After mutating the snapshot we need to re-sign it in case we don't expect signature verification to fail
-              -- (eg. we need to increase the contest snapshot number but we re-sign since we don't want to test this change).
-              let validSnapshot = (property True, spendableUTxO, startingSnapshot, signSnapshot startingSnapshot)
+              -- (eg. we need to increase the contest snapshot number but we re-sign if we don't want to test this change).
+              let validSnapshot = ([], spendableUTxO, startingSnapshot, signSnapshot startingSnapshot)
 
               let bumpSnapshotNumber = mutateSnapshotNumber (1 +)
 
@@ -308,30 +308,73 @@ spec =
                     let alteredSnapshot = bumpSnapshotNumber c
                      in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
 
-              let reAddUTxOToDecommit (a, b, c, _) =
+              let reAddUTxOToDecommit (a, b, c, d) =
                     let alteredSnapshot = mutateUTxOToDecommit (const (utxoToDecommit startingSnapshot)) c
-                     in bumpSnapshot (a, b, alteredSnapshot, alteredSnapshot)
+                     in (a, b, alteredSnapshot, d)
 
-              let removeUTxOToDecommit (a, b, c, _) =
-                    let alteredSnapshot = mutateUTxOToDecommit (const Nothing) (bumpSnapshotNumber c)
-                     in (a, b, alteredSnapshot, signSnapshot $ bumpSnapshotNumber c)
+              let removeUTxOToDecommit (a, b, c, d) =
+                    let alteredSnapshot = mutateUTxOToDecommit (const Nothing) c
+                     in (a, b, alteredSnapshot, d)
 
-              let expectAllValid = counterexample "All Valid" . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . decrementAction
+              let expectAllValid = counterexample "All Valid" . and . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . decrementAction
 
               -- Should be able to close with something to decommit
-              let expectValidCloseWithDecommit = counterexample "Close with something to decommit" . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction
+              let expectValidCloseWithDecommit =
+                    counterexample "Close with something to decommit"
+                      . property
+                      . and
+                      . fst4
+                      . fanoutAction
+                      . contestAction
+                      . bumpSnapshot
+                      . closeAction
 
-              -- Should not be able to contest if decommit was removed from the snapshot
-              let expectInvalidContestWithRemovedDecommit = counterexample "Contest with removed decommit" . fst4 . fanoutAction . contestAction . removeUTxOToDecommit . closeAction
+              -- Should be able to contest with removed decommit
+              let expectValidContestWithRemovedDecommit =
+                    counterexample "Contest with removed decommit"
+                      . property
+                      . and
+                      . fst4
+                      . fanoutAction
+                      . contestAction
+                      . bumpSnapshot
+                      . removeUTxOToDecommit
+                      . closeAction
 
-              -- Close, contest, then re-add what was decremented and try to fanout
-              let expectInvalidFanoutWithRemovedDecommit = counterexample "Fanout with removed decommit" . fst4 . fanoutAction . reAddUTxOToDecommit . contestAction . closeAction
+              -- Decrement, Close, contest, then remove what was decremented and try to fanout
+              let expectInvalidFanoutWithRemovedDecommit =
+                    counterexample "Fanout with removed decommit"
+                      . property
+                      . any not
+                      . fst4
+                      . fanoutAction
+                      . removeUTxOToDecommit
+                      . contestAction
+                      . bumpSnapshot
+                      . closeAction
+                      . decrementAction
+
+              -- Decrement, remove decrement UTxO, Close, then add decrement UTxO and fanout
+              let expectInvalidFanoutWithRemovedAndReAddedDecommit =
+                    counterexample "Fanout with removed decommit"
+                      . property
+                      . any not
+                      . fst4
+                      . fanoutAction
+                      . reAddUTxOToDecommit
+                      . closeAction
+                      . removeUTxOToDecommit
+                      . decrementAction
 
               let expectedInvalid =
-                    [ expectInvalidContestWithRemovedDecommit validSnapshot
-                    , expectInvalidFanoutWithRemovedDecommit validSnapshot
+                    [ expectInvalidFanoutWithRemovedDecommit validSnapshot
+                    , expectInvalidFanoutWithRemovedAndReAddedDecommit validSnapshot
                     ]
-              let expectedValid = [expectAllValid validSnapshot, expectValidCloseWithDecommit validSnapshot]
+              let expectedValid =
+                    [ expectAllValid validSnapshot
+                    , expectValidCloseWithDecommit validSnapshot
+                    , expectValidContestWithRemovedDecommit validSnapshot
+                    ]
 
               conjoin (expectedValid <> expectedInvalid)
 
@@ -365,24 +408,25 @@ produceDecrement ::
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceDecrement ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
   case decrement ctx headId parameters spendableUTxO snapshot signatures of
-    Left err -> (counterexample ("Decrement: " <> show err) $ property False, spendableUTxO, snapshot, signatures)
+    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx -> do
       case utxoToDecommit snapshot of
         Nothing ->
-          ( p .&&. evaluateTransaction tx spendableUTxO
+          ( p <> [evaluateTransaction tx spendableUTxO]
           , utxoFromTx tx <> registryUTxO scriptRegistry
           , snapshot
           , signatures
           )
         Just toDecommit -> do
+          -- increase Head UTxO by the decommit amount
           let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs toDecommit)
           let (headIn, headOut) = findHeadUTxO (utxoFromTx tx)
           let headUTxO = UTxO.singleton (headIn, modifyTxOutValue (<> decommitValue) headOut)
-          ( p .&&. evaluateTransaction tx spendableUTxO
+          ( p <> [evaluateTransaction tx spendableUTxO]
             , headUTxO <> registryUTxO scriptRegistry
             , snapshot
             , signatures
@@ -393,13 +437,13 @@ produceClose ::
   ScriptRegistry ->
   HeadId ->
   HeadParameters ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceClose ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
   case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
-    Left err -> (counterexample ("Close: " <> show err) $ property False, spendableUTxO, snapshot, signatures)
+    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
-      ( p .&&. evaluateTransaction tx spendableUTxO
+      ( p <> [evaluateTransaction tx spendableUTxO]
       , utxoFromTx tx <> registryUTxO scriptRegistry
       , snapshot
       , signatures
@@ -409,13 +453,13 @@ produceContest ::
   ChainContext ->
   ScriptRegistry ->
   HeadId ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceContest ctx scriptRegistry headId (p, spendableUTxO, snapshot, signatures) = do
   case contest ctx spendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
-    Left err -> (counterexample ("Contest: " <> show err) $ property False, spendableUTxO, snapshot, signatures)
+    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
-      ( p .&&. evaluateTransaction tx spendableUTxO
+      ( p <> [evaluateTransaction tx spendableUTxO]
       , utxoFromTx tx <> registryUTxO scriptRegistry
       , snapshot
       , signatures
@@ -425,13 +469,13 @@ produceFanout ::
   ChainContext ->
   ScriptRegistry ->
   TxIn ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  (Property, UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
+  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceFanout ctx scriptRegistry seedTxIn (p, spendableUTxO, snapshot, signatures) =
   case fanout ctx spendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 20 of
-    Left err -> (counterexample ("Fanout: " <> show err) $ property False, spendableUTxO, snapshot, signatures)
+    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
-      ( p .&&. evaluateTransaction tx spendableUTxO
+      ( p <> [evaluateTransaction tx spendableUTxO]
       , utxoFromTx tx <> registryUTxO scriptRegistry
       , snapshot
       , signatures
@@ -445,15 +489,12 @@ hasLowerSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
 hasLowerSnapshotNumber =
   any (\(mutated, original, _) -> number mutated < number original)
 
-evaluateTransaction :: Tx -> UTxO -> Property
+evaluateTransaction :: Tx -> UTxO -> Bool
 evaluateTransaction tx spendableUTxO =
   case evaluateTx tx spendableUTxO of
-    Left err ->
-      property False
-        & counterexample ("Transaction: " <> renderTxWithUTxO spendableUTxO tx)
-        & counterexample ("Phase-1 validation failed: " <> show err)
+    Left _ -> False
     Right redeemerReport ->
-      property $ all isRight (Map.elems redeemerReport)
+      all isRight (Map.elems redeemerReport)
 
 genPerfectModelSnapshot :: Gen ModelSnapshot
 genPerfectModelSnapshot = do
