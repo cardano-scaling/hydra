@@ -10,6 +10,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -107,7 +108,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genUTxOAdaOnlyOfSize, genVerificationKey)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxOut, genUTxO1, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.OnChainId (OnChainId)
@@ -120,7 +121,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, frequency, getPositive, oneof, vector)
+import Test.QuickCheck (choose, getPositive, oneof, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -1006,18 +1007,10 @@ genCommits' genUTxO ctx txInit = do
     valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
 
 genCommitFor :: VerificationKey PaymentKey -> Gen UTxO
-genCommitFor vkey =
-  frequency
-    [ (1, pure mempty)
-    , (10, genOneUTxOFor vkey)
-    ]
+genCommitFor = genOneUTxOFor
 
 genCommit :: Gen UTxO
-genCommit =
-  frequency
-    [ (1, pure mempty)
-    , (10, genVerificationKey >>= genOneUTxOFor)
-    ]
+genCommit = genVerificationKey >>= genOneUTxOFor
 
 genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
@@ -1046,10 +1039,10 @@ genDecrementTx numParties = do
 
 splitUTxO :: UTxO -> Gen (UTxO, UTxO)
 splitUTxO utxo = do
-  -- NOTE: here we skip the head output which is always at the first position.
-  ix <- choose (1, length utxo)
-  let (p1, p2) = splitAt ix (UTxO.pairs utxo)
-  pure (UTxO.fromPairs p1, UTxO.fromPairs p2)
+  let pairs = UTxO.pairs utxo
+  let toDecommit = List.head $ List.filter ((> 0) . selectLovelace . txOutValue . snd) pairs
+  let restOfUTxO = List.filter ((fst toDecommit /=) . fst) pairs
+  pure (UTxO.fromPairs restOfUTxO, UTxO.singleton toDecommit)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
@@ -1076,7 +1069,7 @@ genContestTx = do
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
-  someUtxo <- arbitrary
+  someUtxo <- genUTxO1 genTxOut
   (confirmedUTxO', utxoToDecommit') <- splitUTxO someUtxo
   contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
@@ -1110,7 +1103,7 @@ genStOpen ctx = do
   let utxoToCollect = fold committed
   let spendableUTxO = getKnownUTxO stInitial
   let txCollect = unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO
-  pure (fold committed, snd . fromJust $ observeCollect stInitial txCollect)
+  pure (utxoToCollect, snd . fromJust $ observeCollect stInitial txCollect)
 
 genStClosed ::
   HydraContext ->
