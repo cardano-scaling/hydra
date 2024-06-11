@@ -367,7 +367,6 @@ test-suite tests
     , lens-aeson
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
-    , pretty-simple
     , QuickCheck
     , quickcheck-dynamic                                                >=3.4     && <3.5
     , quickcheck-instances
