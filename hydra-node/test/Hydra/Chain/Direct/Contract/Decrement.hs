@@ -100,7 +100,7 @@ healthySnapshotNumber = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO `generateWith` 42
+  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
         , number = succ healthySnapshotNumber

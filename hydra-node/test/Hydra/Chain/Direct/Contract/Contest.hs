@@ -120,7 +120,7 @@ healthyContestUTxO =
     `generateWith` 42
 
 healthyContestSnapshotUTxO :: (UTxO, UTxO)
-healthyContestSnapshotUTxO = generateWith (splitUTxO healthyContestUTxO) 42
+healthyContestSnapshotUTxO = splitUTxO healthyContestUTxO
 
 healthyContestUTxOHash :: BuiltinByteString
 healthyContestUTxOHash =
