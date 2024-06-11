@@ -23,7 +23,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceUtxoHash, replaceUtxoToDecommitHash,
+  replaceUtxoHash,
+  replaceUtxoToDecommitHash,
  )
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture

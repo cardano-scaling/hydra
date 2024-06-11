@@ -240,5 +240,3 @@ notFound = responseLBS status404 [] ""
 
 okJSON :: ToJSON a => a -> Response
 okJSON = responseLBS status200 [] . Aeson.encode
-
-
