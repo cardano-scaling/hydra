@@ -80,7 +80,7 @@ healthyContestationDeadline =
   slotNoToUTCTime systemStart slotLength $ healthySlotNo - 1
 
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
-healthyFanoutSnapshotUTxO = generateWith (splitUTxO healthyFanoutUTxO) 42
+healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =

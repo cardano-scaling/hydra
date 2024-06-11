@@ -85,7 +85,7 @@ healthyCloseTx =
 
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
-    let (utxo, utxoToDecommit) = generateWith (splitUTxO healthyCloseUTxO) 42
+    let (utxo, utxoToDecommit) = splitUTxO healthyCloseUTxO
      in CloseWithConfirmedSnapshot
           { snapshotNumber = healthyCloseSnapshotNumber
           , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
@@ -147,7 +147,7 @@ healthyOpenHeadTxOut headTxOutDatum =
     & addParticipationTokens healthyParticipants
 
 healthyCloseSnapshotUTxO :: (UTxO, UTxO)
-healthyCloseSnapshotUTxO = generateWith (splitUTxO healthyCloseUTxO) 42
+healthyCloseSnapshotUTxO = splitUTxO healthyCloseUTxO
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
