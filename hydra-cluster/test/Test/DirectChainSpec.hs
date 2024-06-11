@@ -54,7 +54,7 @@ import Hydra.Chain.Direct (
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
-import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Direct.State (initialChainState, splitUTxO)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (
   FaucetLog,
@@ -314,14 +314,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
+            let (inHead, toDecommit) = splitUTxO someUTxO
 
             let snapshot =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
-                    , utxoToDecommit = Nothing
+                    , utxoToDecommit = Just toDecommit
                     }
 
             postTx . CloseTx headId headParameters $
@@ -346,14 +347,14 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             postTx $
               FanoutTx
-                { utxo = someUTxO
-                , utxoToDecommit = Nothing
+                { utxo = inHead
+                , utxoToDecommit = Just toDecommit
                 , headSeed
                 , contestationDeadline = deadline
                 }
             aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
-              waitForUTxO node someUTxO
+              waitForUTxO node (inHead <> toDecommit)
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
