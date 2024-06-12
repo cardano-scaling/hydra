@@ -344,7 +344,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 - A Hydra verification key to identify them in the head
 - A Cardano verification key to identify them on the blockchain
 - Protocol parameters to use in the Hydra head
-- A contestation period for the head closing (we will use the default here).
+## Step 3. Start the Hydra node
 
 ## Step 3: Start the Hydra node
 
@@ -528,11 +528,11 @@ When both parties, `alice` and `bob`, have committed,  the Hydra head will open 
 The head is now operational and ready for further activities.
 
 The head is now operational and ready for further activities.
-
+## Step 5. Use the Hydra head
 
 In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer 1 network are also available on the layer 2 network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
 
-In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer one network are also available on the layer two network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
+In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
 
 In this example, we will transfer `10₳` from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
 
