@@ -450,15 +450,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                 | snapshotNumber == 0 -> Just contestationDeadline
               _ -> Nothing
-
+            let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
             let snapshot1 =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
-                    , utxoToDecommit = Nothing
+                    , utxoToDecommit = Just toDecommit
                     }
             postTx . ContestTx headId headParameters $
               ConfirmedSnapshot
@@ -472,9 +472,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                   Snapshot
                     { headId
                     , number = 2
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
-                    , utxoToDecommit = Nothing
+                    , utxoToDecommit = Just toDecommit
                     }
             let contestAgain =
                   postTx . ContestTx headId headParameters $
