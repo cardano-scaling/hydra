@@ -1040,9 +1040,9 @@ genDecrementTx numParties = do
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
   let pairs = UTxO.pairs utxo
-      toDecommit = List.head $ List.filter ((> 0) . selectLovelace . txOutValue . snd) pairs
-      restOfUTxO = List.filter ((fst toDecommit /=) . fst) pairs
-   in (UTxO.fromPairs restOfUTxO, UTxO.singleton toDecommit)
+   in case uncons $ List.filter ((> 0) . selectLovelace . txOutValue . snd) pairs of
+        Nothing -> (mempty, mempty)
+        Just (toDecommit, rest) -> (UTxO.fromPairs rest, UTxO.singleton toDecommit)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
