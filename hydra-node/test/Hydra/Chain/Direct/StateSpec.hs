@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   modifyTxOutAddress,
   modifyTxOutValue,
   scriptPolicyId,
+  selectLovelace,
   toPlutusCurrencySymbol,
   toScriptData,
   txInputSet,
@@ -80,6 +81,7 @@ import Hydra.Chain.Direct.State (
   observeCollect,
   observeCommit,
   pickChainContext,
+  splitUTxO,
   unsafeAbort,
   unsafeClose,
   unsafeCollect,
@@ -147,6 +149,9 @@ spec = parallel $ do
 
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
+
+  describe "splitUTxO" $ do
+    prop "splitUTxO works" prop_splitUTxO
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -419,6 +424,14 @@ prop_observeAnyTx =
     Initial InitialState{headId} -> Just headId
     Open OpenState{headId} -> Just headId
     Closed ClosedState{headId} -> Just headId
+
+prop_splitUTxO :: UTxO -> Property
+prop_splitUTxO utxo =
+  let (inHead, toDecommit) = splitUTxO utxo
+      getLovelace a =
+        sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs a
+   in getLovelace utxo === getLovelace (inHead <> toDecommit)
+        .&&. UTxO.difference (inHead <> toDecommit) utxo === mempty
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
