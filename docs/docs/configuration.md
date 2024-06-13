@@ -6,11 +6,11 @@ Running a Hydra head involves operating a Hydra node connected to other Hydra no
 hydra-node --help
 ```
 
-Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _How To_ articles. for more details.
+Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _how to_ articles. 
 
-### Cardano Keys
+### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano Layer 1 (L1) and is used to hold ADA for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 
@@ -20,7 +20,7 @@ cardano-cli address key-gen \
   --signing-key-file cardano.sk
 ```
 
-These keys authenticate on-chain transactions and ensure only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (e.g., aborting an initialized head). While this will not put participants funds at risk, it is still an annoyance that is preventable.
+These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided. 
 
 ### Hydra keys
 
@@ -38,7 +38,7 @@ For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bo
 
 
 
-### Contestation Period
+### Contestation period
 
 The contestation period is a critical protocol parameter, defined in seconds, for example:
 
@@ -48,9 +48,9 @@ hydra-node --contestation-period 120s
 
 Contestation period is used in:
 
-- Constructing the upper validity bound for `Close` and `Contest` transactions,
+- Constructing the upper validity bound for `Close` and `Contest` transactions
 - Computing the contestation deadline, which defines the lower validity
-  bound for `FanOut` transaction.
+  bound for the `FanOut` transaction.
 
 The default contestation period is _60 seconds_, but it should be tailored to the network conditions, as different networks have varying slot lengths and block production rates.
 
@@ -60,14 +60,14 @@ All parties in the Hydra head protocol must configure the same `--contestation-p
 
 :::
 
-:::warning Invalid Close and Contest Transactions
+:::warning Invalid `Close` and `Contest` transactions
 
 Depending on the contestation period value and the network conditions,
 `Close` and `Contest` transactions could become invalid and be
 silently rejected by the `cardano-node` to which they have been
 submitted. This can happen, for example, if:
-* The network is congested, with lot of transactions waiting to be
-  included in a block,
+* The network is congested with many transactions waiting to be
+  included in a block
 * The node's connectivity to the network drops and the transaction is
   not propagated to block producers fast enough.
 
@@ -75,9 +75,9 @@ Currently, the `hydra-node` does not handle this situation. Each client applicat
 
 :::
 
-### Reference Scripts
+### Reference scripts
 
-The `hydra-node` uses reference scripts to reduce transaction sizes driving the Head's lifecycle. Specify the `--hydra-scripts-tx-id` to reference the correct scripts. The `hydra-node` will verify the availability of these scripts on-chain.
+The `hydra-node` uses reference scripts to reduce transaction sizes driving the head's lifecycle. Specify the `--hydra-scripts-tx-id` to reference the correct scripts. The `hydra-node` will verify the availability of these scripts on-chain.
 
 Check the scripts against which a hydra-node was compiled using:
 
@@ -96,24 +96,24 @@ hydra-node publish-scripts \
   --cardano-signing-key cardano.sk
 ```
 
-This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ADA) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
+This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
 
-### Ledger Parameters
+### Ledger parameters
 
-At the core of a Hydra head is a ledger. Currently, Hydra is integrated with Cardano and assumes a similar ledger configuration to Layer 1. This translates as a command-line option `--ledger-protocol-parameters`. This defines the updatable protocol parameters such as fees or transaction sizes. These parameters follow the same format as the output of `cardano-cli query protocol-parameters`.
+The ledger is at the core of a Hydra head. Hydra is currently integrated with Cardano and assumes a ledger configuration similar to layer 1. This translates as a command-line option `--ledger-protocol-parameters`. This defines the updatable protocol parameters such as fees or transaction sizes. These parameters follow the same format as `cardano-cli query protocol-parameters` output.
 
-We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config) which can be used as basis. In particular, the protocol parameters nullify costs inside a head. Apart from that, they are the direct copy the current mainnet parameters. An interesting point about the Hydra's ledger is that, while it re-uses the same rules and code as the layer 1 (isomorphic), some parameters can be altered.For example, fees can be adjusted, but not parameters controlling maximum value sizes or minimum ADA values, as altering these could make a head unclosable.
+We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config) which can be used as the basis. In particular, the protocol parameters nullify costs inside a head. Apart from that, they are the direct copy of the current mainnet parameters. An interesting point about Hydra's ledger is that while it re-uses the same rules and code as layer 1 (isomorphic), some parameters can be altered. For example, fees can be adjusted, but not parameters controlling maximum value sizes or minimum ada values, as altering these could make a head unclosable.
  A good rule thumb is that anything that applies strictly to transactions (fees, execution units, max tx size...) is safe to change. But anything that could be reflected in the UTXO is not.
 
-:::info About Protocol Parameters
-Many protocol parameters are irrelevant in the Hydra context (e.g., there is no treasury or stake pool within a head). Parameters related to reward incentives or delegation rules are therefore unused.
+:::info About protocol parameters
+Many protocol parameters are irrelevant in the Hydra context (eg, there is no treasury or stake pool within a head). Parameters related to reward incentives or delegation rules are therefore unused.
 :::
 
-### Fuel vs. Funds
+### Fuel v funds
 
-Transactions driving the Head lifecycle (Init, Abort, Close, etc.) must be submitted to Layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `--hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `--hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
-Consequently, sending some ADA to the address of this "internal wallet" is required. To get the address for the cardano keys as generated above, one can use for example the cardano-cli:
+Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use for example the `cardano-cli`:
 
 ```shell
 cardano-cli address build --verification-key-file cardano.vk --mainnet
@@ -128,19 +128,19 @@ While the `hydra-node` needs to pay fees for protocol transactions, any wallet c
 
 This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
-If using your own UTxO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint. 
-Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (e.g., reference inputs, redeemers, validity ranges).
+If using your own UTXO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint. 
+Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (eg, reference inputs, redeemers, validity ranges).
 
 
-> Note: Outputs of a blueprint transaction are not considered—only inputs are used to commit funds to the head. The `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
+> Note: Outputs of a blueprint transaction are not considered — only inputs are used to commit funds to the head. The `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
 
-For more details, refer to the [How To](./how-to/commit-blueprint) guide on committing to a head using a blueprint transaction.
+For more details, refer to this [how to](./how-to/commit-blueprint) guide on committing to a head using a blueprint transaction.
 
 ## Connect to Cardano
 
 The `hydra-node` must be connected to the Cardano network, unless running in [offline mode](./configuration.md#offline-mode).
 
-A direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) is a pre-requisite. Please refer to existing documentation on starting a node, e.g. on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano) or [use mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
+A direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) is a pre-requisite. Please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano) or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
 
 Specify how to connect to the local cardano-node, use `--node-socket` and `--testnet-magic`:
 
@@ -173,9 +173,9 @@ If the `hydra-node` already tracks a head in its `state` and `--start-chain-from
 
 ## Offline mode
 
-Hydra supports an offline mode, which allows for disabling the Layer 1 interface (that is, the underlying Cardano blockchain which Hydra heads use to seed funds and ultimately funds are withdrawn to). Disabling Layer 1 interactions allows use-cases which would otherwise require running and configuring an entire Layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTXO, without having to spin up an entire Layer 1 Cardano node.
+Hydra supports an offline mode, which allows for disabling the layer 1 interface (that is, the underlying Cardano blockchain which Hydra heads use to seed funds and ultimately funds are withdrawn to). Disabling layer 1 interactions allows use cases that would otherwise require running and configuring an entire layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTXO, without having to spin up an entire layer 1 Cardano node.
 
-In this offline mode, only the Layer 2 ledger is run, along with the Hydra API and persistence, to support interacting with the offline Hydra. Therefore, ledger genesis parameters that normally influence things like time-based transaction validation, may be set to defaults that aren't reflective of mainnet. To set this, set --ledger-protocol-parameters to a non-zero file, as described [here](https://hydra.family/head-protocol/unstable/docs/configuration/#ledger-parameters).
+In this offline mode, only the layer 2 ledger is run, along with the Hydra API and persistence, to support interacting with Hydra offline. Therefore, ledger genesis parameters that normally influence things like time-based transaction validation, may be set to defaults that aren't reflective of mainnet. To set this, set --ledger-protocol-parameters to a non-zero file, as described [here](https://hydra.family/head-protocol/unstable/docs/configuration/#ledger-parameters).
 Depending on your use case, you can [configure your node's event source and sinks](./how-to/event-sinks-and-sources.md) to better suite your needs.
 
 To initialize the Layer 2 ledger's UTXO state, offline mode takes an obligatory --initial-utxo parameter, which points to a JSON encoded UTXO file. This UTXO is independent of Event Source loaded events, and the latter are validated against this UTXO. The UTXO follows the following schema `{ txout : {address, value : {asset : quantity}, datum, datumhash, inlinedatum, referenceScript }`
