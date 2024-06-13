@@ -107,7 +107,6 @@ The Hydra Head protocol requires a connection to the Cardano layer 1 network to 
 
 Download the latest blockchain snapshot using `mithril-client` configured for the `pre-production` network:
 
-Download the latest blockchain snapshot using `mithril-client` configured for the `preprod` network:
 
 ```shell
 mithril-client cardano-db download latest
@@ -179,11 +178,8 @@ source <(cardano-cli --bash-completion-script cardano-cli)
 
 ## Step 2. Prepare keys and funding
 
-## Step 2: Prepare keys and funding
 
 First, generate Cardano key pairs and addresses for both participants to identify the `hydra-node` and manage funds on layer 1:
-
-First, generate Cardano key pairs and addresses for both participants to identify the `hydra-node` and manage funds on layer one:
 
 
 import Tabs from '@theme/Tabs';
@@ -238,8 +234,6 @@ cardano-cli address build \
 </TabItem>
 Next, fund these addresses. If you have test ada on the `pre-production` network, distribute it to the newly created addresses:
 
-Next, fund these addresses. If you have tADA on `preprod`, distribute it to the newly created addresses:
-
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
 
@@ -267,7 +261,6 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 In case you don't have test ada on `pre-production`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
-In case you have no tADA on `preprod`, you can use the [Testnet Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 :::
 
 You can check the balance of your addresses via:
@@ -297,7 +290,6 @@ cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /d
 </TabItem>
 Next, generate Hydra key pairs for use on layer 2. Use the
 
-Next, generate Hydra key pairs for use on layer two. Use the
 `hydra-tools` to generate the keys for `alice` and/or `bob` respectively:
 
 <Tabs queryString="role">
@@ -317,18 +309,17 @@ hydra-node gen-hydra-key --output-file credentials/bob-hydra
 </TabItem>
 If you are collaborating with another individual, exchange the verification (public) keys: `{alice,bob}-node.vk` and `{alice,bob}-hydra.vk` to ensure secure communication.
 
-If you are collaborating with a partner, exchange the verification (public) keys: `{alice,bob}-node.vk` and `{alice,bob}-hydra.vk` to ensure secure communication
 Before launching the `hydra-node`, it's crucial to establish and communicate each participant's network connectivity details. This includes the IP addresses and ports where `Alice` and `Bob's` nodes will be reachable for layer 2 network interactions. For this tutorial, we're using placeholder IP addresses and ports which should be replaced with your actual network details:
 
-Before launching the `hydra-node`, it's crucial to establish and communicate each participant's network connectivity details. This includes the IP addresses and ports where `Alice` and `Bob's` nodes will be reachable for the layer two network interactions. For this tutorial, we're using placeholder IP addresses and ports which should be replaced with your actual network details:
 
 <!-- TODO: can we make peers configurable via some text input? -->
 
 Alice: <code>127.0.0.1:5001</code>
 
+Bob: <code>127.0.0.1:5001</code>
+
 The next step involves configuring the protocol parameters for the ledger within our Hydra head. For the purposes of this tutorial, we'll modify the default Cardano layer 1 parameters to eliminate transaction fees, simplifying test interactions:
 
-The next step involves configuring the protocol parameters for the ledger within our Hydra head. For the purposes of this tutorial, we'll modify the default Cardano layer one parameters to eliminate transaction fees, simplifying our test interactions:
 
 ```
 cardano-cli query protocol-parameters \
@@ -336,7 +327,6 @@ cardano-cli query protocol-parameters \
   > protocol-parameters.json
 This command adjusts the fees and pricing mechanisms to zero, ensuring that transactions within the Hydra head incur no costs.
 
-This command adjusts the fees and pricing mechanisms to zero, ensuring that transactions within our Hydra head incur no costs.
 
 In summary, the Hydra head participants exchanged and agreed on:
 
@@ -344,13 +334,13 @@ In summary, the Hydra head participants exchanged and agreed on:
 - A Hydra verification key to identify them in the head
 - A Cardano verification key to identify them on the blockchain
 - Protocol parameters to use in the Hydra head
+
+
 ## Step 3. Start the Hydra node
 
-## Step 3: Start the Hydra node
 
 Scripts are pre-published for all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../configuration#reference-scripts) for guidance on publishing your own scripts.
 
-For all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks,  scripts are pre-published. Consult the [user manual](../configuration#reference-scripts) for guidance on publishing your own scripts.
 
 Start the `hydra-node` using these parameters:
 
@@ -445,7 +435,6 @@ This opens a duplex connection and you should see messages indicating successful
 
 ## Step 4. Open a Hydra head
 
-## Step 4: Open a Hydra head
 
 Using the `jq` enhanced `websocat` session, we can now communicate with the `hydra-node` through its Websocket API on the terminal. This is a duplex connection and we can just insert commands directly.
 
@@ -459,10 +448,7 @@ Send this command to initialize a head through the Websocket connection:
 
 The initiation process might take some time as it includes submitting a transaction on-chain. Upon successful initiation, both Hydra nodes and their clients will display a `HeadIsInitializing` message, listing the parties required to commit.
 
-To commit funds to the head, you need to choose which UTXOs you would like to make available on layer 2. Use the HTTP API of `hydra-node` to commit all
-
-To commit funds to the head, meaning to choose which UTXOs to make available on layer two. Use the HTTP API of `hydra-node` to commit all
-funds given to `{alice,bob}-funds.vk` beforehand:
+To commit funds to the head, you need to choose which UTXOs you would like to make available on layer 2. Use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
 
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
@@ -527,14 +513,13 @@ When both parties, `alice` and `bob`, have committed,  the Hydra head will open 
 
 The head is now operational and ready for further activities.
 
-The head is now operational and ready for further activities.
+
 ## Step 5. Use the Hydra head
 
 In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer 1 network are also available on the layer 2 network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
 
 In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
 
-In this example, we will transfer `10₳` from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
 
 First, we need to select a UTXO to spend. We can find a UTXO by referring to the `utxo` field in the most recent `HeadIsOpen` or `SnapshotConfirmed` messages. Alternatively, we can query the current UTXO set directly from the API:
 
@@ -597,9 +582,8 @@ The transation will be validated by both `hydra-node`s and either result in a
 🎉 Congratulations, you just processed your first Cardano transaction off-chain
 in a Hydra head!
 
-## Step 6. Close the Hydra head
 
-## Step 6: Closing the Hydra head
+## Step 6. Closing the Hydra head
 
 Any participant can initiate closing the Hydra head. Use the WebSocket API to submit the closing command:
 
@@ -643,7 +627,7 @@ cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /d
 
 That's it. That's the full life-cycle of a Hydra head.
 
-## Bonus: Be a good citizen
+## Bonus. Be a good citizen
 
 As we have taken our funds from the testnet faucet and we do not need them
 anymore, we can return all the remaining tADA of `alice` and `bob` back to the
