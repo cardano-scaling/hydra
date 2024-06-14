@@ -77,7 +77,18 @@ instance IsTx tx => Arbitrary (Snapshot tx) where
     ]
 
 -- | Binary representation of snapshot signatures
--- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
+-- CDDL definition for 'Snapshot'. Parseable either from JSON Snapshot
+-- representation or hex encoded CBOR string:
+--
+-- snapshot = {
+--    headId : text
+--    snapshotNumber : uint
+--    confirmedTransactions  : []
+--    utxo : {}
+--    utxoToDecommit : {}
+--   } / bytes
+--
+-- root = [* snapshot ]
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number, headId, utxo, utxoToDecommit} =
     LBS.toStrict $
