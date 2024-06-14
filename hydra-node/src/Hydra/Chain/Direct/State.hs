@@ -1079,12 +1079,12 @@ genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
-  (_, toFanout, stClosed@ClosedState{seedTxIn}) <- genStClosed ctx utxo
+  let (inHead', toDecommit') = splitUTxO utxo
+  (_, toFanout, toDecommit, stClosed@ClosedState{seedTxIn}) <- genStClosed ctx inHead' (Just toDecommit')
   cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
       spendableUTxO = getKnownUTxO stClosed
-  -- TODO: generate UTxO to decommit here too
-  pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout Nothing deadlineSlotNo)
+  pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
@@ -1108,30 +1108,33 @@ genStOpen ctx = do
 genStClosed ::
   HydraContext ->
   UTxO ->
-  Gen (SnapshotNumber, UTxO, ClosedState)
-genStClosed ctx utxo = do
+  Maybe UTxO ->
+  Gen (SnapshotNumber, UTxO, Maybe UTxO, ClosedState)
+genStClosed ctx utxo utxoToDecommit = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   confirmed <- arbitrary
-  let (sn, snapshot, toFanout) = case confirmed of
+  let (sn, snapshot, toFanout, toDecommit) = case confirmed of
         InitialSnapshot{} ->
           ( 0
           , InitialSnapshot{headId, initialUTxO = u0}
           , u0
+          , Nothing
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->
           ( number snap
           , ConfirmedSnapshot
-              { snapshot = snap{utxo = utxo}
+              { snapshot = snap{utxo = utxo, utxoToDecommit}
               , signatures
               }
           , utxo
+          , utxoToDecommit
           )
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo' = getKnownUTxO stOpen
   let txClose = unsafeClose cctx utxo' headId (ctxHeadParameters ctx) snapshot startSlot pointInTime
-  pure (sn, toFanout, snd . fromJust $ observeClose stOpen txClose)
+  pure (sn, toFanout, toDecommit, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
 
