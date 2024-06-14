@@ -187,10 +187,10 @@ computeContestCost = do
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    (closedSnapshotNumber, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo
-    cctx <- pickChainContext ctx
     let (inHead, toDecommit) = splitUTxO utxo
-    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) inHead (Just toDecommit) (ctxHydraSigningKeys ctx)
+    (closedSnapshotNumber, inHead', toDecommit', stClosed@ClosedState{headId}) <- genStClosed ctx inHead (Just toDecommit)
+    cctx <- pickChainContext ctx
+    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) inHead' toDecommit' (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx

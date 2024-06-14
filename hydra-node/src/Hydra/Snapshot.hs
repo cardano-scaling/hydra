@@ -148,9 +148,9 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
+    utxoToDecommit <- arbitrary
     headId <- arbitrary
-    -- NOTE: arbitrary instance does not assume any decommits
-    genConfirmedSnapshot headId 0 utxo Nothing ks
+    genConfirmedSnapshot headId 0 utxo utxoToDecommit ks
 
   shrink = \case
     InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
