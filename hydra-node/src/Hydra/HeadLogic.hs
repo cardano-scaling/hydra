@@ -448,8 +448,6 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
       [] -> continue
       unseen -> wait $ WaitOnTxs unseen
 
-  -- TODO: We should probably check here that 'utxoToDecommit' from the 'Snapshot'
-  -- is matches the one from the 'decrementTx'
   requireApplicableDecommitTx cont =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
