@@ -25,7 +25,7 @@ This tutorial assumes the following tools are available on your system:
 - [ ] `tar`
 - [ ] [`jq`](https://jqlang.github.io/jq/).
 - [ ] [`websocat`](https://github.com/vi/websocat)
-- [ ] [`jq`](https://jqlang.github.io/jq/)
+- [ ] [`jq`](https://jqlang.github.io/jq/).
 
 Begin by downloading pre-built binaries of the involved software components of the Cardano ecosystem and placing them in a `bin/` directory:
 
@@ -95,15 +95,15 @@ export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 
 - Docker containers are published regularly
 - Some projects provide system-level packages for installation and/or pre-built binaries for various platforms
-- Building from source is always an option.
-- Some projects provide system-level packages for installation and/or pre-built binaries for various platforms.
+- Building from source is always an option
+- Some projects provide system-level packages for installation and/or pre-built binaries for various platforms
 - Building from source is always an option.
 
 Please check out each project's GitHub pages for more options.
 
 ## Step 1. Connect to Cardano
 
-The Hydra Head protocol requires a connection to the Cardano layer 1 network to verify and post protocol transactions in a trustless way. Start by setting up a `cardano-node` on the public testnet. With Mithril, you can skip synchronizing the whole history and get started quickly.
+The Hydra Head protocol requires a connection to Cardano layer 1 to verify and post protocol transactions in a trustless way. Start by setting up a `cardano-node` on the public testnet. With Mithril, you can skip synchronizing the whole history and get started quickly.
 
 Download the latest blockchain snapshot using `mithril-client` configured for the `pre-production` network:
 
@@ -116,7 +116,7 @@ mithril-client cardano-db download latest
 <summary>NixOS workaround</summary>
 
 The dynamically linked `mithril-client` binary may not function out-of-the-box on NixOS.
-You can workaround this by emulating a common linux FHS environment:
+You can workaround this by emulating a common Linux FHS environment:
 
 ```shell
 alias mithril-client="steam-run mithril-client"
@@ -177,7 +177,6 @@ source <(cardano-cli --bash-completion-script cardano-cli)
 </details>
 
 ## Step 2. Prepare keys and funding
-
 
 First, generate Cardano key pairs and addresses for both participants to identify the `hydra-node` and manage funds on layer 1:
 
@@ -333,7 +332,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 - IP addresses and the port on which their `hydra-node` will run
 - A Hydra verification key to identify them in the head
 - A Cardano verification key to identify them on the blockchain
-- Protocol parameters to use in the Hydra head
+- Protocol parameters to use in the Hydra head.
 
 
 ## Step 3. Start the Hydra node
@@ -436,11 +435,11 @@ This opens a duplex connection and you should see messages indicating successful
 ## Step 4. Open a Hydra head
 
 
-Using the `jq` enhanced `websocat` session, we can now communicate with the `hydra-node` through its Websocket API on the terminal. This is a duplex connection and we can just insert commands directly.
+Using the `jq` enhanced `websocat` session, we can now communicate with the `hydra-node` through its WebSocket API on the terminal. This is a duplex connection and we can just insert commands directly.
 
-<!-- TODO: ideally we would have a ping-pong or hello command (e.g. re-sending greetings) -->
+<!-- TODO: ideally we would have a ping-pong or hello command (eg, re-sending greetings) -->
 
-Send this command to initialize a head through the Websocket connection:
+Send this command to initialize a head through the WebSocket connection:
 
 ```json title="Websocket API"
 { "tag": "Init" }
@@ -448,7 +447,7 @@ Send this command to initialize a head through the Websocket connection:
 
 The initiation process might take some time as it includes submitting a transaction on-chain. Upon successful initiation, both Hydra nodes and their clients will display a `HeadIsInitializing` message, listing the parties required to commit.
 
-To commit funds to the head, you need to choose which UTXOs you would like to make available on layer 2. Use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
+To commit funds to the head, choose which UTXOs you would like to make available on layer 2. Use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
 
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
@@ -496,9 +495,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 <details>
 <summary>Alternative: Not commit anything</summary>
 
-If you don't want to commit any funds, for example only receive things on the
-layer two, you can just request an empty commit transaction like this (example
-for `bob`):
+If you don't want to commit any funds and only want to receive on layer two, you can request an empty commit transaction as shown below (example for `bob`):
 
 ```shell
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
@@ -509,7 +506,7 @@ After you've prepared your transactions, the `hydra-node` will find all UTXOs as
 
 Once the `hydra-node` sees this transaction, you should see a `Committed` status displayed on your WebSocket connection.
 
-When both parties, `alice` and `bob`, have committed,  the Hydra head will open automatically. You'll see a `HeadIsOpen` message appear in the WebSocket session, confirming the activation of the head. This message will include details such as the starting balance and UTXO entries. Notably, these entries will match exactly those committed to the head, including transaction hashes and indices, ensuring transparency and consistency.
+When both parties, `alice` and `bob`, have committed, the Hydra head will open automatically. You'll see a `HeadIsOpen` message appear in the WebSocket session, confirming the activation of the head. This message will include details such as the starting balance and UTXO entries. Notably, these entries will match exactly those committed to the head, including transaction hashes and indices, ensuring transparency and consistency.
 
 The head is now operational and ready for further activities.
 
@@ -539,10 +536,7 @@ curl -s 127.0.0.1:4001/snapshot/utxo \
   > utxo.json
 ```
 
-Then, just like on the Cardano layer one, we can construct a transaction via the
-`cardano-cli` that spends this UTxO and send it to an address. If you have not
-yet, enquire the address of your partner to send something to (here
-`credentials/bob-funds.addr` which `alice` would not have automatically):
+Next, similar to the Cardano layer 1, build a transaction using the `cardano-cli` that spends this UTXO and sends it to an address. If you haven't done so already, obtain the address of your partner to send the funds to (in this case, `credentials/bob-funds.addr`, which `alice` would not have automatically).
 
 ```shell
 LOVELACE=1000000
@@ -554,11 +548,7 @@ cardano-cli transaction build-raw \
   --out-file tx.json
 ```
 
-Note that we need to use the `build-raw` version, since the client cannot (yet?)
-index the Hydra head directly and would not find the UTxO to spend. This means
-we need to also create a change output with the right amount. Also, because we
-have set the protocol parameters of the head to have zero fees, we can use the
-`--fee 0` option.
+Note that we need to use the `build-raw` version because the client cannot (yet?) index the Hydra head directly and would not find the UTXO to spend. This means we also need to create a change output with the correct amount. Additionally, since we have set the protocol parameters of the head to have zero fees, we can use the `--fee 0` option.
 
 Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
 
@@ -602,20 +592,18 @@ See [#1039](https://github.com/input-output-hk/hydra/issues/1039) for details.
 The message will include a `contestationDeadline`, set using the configurable `--contestation-period`. Until this deadline, the closing snapshot can be contested with a more recent, multi-signed snapshot. Your `hydra-node` would contest automatically for you if the closed snapshot is not the last known one.
 
 We need to wait now until the deadline has passed, which will be notified by the
-`hydra-node` through the websocket API with a `ReadyToFanout` message.
+`hydra-node` through the WebSocket API with a `ReadyToFanout` message.
 
-At this point any head member can issue distribution of funds on the layer one.
-You can do this through the websocket API one last time:
+At this point, any head member can issue distribution of funds on layer 1.
+You can do this through the WebSocket API one last time:
 
 ```json title="Websocket API"
 { "tag": "Fanout" }
 ```
 
-This will again submit a transaction to the layer one and once successful is
-indicated by a `HeadIsFinalized` message which includes the distributed `utxo`.
+This will submit a transaction to layer 1. Once successful, it will be indicated by a `HeadIsFinalized` message that includes the distributed `utxo`.
 
-To confirm, you can query the funds of both, `alice` and `bob`, on the layer
-one:
+To confirm, you can query the funds of both `alice` and `bob` on layer 1:
 
 ```shell
 echo "# UTxO of alice"
@@ -625,12 +613,12 @@ echo "# UTxO of bob"
 cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
 ```
 
-That's it. That's the full life-cycle of a Hydra head.
+That's it. That's the full life cycle of a Hydra head.
 
 ## Bonus. Be a good citizen
 
 As we have taken our funds from the testnet faucet and we do not need them
-anymore, we can return all the remaining tADA of `alice` and `bob` back to the
+anymore, we can return all the remaining test ada of `alice` and `bob` back to the
 faucet (before we throw away the keys):
 
 <Tabs queryString="role">
