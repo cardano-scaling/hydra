@@ -10,6 +10,8 @@ changes.
 
 ## [0.18.0] - Unreleased
 
+- Add capability to decommit or take some funds out of a running Head.
+
 - **DO NOT RELEASE** as the tested `cardano-node` version is not intended to be used on `mainnet` yet.
 
 - Tested with `cardano-node 8.11.0` and `cardano-cli 8.23.1.0`.
