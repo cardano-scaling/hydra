@@ -138,6 +138,9 @@ jobs:
   benchmarks:
     name: "Benchmarks"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix:
         include:
@@ -169,6 +172,9 @@ jobs:
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Magic nix
+      uses: DeterminateSystems/magic-nix-cache-action@main
 
     - name: 📈 Benchmark
       run: |
@@ -232,6 +238,10 @@ jobs:
   nix-flake-check:
     name: "nix flake check"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -249,14 +259,21 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - name: ❄ Magic nix
+      uses: DeterminateSystems/magic-nix-cache-action@main
+
     - name: ❄ Nix Flake Check
       run: |
-        nix flake check -L
+       nix flake check -L
 
 
   build-specification:
     name: "Build specification using nix"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -273,6 +290,9 @@ jobs:
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Magic nix
+      uses: DeterminateSystems/magic-nix-cache-action@main
 
     - name: ❄ Build specification PDF
       run: |
