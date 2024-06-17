@@ -175,9 +175,9 @@
 
   nixConfig = {
     extra-substituters = [
-      "https://cache.iog.io"
-      "https://hydra-node.cachix.org"
-      "https://cardano-scaling.cachix.org"
+      "https://cache.iog.io?priority=100"
+      "https://hydra-node.cachix.org?priority=100"
+      "https://cardano-scaling.cachix.org?priority=100"
     ];
     extra-trusted-public-keys = [
       "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
