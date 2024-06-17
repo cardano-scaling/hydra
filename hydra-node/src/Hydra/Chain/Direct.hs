@@ -168,7 +168,7 @@ withDirectChain tracer config ctx wallet chainStateHistory callback action = do
   queue <- newTQueueIO
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip networkId nodeSocket) pure $ do
-    (min <$> startChainFrom <*> persistedPoint)
+    (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
 

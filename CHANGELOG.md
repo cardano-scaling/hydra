@@ -17,6 +17,8 @@ changes.
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/input-output-hk/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
+  
+- Change `--start-chain-from` to always use the newer point when also a head state is known.
 
 ## [0.17.0] - 2024-05-20
 
