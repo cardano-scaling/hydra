@@ -256,14 +256,6 @@ jobs:
     - name: ❄ Magic nix
       uses: DeterminateSystems/magic-nix-cache-action@main
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - run: sed -i 's/^substituters/extra-substituters/' ~/.config/nix/nix.conf
-
     - run: cat ~/.config/nix/nix.conf
 
     - name: ❄ Nix Flake Check
