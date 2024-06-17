@@ -262,6 +262,8 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - run: cat ~/.config/nix/nix.conf
+
     - name: ❄ Nix Flake Check
       run: |
        nix flake check -L
