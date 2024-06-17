@@ -31,6 +31,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
+  AsType (..),
   Coin (..),
   File (File),
   Key (SigningKey),
@@ -56,6 +57,7 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
@@ -67,7 +69,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (Direct), networkId, startChainFrom)
+import Hydra.Options (ChainConfig (Direct), DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -614,8 +616,10 @@ canDecommit tracer workDir node hydraScriptsTxId =
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
       (walletVk, walletSk) <- generate genKeyPair
-      headUTxO <- seedFromFaucet node walletVk 8_000_000 (contramap FromFaucet tracer)
-      commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+      let headAmount = 8_000_000
+      let commitAmount = 5_000_000
+      headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
 
       requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
 
@@ -623,12 +627,21 @@ canDecommit tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
 
       let walletAddress = mkVkAddress networkId walletVk
+      aliceAddress <-
+        case aliceChainConfig of
+          Direct DirectChainConfig{cardanoSigningKey} -> do
+            aliceSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+            let alicePVk = getVerificationKey aliceSigningKey
+            pure $ mkVkAddress networkId alicePVk
+          _ -> failure "Not using DirectChainConfig"
+
+      let decommitAmount = 3_000_000
 
       let decommitOutput =
-            [ TxOut walletAddress (lovelaceToValue 3_000_000) TxOutDatumNone ReferenceScriptNone
+            [ TxOut walletAddress (lovelaceToValue decommitAmount) TxOutDatumNone ReferenceScriptNone
             ]
-
-      buildTransaction networkId nodeSocket walletAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput >>= \case
+      -- here we set the change address to Alice to simplify the balance assertion in the end of test.
+      buildTransaction networkId nodeSocket aliceAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput >>= \case
         Left e -> failure $ show e
         Right body -> do
           let callDecommitHttpEndpoint tx =
@@ -639,12 +652,13 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
           -- Send unsigned decommit tx and expect failure
           expectFailureOnUnsignedDecommitTx n1 headId body callDecommitHttpEndpoint
+
           -- Sign and re-send the decommit tx
           expectSuccessOnSignedDecommitTx n1 headId walletSk body callDecommitHttpEndpoint
           -- Close and Fanout put whatever is left in the Head back to L1
-          closeAndFanout headId n1 headUTxO
+          closeAndFanout headId n1 headUTxO (headAmount + decommitAmount) walletVk
  where
-  closeAndFanout headId n expectedUTxOAfterDecommit = do
+  closeAndFanout headId n expectedUTxOAfterDecommit expectedFinalBalance vk = do
     -- After decommit Head UTxO should not contain decommitted outputs
     send n $ input "GetUTxO" []
     headUTxOAfterDecommit <- waitMatch 10 n $ \v -> do
@@ -663,6 +677,9 @@ canDecommit tracer workDir node hydraScriptsTxId =
     send n $ input "Fanout" []
     waitFor hydraTracer (10 * blockTime) [n] $
       output "HeadIsFinalized" ["utxo" .= toJSON headUTxOAfterDecommit, "headId" .= headId]
+    walletUTxO <- queryUTxOFor networkId nodeSocket QueryTip vk
+    let walletBalance = sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs walletUTxO
+    walletBalance `shouldBe` expectedFinalBalance
 
   expectSuccessOnSignedDecommitTx n headId sk body httpCall = do
     let signedDecommitTx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
