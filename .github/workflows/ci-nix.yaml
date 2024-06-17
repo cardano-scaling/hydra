@@ -253,14 +253,14 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
+    - name: ❄ Magic nix
+      uses: DeterminateSystems/magic-nix-cache-action@main
+
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: ❄ Magic nix
-      uses: DeterminateSystems/magic-nix-cache-action@main
 
     - name: ❄ Nix Flake Check
       run: |
