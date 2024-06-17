@@ -258,6 +258,8 @@ jobs:
 
     - run: cat ~/.config/nix/nix.conf
 
+    - run: cat /etc/nix/nix.conf
+
     - name: ❄ Nix Flake Check
       run: |
        nix flake check -L
