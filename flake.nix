@@ -173,17 +173,4 @@
         };
     };
 
-  nixConfig = {
-    extra-substituters = [
-      "https://cache.iog.io?priority=100"
-      "https://hydra-node.cachix.org?priority=100"
-      "https://cardano-scaling.cachix.org?priority=100"
-    ];
-    extra-trusted-public-keys = [
-      "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
-      "hydra-node.cachix.org-1:vK4mOEQDQKl9FTbq76NjOuNaRD4pZLxi1yri31HHmIw="
-      "cardano-scaling.cachix.org-1:RKvHKhGs/b6CBDqzKbDk0Rv6sod2kPSXLwPzcUQg9lY="
-    ];
-    allow-import-from-derivation = true;
-  };
 }
