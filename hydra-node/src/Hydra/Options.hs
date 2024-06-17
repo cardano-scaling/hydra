@@ -646,10 +646,12 @@ startChainFromParser =
     ( long "start-chain-from"
         <> metavar "SLOT.HEADER_HASH"
         <> help
-          "The id of the block we want to start observing the chain from. \
-          \If not given, uses the chain tip at startup. Composed by the slot \
-          \number, a separator ('.') and the hash of the block header. \
-          \For example: 52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04."
+          "The id of the block we want to start observing the chain from. Only \
+          \used if the last known head state is older than given point. If not \
+          \given and no known head state, the chain tip is used. Composed by the \
+          \slot number, a separator ('.') and the hash of the block header. For \
+          \example: \
+          \52970883.d36a9936ae7a07f5f4bdc9ad0b23761cb7b14f35007e54947e27a1510f897f04."
     )
  where
   readChainPoint :: String -> Maybe ChainPoint

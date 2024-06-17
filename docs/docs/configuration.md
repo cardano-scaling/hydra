@@ -161,7 +161,26 @@ hydra-node \
   --node-socket devnet/node.socket \
 ```
 
+:::info
 The `hydra-node` is compatible with the Cardano `mainnet` network, and can consequently operate using **real funds**. Please be sure to read the [known issues](/docs/known-issues) to fully understand the limitations and consequences of running Hydra nodes on mainnet. To choose `mainnet`, use `--mainnet` instead of `--testnet-magic`. 
+:::
+
+Using the direct node connection, the `hydra-node` does synchronize the chain and observes Hydra protocol transactions. On first startup, it will start observing from the chain's tip. Once a Hydra head has been observed, the point of the last known state change is used automatically.
+
+You can manually set the intersection point using `--start-chain-from <slot>.<hash>` which specifies a `slot` and block header `hash`. For example:
+
+```shell
+hydra-node \
+  --testnet-magic 2 \
+  --node-socket preview/node.socket \
+  --start-chain-from 49533501.e364500a42220ea47314215679b7e42e9bbb81fa69d1366fe738d8aef900f7ee
+```
+
+To synchronize from the genesis block, use `--start-chain-from 0`.
+
+:::info
+If the `hydra-node` already tracks a head in its `state` and `--start-chain-from` is given, the **newer** point is used.
+:::
 
 ## Offline mode
 
