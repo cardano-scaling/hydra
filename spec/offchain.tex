@@ -12,22 +12,33 @@ reactive system that processes three kinds of inputs:
 \begin{enumerate}
 	\item On-chain protocol transactions as introduced in
 	      Section~\ref{sec:on-chain}, which are posted to the mainchain and can be
-	      observed by all actors
+	      observed by all actors:
+				\begin{itemize}
+					\item $\mathtt{initialTx}$: initiates a head
+					\item $\mathtt{commitTx}$: commits UTxO to an initializing head
+					\item $\mathtt{collectComTx}$: opens a head
+					\red{\item $\mathtt{decrementTx}$: removes UTxO from an open head}
+					\item $\mathtt{closeTx}$: closes a head
+					\item $\mathtt{contestTx}$: contests a closed head
+					% NOTE: fanout not mentioned because not needed in off-chain protocol
+					% description
+				\end{itemize}
 	\item Off-chain network messages sent between protocol actors (parties):
 	      \begin{itemize}
 		      \item $\hpRT$: to request a transaction to be included in the next snapshot
+					\red{\item $\hpRD$: to request exclusion of UTxO via a decommit transaction}
 		      \item $\hpRS$: to request a snapshot to be created \& signed by every head member
 		      \item $\hpAS$: to acknowledge a snapshot by replying with their signatures
-					\item $\hpRD$: to acknowledge a request for UTxO removal
 	      \end{itemize}
 	\item Commands issued by the participants themselves or on behalf of end-users and clients
 	      \begin{itemize}
 		      \item $\hpInit$: to start initialization of a head
-		      \item $\hpDecommit$: to request removal of a UTxO from the Head
 		      \item $\hpNew$: to submit a new transaction to an open head
+		      \red{\item $\hpDecommit$: to request removal of a UTxO from the Head}
 		      \item $\hpClose$: to request closure of an open head
 	      \end{itemize}
 \end{enumerate}
+
 % TODO: define states and e.g. that newTx not possible when closed? state diagram?
 
 The behavior is fully specified in Figure~\ref{fig:off-chain-prot}, while the
@@ -115,7 +126,7 @@ party's local state consists of the following variables: \todo{update}
 \end{itemize}
 
 \subsection{Protocol flow}
-\todo{Make consistent with figure again}
+\todo{\red{Make consistent with figure again}}
 
 \subsubsection{Initializing the head}
 
@@ -148,7 +159,6 @@ previously observed $C_j$ and initialize $\hatmU = \barmU = \hatmL = \Uinit$
 with it. The initial transaction sets are empty
 $\mT = \barmT =\hatmT =\emptyset$, and $\bars = \hats = 0$.
 % REVIEW: check $\eta$ against $\Uinit$?
-\todo{add increment/decrement}
 
 \subsubsection{Processing transactions off-chain}
 
@@ -173,12 +183,12 @@ flight'' ($\hats = \bars$) and the receiving party $\party_{i}$ is the next
 snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 
-\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx)$, the
+\red{\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx)$, the
 transaction is checked against the \emph{local} ledger state. If decommit is
 not applicable yet, the protocol does $\KwWait$ to retry later and eventually
 emmits an error message that another decommit is \emph{in flight}. In case
 there is no decommit \emph{in flight} and party is the leader then $\hpRS$ is
-emmitted containing the utxo to decommit. \\
+emmitted containing the utxo to decommit.} \\
 
 \dparagraph{$\hpRS$.}\quad Upon receiving request
 $(\hpRS,s,\mT_{\mathsf{req}}^{\#})$ from party $\party_j$, the receiver
@@ -186,10 +196,10 @@ $\party_i$ checks that $s$ is the next snapshot number and that party
 $\party_j$ is responsible for leading its creation.\todo{define $\hpLdr$} Party
 $\party_i$ has to $\KwWait$ until the previous snapshot is confirmed ($\bars =
 \hats$) and all requested transaction hashes $\mT_{\mathsf{req}}^{\#}$ can be
-resolved in $\mT_{\mathsf{all}}$. In the presence of decommits the requested
+resolved in $\mT_{\mathsf{all}}$. \red{In the presence of decommits the requested
 decommit needs to be removed from the active UTxO set (by applying a decommit
 transaction) and the new UTxO set is then passed to further handling of
-$\hpRS$. Then, all those resolved transactions $\mT_{\mathsf{req}}$ are $\Req$d
+$\hpRS$.} Then, all those resolved transactions $\mT_{\mathsf{req}}$ are $\Req$d
 to be applicable to $\barmU$, otherwise the snapshot is rejected as invalid.
 Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets
 the signature accumulator $\hatSigma$, and computes the UTxO set $\hatmU$ of

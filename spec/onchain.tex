@@ -8,7 +8,7 @@ The following sections describe the the \emph{on-chain} protocol controlling the
 life-cycle of a Hydra head, which can be intuitively described as a state
 machine (see Figure~\ref{fig:SM_states_basic}). Each transition in this state
 machine is represented and caused by a corresponding Hydra protocol transaction
-on-chain: $\mtxInit{}$, $\mtxCom{}$, $\mtxAbort{}$, $\mtxCollect{}$,
+on-chain: $\mtxInit{}$, $\mtxCom{}$, $\mtxAbort{}$, $\mtxCollect{}$, \red{$\mtxDecrement{}$,}
 $\mtxClose{}$, $\mtxContest{}$, and $\mtxFanout{}$.
 
 % TODO: Could include a combined overview, slightly more detailed than Figure 1
@@ -25,7 +25,7 @@ $\mtxClose{}$, $\mtxContest{}$, and $\mtxFanout{}$.
 	\item $\nuCommit$ controls the collection of committed UTxOs into the head in
 	      $\mtxCollect$ or that funds are reimbursed in an $\mtxAbort{}$.
 	\item $\nuHead$ represents the main protocol state machine logic and ensures
-	      contract continuity throughout $\mtxCollect{}$, $\mtxClose{}$,
+	      contract continuity throughout $\mtxCollect{}$, \red{$\mtxDecrement{}$,} $\mtxClose{}$,
 	      $\mtxContest{}$ and $\mtxFanout{}$.
 \end{itemize}
 
