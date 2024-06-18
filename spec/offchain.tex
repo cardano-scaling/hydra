@@ -123,6 +123,7 @@ party's local state consists of the following variables: \todo{update}
 	      inclusion in a snapshot (if this party is the next leader).
 	\item $\mT_{\mathsf{all}} \in (\tyBytes \times \mT)^{*}$: Associative list of all
 	      seen transactions not yet included in a snapshot.
+	\red{\item $\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. Maybe be $\bot$ if nothing to decommit.}
 \end{itemize}
 
 \subsection{Protocol flow}

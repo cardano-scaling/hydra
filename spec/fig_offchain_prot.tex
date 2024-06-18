@@ -47,8 +47,9 @@
 							$\Uinit \gets \bigcup_{j=1}^{n} U_j$ \;
 							% $\Out~(\hpSnap,(0,U_0))$ \;
 							$\hatmU, \barmU, \hatmL \gets \Uinit$ \;
-							\textcolor{red}{$\tx_{\omega} \gets \bot$ \;}
+							\red{$\tx_{\omega} \gets \bot$ \;}
 							$\hats,\bars \gets 0$ \;
+							\red{$v \gets 0$ \;}
 							$\mT, \hatmT, \barmT \gets \emptyset$ \;
 						}
 
@@ -89,6 +90,7 @@
 						\vspace{12pt}
 
 						%%% REQ SN
+						% FIXME: continue review here
 						\On{$(\hpRS,s,\mT^{\#}_{req}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \mT_{\mathsf{all}}$}{
@@ -126,26 +128,26 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.7}
 						%%% DECOMMIT
-						\On{$(\mathtt{decommit},\tx)$ from client}{
-							\If{\textcolor{blue}{$\tx_{\omega} = \bot \land \barmU \applytx \tx \not= \bot$}}{
+						\red{\On{$(\mathtt{decommit},\tx)$ from client}{
+							\If{$\tx_{\omega} = \bot \land \hatmL \applytx \tx \not= \bot$}{
 							  \Multi{} $(\mathtt{reqDec},\tx)$%
 							}
-						}
+						}}
 
 						\vspace{12pt}
 
 						%%% REC DEC
-						\On{$(\mathtt{reqDec},\tx)$ from $\party_j$}{
-							\Wait{$\tx_\omega = \bot ~ \land ~ \barmU \applytx \tx \not= \bot$}{
-							  \textcolor{black}{
-								$\tx_\omega \gets \tx$ \;
-								% issue snapshot if we are leader
-								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-									$\textcolor{blue}{\mT^{\#}_{req} \gets \{ \hash(\tx) ~ | ~ \forall tx \in \hatmT \}}$ \;
-									\Multi{} $(\hpRS,\bars+1,\mT^{\#}_{req}, \textcolor{blue}{\tx})$ \;
-								}
+						\red{\On{$(\mathtt{reqDec},\tx)$ from $\party_j$}{
+							\Wait{$\tx_\omega = \bot ~ \land ~ \hatmL \applytx \tx \not= \bot$}{
+							  $\hatmL \gets \hatmL \setminus \mathsf{inputs}(\tx)$ \;
+							  $\tx_\omega \gets \tx$ \;
+							  % issue snapshot if we are leader
+							  \If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
+								$\textcolor{blue}{\mT^{\#}_{req} \gets \{ \hash(\tx) ~ | ~ \forall tx \in \hatmT \}}$ \;
+								\Multi{} $(\hpRS,\bars+1,\mT^{\#}_{req}, \tx_{\omega})$ \;
 							  }
 							}
+						}
 						}
 
 						\vspace{12pt}
