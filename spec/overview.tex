@@ -39,13 +39,11 @@ state $\stInitial$, each head member can attach a \mtxCom{} transaction, which
 locks (on the mainchain) the UTxOs that the party wants to commit to the head,
 or deliberately acknowledges to commit nothing.
 
-The commit transactions are subsequently collected by the \mtxCCom{}
-transaction causing a transition from $\stInitial$ to $\stOpen$. Once the
-$\stOpen$ state is confirmed, the head members start running the off-chain head
-protocol, which evolves the initial UTxO set (the union over all UTxOs
-committed by all head members) independently of the mainchain. Head member can
-also decide to take some UTxO they own out of the Head and make it available on
-main chain. We call this action decrement. For the case where some head members
+The commit transactions are subsequently collected by the \mtxCCom{} transaction
+causing a transition from $\stInitial$ to $\stOpen$. Once the $\stOpen$ state is
+confirmed, the head members start running the off-chain head protocol, which
+evolves the initial UTxO set (the union over all UTxOs committed by all head
+members) independently of the mainchain. For the case where some head members
 fail to post a \mtxCom{} transaction, the head can be aborted by going directly
 from $\stInitial$ to $\stFinal$.
 
@@ -61,8 +59,8 @@ while each party maintains their view of the local UTxO state. That is, the curr
 set of UTxOs evolved from the initial UTxO set by applying transactions as they
 are received from the other parties.
 
-To confirm transactions and allow for an on-chain decommit of the resulting UTxO
-set without needing the whole transaction history, snapshots are created by the
+To confirm transactions and allow for distribution of the resulting UTxO set
+without needing the whole transaction history, snapshots are created by the
 protocol participants. The initial snapshot $U_{0}$ corresponds to the initial
 UTxO set, while snapshots thereafter $\Uset_1,\Uset_2,\ldots$ are created with
 monotonically increasing snapshot numbers.
@@ -81,6 +79,10 @@ of the multi-signature are received and verified, a snapshot is considered
 confirmed. As a consequence, a participant can safely delete (if wished) all
 transactions that have been processed into it as the snapshot's multi-signature
 is now evidence that this state once existed during the head evolution.
+
+\red{Besides processing ``normal'' transactions, participants can also request
+  to take some UTxO they can spend out of the Head and make it available on main
+  chain via a so-called decommit. \todo{maybe expand}}
 
 \subsection{Closing the head}
 
@@ -114,7 +116,7 @@ differences to the original Head protocol in~\cite{hydrahead20} are:
 	\item No hanging transactions due to `coordination'.
 	\item No acknowledgement nor confirmation of transactions.
 	\item No confirmation message for snapshots (two-round local confirmation).
-    \todo{increment / decrement extension}
+    \red{\item Allow for incremental decommits while head is open.}
 \end{itemize}
 
 %%% Local Variables:
