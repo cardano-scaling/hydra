@@ -18,10 +18,12 @@ reactive system that processes three kinds of inputs:
 		      \item $\hpRT$: to request a transaction to be included in the next snapshot
 		      \item $\hpRS$: to request a snapshot to be created \& signed by every head member
 		      \item $\hpAS$: to acknowledge a snapshot by replying with their signatures
+					\item $\hpRD$: to acknowledge a request for UTxO removal
 	      \end{itemize}
 	\item Commands issued by the participants themselves or on behalf of end-users and clients
 	      \begin{itemize}
 		      \item $\hpInit$: to start initialization of a head
+		      \item $\hpDecommit$: to request removal of a UTxO from the Head
 		      \item $\hpNew$: to submit a new transaction to an open head
 		      \item $\hpClose$: to request closure of an open head
 	      \end{itemize}
@@ -94,7 +96,7 @@ off-chain protocol logic relies on these assumptions:
 \subsection{Variables}
 
 Besides parameters agreed in the protocol setup (see Section~\ref{sec:setup}), a
-party's local state consists of the following variables:
+party's local state consists of the following variables: \todo{update}
 
 \begin{itemize}
 	\item $\hats$: Sequence number of latest seen snapshot.
@@ -146,6 +148,7 @@ previously observed $C_j$ and initialize $\hatmU = \barmU = \hatmL = \Uinit$
 with it. The initial transaction sets are empty
 $\mT = \barmT =\hatmT =\emptyset$, and $\bars = \hats = 0$.
 % REVIEW: check $\eta$ against $\Uinit$?
+\todo{add increment/decrement}
 
 \subsubsection{Processing transactions off-chain}
 
@@ -170,28 +173,37 @@ flight'' ($\hats = \bars$) and the receiving party $\party_{i}$ is the next
 snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 
+\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx)$, the
+transaction is checked against the \emph{local} ledger state. If decommit is
+not applicable yet, the protocol does $\KwWait$ to retry later and eventually
+emmits an error message that another decommit is \emph{in flight}. In case
+there is no decommit \emph{in flight} and party is the leader then $\hpRS$ is
+emmitted containing the utxo to decommit. \\
+
 \dparagraph{$\hpRS$.}\quad Upon receiving request
 $(\hpRS,s,\mT_{\mathsf{req}}^{\#})$ from party $\party_j$, the receiver
-$\party_i$ checks that $s$ is the next snapshot number and that party $\party_j$
-is responsible for leading its creation.\todo{define $\hpLdr$} Party $\party_i$
-has to $\KwWait$ until the previous snapshot is confirmed ($\bars = \hats$) and
-all requested transaction hashes $\mT_{\mathsf{req}}^{\#}$ can be resolved in
-$\mT_{\mathsf{all}}$. Then, all those resolved transactions $\mT_{\mathsf{req}}$
-are $\Req$d to be applicable to $\barmU$, otherwise the snapshot is rejected
-as invalid. Only then, $\party_i$ increments their seen-snapshot counter
-$\hats$, resets the signature accumulator $\hatSigma$, and computes the UTxO set
-$\hatmU$ of the new (seen) snapshot as
-$\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$. Then, $\party_i$ creates a
-signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a message
-comprised by the $\cid$, \textcolor{red}{the $\eta_{0}$ corresponding to the
-	initial UTxO set $\Uinit$}, and the new $\eta'$ given by the new snapshot number
-$\hats$ and canonically combining $\hatmU$ (see Section~\ref{sec:close-tx} for
-details). The signature is sent to all head members via message
-$(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction set $\hatmT$ gets
-pruned by re-applying all locally pending transactions $\hatmT$ to the just
-requested snapshot's UTxO set $\hatmU$ iteratively and ultimately yielding a
-``pruned'' version of $\hatmT$ and $\hatmU$. Also, the set of all transactions
-$\mT_{\mathsf{all}}$ can be reduced by the requested
+$\party_i$ checks that $s$ is the next snapshot number and that party
+$\party_j$ is responsible for leading its creation.\todo{define $\hpLdr$} Party
+$\party_i$ has to $\KwWait$ until the previous snapshot is confirmed ($\bars =
+\hats$) and all requested transaction hashes $\mT_{\mathsf{req}}^{\#}$ can be
+resolved in $\mT_{\mathsf{all}}$. In the presence of decommits the requested
+decommit needs to be removed from the active UTxO set (by applying a decommit
+transaction) and the new UTxO set is then passed to further handling of
+$\hpRS$. Then, all those resolved transactions $\mT_{\mathsf{req}}$ are $\Req$d
+to be applicable to $\barmU$, otherwise the snapshot is rejected as invalid.
+Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets
+the signature accumulator $\hatSigma$, and computes the UTxO set $\hatmU$ of
+the new (seen) snapshot as $\hatmU \gets \barmU \applytx \mT_{\mathsf{req}}$.
+Then, $\party_i$ creates a signature $\msSig_i$ using their signing key
+$\hydraSigningKey$ on a message comprised by the $\cid$, \textcolor{red}{the
+$\eta_{0}$ corresponding to the initial UTxO set $\Uinit$}, and the new $\eta'$
+given by the new snapshot number $\hats$ and canonically combining $\hatmU$
+(see Section~\ref{sec:close-tx} for details). The signature is sent to all head
+members via message $(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction
+set $\hatmT$ gets pruned by re-applying all locally pending transactions
+$\hatmT$ to the just requested snapshot's UTxO set $\hatmU$ iteratively and
+ultimately yielding a ``pruned'' version of $\hatmT$ and $\hatmU$. Also, the
+set of all transactions $\mT_{\mathsf{all}}$ can be reduced by the requested
 transactions $\mT_{\mathsf{req}}$.\\
 
 \dparagraph{$\hpAS$.}\quad Upon receiving acknowledgment $(\hpAS,s,\msSig_j)$, all

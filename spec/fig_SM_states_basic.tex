@@ -9,9 +9,10 @@
 
     \path[->] (initial) edge [bend left=20] node {$\stCollect$} (open);
     \path[->] (open) edge [bend left=20] node {$\stClose$} (closed);
+    \path[->] (open) edge [loop below] node {$\mathsf{decrement}$} (open);
     \path[->] (closed) edge [bend left=20] node {$\stFanout$} (final);
     \path[->] (closed) edge [loop above] node {$\stContest$} (closed);
-    \path[->] (initial) edge node {$\stAbort$} (final);
+    \path[->] (initial) edge [bend right=20] node {$\stAbort$} (final);
   \end{tikzpicture}
 
   \caption{Mainchain state diagram for this version of the Hydra protocol.}\label{fig:SM_states_basic}
