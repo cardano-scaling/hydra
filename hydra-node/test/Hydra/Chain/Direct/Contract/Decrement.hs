@@ -107,6 +107,7 @@ healthySnapshot =
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
+        , version = toInteger healthySnapshotNumber
         }
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)

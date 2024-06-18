@@ -94,6 +94,7 @@ healthyFanoutDatum =
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
+    , version = 1
     }
  where
   healthyContestationPeriodSeconds = 10

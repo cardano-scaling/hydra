@@ -1940,6 +1940,7 @@ components:
       - snapshotNumber
       - utxo
       - confirmedTransactions
+      - version
       properties:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
@@ -1954,6 +1955,8 @@ components:
             $ref: "api.yaml#/components/schemas/TxId"
         utxoToDecommit:
           $ref: "api.yaml#/components/schemas/UTxO"
+        version:
+          type: integer
 
     SnapshotNumber:
       type: integer

@@ -179,7 +179,7 @@ spec = parallel $ do
                    , receiveMessage ReqTx{transaction = tx2}
                    , receiveMessage ReqTx{transaction = tx3}
                    ]
-            signedSnapshot = sign aliceSk $ testSnapshot 1 (utxoRefs [1, 3, 4]) [1]
+            signedSnapshot = sign aliceSk $ testSnapshot 1 1 (utxoRefs [1, 3, 4]) [1]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
@@ -189,8 +189,8 @@ spec = parallel $ do
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-            sn1 = testSnapshot 1 (utxoRefs [1, 2, 3]) mempty
-            sn2 = testSnapshot 2 (utxoRefs [1, 3, 4]) [1]
+            sn1 = testSnapshot 1 1 (utxoRefs [1, 2, 3]) mempty
+            sn2 = testSnapshot 2 2 (utxoRefs [1, 3, 4]) [1]
             inputs =
               inputsToOpenHead
                 <> [ receiveMessage ReqSn{snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}
@@ -208,7 +208,7 @@ spec = parallel $ do
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let snapshot = testSnapshot 1 (utxoRefs [1, 2, 3]) []
+        let snapshot = testSnapshot 1 1 (utxoRefs [1, 2, 3]) []
             sigBob = sign bobSk snapshot
             sigAlice = sign aliceSk snapshot
             inputs =
@@ -241,7 +241,7 @@ spec = parallel $ do
     it "signs snapshot even if it has seen conflicting transactions" $
       failAfter 1 $
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let snapshot = testSnapshot 1 (utxoRefs [1, 3, 5]) [2]
+          let snapshot = testSnapshot 1 1 (utxoRefs [1, 3, 5]) [2]
               sigBob = sign bobSk snapshot
               inputs =
                 inputsToOpenHead

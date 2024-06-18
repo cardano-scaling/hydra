@@ -281,7 +281,7 @@ spec =
                       <> registryUTxO scriptRegistry
 
               let startingSnapshot =
-                    Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit'}
+                    Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit', version = 2}
 
               let decrementAction =
                     produceDecrement ctx scriptRegistry headId' parameters
