@@ -66,23 +66,14 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.65}
 
-						%%% NEW TX
-						\On{$(\hpNew,\tx)$ from client}{
-							\Multi{} $(\hpRT,\tx)$%
-						}
-
-						\vspace{12pt}
-
 						%%% REQ TX
 						\On{$(\hpRT,\tx)$ from $\party_j$}{
-							$\mT_{\mathsf{all}} \gets \mT_{\mathsf{all}} \cup \{ (\hash(\tx),\tx )\}$ \;
 							\Wait{$\hatmL \applytx \tx \neq \bot$}{
 								$\hatmL \gets \hatmL\applytx\tx$ \;
 								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-                                    $\textcolor{blue}{\mT^{\#}_{req} \gets \{ \hash(\tx) ~ | ~ \forall tx \in \hatmT \}}$ \;
-									\Multi{} $(\hpRS,\bars+1, \textcolor{blue}{\mT^{\#}_{req}}, \textcolor{red}{\tx_{\omega}})$ \;
+									\Multi{} $(\hpRS,\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
 								}
 							}
 						}
@@ -91,10 +82,9 @@
 
 						%%% REQ SN
 						% FIXME: continue review here
-						\On{$(\hpRS,s,\mT^{\#}_{req}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
+						\On{$(\hpRS,s,\mT_{\mathsf{req}}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
-							\Wait{$\bars = \hats ~ \land ~ \forall h \in  \mT^{\#}_{req} : (h, \cdot) \in \mT_{\mathsf{all}}$}{
-								$\mT_{\mathsf{req}} \gets \{ \mT_{\mathsf{all}}[h] ~ | ~ \forall h \in \mT^{\#}_{req} \}$ \;
+							\Wait{$\bars = \hats$}{
 							    \textcolor{red}{\Req{$\barmU \applytx \tx_{\omega} \not= \bot$}} \;
 							    \textcolor{red}{$\barmU_{\mathsf{active}} \gets \barmU \applytx \tx_{\omega}$} \;
 								\Req{$\textcolor{red}{\barmU_{\mathsf{active}}} \applytx \mT_{\mathsf{req}} \not= \bot$} \;
@@ -119,7 +109,6 @@
 									$\hatmT\gets\hatmT\cup\{\tx\}$
 									$\hatmL\gets\hatmL\applytx \tx$ \;
 								}
-								$\mT_{\mathsf{all}} \gets \{ tx ~ | ~ \forall tx \in \mT_{\mathsf{all}} : tx \notin \mT_{\mathsf{req}} \}$ \;
 							}
 						}
 					\end{walgo}
@@ -127,15 +116,6 @@
 
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.7}
-						%%% DECOMMIT
-						\red{\On{$(\mathtt{decommit},\tx)$ from client}{
-							\If{$\tx_{\omega} = \bot \land \hatmL \applytx \tx \not= \bot$}{
-							  \Multi{} $(\mathtt{reqDec},\tx)$%
-							}
-						}}
-
-						\vspace{12pt}
-
 						%%% REC DEC
 						\red{\On{$(\mathtt{reqDec},\tx)$ from $\party_j$}{
 							\Wait{$\tx_\omega = \bot ~ \land ~ \hatmL \applytx \tx \not= \bot$}{
@@ -143,8 +123,7 @@
 							  $\tx_\omega \gets \tx$ \;
 							  % issue snapshot if we are leader
 							  \If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-								$\textcolor{blue}{\mT^{\#}_{req} \gets \{ \hash(\tx) ~ | ~ \forall tx \in \hatmT \}}$ \;
-								\Multi{} $(\hpRS,\bars+1,\mT^{\#}_{req}, \tx_{\omega})$ \;
+								\Multi{} $(\hpRS,\bars+1,\hatmT, \tx_{\omega})$ \;
 							  }
 							}
 						}
@@ -189,9 +168,7 @@
 
 									% issue snapshot if we are leader
 									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
-									    % TODO: wasteful as we re-request U_ω?
-										$\textcolor{blue}{\mT^{\#}_{req} \gets \{ \hash(\tx) ~ | ~ \forall tx \in \hatmT \}}$ \;
-										\Multi{} $(\hpRS,s+1, \textcolor{blue}{\mT^{\#}_{req}}, \textcolor{red}{\tx_{\omega}})$ \;
+										\Multi{} $(\hpRS,s+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
 									}
 								}
 							}

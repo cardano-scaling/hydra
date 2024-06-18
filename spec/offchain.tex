@@ -33,8 +33,6 @@ reactive system that processes three kinds of inputs:
 	\item Commands issued by the participants themselves or on behalf of end-users and clients
 	      \begin{itemize}
 		      \item $\hpInit$: to start initialization of a head
-		      \item $\hpNew$: to submit a new transaction to an open head
-		      \red{\item $\hpDecommit$: to request removal of a UTxO from the Head}
 		      \item $\hpClose$: to request closure of an open head
 	      \end{itemize}
 \end{enumerate}
@@ -121,8 +119,6 @@ party's local state consists of the following variables: \todo{update}
 	      applying $\hatmT$ to $\barmU$ to validate requested transactions.
 	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
 	      inclusion in a snapshot (if this party is the next leader).
-	\item $\mT_{\mathsf{all}} \in (\tyBytes \times \mT)^{*}$: Associative list of all
-	      seen transactions not yet included in a snapshot.
 	\red{\item $\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. Maybe be $\bot$ if nothing to decommit.}
 \end{itemize}
 
@@ -170,10 +166,6 @@ Leader selection is round-robin per the $\hydraKeys$ from the protocol setup.
 While the frequency of snapshots in the general Head protocol~\cite{hydrahead20}
 was configurable, the Coordinated Head protocol does specify a snapshot to be
 created after each transaction.\\
-
-\dparagraph{$\hpNew$.}\quad At any time, by sending request $(\hpNew,\tx)$, a
-client of the protocol can submit a new transaction $\tx$ to the head, which
-results in it being sent out to all parties as a $(\hpRT,\tx)$ message.\\
 
 \dparagraph{$\hpRT$.}\quad Upon receiving request $(\hpRT,\tx)$, the transaction
 gets recorded in $\mT_{\mathsf{all}}$ and applied to the \emph{local} ledger
@@ -291,7 +283,7 @@ event and $\mathtt{rollback}$ event with the point to which a rollback happened:
 wrapped in a rollforward event $(\mathtt{rollback},p)$ with point $p$, protocol
 participants store their head state indexed by this point in a history
 $\Omega$ of states
-$\Delta \gets (\hats, \bars, \barsigma, \hatmU, \barmU, \hatSigma, \hatmL, \mT_{all}, \hatmT)$ and $\Omega' = (p, \Delta) \cup \Omega$. \\
+$\Delta \gets (\hats, \bars, \barsigma, \hatmU, \barmU, \hatSigma, \hatmL, \hatmT)$ and $\Omega' = (p, \Delta) \cup \Omega$. \\
 
 \dparagraph{$\mathtt{rollback}$.}\quad On a rollback
 $(\mathtt{rollback},p_{rb})$ to point $p_{rb}$, the corresponding head state
