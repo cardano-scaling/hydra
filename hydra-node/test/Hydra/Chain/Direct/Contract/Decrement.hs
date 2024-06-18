@@ -133,6 +133,7 @@ healthyDatum =
         , contestationPeriod = toChain healthyContestationPeriod
         , snapshotNumber = toInteger healthySnapshotNumber
         , headId = toPlutusCurrencySymbol testPolicyId
+        , version = 1
         }
 
 data DecrementMutation

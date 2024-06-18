@@ -184,6 +184,7 @@ healthyOpenHeadDatum =
     , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+    , version = 0
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -323,6 +324,7 @@ genCloseMutation (tx, _utxo) =
             , snapshotNumber = toInteger healthyCloseSnapshotNumber
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+            , version = 0
             }
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)

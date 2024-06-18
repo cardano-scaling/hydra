@@ -141,6 +141,7 @@ healthyClosedState =
     , contestationPeriod = healthyOnChainContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
+    , version = 0
     }
 
 healthySlotNo :: SlotNo
