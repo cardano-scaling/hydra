@@ -397,6 +397,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
         , snapshotNumber = 0
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
+        , version = 0
         }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxoToCollect
@@ -479,8 +480,9 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         , snapshotNumber = toInteger number
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
+        , version = version -- TODO: should version here come from a snapshot or previous datum?
         }
-  Snapshot{utxo, utxoToDecommit, number} = snapshot
+  Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
 -- | Low-level data type of a snapshot to close the head with. This is different
 -- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
@@ -495,6 +497,7 @@ data ClosingSnapshot
         -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
         -- and the closeUtxoHash as also included above
         signatures :: MultiSignature (Snapshot Tx)
+      , version :: Integer
       }
 
 data CloseTxError
@@ -568,12 +571,13 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
+        , version = version
         }
 
-  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature) = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty)
-    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s} ->
-      (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s)
+  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) = case closing of
+    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty, 0)
+    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s, version = v} ->
+      (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s, v)
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
@@ -608,7 +612,7 @@ contestTx ::
   HeadId ->
   ContestationPeriod ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
+contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -661,6 +665,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit} sig (slotNo, 
         , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters
+        , version = version -- TODO: should version here come from a Snapshot or previous datum?
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

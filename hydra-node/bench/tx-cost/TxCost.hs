@@ -190,7 +190,7 @@ computeContestCost = do
     let (inHead, toDecommit) = splitUTxO utxo
     (closedSnapshotNumber, inHead', toDecommit', stClosed@ClosedState{headId}) <- genStClosed ctx inHead (Just toDecommit)
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) inHead' toDecommit' (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) (toInteger closedSnapshotNumber) inHead' toDecommit' (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
@@ -247,7 +247,7 @@ computeFanOutCost = do
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
     let (inHead, toDecommit) = splitUTxO utxo
-    snapshot <- genConfirmedSnapshot headId 1 inHead (Just toDecommit) [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 1 1 inHead (Just toDecommit) [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

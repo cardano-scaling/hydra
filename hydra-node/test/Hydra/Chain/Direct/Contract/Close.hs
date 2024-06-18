@@ -91,6 +91,7 @@ healthyCloseTx =
           , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
           , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
           , signatures = healthySignature healthyCloseSnapshotNumber
+          , version = toInteger healthyCloseSnapshotNumber
           }
 
 -- | Healthy close transaction for the specific case were we close a head
@@ -158,6 +159,7 @@ healthySnapshot =
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
+        , version = toInteger healthyCloseSnapshotNumber
         }
 
 healthyCloseUTxO :: UTxO
@@ -184,7 +186,7 @@ healthyOpenHeadDatum =
     , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = 0
+    , version = toInteger healthyCloseSnapshotNumber
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -324,7 +326,7 @@ genCloseMutation (tx, _utxo) =
             , snapshotNumber = toInteger healthyCloseSnapshotNumber
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-            , version = 0
+            , version = toInteger healthyCloseSnapshotNumber
             }
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)

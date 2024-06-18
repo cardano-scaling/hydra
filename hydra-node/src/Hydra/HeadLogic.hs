@@ -413,6 +413,7 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
                     , utxo = u
                     , confirmed = requestedTxIds
                     , utxoToDecommit = mUtxoToDecommit
+                    , version = snVersion + 1
                     }
             -- Spec: σᵢ
             let snapshotSignature = sign signingKey nextSnapshot
@@ -483,9 +484,9 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
 
-  confSn = case confirmedSnapshot of
-    InitialSnapshot{} -> 0
-    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+  (confSn, snVersion) = case confirmedSnapshot of
+    InitialSnapshot{} -> (0, 0)
+    ConfirmedSnapshot{snapshot = Snapshot{number, version}} -> (number, version)
 
   seenSn = seenSnapshotNumber seenSnapshot
 

@@ -682,7 +682,9 @@ signedSnapshot ms =
       , confirmed = []
       , utxo
       , utxoToDecommit = Just toDecommit
+      , version = toInteger $ snapshotNumber ms
       }
+
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
@@ -722,6 +724,7 @@ openHeadUTxO =
         , contestationPeriod = CP.toChain Fixture.cperiod
         , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
         , snapshotNumber = 0
+        , version = 0
         }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)

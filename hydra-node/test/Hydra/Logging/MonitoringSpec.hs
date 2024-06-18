@@ -26,7 +26,7 @@ spec =
         traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx (aValidTx 42))))
         traceWith tracer (Node $ BeginInput alice 1 (receiveMessage (ReqTx (aValidTx 43))))
         threadDelay 0.1
-        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 (utxoRefs [1]) [43, 42]) mempty)))
+        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 1 (utxoRefs [1]) [43, 42]) mempty)))
 
         metrics <-
           Text.lines

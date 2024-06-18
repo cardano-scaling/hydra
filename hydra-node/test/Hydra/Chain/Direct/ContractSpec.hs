@@ -209,7 +209,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \seed ->
       let sk = generateSigningKey seed
           offChainSig = sign sk snapshot
@@ -218,16 +218,17 @@ prop_verifyOffChainSignatures =
           snapshotNumber = toInteger number
           utxoHash = (toBuiltin $ hashUTxO @SimpleTx utxo)
           utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash onChainParty onChainSig
+       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash version onChainParty onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
             & counterexample ("utxoHash: " <> show utxoHash)
+            & counterexample ("version: " <> show version)
             & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
@@ -235,4 +236,4 @@ prop_verifySnapshotSignatures =
           snapshotNumber = toInteger number
           utxoHash = toBuiltin (hashUTxO @SimpleTx utxo)
           utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash version signatures

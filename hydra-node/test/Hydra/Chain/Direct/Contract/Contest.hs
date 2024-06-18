@@ -109,6 +109,7 @@ healthyContestSnapshot =
     , utxo = fst healthyContestSnapshotUTxO
     , confirmed = []
     , utxoToDecommit = Just (snd healthyContestSnapshotUTxO)
+    , version = Head.version healthyClosedState
     }
 
 healthyContestSnapshotNumber :: SnapshotNumber
@@ -141,7 +142,7 @@ healthyClosedState =
     , contestationPeriod = healthyOnChainContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
-    , version = 0
+    , version = fromIntegral healthyClosedSnapshotNumber
     }
 
 healthySlotNo :: SlotNo

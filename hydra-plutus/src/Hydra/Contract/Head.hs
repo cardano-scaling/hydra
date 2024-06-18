@@ -73,12 +73,12 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open{parties, contestationPeriod, snapshotNumber, headId}, Decrement{signature, numberOfDecommitOutputs}) ->
-      checkDecrement ctx parties snapshotNumber contestationPeriod headId signature numberOfDecommitOutputs
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber}, Close{signature}) ->
-      checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters}, Contest{signature}) ->
-      checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId
+    (Open{parties, contestationPeriod, snapshotNumber, headId, version}, Decrement{signature, numberOfDecommitOutputs}) ->
+      checkDecrement ctx parties snapshotNumber contestationPeriod headId version signature numberOfDecommitOutputs
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber, version}, Close{signature}) ->
+      checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber version
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters, version}, Contest{signature}) ->
+      checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId version
     (Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
       checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutputs numberOfDecommitOutputs ctx headId parties
     _ ->
@@ -218,10 +218,11 @@ checkDecrement ::
   SnapshotNumber ->
   ContestationPeriod ->
   CurrencySymbol ->
+  Integer ->
   [Signature] ->
   Integer ->
   Bool
-checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId signature numberOfDecommitOutputs =
+checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId version signature numberOfDecommitOutputs =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && checkSnapshot
     && checkSnapshotSignature
@@ -233,7 +234,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
       nextSnapshotNumber > prevSnapshotNumber
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash signature
+    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash version signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -280,8 +281,9 @@ checkClose ::
   ContestationPeriod ->
   CurrencySymbol ->
   SnapshotNumber ->
+  Integer ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -313,7 +315,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber =
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash decommitHash sig
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash decommitHash version sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
@@ -374,8 +376,9 @@ checkContest ::
   [PubKeyHash] ->
   -- | Head id
   CurrencySymbol ->
+  Integer ->
   Bool
-checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId =
+checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId version =
   mustNotMintOrBurn txInfo
     && mustBeNewer
     && mustBeMultiSigned
@@ -400,7 +403,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
       contestSnapshotNumber > closedSnapshotNumber
 
   mustBeMultiSigned =
-    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash decommitHash sig
+    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash decommitHash version sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -599,16 +602,16 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
-verifySnapshotSignature :: [Party] -> CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> [Signature] -> Bool
-verifySnapshotSignature parties headId snapshotNumber utxoHash utxoToDecommitHash sigs =
+verifySnapshotSignature :: [Party] -> CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Integer -> [Signature] -> Bool
+verifySnapshotSignature parties headId snapshotNumber utxoHash utxoToDecommitHash version sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties
       == length sigs
-      && all (uncurry $ verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash version) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party =
+verifyPartySignature :: CurrencySymbol -> SnapshotNumber -> BuiltinByteString -> BuiltinByteString -> Integer -> Party -> Signature -> Bool
+verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash version party =
   verifyEd25519Signature (vkey party) message
  where
   message =
@@ -617,6 +620,7 @@ verifyPartySignature headId snapshotNumber utxoHash utxoToDecommitHash party =
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
+      <> Builtins.serialiseData (toBuiltinData version)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering
