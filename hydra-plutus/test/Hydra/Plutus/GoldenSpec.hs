@@ -52,8 +52,8 @@ goldenScript name plutusScript =
     , encodePretty = show . hashScript
     , writeToFile
     , readFromFile
-    , goldenFile = "scripts/" <> name <> ".plutus"
-    , actualFile = Nothing
+    , goldenFile = "scripts/" <> name <> ".golden"
+    , actualFile = Just $ "scripts/" <> name <> ".plutus"
     , failFirstTime = False
     }
  where
