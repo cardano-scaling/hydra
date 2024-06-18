@@ -100,7 +100,6 @@ cardano-cli transaction build-raw \
 
 cardano-cli transaction sign \
   --tx-file decommit.json \
-  --signing-key-file credentials/alice.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-decommit-tx-signed.json
 ```
