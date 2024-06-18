@@ -268,6 +268,7 @@ spec =
                       , snapshotNumber = 1
                       , contestationPeriod = contestationPeriodFromDiffTime 10
                       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+                      , version = 0
                       }
               let datum = toUTxOContext (mkTxOutDatumInline openDatum)
               let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs utxoToDecommit')

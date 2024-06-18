@@ -33,6 +33,7 @@ data State
       -- ^ Spec: η
       , headId :: CurrencySymbol
       , snapshotNumber :: SnapshotNumber
+      , version :: Integer
       }
   | Closed
       { parties :: [Party]
@@ -45,6 +46,7 @@ data State
       , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
       , contesters :: [PubKeyHash]
+      , version :: Integer
       }
   | Final
   deriving stock (Generic, Show)
