@@ -1128,6 +1128,7 @@ aggregate st = \case
             , headId
             , headSeed
             , currentSlot = chainStateSlot chainState
+            , version = 0
             }
       _otherState -> st
   SnapshotConfirmed{snapshot, signatures} ->
@@ -1182,11 +1183,13 @@ aggregate st = \case
       Open
         os@OpenState
           { coordinatedHeadState
+          , version
           } ->
           Open
             os
               { coordinatedHeadState =
                   coordinatedHeadState{decommitTx = Nothing}
+              , version = version + 1
               }
       _otherState -> st
   HeadIsReadyToFanout ->
