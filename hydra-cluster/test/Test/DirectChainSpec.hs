@@ -315,7 +315,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
             let (inHead, toDecommit) = splitUTxO someUTxO
-
+            let v = 1
             let snapshot =
                   Snapshot
                     { headId
@@ -323,14 +323,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxo = inHead
                     , confirmed = []
                     , utxoToDecommit = Just toDecommit
-                    , version = 1
+                    , version = v
                     }
 
-            postTx . CloseTx headId headParameters $
-              ConfirmedSnapshot
-                { snapshot
-                , signatures = aggregate [sign aliceSk snapshot]
-                }
+            postTx $ CloseTx headId headParameters (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]}) v
 
             deadline <-
               waitMatch aliceChain $ \case
@@ -446,7 +442,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCollectComTx headId
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO} 0
             deadline <- waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                 | snapshotNumber == 0 -> Just contestationDeadline

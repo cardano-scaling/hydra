@@ -52,7 +52,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number, getSnapshot)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
@@ -763,6 +763,7 @@ newCloseTx actor snapshot = do
       snapshot
       lowerBound
       upperBound
+      (version (getSnapshot snapshot))
  where
   lowerBound = 0
 

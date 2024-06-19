@@ -61,6 +61,7 @@ data Input
       }
   | Close
       { signature :: [Signature]
+      , version :: Integer
       }
   | Contest
       { signature :: [Signature]

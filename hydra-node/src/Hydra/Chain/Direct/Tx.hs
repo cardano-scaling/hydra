@@ -522,8 +522,9 @@ closeTx ::
   OpenThreadOutput ->
   -- | Head identifier
   HeadId ->
+  Integer ->
   Tx
-closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
+closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId offChainVersion =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -555,6 +556,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     toScriptData
       Head.Close
         { signature
+        , version = offChainVersion
         }
 
   headOutputAfter =

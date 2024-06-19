@@ -31,7 +31,7 @@ import GHC.IO.Exception (userError)
 import Hydra.API.Server (Server (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), CommitBlueprintTx (..), PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters), initHistory)
+import Hydra.Chain (Chain (..), CommitBlueprintTx (..), PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters, version), initHistory)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -224,7 +224,7 @@ mockChainAndNetwork tr seedKeys commits = do
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do
               let initialSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
 
-              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot}
+              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot, version = 0}
               postTx closeTx
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
