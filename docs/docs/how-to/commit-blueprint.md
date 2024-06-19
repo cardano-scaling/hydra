@@ -8,9 +8,9 @@ This guide provides a walkthrough on using `cardano-cli` to assemble the necessa
 
 **Prerequisites**
 
-You should have access to:
+You should have access to the following repositories:
 
-- `hydra-node` repository
+- `hydra-node` 
 - `hydra-tui`
 - `cardano-cli`, and
 - `curl` binaries.
@@ -67,7 +67,7 @@ cardano-cli query utxo \
 ```
 
 ## Step 3
-Select the first `UTXO`, which has eight ada available. Use five ada to commit and rely on `hydra-node` to balance the commit transaction.
+Select the first `UTXO`, which has eight ada available. Use five ada to commit and rely on `hydra-node` to balance the commit transaction:
 
 ```shell
 cardano-cli transaction build-raw \
@@ -114,7 +114,7 @@ hydra-node \
   --persistence-dir .
 ```
 
-Now we can start `hydra-tui` and initialize the `Head`:
+Now you can start `hydra-tui` and initialize the `head`:
 
 ```shell
 hydra-tui \
@@ -124,11 +124,7 @@ hydra-tui \
   --node-socket testnets/preprod/node.socket
 ```
 
-Press `i` to initialize the `head`.
-
-Once the head is in the `Initializing` state, you can send the HTTP request to the `/commit` API path.
-
-Assemble the request body using the `cborHex` field from the tx-body file `tx.json` and the JSON representation of the `UTXO` you used as input.
+Press `i` to initialize the `head`. Once the head is in the `Initializing` state, you can send the HTTP request to the `/commit` API path. Assemble the request body using the `cborHex` field from the tx-body file `tx.json` and the JSON representation of the `UTXO` you used as input.
 
 This is the valid JSON request:
 
@@ -183,4 +179,4 @@ cardano-cli transaction submit \
   --testnet-magic 1
 ```
 
-If you start the `hydra-tui` and wait until the transaction you just sent is re-observed by the `hydra-node` we should see that the head is now open.
+If you start the `hydra-tui` and wait until the transaction you just sent is re-observed by the `hydra-node`, you should see that the head is now open.
