@@ -32,6 +32,7 @@ deriving anyclass instance (FromJSON (HeadState tx), FromJSON (Input tx), FromJS
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
+  | ReqSnVersionInvalid {snVersionInState :: Integer, snVersionConfirmed :: Integer}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
