@@ -108,6 +108,9 @@ Besides parameters agreed in the protocol setup (see Section~\ref{sec:setup}), a
 party's local state consists of the following variables: \todo{update}
 
 \begin{itemize}
+	\item \red{$\hatv$: Last seen open state version.}
+	% FIXME: refactor to have a snapshot holding confirmed things
+	\item \red{$\barv$: State version referred by latest confirmed snapshot.}
 	\item $\hats$: Sequence number of latest seen snapshot.
 	\item $\bars$: Sequence number of latest confirmed snapshot.
 	\item $\barsigma$: Signature associated with the latest confirmed snapshot.
@@ -119,11 +122,10 @@ party's local state consists of the following variables: \todo{update}
 	      applying $\hatmT$ to $\barmU$ to validate requested transactions.
 	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
 	      inclusion in a snapshot (if this party is the next leader).
-	\red{\item $\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. Maybe be $\bot$ if nothing to decommit.}
+	\item \red{$\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. Maybe be $\bot$ if nothing to decommit.}
 \end{itemize}
 
 \subsection{Protocol flow}
-\todo{\red{Make consistent with figure again}}
 
 \subsubsection{Initializing the head}
 
@@ -151,10 +153,10 @@ spending. Should any party want to abort, they would post an $\mtxAbort$
 transaction and the protocol would end at this point.\\
 
 \dparagraph{$\mathtt{collectComTx}$.}\quad Upon observing the $\mtxCollect$
-transaction, the parties compute $\Uinit \gets \bigcup_{j=1}^{n} C_j$ using
-previously observed $C_j$ and initialize $\hatmU = \barmU = \hatmL = \Uinit$
-with it. The initial transaction sets are empty
-$\mT = \barmT =\hatmT =\emptyset$, and $\bars = \hats = 0$.
+transaction, the parties compute $\Uinit \gets \bigcup_{j=1}^{n} C_j$ using previously
+observed $C_j$ and initialize $\hatmU = \barmU = \hatmL = \Uinit$ with it. The
+seen transaction set is initialized empty $\hatmT =\emptyset$, \red{head state version
+$\hatv = 0$}, as well as snapshot numbers $\bars = \hats = 0$.
 % REVIEW: check $\eta$ against $\Uinit$?
 
 \subsubsection{Processing transactions off-chain}
@@ -182,22 +184,28 @@ leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 	no decommit in flight and party is the leader then $\hpRS$ is
 	emmitted containing the decommit transaction $\tx_{\omega}$.} \\
 
+\red{\dparagraph{$\mathtt{collectComTx}$.}\quad Upon observing the \mtxDecrement{}
+	transaction, which removed outputs $U_{\omega}$ from the head, the corresponding
+	decommit transaction is cleared and the observed version is used for future
+	snapshots by
+	setting $\hatv = v$. This is required as that the version of the open head state is incremented on each \mtxDecrement{} transaction as described in Section~\ref{sec:decrement-tx}} \\
+
 \dparagraph{$\hpRS$.}\quad Upon receiving request
-$(\hpRS,s,\mT_{\mathsf{req}}, \tx_{\omega})$\footnote{Snapshot requests with only
-	transaction identifiers are possible too if all parties keep an index of
+$(\hpRS,\red{v,}s,\mT_{\mathsf{req}}, \tx_{\omega})$\footnote{Snapshot requests with
+	only transaction identifiers are possible too if all parties keep an index of
 	previously seen transactions and their identifiers.} from party $\party_j$,
-the receiver $\party_i$ checks that $s$ is the next snapshot number and that
-party $\party_j$ is responsible for leading its creation.\todo{define $\hpLdr$}
-Party $\party_i$ has to $\KwWait$ until the previous snapshot is confirmed
-($\bars = \hats$). \red{If the decommit transaction $\tx_{\omega}$ is not $\bot$, the
-	transaction is $\Req$d to be applicable to the last confirmed UTxO set
-	$\barmU$ and spent outputs must be removed, yielding the still active UTxO set
-	$\barmU_{\mathsf{active}}$. Then, all requested transactions
-	$\mT_{\mathsf{req}}$ are $\Req$d to be applicable to
-	$\barmU_{\mathsf{active}}$,} otherwise the snapshot is rejected as invalid.
-Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets the
-signature accumulator $\hatSigma$, and computes the UTxO set $\hatmU$ of the new
-local snapshot as
+the receiver $\party_i$ checks that \red{$v$ refers to the current open state
+	version}\todo{wait or require?}, $s$ is the next snapshot number and that party $\party_j$ is
+responsible for leading its creation.\todo{define $\hpLdr$} Party $\party_i$ has
+to $\KwWait$ until the previous snapshot is confirmed ($\bars = \hats$). \red{If
+	the decommit transaction $\tx_{\omega}$ is not $\bot$, the transaction is $\Req$d to
+	be applicable to the last confirmed UTxO set $\barmU$ and spent outputs must
+	be removed, yielding the still active UTxO set $\barmU_{\mathsf{active}}$.
+	Then, all requested transactions $\mT_{\mathsf{req}}$ are $\Req$d to be
+	applicable to $\barmU_{\mathsf{active}}$,} otherwise the snapshot is rejected
+as invalid. Only then, $\party_i$ increments their seen-snapshot counter
+$\hats$, resets the signature accumulator $\hatSigma$, and computes the UTxO set
+$\hatmU$ of the new local snapshot as
 $\hatmU \gets \red{\barmU_{\mathsf{active}}} \applytx \mT_{\mathsf{req}}$. Then,
 $\party_i$ creates a signature $\msSig_i$ using their signing key
 $\hydraSigningKey$ on a message comprised by the $\cid$, the new snapshot number
@@ -215,12 +223,16 @@ $\hats$ or + 1), potentially $\KwWait$ for the corresponding $\hpRS$ such that
 $\hats = s$ and $\Req$ that the signature is not yet included in $\hatSigma$.
 They store the received signature in the signature accumulator $\hatSigma$, and
 if the signature from each party has been collected, $\party_i$ aggregates the
-multisignature $\msCSig$ and $\Req$ it to be valid \red{(using the same message as in
-$\hpRS$)}. If everything is fine, the snapshot can be considered confirmed by
-updating $\bars=s$ and participants also store the UTxO set in $\barmU$, as well
-as the signature in $\barsigma$ for later reference. Similar to the $\hpRT$, if
-$\party_i$ is the next snapshot leader and there are already transactions to
-snapshot in $\hatmT$, a corresponding $\hpRS$ is distributed.
+multisignature $\msCSig$ and $\Req$ it to be valid \red{(using the same message
+	as in $\hpRS$)}. If everything is fine, the snapshot can be considered
+confirmed by updating $\bars=s$ and participants also store the UTxO set in
+$\barmU$, as well as the signature in $\barsigma$ for later reference. \red{In
+	case there is a pending decommit, any participant can now submit a
+	\mtxDecrement{} transaction by providing the just confirmed snapshot and its
+	digests of the active UTxO set $\eta'$ and the to be removed UTxO set $\eta_{\omega}$.}
+Similar to the $\hpRT$, if $\party_i$ is the next snapshot leader and there are
+already transactions to snapshot in $\hatmT$, a corresponding $\hpRS$ is
+distributed.
 
 \subsubsection{Closing the head}
 
@@ -244,9 +256,6 @@ and certificate $\xi$ is constructed posted in a \mtxContest{} transaction (see
 Section~\ref{sec:contest-tx}).
 
 \subsection{Rollbacks and protocol changes}\label{sec:rollbacks}
-% FIXME: mention \eta_0 / referencing or versioning
-\todo{Describe $\eta_0$ / referencing or versioning}
-
 The overall life-cycle of the Head protocol is driven by on-chain inputs (see
 introduction of Section~\ref{sec:offchain}) which stem from observing
 transactions on the mainchain. Most blockchains, however, do only provide
@@ -301,7 +310,11 @@ $\mtxCommit$ transactions were rolled back, a bad actor could choose to commit a
 different UTxO and open the Head with a different initial UTxO set, while the
 already signed snapshots would still be (cryptographically) valid. To mitigate
 this, all signatures on snapshots need to incorporate the initial UTxO set by
-including $\eta_{0}$.\todo{Write about contestation deadline vs. rollbacks}
+including $\eta_{0}$. \todo{version-counting is less powerfull}
+% FIXME: \eta_0 not compatible with versioning scheme
+\todo{Expand to rollbacks in presence of decrements}
+
+\todo{Write about contestation deadline vs. rollbacks}
 
 \input{fig_offchain_prot}
 

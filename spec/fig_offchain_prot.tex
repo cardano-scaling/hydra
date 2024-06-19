@@ -49,8 +49,8 @@
 							$\hatmU, \barmU, \hatmL \gets \Uinit$ \;
 							\red{$\tx_{\omega} \gets \bot$ \;}
 							$\hats,\bars \gets 0$ \;
-							\red{$v \gets 0$ \;} % FIXME: use version
-							$\mT, \hatmT, \barmT \gets \emptyset$ \;
+							\red{$\hatv \gets 0$ \;} % FIXME: use version
+							$\mT, \hatmT \gets \emptyset$ \;
 						}
 
 					\end{walgo}
@@ -73,7 +73,7 @@
 								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-									\Multi{} $(\hpRS,\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
+									\Multi{} $(\hpRS,\red{\hatv,}\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
 								}
 							}
 						}
@@ -81,7 +81,8 @@
 						\vspace{12pt}
 
 						%%% REQ SN
-						\On{$(\hpRS,s,\mT_{\mathsf{req}}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
+						\On{$(\hpRS,\red{v,}s,\mT_{\mathsf{req}}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
+							\red{\Req{$v = \hatv$} \;}
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\bars = \hats$}{
 							    \textcolor{red}{\Req{$\barmU \applytx \tx_{\omega} \not= \bot$}} \;
@@ -95,7 +96,7 @@
 								% NOTE: WE could make included transactions auditable by adding
 								% a merkle tree root to the (signed) snapshot data \eta'
 								% TODO: sign \eta_{0} / previous state?
-								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \textcolor{red}{\hats || \eta' || \eta_{\omega}}))$ \;
+								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \textcolor{red}{v || \hats || \eta' || \eta_{\omega}}))$ \;
 								$\hatSigma \gets \emptyset$ \;
 								$\Multi{}~(\hpAS,\hats,\msSig_i)$ \;
 								$\forall \tx \in \mT_{\mathsf{req}}: \Out~(\hpSeen,\tx)$ \;
@@ -122,7 +123,7 @@
 							  $\tx_\omega \gets \tx$ \;
 							  % issue snapshot if we are leader
 							  \If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-								\Multi{} $(\hpRS,\bars+1,\hatmT, \tx_{\omega})$ \;
+								\Multi{} $(\hpRS,\hatv,\bars+1,\hatmT, \tx_{\omega})$ \;
 							  }
 							}
 						}
@@ -131,12 +132,16 @@
 						\vspace{12pt}
 
 						%%% DECREMENT
-						\On{$(\mathtt{decrementTx}, U_{\omega})$ from chain}{
-						    \textcolor{red}{
+						\red{\On{$(\mathtt{decrementTx}, U_{\omega}, v)$ from chain}{
 							\If{$\mathsf{outputs}(\tx_{\omega}) = U_{\omega}$}{
 								$\tx_{\omega} \gets \bot$ \;
+								$\hatv \gets v$ \;
+								% TODO: always snapshot? not strictly needed (to clear pending decommits)?
+								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
+									\Multi{} $(\hpRS,\hatv,\bars+1,\hatmT, \tx_{\omega})$ \;
+								}
 							}
-							}
+						}
 						}
 
 						\vspace{12pt}
@@ -155,21 +160,21 @@
 									% TODO: tx_ω undefined (else) case
 								    $\textcolor{red}{\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))}$ \;
 
-							      	% TODO: sign \eta_{0} / previous state?
-									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \hats || \eta' || \textcolor{red}{\eta_{\omega}}), \msCSig)$ \;
+									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \red{\hatv ||} \hats || \eta' || \textcolor{red}{\eta_{\omega}}), \msCSig)$ \;
 									$\barmU \gets \hatmU$ \;
+									$\barv \gets \hatv$ \;
 									$\bars \gets \hats$ \;
 									$\barsigma \gets \msCSig$ \;
 
 									%$\Out~(\hpSnap,(\bars,\barmU))$ \;
 									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
 									\red{\If{$\eta_{\omega} \ne \bot$}{
-									  $\PostTx{}~(\mathtt{decrementTx}, \hats, \eta', \eta_{\omega})$ \;
+									  $\PostTx{}~(\mtxDecrement, \barv, \bars, \eta', \eta_{\omega})$ \;
 									}}
 
 									% issue snapshot if we are leader
-									\If{$\hpLdr(s+1) = i \land (\hatmT \neq \emptyset \lor \tx_{\omega} \ne \bot)$}{
-										\Multi{} $(\hpRS,s+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
+									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
+										\Multi{} $(\hpRS,\red{\hatv,}\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
 									}
 								}
 							}
@@ -190,7 +195,7 @@
 						\On{$(\hpClose)$ from client}{
 							$\eta' \gets \combine(\barmU)$ \;
 							$\xi \gets \barsigma$ \;
-							$\PostTx{}~(\mtxClose, \bars, \eta', \xi)$ \;
+							$\PostTx{}~(\mtxClose, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
 						}
 					\end{walgo}
 				}
@@ -201,7 +206,7 @@
 							\If{$\bars > s_{c}$}{
 								$\eta' \gets \combine(\barmU)$ \;
 								$\xi \gets \barsigma$ \;
-								$\PostTx{}~(\mtxContest, \bars, \eta', \xi)$ \;
+								$\PostTx{}~(\mtxContest, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
 							}
 						}
 					\end{walgo}
