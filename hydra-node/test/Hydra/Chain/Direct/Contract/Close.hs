@@ -67,6 +67,7 @@ healthyCloseTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
+      1
 
   datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
 
@@ -110,6 +111,7 @@ healthyCloseInitialTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
+      0
 
   initialDatum = toUTxOContext (mkTxOutDatumInline $ healthyOpenHeadDatum{Head.snapshotNumber = 0})
 
@@ -310,7 +312,7 @@ genCloseMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        Head.Close . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        flip Head.Close 0 . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
     , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
@@ -379,6 +381,7 @@ genCloseMutation (tx, _utxo) =
                           { signature =
                               toPlutusSignatures $
                                 healthySignature healthyCloseSnapshotNumber
+                          , version = 1
                           }
                       )
                 )

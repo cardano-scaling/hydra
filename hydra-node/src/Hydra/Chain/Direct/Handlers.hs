@@ -371,11 +371,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case decrement ctx headId headParameters spendableUTxO snapshot signatures of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
         Right decrementTx' -> pure decrementTx'
-    CloseTx{headId, headParameters, confirmedSnapshot} -> do
+    CloseTx{headId, headParameters, confirmedSnapshot, version} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound of
+      case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound version of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, headParameters, confirmedSnapshot} -> do

@@ -73,7 +73,7 @@ data PostChainTx tx
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
+  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx, version :: Integer}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
@@ -91,7 +91,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
     DecrementTx{headId, headParameters, snapshot, signatures} ->
       DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink snapshot <*> shrink signatures
-    CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
+    CloseTx{headId, headParameters, confirmedSnapshot, version} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot <*> shrink version
     ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
     FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 

@@ -441,7 +441,7 @@ produceClose ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceClose ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
+  case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) (version snapshot) of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
       ( p <> [evaluateTransaction tx spendableUTxO]
@@ -502,7 +502,7 @@ genPerfectModelSnapshot = do
   (decommit, amount) <- arbitrary
   let decommitUTxO = Map.fromList [(decommit, amount)]
   snapshotUTxO' <- arbitrary
-  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
+  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO, snapshotVersion = 0}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
