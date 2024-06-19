@@ -8,25 +8,30 @@ sidebar_position: 3
 import TerminalWindow from '@site/src/components/TerminalWindow';
 ```
 
-This page aims at helping Hydra users troubleshoot issues when running their own instances of `hydra-node` and participate in a Hydra Head.
+This page guides Hydra users on troubleshooting issues when running their instances of `hydra-node` and participating in a Hydra head.
 
-## Example Setup
+## Example setup
 
-We provide sample node configurations that will help you get started hosting a Hydra node on virtual machines in the Cloud in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/). 
+We offer sample node configurations that will help you get started with hosting a Hydra node on virtual machines in the cloud. These configurations are available in the [`sample-node-config/` directory](https://github.com/input-output-hk/hydra/tree/master/sample-node-config/).
 
-### Google Cloud w/ Terraform
 
-This setup contains a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) which gives a good template for configuring cardano-node + hydra-node services. It also offers various useful scripts to setup your cluster.
+### Google Cloud with Terraform
+
+This setup includes a [docker-compose.yaml](https://github.com/input-output-hk/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) file, which serves as a robust template for configuring `cardano-node` and `hydra-node` services. Additionally, various scripts are provided to assist with setting up your cluster.
+
 
 ## Logs
 
-Following [ADR-9](/adr/9) design principles, the `hydra-node` provides [JSON](https://json.org) formatted logs on the `stdout` stream, one line per log item. The log items follow a [JSON schema](https://github.com/input-output-hk/hydra/blob/master/hydra-node/json-schemas/logs.yaml). This logging capability is kept voluntarily simple and non configurable in order to ease integration of Hydra logging into more general log analysis infrastructure, whether a custom ELK stack, third-party services, docker sidecars...
+Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line. These log entries conform to a specific [JSON schema](https://github.com/input-output-hk/hydra/blob/master/hydra-node/json-schemas/logs.yaml). We deliberately maintain the logging mechanism simple and non-configurable to facilitate the integration of Hydra logs into broader log analysis infrastructures, including custom ELK stacks, third-party services, or Docker sidecars.
+
 
 ## Monitoring
 
-When given `--monitoring-port PORT` argument, the hydra-node executable will expose a [Prometheus](https://prometheus.io) compatible HTTP `/metrics` endpoint on the given port to enable _scraping_ of exposed metrics.
+When the `--monitoring-port PORT` argument is provided, the `hydra-node` executable will expose a [Prometheus](https://prometheus.io) compatible HTTP `/metrics` endpoint on the specified port to enable metrics scraping.
 
-For example, assuming a hydra-node was started with `--monitoring-port 6001`, this command
+
+For instance, if a `hydra-node` is initiated with `--monitoring-port 6001`, the following command:
+
 
 ```mdx-code-block
 <TerminalWindow>
@@ -34,7 +39,7 @@ curl http://localhost:6001/metrics
 </TerminalWindow>
 ```
 
-will output
+will output:
 
 ```
 # TYPE hydra_head_confirmed_tx counter
@@ -56,35 +61,15 @@ hydra_head_tx_confirmation_time_ms_count  0
 
 ## Common Issues
 
-### No Head is observed from the chain
+### No head is observed from the chain
 
-* `hydra-node` is connected to a `cardano-node` that's on the wrong
-  network. Check the `--network` command-line argument and the
-  `cardano-node` configuration
-* Note that the `hydra-node` cannot start if it cannot connect to the
-  `cardano-node`, which might require some time as the `cardano-node`
-  needs to revalidate its database and possibly even reconstruct its
-  ledger state when it starts and its connections are not open until
-  it's ready. If running as a service or a container, make sure the orchestrator restarts the process when it crashes
-* The _Scripts_ transaction identifier is invalid. This transaction id
-  is available in the
-  [release](https://github.com/input-output-hk/hydra/releases/tag/0.10.0)
-  page for the 3 major networks (`preview`, `preprod`, `mainnet`)
-* The `hydra-node`'s _Cardano signing key_ is inconsistent with the
-  _Verification key_ from the `Init` transaction. Check the
-  `--cardano-signing-key` parameter points to the right key, and that
-  peers have the correct `--cardano-verification-key` for your host.
-* The peers' _Cardano verification keys_ are incorrect. This is
-  mirroring the above issue, check parameters on all peers.
+* Ensure the `hydra-node` is connected to a `cardano-node` that's operating on the correct network. Verify the `--network` command-line argument and the `cardano-node` configuration.
+* Remember, the `hydra-node` cannot start if it is unable to connect to the `cardano-node`, which might require time as the `cardano-node` must revalidate its database and potentially reconstruct its ledger state upon startup. Its connections are not open until it is fully prepared. If running as a service or a container, ensure that the orchestrator restarts the process when it crashes.
+* Check that the _Scripts_ transaction identifier is valid. This identifier is provided on the [release](https://github.com/input-output-hk/hydra/releases/tag/0.10.0) page for the three major networks (`preview`, `pre-production`, `mainnet`).
+* Verify that the `hydra-node`'s _Cardano signing key_ is consistent with the _Verification key_ from the `Init` transaction. Ensure the `--cardano-signing-key` parameter points to the correct key, and that peers have the accurate `--cardano-verification-key` for your node.
+* Confirm that peers' _Cardano verification keys_ are accurate. This mirrors the above issue; check parameters on all peers.
 
 ### Head does not make progress
 
-* Peers are not correctly connected to each others'. Check the
-  `--peer` arguments point to the right `host:port` for each
-  peer. `PeerConnected` message should be sent to the client (or
-  appears in the logs) and be consistent for all peers involved in a
-  Head.
-* The _Hydra signing key_ for our node or the _Hydra verification
-  keys_ for peers do not match what's expected by each node. Check
-  that `AckSn` messages are received by all parties and that the
-  `LogicOutcome` log does not contain any `Error`
+* Confirm peers are properly connected to each other. Verify the `--peer` arguments point to the correct `host:port` for each peer. The `PeerConnected` message should be observed by the client or appear in the logs and be consistent across all peers involved in a head.
+* Ensure the _Hydra signing key_ for your node or the _Hydra verification keys_ for peers match each node's expectations. Verify that `AckSn` messages are received by all parties and that the `LogicOutcome` log contains no errors.
