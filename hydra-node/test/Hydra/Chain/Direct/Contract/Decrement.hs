@@ -107,7 +107,7 @@ healthySnapshot =
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
-        , version = toInteger healthySnapshotNumber
+        , version = 0
         }
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
@@ -134,7 +134,7 @@ healthyDatum =
         , contestationPeriod = toChain healthyContestationPeriod
         , snapshotNumber = toInteger healthySnapshotNumber
         , headId = toPlutusCurrencySymbol testPolicyId
-        , version = 1
+        , version = 0
         }
 
 data DecrementMutation

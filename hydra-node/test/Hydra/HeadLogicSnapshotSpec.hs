@@ -60,7 +60,7 @@ spec = do
     let sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
-    let snapshot1 = Snapshot testHeadId 1 mempty [] Nothing 1
+    let snapshot1 = Snapshot testHeadId 1 mempty [] Nothing 0
 
     let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
