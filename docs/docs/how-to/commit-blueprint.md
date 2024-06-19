@@ -16,7 +16,7 @@ You should have access to the following repositories:
 - `curl` binaries.
 
 ## Step 1
-You can use `cardano-cli` to create a _blueprint_ transaction from some `UTXO` you own. First, initiate a Cardano-node on the pre-production network:
+You can use `cardano-cli` to create a _blueprint_ transaction from some `UTXO` you own. First, initiate a Cardano node on the pre-production network:
 
  ```shell
  ./testnets/cardano-node.sh ~/code/hydra/testnets/preprod
