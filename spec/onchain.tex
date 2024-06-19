@@ -258,8 +258,9 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
 	unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta,\textcolor{blue}{0},\eta)
+		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta)
 	\]
+	\red{where snapshot version and number are initialized as $v = s = 0$.}
 	\item Commits are collected in $\eta$
 	\[
 		\eta = U^{\#} = \combine([C_{1}, \dots, C_{\nop}])
@@ -315,7 +316,7 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 		$\stOpen$ head output.}\label{fig:collectComTx}
 \end{figure}
 
-\subsection{Decrement Transaction}\label{sec:decrement-tx}
+\subsection{\red{Decrement Transaction}}\label{sec:decrement-tx}
 
 \noindent The \mtxDecrement{} transaction (Figure~\ref{fig:DecrementTx}) allows
 a party to remove a UTxO from an already open head and consists of:
@@ -335,19 +336,22 @@ the number of outputs to reimburse. The validator checks:
 	\item State is advanced from $\datumHead \sim \stOpen$ to
 	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
 	unchanged and the new state is governed again by $\nuHead$
-	\todo{need to check all fields!}
 	\[
-		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta_{\mathsf{pre}},s,\eta) \xrightarrow[\xi]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\eta,s',\eta')
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v,s,\eta) \xrightarrow[\xi, m]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v',s',\eta')
+	\]
+	\item New version $v'$ is incremented correctly
+	\[
+		v' = v + 1
 	\]
 	\item Decrement snapshot number $s'$ is higher than the currently stored snapshot number $s$
 	\[
 		s' > s
 	\]
-	\item $\xi$ is a valid multi-signature of the currency id $\cid$, the current snapshot state $\eta$, the new snapshot number $s'$ and state $\eta'$
+	\item $\xi$ is a valid multi-signature of the currency id $\cid$, the current state version $v$, the new snapshot number $s'$ and state $\eta'$
 	\[
-		\msVfy(\hydraKeysAgg,(\cid || \eta || s' || \eta' || \eta_{\omega}),\xi) = \true
+		\msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\omega}),\xi) = \true
 	\]
-	where $\eta_{\omega}$ is the digest of all removed UTxO
+	where $\eta_{\omega}$ must be the digest of all removed UTxO
 	\[
 		\eta_{\omega} = U^{\#}_{\omega}  = \hash(\bigoplus_{j=1}^{m} \bytes(o_{j}))
 	\]
@@ -361,6 +365,8 @@ the number of outputs to reimburse. The validator checks:
 	\]
 \end{menumerate}
 
+% FIXME: update figure
+\todo{fix figure}
 \begin{figure}
 	\centering
 	\includegraphics[width=0.8\textwidth]{figures/decrementTx.pdf}
