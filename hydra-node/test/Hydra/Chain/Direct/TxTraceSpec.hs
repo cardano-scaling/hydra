@@ -230,6 +230,7 @@ data Model = Model
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
   , decommitUTxOInHead :: ModelUTxO
+  , snVersion :: Integer
   }
   deriving (Show)
 
@@ -239,16 +240,17 @@ data ModelSnapshot = ModelSnapshot
   { snapshotNumber :: SnapshotNumber
   , snapshotUTxO :: ModelUTxO
   , decommitUTxO :: ModelUTxO
+  , snapshotVersion :: Integer
   }
   deriving (Show, Eq, Ord, Generic)
 
 instance Num ModelSnapshot where
-  a + b = ModelSnapshot{snapshotNumber = snapshotNumber a + snapshotNumber b, snapshotUTxO = snapshotUTxO a <> snapshotUTxO b, decommitUTxO = decommitUTxO a <> decommitUTxO b}
+  a + b = ModelSnapshot{snapshotNumber = snapshotNumber a + snapshotNumber b, snapshotUTxO = snapshotUTxO a <> snapshotUTxO b, decommitUTxO = decommitUTxO a <> decommitUTxO b, snapshotVersion = snapshotVersion a}
   _ - _ = error "undefined"
   _ * _ = error "undefined"
   abs _ = error "undefined"
   signum _ = error "undefined"
-  fromInteger x = ModelSnapshot{snapshotNumber = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x, snapshotUTxO = mempty, decommitUTxO = mempty}
+  fromInteger x = ModelSnapshot{snapshotNumber = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x, snapshotUTxO = mempty, decommitUTxO = mempty, snapshotVersion = 0}
 
 instance Arbitrary ModelSnapshot where
   arbitrary = genericArbitrary
@@ -309,10 +311,11 @@ instance StateModel Model where
       , alreadyContested = []
       , utxoInHead = fromList [(A, initialAmount)]
       , decommitUTxOInHead = Map.empty
+      , snVersion = 0
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, latestSnapshot, utxoInHead} =
+  arbitraryAction _lookup Model{headState, latestSnapshot, utxoInHead, snVersion} =
     case headState of
       Open{} ->
         frequency $
@@ -355,6 +358,7 @@ instance StateModel Model where
               { snapshotNumber = latestSnapshot
               , snapshotUTxO = balancedUTxOInHead
               , decommitUTxO = filteredSomeUTxOToDecrement
+              , snapshotVersion = snVersion
               }
       oneof
         [ -- valid
@@ -497,6 +501,7 @@ instance StateModel Model where
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
           , utxoInHead = balanceUTxOInHead (utxoInHead m) (decommitUTxO snapshot)
+          , snVersion = snVersion m + 1
           }
       Close{snapshot} ->
         m
@@ -547,16 +552,16 @@ instance MonadState UTxO AppM where
 type instance Realized AppM a = a
 
 instance RunModel Model AppM where
-  perform Model{} action _lookupVar = do
+  perform Model{snVersion} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} ->
-        performTx =<< newDecrementTx actor (signedSnapshot snapshot)
+        performTx =<< newDecrementTx actor (signedSnapshot $ snapshot{snapshotVersion = snVersion})
       Close{actor, snapshot} ->
-        performTx =<< newCloseTx actor (confirmedSnapshot snapshot)
+        performTx =<< newCloseTx actor (confirmedSnapshot $ snapshot{snapshotVersion = snVersion})
       Contest{actor, snapshot} ->
-        performTx =<< newContestTx actor (confirmedSnapshot snapshot)
+        performTx =<< newContestTx actor (confirmedSnapshot $ snapshot{snapshotVersion = snVersion})
       Fanout{snapshot} -> do
-        performTx =<< newFanoutTx Alice snapshot
+        performTx =<< newFanoutTx Alice (snapshot{snapshotVersion = snVersion})
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = runPostconditionM' $ do
@@ -682,7 +687,7 @@ signedSnapshot ms =
       , confirmed = []
       , utxo
       , utxoToDecommit = Just toDecommit
-      , version = toInteger $ snapshotNumber ms
+      , version = snapshotVersion ms
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
