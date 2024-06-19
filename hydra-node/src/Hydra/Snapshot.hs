@@ -36,6 +36,8 @@ data Snapshot tx = Snapshot
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Ûω
   -- TODO: what is the difference between Noting and (Just mempty) here?
+  -- | Snapshot version is 0 at start and is only bumped further on each
+  -- decommit that happens.
   , version :: Integer
   }
   deriving stock (Generic)
@@ -44,7 +46,7 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     object
       ( [ "headId" .= headId
         , "snapshotNumber" .= number
@@ -52,6 +54,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
         , "confirmedTransactions" .= confirmed
         ]
           <> maybe mempty (pure . ("utxoToDecommit" .=)) utxoToDecommit
+          <> ["version" .= version]
       )
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -103,12 +106,13 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData $ toBuiltin version) -- CBOR(I(integer))
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit} =
+  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     toCBOR headId
       <> toCBOR number
       <> toCBOR utxo
       <> toCBOR confirmed
       <> toCBOR utxoToDecommit
+      <> toCBOR version
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR =
