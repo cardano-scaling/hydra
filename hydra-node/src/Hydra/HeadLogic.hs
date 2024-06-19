@@ -405,38 +405,31 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
         requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
           -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
           requireApplyTxs activeUTxO requestedTxs $ \u -> do
-            requireConfirmedSnVersionToMatch $ do
-              -- NOTE: confSn == seenSn == sn here
-              let nextSnapshot =
-                    Snapshot
-                      { headId
-                      , number = confSn + 1
-                      , utxo = u
-                      , confirmed = requestedTxIds
-                      , utxoToDecommit = mUtxoToDecommit
-                      , version = version
-                      }
-              -- Spec: σᵢ
-              let snapshotSignature = sign signingKey nextSnapshot
-              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
-                do
-                  -- Spec: for loop which updates T̂ and L̂
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                  -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-                  newState
-                    SnapshotRequested
-                      { snapshot = nextSnapshot
-                      , requestedTxIds
-                      , newLocalUTxO
-                      , newLocalTxs
-                      }
+            -- NOTE: confSn == seenSn == sn here
+            let nextSnapshot =
+                  Snapshot
+                    { headId
+                    , number = confSn + 1
+                    , utxo = u
+                    , confirmed = requestedTxIds
+                    , utxoToDecommit = mUtxoToDecommit
+                    , version = version
+                    }
+            -- Spec: σᵢ
+            let snapshotSignature = sign signingKey nextSnapshot
+            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
+              do
+                -- Spec: for loop which updates T̂ and L̂
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
+                    }
  where
-  requireConfirmedSnVersionToMatch continue
-    | confVersion /= version =
-        Error $ RequireFailed $ ReqSnVersionInvalid{snVersionInState = version, snVersionConfirmed = confVersion}
-    | otherwise =
-        continue
-
   requireReqSn continue
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
@@ -491,9 +484,9 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
 
-  (confSn, confVersion) = case confirmedSnapshot of
-    InitialSnapshot{} -> (0, 0)
-    ConfirmedSnapshot{snapshot = Snapshot{number, version = confirmedVersion}} -> (number, confirmedVersion)
+  confSn = case confirmedSnapshot of
+    InitialSnapshot{} -> 0
+    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
 
   seenSn = seenSnapshotNumber seenSnapshot
 
