@@ -118,7 +118,7 @@ spec =
       it "confirms snapshot given it receives AckSn from all parties" $ do
         -- TODO: perhaps use smart constructor for ReqSn to reduce the noise
         let reqSn = receiveMessage $ ReqSn 1 [] Nothing
-            snapshot1 = Snapshot testHeadId 1 mempty [] mempty 1
+            snapshot1 = Snapshot testHeadId 1 mempty [] mempty 0
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
@@ -249,7 +249,7 @@ spec =
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
               reqSn = receiveMessage $ ReqSn 1 [1] Nothing
-              snapshot1 = testSnapshot 1 1 (utxoRefs [1]) [1]
+              snapshot1 = testSnapshot 1 0 (utxoRefs [1]) [1]
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -269,8 +269,8 @@ spec =
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = receiveMessage $ ReqSn 1 [] Nothing
-            snapshot = testSnapshot 1 1 mempty []
-            snapshot' = testSnapshot 2 2 mempty []
+            snapshot = testSnapshot 1 0 mempty []
+            snapshot' = testSnapshot 2 0 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
             invalidAckFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot') 1
         waitingForLastAck <-
@@ -286,7 +286,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let reqSn = receiveMessage $ ReqSn 1 [] Nothing
-            snapshot = testSnapshot 1 1 mempty []
+            snapshot = testSnapshot 1 0 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -302,7 +302,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let reqSn = receiveMessage $ ReqSn 1 [] Nothing
-            snapshot1 = testSnapshot 1 1 mempty []
+            snapshot1 = testSnapshot 1 0 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
@@ -321,7 +321,7 @@ spec =
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn = receiveMessage $ ReqSn 1 [] Nothing
-            snapshot1 = testSnapshot 1 1 mempty []
+            snapshot1 = testSnapshot 1 0 mempty []
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -355,7 +355,7 @@ spec =
           `assertWait` WaitOnTxs [1]
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
-        let snapshot = testSnapshot 1 1 mempty []
+        let snapshot = testSnapshot 1 0 mempty []
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
         update bobEnv ledger (inOpenState threeParties) input
           `assertWait` WaitOnSeenSnapshot
@@ -382,7 +382,7 @@ spec =
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
-            snapshot = testSnapshot 1 1 mempty []
+            snapshot = testSnapshot 1 0 mempty []
             input = receiveMessageFrom leader $ ReqSn (number snapshot) [] Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
@@ -400,7 +400,7 @@ spec =
       it "rejects too-old snapshots" $ do
         let input = receiveMessageFrom theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
-            snapshot = testSnapshot 2 2 mempty []
+            snapshot = testSnapshot 2 0 mempty []
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
@@ -409,12 +409,12 @@ spec =
       it "rejects too-old snapshots when collecting signatures" $ do
         let input = receiveMessageFrom theLeader $ ReqSn 2 [] Nothing
             theLeader = alice
-            snapshot = testSnapshot 2 2 mempty []
+            snapshot = testSnapshot 2 0 mempty []
             st =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
-                  , seenSnapshot = SeenSnapshot (testSnapshot 3 3 mempty []) mempty
+                  , seenSnapshot = SeenSnapshot (testSnapshot 3 0 mempty []) mempty
                   }
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
@@ -511,7 +511,7 @@ spec =
           lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
-        let snapshot = testSnapshot 2 2 mempty []
+        let snapshot = testSnapshot 2 0 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
             s0 =
               inOpenState' threeParties $
@@ -528,7 +528,7 @@ spec =
               _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
-        let snapshot2 = testSnapshot 2 2 mempty []
+        let snapshot2 = testSnapshot 2 0 mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
@@ -603,6 +603,7 @@ spec =
                   , headId = testHeadId
                   , headSeed = testHeadSeed
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                  , version = 0
                   }
 
         st <-
@@ -774,6 +775,7 @@ inOpenState' parties coordinatedHeadState =
       , headId = testHeadId
       , headSeed = testHeadSeed
       , currentSlot = chainSlot
+      , version = 0
       }
  where
   parameters = HeadParameters defaultContestationPeriod parties
