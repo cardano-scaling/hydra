@@ -391,40 +391,50 @@ In order to close a head, a head member may post the \mtxClose{} transaction
 \end{figure}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{close}, \xi, \textcolor{red}{\mathsf{CloseType}})$, where $\xi$ is a multi-signature of
-the to be closed snapshot and $\mathsf{CloseType}$ is a hint against which state we close. The validator checks:
+$\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
+\red{$\mathsf{CloseType}$ is a hint against which open state to close} and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
 	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\textcolor{red}{\eta_{\mathsf{pre}},s,\eta_{\mathsf{cur}}}) \xrightarrow[\xi]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\textcolor{red}{\eta_{c},s',\eta',\eta_{\Delta}},\contesters,\Tfinal)
-	\]\todo{this $\eta_{\Delta}$ might not work as we need to keep things separate}
+    (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta) \xrightarrow[\red{\mathsf{CloseType}}]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters,\Tfinal)
+	\]
 
-	\item Closing snapshot number $s'$ is higher than the currently stored snapshot number $s$
-	\[
-		s' \geq s
-	\]
-	\item Record the closed head state
-	\[
-	  \eta_{c} = \eta_{\mathsf{cur}}
-	\]
-	\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup \mathsf{Nominal} \cup (\mathsf{Preemptive},\eta_{\alpha}) \cup (\mathsf{Pending}, \eta_{\omega})$, we verify the signature distinguishing these cases:
+	\item \red{Last known open state version is recorded in closed state
+		\[
+			v' = v
+		\]
+	}
+
+	\item \red{Closing snapshot number $s'$ is higher than the open stored
+		snapshot number $s$\todo{Is this needed?}
+		\[
+			s' \geq s
+		\]
+	}
+
+	\item \red{Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Current}, \xi) \cup (\mathsf{Outdated}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the closing snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, three cases are distinguished:
 	\begin{menumerate}
-	  \item Initial close: The initial snapshot is used to close the head. No signatures are available and it suffices to check
+	  \item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
 	  \[
-		s' = 0
+			v = s = s' = 0
 	  \]
-	  \item Nominal close: Closing snapshot refers to current state $\eta_{\mathsf{cur}}$ and no UTxO is pending to be committed or decommitted.
+	  \item $\mathsf{Current}$: Closing snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
 	  \[
-		\msVfy(\hydraKeysAgg,(\cid || \eta_{\mathsf{cur}}|| s' || \eta' || \bot || \bot),\xi) = \true
+		  \msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
 	  \]
-	  \item Pending close: After decrementing, the head is closed with a snapshot that is still referencing the previous state $\eta_{\mathsf{pre}}$ and pending UTxO to decommit.
+		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
+	  \item $\mathsf{Outdated}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
 	  \[
-		\msVfy(\hydraKeysAgg,(\cid || \eta_{\mathsf{pre}} || s' || \eta' || \eta_{\Delta} || \eta_{\omega}),\xi) = \true
+			\eta_{\Delta}' = \bot
+		\]
+	  \[
+			\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
 	  \]
-	  where $\eta_{\omega}$ is provided by the redeemer. \todo{explain why this is enough}
+	  where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state$}.
 	\end{menumerate}
+	}
 	% TODO: detailed CDDL definition of msg
 
 	\item Initializes the set of contesters
@@ -435,13 +445,27 @@ the to be closed snapshot and $\mathsf{CloseType}$ is a hint against which state
 	cases where pre-signed, valid in the future, close transactions are
 	used to delegate head closing.
 
-	\item Correct contestation deadline is set $\Tfinal = \txValidityMax + T$.
+	\item Correct contestation deadline is set
+	\[
+    \Tfinal = \txValidityMax + T
+	\]
 	\item Transaction validity range is bounded by
-	$\txValidityMax - \txValidityMin \leq T$. \\
-	This ensures the contestation deadline $\Tfinal$ is at most $2*T$ in the future.
-	\item Value in the head is preserved $\valHead' = \valHead$.
-	\item Transaction is signed by a participant $\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys$.
-	\item No minting or burning $\txMint = \varnothing$.
+	\[
+		\txValidityMax - \txValidityMin \leq T
+	\]
+  to ensure the contestation deadline $\Tfinal$ is at most $2*T$ in the future.
+	\item Value in the head is preserved
+	\[
+    \valHead' = \valHead
+	\]
+	\item Transaction is signed by a participant
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valCommit{i} \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item No minting or burning
+	\[
+		\txMint = \varnothing
+	\]
 \end{menumerate}
 
 \subsection{Contest Transaction}\label{sec:contest-tx}
@@ -462,38 +486,57 @@ transaction has
 \end{figure}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{contest}, \xi)$, where $\xi$ is a multi-signature of
-the contest snapshot, and checks:
+$\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
+\red{$\mathsf{ContestType}$ is a hint how to verify the snapshot} and checks:
 \begin{menumerate}
-	\item State stays $\stClosed$ in both $\datumHead$ and $\datumHead'$,
-	parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
-	unchanged and the new state is governed again by $\nuHead$:
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,s',\textcolor{red}{\eta_{c},\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\xi]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,s',\textcolor{red}{\eta_{c},\eta',\eta_{\Delta}'},\contesters',\Tfinal')
+    (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\red{\mathsf{ContestType}}]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters',\Tfinal')
 	\]
+
+	\item \red{Last known open state version stays recorded in closed state
+		\[
+			v' = v
+		\]
+	}
 
 	\item Contested snapshot number $s'$ is higher than the currently stored snapshot number $s$
 	\[
 		s' > s
 	\]
-	\item We distinguish these cases: \todo{what happens to $\eta_{\Delta}$ if it is there?}
 
+	\item \red{Based on the redeemer $\mathsf{ContestType} = (\mathsf{Current}, \xi) \cup (\mathsf{Outdated}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the contesting snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, two cases are distinguished:
 	\begin{menumerate}
-	  \item Nominal contest: Contesting snapshot refers to currently closed state $\eta$ and no UTxO is pending to be committed or decommitted.
-	  \item Preemptive close: The head is contested with a snapshot that references the currently closed state $\eta$, but has either pending UTxO to commit, decommit or both.
-	  \item Pending close: The head is contested with a snapshot that references the originally closed $\eta_{c}$ and has either pending UTxO to commit, decommit or both.
+	  \item $\mathsf{Current}$: Contesting snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
+	  \[
+		  \msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+	  \]
+		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
+	  \item $\mathsf{Outdated}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
+	  \[
+			\eta_{\Delta}' = \bot
+		\]
+	  \[
+			\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+	  \]
+	  where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state$}.
 	\end{menumerate}
+	}
+	% TODO: detailed CDDL definition of msg
 
-
-
-
-	\textcolor{red}{Ensure $\eta_{\Delta}$ evolves correctly!?} $\xi$ is a valid multi-signature of the new snapshot state
-	$\msVfy(\hydraKeysAgg,(\cid || s' || \textcolor{red}{\eta_{0}} || \eta'),\xi) = \true$. \todo{$\eta_{0}$ replacement}
-
-	\item The single signer $\{\keyHash\} = \txKeys$ has not already contested
-	$\keyHash \notin \contesters$ and is added to the set of contesters
-	$\contesters' = \contesters \cup \keyHash$.
-	\item Transaction is posted before deadline $\txValidityMax \leq \Tfinal$.
+	\item The single signer $\{\keyHash\} = \txKeys$ has not already contested and is added to the set of contesters
+	\[
+		\keyHash \notin \contesters
+	\]
+	\[
+		\contesters' = \contesters \cup \keyHash
+	\]
+	\item Transaction is posted before deadline
+	\[
+		\txValidityMax \leq \Tfinal
+	\]
 	\item Contestation deadline is updated correctly to
 	\[
 		\Tfinal' = \left\{\begin{array}{ll}
@@ -501,10 +544,18 @@ the contest snapshot, and checks:
 			\Tfinal + T & \mathrm{otherwise.}
 		\end{array}\right.
 	\]
+	\item Value in the head is preserved
+	\[
+    \valHead' = \valHead
+	\]
 	\item Transaction is signed by a participant
-	$\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys$.
-	\item Value in the head is preserved $\valHead' = \valHead$.
-	\item No minting or burning $\txMint = \varnothing$.
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valCommit{i} \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item No minting or burning
+	\[
+		\txMint = \varnothing
+	\]
 \end{menumerate}
 
 \subsection{Fan-Out Transaction}
@@ -535,7 +586,7 @@ $\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
 	$\stFinal$: % XXX: What does this actually mean?
 	\todo{update closed state to what contest needs}
 	\[
-		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta,\red{\eta_{\omega}},\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
+		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta,\red{\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
 	\]
 	\item The first $m$ outputs are distributing funds according to $\eta$. That is,
 	the outputs exactly correspond to the UTxO canonically combined $U^{\#}$ (see
@@ -544,10 +595,10 @@ $\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
 		\eta = U^{\#} = \hash(\bigoplus_{j=1}^{m} \bytes(o_{j}))
 	\]
 	\red{\item The following $n$ outputs are distributing funds according to
-		$\eta_{\omega}$. That is, the outputs exactly correspond to the UTxO canonically
-		combined $U^{\#}_{\omega}$ (see Section~\ref{sec:collect-tx}):
+		$\eta_{\Delta}$. That is, the outputs exactly correspond to the UTxO canonically
+		combined $U^{\#}_{\Delta}$ (see Section~\ref{sec:collect-tx}):
 	\[
-		\eta_{\omega} = U^{\#}_{\omega} = \hash(\bigoplus_{j=m}^{n+m} \bytes(o_{j}))
+		\eta_{\Delta} = U^{\#}_{\Delta} = \hash(\bigoplus_{j=m}^{n+m} \bytes(o_{j}))
 	\]
 	}
 	\item Transaction is posted after contestation deadline $\txValidityMin > \Tfinal$.
