@@ -115,6 +115,7 @@ data OpenState tx = OpenState
   , headId :: HeadId
   , currentSlot :: ChainSlot
   , headSeed :: HeadSeed
+  , version :: Integer
   }
   deriving stock (Generic)
 
@@ -127,6 +128,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
   arbitrary =
     OpenState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
