@@ -514,7 +514,7 @@ Once the contestation phase is over, a head may be finalized by posting a
 distributes UTxOs from the head according to the latest state. It consists of
 \begin{itemize}
 	\item one input spending from $\nuHead$ holding the $\st$, and
-	\item outputs $o_{1} \dots o_{m}$ to distribute UTxOs.
+	\item outputs $o_{1} \dots o_{m\red{+n}}$ to distribute UTxOs.
 \end{itemize}
 
 Note that \mtxFanout{} represents a final transition of the state machine and
@@ -528,26 +528,28 @@ hence there is no state machine output.
 \end{figure}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{fanout}, m, n)$, where $m$ is the number of outputs to
-distribute, $n$ is number of decommit outputs, and checks:
+$\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
+	outputs to distribute from the $\stClosed$ state}, and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stClosed$ to terminal state
 	$\stFinal$: % XXX: What does this actually mean?
+	\todo{update closed state to what contest needs}
 	\[
-		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta_0,s,\eta,\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
+		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta,\red{\eta_{\omega}},\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
 	\]
-	\item The first $m$ outputs are distributing funds according to
-	$\eta$. That is, the outputs exactly correspond to the UTxO
-	canonically combined $U^{\#}$ (see Section~\ref{sec:collect-tx}):
+	\item The first $m$ outputs are distributing funds according to $\eta$. That is,
+	the outputs exactly correspond to the UTxO canonically combined $U^{\#}$ (see
+	Section~\ref{sec:collect-tx}):
 	\[
-		\hash(\bigoplus_{j=1}^{m} \bytes(o_{j})) = U^{\#} = \eta
+		\eta = U^{\#} = \hash(\bigoplus_{j=1}^{m} \bytes(o_{j}))
 	\]
-	\item The following $n$ outputs are distributing funds according to
-	$\eta$. That is, the outputs exactly correspond to the UTxO
-	canonically combined $U^{\#}$ (see Section~\ref{sec:collect-tx}):
+	\red{\item The following $n$ outputs are distributing funds according to
+		$\eta_{\omega}$. That is, the outputs exactly correspond to the UTxO canonically
+		combined $U^{\#}_{\omega}$ (see Section~\ref{sec:collect-tx}):
 	\[
-		\hash(\bigoplus_{j=1}^{n} \bytes(o_{j})) = U^{\#} = \eta
+		\eta_{\omega} = U^{\#}_{\omega} = \hash(\bigoplus_{j=m}^{n+m} \bytes(o_{j}))
 	\]
+	}
 	\item Transaction is posted after contestation deadline $\txValidityMin > \Tfinal$.
 	\item All tokens are burnt
 	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = n + 1$.
