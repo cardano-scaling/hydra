@@ -12,7 +12,6 @@ sidebar_position: 1
 
  First we need a running cardano-node so let's spin one on the preprod network:
 
-
  ```shell
  ./testnets/cardano-node.sh ~/code/hydra/testnets/preprod
  ```
