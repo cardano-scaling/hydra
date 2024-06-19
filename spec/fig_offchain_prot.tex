@@ -81,7 +81,6 @@
 						\vspace{12pt}
 
 						%%% REQ SN
-						% FIXME: continue review here
 						\On{$(\hpRS,s,\mT_{\mathsf{req}}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
 							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\bars = \hats$}{
@@ -162,12 +161,14 @@
 									$\bars \gets \hats$ \;
 									$\barsigma \gets \msCSig$ \;
 
-									$\textcolor{red}{\PostTx{}~(\mathtt{decrementTx}, \hats, \eta', \eta_{\omega})}$ \;
 									%$\Out~(\hpSnap,(\bars,\barmU))$ \;
 									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
+									\red{\If{$\eta_{\omega} \ne \bot$}{
+									  $\PostTx{}~(\mathtt{decrementTx}, \hats, \eta', \eta_{\omega})$ \;
+									}}
 
 									% issue snapshot if we are leader
-									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
+									\If{$\hpLdr(s+1) = i \land (\hatmT \neq \emptyset \lor \tx_{\omega} \ne \bot)$}{
 										\Multi{} $(\hpRS,s+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
 									}
 								}
