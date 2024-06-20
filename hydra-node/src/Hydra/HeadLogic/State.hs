@@ -213,6 +213,7 @@ data ClosedState tx = ClosedState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
+  , version :: Integer
   }
   deriving stock (Generic)
 
@@ -225,6 +226,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
   arbitrary =
     ClosedState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

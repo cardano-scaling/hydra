@@ -800,6 +800,7 @@ inClosedState' parties confirmedSnapshot =
       , chainState = SimpleChainState{slot = ChainSlot 0}
       , headId = testHeadId
       , headSeed = testHeadSeed
+      , version = 0
       }
  where
   parameters = HeadParameters defaultContestationPeriod parties
