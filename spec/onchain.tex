@@ -398,7 +398,7 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-    (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta) \xrightarrow[\red{\mathsf{CloseType}}]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters,\Tfinal)
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta) \xrightarrow[\red{\mathsf{CloseType}}]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters,\Tfinal)
 	\]
 
 	\item \red{Last known open state version is recorded in closed state
@@ -415,25 +415,25 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 	}
 
 	\item \red{Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Current}, \xi) \cup (\mathsf{Outdated}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the closing snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, three cases are distinguished:
-	\begin{menumerate}
-	  \item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
-	  \[
-			v = s = s' = 0
-	  \]
-	  \item $\mathsf{Current}$: Closing snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
-	  \[
-		  \msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
-	  \]
-		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
-	  \item $\mathsf{Outdated}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
-	  \[
-			\eta_{\Delta}' = \bot
-		\]
-	  \[
-			\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
-	  \]
-	  where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state$}.
-	\end{menumerate}
+		\begin{menumerate}
+			\item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
+			\[
+				v = s = s' = 0
+			\]
+			\item $\mathsf{Current}$: Closing snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
+			\[
+				\msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+			\]
+			which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
+			\item $\mathsf{Outdated}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
+			\[
+				\eta_{\Delta}' = \bot
+			\]
+			\[
+				\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+			\]
+			where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
+		\end{menumerate}
 	}
 	% TODO: detailed CDDL definition of msg
 
@@ -447,16 +447,16 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 
 	\item Correct contestation deadline is set
 	\[
-    \Tfinal = \txValidityMax + T
+		\Tfinal = \txValidityMax + T
 	\]
 	\item Transaction validity range is bounded by
 	\[
 		\txValidityMax - \txValidityMin \leq T
 	\]
-  to ensure the contestation deadline $\Tfinal$ is at most $2*T$ in the future.
+	to ensure the contestation deadline $\Tfinal$ is at most $2*T$ in the future.
 	\item Value in the head is preserved
 	\[
-    \valHead' = \valHead
+		\valHead' = \valHead
 	\]
 	\item Transaction is signed by a participant
 	\[
@@ -493,7 +493,7 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-    (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\red{\mathsf{ContestType}}]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters',\Tfinal')
+		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\red{\mathsf{ContestType}}]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters',\Tfinal')
 	\]
 
 	\item \red{Last known open state version stays recorded in closed state
@@ -508,21 +508,21 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 	\]
 
 	\item \red{Based on the redeemer $\mathsf{ContestType} = (\mathsf{Current}, \xi) \cup (\mathsf{Outdated}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the contesting snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, two cases are distinguished:
-	\begin{menumerate}
-	  \item $\mathsf{Current}$: Contesting snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
-	  \[
-		  \msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
-	  \]
-		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
-	  \item $\mathsf{Outdated}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
-	  \[
-			\eta_{\Delta}' = \bot
-		\]
-	  \[
-			\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
-	  \]
-	  where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state$}.
-	\end{menumerate}
+		\begin{menumerate}
+			\item $\mathsf{Current}$: Contesting snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
+			\[
+				\msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+			\]
+			which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
+			\item $\mathsf{Outdated}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
+			\[
+				\eta_{\Delta}' = \bot
+			\]
+			\[
+				\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+			\]
+			where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
+		\end{menumerate}
 	}
 	% TODO: detailed CDDL definition of msg
 
@@ -546,7 +546,7 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 	\]
 	\item Value in the head is preserved
 	\[
-    \valHead' = \valHead
+		\valHead' = \valHead
 	\]
 	\item Transaction is signed by a participant
 	\[
@@ -597,9 +597,9 @@ $\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
 	\red{\item The following $n$ outputs are distributing funds according to
 		$\eta_{\Delta}$. That is, the outputs exactly correspond to the UTxO canonically
 		combined $U^{\#}_{\Delta}$ (see Section~\ref{sec:collect-tx}):
-	\[
-		\eta_{\Delta} = U^{\#}_{\Delta} = \hash(\bigoplus_{j=m}^{n+m} \bytes(o_{j}))
-	\]
+		\[
+			\eta_{\Delta} = U^{\#}_{\Delta} = \hash(\bigoplus_{j=m}^{n+m} \bytes(o_{j}))
+		\]
 	}
 	\item Transaction is posted after contestation deadline $\txValidityMin > \Tfinal$.
 	\item All tokens are burnt
