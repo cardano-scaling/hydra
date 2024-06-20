@@ -839,11 +839,11 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  cause OnChainEffect{postChainTx = FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline}}
+  cause OnChainEffect{postChainTx = FanoutTx{utxo, utxoToDecommit = if version == snapshotVersion then utxoToDecommit else mempty, headSeed, contestationDeadline}}
  where
-  Snapshot{utxo, utxoToDecommit} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
 
-  ClosedState{headSeed, confirmedSnapshot, contestationDeadline} = closedState
+  ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version} = closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -1073,6 +1073,7 @@ aggregate st = \case
               }
           , headId
           , headSeed
+          , version
           } ->
           Closed
             ClosedState
@@ -1083,11 +1084,12 @@ aggregate st = \case
               , chainState
               , headId
               , headSeed
+              , version
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version} ->
         Closed
           ClosedState
             { parameters
@@ -1097,6 +1099,7 @@ aggregate st = \case
             , chainState
             , headId
             , headSeed
+            , version
             }
       _otherState -> st
   HeadFannedOut{chainState} ->
