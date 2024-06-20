@@ -62,6 +62,7 @@ data Input
   | Close
       { signature :: [Signature]
       , version :: Integer
+      , utxoToDecommitHash :: Hash
       }
   | Contest
       { signature :: [Signature]

@@ -541,10 +541,7 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confi
       CloseWithConfirmedSnapshot
         { snapshotNumber = number
         , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
-        , closeUtxoToDecommitHash =
-            if offChainVersion == version
-              then UTxOHash $ hashUTxO @Tx mempty
-              else UTxOHash $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+        , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
         , signatures
         , version
         }

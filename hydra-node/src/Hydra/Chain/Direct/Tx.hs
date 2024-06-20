@@ -557,6 +557,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       Head.Close
         { signature
         , version = offChainVersion
+        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
         }
 
   headOutputAfter =
@@ -567,7 +568,10 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       Head.Closed
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
-        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
+        , utxoToDecommitHash =
+            if offChainVersion /= version
+              then toBuiltin $ hashUTxO @Tx mempty
+              else toBuiltin decommitUTxOHashBytes
         , parties = openParties
         , contestationDeadline
         , contestationPeriod = openContestationPeriod
