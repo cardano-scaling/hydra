@@ -739,12 +739,17 @@ onOpenNetworkReqDec env ttl openState decommitTx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose ::
+  Monoid (UTxOType tx) =>
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  cause OnChainEffect{postChainTx = CloseTx headId parameters confirmedSnapshot version }
+  cause
+    OnChainEffect
+      { postChainTx =
+          CloseTx headId parameters confirmedSnapshot version (fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot)
+      }
  where
-  CoordinatedHeadState{confirmedSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
   OpenState{coordinatedHeadState, headId, parameters, version} = st
 
