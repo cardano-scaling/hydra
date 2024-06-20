@@ -312,7 +312,8 @@ genCloseMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        flip Head.Close 0 . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        pure $ Head.Close sigs 0 mempty
     , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
@@ -382,6 +383,7 @@ genCloseMutation (tx, _utxo) =
                               toPlutusSignatures $
                                 healthySignature healthyCloseSnapshotNumber
                           , version = 1
+                          , utxoToDecommitHash = mempty
                           }
                       )
                 )

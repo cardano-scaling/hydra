@@ -75,8 +75,8 @@ headValidator oldState input ctx =
       checkAbort ctx headId parties
     (Open{parties, contestationPeriod, snapshotNumber, headId, version}, Decrement{signature, numberOfDecommitOutputs}) ->
       checkDecrement ctx parties snapshotNumber contestationPeriod headId version signature numberOfDecommitOutputs
-    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber, version}, Close{signature, version = expectedVersion}) ->
-      checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber version expectedVersion
+    (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber, version}, Close{signature, version = expectedVersion, utxoToDecommitHash}) ->
+      checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber version expectedVersion utxoToDecommitHash
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters, version}, Contest{signature}) ->
       checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId version
     (Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
@@ -2935,8 +2935,9 @@ checkClose ::
   SnapshotNumber ->
   Integer ->
   Integer ->
+  BuiltinByteString ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version expectedVersion =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -2946,11 +2947,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headPolicyId)
     && checkSnapshotNumber
-    && checkDecommitHashComparedToVersion
  where
-  checkDecommitHashComparedToVersion =
-    (version /= expectedVersion) || (decommitHash == "")
-
   checkSnapshotNumber =
     traceIfFalse $(errorCode TooOldSnapshot) $
       closedSnapshotNumber >= snapshotNumber
@@ -2970,9 +2967,14 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
     extractClosedDatum ctx
 
+  correctDecommitHash =
+    if expectedVersion /= version
+      then utxoToDecommitHash
+      else decommitHash
+
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash decommitHash version sig
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash correctDecommitHash version sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash
