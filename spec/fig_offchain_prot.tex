@@ -46,11 +46,11 @@
 							% Implictly means that all commits will defined as we cannot miss a commit (by assumption)
 							$\Uinit \gets \bigcup_{j=1}^{n} U_j$ \;
 							% $\Out~(\hpSnap,(0,U_0))$ \;
-							$\hatmU, \barmU, \hatmL \gets \Uinit$ \;
+							$\hatmL \gets \Uinit$ \;
+							\red{$\bar{\mc S} \gets \Sno(0, 0, \Uinit, \emptyset, \bot)$ \;}
+							\red{$\hatv, \hats \gets 0$ \;}
+							$\hatmT \gets \emptyset$ \;
 							\red{$\tx_{\omega} \gets \bot$ \;}
-							$\hats,\bars \gets 0$ \;
-							\red{$\hatv \gets 0$ \;} % FIXME: use version
-							$\mT, \hatmT \gets \emptyset$ \;
 						}
 
 					\end{walgo}
@@ -72,8 +72,8 @@
 								$\hatmL \gets \hatmL\applytx\tx$ \;
 								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
-								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-									\Multi{} $(\hpRS,\red{\hatv,}\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
+								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
+									\Multi{} $(\hpRS,\red{\hatv,}\bar{\mc S}.s+1, \hatmT, \red{\tx_{\omega}})$ \;
 								}
 							}
 						}
@@ -81,32 +81,32 @@
 						\vspace{12pt}
 
 						%%% REQ SN
-						\On{$(\hpRS,\red{v,}s,\mT_{\mathsf{req}}, \textcolor{red}{\tx_{\omega}})$ from $\party_j$}{
-							\red{\Req{$v = \hatv$} \;}
-							\Req{$s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
-							\Wait{$\bars = \hats$}{
-							    \textcolor{red}{\Req{$\barmU \applytx \tx_{\omega} \not= \bot$}} \;
-							    \textcolor{red}{$\barmU_{\mathsf{active}} \gets \barmU \applytx \tx_{\omega}$} \;
-								\Req{$\textcolor{red}{\barmU_{\mathsf{active}}} \applytx \mT_{\mathsf{req}} \not= \bot$} \;
-								$\hatmU \gets \textcolor{red}{\barmU_{\mathsf{active}}} \applytx \mT_{\mathsf{req}}$ \;
-								$\hats \gets \bars + 1$ \;
-								\textcolor{red}{$\eta' \gets \combine(\hatmU)$} \;
-								% TODO: hanwavy combine/outputs here
-								$\textcolor{red}{\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))}$ \;
+						\On{$(\hpRS,\red{v,}s,\mT_{\mathsf{req}}, \red{\tx_{\omega}})$ from $\party_j$}{
+							\Req{$\red{v = \hatv ~ \land} ~ s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
+							\Wait{$\hats = \bar{\mc S}.s$}{
+							    \red{\Req{$\bar{\mc S}.U \applytx \tx_{\omega} \not= \bot$}} \;
+							    \red{$U_{\mathsf{active}} \gets \bar{\mc S}.U \applytx \tx_{\omega}$} \;
+								\Req{$\red{U_{\mathsf{active}}} \applytx \mT_{\mathsf{req}} \not= \bot$} \;
+								$U \gets \red{U_{\mathsf{active}}} \applytx \mT_{\mathsf{req}}$ \;
+								% XXX: why +1? ̂s ← s would be clearer here
+								$\hats \gets \bar{\mc S}.s + 1$ \;
+								% TODO: DRY message creation
+								$\eta \gets \combine(U)$ \;
+								% TODO: handwavy combine/outputs here
+								$\red{\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))}$ \;
 								% NOTE: WE could make included transactions auditable by adding
-								% a merkle tree root to the (signed) snapshot data \eta'
-								% TODO: sign \eta_{0} / previous state?
-								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \textcolor{red}{v || \hats || \eta' || \eta_{\omega}}))$ \;
+								% a merkle tree root to the (signed) snapshot data \eta
+								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || \red{v ||} \hats || \eta \red{|| \eta_{\omega}}))$ \;
 								$\hatSigma \gets \emptyset$ \;
 								$\Multi{}~(\hpAS,\hats,\msSig_i)$ \;
 								$\forall \tx \in \mT_{\mathsf{req}}: \Out~(\hpSeen,\tx)$ \;
 								% TODO: Should we inform users if we drop a transaction?
 								% XXX: This is a bit verbose for the spec
-								$\hatmL \gets \hatmU$ \;
+								$\hatmL \gets U$ \;
 								$X\gets\hatmT$ \;
 								$\hatmT\gets\emptyset$ \;
 								\For{$\tx\in X : \hatmL\applytx \tx \not=\bot$}{
-									$\hatmT\gets\hatmT\cup\{\tx\}$
+									$\hatmT\gets\hatmT\cup\{\tx\}$ \;
 									$\hatmL\gets\hatmL\applytx \tx$ \;
 								}
 							}
@@ -122,8 +122,8 @@
 							  $\hatmL \gets \hatmL \setminus \mathsf{inputs}(\tx)$ \;
 							  $\tx_\omega \gets \tx$ \;
 							  % issue snapshot if we are leader
-							  \If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-								\Multi{} $(\hpRS,\hatv,\bars+1,\hatmT, \tx_{\omega})$ \;
+							  \If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
+								\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT, \tx_{\omega})$ \;
 							  }
 							}
 						}
@@ -137,8 +137,8 @@
 								$\tx_{\omega} \gets \bot$ \;
 								$\hatv \gets v$ \;
 								% TODO: always snapshot? not strictly needed (to clear pending decommits)?
-								\If{$\hats = \bars \land \hpLdr(\bars + 1) = i$}{
-									\Multi{} $(\hpRS,\hatv,\bars+1,\hatmT, \tx_{\omega})$ \;
+								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT, \tx_{\omega})$ \;
 								}
 							}
 						}
@@ -151,30 +151,30 @@
 							\Req{} $s \in \{\hats,\hats+1\}$ \;
 							\Wait{$\hats=s$}{
 								\Req{} $(j, \cdot) \notin \hatSigma$ \;
-							    % FIXME: missing a write to \hatSigma
+								$\hatSigma[j] \gets \sigma_{j}$ \;
 								\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{
 									% TODO: MS-ASig used different than in the preliminaries
 									$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \;
 
-									$\eta' \gets \combine(\hatmU)$ \;
+									% TODO: DRY message creation
+									$\eta \gets \combine(\hatmU)$ \;
 									% TODO: tx_ω undefined (else) case
-								    $\textcolor{red}{\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))}$ \;
+								    $\red{\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))}$ \;
 
-									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \red{\hatv ||} \hats || \eta' || \textcolor{red}{\eta_{\omega}}), \msCSig)$ \;
-									$\barmU \gets \hatmU$ \;
-									\red{$\barv \gets \hatv$ \;}
-									$\bars \gets \hats$ \;
-									$\barsigma \gets \msCSig$ \;
+									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \red{\hatv ||} \hats || \eta \red{|| \eta_{\omega}}), \msCSig)$ \;
+									% create confirmed snapshot for later reference
+									$\bar{\mc S} \gets \Sno(\hatv, \hats, \hatmU, \hatmT \red{, \tx_{\omega}})$ \;
+									$\bar{\mc S}.\sigma \gets \msCSig$ \;
 
-									%$\Out~(\hpSnap,(\bars,\barmU))$ \;
+									%$\Out~(\hpSnap,(\bar{\mc S}.s,\bar{\mc S}.U))$ \;
 									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
-									\red{\If{$\eta_{\omega} \ne \bot$}{
-									  $\PostTx{}~(\mtxDecrement, \barv, \bars, \eta', \eta_{\omega})$ \;
+									\red{\If{$\tx_{\omega} \ne \bot$}{
+									  $\PostTx{}~(\mtxDecrement, \hatv, \hats, \eta, \eta_{\omega})$ \;
+									  \red{$\Out (\hpConf,\tx_{\omega})$ \;}
 									}}
-
 									% issue snapshot if we are leader
 									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
-										\Multi{} $(\hpRS,\red{\hatv,}\bars+1, \hatmT, \textcolor{red}{\tx_{\omega}})$ \;
+										\Multi{} $(\hpRS,\red{\hatv},\bar{\mc S}.s+1, \hatmT, \red{\tx_{\omega}})$ \;
 									}
 								}
 							}
@@ -193,10 +193,10 @@
 					\begin{walgo}{0.6}
 						% CLOSE from client
 						\On{$(\hpClose)$ from client}{
-							$\eta' \gets \combine(\barmU)$ \;
-							$\xi \gets \barsigma$ \;
-							\red{TODO: determine $\mathsf{CloseType}$} \;
-							$\PostTx{}~(\mtxClose, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
+							$\eta \gets \combine(\bar{\mc S}.U)$ \;
+							\red{$\eta_\omega \gets \combine(\mathsf{outputs}(\bar{\mc S}.\tx_\omega))$ \;}
+							$\xi \gets \bar{\mc S}.\sigma$ \;
+							$\PostTx{}~(\mtxClose, \red{\bar{\mc S}.v}, \bar{\mc S}.s, \eta, \red{\eta_{\omega},} \xi)$ \;
 						}
 					\end{walgo}
 				}
@@ -204,11 +204,11 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.6}
 						\On{$(\gcChainClose, \eta) \lor (\gcChainContest, s_{c}, \eta)$ from chain}{
-							\If{$\bars > s_{c}$}{
-								$\eta' \gets \combine(\barmU)$ \;
-								$\xi \gets \barsigma$ \;
-								\red{TODO: determine $\mathsf{ContestType}$} \;
-								$\PostTx{}~(\mtxContest, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
+							\If{$\bar{\mc S}.s > s_{c}$}{
+							  $\eta \gets \combine(\bar{\mc S}.U)$ \;
+							  \red{$\eta_\omega \gets \combine(\mathsf{outputs}(\bar{\mc S}.\tx_\omega))$ \;}
+							  $\xi \gets \bar{\mc S}.\sigma$ \;
+							  $\PostTx{}~(\mtxContest, \red{\bar{\mc S}.v}, \bar{\mc S}.s, \eta, \red{\eta_{\omega},} \xi)$ \;
 							}
 						}
 					\end{walgo}

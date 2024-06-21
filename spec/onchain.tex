@@ -102,7 +102,7 @@ $\mathsf{burn}$ redeemer:
 		      % TODO: |\txMint| may not be clear to the reader, maybe combine with item above, but be more explicit.
 		      \item State token is sent to the head validator $\st \in \valHead$ % TODO: fact that it is goverend by nuHead is a bit implicit here.
 		      \item \textcolor{blue}{The correct number of initial outputs are present $|(\cdot, \nuInitial, \cdot) \in \txOutputs| = |\hydraKeys|$}
-		      % TODO: this is implied by the ledger, so can be removed
+		      % XXX: this is implied by the ledger, so can be removed
 		      \item All participation tokens are sent to the initial validator as an initial output $\forall i \in [1 \dots |\hydraKeys|] : \{\cid \mapsto \cdot \mapsto 1\} \in \valInitial{i}$
 		      \item The $\datum_{\mathsf{head}}$ contains own currency id $\cid = \cid'$ and the right seed reference $\seed = \seed'$
 		      \item All initial outputs have a $\cid$ as their datum: $\forall i \in [1 \dots |\hydraKeys|] : \cid = \datumInitial{i}$
@@ -211,7 +211,7 @@ $\redeemerHead = (\mathsf{abort}, m)$, where $m$ is the number of outputs to
 reimburse, and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stInitial$ to terminal state
-	$\stFinal$: % XXX: What does this actually mean?
+	$\stFinal$:
 	\[
 		(\stInitial,\cid,\seed,\hydraKeys,\cPer) \xrightarrow[m]{\stAbort} \stFinal.
 	\]
