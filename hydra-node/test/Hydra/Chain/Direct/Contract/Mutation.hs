@@ -822,15 +822,6 @@ replaceUtxoHash utxoHash = \case
 
 replaceUtxoToDecommitHash :: Head.Hash -> Head.State -> Head.State
 replaceUtxoToDecommitHash utxoToDecommitHash' = \case
-  Head.Open{contestationPeriod, utxoHash, snapshotNumber, parties, headId, version} ->
-    Head.Open
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.snapshotNumber = snapshotNumber
-      , Head.utxoHash
-      , Head.headId = headId
-      , Head.version = version
-      }
   Head.Closed{parties, utxoHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       { Head.parties = parties
@@ -844,6 +835,7 @@ replaceUtxoToDecommitHash utxoToDecommitHash' = \case
       , Head.version = version
       }
   otherState -> otherState
+
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
   Head.Closed{snapshotNumber, utxoHash, utxoToDecommitHash, parties, headId, contesters, contestationPeriod, version} ->

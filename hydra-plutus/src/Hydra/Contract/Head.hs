@@ -2899,8 +2899,6 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
     extractOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
-  -- headOutValue = foldMap txOutValue outputs
-
   headOutValue = txOutValue $ head outputs
   headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
