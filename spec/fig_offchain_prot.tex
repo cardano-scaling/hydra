@@ -162,7 +162,7 @@
 
 									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \red{\hatv ||} \hats || \eta' || \textcolor{red}{\eta_{\omega}}), \msCSig)$ \;
 									$\barmU \gets \hatmU$ \;
-									$\barv \gets \hatv$ \;
+									\red{$\barv \gets \hatv$ \;}
 									$\bars \gets \hats$ \;
 									$\barsigma \gets \msCSig$ \;
 
@@ -195,6 +195,7 @@
 						\On{$(\hpClose)$ from client}{
 							$\eta' \gets \combine(\barmU)$ \;
 							$\xi \gets \barsigma$ \;
+							\red{TODO: determine $\mathsf{CloseType}$} \;
 							$\PostTx{}~(\mtxClose, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
 						}
 					\end{walgo}
@@ -206,6 +207,7 @@
 							\If{$\bars > s_{c}$}{
 								$\eta' \gets \combine(\barmU)$ \;
 								$\xi \gets \barsigma$ \;
+								\red{TODO: determine $\mathsf{ContestType}$} \;
 								$\PostTx{}~(\mtxContest, \red{\bar{v},} \bars, \eta', \red{\eta_{\omega},} \xi)$ \;
 							}
 						}

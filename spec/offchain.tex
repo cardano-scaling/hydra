@@ -105,7 +105,7 @@ off-chain protocol logic relies on these assumptions:
 \subsection{Variables}
 
 Besides parameters agreed in the protocol setup (see Section~\ref{sec:setup}), a
-party's local state consists of the following variables: \todo{update}
+party's local state consists of the following variables:
 
 \begin{itemize}
 	\item \red{$\hatv$: Last seen open state version.}
@@ -122,7 +122,7 @@ party's local state consists of the following variables: \todo{update}
 	      applying $\hatmT$ to $\barmU$ to validate requested transactions.
 	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
 	      inclusion in a snapshot (if this party is the next leader).
-	\item \red{$\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. Maybe be $\bot$ if nothing to decommit.}
+	\item \red{$\tx_{\omega} \in \mathcal{T}^{?}$: Decommit transaction, whose outputs are to be decommitted from the head. May be $\bot$ if nothing to decommit.}
 \end{itemize}
 
 \subsection{Protocol flow}
@@ -156,7 +156,7 @@ transaction and the protocol would end at this point.\\
 transaction, the parties compute $\Uinit \gets \bigcup_{j=1}^{n} C_j$ using previously
 observed $C_j$ and initialize $\hatmU = \barmU = \hatmL = \Uinit$ with it. The
 seen transaction set is initialized empty $\hatmT =\emptyset$, \red{head state version
-$\hatv = 0$}, as well as snapshot numbers $\bars = \hats = 0$.
+$\hatv = \barv = 0$}, as well as snapshot numbers $\hats = \bars = 0$.
 % REVIEW: check $\eta$ against $\Uinit$?
 
 \subsubsection{Processing transactions off-chain}
@@ -184,7 +184,7 @@ leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 	no decommit in flight and party is the leader then $\hpRS$ is
 	emmitted containing the decommit transaction $\tx_{\omega}$.} \\
 
-\red{\dparagraph{$\mathtt{collectComTx}$.}\quad Upon observing the \mtxDecrement{}
+\red{\dparagraph{$\mathtt{decrementTx}$.}\quad Upon observing the \mtxDecrement{}
 	transaction, which removed outputs $U_{\omega}$ from the head, the corresponding
 	decommit transaction is cleared and the observed version is used for future
 	snapshots by
@@ -211,7 +211,7 @@ $\party_i$ creates a signature $\msSig_i$ using their signing key
 $\hydraSigningKey$ on a message comprised by the $\cid$, the new snapshot number
 $\hats$, the new $\eta'$ resulting from canonically combining $\hatmU$ (see
 Section~\ref{sec:close-tx} for details), \red{and $\eta_{\omega}$ derived from commit
-	transaction outputs}. The signature is sent to all head members via message
+	transaction $\tx_{\omega}$ outputs}. The signature is sent to all head members via message
 $(\hpAS,\hats,\msSig_i)$. Finally, the pending transaction set $\hatmT$ gets
 pruned by re-applying all locally pending transactions $\hatmT$ to the just
 requested snapshot's UTxO set $\hatmU$ iteratively and
@@ -228,7 +228,7 @@ multisignature $\msCSig$ and $\Req$ it to be valid \red{(using the same message
 confirmed by updating $\bars=s$ and participants also store the UTxO set in
 $\barmU$, as well as the signature in $\barsigma$ for later reference. \red{In
 	case there is a pending decommit, any participant can now submit a
-	\mtxDecrement{} transaction by providing the just confirmed snapshot and its
+	\mtxDecrement{} transaction by providing the just confirmed snapshot with its
 	digests of the active UTxO set $\eta'$ and the to be removed UTxO set $\eta_{\omega}$.}
 Similar to the $\hpRT$, if $\party_i$ is the next snapshot leader and there are
 already transactions to snapshot in $\hatmT$, a corresponding $\hpRS$ is
