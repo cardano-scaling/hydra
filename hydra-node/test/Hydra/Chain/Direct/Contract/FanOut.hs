@@ -94,7 +94,7 @@ healthyFanoutDatum =
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
-    , version = 1
+    , version = 0
     }
  where
   healthyContestationPeriodSeconds = 10
@@ -147,6 +147,9 @@ genFanoutMutation (tx, _utxo) =
         let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
         n <- elements [1 .. 3]
         pure (Head.Fanout (noOfUtxoToOutputs - n) noOfUtxoDecommitToOutputs)
+    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
+        pure (Head.Fanout noOfUtxoToOutputs 0)
     ]
  where
   burntTokens =
