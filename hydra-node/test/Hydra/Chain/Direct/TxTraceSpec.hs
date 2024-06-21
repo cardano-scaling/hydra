@@ -52,7 +52,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), number, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
@@ -501,7 +501,6 @@ instance StateModel Model where
           { headState = Open
           , latestSnapshot = snapshotNumber snapshot
           , utxoInHead = balanceUTxOInHead (utxoInHead m) (decommitUTxO snapshot)
-          , snVersion = snVersion m + 1
           }
       Close{snapshot} ->
         m
