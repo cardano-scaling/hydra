@@ -55,7 +55,7 @@ by a single output reference parameter $\seed \in \tyOutRef$:
 	      \texttt{HydraHeadV1}, i.e.
 	      $\st = \{\cid \mapsto \texttt{HydraHeadV1} \mapsto 1\}$.
 	\item One \emph{Participation Token (PT)} per participant
-	      $i \in \{1 \dots \nop \}$ to be used for authenticating further
+	      $i \in \{1 \dots |\hydraKeys|  \}$ to be used for authenticating further
 	      transactions and to ensure every participant can commit and cannot be
 	      censored. The token name is the participant's verification key hash
 	      $\keyHash_{i} = \hash(\msVK_{i})$ of the verification key as received
@@ -66,23 +66,22 @@ by a single output reference parameter $\seed \in \tyOutRef$:
 \noindent Consequently, the \mtxInit{} transaction
 \begin{itemize}
 	\item has at least input $\seed$,
-	\item mints the state thread token $\st$, and one $\pt$ for each of the $\nop$
+	\item mints the state thread token $\st$, and one $\pt$ for each of the $|\hydraKeys|$
 	      participants with policy $\cid$,
-	\item has $\nop$ initial outputs $o_{\mathsf{initial}_{i}}$ with datum $\datumInitial{} = \cid$,
+	\item has $|\hydraKeys|$ initial outputs $o_{\mathsf{initial}_{i}}$ with datum $\datumInitial{} = \cid$,
 	\item has one head output
 	      $o_{\mathsf{head}}$, which captures
 	      the initial state of the protocol in the datum
 	      \[
-		      \datumHead = (\stInitial,\cid',\seed',\hydraKeysAgg,\nop,\cPer)
+		      \datumHead = (\stInitial,\cid',\seed',\hydraKeys,\cPer)
 	      \]
 	      where
 	      \begin{mitemize}
 		      \item $\stInitial$ is a state identifier,
 		      \item $\cid'$ is the unique currency id of this instance,
 		      \item $\seed'$ is the output reference parameter of $\muHead$,
-		      \item $\hydraKeysAgg$ is the aggregated off-chain multi-signature key established during the
-		      setup phase,
-		      \item $\nop$ is the number of head participants, and
+		      \item $\hydraKeys$ are the off-chain multi-signature keys from the setup
+			  phase,
 		      \item $\cPer$ is the contestation period.
 	      \end{mitemize}
 \end{itemize}
@@ -97,14 +96,14 @@ $\mathsf{burn}$ redeemer:
 		      \item The seed output is spent in this transaction. This guarantees uniqueness of the policy $\cid$ because the EUTxO ledger ensures that $\seed$ cannot be spent twice in the same chain.
 		      $(\seed, \cdot) \in \txInputs$
 		      \item All entries of $\txMint$ are of this policy and of single quantity $\forall \{c \mapsto \cdot \mapsto q\} \in \txMint : c = \cid \land q = 1$
-		      \item Right number of tokens are minted $|\txMint| = \nop + 1$
+		      \item Right number of tokens are minted $|\txMint| = |\hydraKeys| + 1$
 		      % TODO: |\txMint| may not be clear to the reader, maybe combine with item above, but be more explicit.
 		      \item State token is sent to the head validator $\st \in \valHead$ % TODO: fact that it is goverend by nuHead is a bit implicit here.
-		      \item \textcolor{blue}{The correct number of initial outputs are present $|(\cdot, \nuInitial, \cdot) \in \txOutputs| = n$}
+		      \item \textcolor{blue}{The correct number of initial outputs are present $|(\cdot, \nuInitial, \cdot) \in \txOutputs| = |\hydraKeys|$}
 		      % TODO: this is implied by the ledger, so can be removed
-		      \item All participation tokens are sent to the initial validator as an initial output $\forall i \in [1 \dots n] : \{\cid \mapsto \cdot \mapsto 1\} \in \valInitial{i}$
+		      \item All participation tokens are sent to the initial validator as an initial output $\forall i \in [1 \dots |\hydraKeys|] : \{\cid \mapsto \cdot \mapsto 1\} \in \valInitial{i}$
 		      \item The $\datum_{\mathsf{head}}$ contains own currency id $\cid = \cid'$ and the right seed reference $\seed = \seed'$
-		      \item All initial outputs have a $\cid$ as their datum: $\forall i \in [1 \dots n] : \cid = \datumInitial{i}$
+		      \item All initial outputs have a $\cid$ as their datum: $\forall i \in [1 \dots |\hydraKeys|] : \cid = \datumInitial{i}$
 	      \end{menumerate}
 	\item When evaluated with the $\mathsf{burn}$ redeemer,
 	      \begin{menumerate}
@@ -127,7 +126,7 @@ Figure~\ref{fig:off-chain-prot} for details about these checks.\\
 \subsection{Commit Transaction}\label{sec:commit-tx}
 
 A \mtxCom{} transaction may be submitted by each participant
-$\forall i \in \{1 \dots \nop\}$ to commit some UTxO into the head or
+$\forall i \in \{1 \dots |\hydraKeys|\}$ to commit some UTxO into the head or
 acknowledge to not commit anything. The transaction is depicted in
 Figure~\ref{fig:commitTx} and has the following structure:
 \begin{itemize}
@@ -177,7 +176,7 @@ The \mtxAbort{} transaction (see Figure~\ref{fig:abortTx}) allows a
 party to abort the creation of a head and consists of
 \begin{itemize}
 	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
-	\item $\forall i \in \{1 \dots \nop\}$ inputs either
+	\item $\forall i \in \{1 \dots |\hydraKeys|\}$ inputs either
 	      \begin{itemize}
 		      \item spending from $\nuInitial$ with with $\pt_{i} \in \valInitial{i}$ and $\datumInitial{i} = \cid$, or
 		      \item spending from $\nuCommit$ with with $\pt_{i} \in \valCommit{i}$ and $\datumCommit{i} = (\cid, C_{i})$,
@@ -212,7 +211,7 @@ reimburse, and checks:
 	\item State is advanced from $\datumHead \sim \stInitial$ to terminal state
 	$\stFinal$: % XXX: What does this actually mean?
 	\[
-		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow[m]{\stAbort} \stFinal.
+		(\stInitial,\cid,\seed,\hydraKeys,\cPer) \xrightarrow[m]{\stAbort} \stFinal.
 	\]
 	\item All UTxOs committed into the head are reimbursed exactly as they were
 	committed. This is done by comparing hashes of serialised representations of
@@ -221,12 +220,12 @@ reimburse, and checks:
 		transaction, e.g for returning change.} with the canonically combined
 	committed UTxOs in $C_{i}$:
 	\[
-		\hash(\bigoplus_{j=1}^{m} \bytes(o_{j})) = \combine([C_{i} ~ | ~ \forall [1\dots\nop], C_{i} \neq \bot])
+		\hash(\bigoplus_{j=1}^{m} \bytes(o_{j})) = \combine([C_{i} ~ | ~ \forall [1 \dots |\hydraKeys|], C_{i} \neq \bot])
 	\]
 
 	\item Transaction is signed by a participant $\exists \{\cid \mapsto \keyHash_{i} \mapsto -1\} \in \txMint \Rightarrow \keyHash_{i} \in \txKeys$.
 	\item All tokens are burnt
-	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = \nop + 1$.
+	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = |\hydraKeys| + 1$.
 \end{menumerate}
 
 \begin{figure}
@@ -244,7 +243,7 @@ reimburse, and checks:
 all the committed UTxOs to the same head. It has
 \begin{itemize}
 	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
-	\item $\forall i \in \{1 \dots \nop\}$ inputs spending commit outputs
+	\item $\forall i \in \{1 \dots |\hydraKeys|\}$ inputs spending commit outputs
 	      $(\valCommit{i}, \nuCommit, \datumCommit{i})$ with $\pt_{i} \in \valCommit{i}$
 	      and $\datumCommit{i} = (\cid, C_{i})$, and
 	\item one output paying to $\nuHead$ with value $\valHead'$ and
@@ -255,17 +254,17 @@ all the committed UTxOs to the same head. It has
 $\redeemerHead = \mathsf{collect}$ and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stInitial$ to
-	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeys,\cPer$ stay
 	unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stInitial,\cid,\seed,\hydraKeysAgg,\nop,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta)
+		(\stInitial,\cid,\seed,\hydraKeys,\cPer) \xrightarrow{\stCollect} (\stOpen,\cid,\hydraKeys,\cPer,\red{v,}\eta)
 	\]
 	\red{where snapshot version and number are initialized as $v = s = 0$.}
 	\item Commits are collected in $\eta$
 	\[
-		\eta = U^{\#} = \combine([C_{1}, \dots, C_{\nop}])
+		\eta = U^{\#} = \combine([C_{1}, \dots, C_{n}])
 	\]
-	where
+	where $n = |\hydraKeys|$ and
 	\[
 		\combine(\underline{C}) = \hash(\mathsf{concat}({\sortOn(1, \mathsf{concat}(\underline{C}))}^{\downarrow2}))
 	\]
@@ -288,7 +287,7 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 		number of tokens.}
 	% NOTE: Implemented slightly different as we would only count PTs and = n
 	\[
-		|\{\cid \rightarrow . \rightarrow 1\} \in \valHead'| = \nop + 1
+		|\{\cid \rightarrow . \rightarrow 1\} \in \valHead'| = |\hydraKeys| + 1
 	\]
 	\item Transaction is signed by a participant
 	\[
@@ -337,7 +336,7 @@ the number of outputs to reimburse. The validator checks:
 	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$ stay
 	unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v,s,\eta) \xrightarrow[\xi, m]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v',s',\eta')
+		(\stOpen,\cid,\hydraKeys,\cPer,v,\eta) \xrightarrow[\xi, s, m]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeys,\cPer,v',\eta')
 	\]
 	\item New version $v'$ is incremented correctly
 	\[
@@ -395,10 +394,10 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 \red{$\mathsf{CloseType}$ is a hint against which open state to close} and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
-	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeys,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,}\eta) \xrightarrow[\red{\mathsf{CloseType}}]{\stClose} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters,\Tfinal)
+		(\stOpen,\cid,\hydraKeys,\cPer,\red{v,s,}\eta) \xrightarrow[\red{\mathsf{CloseType}}]{\stClose} (\stClosed,\cid,\hydraKeys,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters,\Tfinal)
 	\]
 
 	\item \red{Last known open state version is recorded in closed state
@@ -422,7 +421,7 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 			\]
 			\item $\mathsf{Current}$: Closing snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
 			\[
-				\msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+				\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
 			\]
 			which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
 			\item $\mathsf{Outdated}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
@@ -430,7 +429,7 @@ $\redeemerHead = (\mathsf{close}, \red{\mathsf{CloseType}})$, where
 				\eta_{\Delta}' = \bot
 			\]
 			\[
-				\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+				\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
 			\]
 			where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
 		\end{menumerate}
@@ -490,10 +489,10 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 \red{$\mathsf{ContestType}$ is a hint how to verify the snapshot} and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
-	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeys,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v,s,\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\red{\mathsf{ContestType}}]{\stContest} (\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters',\Tfinal')
+		(\stClosed,\cid,\hydraKeys,\cPer,\red{v,s,\eta,\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[\red{\mathsf{ContestType}}]{\stContest} (\stClosed,\cid,\hydraKeys,\cPer,\red{v',s',\eta',\eta_{\Delta}'},\contesters',\Tfinal')
 	\]
 
 	\item \red{Last known open state version stays recorded in closed state
@@ -511,7 +510,7 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 		\begin{menumerate}
 			\item $\mathsf{Current}$: Contesting snapshot refers to current state $v$ and any pending UTxO to decommit needs to be present in the closed state too.
 			\[
-				\msVfy(\hydraKeysAgg,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+				\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
 			\]
 			which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
 			\item $\mathsf{Outdated}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
@@ -519,7 +518,7 @@ $\redeemerHead = (\mathsf{contest}, \red{\mathsf{ContestType}})$, where
 				\eta_{\Delta}' = \bot
 			\]
 			\[
-				\msVfy(\hydraKeysAgg,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+				\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
 			\]
 			where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
 		\end{menumerate}
@@ -586,7 +585,7 @@ $\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
 	$\stFinal$: % XXX: What does this actually mean?
 	\todo{update closed state to what contest needs}
 	\[
-		(\stClosed,\cid,\hydraKeysAgg,\nop,\cPer,\eta,\red{\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
+		(\stClosed,\cid,\hydraKeys,\cPer,\eta,\red{\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[m,n]{\stFanout} \stFinal
 	\]
 	\item The first $m$ outputs are distributing funds according to $\eta$. That is,
 	the outputs exactly correspond to the UTxO canonically combined $U^{\#}$ (see
