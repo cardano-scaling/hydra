@@ -12,7 +12,7 @@ import Hydra.Crypto (Signature)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, SnapshotVersion)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -115,7 +115,7 @@ data OpenState tx = OpenState
   , headId :: HeadId
   , currentSlot :: ChainSlot
   , headSeed :: HeadSeed
-  , version :: Integer
+  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 
@@ -213,7 +213,7 @@ data ClosedState tx = ClosedState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
-  , version :: Integer
+  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 

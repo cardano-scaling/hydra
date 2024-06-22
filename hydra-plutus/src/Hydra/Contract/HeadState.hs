@@ -15,6 +15,8 @@ import Text.Show (Show)
 
 type SnapshotNumber = Integer
 
+type SnapshotVersion = Integer
+
 type Hash = BuiltinByteString
 
 type Signature = BuiltinByteString
@@ -33,7 +35,7 @@ data State
       -- ^ Spec: η
       , headId :: CurrencySymbol
       , snapshotNumber :: SnapshotNumber
-      , version :: Integer
+      , version :: SnapshotVersion
       }
   | Closed
       { parties :: [Party]
@@ -46,7 +48,7 @@ data State
       , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
       , contesters :: [PubKeyHash]
-      , version :: Integer
+      , version :: SnapshotVersion
       }
   | Final
   deriving stock (Generic, Show)
@@ -61,7 +63,7 @@ data Input
       }
   | Close
       { signature :: [Signature]
-      , version :: Integer
+      , version :: SnapshotVersion
       , utxoToDecommitHash :: Hash
       }
   | Contest

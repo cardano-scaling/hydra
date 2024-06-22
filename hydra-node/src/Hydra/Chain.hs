@@ -27,7 +27,7 @@ import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotVersion)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -73,7 +73,7 @@ data PostChainTx tx
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx, version :: Integer, closeUTxOToDecommit :: UTxOType tx}
+  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx, version :: SnapshotVersion, closeUTxOToDecommit :: UTxOType tx}
   | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
   | FanoutTx {utxo :: UTxOType tx, utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)

@@ -77,7 +77,7 @@ import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
@@ -480,7 +480,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         , snapshotNumber = toInteger number
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
-        , version = version -- TODO: should version here come from a snapshot or previous datum?
+        , version = toInteger version -- TODO: should version here come from a snapshot or previous datum?
         }
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
@@ -497,7 +497,7 @@ data ClosingSnapshot
         -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
         -- and the closeUtxoHash as also included above
         signatures :: MultiSignature (Snapshot Tx)
-      , version :: Integer
+      , version :: SnapshotVersion
       }
 
 data CloseTxError
@@ -522,7 +522,7 @@ closeTx ::
   OpenThreadOutput ->
   -- | Head identifier
   HeadId ->
-  Integer ->
+  SnapshotVersion ->
   Tx
 closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId offChainVersion =
   unsafeBuildTransaction $
@@ -556,7 +556,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     toScriptData
       Head.Close
         { signature
-        , version = offChainVersion
+        , version = toInteger offChainVersion
         , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
         }
 
@@ -577,7 +577,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
-        , version = version
+        , version = toInteger version
         }
 
   (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) = case closing of
@@ -671,7 +671,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
         , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters
-        , version = version -- TODO: should version here come from a Snapshot or previous datum?
+        , version = toInteger version -- TODO: should version here come from a Snapshot or previous datum?
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

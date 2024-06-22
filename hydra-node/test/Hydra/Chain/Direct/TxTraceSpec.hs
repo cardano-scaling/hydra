@@ -52,7 +52,7 @@ import Hydra.Ledger (hashUTxO, utxoFromTx)
 import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), getSnapshot, number)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
 import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
@@ -230,7 +230,7 @@ data Model = Model
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
   , decommitUTxOInHead :: ModelUTxO
-  , snVersion :: Integer
+  , snVersion :: SnapshotVersion
   }
   deriving (Show)
 
@@ -240,7 +240,7 @@ data ModelSnapshot = ModelSnapshot
   { snapshotNumber :: SnapshotNumber
   , snapshotUTxO :: ModelUTxO
   , decommitUTxO :: ModelUTxO
-  , snapshotVersion :: Integer
+  , snapshotVersion :: SnapshotVersion
   }
   deriving (Show, Eq, Ord, Generic)
 

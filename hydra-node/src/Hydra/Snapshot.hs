@@ -27,6 +27,14 @@ newtype SnapshotNumber
 instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
+newtype SnapshotVersion
+  = UnsafeSnapshotVersion Natural
+  deriving stock (Eq, Ord, Generic)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+
+instance Arbitrary SnapshotVersion where
+  arbitrary = UnsafeSnapshotVersion <$> arbitrary
+
 data Snapshot tx = Snapshot
   { headId :: HeadId
   , number :: SnapshotNumber
@@ -38,7 +46,7 @@ data Snapshot tx = Snapshot
   -- TODO: what is the difference between Noting and (Just mempty) here?
   -- | Snapshot version is 0 at start and is only bumped further on each
   -- decommit that happens.
-  , version :: Integer
+  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 
@@ -99,11 +107,11 @@ instance IsTx tx => Arbitrary (Snapshot tx) where
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number, headId, utxo, utxoToDecommit, version} =
     LBS.toStrict $
-      serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
-        <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
-        <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
+      serialise (toData . toBuiltin $ serialiseToRawBytes headId)
+        <> serialise (toData . toBuiltin $ toInteger number) -- CBOR(I(integer))
+        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit) -- CBOR(B(bytestring)
-        <> serialise (toData $ toBuiltin version) -- CBOR(I(integer))
+        <> serialise (toData . toBuiltin $ toInteger version) -- CBOR(I(integer))
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
@@ -186,7 +194,7 @@ genConfirmedSnapshot ::
   -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
   -- this lower bound.
   SnapshotNumber ->
-  Integer ->
+  SnapshotVersion ->
   UTxOType tx ->
   Maybe (UTxOType tx) ->
   [SigningKey HydraKey] ->

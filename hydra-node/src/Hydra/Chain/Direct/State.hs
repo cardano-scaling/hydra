@@ -118,6 +118,7 @@ import Hydra.Snapshot (
   ConfirmedSnapshot (..),
   Snapshot (..),
   SnapshotNumber,
+  SnapshotVersion,
   genConfirmedSnapshot,
   getSnapshot,
  )
@@ -518,7 +519,7 @@ close ::
   -- | 'Tx' validity upper bound
   PointInTime ->
   -- | Current off-chain snapshot version
-  Integer ->
+  SnapshotVersion ->
   Either CloseTxError Tx
 close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confirmedSnapshot startSlotNo pointInTime offChainVersion = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
@@ -1193,7 +1194,7 @@ unsafeClose ::
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  Integer ->
+  SnapshotVersion ->
   Tx
 unsafeClose ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime version =
   either (error . show) id $ close ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime version
