@@ -56,6 +56,7 @@ spec = do
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
             , decommitTx = Nothing
+            , version = 0
             }
     let sendReqSn = \case
           NetworkEffect ReqSn{} -> True
@@ -168,11 +169,14 @@ spec = do
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
-  seenSnapshot <-
+  (seenSnapshot, version) <-
     pick $
       oneof
-        [ pure NoSeenSnapshot
-        , LastSeenSnapshot <$> arbitrary
+        [ pure (NoSeenSnapshot, 0)
+        , do
+            n <- arbitrary
+            let v = fromInteger (toInteger n)
+            pure (LastSeenSnapshot n, v)
         ]
   tx <- pick $ aValidTx <$> arbitrary
   let
@@ -193,6 +197,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , confirmedSnapshot = sn
         , seenSnapshot
         , decommitTx = Nothing
+        , version
         }
     outcome = update aliceEnv simpleLedger (inOpenState' [alice] st) $ receiveMessage $ ReqTx tx
     Snapshot{number = confirmedSn} = getSnapshot sn

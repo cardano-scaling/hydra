@@ -94,6 +94,7 @@ spec =
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               , decommitTx = Nothing
+              , version = 0
               }
 
       it "reports if a requested tx is expired" $ do
@@ -598,12 +599,12 @@ spec =
                         , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
                         , decommitTx = Nothing
+                        , version = 0
                         }
                   , chainState = Prelude.error "should not be used"
                   , headId = testHeadId
                   , headSeed = testHeadSeed
                   , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
-                  , version = 0
                   }
 
         st <-
@@ -757,6 +758,7 @@ inOpenState parties =
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
       , decommitTx = Nothing
+      , version = 0
       }
  where
   u0 = mempty
@@ -775,7 +777,6 @@ inOpenState' parties coordinatedHeadState =
       , headId = testHeadId
       , headSeed = testHeadSeed
       , currentSlot = chainSlot
-      , version = 0
       }
  where
   parameters = HeadParameters defaultContestationPeriod parties

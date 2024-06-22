@@ -115,7 +115,6 @@ data OpenState tx = OpenState
   , headId :: HeadId
   , currentSlot :: ChainSlot
   , headSeed :: HeadSeed
-  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 
@@ -128,7 +127,6 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) wh
   arbitrary =
     OpenState
       <$> arbitrary
-      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -152,6 +150,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , decommitTx :: Maybe tx
   -- ^ Client requested to decommit a 'UTxO' which is present in the
   -- 'ConfirmedSnapshot'.
+  , version :: SnapshotVersion
+  -- ^ Last seen open state version.
   }
   deriving stock (Generic)
 
