@@ -494,9 +494,9 @@ onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
     InitialSnapshot{initialUTxO} -> initialUTxO
     ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
-  OpenState{parameters, coordinatedHeadState, currentSlot, headId, version} = st
+  OpenState{parameters, coordinatedHeadState, currentSlot, headId} = st
 
   Environment{signingKey} = env
 
@@ -749,9 +749,9 @@ onOpenClientClose st =
           CloseTx headId parameters confirmedSnapshot version (fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot)
       }
  where
-  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, headId, parameters, version} = st
+  OpenState{coordinatedHeadState, headId, parameters} = st
 
 -- | Observe a close transaction. If the closed snapshot number is smaller than
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
@@ -1070,10 +1070,10 @@ aggregate st = \case
           , coordinatedHeadState =
             CoordinatedHeadState
               { confirmedSnapshot
+              , version
               }
           , headId
           , headSeed
-          , version
           } ->
           Closed
             ClosedState
@@ -1124,12 +1124,12 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   , decommitTx = Nothing
+                  , version = 0
                   }
             , chainState
             , headId
             , headSeed
             , currentSlot = chainStateSlot chainState
-            , version = 0
             }
       _otherState -> st
   SnapshotConfirmed{snapshot, signatures} ->
@@ -1183,14 +1183,15 @@ aggregate st = \case
     case st of
       Open
         os@OpenState
-          { coordinatedHeadState
-          , version
+          { coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{version}
           } ->
           Open
             os
               { coordinatedHeadState =
-                  coordinatedHeadState{decommitTx = Nothing}
-              , version = version + 1
+                  coordinatedHeadState
+                    { decommitTx = Nothing
+                    , version = version + 1
+                    }
               }
       _otherState -> st
   HeadIsReadyToFanout ->
