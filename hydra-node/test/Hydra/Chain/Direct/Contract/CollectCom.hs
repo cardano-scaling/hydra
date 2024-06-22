@@ -184,6 +184,7 @@ data CollectComMutation
   | -- | Needs to prevent that not all value is collected into the head output.
     ExtractSomeValue
   | MutateOpenUTxOHash
+  | MutateOpenVersion
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
   | -- | Every party should have commited and been taken into account for the
@@ -210,6 +211,7 @@ genCollectComMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
     , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    , SomeMutation (pure $ toErrorCode IncorrectVersion) MutateOpenVersion . ChangeOutput 0 <$> mutateVersion
     , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
@@ -256,8 +258,8 @@ genCollectComMutation (tx, _utxo) =
 
   mutatedPartiesHeadTxOut parties =
     modifyInlineDatum $ \case
-      Head.Open{utxoHash, snapshotNumber, contestationPeriod, headId, version} ->
-        Head.Open{Head.parties = parties, snapshotNumber, contestationPeriod, utxoHash, headId, version}
+      Head.Open{snapshotNumber, contestationPeriod, headId, version, utxoHash} ->
+        Head.Open{Head.parties = parties, snapshotNumber, contestationPeriod, headId, version, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
   mutateUTxOHash = do
@@ -265,8 +267,17 @@ genCollectComMutation (tx, _utxo) =
     pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod, snapshotNumber, headId, version} ->
-      Head.Open{parties, snapshotNumber, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId, version}
+    Head.Open{parties, contestationPeriod, headId, snapshotNumber, version} ->
+      Head.Open{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, snapshotNumber, version}
+    st -> st
+
+  mutateVersion = do
+    mutatedVersion <- arbitrary `suchThat` (> 0)
+    pure $ modifyInlineDatum (mutateStateVersion mutatedVersion) headTxOut
+
+  mutateStateVersion mutatedVersion = \case
+    Head.Open{parties, contestationPeriod, headId, snapshotNumber, utxoHash} ->
+      Head.Open{version = mutatedVersion, parties, contestationPeriod, headId, snapshotNumber, utxoHash}
     st -> st
 
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
