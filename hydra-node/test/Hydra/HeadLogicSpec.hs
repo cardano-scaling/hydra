@@ -57,7 +57,7 @@ import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod)
 import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
@@ -880,7 +880,7 @@ hasNoEffectSatisfying outcome predicate =
 testSnapshot ::
   Monoid (UTxOType tx) =>
   SnapshotNumber ->
-  Integer ->
+  SnapshotVersion ->
   UTxOType tx ->
   [TxIdType tx] ->
   Snapshot tx
