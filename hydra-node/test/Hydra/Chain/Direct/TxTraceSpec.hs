@@ -282,17 +282,7 @@ initialAmount = 10
 
 balanceUTxOInHead :: Ord k => Map k Natural -> Map k Natural -> Map k Natural
 balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
-  let
-    currentUtxoInHead' = fmap naturalToInteger currentUtxoInHead
-    someUTxOToDecrement' = fmap (negate . naturalToInteger) someUTxOToDecrement
-   in
-    Map.map naturalFromInteger
-      . Map.filter (> 0)
-      . Map.map sum
-      $ Map.unionWith
-        (++)
-        (Map.map (: []) currentUtxoInHead')
-        (Map.map (: []) someUTxOToDecrement')
+  currentUtxoInHead `Map.difference` someUTxOToDecrement
 
 instance StateModel Model where
   data Action Model a where
