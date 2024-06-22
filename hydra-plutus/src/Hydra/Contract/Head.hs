@@ -1,8 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (Hash, Input (..), Signature, SnapshotNumber, State (..))
+import Hydra.Contract.HeadState (Hash, Input (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -144,6 +144,7 @@ checkCollectCom ::
   Bool
 checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
   mustCollectUtxoHash
+    && mustInitVersion
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
     && mustCollectAllValue
     -- XXX: Is this really needed? If yes, why not check on the output?
@@ -156,6 +157,10 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     traceIfFalse $(errorCode IncorrectUtxoHash) $
       utxoHash == hashPreSerializedCommits collectedCommits
 
+  mustInitVersion =
+    traceIfFalse $(errorCode IncorrectVersion) $
+      version' == sn && sn == 0
+
   mustCollectAllValue =
     traceIfFalse $(errorCode NotAllValueCollected) $
       -- NOTE: Instead of checking the head output val' against all collected
@@ -164,7 +169,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       -- would commonly only be a small number of inputs/outputs to pay fees.
       otherValueOut == notCollectedValueIn - txInfoFee txInfo
 
-  (utxoHash, parties', _, contestationPeriod', headId') =
+  (utxoHash, parties', sn, contestationPeriod', headId', version') =
     extractOpenDatum ctx
 
   headAddress = getHeadAddress ctx
@@ -242,7 +247,7 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.
   decommitUtxoHash = hashTxOuts decommitOutputs
-  (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId) =
+  (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId, _nextVersion) =
     extractOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
@@ -664,7 +669,7 @@ extractClosedDatum ctx =
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE extractClosedDatum #-}
 
-extractOpenDatum :: ScriptContext -> (Hash, [Party], SnapshotNumber, ContestationPeriod, CurrencySymbol)
+extractOpenDatum :: ScriptContext -> (Hash, [Party], SnapshotNumber, ContestationPeriod, CurrencySymbol, SnapshotVersion)
 extractOpenDatum ctx =
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
     Just
@@ -674,6 +679,7 @@ extractOpenDatum ctx =
         , headId
         , contestationPeriod
         , snapshotNumber = sn
-        } -> (utxoHash, p, sn, contestationPeriod, headId)
+        , version
+        } -> (utxoHash, p, sn, contestationPeriod, headId, version)
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE extractOpenDatum #-}
