@@ -226,8 +226,9 @@ checkDecrement ::
   [Signature] ->
   Integer ->
   Bool
-checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId version signature numberOfDecommitOutputs =
+checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevSnapshotNumber prevCperiod prevHeadId prevVersion signature numberOfDecommitOutputs =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+    && mustIncreaseVersion
     && checkSnapshot
     && checkSnapshotSignature
     && mustBeSignedByParticipant ctx prevHeadId
@@ -238,16 +239,20 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevS
       nextSnapshotNumber > prevSnapshotNumber
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash version signature
+    verifySnapshotSignature nextParties nextHeadId nextSnapshotNumber nextUtxoHash decommitUtxoHash prevVersion signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue == headOutValue <> foldMap txOutValue decommitOutputs
 
+  mustIncreaseVersion =
+    traceIfFalse $(errorCode IncorrectVersion) $
+      nextVersion == prevVersion + 1
+
   -- NOTE: we always assume Head output is the first one so we pick all other
   -- outputs of a decommit tx to calculate the expected hash.
   decommitUtxoHash = hashTxOuts decommitOutputs
-  (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId, _nextVersion) =
+  (nextUtxoHash, nextParties, nextSnapshotNumber, nextCperiod, nextHeadId, nextVersion) =
     extractOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
@@ -317,14 +322,14 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
     extractClosedDatum ctx
 
-  correctDecommitHash =
-    if expectedVersion /= version
-      then utxoToDecommitHash
-      else decommitHash
+  (correctDecommitHash, correctVersion) =
+    if expectedVersion == version - 1
+      then (decommitHash, version)
+      else (utxoToDecommitHash, version - 1)
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
-        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash correctDecommitHash version sig
+        verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash correctDecommitHash correctVersion sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           closedUtxoHash == initialUtxoHash

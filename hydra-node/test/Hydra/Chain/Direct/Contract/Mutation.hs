@@ -747,6 +747,20 @@ replaceSnapshotNumberInOpen snapshotNumber = \case
       , Head.version = version
       }
   otherState -> otherState
+
+replaceSnapshotVersionInOpen :: Head.SnapshotVersion -> Head.State -> Head.State
+replaceSnapshotVersionInOpen snapshotVersion = \case
+  Head.Open{parties, utxoHash, headId, contestationPeriod, snapshotNumber} ->
+    Head.Open
+      { Head.parties = parties
+      , Head.snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.contestationPeriod = contestationPeriod
+      , Head.headId = headId
+      , Head.version = snapshotVersion
+      }
+  otherState -> otherState
+
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
   Head.Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
