@@ -10,6 +10,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotNumberInOpen,
+  replaceSnapshotVersionInOpen,
  )
 import Hydra.Prelude hiding (label)
 
@@ -35,7 +36,7 @@ import Hydra.Ledger (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Ledger.Cardano (adaOnly, genUTxOSized, genValue, genVerificationKey)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
@@ -98,6 +99,9 @@ healthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
+healthySnapshotVersion :: SnapshotVersion
+healthySnapshotVersion = 2
+
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
@@ -107,7 +111,7 @@ healthySnapshot =
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
-        , version = 0
+        , version = healthySnapshotVersion
         }
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
@@ -134,7 +138,7 @@ healthyDatum =
         , contestationPeriod = toChain healthyContestationPeriod
         , snapshotNumber = toInteger healthySnapshotNumber
         , headId = toPlutusCurrencySymbol testPolicyId
-        , version = 0
+        , version = toInteger healthySnapshotVersion
         }
 
 data DecrementMutation
@@ -159,6 +163,9 @@ data DecrementMutation
   | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
     DropDecommitOutput
   | ExtractSomeValue
+  | -- | Invalidates the tx by changing the snapshot version in resulting head
+    -- output.
+    UseDifferentSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -168,6 +175,10 @@ genDecrementMutation (tx, utxo) =
       SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    , -- New version v′ is incremented correctly
+      SomeMutation (pure $ toErrorCode IncorrectVersion) UseDifferentSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInOpen $ toInteger mutatedSnapshotVersion) headTxOut
     , -- XXX: Decrement snapshot number s′ is higher than the currently stored snapshot number s
       SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)

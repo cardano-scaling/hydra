@@ -530,9 +530,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     waitOnSeenSnapshot $ \snapshot sigs -> do
       -- Spec: (j,.) ∉ ̂Σ
       requireNotSignedYet sigs $ do
+        -- Spec: if ∀k ∈ [1..n] : (k, ·) ∈ Σ̂
         ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
+          -- Spec: require MS-Verify(k ̃H, (cid||vˆ||ŝ||η′||ηω), σ̃)
           requireVerifiedMultisignature multisig snapshot $
             do
               newState SnapshotConfirmed{snapshot, signatures = multisig}
@@ -607,6 +609,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 }
             ]
       Nothing -> outcome
+
   nextSn = sn + 1
 
   vkeys = vkey <$> parties

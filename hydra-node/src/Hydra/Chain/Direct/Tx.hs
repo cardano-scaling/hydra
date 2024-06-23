@@ -480,7 +480,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         , snapshotNumber = toInteger number
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
-        , version = toInteger version -- TODO: should version here come from a snapshot or previous datum?
+        , version = toInteger version + 1 -- TODO: should version here come from a snapshot or previous datum?
         }
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
