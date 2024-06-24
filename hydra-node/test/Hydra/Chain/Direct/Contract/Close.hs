@@ -69,7 +69,7 @@ healthyCloseTx =
       (mkHeadId Fixture.testPolicyId)
       1
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
+  datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
 
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
@@ -84,16 +84,28 @@ healthyCloseTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
+  (utxo, utxoToDecommit) = splitUTxO healthyCloseUTxO
+
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
-    let (utxo, utxoToDecommit) = splitUTxO healthyCloseUTxO
-     in CloseWithConfirmedSnapshot
-          { snapshotNumber = healthyCloseSnapshotNumber
-          , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
-          , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
-          , signatures = healthySignature healthyCloseSnapshotNumber
-          , version = 0
-          }
+    CloseWithConfirmedSnapshot
+      { snapshotNumber = healthyCloseSnapshotNumber
+      , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
+      , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
+      , signatures = healthySignature healthyCloseSnapshotNumber
+      , version = 1
+      }
+
+  healthyOpenDatum :: Head.State
+  healthyOpenDatum =
+    Head.Open
+      { parties = healthyOnChainParties
+      , utxoHash = toBuiltin $ hashUTxO @Tx utxo
+      , snapshotNumber = toInteger healthyCloseSnapshotNumber
+      , contestationPeriod = healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+      , version = 1
+      }
 
 -- | Healthy close transaction for the specific case were we close a head
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
