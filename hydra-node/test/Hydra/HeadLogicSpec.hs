@@ -158,6 +158,23 @@ spec =
             update aliceEnv ledger st input
               `shouldNotBe` cause (NetworkEffect reqDec)
 
+        it "reports if a requested decommit tx is expired" $ do
+          let inputs = utxoRef 1
+              decommitTx = SimpleTx 1 mempty inputs
+              ttl = 0
+              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              reqDecEvent = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = reqDec}
+              decommitTxInFlight = SimpleTx 2 mempty (utxoRef 2)
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { decommitTx = Just decommitTxInFlight
+                    }
+          update bobEnv ledger s0 reqDecEvent `shouldSatisfy` \case
+            Error (RequireFailed DecommitTxInFlight{decommitTx = transaction}) ->
+              transaction == decommitTxInFlight
+            _ -> False
+
         it "wait for second decommit when another one is in flight" $ do
           let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
               decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
@@ -177,6 +194,21 @@ spec =
             Wait (WaitOnNotApplicableDecommitTx{waitingOnDecommitTx = decommitTx''}) _ ->
               decommitTx2 == decommitTx''
             _ -> False
+
+        it "waits if a requested decommit tx is not (yet) applicable" $ do
+          let inputs = utxoRef 1
+              decommitTx = SimpleTx 1 mempty inputs
+              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              reqDecEvent = receiveMessage reqDec
+              decommitTxInFlight = SimpleTx 2 mempty (utxoRef 2)
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { decommitTx = Just decommitTxInFlight
+                    }
+
+          update bobEnv ledger s0 reqDecEvent
+            `assertWait` WaitOnNotApplicableDecommitTx decommitTx
 
         it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
@@ -448,6 +480,11 @@ spec =
             input = receiveMessage $ ReqTx (aValidTx 42)
         update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
 
+      it "ignores in-flight ReqDec when closed" $ do
+        let s0 = inClosedState threeParties
+            input = receiveMessage $ ReqDec{transaction = aValidTx 42, decommitRequester = alice}
+        update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
+
       it "everyone does collect on last commit after collect com" $ do
         let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
             bobCommit = OnCommitTx testHeadId bob (utxoRef 2)
@@ -554,6 +591,11 @@ spec =
       prop "ignores collectComTx of another head" $ \otherHeadId -> do
         let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
         update bobEnv ledger (inInitialState threeParties) collectOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores decrementTx of another head" $ \otherHeadId -> do
+        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId}
+        update bobEnv ledger (inOpenState threeParties) decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
