@@ -518,7 +518,7 @@ close ::
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  -- | Current off-chain snapshot version
+  -- | Current off-chain snapshot version in coordinated head state
   SnapshotVersion ->
   Either CloseTxError Tx
 close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confirmedSnapshot startSlotNo pointInTime offChainVersion = do

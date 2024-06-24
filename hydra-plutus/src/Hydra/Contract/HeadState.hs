@@ -48,7 +48,8 @@ data State
       , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
       , contesters :: [PubKeyHash]
-      , version :: SnapshotVersion
+      , -- REVIEW: remove?
+        version :: SnapshotVersion
       }
   | Final
   deriving stock (Generic, Show)

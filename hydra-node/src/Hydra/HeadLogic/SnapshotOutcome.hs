@@ -19,6 +19,8 @@ data NoSnapshotReason
   | NoTransactionsToSnapshot
   deriving stock (Eq, Show, Generic)
 
+-- REVIEW
+-- Spec: leader(s+1) = i
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
