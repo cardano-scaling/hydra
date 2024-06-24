@@ -292,7 +292,7 @@ checkClose ::
   Integer ->
   BuiltinByteString ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version expectedVersion utxoToDecommitHash =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber alreadyBumpedVersion expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -322,10 +322,12 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
     extractClosedDatum ctx
 
+  snapshotVersion = alreadyBumpedVersion - 1
+
   (correctDecommitHash, correctVersion) =
-    if expectedVersion == version - 1
-      then (decommitHash, version)
-      else (utxoToDecommitHash, version - 1)
+    if expectedVersion == snapshotVersion
+      then (decommitHash, expectedVersion)
+      else (utxoToDecommitHash, snapshotVersion)
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
