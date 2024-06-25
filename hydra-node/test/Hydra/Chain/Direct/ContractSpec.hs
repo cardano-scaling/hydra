@@ -20,8 +20,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import Hydra.Chain.Direct.Contract.Close.CloseCurrent (genCloseMutation, healthyCloseTx)
+import Hydra.Chain.Direct.Contract.Close.CloseCurrent (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Chain.Direct.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
+import Hydra.Chain.Direct.Contract.Close.CloseOutdated (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
@@ -120,16 +121,21 @@ spec = parallel $ do
       propTransactionEvaluates healthyDecrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyDecrementTx genDecrementMutation
-  describe "CloseCurrent" $ do
-    prop "is healthy" $
-      propTransactionEvaluates healthyCloseTx
-    prop "does not survive random adversarial mutations" $
-      propMutation healthyCloseTx genCloseMutation
   describe "CloseInitial" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
+  describe "CloseCurrent" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCurrentTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCurrentTx genCloseCurrentMutation
+  describe "CloseOutdated" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseOutdatedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
   describe "Contest" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx

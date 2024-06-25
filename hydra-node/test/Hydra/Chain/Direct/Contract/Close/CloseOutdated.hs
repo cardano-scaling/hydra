@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Chain.Direct.Contract.Close.CloseCurrent where
+module Hydra.Chain.Direct.Contract.Close.CloseOutdated where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
@@ -54,8 +54,8 @@ import Test.QuickCheck.Instances ()
 
 -- | Healthy close transaction for the generic case were we close a head
 --   after one or more snapshot have been agreed upon between the members.
-healthyCloseCurrentTx :: (Tx, UTxO)
-healthyCloseCurrentTx =
+healthyCloseOutdatedTx :: (Tx, UTxO)
+healthyCloseOutdatedTx =
   (tx, lookupUTxO)
  where
   tx =
@@ -67,7 +67,7 @@ healthyCloseCurrentTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
-      healthyCloseSnapshotVersion
+      (healthyCloseSnapshotVersion - 1)
 
   datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
 
@@ -91,7 +91,7 @@ closingSnapshot =
     , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
     , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
     , signatures = helthySignature
-    , version = healthyCloseSnapshotVersion
+    , version = healthyCloseSnapshotVersion - 1
     }
 
 helthySignature :: MultiSignature (Snapshot Tx)
@@ -107,20 +107,20 @@ healthySnapshot =
     , number = healthyCloseSnapshotNumber
     , utxo = splitUTxOInHead
     , confirmed = []
-    , utxoToDecommit = Just splitUTxOToDecommit
-    , version = healthyCloseSnapshotVersion
+    , utxoToDecommit = Nothing
+    , version = healthyCloseSnapshotVersion - 1
     }
 
 healthyOpenDatum :: Head.State
 healthyOpenDatum =
   Head.Open
     { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx splitUTxOInHead
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthyCloseUTxO
     , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , -- XXX: version has been bumped by previous decrementTx
-      version = toInteger healthyCloseSnapshotVersion + 1
+    , -- XXX: version has NOT been bumped yet by previous decrementTx
+      version = toInteger healthyCloseSnapshotVersion
     }
 
 healthyCloseSnapshotNumber :: SnapshotNumber
@@ -277,8 +277,8 @@ data CloseMutation
     MutateContestationPeriod
   deriving stock (Generic, Show, Enum, Bounded)
 
-genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCloseCurrentMutation (tx, _utxo) =
+genCloseOutdatedMutation :: (Tx, UTxO) -> Gen SomeMutation
+genCloseOutdatedMutation (tx, _utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
