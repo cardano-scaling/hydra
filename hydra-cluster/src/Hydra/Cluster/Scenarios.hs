@@ -712,6 +712,101 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
   RunningNode{networkId, nodeSocket, blockTime} = node
 
+-- | Open a a single participant head with some UTxO and decommit parts of it.
+canCloseWithPendingDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canCloseWithPendingDecommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 30_000_000
+    -- Start hydra-node on chain tip
+    tip <- queryTip networkId nodeSocket
+    let contestationPeriod = UnsafeContestationPeriod 1
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> \case
+          Direct cfg -> Direct cfg{networkId, startChainFrom = Just tip}
+          _ -> error "Should not be in offline mode"
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1@HydraClient{hydraNodeId} -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (walletVk, walletSk) <- generate genKeyPair
+      let headAmount = 8_000_000
+      let commitAmount = 5_000_000
+      headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+
+      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
+
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+
+      let walletAddress = mkVkAddress networkId walletVk
+      aliceAddress <-
+        case aliceChainConfig of
+          Direct DirectChainConfig{cardanoSigningKey} -> do
+            aliceSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+            let alicePVk = getVerificationKey aliceSigningKey
+            pure $ mkVkAddress networkId alicePVk
+          _ -> failure "Not using DirectChainConfig"
+
+      let decommitAmount = 3_000_000
+
+      let decommitOutput =
+            [ TxOut walletAddress (lovelaceToValue decommitAmount) TxOutDatumNone ReferenceScriptNone
+            ]
+      -- here we set the change address to Alice to simplify the balance assertion in the end of test.
+      buildTransaction networkId nodeSocket aliceAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput >>= \case
+        Left e -> failure $ show e
+        Right body -> do
+          let callDecommitHttpEndpoint tx =
+                void $
+                  L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+                    <&> setRequestBodyJSON tx
+                      >>= httpLbs
+
+          -- Send signed decommit tx
+          submitSignedDecommitTx n1 headId walletSk body callDecommitHttpEndpoint
+          -- Close and Fanout put whatever is left in the Head back to L1
+          closeAndFanout headId n1 (headAmount + decommitAmount) walletVk
+ where
+  closeAndFanout headId n expectedFinalBalance vk = do
+    -- After decommit Head UTxO should not contain decommitted outputs
+    send n $ input "GetUTxO" []
+    headUTxOAfterDecommit :: UTxO <- waitMatch 10 n $ \v -> do
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      guard $ v ^? key "tag" == Just (Aeson.String "GetUTxOResponse")
+      v ^? key "utxo" . _JSON
+    send n $ input "Close" []
+    deadline <- waitMatch (10 * blockTime) n $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsClosed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      v ^? key "contestationDeadline" . _JSON
+    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+    waitFor hydraTracer (remainingTime + 3 * blockTime) [n] $
+      output "ReadyToFanout" ["headId" .= headId]
+    send n $ input "Fanout" []
+    waitFor hydraTracer (10 * blockTime) [n] $
+      output "HeadIsFinalized" ["utxo" .= toJSON headUTxOAfterDecommit, "headId" .= headId]
+    walletUTxO <- queryUTxOFor networkId nodeSocket QueryTip vk
+    let walletBalance = sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs walletUTxO
+    walletBalance `shouldBe` expectedFinalBalance
+
+  submitSignedDecommitTx n headId sk body httpCall = do
+    let signedDecommitTx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+    let signedDecommitClientInput = send n $ input "Decommit" ["decommitTx" .= signedDecommitTx]
+    join . generate $ oneof [pure signedDecommitClientInput, pure $ httpCall signedDecommitTx]
+    let decommitUTxO = utxoFromTx signedDecommitTx
+
+    waitFor hydraTracer 10 [n] $
+      output "DecommitRequested" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+    waitFor hydraTracer 10 [n] $
+      output "DecommitApproved" ["headId" .= headId, "utxoToDecommit" .= decommitUTxO]
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
 -- | Assert fanout utxo is correct in presence of decommits.
 canFanoutWithDecommitRecorded :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canFanoutWithDecommitRecorded tracer workDir node hydraScriptsTxId =
