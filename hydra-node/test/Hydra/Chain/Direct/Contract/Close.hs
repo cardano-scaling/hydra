@@ -254,9 +254,9 @@ data CloseMutation
     -- Invalidates the tx by changing the snapshot number
     -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
-  | -- | Check that snapshot numbers <= 0 need to close the head with the
+  | -- | Check that snapshot numbers = 0 need to close the head with the
     -- initial UTxO hash.
-    MutateSnapshotNumberToLessThanEqualZero
+    MutateInitialSnapshotNumber
   | -- | Ensures the close snapshot is multisigned by all Head participants by
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
@@ -326,8 +326,8 @@ genCloseMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
         pure $ Head.Close sigs 0 mempty
-    , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateSnapshotNumberToLessThanEqualZero <$> do
-        mutatedSnapshotNumber <- arbitrary `suchThat` (<= 0)
+    , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateInitialSnapshotNumber <$> do
+        let mutatedSnapshotNumber = 0
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
