@@ -1574,6 +1574,8 @@ components:
             - headId
             - headParameters
             - confirmedSnapshot
+            - version
+            - closeUTxOToDecommit
           description: |
             Close the currently open Head with the given snapshot.
           properties:
@@ -1586,6 +1588,11 @@ components:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             confirmedSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+            version:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+            closeUTxOToDecommit:
+              $ref: "api.yaml#/components/schemas/UTxO"
+
         - title: ContestTx
           type: object
           additionalProperties: false
@@ -1954,11 +1961,18 @@ components:
           items:
             $ref: "api.yaml#/components/schemas/TxId"
         utxoToDecommit:
-          $ref: "api.yaml#/components/schemas/UTxO"
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
         version:
-          type: integer
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
 
     SnapshotNumber:
+      type: integer
+      minimum: 0
+
+    SnapshotVersion:
       type: integer
       minimum: 0
 
