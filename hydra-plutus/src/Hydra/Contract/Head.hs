@@ -296,8 +296,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber a
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
-    && checkSnapshot
     && mustBeSignedByParticipant ctx headPolicyId
+    && checkSnapshot
     && mustInitializeContesters
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headPolicyId)
@@ -334,6 +334,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber a
         verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash correctDecommitHash correctVersion sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
+          -- Spec: v=s=s=0
           closedUtxoHash == initialUtxoHash
 
   checkDeadline =
