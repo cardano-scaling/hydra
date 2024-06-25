@@ -84,29 +84,44 @@ healthyCloseTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
-  (utxo, utxoToDecommit) = splitUTxO healthyCloseUTxO
+closingSnapshot :: ClosingSnapshot
+closingSnapshot =
+  CloseWithConfirmedSnapshot
+    { snapshotNumber = number healthySnapshot
+    , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
+    , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
+    , signatures = helthySignature
+    , version = healthyCloseSnapshotVersion
+    }
 
-  closingSnapshot :: ClosingSnapshot
-  closingSnapshot =
-    CloseWithConfirmedSnapshot
-      { snapshotNumber = healthyCloseSnapshotNumber
-      , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
-      , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
-      , signatures = healthySignature healthyCloseSnapshotNumber
-      , version = healthyCloseSnapshotVersion
-      }
+helthySignature :: MultiSignature (Snapshot Tx)
+helthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys]
 
-  healthyOpenDatum :: Head.State
-  healthyOpenDatum =
-    Head.Open
-      { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-      , snapshotNumber = toInteger healthyCloseSnapshotNumber
-      , contestationPeriod = healthyContestationPeriod
-      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-      , -- XXX: version has been bumped by previous decrementTx
-        version = toInteger healthyCloseSnapshotVersion + 1
-      }
+splitUTxOInHead, splitUTxOToDecommit :: UTxO
+(splitUTxOInHead, splitUTxOToDecommit) = splitUTxO healthyCloseUTxO
+
+healthySnapshot :: Snapshot Tx
+healthySnapshot =
+  Snapshot
+    { headId = mkHeadId Fixture.testPolicyId
+    , number = healthyCloseSnapshotNumber
+    , utxo = splitUTxOInHead
+    , confirmed = []
+    , utxoToDecommit = Just splitUTxOToDecommit
+    , version = healthyCloseSnapshotVersion
+    }
+
+healthyOpenDatum :: Head.State
+healthyOpenDatum =
+  Head.Open
+    { parties = healthyOnChainParties
+    , utxoHash = toBuiltin $ hashUTxO @Tx splitUTxOInHead
+    , snapshotNumber = toInteger healthyCloseSnapshotNumber
+    , contestationPeriod = healthyContestationPeriod
+    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+    , -- XXX: version has been bumped by previous decrementTx
+      version = toInteger healthyCloseSnapshotVersion + 1
+    }
 
 -- NOTE: We need to use the contestation period when generating start/end tx
 -- validity slots/time since if tx validity bound difference is bigger than
@@ -124,20 +139,8 @@ healthyOpenHeadTxOut headTxOutDatum =
   mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
     & addParticipationTokens healthyParticipants
 
-healthyCloseSnapshotUTxO :: (UTxO, UTxO)
-healthyCloseSnapshotUTxO = splitUTxO healthyCloseUTxO
-
-healthySnapshot :: Snapshot Tx
-healthySnapshot =
-  let (utxo, utxoToDecommit') = healthyCloseSnapshotUTxO
-   in Snapshot
-        { headId = mkHeadId Fixture.testPolicyId
-        , number = healthyCloseSnapshotNumber
-        , utxo
-        , confirmed = []
-        , utxoToDecommit = Just utxoToDecommit'
-        , version = healthyCloseSnapshotVersion
-        }
+-- healthyCloseSnapshotUTxO :: (UTxO, UTxO)
+-- healthyCloseSnapshotUTxO = splitUTxO healthyCloseUTxO
 
 healthyCloseUTxO :: UTxO
 healthyCloseUTxO =
@@ -146,11 +149,11 @@ healthyCloseUTxO =
 
 healthyCloseUTxOHash :: BuiltinByteString
 healthyCloseUTxOHash =
-  toBuiltin $ hashUTxO @Tx (fst healthyCloseSnapshotUTxO)
+  toBuiltin $ hashUTxO @Tx splitUTxOInHead
 
-healthyCloseUTxOToDecommitHash :: BuiltinByteString
-healthyCloseUTxOToDecommitHash =
-  toBuiltin $ hashUTxO @Tx (snd healthyCloseSnapshotUTxO)
+-- healthyCloseUTxOToDecommitHash :: BuiltinByteString
+-- healthyCloseUTxOToDecommitHash =
+--   toBuiltin $ hashUTxO @Tx (snd healthyCloseSnapshotUTxO)
 
 healthyCloseSnapshotNumber :: SnapshotNumber
 healthyCloseSnapshotNumber = 1
@@ -195,10 +198,8 @@ healthyParties = deriveParty <$> healthySigningKeys
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
 
-healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
-healthySignature number = aggregate [sign sk snapshot | sk <- healthySigningKeys]
- where
-  snapshot = healthySnapshot{number}
+healthySignature :: SnapshotNumber -> Snapshot Tx -> MultiSignature (Snapshot Tx)
+healthySignature number snapshot = aggregate [sign sk snapshot{number} | sk <- healthySigningKeys]
 
 healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
@@ -294,7 +295,11 @@ genCloseMutation (tx, _utxo) =
         pure $ Head.Close sigs 0 mempty
     , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateInitialSnapshotNumber <$> do
         let mutatedSnapshotNumber = 0
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
+        pure $
+          Changes
+            [ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
+            , ChangeInputHeadDatum healthyOpenDatum{Head.utxoHash = ""}
+            ]
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -363,7 +368,7 @@ genCloseMutation (tx, _utxo) =
                       ( Head.Close
                           { signature =
                               toPlutusSignatures $
-                                healthySignature healthyCloseSnapshotNumber
+                                healthySignature healthyCloseSnapshotNumber healthySnapshot
                           , version = 1
                           , utxoToDecommitHash = mempty
                           }
@@ -382,7 +387,7 @@ genCloseMutation (tx, _utxo) =
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyCloseUTxOToDecommitHash) . toBuiltin)
+        mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx splitUTxOToDecommit)) . toBuiltin)
         pure $ modifyInlineDatum (replaceUtxoToDecommitHash $ toBuiltin mutatedUTxOHash) headTxOut
     ]
  where
