@@ -1506,6 +1506,7 @@ definitions:
       - chainState
       - headId
       - headSeed
+      - version
     properties:
       parameters:
         $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -1521,6 +1522,9 @@ definitions:
         $ref: "api.yaml#/components/schemas/HeadId"
       headSeed:
         $ref: "api.yaml#/components/schemas/HeadSeed"
+      version:
+        type: integer
+        minimum: 0
 
   CoordinatedHeadState:
     type: object
@@ -1532,6 +1536,7 @@ definitions:
       - confirmedSnapshot
       - seenSnapshot
       - decommitTx
+      - version
     properties:
       localUTxO:
         $ref: "api.yaml#/components/schemas/UTxO"
@@ -1554,6 +1559,9 @@ definitions:
           - type: "null"
           - type: object
             $ref: "api.yaml#/components/schemas/Transaction"
+      version:
+        type: integer
+        minimum: 0
 
   SeenSnapshot:
     oneOf:
