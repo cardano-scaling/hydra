@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Chain.Direct.Contract.Close where
+module Hydra.Chain.Direct.Contract.Close.CloseCurrent where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
@@ -45,7 +45,7 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
@@ -67,7 +67,7 @@ healthyCloseTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
-      1
+      healthyCloseSnapshotVersion
 
   datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
 
@@ -93,7 +93,7 @@ healthyCloseTx =
       , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
       , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx utxoToDecommit
       , signatures = healthySignature healthyCloseSnapshotNumber
-      , version = 1
+      , version = healthyCloseSnapshotVersion
       }
 
   healthyOpenDatum :: Head.State
@@ -104,45 +104,8 @@ healthyCloseTx =
       , snapshotNumber = toInteger healthyCloseSnapshotNumber
       , contestationPeriod = healthyContestationPeriod
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-      , version = 1
-      }
-
--- | Healthy close transaction for the specific case were we close a head
---   with the initial UtxO, that is, no snapshot have been agreed upon and
---   signed by the head members yet.
-healthyCloseInitialTx :: (Tx, UTxO)
-healthyCloseInitialTx =
-  (tx, lookupUTxO)
- where
-  tx =
-    closeTx
-      scriptRegistry
-      somePartyCardanoVerificationKey
-      closingSnapshot
-      healthyCloseLowerBoundSlot
-      healthyCloseUpperBoundPointInTime
-      openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
-      0
-
-  initialDatum = toUTxOContext (mkTxOutDatumInline $ healthyOpenHeadDatum{Head.snapshotNumber = 0})
-
-  lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
-      <> registryUTxO scriptRegistry
-
-  scriptRegistry = genScriptRegistry `generateWith` 42
-
-  openThreadOutput =
-    OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
-      , openParties = healthyOnChainParties
-      , openContestationPeriod = healthyContestationPeriod
-      }
-  closingSnapshot :: ClosingSnapshot
-  closingSnapshot =
-    CloseWithInitialSnapshot
-      { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
+      , -- XXX: version has been bumped by previous decrementTx
+        version = toInteger healthyCloseSnapshotVersion + 1
       }
 
 -- NOTE: We need to use the contestation period when generating start/end tx
@@ -173,7 +136,7 @@ healthySnapshot =
         , utxo
         , confirmed = []
         , utxoToDecommit = Just utxoToDecommit'
-        , version = 0
+        , version = healthyCloseSnapshotVersion
         }
 
 healthyCloseUTxO :: UTxO
@@ -192,6 +155,9 @@ healthyCloseUTxOToDecommitHash =
 healthyCloseSnapshotNumber :: SnapshotNumber
 healthyCloseSnapshotNumber = 1
 
+healthyCloseSnapshotVersion :: SnapshotVersion
+healthyCloseSnapshotVersion = 1
+
 healthyOpenHeadDatum :: Head.State
 healthyOpenHeadDatum =
   Head.Open
@@ -200,7 +166,7 @@ healthyOpenHeadDatum =
     , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = 0
+    , version = toInteger healthyCloseSnapshotVersion
     }
 
 healthyContestationPeriod :: OnChain.ContestationPeriod
@@ -341,7 +307,7 @@ genCloseMutation (tx, _utxo) =
             , snapshotNumber = toInteger healthyCloseSnapshotNumber
             , contestationPeriod = healthyContestationPeriod
             , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-            , version = 0
+            , version = toInteger healthyCloseSnapshotVersion
             }
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
@@ -431,24 +397,6 @@ genCloseMutation (tx, _utxo) =
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
-
-data CloseInitialMutation
-  = MutateCloseContestationDeadline'
-  deriving stock (Generic, Show, Enum, Bounded)
-
--- | Mutations for the specific case of closing with the intial state.
--- We should probably validate all the mutation to this initial state but at
--- least we keep this regression test as we stumbled upon problems with the following case.
--- The nice thing to do would probably to generate either "normal" healthyCloseTx or
--- or healthyCloseInitialTx and apply all the mutations to it but we didn't manage to do that
--- right away.
-genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
-genCloseInitialMutation (tx, _utxo) =
-  SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
-    mutatedDeadline <- genMutatedDeadline
-    pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
- where
-  headTxOut = fromJust $ txOuts' tx !!? 0
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime
