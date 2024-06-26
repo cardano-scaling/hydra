@@ -126,29 +126,34 @@
                         },
                         "confirmedSnapshot": {
                             "signatures": {
-                                "multiSignature": []
+                                "multiSignature": [
+                                    "0989c3442e0f988901ad9851bec73ddc3721c059bcbeb41fb6f87cddbce089d220f65428e37132308fd93100863cae7d292cb90db72017fad22639a5fbf2d803",
+                                    "8e7bc67de6d204d18797c002e2498530ad85d7f9c48d028d11cfdea413ca08fdb363fc4636fa1db269ad7c51cba77fc6db4b8343518e2b24f8f722498763380d",
+                                    "a11770b215563c3bd49e81ed3a8391dcb8539a1c4088122f06fd2ee73370add469a8e00ca66ce04fd6d18fbf99fd2c9a4cc7860de030f48a004b5551a0c2f90e",
+                                    "07361667731e1cc397d45e4c73e7835981f3611c568ac99cd5f3464a4edb710aaa08db9433c5fbef419f3768e0867bb5ea7e09b7b6792991c88c9985bb61640d"
+                                ]
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "04030703010502050506050106080602",
-                                "snapshotNumber": 5,
+                                "headId": "06080404060501060106010505010600",
+                                "snapshotNumber": 4,
                                 "utxo": [
+                                    -5,
+                                    -2,
+                                    0,
+                                    5
+                                ],
+                                "utxoToDecommit": [
                                     -6,
                                     -4,
-                                    -1
-                                ]
+                                    -2,
+                                    3
+                                ],
+                                "version": 0
                             },
                             "tag": "ConfirmedSnapshot"
                         },
-                        "decommitTx": {
-                            "id": 5,
-                            "inputs": [
-                                3
-                            ],
-                            "outputs": [
-                                -5
-                            ]
-                        },
+                        "decommitTx": null,
                         "localTxs": [
                             {
                                 "id": -1,
@@ -217,8 +222,10 @@
                             2
                         ],
                         "seenSnapshot": {
-                            "tag": "NoSeenSnapshot"
-                        }
+                            "lastSeen": 5,
+                            "tag": "LastSeenSnapshot"
+                        },
+                        "version": 0
                     },
                     "currentSlot": 3,
                     "headId": "00040301050605020306060200010206",
@@ -285,11 +292,17 @@
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "03040301030305040407040004030708",
-                        "snapshotNumber": 6,
+                        "headId": "06080407040804030000050507000606",
+                        "snapshotNumber": 5,
                         "utxo": [
                             -4
-                        ]
+                        ],
+                        "utxoToDecommit": [
+                            -3,
+                            3,
+                            6
+                        ],
+                        "version": 0
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -673,8 +686,8 @@
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "06010801000702040708050108030106",
-                        "snapshotNumber": 5,
+                        "headId": "06030101010805010506030208010405",
+                        "snapshotNumber": 2,
                         "utxo": [
                             -5,
                             -1,
@@ -682,7 +695,11 @@
                             2,
                             5,
                             6
-                        ]
+                        ],
+                        "utxoToDecommit": [
+                            -2
+                        ],
+                        "version": 0
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -822,37 +839,42 @@
             "state": {
                 "contents": {
                     "chainState": {
-                        "slot": 4
+                        "slot": 3
                     },
                     "confirmedSnapshot": {
-                        "headId": "00030506060704080207060205040007",
-                        "initialUTxO": [],
+                        "headId": "03030402040201080502000205040104",
+                        "initialUTxO": [
+                            -6,
+                            -2,
+                            0
+                        ],
                         "tag": "InitialSnapshot"
                     },
-                    "contestationDeadline": "1864-05-08T10:24:34.486991830024Z",
-                    "headId": "05050201040504050501050507020205",
-                    "headSeed": "08050802040107020204060607040708",
+                    "contestationDeadline": "1864-05-13T08:25:07.92555965959Z",
+                    "headId": "00040500000204060201070508000305",
+                    "headSeed": "05050201040504050501050507020205",
                     "parameters": {
-                        "contestationPeriod": 24529,
+                        "contestationPeriod": 86400,
                         "parties": [
                             {
-                                "vkey": "8c43b68b1f4d546df60ff0791d7e2dc85d6b0bf8a72140cc8fcc0e82af13d1cf"
+                                "vkey": "cb1e26c7f9772d50e832ac59861c0c4589fca59018716026b6523a5bb91dbe09"
                             },
                             {
-                                "vkey": "ccec9437c87e59a8381f7fabae074dde7595b3a77b64f779d2c7c565013310af"
+                                "vkey": "b303581e51acf3709337cfd5ef0818c0ef156f070b763c125cbf44b6f018911d"
                             },
                             {
-                                "vkey": "16e0dc41c758f13ea0c5b2a4fd20668fa92b08c20e5be30b05b029d7fcedcfdd"
+                                "vkey": "ab16585b8438b4e2331796e5431fb06d0f19ed1e8c4b520797ef6c672a05954f"
                             },
                             {
-                                "vkey": "350a2c0b8fb97cea96a7a8ba5f7e0a9927ec7dd3af80798d8c2678ddac92ef03"
+                                "vkey": "fa1f8547fcaa5ace1c6c6f8b690aa80cbcf282a3162e504f19994d84e05d015e"
                             },
                             {
-                                "vkey": "3f6170696a04ed195ee69ec9b468305c0ba5ab1f2d03fa4b276b8b3b1545ced4"
+                                "vkey": "9c28faccec78dacf8effd3b3c38a840dae2f2d7e18ce2bd4acb9acdfb4f35177"
                             }
                         ]
                     },
-                    "readyToFanoutSent": true
+                    "readyToFanoutSent": false,
+                    "version": 0
                 },
                 "tag": "Closed"
             },
@@ -986,27 +1008,20 @@
             "headId": "04010800030200030606000602070605",
             "signatures": {
                 "multiSignature": [
-                    "9e4dbba12852655ceb2d97bab57410a3700db98025c2e974dcf4c9a005db887067721747457cfdf5c6eacf0598d76694eb05baf7307af4568e5444a0249a7006",
-                    "f953a4b277545fbbc68932d3b7caf45ae191cfc691447d9f452cae4c0be35f37dd07b5eacdba0bca595e2b24fc548f1c44d0018e890f8db2ae0878303603230a",
-                    "f5c7023d7814ae3eb7fe0e5b566ca2236b9204f300e1534e9664d15399e3562de042cd16024af1fde67f95fdddf96437299cb120ee0364167a0906ef73699505",
-                    "29c470ece63e13b7aca90c207ac363c1b6a9fa18f0056428e812455676ae7bd54c49078a0c929a55fe5f173df750f214b8356b7e9818e8e3d8cb342a30c9b900"
+                    "e92db719f1c31a7b5eb7a87fe53288eb1cf2649cc795d25173c60fc75a1b03fd17bd5a85c01aa18edff15a93fcec5ef22c4f6cbac1fb32429c240bcebb376e0b",
+                    "1d16f07c4619cfcb7a7882dd4f9ac935b32431d13427bdf18219a35925d226c9eb449c76b573485ea499cf931fd4a63767a27413ce83479e565e2faa0d20c800",
+                    "6688c6e37dbebc980e6d5be654b6ebc1f4b5d6f5d4270c473399e36108d9a4dbd7a9322be25bbf492234fbc2e4e6402f61c2c525c4738e8c9e0db72be1ddd90e",
+                    "80d2a60500a98e6fdf780394a16690e89845546c0f2eb86f183458325a1cb67af184d0ea4c50f5e1cfba69dc8641ebc7a331c2d30599a1b6f87fad3608853102"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    2,
-                    4,
-                    -2,
-                    4
-                ],
-                "headId": "05030708020201020107010106050406",
-                "snapshotNumber": 5,
-                "utxo": [
                     1
                 ],
-                "utxoToDecommit": [
-                    2
-                ]
+                "headId": "05030708020201020107010106050406",
+                "snapshotNumber": 2,
+                "utxo": [],
+                "version": 4
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1015,13 +1030,13 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "151feb5a762d51f65b4837468ad3eda13dd29377a3eb1a19adaac72e94861b9ae195319a942e779e0fd9ef5b049d8ff78e982585ba5fab6438d699a56c067304",
-                            "bd2fe6d7004e27be36acc3ee146acb8429531127d259ae8ec8a412a4b8ee8ed982422edb0a0a6e262af5e728fe5cf0772249c2e96aa4942ee92cc52325bff70d"
+                            "6c14d2f7e5d67ae356fb7275949b0a7083902a9ec37b9119895f8d78b9fe8e9d0deda3b71190ce4b4766b51f9e77c52e517ad7200d0e0367b73066e5b969040a",
+                            "d08e5e4ffc91dbbd85b7a7b3f70ff0a6bcc76c14e2ee93728964e267085883a842cc1e333596d680068946a9bec2f72fd0b6ece14ec144cc65616940a398d109"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "05020405000808050304040402030403",
+                        "headId": "00000803010206060200050708050503",
                         "snapshotNumber": 2,
                         "utxo": [
                             -5,
@@ -1029,7 +1044,12 @@
                             4,
                             5,
                             6
-                        ]
+                        ],
+                        "utxoToDecommit": [
+                            -3,
+                            -2
+                        ],
+                        "version": 0
                     },
                     "tag": "ConfirmedSnapshot"
                 },
@@ -1050,44 +1070,67 @@
                 },
                 "tag": "InvalidStateToPost",
                 "txTried": {
+                    "closeUTxOToDecommit": [
+                        -1,
+                        2,
+                        4,
+                        6
+                    ],
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "f7244f5042d38c97398d0b50a61eeec356c991ac5f88e063c4f2eaac8f3f1c99869d3502844a75e910533f63a413605304b5a2735ea81474b1e5caba6a718704"
+                                "04b66dba0b4a2ca6c2e49556a413b2037a9c4f89f6db0effbf340f90d14a1b6109e23e8d2aef25614ee6563197ceb8baff5e486365cc87e820a51971e4218d09",
+                                "c63485053f699f9ec54037affa91acb93e46be331e9bb991e9ecc0bdb9401250c5facaa33b893f2ed003496449c243ad0b9d93df020296ca051c56b52b4cde03",
+                                "41ff599207d18a89b09727f4c2d9a576fbb6c09ce10ba212c11eae95ac87be83f142cff7178f491653c6aab038f64fa737cb69468c6b5bff7a359ef08801a20d",
+                                "825685d6675c632b939f9c6b8b651dc0d65f2a7507a2357431dfb62b0c575ee32ee3c9d868a99cc55b6712feb9a884e21c658de9a59f55417aee71d279b19109",
+                                "6e4d409a28be1fb3d5379ea10b2ac02e4a526b86200e9c93f77da218d21d2b5ab3bc9143679d0e8fda4612e0acb9fba8fdbade503869a7dd27956891c12a8e08"
                             ]
                         },
                         "snapshot": {
                             "confirmedTransactions": [],
-                            "headId": "05010203050206070001000104020804",
-                            "snapshotNumber": 6,
+                            "headId": "07050400030404080204020408000503",
+                            "snapshotNumber": 1,
                             "utxo": [
+                                -5,
                                 -1,
                                 2,
-                                4,
-                                6
-                            ]
+                                4
+                            ],
+                            "utxoToDecommit": [
+                                -6,
+                                -5,
+                                2
+                            ],
+                            "version": 0
                         },
                         "tag": "ConfirmedSnapshot"
                     },
-                    "headId": "03060605000308050803070104030501",
+                    "headId": "07020705040300060205010501020208",
                     "headParameters": {
-                        "contestationPeriod": 2592000,
+                        "contestationPeriod": 60713,
                         "parties": [
                             {
-                                "vkey": "1706e5f28f40af02daa7dd8362cde5f81d5eebcd38a287502d66d8981ec8fa2e"
+                                "vkey": "26084b271bcc92df216c098591854ebc4e49b11b1038782cc3c431d0317aa483"
                             },
                             {
-                                "vkey": "b9031624968c17d7a87becc8dee9202fa3df717f2b4458a1b02c7099d87dba2c"
+                                "vkey": "06e3f9bf4e07c73a08e98e6af9188c83e669eb85667b4732e1e76cf3facf4b76"
                             },
                             {
-                                "vkey": "2ac39a1e25135f28b0769f6626806eedbf8dc17a23ba31c63839e7a1fb8ae84a"
+                                "vkey": "e873ed612bf46aace19cd1d28c553b426900128604308b925634d8b93df52cc3"
                             },
                             {
-                                "vkey": "9f7ad6d2afccfecf684774dbcf7361bbe757996292ae338a3c57090af69634e8"
+                                "vkey": "eb45b2f027e94b3764e09f6458ea2233baf1c2cf1b70693b988589023795f09b"
+                            },
+                            {
+                                "vkey": "b3177bfaae06ae6adf851a5d72c913153960c55dcfda4006dce519f63eb8a329"
+                            },
+                            {
+                                "vkey": "0c0163d793a2d3f4bec14f76a1f4fe61f1d81bb664c2ff21338727e9a106eb34"
                             }
                         ]
                     },
-                    "tag": "CloseTx"
+                    "tag": "CloseTx",
+                    "version": 3
                 }
             },
             "tag": "PostTxOnChainFailed"
@@ -1128,24 +1171,26 @@
             "headId": "05000208000002020100040508050705",
             "signatures": {
                 "multiSignature": [
-                    "3124e593f9561f59711f411239301d91792bcc574bb95b2ecd5ea1cc8dd535c32efe829e33a10fc033b05eaed39101fe311568c2d83b287871ed61f56fd17208"
+                    "f96289715b46b9011426b23483a1409554ead46d0580f6be79924171ad0912e1f30a1b281eb327315e083cea9c3b0afb0ab2bf63f0bea46e74e747524d440b0e"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -1,
-                    3,
-                    2
-                ],
-                "headId": "03000308000207000808080808050807",
-                "snapshotNumber": 6,
-                "utxo": [
                     -5
                 ],
+                "headId": "03000308000207000808080808050807",
+                "snapshotNumber": 2,
+                "utxo": [
+                    -4,
+                    -2,
+                    1,
+                    2
+                ],
                 "utxoToDecommit": [
-                    0,
-                    6
-                ]
+                    -6,
+                    -4
+                ],
+                "version": 1
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1208,25 +1253,28 @@
                 },
                 "signatures": {
                     "multiSignature": [
-                        "8522545e9af4b1c260f4cf5b818882790575c8287fde6f7a81921d979289691a5366e95686957aa590a50debc98e7c7cb8bbd72a6cb10425c22a95068da24d0f",
-                        "ba42af88c65a9612b8b92808f34a160888ddcde81db0d7844e22869640b1287f5ba248c0fd64ae0aa3e629a628e46e312d914503ce4ae74c2d503071adffa904",
-                        "f8495dbb5fc8791bd98d71a31e97170e399842cae9558aaccebb12c0e1518ce9c5d4cd35c80deaeeb6d1edaffb9b053a31b7fa2e863a7885817d35b3f93ec40d"
+                        "ef4642695e7703f480c01d5b3661e52c3f7f7a8694027b93a1b63639669948fb1618df0afa05bb7d017441a783961643c02a3bd4487500133e548af1dd103302",
+                        "df11fc5236ed6051257b8ef56572a290320d9990cf88bc3cc911cf80b6578ce829d9b0273930e73b09c876fd5581042cba8bfb7175bdaf2ead5f417bc139ec06",
+                        "0922d564d89e883fb73dde069e5fad2b6d0c794a1176f0feab008305ae4937d13ed581a4f1614eaf3f3ac0541319cffab48d642e9a44935ec6fd13829960aa0b"
                     ]
                 },
                 "snapshot": {
                     "confirmedTransactions": [
-                        -1
+                        -4
                     ],
                     "headId": "01080305040201040605010704070008",
-                    "snapshotNumber": 1,
+                    "snapshotNumber": 3,
                     "utxo": [
-                        -4
+                        -3,
+                        6
                     ],
                     "utxoToDecommit": [
                         -5,
+                        0,
                         1,
-                        5
-                    ]
+                        3
+                    ],
+                    "version": 4
                 },
                 "tag": "DecrementTx"
             },
@@ -1432,34 +1480,27 @@
             "headId": "00030601070103050008080200030208",
             "signatures": {
                 "multiSignature": [
-                    "dde1fbb2f3d1a73dc34b743c6ed0e96e1621f15f191946eaeb505f8a991e17f324cdc46bbe75f2d3586243386df9d7ecc6822bef657408f6ae0ea93157caa309"
+                    "14514e389ddb6ab1bd8927058b74c366fd27f6a6903873c69997bbdfd4f102ce8233ff0898c5ad9b25ed1c6dcddf4bb523b271da50c710098f0ecb3220f13c0d"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -5,
-                    -2,
                     3,
-                    4,
-                    -5,
-                    0
-                ],
-                "headId": "05010601000406040705070505040603",
-                "snapshotNumber": 3,
-                "utxo": [
                     -4,
                     -3,
                     1,
-                    2,
-                    3
+                    2
                 ],
-                "utxoToDecommit": [
-                    -6,
-                    -4,
-                    -2,
+                "headId": "05010601000406040705070505040603",
+                "snapshotNumber": 1,
+                "utxo": [
                     -1,
-                    1
-                ]
+                    0,
+                    3,
+                    4
+                ],
+                "utxoToDecommit": [],
+                "version": 0
             },
             "tag": "SnapshotConfirmed"
         },
@@ -1820,19 +1861,21 @@
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -3,
-                    4,
-                    3,
-                    -6
-                ],
-                "headId": "02040101070303010400020304010300",
-                "snapshotNumber": 3,
-                "utxo": [
+                    6,
+                    -2,
                     -2,
                     2,
                     5,
+                    5
+                ],
+                "headId": "02040101070303010400020304010300",
+                "snapshotNumber": 0,
+                "utxo": [
+                    0,
                     6
-                ]
+                ],
+                "utxoToDecommit": [],
+                "version": 0
             },
             "tag": "SnapshotConfirmed"
         },
@@ -2170,28 +2213,19 @@
             "headId": "07000200010002070708080800080400",
             "signatures": {
                 "multiSignature": [
-                    "638354198f87ea2259f20a69009408b92a5ad9f9b2112bafc288d93ffc0e81fb03c446a8bee0c2c87fe089942a11b8367dc73f92138837f3dd45f95bb52b4f07",
-                    "067344dc34e12fe99a391042722d9308aef9087dc666e59b9055ff14c26528804850c59045ee88481c2de64a9d6a0d2d67e0b747d61aec42b57899a7a59d5d0e",
-                    "271b0cc05e1eef59a64342745156fe6da1aff9b778c3c2c30b02c6c2fe903a9d190073f11d3f14fe86937430034549c561197bbc6f798460fcbcae57bc6a6f06",
-                    "9848c31a761117d4a33d94a11b7c0bcfe31206fb2f64b28b0b58d5c1858b77b8c20820d3505015a7c26b29cc28f712027da84b31907979fbf1ed4ef55223cf04",
-                    "60a7a9161cf5e1f9ecd9fd5a13becf14f7fdb22f87d41e46df3645e6c3ed2a7ce636ba7aabf1de3f28149af60d3f4a48c89b5e7503355660c025043cdb963d0a"
+                    "5ab1b4aa25844d5ccf5ac0b3ac31e96c6decfe6ebf2b103a6ea3421618397547b43a1d3348e5e8f108b3a359bb3e7fa8a172391aff7ad8e85498e07285902106",
+                    "4fbcc308557dd3916f6dc02db096b1767618bbefb303733660009935c0264420c67c8b2b68099e6165ef68e514ff805c63572cc2e87209f7d35d92cfe2f5a70a",
+                    "f6ea25c118c02443f0bd4cf2628da814be95244e19fc31f70bade923de8b8722d0402b1b7d1f82ce06f04057b747fc89827f30717e03d9f85e5be3636056ec00",
+                    "77339fb5fdb0f41852029f590d106ea428ad389cbf23130da6bea8bfc777c02a00a7b25ebecdea4bdddb818d801245429334d8c60f2c2f173d0288b2b4f05607",
+                    "8f39afbd9fb4375be3e388955d746b9e4b85ee276ae8f10cf8df3fa1a3a98ff1f268f110713434247041373a120d7e0e65df1040df98f0360b9c1037e6269b04"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [
-                    5,
-                    3,
-                    4,
-                    1
-                ],
+                "confirmedTransactions": [],
                 "headId": "01020304080400060307060506000702",
-                "snapshotNumber": 6,
+                "snapshotNumber": 5,
                 "utxo": [],
-                "utxoToDecommit": [
-                    -6,
-                    -3,
-                    1
-                ]
+                "version": 4
             },
             "tag": "SnapshotConfirmed"
         },
@@ -2660,40 +2694,39 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "190323cc07316a3ac715b7d0ce4764244aa487d7707019a4ca580a916e8ada7f69bfc6fa1f315fc52248867a3905862938170fb7e1e08824556209316efce809",
-                                    "4df4d9b96bdbb686f82c25e84224274e1355de610fc6d655ef57c25366375a1753667c8a5a12c5b9b446251e1b696bcdef8368fcb408a18abcd8bdabb159400a",
-                                    "541bed683561ecdbd4e6112c0b8ab407a1b50ed91525ebafae2ed4031f6bd3caebbe31192c51f6d3e221d8459435caaeb589192185189179c852b4d1585ab407",
-                                    "cf5c77b0adcc0f2a468f0c76015c178e3a440b1d50391ff539105b916cbe083ea5e1717f78adec97c8c94eb99c59c834a1ae3b848e22d16684fcc5d77442ff08",
-                                    "d557494c9cf6d00cf621e7a5f9667a2bec72fd912f8a85e91e3d8d38a7ca82e469acdedfd283c40a7f7a69e1c40b98b8cd35a700aab31c312cc31afd2e68dd0d"
+                                    "cb321b6ea636cdce5814fb370d43e00ccbdf0c9c5b4a05ba94deffd2acd8bcad5705aef679f403c283dea84efd20ee6bab41da4b8728668c871b1c5bca7e6405",
+                                    "84521a20d94e0c28b15ae28bcbb3a260750b2e0157a9cb29c05bdbf6b19d22720f0194ed0ec1524b315226cfe9d01ee918f4908ef9f1dfb3975c4b0ee3620f04"
                                 ]
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "03030608050807070404030202080701",
+                                "headId": "03080502050705070704030705040603",
                                 "snapshotNumber": 1,
-                                "utxo": [
-                                    -1,
-                                    0,
-                                    2,
+                                "utxo": [],
+                                "utxoToDecommit": [
+                                    -4,
+                                    1,
+                                    3,
                                     5,
                                     6
-                                ]
+                                ],
+                                "version": 0
                             },
                             "tag": "ConfirmedSnapshot"
                         },
                         "decommitTx": {
-                            "id": -2,
+                            "id": 6,
                             "inputs": [
-                                -6,
-                                -4,
-                                2,
-                                3,
-                                4
+                                -2,
+                                1,
+                                3
                             ],
                             "outputs": [
-                                -4,
+                                -5,
                                 -2,
-                                4
+                                -1,
+                                0,
+                                6
                             ]
                         },
                         "localTxs": [
@@ -2743,9 +2776,10 @@
                             3
                         ],
                         "seenSnapshot": {
-                            "lastSeen": 4,
+                            "lastSeen": 2,
                             "tag": "LastSeenSnapshot"
-                        }
+                        },
+                        "version": 0
                     },
                     "currentSlot": 4,
                     "headId": "03030405020304030703000701030308",
@@ -2813,30 +2847,40 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "06b91eedfe57b1aef180536abfe78d6874263923af645d015af3632f5c125f847e73729cb508bfe3fb6849efb355dc093c8901deb4b9ab8114109f8b18744308",
-                                    "2e134f85a0a13bbd9b557ec8be65a2887ee265575ec90ab878bd76d537589d39be2bc6355cb697b177211aae6dc40f2fb1e7b484f230734c582d53ee10d2a404",
-                                    "70ec2bdc5c4cd9b116b9116a1e185e4745a06c3547bd7390eb0495311b01ec9fb64b91a232e17c6d23eece1c667a2f10b7746fc93a813b4f49a0db44eb245c0c",
-                                    "2bff04c0495369477700b7c911d765e346cc1a0051470dbe655c52fb4b243efe0859b6719b6cc2f40f963c1196692bbaf6105541539fdf7af65851c084cb5600"
+                                    "db9aaaaef60ce834190ce24412d0d28adbe44d9a9e625a94e36895fa60de4a9eeabf91df1e943e88114582e452a58e424512b697b1c16ca0922f4379150cf401",
+                                    "1934a43c62047abeef5eedab4760faaa546175433d31c67c5a4fbde634722ebe88dfbd8dd53172f5cdecab47b84c7b18e28aeb97648225f79f309f2c07c76b0f",
+                                    "3822979454a2b2707510f06d80119d1531ad164c77bf095f126e478447c411d8f4c10779cfb2c12553332fa8588619c0496dbe744ff8f87d9b44a08bf62cf402"
                                 ]
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "03080500050506080605030106070707",
-                                "snapshotNumber": 2,
+                                "headId": "02010006020505000605000603010200",
+                                "snapshotNumber": 4,
                                 "utxo": [
                                     -3,
-                                    1
-                                ]
+                                    5
+                                ],
+                                "utxoToDecommit": [
+                                    -4,
+                                    4
+                                ],
+                                "version": 0
                             },
                             "tag": "ConfirmedSnapshot"
                         },
                         "decommitTx": {
-                            "id": -2,
+                            "id": -4,
                             "inputs": [
+                                -6,
+                                0,
+                                4,
                                 5
                             ],
                             "outputs": [
-                                -2
+                                -5,
+                                1,
+                                3,
+                                4
                             ]
                         },
                         "localTxs": [
@@ -2853,10 +2897,10 @@
                         ],
                         "localUTxO": [],
                         "seenSnapshot": {
-                            "lastSeen": 6,
-                            "requested": 5,
-                            "tag": "RequestedSnapshot"
-                        }
+                            "lastSeen": 3,
+                            "tag": "LastSeenSnapshot"
+                        },
+                        "version": 3
                     },
                     "currentSlot": 6,
                     "headId": "04060503020300070703020402080606",
@@ -2971,31 +3015,31 @@
             "headId": "03030103000507060704030506050002",
             "signatures": {
                 "multiSignature": [
-                    "a90c6e2f41479ecabe1821f9b55ffeeb8f1fc110ec961bb3236c359bf972234c76bb474dc3333f393eeba4f3a75aa2cf5ee68c1dc5699fb998ddfa7d56763005",
-                    "eb1d223864bcd1186dd44c76f4ac014acfd91bc1fff6509497626e4b24811962d92a9a4305de5cef5b09a01076392831366e06bf73c8a39fbf8cb884d5415c0d",
-                    "c972cbed814f67e694dbfaf3462715b361a3a3b8cc65daa0a69c02d510dc625a7bbad6500456887c24a80afa3133c8f8abb83ffc3388fb24e1902e0f9f0d7d06",
-                    "fdf4a6ee443ab25245f15f83fee5307e94cce2ecd5d5ce362be14f47608af59256844e7b26a5959ba0c11124ca1a39b5d5439abcf1e577d7d72f597961036b0a",
-                    "116bb6a444127d76353c8fdc6fab506637904ecbb78b1f512de22250a0930420d5da08899c7a5ce1b93f8dbc623e5d084788b9cd38d7384109c1e452eb4d930f"
+                    "1d7fb2d706777140f7465943757439b838dd3563c010ff7b23289e2c8b76f64b146b10cd94b4c8c28081236845b6d4ab66a2fe200cf86abededf470c17695a0f",
+                    "7fb8ac75971600b828dd93699c64c06e35150c3e7522953f339ec6ea57ecb8d937c9b7a0e94f8592414dbd204d56ae6306ad38a0b2ae3f8f81392b6ee810a805",
+                    "4e2170cd1bca0658519c6b695a650ae9a446189a1da2bcb88b5252ec66af227d1ce8847c0d7b64181ef2e8602a856c3806fd6ffc72b858724690436e24225707",
+                    "d4d5113e4600184e0622961255306cce3e5ac5eca36188115d35684f6b9057bcf01d3b707efd79d168f5e81ccdabc5f0ed120066685e7a47afe2066847fbee0d",
+                    "9d948a9b72fa0f62777518ef344c3f014ae630e72af50ea09e3d400549e2b2cf353e1fc941b839bd3722f26dbaba2d6a034e6e614191c8651684e5f8e6a01209"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [
+                "confirmedTransactions": [],
+                "headId": "01030301050208040003000308000708",
+                "snapshotNumber": 0,
+                "utxo": [
+                    -6,
+                    -3,
+                    -1,
+                    2
+                ],
+                "utxoToDecommit": [
+                    -4,
+                    -2,
                     -1,
                     4,
-                    0,
-                    -2,
-                    -2
-                ],
-                "headId": "01030301050208040003000308000708",
-                "snapshotNumber": 1,
-                "utxo": [],
-                "utxoToDecommit": [
-                    -2,
-                    0,
-                    3,
-                    4,
                     6
-                ]
+                ],
+                "version": 4
             },
             "tag": "SnapshotConfirmed"
         },
