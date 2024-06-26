@@ -1032,9 +1032,9 @@ genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   cctx <- pickChainContext ctx
+  let version = 0
   snapshot <- do
     number <- getPositive <$> arbitrary
-    version <- arbitrary
     let (utxo, toDecommit) = splitUTxO u0
     pure Snapshot{headId, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit, version}
   let signatures = aggregate $ fmap (`sign` snapshot) (ctxHydraSigningKeys ctx)
@@ -1053,7 +1053,8 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUtxo, utxoToDecommit) = splitUTxO u0
-  snapshot <- genConfirmedSnapshot headId 1 1 confirmedUtxo (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
+  let version = 0
+  snapshot <- genConfirmedSnapshot headId 1 version confirmedUtxo (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
