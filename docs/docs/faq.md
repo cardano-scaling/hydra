@@ -1,4 +1,4 @@
-# Frequently Asked Questions
+# Frequently asked questions
 
 <details>
 <summary>What is Hydra?</summary>
@@ -22,11 +22,11 @@ Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, an
 
 <details>
 <summary>So what’s this I have heard about ‘1M TPS’?</summary>
-This has been previously referenced as a theoretical maximum but the reality is more nuanced. For a start with Cardano’s ‘transactions within transactions’ EUTXO model TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially these communities operate independently. So adding up their metrics to get a total picture isn't accurate. Since Hydra Heads use the EUTXO model they can process transactions simultaneously without conflicts especially with good networking which optimizes resource usage. As the project progresses we're constantly evaluating its real-world performance in terms of throughput and finality. For more info, read <a href="https://example.com/more-info">this</a> and the latest benchmarking data is shared <a href="https://example.com/latest-data">here</a>.
+This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra Heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
 </details>
 
 <details>
-<summary>Can anyone use Hydra head?</summary>
+<summary>Can anyone use the Hydra Head protocol?</summary>
 Yes, it's designed to be accessible for developers and end users alike, requiring minimal changes to existing applications to integrate with Hydra Head. However, it is important to note that Hydra is not a network upgrade and it's not like flipping a switch on Cardano to make it fast - instead, applications need to adopt and build on Hydra heads to benefit from it.
 </details>
 
@@ -80,19 +80,19 @@ Setting protocol parameters with `fee > 0` will enforce that transactions in the
 <details>
 <summary> Is it possible to use different protocol parameters in the Hydra Head?</summary>
 
-Yes, the ledger used for Layer 2 (L2) transactions in a Hydra head is configurable, allowing for the same or different protocol parameters as those used in Layer 1 (L1). **However, there is an important caveat to consider**:
+Yes, the ledger used for layer 2 transactions in a Hydra head is configurable, allowing for the same or different protocol parameters as those used in layer 1. **However, there is an important caveat to consider**:
 
-If UTXOs are snapshotted on L2, they must be fanned out on L1 **exactly** as they were recorded in the snapshot.
+If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1 **exactly** as they were recorded in the snapshot.
 
 ### Examples
 
-1. **Minimum UTXO Value (`minUTxOValue = 0`)**:
-   - Outputs with no 'ada' on L2 would be disallowed on L1, preventing their fanout. This restriction makes direct fanout impossible for such outputs. Even using partial fanout, as considered in [this feature](https://github.com/input-output-hk/hydra/issues/190), would not permit the fanout of affected UTXOs.
+1. **Minimum UTXO value (`minUTxOValue = 0`)**:
+   - Outputs with no 'ada' on layer 2 would be disallowed on layer 1, preventing their fanout. This restriction makes direct fanout impossible for such outputs. Even using partial fanout, as considered in [this feature](https://github.com/input-output-hk/hydra/issues/190), would not permit the fanout of affected UTXOs.
 
-2. **Maximum Transaction Execution Units (`maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`)**:
-   - Outputs that are directed to scripts, which are too costly to validate on L1, can still be fanned out but will become unspendable due to exceeding the allowable execution limits on L1.
+2. **Maximum transaction execution units (`maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`)**:
+   - Outputs directed to scripts, which are too costly to validate on layer 1, can still be fanned out but will become unspendable due to exceeding the allowable execution limits on layer 1.
 
-**Remember**, with great power comes great responsibility. It is crucial to carefully manage and align the L1 and L2 settings to ensure seamless operability and avoid unintended consequences in transaction processing.
+**Remember**, with great power comes great responsibility. It is crucial to carefully manage and align the layer 1 and layer 2 settings to ensure seamless operability and avoid unintended consequences in transaction processing.
 
 </details>
 
