@@ -456,7 +456,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxo = inHead
                     , confirmed = []
                     , utxoToDecommit = Just toDecommit
-                    , version = 1
+                    , version = 0
                     }
             postTx . ContestTx headId headParameters $
               ConfirmedSnapshot
