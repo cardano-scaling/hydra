@@ -84,18 +84,16 @@ healthyCloseCurrentTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
-closingSnapshot :: ClosingSnapshot
-closingSnapshot =
-  CloseWithConfirmedSnapshot
-    { snapshotNumber = number healthySnapshot
-    , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
-    , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
-    , signatures = helthySignature
-    , version = healthyCloseSnapshotVersion
-    }
+healthyCloseSnapshotNumber :: SnapshotNumber
+healthyCloseSnapshotNumber = 1
 
-helthySignature :: MultiSignature (Snapshot Tx)
-helthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys]
+healthyCloseSnapshotVersion :: SnapshotVersion
+healthyCloseSnapshotVersion = 1
+
+healthyCloseUTxO :: UTxO
+healthyCloseUTxO =
+  genOneUTxOFor somePartyCardanoVerificationKey
+    `generateWith` 42
 
 splitUTxOInHead, splitUTxOToDecommit :: UTxO
 (splitUTxOInHead, splitUTxOToDecommit) = splitUTxO healthyCloseUTxO
@@ -111,6 +109,16 @@ healthySnapshot =
     , version = healthyCloseSnapshotVersion
     }
 
+closingSnapshot :: ClosingSnapshot
+closingSnapshot =
+  CloseWithConfirmedSnapshot
+    { snapshotNumber = number healthySnapshot
+    , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
+    , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
+    , signatures = healthySignature (number healthySnapshot) healthySnapshot
+    , version = healthyCloseSnapshotVersion
+    }
+
 healthyOpenDatum :: Head.State
 healthyOpenDatum =
   Head.Open
@@ -122,35 +130,6 @@ healthyOpenDatum =
     , -- XXX: version has been bumped by previous decrementTx
       version = toInteger healthyCloseSnapshotVersion + 1
     }
-
-healthyCloseSnapshotNumber :: SnapshotNumber
-healthyCloseSnapshotNumber = 1
-
-healthyCloseSnapshotVersion :: SnapshotVersion
-healthyCloseSnapshotVersion = 1
-
-healthyOpenHeadDatum :: Head.State
-healthyOpenHeadDatum =
-  Head.Open
-    { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-    , snapshotNumber = toInteger healthyCloseSnapshotNumber
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = toInteger healthyCloseSnapshotVersion
-    }
-
-healthyUTxO :: UTxO
-healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
-
-healthyCloseUTxO :: UTxO
-healthyCloseUTxO =
-  (genOneUTxOFor somePartyCardanoVerificationKey `suchThat` (/= healthyUTxO))
-    `generateWith` 42
-
-healthyCloseUTxOHash :: BuiltinByteString
-healthyCloseUTxOHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOInHead
 
 -- NOTE: We need to use the contestation period when generating start/end tx
 -- validity slots/time since if tx validity bound difference is bigger than
@@ -298,7 +277,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ healthyOpenHeadDatum{Head.parties = mutatedParties}
+        pure $ healthyOpenDatum{Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
@@ -386,7 +365,7 @@ genCloseCurrentMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
+  datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime
@@ -401,3 +380,7 @@ genMutatedDeadline = do
   valuesAroundDeadline = arbitrary `suchThat` (/= 0) <&> (+ deadline)
 
   deadline = posixFromUTCTime healthyContestationDeadline
+
+healthyCloseUTxOHash :: BuiltinByteString
+healthyCloseUTxOHash =
+  toBuiltin $ hashUTxO @Tx splitUTxOInHead
