@@ -252,7 +252,7 @@ spec =
                       & counterexample "Blueprint reference inputs missing"
                   ]
 
-    describe "Chained transactions work" $ do
+    describe "Chained Head transactions work" $ do
       it "Alter snapshots to test transactions" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
@@ -281,7 +281,7 @@ spec =
                       <> registryUTxO scriptRegistry
 
               let startingSnapshot =
-                    Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit', version = 2}
+                    Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit', version = 0}
 
               let decrementAction =
                     produceDecrement ctx scriptRegistry headId' parameters
