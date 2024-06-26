@@ -14,16 +14,15 @@ There are certain use cases in which multiple features of the Hydra platform are
 
 ## Implementation of event sinks and source
 
-Hydra introduces alternate event sinks and a single alternate event source to enhance these use cases. The event sinks permanently store new transactions processed at runtime, while the event source provides the initial transactions that a `hydra node` loads upon startup.
+Hydra introduces alternate event sinks and a single alternate event source to enhance these use cases. Event sinks permanently store new transactions processed at runtime, while the event source provides the initial transactions that a `hydra node` loads upon startup.
 
-Multiple event sinks can be utilized simultaneously, whereas only one event source can be used at a time. The event source is loaded only during startup. Each event sink runs for every new transaction. Currently, the order of the event sinks must be specified by customizing the order of the event sink list in the `hydra node` source code, in the eventSinks parameter to hydrate, invoked in `Hydra.Node.Run.run` [here](https://github.com/SundaeSwap-finance/hydra/blob/4785bd86a03b92ba8fa8fb34c9d485a1e2f4f7d7/hydra-node/src/Hydra/Node/Run.hs#L104).
+Multiple event sinks can be utilized simultaneously, whereas only one event source can be used at a time. The event source is loaded only during startup. Each event sink runs for every new transaction. Currently, the order of the event sinks must be specified by customizing the order of the event sink list in the `hydra node` source code, in the `eventSinks` parameter to hydrate, invoked in `Hydra.Node.Run.run` [here](https://github.com/SundaeSwap-finance/hydra/blob/4785bd86a03b92ba8fa8fb34c9d485a1e2f4f7d7/hydra-node/src/Hydra/Node/Run.hs#L104).
 
 The default Hydra file-based persistence is implemented as an event sink and source pair. They can be used independently. For example, you can use the default event source to process previous transactions from a file on disk, along with an event sink that could store new transactions on S3, on several machines, or not at all.
 
 ### Examples
 
 - **Simple basic implementation**. For a basic implementation that sends new transactions over UDP, please refer to [this fork](https://github.com/ffakenz/hydra/tree/udp-sink).
-
 
 - **Complex implementation**. For more advanced implementations using S3 and AWS Kinesis as event sources and sinks, visit the `doug_hydra_changes` branch [here](https://github.com/SundaeSwap-finance/hydra), particularly the [AWS Kinesis implementation](https://github.com/SundaeSwap-finance/hydra/blob/f27e51c001e7b64c3679eab4efd9f17f08db53fe/hydra-node/src/Hydra/Events/AWS/Kinesis.hs).
 
