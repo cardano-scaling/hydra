@@ -7,7 +7,7 @@
 
 <details>
 <summary>When Hydra?</summary>
-The project is available on all Cardano networks (including mainnet) and releases with new features become available every four to six weeks. The roadmap is publicly available on <a href="https://github.com/orgs/input-output-hk/projects/21/views/25">Github</a> 
+The project is available on all Cardano networks (including mainnet), and releases with new features become available every four to six weeks. The roadmap is publicly available on <a href="https://github.com/orgs/input-output-hk/projects/21/views/25">Github</a> 
 </details>
 
 <details>
@@ -22,7 +22,7 @@ Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, an
 
 <details>
 <summary>So what’s this I have heard about ‘1M TPS’?</summary>
-This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra Heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
+This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
 </details>
 
 <details>
@@ -33,47 +33,47 @@ Yes, it's designed to be accessible for developers and end users alike, requirin
 <details>
 <summary>When is the Hydra Head protocol a good fit?</summary>
 
-The Hydra Head protocol is well-suited for any situation where a known set of participants know each other well-enough to agree on building a network but don't trust one another enough with funds management to do so without ways to secure their assets backed by the possibility to settle disputes on the layer 1.
+The Hydra Head protocol is well-suited for situations where a known set of participants know each other well enough to agree on building a network but don’t trust each other enough to manage funds without securing their assets. This security is backed by the possibility of settling disputes on layer 1.
 
 </details>
 
 <details>
 <summary>Can I run Plutus scripts inside a head?</summary>
 
-Yes! Transactions running between head participants are full-blown Alonzo transactions. They carry scripts, and spend UTxO in all-the-same manner as layer 1 transactions. Incidentally, each Hydra node is running a Cardano ledger and maintaining a ledger state. However, DApps which currently rely on the PAB for on-chain interactions will fall short when it comes to driving the execution of a Plutus contract inside a head. Indeed, the PAB is currently tightly coupled to the Cardano layer 1 chain; it is a Cardano client that interacts with the chain using the node-to-client mini-protocols (chain-sync, state-query, tx-submission). Hydra nodes do not expose such protocols (yet), making it incompatible with the PAB.
+Yes! Transactions running between head participants are fully developed Alonzo transactions. They carry scripts and spend UTXOs in the same manner as layer 1 transactions. Each Hydra node runs a Cardano ledger and maintains a ledger state.
 
 </details>
 
 <details>
-<summary>Can a third-party run a Hydra node on behalf of a wallet owners (e.g. running managed Hydra Heads)?</summary>
+<summary>Can a third party run a Hydra node on behalf of wallet owners (eg, running managed Hydra heads)?</summary>
 
-Totally! This is similar for instance to [Phoenix](https://phoenix.acinq.co/) in Bitcoin Lightning: a non-custodial managed lightning node. As an end-user, one still have full control on the keys and funds, but the underlying infrastructure is managed on one's behalf (provided fees). This however implies some form of trust between the service provider and the user. Indeed, the user implicitly trusts the service provider to, for instance, properly handle contestations and closure of a head.   
+Totally! This is similar to [Phoenix](https://phoenix.acinq.co/) in Bitcoin Lightning: a non-custodial managed lightning node. As an end-user, you retain full control over your keys and funds, but the underlying infrastructure is managed on your behalf (with associated fees). However, this setup requires some level of trust in the service provider to handle contestations and head closures properly.   
 </details>
 
 <details>
 <summary>What is the relationship between Hydra heads and Hydra nodes?</summary>
 
-It is (at least\*) a **one-to-many** relationship. Each Hydra head is comprised of several Hydra nodes. We are currently aiming for up to 100 nodes per head as a stretch goal. Heads are independent and form an isolated network. It is possible to have infinitely many heads running in parallel. 
+It is (at least\*) a **one-to-many** relationship. Each Hydra head consists of several Hydra nodes. We currently aim for up to 100 nodes per head as a stretch goal. Heads are independent and form isolated networks, allowing for infinitely many heads to run in parallel. 
 
-_(\*) It is possible to make Hydra nodes support multiple heads making it a many-to-many relationship._
+_(\*) It is possible for Hydra nodes to support multiple heads, creating a many-to-many relationship._
 
 </details>
 
 <details>
-<summary>Is the Hydra Head protocol a side-chain?</summary>
+<summary>Is the Hydra Head protocol a sidechain?</summary>
 
-No it isn't. In fact, there are two crucial facts that discards heads from being seen as side-chains:
+No, it isn't. There are two crucial reasons why Hydra heads are not considered sidechains:
 
-  1. There's no guaranteed data availability on Hydra. Said differently, transactions are (a) only known of the head participants, and (b) typically forgotten as soon as they're processed. Indeed, there's no block in a Hydra head and also no incentive for participants to either keep the history around or make it available to users outside of the head.
+1. There's no guaranteed data availability in Hydra. Transactions are (a) only known to head participants and (b) typically forgotten once processed. There are no blocks in a Hydra head, and participants have no incentive to keep the history or make it available to users outside the head.
 
-  2. A head network is static, new participants cannot join and have to be decided upfront. The network is thus very much isolated / private, and not reachable by any peer. Hydra heads are really channels between a set of well-known participants.
+2. A head network is static; new participants cannot join and must be decided upfront. The network is isolated and private, accessible only to a set of well-known participants.
 
 </details>
 
 <details>
 <summary>If the Hydra Head ledger is configured with a non-zero transaction fee, where do the paid fees go?</summary>
 
-Setting protocol parameters with `fee > 0` will enforce that transactions in the Hydra Head (layer 2) are consuming more than they produce. On the layer 1, however, the UTxO stay untouched and the total value does not change and a difference is accrued. Right now, when settling an agreed state from the L2 on the L1 during fanout, this difference will be spendable by the Head participant which does post the `fanoutTx`.
+Setting protocol parameters with `fee > 0` ensures that Hydra Head (layer 2) transactions consume more than they produce. On layer 1, the UTXO remains unchanged, and the difference accrues. Currently, when settling an agreed state from layer 2 on layer 1 during fanout, this difference becomes spendable by the head participant who posts the `fanoutTx`.
 
 </details>
 
