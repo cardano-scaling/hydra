@@ -315,7 +315,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
             let (inHead, toDecommit) = splitUTxO someUTxO
-            let v = 1
+            let v = 0
             let snapshot =
                   Snapshot
                     { headId
