@@ -842,7 +842,19 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  cause OnChainEffect{postChainTx = FanoutTx{utxo, utxoToDecommit = if version == snapshotVersion then utxoToDecommit else mempty, headSeed, contestationDeadline}}
+  cause
+    OnChainEffect
+      { postChainTx =
+          FanoutTx
+            { utxo
+            , utxoToDecommit =
+                if toInteger snapshotVersion == max (toInteger version - 1) 0
+                  then mempty
+                  else utxoToDecommit
+            , headSeed
+            , contestationDeadline
+            }
+      }
  where
   Snapshot{utxo, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
 

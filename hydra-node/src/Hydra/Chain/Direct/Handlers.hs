@@ -80,6 +80,8 @@ import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Snapshot (getSnapshot)
+import Hydra.Snapshot qualified as Snapshot
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -371,7 +373,9 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case decrement ctx headId headParameters spendableUTxO snapshot signatures of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
         Right decrementTx' -> pure decrementTx'
-    CloseTx{headId, headParameters, confirmedSnapshot, version} -> do
+    CloseTx{headId, headParameters, confirmedSnapshot, version, closeUTxOToDecommit} -> do
+      unless (fromMaybe mempty (Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot) == closeUTxOToDecommit) $
+        throwIO (FailedToConstructCloseTx @Tx)
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
