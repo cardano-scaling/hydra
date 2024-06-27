@@ -23,7 +23,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
-  replaceUtxoToDecommitHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -363,6 +362,12 @@ genCloseOutdatedMutation (tx, _utxo) =
         -- XXX: Close redeemer contains the hash of a decommit utxo. If we
         -- change it it should cause invalid signature error.
         pure $ Head.Close (toPlutusSignatures $ signatures closingSnapshot) (toInteger healthyCloseSnapshotVersion + 1) (toBuiltin $ expectedHash <> "0")
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeHeadRedeemer <$> do
+        let UTxOHash expectedHash = closeUtxoToDecommitHash closingSnapshot
+        sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        -- XXX: Close redeemer contains the hash of a decommit utxo. If we
+        -- change it it should cause invalid signature error.
+        pure $ Head.Close sigs (toInteger healthyCloseSnapshotVersion + 1) (toBuiltin expectedHash)
     ]
  where
   genOversizedTransactionValidity = do
