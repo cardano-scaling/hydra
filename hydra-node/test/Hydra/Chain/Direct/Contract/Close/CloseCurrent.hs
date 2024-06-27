@@ -23,7 +23,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceUtxoHash,
-  replaceUtxoToDecommitHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
@@ -313,11 +312,7 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx splitUTxOInHead)) . toBuiltin)
         pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
-    -- TODO: check if this one is supposed to fail or not
-    , -- , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
-      --     mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx splitUTxOToDecommit)) . toBuiltin)
-      --     pure $ modifyInlineDatum (replaceUtxoToDecommitHash $ toBuiltin mutatedUTxOHash) headTxOut
-      -- XXX: Correct contestation deadline is set
+    , -- XXX: Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
@@ -381,6 +376,11 @@ genCloseCurrentMutation (tx, _utxo) =
         -- XXX: Close redeemer contains the signatures. If we
         -- change them should cause invalid signature error.
         pure $ Head.Close sigs Head.CurrentVersion (toBuiltin expectedHash)
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseVersion . ChangeHeadRedeemer <$> do
+        let UTxOHash expectedHash = closeUtxoToDecommitHash closingSnapshot
+        -- XXX: Close redeemer contains the appropriate version. If we
+        -- change it then it should cause invalid signature error.
+        pure $ Head.Close (toPlutusSignatures $ signatures closingSnapshot) Head.CurrentVersion (toBuiltin expectedHash)
     ]
  where
   genOversizedTransactionValidity = do

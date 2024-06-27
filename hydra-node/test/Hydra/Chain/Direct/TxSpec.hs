@@ -86,7 +86,7 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party, partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 (toBuiltin)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
@@ -305,8 +305,14 @@ spec =
 
               let bumpSnapshotNumber = mutateSnapshotNumber (1 +)
 
+              let bumpVersionNumber = mutateVersionNumber (1 +)
+
               let bumpSnapshot (a, b, c, _) =
                     let alteredSnapshot = bumpSnapshotNumber c
+                     in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
+
+              let bumpVersion (a, b, c, _) =
+                    let alteredSnapshot = bumpVersionNumber c
                      in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
 
               let reAddUTxOToDecommit (a, b, c, d) =
@@ -317,7 +323,7 @@ spec =
                     let alteredSnapshot = mutateUTxOToDecommit (const Nothing) c
                      in (a, b, alteredSnapshot, d)
 
-              let expectAllValid = counterexample "All Valid" . and . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . decrementAction
+              let expectAllValid = counterexample "All Valid" . and . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . bumpVersion . decrementAction
 
               -- Should be able to close with something to decommit
               let expectValidCloseWithDecommit =
@@ -383,6 +389,11 @@ mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Sna
 mutateSnapshotNumber fn snapshot =
   let sn = fn (number snapshot)
    in snapshot{number = sn}
+
+mutateVersionNumber :: (SnapshotVersion -> SnapshotVersion) -> Snapshot Tx -> Snapshot Tx
+mutateVersionNumber fn snapshot =
+  let sn = fn (version snapshot)
+   in snapshot{version = sn}
 
 mutateSnapshotUTxO :: (UTxO -> UTxO) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotUTxO fn snapshot =
