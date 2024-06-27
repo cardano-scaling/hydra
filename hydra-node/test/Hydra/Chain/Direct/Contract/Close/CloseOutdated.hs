@@ -358,6 +358,11 @@ genCloseOutdatedMutation (tx, _utxo) =
         -- XXX: Close redeemer contains the off-chain version so we deliberately
         -- use the snapshot version to trigger the error.
         pure $ Head.Close (toPlutusSignatures $ signatures closingSnapshot) (toInteger healthyCloseSnapshotVersion) (toBuiltin expectedHash)
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeHeadRedeemer <$> do
+        let UTxOHash expectedHash = closeUtxoToDecommitHash closingSnapshot
+        -- XXX: Close redeemer contains the hash of a decommit utxo. If we
+        -- change it it should cause invalid signature error.
+        pure $ Head.Close (toPlutusSignatures $ signatures closingSnapshot) (toInteger healthyCloseSnapshotVersion + 1) (toBuiltin $ expectedHash <> "0")
     ]
  where
   genOversizedTransactionValidity = do
