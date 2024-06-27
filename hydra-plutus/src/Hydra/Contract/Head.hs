@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (Hash, Input (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
+import Hydra.Contract.HeadState (Hash, Input (..), Signature, SnapshotNumber, SnapshotVersion, State (..), Version (..))
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -289,7 +289,7 @@ checkClose ::
   CurrencySymbol ->
   SnapshotNumber ->
   Integer ->
-  Integer ->
+  Version ->
   BuiltinByteString ->
   Bool
 checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version expectedVersion utxoToDecommitHash =
@@ -322,12 +322,14 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
     extractClosedDatum ctx
 
-  snapshotVersion = max (version - 1) 0
-
   (correctDecommitHash, correctVersion) =
-    if expectedVersion == snapshotVersion
-      then (decommitHash, expectedVersion)
-      else (utxoToDecommitHash, snapshotVersion)
+    case expectedVersion of
+      InitialVersion ->
+        (initialUtxoHash, 0)
+      CurrentVersion ->
+        (decommitHash, version)
+      OutdatedVersion ->
+        (utxoToDecommitHash, version - 1)
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
@@ -335,7 +337,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           -- Spec: v=s=s=0
-          closedUtxoHash == initialUtxoHash
+          closedUtxoHash == initialUtxoHash && snapshotNumber == 0 && version == 0
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $

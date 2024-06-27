@@ -480,7 +480,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         , snapshotNumber = toInteger number
         , contestationPeriod = toChain contestationPeriod
         , headId = headIdToCurrencySymbol headId
-        , version = toInteger version + 1 -- TODO: should version here come from a snapshot or previous datum?
+        , version = toInteger version + 1
         }
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
@@ -552,11 +552,16 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
+  closeVersion
+    | offChainVersion == version = Head.CurrentVersion
+    | offChainVersion == version + 1 = Head.OutdatedVersion
+    | otherwise = Head.InitialVersion
+
   headRedeemer =
     toScriptData
       Head.Close
         { signature
-        , version = toInteger offChainVersion
+        , version = closeVersion
         , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
         }
 
@@ -569,9 +574,13 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
         , utxoToDecommitHash =
-            if offChainVersion /= version
-              then toBuiltin $ hashUTxO @Tx mempty
-              else toBuiltin decommitUTxOHashBytes
+            case closeVersion of
+              Head.CurrentVersion ->
+                toBuiltin decommitUTxOHashBytes
+              Head.OutdatedVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
+              Head.InitialVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
         , parties = openParties
         , contestationDeadline
         , contestationPeriod = openContestationPeriod

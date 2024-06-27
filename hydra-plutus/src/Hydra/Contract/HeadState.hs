@@ -56,6 +56,14 @@ data State
 
 PlutusTx.unstableMakeIsData ''State
 
+data Version
+  = InitialVersion
+  | CurrentVersion
+  | OutdatedVersion
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''Version
+
 data Input
   = CollectCom
   | Decrement
@@ -64,7 +72,7 @@ data Input
       }
   | Close
       { signature :: [Signature]
-      , version :: SnapshotVersion
+      , version :: Version
       , utxoToDecommitHash :: Hash
       }
   | Contest
