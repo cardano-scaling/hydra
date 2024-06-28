@@ -76,6 +76,8 @@ data Input
       }
   | Contest
       { signature :: [Signature]
+      , version :: Version
+      , utxoToDecommitHash :: Hash
       }
   | Abort
   | Fanout {numberOfFanoutOutputs :: Integer, numberOfDecommitOutputs :: Integer}

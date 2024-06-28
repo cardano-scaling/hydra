@@ -79,6 +79,7 @@ healthyContestTx =
       closedThreadOutput
       (mkHeadId testPolicyId)
       healthyContestationPeriod
+      healthyCloseSnapshotVersion
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -291,15 +292,19 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
+        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Head.Contest
             { signature = toPlutusSignatures mutatedSignature
+            , version = Head.CurrentVersion
+            , utxoToDecommitHash = expectedHash
             }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
+        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeInputHeadDatum $
@@ -309,6 +314,8 @@ genContestMutation (tx, _utxo) =
                   { signature =
                       toPlutusSignatures $
                         healthySignature (fromInteger mutatedSnapshotNumber)
+                  , version = Head.CurrentVersion
+                  , utxoToDecommitHash = expectedHash
                   }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -344,6 +351,7 @@ genContestMutation (tx, _utxo) =
       -- This also seems to be covered by MutateRequiredSigner
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
+        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
@@ -356,6 +364,8 @@ genContestMutation (tx, _utxo) =
                           { signature =
                               toPlutusSignatures $
                                 healthySignature healthyContestSnapshotNumber
+                          , version = Head.CurrentVersion
+                          , utxoToDecommitHash = expectedHash
                           }
                       )
                 )

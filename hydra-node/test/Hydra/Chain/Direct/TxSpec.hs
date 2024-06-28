@@ -468,7 +468,7 @@ produceContest ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceContest ctx scriptRegistry headId (p, spendableUTxO, snapshot, signatures) = do
-  case contest ctx spendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
+  case contest ctx spendableUTxO headId defaultContestationPeriod ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) (version snapshot) of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
       ( p <> [evaluateTransaction tx spendableUTxO]

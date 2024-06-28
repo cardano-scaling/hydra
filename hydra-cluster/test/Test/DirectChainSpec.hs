@@ -458,11 +458,16 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToDecommit = Just toDecommit
                     , version = 0
                     }
-            postTx . ContestTx headId headParameters $
-              ConfirmedSnapshot
-                { snapshot = snapshot1
-                , signatures = aggregate [sign aliceSk snapshot1]
-                }
+            postTx $
+              ContestTx
+                headId
+                headParameters
+                ( ConfirmedSnapshot
+                    { snapshot = snapshot1
+                    , signatures = aggregate [sign aliceSk snapshot1]
+                    }
+                )
+                0
             aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1, contestationDeadline = deadline}
 
             -- Alice contests with some snapshot U2 -> expect fail
@@ -476,11 +481,16 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , version = 1
                     }
             let contestAgain =
-                  postTx . ContestTx headId headParameters $
-                    ConfirmedSnapshot
-                      { snapshot = snapshot2
-                      , signatures = aggregate [sign aliceSk snapshot2]
-                      }
+                  postTx $
+                    ContestTx
+                      headId
+                      headParameters
+                      ( ConfirmedSnapshot
+                          { snapshot = snapshot2
+                          , signatures = aggregate [sign aliceSk snapshot2]
+                          }
+                      )
+                      1
             -- NOTE: We deliberately expect the transaction creation and
             -- submission code of the Chain.Direct module to fail here because
             -- the scripts don't validate. That is, the on-chain code prevented

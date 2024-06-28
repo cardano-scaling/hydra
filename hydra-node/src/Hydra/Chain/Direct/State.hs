@@ -561,14 +561,15 @@ contest ::
   ConfirmedSnapshot Tx ->
   -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
+  SnapshotVersion ->
   Either ContestTxError Tx
-contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime = do
+contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime offChainVersion = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInContest{headId}
   headUTxO <-
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
-  pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod
+  pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod offChainVersion
  where
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <- txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInContest
@@ -1066,19 +1067,20 @@ genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUtXO, utxoToDecommit) = splitUTxO u0
-  confirmed <- genConfirmedSnapshot headId 1 1 confirmedUtXO (Just utxoToDecommit) []
+  let version = 1
+  confirmed <- genConfirmedSnapshot headId 1 version confirmedUtXO (Just utxoToDecommit) []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime 1
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime version
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
-  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) 1 confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) version confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime version)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -1222,9 +1224,10 @@ unsafeContest ::
   ContestationPeriod ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
+  SnapshotVersion ->
   Tx
-unsafeContest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime =
-  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime
+unsafeContest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime version =
+  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime version
 
 unsafeFanout ::
   HasCallStack =>

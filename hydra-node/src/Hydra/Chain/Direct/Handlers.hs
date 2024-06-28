@@ -382,11 +382,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound version of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
-    ContestTx{headId, headParameters, confirmedSnapshot} -> do
+    ContestTx{headId, headParameters, confirmedSnapshot, version} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot upperBound of
+      case contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot upperBound version of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
     FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> do

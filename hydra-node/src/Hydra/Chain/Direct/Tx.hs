@@ -633,8 +633,9 @@ contestTx ::
   ClosedThreadOutput ->
   HeadId ->
   ContestationPeriod ->
+  SnapshotVersion ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
+contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod offChainVersion =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -655,14 +656,31 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
   headScriptRef =
     fst (headReference scriptRegistry)
+
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  closeVersion
+    | offChainVersion == version = Head.CurrentVersion
+    | offChainVersion == version + 1 = Head.OutdatedVersion
+    | otherwise = Head.InitialVersion
+
   headRedeemer =
     toScriptData
       Head.Contest
         { signature = toPlutusSignatures sig
+        , version = closeVersion
+        , utxoToDecommitHash =
+            case closeVersion of
+              Head.CurrentVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
+              Head.OutdatedVersion ->
+                utxoToDecommitHash
+              Head.InitialVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
         }
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -687,7 +705,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
         , contestationPeriod = onChainConstestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = contester : closedContesters
-        , version = toInteger version -- TODO: should version here come from a Snapshot or previous datum?
+        , version = toInteger version
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

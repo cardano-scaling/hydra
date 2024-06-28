@@ -776,7 +776,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     <> causes
       ( notifyClient
           : [ OnChainEffect
-              { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}
+              { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}
               }
             | doContest
             ]
@@ -793,7 +793,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
         , contestationDeadline
         }
 
-  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
@@ -815,7 +815,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
     <> if
       | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
           cause notifyClients
-            <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot}}
+            <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
           -- not be able to fanout! We might want to communicate that to the client!
@@ -831,7 +831,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
         , contestationDeadline
         }
 
-  ClosedState{parameters = headParameters, confirmedSnapshot, headId} = closedState
+  ClosedState{parameters = headParameters, confirmedSnapshot, headId, version} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.

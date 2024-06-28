@@ -184,6 +184,8 @@ computeContestCost = do
       Nothing ->
         pure Nothing
 
+  version = 1
+
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
@@ -194,7 +196,7 @@ computeContestCost = do
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime, contestUtxo)
+    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime version, contestUtxo)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeAbortCost =
