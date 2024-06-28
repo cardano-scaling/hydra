@@ -22,6 +22,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
+  replaceSnapshotVersion,
   replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -196,6 +197,8 @@ data CloseMutation
     -- Invalidates the tx by changing the snapshot number
     -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
+  | -- Check the snapshot version is preserved from last open state.
+    MutateSnapshotVersion
   | -- | Check that snapshot numbers = 0 need to close the head with the
     -- initial UTxO hash.
     MutateInitialSnapshotNumber
@@ -290,6 +293,10 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , -- XXX: Last known open state version is recorded in closed state
+      SomeMutation (pure $ toErrorCode LastKnownVersionIsNotRecorded) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ healthyOpenDatum{Head.parties = mutatedParties}
@@ -336,6 +343,7 @@ genCloseCurrentMutation (tx, _utxo) =
       -- This is a bit confusing and not giving much value. Maybe we can remove this.
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) CloseFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
+        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
@@ -349,7 +357,7 @@ genCloseCurrentMutation (tx, _utxo) =
                               toPlutusSignatures $
                                 healthySignature healthyCloseSnapshotNumber healthySnapshot
                           , version = Head.CurrentVersion
-                          , utxoToDecommitHash = mempty
+                          , utxoToDecommitHash = expectedHash
                           }
                       )
                 )

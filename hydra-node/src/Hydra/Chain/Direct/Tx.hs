@@ -562,7 +562,14 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
       Head.Close
         { signature
         , version = closeVersion
-        , utxoToDecommitHash = toBuiltin decommitUTxOHashBytes
+        , utxoToDecommitHash =
+            case closeVersion of
+              Head.CurrentVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
+              Head.OutdatedVersion ->
+                toBuiltin decommitUTxOHashBytes
+              Head.InitialVersion ->
+                toBuiltin $ hashUTxO @Tx mempty
         }
 
   headOutputAfter =
@@ -586,7 +593,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
-        , version = toInteger version
+        , version = toInteger offChainVersion
         }
 
   (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) = case closing of
