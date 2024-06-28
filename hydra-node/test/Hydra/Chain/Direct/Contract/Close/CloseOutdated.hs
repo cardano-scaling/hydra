@@ -129,8 +129,7 @@ healthyOpenDatum =
     , snapshotNumber = toInteger healthyCloseSnapshotNumber
     , contestationPeriod = healthyContestationPeriod
     , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , -- XXX: we bump the version the same way it would have been bumped by the decommit tx in the real world
-      version = toInteger healthyCloseSnapshotVersion + 1
+    , version = toInteger healthyCloseSnapshotVersion
     }
 
 -- NOTE: We need to use the contestation period when generating start/end tx
@@ -293,7 +292,9 @@ genCloseOutdatedMutation (tx, _utxo) =
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ healthyOpenDatum{Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
-        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+        n <- choose (1, length healthyOnChainParties - 1)
+        fn <- elements [drop n, take n]
+        let mutatedParties = fn healthyOnChainParties
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)

@@ -4,7 +4,6 @@ module Hydra.Contract.HeadError (
 ) where
 
 import Hydra.Contract.Error (ToErrorCode (..), errorCode)
-import Text.Show (Show)
 
 data HeadError
   = InvalidHeadStateTransition
@@ -45,8 +44,8 @@ data HeadError
   | NotAllValueCollected
   | SnapshotNumberMismatch
   | IncorrectVersion
-  | LastKnownVersionIsNotRecorded
-  deriving stock (Show)
+  | LastKnownVersionIsNotMatching
+  | IncorrectRedeemerUtxoToDecommitHash
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -88,4 +87,5 @@ instance ToErrorCode HeadError where
     NotAllValueCollected -> "H36"
     SnapshotNumberMismatch -> "H37"
     IncorrectVersion -> "H38"
-    LastKnownVersionIsNotRecorded -> "H39"
+    LastKnownVersionIsNotMatching -> "H39"
+    IncorrectRedeemerUtxoToDecommitHash -> "H40"

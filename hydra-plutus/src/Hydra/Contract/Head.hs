@@ -292,12 +292,12 @@ checkClose ::
   Version ->
   BuiltinByteString ->
   Bool
-checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber version expectedVersion utxoToDecommitHash =
+checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber inputVersion expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
     && mustBeSignedByParticipant ctx headPolicyId
-    && checkLastKnownVersion
+    -- && checkLastKnownVersion
     && checkSnapshot
     && mustInitializeContesters
     && mustPreserveValue
@@ -320,30 +320,32 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
       tMax - tMin <= cp
 
-  (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters', version') =
+  (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters', outputVersion) =
     extractClosedDatum ctx
 
+  -- TODO: Sasha thinks this might conflict with a real world where the decommit happened but never observed back so the formula should at least be v' == v || v' == v + 1 ???
   checkLastKnownVersion =
-    traceIfFalse $(errorCode LastKnownVersionIsNotRecorded) $
-      version' == version
+    traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
+      inputVersion == outputVersion
 
   (correctDecommitHash, correctVersion) =
     case expectedVersion of
       InitialVersion ->
         (initialUtxoHash, 0)
       CurrentVersion ->
-        (decommitHash, version)
+        (decommitHash, outputVersion)
       OutdatedVersion ->
-        -- TODO: missing to check -> η∆′ = ⊥
-        (utxoToDecommitHash, version - 1)
+        -- TODO: missing to check -> η∆′ = ⊥ Is this really needed? Signature
+        -- would be invalid anyway?
+        (utxoToDecommitHash, outputVersion)
 
   checkSnapshot
     | closedSnapshotNumber > 0 =
         verifySnapshotSignature parties headPolicyId closedSnapshotNumber closedUtxoHash correctDecommitHash correctVersion sig
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
-          -- Spec: v=s=s=0
-          version == snapshotNumber
+          -- Spec: v = s = s = 0
+          inputVersion == snapshotNumber
             && snapshotNumber == 0
             && closedUtxoHash == initialUtxoHash
 

@@ -781,8 +781,8 @@ replaceSnapshotNumber snapshotNumber = \case
       }
   otherState -> otherState
 
-replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
-replaceSnapshotVersion snapshotVersion = \case
+replaceSnapshotVersionInClosed :: Head.SnapshotVersion -> Head.State -> Head.State
+replaceSnapshotVersionInClosed snapshotVersion = \case
   Head.Closed{parties, snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod} ->
     Head.Closed
       { Head.parties = parties
