@@ -45,7 +45,6 @@ data HeadError
   | SnapshotNumberMismatch
   | IncorrectVersion
   | LastKnownVersionIsNotMatching
-  | IncorrectRedeemerUtxoToDecommitHash
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -88,4 +87,3 @@ instance ToErrorCode HeadError where
     SnapshotNumberMismatch -> "H37"
     IncorrectVersion -> "H38"
     LastKnownVersionIsNotMatching -> "H39"
-    IncorrectRedeemerUtxoToDecommitHash -> "H40"
