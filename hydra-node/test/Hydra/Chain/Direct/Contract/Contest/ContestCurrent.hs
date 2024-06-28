@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Chain.Direct.Contract.Contest where
+module Hydra.Chain.Direct.Contract.Contest.ContestCurrent where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
@@ -47,7 +47,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
@@ -91,45 +91,40 @@ healthyContestTx =
       , closedContesters = []
       }
 
-healthyClosedHeadTxIn :: TxIn
-healthyClosedHeadTxIn = generateWith arbitrary 42
-
-healthyClosedHeadTxOut :: TxOut CtxUTxO
-healthyClosedHeadTxOut =
-  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
- where
-  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
-
-healthyContestSnapshot :: Snapshot Tx
-healthyContestSnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , number = healthyContestSnapshotNumber
-    , utxo = fst healthyContestSnapshotUTxO
-    , confirmed = []
-    , utxoToDecommit = Just (snd healthyContestSnapshotUTxO)
-    , version = 0
-    }
-
 healthyContestSnapshotNumber :: SnapshotNumber
 healthyContestSnapshotNumber = 4
+
+healthyCloseSnapshotVersion :: SnapshotVersion
+healthyCloseSnapshotVersion = 4
+
+healthyClosedUTxO :: UTxO
+healthyClosedUTxO =
+  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
 healthyContestUTxO :: UTxO
 healthyContestUTxO =
   (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
     `generateWith` 42
 
-healthyContestSnapshotUTxO :: (UTxO, UTxO)
-healthyContestSnapshotUTxO = splitUTxO healthyContestUTxO
+splittedContestUTxO :: (UTxO, UTxO)
+splittedContestUTxO = splitUTxO healthyContestUTxO
 
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOHash =
-  toBuiltin $ hashUTxO @Tx (fst healthyContestSnapshotUTxO)
+splitUTxOInHead :: UTxO
+splitUTxOInHead = fst splittedContestUTxO
 
-healthyContestUTxOToDecommitHash :: BuiltinByteString
-healthyContestUTxOToDecommitHash =
-  toBuiltin $ hashUTxO @Tx (snd healthyContestSnapshotUTxO)
+splitUTxOToDecommit :: UTxO
+splitUTxOToDecommit = snd splittedContestUTxO
+
+healthyContestSnapshot :: Snapshot Tx
+healthyContestSnapshot =
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , number = healthyContestSnapshotNumber
+    , utxo = splitUTxOInHead
+    , confirmed = []
+    , utxoToDecommit = Just splitUTxOToDecommit
+    , version = healthyCloseSnapshotVersion
+    }
 
 healthyClosedState :: Head.State
 healthyClosedState =
@@ -142,17 +137,36 @@ healthyClosedState =
     , contestationPeriod = healthyOnChainContestationPeriod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
-    , version = 0
+    , version = toInteger healthyCloseSnapshotVersion
     }
+
+healthyContestUTxOHash :: BuiltinByteString
+healthyContestUTxOHash =
+  toBuiltin $ hashUTxO @Tx splitUTxOInHead
+
+healthyContestUTxOToDecommitHash :: BuiltinByteString
+healthyContestUTxOToDecommitHash =
+  toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
+
+healthyClosedUTxOHash :: BuiltinByteString
+healthyClosedUTxOHash =
+  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
+
+healthyClosedSnapshotNumber :: SnapshotNumber
+healthyClosedSnapshotNumber = 3
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
 
-healthyContestationDeadline :: UTCTime
-healthyContestationDeadline =
-  addUTCTime
-    (fromInteger healthyContestationPeriodSeconds)
-    (slotNoToUTCTime systemStart slotLength healthySlotNo)
+healthyClosedHeadTxIn :: TxIn
+healthyClosedHeadTxIn = generateWith arbitrary 42
+
+healthyClosedHeadTxOut :: TxOut CtxUTxO
+healthyClosedHeadTxOut =
+  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
+    & addParticipationTokens healthyParticipants
+ where
+  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
 
 healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
 healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
@@ -162,17 +176,6 @@ healthyContestationPeriod = fromChain healthyOnChainContestationPeriod
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
-
-healthyClosedSnapshotNumber :: SnapshotNumber
-healthyClosedSnapshotNumber = 3
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
-
-healthyClosedUTxO :: UTxO
-healthyClosedUTxO =
-  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParticipants =
@@ -196,6 +199,12 @@ healthySignature number =
   aggregate [sign sk snapshot | sk <- healthySigningKeys]
  where
   snapshot = healthyContestSnapshot{number}
+
+healthyContestationDeadline :: UTCTime
+healthyContestationDeadline =
+  addUTCTime
+    (fromInteger healthyContestationPeriodSeconds)
+    (slotNoToUTCTime systemStart slotLength healthySlotNo)
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation

@@ -96,8 +96,14 @@ healthyCloseUTxO =
   genOneUTxOFor somePartyCardanoVerificationKey
     `generateWith` 42
 
-splitUTxOInHead, splitUTxOToDecommit :: UTxO
-(splitUTxOInHead, splitUTxOToDecommit) = splitUTxO healthyCloseUTxO
+splittedCloseUTxO :: (UTxO, UTxO)
+splittedCloseUTxO = splitUTxO healthyCloseUTxO
+
+splitUTxOInHead :: UTxO
+splitUTxOInHead = fst splittedCloseUTxO
+
+splitUTxOToDecommit :: UTxO
+splitUTxOToDecommit = snd splittedCloseUTxO
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
@@ -118,7 +124,7 @@ closingSnapshot =
     { snapshotNumber = number healthySnapshot
     , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
     , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
-    , signatures = healthySignature (number healthySnapshot) healthySnapshot
+    , signatures = healthySignature (number healthySnapshot)
     , version = Snapshot.version healthySnapshot
     }
 
@@ -172,8 +178,11 @@ healthyParties = deriveParty <$> healthySigningKeys
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
 
-healthySignature :: SnapshotNumber -> Snapshot Tx -> MultiSignature (Snapshot Tx)
-healthySignature number snapshot = aggregate [sign sk snapshot{number} | sk <- healthySigningKeys]
+healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
+healthySignature number =
+  aggregate [sign sk snapshot | sk <- healthySigningKeys]
+ where
+  snapshot = healthySnapshot{number}
 
 healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
@@ -347,7 +356,7 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           { signature =
                               toPlutusSignatures $
-                                healthySignature healthyCloseSnapshotNumber healthySnapshot
+                                healthySignature healthyCloseSnapshotNumber
                           , version = Head.CurrentVersion
                           , utxoToDecommitHash = expectedHash
                           }
