@@ -45,6 +45,7 @@ data HeadError
   | NotAllValueCollected
   | SnapshotNumberMismatch
   | IncorrectVersion
+  | LastKnownVersionIsNotRecorded
   deriving stock (Show)
 
 instance ToErrorCode HeadError where
@@ -87,3 +88,4 @@ instance ToErrorCode HeadError where
     NotAllValueCollected -> "H36"
     SnapshotNumberMismatch -> "H37"
     IncorrectVersion -> "H38"
+    LastKnownVersionIsNotRecorded -> "H39"

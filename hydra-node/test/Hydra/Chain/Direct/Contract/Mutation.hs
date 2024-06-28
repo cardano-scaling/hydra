@@ -781,6 +781,22 @@ replaceSnapshotNumber snapshotNumber = \case
       }
   otherState -> otherState
 
+replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
+replaceSnapshotVersion snapshotVersion = \case
+  Head.Closed{parties, snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod} ->
+    Head.Closed
+      { Head.parties = parties
+      , Head.snapshotNumber = snapshotNumber
+      , Head.utxoHash = utxoHash
+      , Head.utxoToDecommitHash = utxoToDecommitHash
+      , Head.contestationDeadline = contestationDeadline
+      , Head.contestationPeriod = contestationPeriod
+      , Head.headId = headId
+      , Head.contesters = contesters
+      , Head.version = snapshotVersion
+      }
+  otherState -> otherState
+
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
   Head.Initial{contestationPeriod, headId, seed} ->

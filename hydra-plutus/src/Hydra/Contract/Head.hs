@@ -297,6 +297,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     && hasBoundedValidity
     && checkDeadline
     && mustBeSignedByParticipant ctx headPolicyId
+    && checkLastKnownVersion
     && checkSnapshot
     && mustInitializeContesters
     && mustPreserveValue
@@ -319,8 +320,12 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
       tMax - tMin <= cp
 
-  (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters') =
+  (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters', version') =
     extractClosedDatum ctx
+
+  checkLastKnownVersion =
+    traceIfFalse $(errorCode LastKnownVersionIsNotRecorded) $
+      version' == version
 
   (correctDecommitHash, correctVersion) =
     case expectedVersion of
@@ -329,6 +334,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
       CurrentVersion ->
         (decommitHash, version)
       OutdatedVersion ->
+        -- TODO: missing to check -> η∆′ = ⊥
         (utxoToDecommitHash, version - 1)
 
   checkSnapshot
@@ -337,7 +343,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber v
     | otherwise =
         traceIfFalse $(errorCode ClosedWithNonInitialHash) $
           -- Spec: v=s=s=0
-          closedUtxoHash == initialUtxoHash && snapshotNumber == 0 && version == 0
+          version == snapshotNumber
+            && snapshotNumber == 0
+            && closedUtxoHash == initialUtxoHash
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
@@ -444,7 +452,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse $(errorCode ContesterNotIncluded) $
       contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, decommitHash, parties', contestationDeadline', contestationPeriod', headId', contesters') =
+  (contestSnapshotNumber, contestUtxoHash, decommitHash, parties', contestationDeadline', contestationPeriod', headId', contesters', _version') =
     extractClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -661,7 +669,7 @@ validatorScript = serialiseCompiledCode compiledValidator
 validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
 
-extractClosedDatum :: ScriptContext -> (SnapshotNumber, Hash, Hash, [Party], POSIXTime, ContestationPeriod, CurrencySymbol, [PubKeyHash])
+extractClosedDatum :: ScriptContext -> (SnapshotNumber, Hash, Hash, [Party], POSIXTime, ContestationPeriod, CurrencySymbol, [PubKeyHash], SnapshotVersion)
 extractClosedDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
@@ -675,7 +683,8 @@ extractClosedDatum ctx =
         , contestationPeriod = cp
         , headId = hid
         , contesters = cs
-        } -> (snapshotNumber, utxoHash, utxoToDecommitHash, p, dl, cp, hid, cs)
+        , version
+        } -> (snapshotNumber, utxoHash, utxoToDecommitHash, p, dl, cp, hid, cs, version)
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE extractClosedDatum #-}
 
