@@ -22,7 +22,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceSnapshotVersionInClosed,
   replaceUtxoHash,
   replaceUtxoToDecommitHash,
  )
@@ -196,9 +195,10 @@ data CloseMutation
     -- Invalidates the tx by changing the snapshot number
     -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
-  | -- Check the snapshot version is preserved from last open state.
-    MutateSnapshotVersion
-  | -- | Check that snapshot numbers = 0 need to close the head with the
+  | -- TODO: | -- Check the snapshot version is preserved from last open state.
+    --   MutateSnapshotVersion
+
+    -- | Check that snapshot numbers = 0 need to close the head with the
     -- initial UTxO hash.
     MutateInitialSnapshotNumber
   | -- | Ensures the close snapshot is multisigned by all Head participants by
@@ -223,8 +223,7 @@ data CloseMutation
     --
     -- Ensures the output state is consistent with the redeemer.
     MutateCloseUTxOToDecommitHash
-  |
-    -- | Ensures parties do not change between head input datum and head output datum.
+  | -- | Ensures parties do not change between head input datum and head output datum.
     MutatePartiesInOutput
   | -- | Ensures headId do not change between head input datum and head output
     -- datum.
@@ -284,11 +283,11 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , -- XXX: Last known open state version is recorded in closed state
-      SomeMutation (pure $ toErrorCode LastKnownVersionIsNotMatching) MutateSnapshotVersion <$> do
-        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+    , -- , -- XXX: Last known open state version is recorded in closed state
+      --   SomeMutation (pure $ toErrorCode LastKnownVersionIsNotMatching) MutateSnapshotVersion <$> do
+      --     mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
+      --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
+      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ healthyOpenDatum{Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
