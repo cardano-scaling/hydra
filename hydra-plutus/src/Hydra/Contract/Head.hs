@@ -76,8 +76,8 @@ headValidator oldState input ctx =
       checkDecrement ctx parties snapshotNumber contestationPeriod headId version signature numberOfDecommitOutputs
     (Open{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, snapshotNumber, version}, Close{signature, version = expectedVersion, utxoToDecommitHash}) ->
       checkClose ctx parties initialUtxoHash signature contestationPeriod headId snapshotNumber version expectedVersion utxoToDecommitHash
-    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters, version}, Contest{signature}) ->
-      checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId version
+    (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters, version}, Contest{signature, version = expectedVersion, utxoToDecommitHash}) ->
+      checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber signature contesters headId version expectedVersion utxoToDecommitHash
     (Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
       checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutputs numberOfDecommitOutputs ctx headId parties
     _ ->
@@ -288,7 +288,7 @@ checkClose ::
   ContestationPeriod ->
   CurrencySymbol ->
   SnapshotNumber ->
-  Integer ->
+  SnapshotVersion ->
   Version ->
   BuiltinByteString ->
   Bool
@@ -405,10 +405,13 @@ checkContest ::
   [PubKeyHash] ->
   -- | Head id
   CurrencySymbol ->
-  Integer ->
+  SnapshotVersion ->
+  Version ->
+  BuiltinByteString ->
   Bool
-checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId version =
+checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId inputVersion expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
+    && checkLastKnownVersion
     && mustBeNewer
     && mustBeMultiSigned
     && mustBeSignedByParticipant ctx headId
@@ -431,8 +434,24 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse $(errorCode TooOldSnapshot) $
       contestSnapshotNumber > closedSnapshotNumber
 
+  -- TODO: Sasha thinks this might conflict with a real world where the decommit happened but never observed back so the formula should at least be v' == v || v' == v + 1 ???
+  checkLastKnownVersion =
+    traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
+      inputVersion == outputVersion
+
+  (correctDecommitHash, correctVersion) =
+    case expectedVersion of
+      InitialVersion ->
+        (decommitHash, inputVersion)
+      CurrentVersion ->
+        (decommitHash, inputVersion)
+      OutdatedVersion ->
+        -- TODO: missing to check -> η∆′ = ⊥ Is this really needed? Signature
+        -- would be invalid anyway?
+        (utxoToDecommitHash, inputVersion)
+
   mustBeMultiSigned =
-    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash decommitHash version sig
+    verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash correctDecommitHash correctVersion sig
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -454,7 +473,7 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse $(errorCode ContesterNotIncluded) $
       contesters' == contester : contesters
 
-  (contestSnapshotNumber, contestUtxoHash, decommitHash, parties', contestationDeadline', contestationPeriod', headId', contesters', _version') =
+  (contestSnapshotNumber, contestUtxoHash, decommitHash, parties', contestationDeadline', contestationPeriod', headId', contesters', outputVersion) =
     extractClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx

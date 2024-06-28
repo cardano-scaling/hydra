@@ -772,6 +772,7 @@ newContestTx actor snapshot = do
       Fixture.cperiod
       snapshot
       currentTime
+      (version (getSnapshot snapshot))
  where
   currentTime = (0, posixSecondsToUTCTime 0)
 

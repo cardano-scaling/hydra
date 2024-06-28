@@ -549,7 +549,8 @@ spec =
           lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
-        let snapshot = testSnapshot 2 0 mempty []
+        let snapshotVersion = 0
+            snapshot = testSnapshot 2 snapshotVersion mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
             s0 =
               inOpenState' threeParties $
@@ -558,7 +559,7 @@ spec =
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
         runHeadLogic bobEnv ledger s0 $ do
           o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
-          lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot)
+          lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot snapshotVersion)
           s1 <- getState
           lift $
             s1 `shouldSatisfy` \case
@@ -566,13 +567,14 @@ spec =
               _ -> False
 
       it "re-contests when detecting contest with old snapshot" $ do
-        let snapshot2 = testSnapshot 2 0 mempty []
+        let snapshotVersion = 0
+            snapshot2 = testSnapshot 2 snapshotVersion mempty []
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
         update bobEnv ledger s0 (observeTx $ OnContestTx testHeadId 1 deadline)
-          `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot)
+          `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot snapshotVersion)
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
