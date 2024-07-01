@@ -322,7 +322,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
           then
             newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO}
               <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs') decommitTx)
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
           else newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
@@ -350,7 +350,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -589,7 +589,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn nextSn (txId <$> localTxs) decommitTx)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
   maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
@@ -622,7 +622,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, version} = coordinatedHeadState
 
 -- | Decide to output 'ReqDec' effect by checking first if there is no decommit
 -- _in flight_ and if the tx applies cleanly to the local ledger state.
@@ -710,7 +710,7 @@ onOpenNetworkReqDec env ttl openState decommitTx =
      in newState (DecommitRecorded decommitTx)
           <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
           <> if isLeader parameters party nextSn
-            then cause (NetworkEffect (ReqSn nextSn (txId <$> localTxs) (Just decommitTx)))
+            then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
             else noop
  where
   waitOnApplicableDecommit cont =
@@ -727,7 +727,7 @@ onOpenNetworkReqDec env ttl openState decommitTx =
 
   nextSn = number + 1
 
-  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs} = coordinatedHeadState
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, version} = coordinatedHeadState
 
   OpenState
     { headId
@@ -917,7 +917,7 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sn txIds decommitTx})) ->
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn _ sn txIds decommitTx})) ->
     -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState sender sn txIds decommitTx
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->

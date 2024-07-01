@@ -670,7 +670,6 @@ definitions:
           numberOfParties:
             type: number
 
-
   # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
   # we opted to not detail this section here. The outputs documented in api.yaml
   # are based on internal type 'TimeServerOutput', so basically just contain an
@@ -1565,62 +1564,62 @@ definitions:
 
   SeenSnapshot:
     oneOf:
-    - title: NoSeenSnapshot
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-      properties:
-        tag:
-          type: string
-          enum: ["NoSeenSnapshot"]
-    - title: LastSeenSnapshot
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - lastSeen
-      properties:
-        tag:
-          type: string
-          enum: ["LastSeenSnapshot"]
-        lastSeen:
-          $ref: "api.yaml#/components/schemas/SnapshotNumber"
-    - title: RequestedSnapshot
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - lastSeen
-        - requested
-      properties:
-        tag:
-          type: string
-          enum: ["RequestedSnapshot"]
-        lastSeen:
-          $ref: "api.yaml#/components/schemas/SnapshotNumber"
-        requested:
-          $ref: "api.yaml#/components/schemas/SnapshotNumber"
-    - title: SeenSnapshot
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - snapshot
-        - signatories
-      properties:
-        tag:
-          type: string
-          enum: ["SeenSnapshot"]
-        snapshot:
-          $ref: "api.yaml#/components/schemas/Snapshot"
-        signatories:
-          type: object
-          propertyNames:
+      - title: NoSeenSnapshot
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
             type: string
-            contentEncoding: base16
-          items:
-            $ref: "api.yaml#/components/schemas/Signature"
+            enum: ["NoSeenSnapshot"]
+      - title: LastSeenSnapshot
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - lastSeen
+        properties:
+          tag:
+            type: string
+            enum: ["LastSeenSnapshot"]
+          lastSeen:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: RequestedSnapshot
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - lastSeen
+          - requested
+        properties:
+          tag:
+            type: string
+            enum: ["RequestedSnapshot"]
+          lastSeen:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          requested:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: SeenSnapshot
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - signatories
+        properties:
+          tag:
+            type: string
+            enum: ["SeenSnapshot"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatories:
+            type: object
+            propertyNames:
+              type: string
+              contentEncoding: base16
+            items:
+              $ref: "api.yaml#/components/schemas/Signature"
 
   Input:
     description: >-
@@ -1786,6 +1785,7 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - snapshotVersion
           - snapshotNumber
           - transactionIds
           - decommitTx
@@ -1796,6 +1796,8 @@ definitions:
           tag:
             type: string
             enum: ["ReqSn"]
+          snapshotVersion:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
           snapshotNumber:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           transactionIds:
@@ -1803,10 +1805,10 @@ definitions:
             items:
               $ref: "api.yaml#/components/schemas/TxId"
           decommitTx:
-           oneOf:
-            - type: "null"
-            - type: object
-              $ref: "api.yaml#/components/schemas/Transaction"
+            oneOf:
+              - type: "null"
+              - type: object
+                $ref: "api.yaml#/components/schemas/Transaction"
 
       - title: AckSn
         type: object

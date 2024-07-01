@@ -86,16 +86,18 @@ spec = parallel $ do
 
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
-          env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
-            -- a head state that gets checked by 'checkHeadState'
-            let genEvent = do
-                  StateEvent
-                    <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
-            forAllShrink genEvent shrink $ \incompatibleEvent ->
-              testHydrate (mockSource [incompatibleEvent]) []
-                `shouldThrow` \(_ :: ParameterMismatch) -> True
+          env
+            /= testEnvironment
+            ==> do
+              -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+              -- a head state that gets checked by 'checkHeadState'
+              let genEvent = do
+                    StateEvent
+                      <$> arbitrary
+                      <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
+              forAllShrink genEvent shrink $ \incompatibleEvent ->
+                testHydrate (mockSource [incompatibleEvent]) []
+                  `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
@@ -184,7 +186,7 @@ spec = parallel $ do
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 1 [1] Nothing, AckSn signedSnapshot 1]
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing, AckSn signedSnapshot 1]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -193,7 +195,7 @@ spec = parallel $ do
             sn2 = testSnapshot 2 0 (utxoRefs [1, 3, 4]) [1]
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}
+                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}
                    , receiveMessage $ AckSn (sign aliceSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
                    , receiveMessage ReqTx{transaction = tx1}
@@ -204,7 +206,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 2 [1] Nothing, AckSn (sign bobSk sn2) 2]
+        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing, AckSn (sign bobSk sn2) 2]
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -214,7 +216,7 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotNumber = 1, transactionIds = [], decommitTx = Nothing}
+                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
@@ -247,7 +249,7 @@ spec = parallel $ do
                 inputsToOpenHead
                   <> [ receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
                      , receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}
-                     , receiveMessage ReqSn{snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing}
+                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing}
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
