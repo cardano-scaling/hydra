@@ -442,7 +442,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCollectComTx headId
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO} 0 someUTxO
+            postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO} 0 mempty
             deadline <- waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                 | snapshotNumber == 0 -> Just contestationDeadline
