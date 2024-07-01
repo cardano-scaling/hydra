@@ -323,7 +323,9 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber i
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters', outputVersion) =
     extractClosedDatum ctx
 
-  -- TODO: Sasha thinks this might conflict with a real world where the decommit happened but never observed back so the formula should at least be v' == v || v' == v + 1 ???
+  -- TODO: This check can't be done currently since we set the version in the close datum
+  -- to be whatever we have in the snapshot and not what we had in the open
+  -- datum.
   checkLastKnownVersion =
     traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
       inputVersion == outputVersion
@@ -434,7 +436,8 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse $(errorCode TooOldSnapshot) $
       contestSnapshotNumber > closedSnapshotNumber
 
-  -- TODO: Sasha thinks this might conflict with a real world where the decommit happened but never observed back so the formula should at least be v' == v || v' == v + 1 ???
+  -- TODO: This check can't be done currently since we set the version in the close datum
+  -- to be whatever we have in the snapshot and not what we had in the open datum.
   checkLastKnownVersion =
     traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
       inputVersion == outputVersion
@@ -442,6 +445,9 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
   (correctDecommitHash, correctVersion) =
     case expectedVersion of
       InitialVersion ->
+        -- NOTE: We don't really have InitialVersion when contesting. This is
+        -- the consequence of re-using the same 'Version' type for both contest
+        -- and close.
         (decommitHash, inputVersion)
       CurrentVersion ->
         (decommitHash, inputVersion)
