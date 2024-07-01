@@ -432,6 +432,7 @@ spec = parallel $ do
                 waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, utxoToDecommit = utxoRefs [22]}
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId}
 
+    -- TODO: Add it "can contest with decommit in flight"
     it "can close with decommit in flight" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
