@@ -408,19 +408,23 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     requireReqSn $
       -- Spec: wait s̅ = ŝ
       waitNoSnapshotInFlight $
-        -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
-        waitResolvableTxs $ do
-          -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
-          let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
-          -- Spec: require U̅ ◦ txω /= ⊥ combined with Ū_active ← Ū \ Uω and Uω ← outputs(txω)
-          requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-            -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
+        -- Spec: require Ū ◦ txω /= ⊥ combined with ηω ← combine(outputs(txω)) and Ū_active ← Ū ◦ txω
+        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
+          -- REVIEW: Gap
+          -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
+          waitResolvableTxs $ do
+            -- REVIEW: Gap
+            -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
+            let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+            -- Spec: require Ū_active ◦ Treq /= ⊥ combined with η′ ← combine(Û) and Û ← Ū_active ◦ Treq
             requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              -- Spec: ŝ ← s̅ + 1
+              let nextConfSn = confSn + 1
               -- NOTE: confSn == seenSn == sn here
               let nextSnapshot =
                     Snapshot
                       { headId
-                      , number = confSn + 1
+                      , number = nextConfSn
                       , utxo = u
                       , confirmed = requestedTxIds
                       , utxoToDecommit = mUtxoToDecommit
@@ -428,6 +432,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
                       }
               -- Spec: σᵢ
               let snapshotSignature = sign signingKey nextSnapshot
+              -- Spec: multicast (ackSn, ŝ, σᵢ)
               (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
                 do
                   -- Spec: for loop which updates T̂ and L̂
@@ -470,11 +475,14 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
+        -- Spec: require Ū ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
             Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
           Right newConfirmedUTxO -> do
+            -- Spec: ηω ← combine(outputs(txω))
             let utxoToDecommit = utxoFromTx decommitTx
+            -- Spec: Ū_active ← Ū ◦ txω
             let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
             cont (activeUTxO, Just utxoToDecommit)
 
