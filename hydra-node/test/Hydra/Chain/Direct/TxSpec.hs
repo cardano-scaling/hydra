@@ -513,7 +513,7 @@ genPerfectModelSnapshot = do
   (decommit, amount) <- arbitrary
   let decommitUTxO = Map.fromList [(decommit, amount)]
   snapshotUTxO' <- arbitrary
-  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO, snapshotVersion = 0}
+  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.

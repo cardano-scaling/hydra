@@ -663,7 +663,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  closeVersion
+  contestVersion
     | offChainVersion == version = Head.CurrentVersion
     | offChainVersion == version + 1 = Head.OutdatedVersion
     | otherwise = Head.InitialVersion
@@ -672,9 +672,9 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
     toScriptData
       Head.Contest
         { signature = toPlutusSignatures sig
-        , version = closeVersion
+        , version = contestVersion
         , utxoToDecommitHash =
-            case closeVersion of
+            case contestVersion of
               Head.CurrentVersion ->
                 toBuiltin $ hashUTxO @Tx mempty
               Head.OutdatedVersion ->
