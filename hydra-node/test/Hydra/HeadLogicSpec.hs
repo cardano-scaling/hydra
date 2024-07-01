@@ -195,7 +195,8 @@ spec =
               decommitTx2 == decommitTx''
             _ -> False
 
-        it "waits if a requested decommit tx is not (yet) applicable" $ do
+        -- REVIEW: check if duplicated with -> "wait for second decommit"
+        it "waits if a requested decommit tx is not (yet) applicable due to already in flight" $ do
           let inputs = utxoRef 1
               decommitTx = SimpleTx 1 mempty inputs
               reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
@@ -238,6 +239,22 @@ spec =
             _ -> False
 
         it "emits ReqSn on valid RecDec" $ do
+          let localUTxO = utxoRefs [2]
+          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = localUTxO, txOutputs = utxoRefs [4]}
+          let s0 = inOpenState' threeParties $ coordinatedHeadState{localUTxO}
+
+          s0 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
+            _ -> False
+
+          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx', decommitRequester = alice}
+
+          let s1 = update aliceEnv ledger s0 reqDecEvent
+
+          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
+          s1 `hasEffect` NetworkEffect reqSn
+
+        it "waits if a requested decommit tx is not (yet) applicable" $ do
           let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           let s0 = inOpenState threeParties
 
@@ -246,10 +263,9 @@ spec =
             _ -> False
 
           let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx', decommitRequester = alice}
-          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
 
-          let s1 = update aliceEnv ledger s0 reqDecEvent
-          s1 `hasEffect` NetworkEffect reqSn
+          update aliceEnv ledger s0 reqDecEvent
+            `assertWait` WaitOnNotApplicableDecommitTx decommitTx'
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do

@@ -313,17 +313,24 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
-  -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
+  -- REVIEW: would it brake the retry mechanism
+  -- if we produce this inside `waitApplyTx`?
   (newState TransactionReceived{tx} <>) $
-    -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with L̂ ← L̂ ◦ tx
+    -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with calculating L̂ ◦ tx
     waitApplyTx $ \newLocalUTxO ->
       -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
       ( if not snapshotInFlight && isLeader parameters party nextSn
-          then
+          then -- REVIEW: this is done in both branches, can we extract it to
+          -- make it look closer to spec?
+          -- Spec: Tall ← ̂Tall ∪ {tx} combined with L̂ ← L̂ ◦ tx
+
             newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO}
               <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
-          else newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
+              <>
+              -- Spec: multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
+              cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
+          else -- Spec: Tall ← ̂Tall ∪ {tx} combined with L̂ ← L̂ ◦ tx
+            newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
  where
@@ -700,39 +707,70 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
 onOpenNetworkReqDec ::
   IsTx tx =>
   Environment ->
+  Ledger tx ->
   TTL ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env ttl openState decommitTx =
-  waitOnApplicableDecommit $
+onOpenNetworkReqDec env ledger ttl openState decommitTx =
+  -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥ combined
+  waitOnApplicableDecommit $ \newLocalUTxO ->
     let decommitUTxO = utxoFromTx decommitTx
-     in newState (DecommitRecorded decommitTx)
+        activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
+     in -- Spec: txω ← tx combined with L̂ \ inputs(tx)
+        newState (DecommitRecorded decommitTx activeUTxO)
           <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
+          -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
           <> if isLeader parameters party nextSn
-            then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
+            then -- Spec: multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
+              cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
             else noop
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
-      Nothing -> cont
+      Nothing ->
+        case applyTransactions currentSlot localUTxO [decommitTx] of
+          Right utxo' -> cont utxo'
+          Left (_, err)
+            | ttl > 0 ->
+                wait $ WaitOnNotApplicableDecommitTx decommitTx
+            | otherwise ->
+                cause . ClientEffect $
+                  ServerOutput.DecommitInvalid
+                    { headId
+                    , decommitInvalidReason =
+                        ServerOutput.DecommitTxInvalid
+                          { confirmedUTxO
+                          , decommitTx
+                          , validationError = err
+                          }
+                    }
       Just existingDecommitTx
         | ttl > 0 ->
             wait $ WaitOnNotApplicableDecommitTx decommitTx
         | otherwise ->
+            -- REVIW: cause . ClientEffect $ ServerOutput.DecommitInvalid
             Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+
   Environment{party} = env
+
+  Ledger{applyTransactions} = ledger
 
   Snapshot{number} = getSnapshot confirmedSnapshot
 
   nextSn = number + 1
 
-  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, version} = coordinatedHeadState
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version} = coordinatedHeadState
+
+  confirmedUTxO = case confirmedSnapshot of
+    InitialSnapshot{initialUTxO} -> initialUTxO
+    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
   OpenState
     { headId
     , parameters
     , coordinatedHeadState
+    , currentSlot
     } = openState
 
 -- ** Closing the Head
@@ -941,7 +979,7 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ttl openState transaction
+    onOpenNetworkReqDec env ledger ttl openState transaction
   ( Open OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnDecrementTx{headId}}
     )
@@ -1182,7 +1220,7 @@ aggregate st = \case
          where
           sigs = Map.insert party signature signatories
       _otherState -> st
-  DecommitRecorded decommitTx ->
+  DecommitRecorded decommitTx newLocalUTxO ->
     case st of
       Open
         os@OpenState
@@ -1191,7 +1229,10 @@ aggregate st = \case
           Open
             os
               { coordinatedHeadState =
-                  coordinatedHeadState{decommitTx = Just decommitTx}
+                  coordinatedHeadState
+                    { localUTxO = newLocalUTxO
+                    , decommitTx = Just decommitTx
+                    }
               }
       _otherState -> st
   DecommitFinalized ->
