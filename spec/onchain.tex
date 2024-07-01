@@ -332,12 +332,13 @@ a party to remove a UTxO from an already open head and consists of:
 \noindent The state-machine validator $\nuHead$ is spent with
 $\redeemerHead = (\mathsf{decrement}, \xi, s, m)$, where $\xi$ is a multi-signature of
 the decrement snapshot which authorizes removal of some UTxO, $s$ is the
-used snapshot number and $m$ is the number of outputs to distribute. The
+used \todo{Decrement redeemer doesn't contain snapshot number} snapshot number and $m$ is the number of outputs to distribute. The
 validator checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
 	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeys,\cPer$ stay
 	unchanged and the new state is governed again by $\nuHead$
+\todo{Open datum should contain snapshot number}
 	\[
 		(\stOpen,\cid,\hydraKeys,\cPer,v,\eta) \xrightarrow[\xi, s, m]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeys,\cPer,v',\eta')
 	\]
