@@ -473,6 +473,15 @@ spec =
             st = inOpenState threeParties
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
+      it "rejects invalid snapshots version" $ do
+        let validSnNumber = 0
+            invalidSnVersion = 1
+            input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing
+            theLeader = carol
+            expectedSnVersion = 0
+            st = inOpenState threeParties
+        update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
+
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice
             nextSN = 1

@@ -96,7 +96,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
 defaultTTL :: TTL
 defaultTTL = 5
@@ -392,6 +392,8 @@ onOpenNetworkReqSn ::
   OpenState tx ->
   -- | Party which sent the ReqSn.
   Party ->
+  -- | Requested snapshot version.
+  SnapshotVersion ->
   -- | Requested snapshot number.
   SnapshotNumber ->
   -- | List of transactions to snapshot.
@@ -399,44 +401,52 @@ onOpenNetworkReqSn ::
   -- | Optional decommit transaction of removing funds from the head.
   Maybe tx ->
   Outcome tx
-onOpenNetworkReqSn env ledger st otherParty sn requestedTxIds mDecommitTx =
-  -- Spec: require s = ŝ + 1 and leader(s) = j
-  requireReqSn $
-    -- Spec: wait s̅ = ŝ
-    waitNoSnapshotInFlight $
-      -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
-      waitResolvableTxs $ do
-        -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
-        let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
-        -- Spec: require U̅ ◦ txω /= ⊥ combined with Ū_active ← Ū \ Uω and Uω ← outputs(txω)
-        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-          -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
-          requireApplyTxs activeUTxO requestedTxs $ \u -> do
-            -- NOTE: confSn == seenSn == sn here
-            let nextSnapshot =
-                  Snapshot
-                    { headId
-                    , number = confSn + 1
-                    , utxo = u
-                    , confirmed = requestedTxIds
-                    , utxoToDecommit = mUtxoToDecommit
-                    , version = version
-                    }
-            -- Spec: σᵢ
-            let snapshotSignature = sign signingKey nextSnapshot
-            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
-              do
-                -- Spec: for loop which updates T̂ and L̂
-                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-                newState
-                  SnapshotRequested
-                    { snapshot = nextSnapshot
-                    , requestedTxIds
-                    , newLocalUTxO
-                    , newLocalTxs
-                    }
+onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
+  -- Spec: require v = vˆ
+  requireReqSv $
+    -- Spec: require s = ŝ + 1 and leader(s) = j
+    requireReqSn $
+      -- Spec: wait s̅ = ŝ
+      waitNoSnapshotInFlight $
+        -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
+        waitResolvableTxs $ do
+          -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
+          let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+          -- Spec: require U̅ ◦ txω /= ⊥ combined with Ū_active ← Ū \ Uω and Uω ← outputs(txω)
+          requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
+            -- TODO: Spec: require U̅ ◦ Treq /= ⊥ combined with Û ← Ū̅ ◦ Treq
+            requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              -- NOTE: confSn == seenSn == sn here
+              let nextSnapshot =
+                    Snapshot
+                      { headId
+                      , number = confSn + 1
+                      , utxo = u
+                      , confirmed = requestedTxIds
+                      , utxoToDecommit = mUtxoToDecommit
+                      , version = version
+                      }
+              -- Spec: σᵢ
+              let snapshotSignature = sign signingKey nextSnapshot
+              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
+                do
+                  -- Spec: for loop which updates T̂ and L̂
+                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                  -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
+                  newState
+                    SnapshotRequested
+                      { snapshot = nextSnapshot
+                      , requestedTxIds
+                      , newLocalUTxO
+                      , newLocalTxs
+                      }
  where
+  requireReqSv continue
+    | sv /= version =
+        Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+    | otherwise =
+        continue
+
   requireReqSn continue
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
@@ -955,9 +965,9 @@ update env ledger st ev = case (st, ev) of
     onOpenClientNewTx tx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn _ sn txIds decommitTx})) ->
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx})) ->
     -- XXX: ttl == 0 not handled for ReqSn
-    onOpenNetworkReqSn env ledger openState sender sn txIds decommitTx
+    onOpenNetworkReqSn env ledger openState sender sv sn txIds decommitTx
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState sender snapshotSignature sn
