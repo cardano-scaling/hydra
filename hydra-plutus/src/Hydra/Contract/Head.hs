@@ -413,7 +413,7 @@ checkContest ::
   Bool
 checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId inputVersion expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
-    && checkLastKnownVersion
+    -- && checkLastKnownVersion
     && mustBeNewer
     && mustBeMultiSigned
     && mustBeSignedByParticipant ctx headId
@@ -448,13 +448,13 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
         -- NOTE: We don't really have InitialVersion when contesting. This is
         -- the consequence of re-using the same 'Version' type for both contest
         -- and close.
-        (decommitHash, inputVersion)
+        (decommitHash, 0)
       CurrentVersion ->
-        (decommitHash, inputVersion)
+        (decommitHash, outputVersion)
       OutdatedVersion ->
         -- TODO: missing to check -> η∆′ = ⊥ Is this really needed? Signature
         -- would be invalid anyway?
-        (utxoToDecommitHash, inputVersion)
+        (utxoToDecommitHash, outputVersion)
 
   mustBeMultiSigned =
     verifySnapshotSignature parties headId contestSnapshotNumber contestUtxoHash correctDecommitHash correctVersion sig
