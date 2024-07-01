@@ -1009,6 +1009,22 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           lastSeenSn:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "ReqSvNumberInvalid"
+        description: >-
+          Received ReqSn containing an invalid snapshot version
+        additionalProperties: false
+        required:
+          - tag
+          - requestedSv
+          - lastSeenSv
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSvNumberInvalid"]
+          requestedSn:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
+          lastSeenSn:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
       - title: "ReqSnNotLeader"
         description: >-
           Received a ReqSn message from some party which is not the leader.
