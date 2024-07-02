@@ -559,12 +559,27 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
         ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
+          -- REVIEW: Gap
+          --         η ← combine(Uˆ)
+          --         ηω ← combine(outputs(txω ))
+
           -- Spec: require MS-Verify(k ̃H, (cid||vˆ||ŝ||η′||ηω), σ̃)
           requireVerifiedMultisignature multisig snapshot $
             do
+              -- Spec: S ̄   ← snObj(vˆ, sˆ, Uˆ, Tˆ , txω )
+              --       S ̄.σ ← σ ̃
               newState SnapshotConfirmed{snapshot, signatures = multisig}
+              -- REVIEW: Gap
+              -- Spec: ∀tx ∈ Treq : output(conf, tx)
               <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
+              -- REVIEW: Gap
+              -- Spec: if leader(s̄ + 1) = i ∧ Tˆ ≠ ∅
+              --         multicast (reqSn, vˆ, s̄ + 1, Tˆ, txω )
               & maybeEmitSnapshot
+              -- REVIEW: Gap
+              -- Spec: if txω  ̸= ⊥
+              --         postTx (decrement, vˆ, sˆ, η, ηω )
+              --         output(conf, txω )
               & maybeEmitDecrementTx snapshot multisig
  where
   seenSn = seenSnapshotNumber seenSnapshot
@@ -610,7 +625,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             InvalidMultisignature{multisig = show multisig, vkeys}
 
   maybeEmitSnapshot outcome =
-    if partyIsLeader
+    if partyIsLeader && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
@@ -639,7 +654,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   vkeys = vkey <$> parties
 
-  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
+  partyIsLeader = isLeader parameters party nextSn
 
   OpenState
     { parameters = parameters@HeadParameters{parties}
