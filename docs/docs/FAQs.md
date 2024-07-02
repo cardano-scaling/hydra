@@ -7,7 +7,7 @@
 
 <details>
 <summary>When Hydra?</summary>
-The project is available on all Cardano networks (including mainnet), and releases with new features become available every four to six weeks. The roadmap is publicly available on <a href="https://github.com/orgs/input-output-hk/projects/21/views/25">Github</a> 
+The project is available on all Cardano networks (including mainnet), and releases with new features become available every four to six weeks. The roadmap is publicly available on <a href="https://github.com/orgs/input-output-hk/projects/21/views/25">GitHub.</a> 
 </details>
 
 <details>
@@ -78,7 +78,7 @@ Setting protocol parameters with `fee > 0` ensures that Hydra Head (layer 2) tra
 </details>
 
 <details>
-<summary> Is it possible to use different protocol parameters in the Hydra Head?</summary>
+<summary> Is it possible to use different protocol parameters in the Hydra head?</summary>
 
 Yes, the ledger used for layer 2 transactions in a Hydra head is configurable, allowing for the same or different protocol parameters as those used in layer 1. **However, there is an important caveat to consider**:
 
