@@ -863,10 +863,19 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
+  -- Spec: η ← combine(S ̄.U)
+  --       ηω ← combine(outputs(S ̄.txω))
+  --       ξ ← S ̄.σ
+  --       postTx (close, S ̄.v, S ̄.s, η, ηω,ξ)
   cause
     OnChainEffect
       { postChainTx =
-          CloseTx headId parameters confirmedSnapshot version (fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot)
+          CloseTx
+            headId
+            parameters
+            confirmedSnapshot
+            version
+            (fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot)
       }
  where
   CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
