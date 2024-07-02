@@ -39,7 +39,7 @@ import Data.Text qualified as T
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Close.CloseCurrent (healthyOpenHeadTxOut)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyOpenHeadTxOut)
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
