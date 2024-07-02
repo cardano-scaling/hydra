@@ -791,6 +791,52 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     , currentSlot
     } = openState
 
+-- ** Decrementing funds from the Head
+
+-- | Observe a decommit transaction. If the outputs of the pending decommit tx
+-- are equal to the latest confirmed UTxO to decommit, then we consider the
+-- decommit valid, and we take the funds out of the head and remove the
+-- decommit tx in flight.
+-- Finally, if the client observing happens to be the leader, then a new
+-- ReqSn is broadcasted.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenChainDecrementTx :: IsTx tx => Environment -> OpenState tx -> Outcome tx
+onOpenChainDecrementTx Environment{party} openState
+  | -- Spec: if outputs(txω) = Uω
+    -- REVIEW: should we get Uω from observation instead of local state?
+    (utxoFromTx <$> decommitTx) == utxoToDecommit =
+      -- Spec: txω ← ⊥
+      --       vˆ  ← v
+      newState DecommitFinalized
+        <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
+        -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
+        --          multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
+        & maybeEmitSnapshot
+  | otherwise = noop
+ where
+  version' = version + 1
+
+  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
+
+  maybeEmitSnapshot outcome =
+    if seenSn == confirmedSn && partyIsLeader
+      then
+        outcome
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version' nextSn (txId <$> localTxs) decommitTx)
+      else outcome
+
+  OpenState{parameters, coordinatedHeadState, headId} = openState
+
+  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, version, seenSnapshot} = coordinatedHeadState
+
+  seenSn = seenSnapshotNumber seenSnapshot
+
+  Snapshot{number = confirmedSn, utxoToDecommit} = getSnapshot confirmedSnapshot
+
+  nextSn = confirmedSn + 1
+
 -- ** Closing the Head
 
 -- | Client request to close the head. This leads to a close transaction on
@@ -998,15 +1044,12 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  ( Open OpenState{headId = ourHeadId}
-    , ChainInput Observation{observedTx = OnDecrementTx{headId}}
-    )
-      -- TODO: What happens if observed decrement tx get's rolled back?
-      | ourHeadId == headId ->
-          newState DecommitFinalized
-            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
-      | otherwise ->
-          Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId}})
+    -- TODO: What happens if observed decrement tx get's rolled back?
+    | ourHeadId == headId ->
+        onOpenChainDecrementTx env openState
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
     | ourHeadId == headId ->
