@@ -541,20 +541,20 @@ instance RunModel Model AppM where
     case action of
       Decrement{actor, snapshot} -> do
         (_, v) <- get
-        tx <- newDecrementTx actor (signedSnapshot snapshot (UnsafeSnapshotVersion $ if v == 0 then 0 else v - 1))
-        performTx tx
+        tx <- newDecrementTx actor (signedSnapshot snapshot (UnsafeSnapshotVersion v))
+        performTx tx True
       Close{actor, snapshot} -> do
         (_, v) <- get
         tx <- newCloseTx actor (confirmedSnapshot snapshot (UnsafeSnapshotVersion v))
-        performTx tx
+        performTx tx False
       Contest{actor, snapshot} -> do
         (_, v) <- get
         tx <- newContestTx actor (confirmedSnapshot snapshot (UnsafeSnapshotVersion v))
-        performTx tx
+        performTx tx False
       Fanout{snapshot} -> do
         -- TODO: why do we do newFanoutTx differently to other transactions?
         tx <- newFanoutTx Alice snapshot
-        performTx tx
+        performTx tx False
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = runPostconditionM' $ do
@@ -603,30 +603,31 @@ instance RunModel Model AppM where
 -- | Perform a transaction by evaluating and observing it. This updates the
 -- 'UTxO' in the 'AppM' if a transaction is valid and produces a 'TxResult' that
 -- can be used to assert expected success / failure.
-performTx :: Show err => Either err Tx -> AppM TxResult
-performTx = \case
-  Left err -> do
-    (utxo, _v) <- get
-    pure
-      TxResult
-        { constructedTx = Left $ show err
-        , spendableUTxO = utxo
-        , validationError = Nothing
-        , observation = NoHeadTx
-        }
-  Right tx -> do
-    (utxo, v) <- get
-    let validationError = getValidationError tx utxo
-    when (isNothing validationError) $ do
-      put (adjustUTxO tx utxo, v)
-    let observation = observeHeadTx Fixture.testNetworkId utxo tx
-    pure
-      TxResult
-        { constructedTx = Right tx
-        , spendableUTxO = utxo
-        , validationError
-        , observation
-        }
+performTx :: Show err => Either err Tx -> Bool -> AppM TxResult
+performTx result isDecrement =
+  case result of
+    Left err -> do
+      (utxo, _v) <- get
+      pure
+        TxResult
+          { constructedTx = Left $ show err
+          , spendableUTxO = utxo
+          , validationError = Nothing
+          , observation = NoHeadTx
+          }
+    Right tx -> do
+      (utxo, v) <- get
+      let validationError = getValidationError tx utxo
+      when (isNothing validationError) $ do
+        put (adjustUTxO tx utxo, if isDecrement then v + 1 else v)
+      let observation = observeHeadTx Fixture.testNetworkId utxo tx
+      pure
+        TxResult
+          { constructedTx = Right tx
+          , spendableUTxO = utxo
+          , validationError
+          , observation
+          }
 
 getValidationError :: Tx -> UTxO -> Maybe String
 getValidationError tx utxo =
