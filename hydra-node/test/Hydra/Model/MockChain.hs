@@ -224,7 +224,7 @@ mockChainAndNetwork tr seedKeys commits = do
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do
               let initialSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
 
-              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot, version = 0, closeUTxOToDecommit = modelInitialUTxO}
+              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot, version = 0, closeUTxOToDecommit = mempty}
               postTx closeTx
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
