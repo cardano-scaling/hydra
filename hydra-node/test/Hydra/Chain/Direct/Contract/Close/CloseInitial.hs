@@ -8,39 +8,31 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  SomeMutation (..),
-  addParticipationTokens,
-  modifyInlineDatum,
-  replaceContestationDeadline,
- )
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime, healthyContestationDeadline, healthyContestationPeriod, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthyUTxO, somePartyCardanoVerificationKey, healthySnapshot)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.TimeHandle (PointInTime)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
-import Hydra.ContestationPeriod (fromChain)
-import Hydra.Contract.Error (toErrorCode)
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId)
+import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (HydraKey)
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
-import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (SnapshotNumber, SnapshotVersion)
-import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
-import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
-import Test.QuickCheck (elements, oneof, suchThat)
+import PlutusLedgerApi.V2 (POSIXTime)
+import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
+import Hydra.Snapshot (Snapshot, SnapshotVersion, SnapshotNumber)
+import qualified Hydra.Contract.HeadState as HeadState
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
   deriving stock (Generic, Show, Enum, Bounded)
+
+healthyCloseSnapshotNumber :: SnapshotNumber
+healthyCloseSnapshotNumber = 0
+
+healthyCloseSnapshotVersion :: SnapshotVersion
+healthyCloseSnapshotVersion = 0
 
 -- | Healthy close transaction for the specific case were we close a head
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
@@ -49,6 +41,7 @@ healthyCloseInitialTx :: (Tx, UTxO)
 healthyCloseInitialTx =
   (tx, lookupUTxO)
  where
+  tx :: Tx
   tx =
     closeTx
       scriptRegistry
@@ -60,97 +53,43 @@ healthyCloseInitialTx =
       (mkHeadId Fixture.testPolicyId)
       healthyCloseSnapshotVersion
 
-  initialDatum = toUTxOContext (mkTxOutDatumInline healthyOpenHeadDatum)
+  initialDatum :: TxOutDatum CtxUTxO
+  initialDatum = toUTxOContext (mkTxOutDatumInline healthyInitialOpenDatum)
 
+  lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry
 
+  scriptRegistry :: ScriptRegistry
   scriptRegistry = genScriptRegistry `generateWith` 42
 
+  openThreadOutput :: OpenThreadOutput
   openThreadOutput =
     OpenThreadOutput
       { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
       }
+
   closingSnapshot :: ClosingSnapshot
   closingSnapshot =
     CloseWithInitialSnapshot
       { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
       }
 
-healthyContestationPeriod :: OnChain.ContestationPeriod
-healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+healthyInitialSnapshot :: Snapshot Tx
+healthyInitialSnapshot = healthySnapshot healthyCloseSnapshotNumber healthyCloseSnapshotVersion
 
-healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = 10
+healthyInitialOpenDatum :: HeadState.State
+healthyInitialOpenDatum = healthyOpenDatum healthyInitialSnapshot
 
-healthyParticipants :: [VerificationKey PaymentKey]
-healthyParticipants =
-  genForParty genVerificationKey <$> healthyParties
-
-somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-somePartyCardanoVerificationKey =
-  elements healthyParticipants `generateWith` 42
-
-healthySigningKeys :: [SigningKey HydraKey]
-healthySigningKeys = [aliceSk, bobSk, carolSk]
-
-healthyParties :: [Party]
-healthyParties = deriveParty <$> healthySigningKeys
-
-healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = partyToChain <$> healthyParties
-
-healthyContestationDeadline :: UTCTime
-healthyContestationDeadline =
-  addUTCTime
-    (fromInteger healthyContestationPeriodSeconds)
-    (snd healthyCloseUpperBoundPointInTime)
-
-healthyOpenHeadDatum :: Head.State
-healthyOpenHeadDatum =
-  Head.Open
-    { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-    , snapshotNumber = toInteger healthyCloseSnapshotNumber
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = toInteger healthyCloseSnapshotVersion
-    }
-
-healthyCloseSnapshotNumber :: SnapshotNumber
-healthyCloseSnapshotNumber = 0
-
-healthyCloseSnapshotVersion :: SnapshotVersion
-healthyCloseSnapshotVersion = 0
-
-healthyUTxO :: UTxO
-healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` 42
-
--- NOTE: We need to use the contestation period when generating start/end tx
--- validity slots/time since if tx validity bound difference is bigger than
--- contestation period our close validator will fail
-healthyCloseLowerBoundSlot :: SlotNo
-healthyCloseUpperBoundPointInTime :: PointInTime
-(healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime) =
-  genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
-
-healthyOpenHeadTxIn :: TxIn
-healthyOpenHeadTxIn = generateWith arbitrary 42
-
-healthyOpenHeadTxOut :: TxOutDatum CtxUTxO -> TxOut CtxUTxO
-healthyOpenHeadTxOut headTxOutDatum =
-  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
-
--- | Mutations for the specific case of closing with the intial state.
--- We should probably validate all the mutation to this initial state but at
--- least we keep this regression test as we stumbled upon problems with the following case.
--- The nice thing to do would probably to generate either "normal" healthyCloseTx or
--- or healthyCloseInitialTx and apply all the mutations to it but we didn't manage to do that
--- right away.
+--- | Mutations for the specific case of closing with the intial state.
+--- We should probably validate all the mutation to this initial state but at
+--- least we keep this regression test as we stumbled upon problems with the following case.
+--- The nice thing to do would probably to generate either "normal" healthyCloseTx or
+--- or healthyCloseInitialTx and apply all the mutations to it but we didn't manage to do that
+--- right away.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
   SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do

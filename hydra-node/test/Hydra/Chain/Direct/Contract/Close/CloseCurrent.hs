@@ -6,13 +6,12 @@ module Hydra.Chain.Direct.Contract.Close.CloseCurrent where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, somePartyCardanoVerificationKey, healthySplitUTxOInHead, healthyConfirmedClosingSnapshotTx)
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  addParticipationTokens,
   changeMintedTokens,
   modifyInlineDatum,
   replaceContestationDeadline,
@@ -26,169 +25,40 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceUtxoToDecommitHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (splitUTxO)
-import Hydra.Chain.Direct.TimeHandle (PointInTime)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId, mkHeadOutput)
-import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
+import Hydra.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Ledger (hashUTxO)
-import Hydra.Ledger.Cardano (genAddressInEra, genOneUTxOFor, genValue, genVerificationKey)
-import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
-import Hydra.Party (Party, deriveParty, partyToChain)
+import Hydra.Ledger.Cardano (genAddressInEra, genValue, genVerificationKey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Snapshot (Snapshot (..))
 import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
-import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+
+
+healthyCurrentSnapshotNumber :: Snapshot.SnapshotNumber
+healthyCurrentSnapshotNumber = 1
+
+healthyCurrentSnapshotVersion :: Snapshot.SnapshotVersion
+healthyCurrentSnapshotVersion = 1
 
 -- | Healthy close transaction for the generic case were we close a head
 --   after one or more snapshot have been agreed upon between the members.
 healthyCloseCurrentTx :: (Tx, UTxO)
-healthyCloseCurrentTx =
-  (tx, lookupUTxO)
- where
-  tx =
-    closeTx
-      scriptRegistry
-      somePartyCardanoVerificationKey
-      closingSnapshot
-      healthyCloseLowerBoundSlot
-      healthyCloseUpperBoundPointInTime
-      openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
-      healthyCloseSnapshotVersion
+healthyCloseCurrentTx = healthyConfirmedClosingSnapshotTx healthyCurrentSnapshot
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
+healthyCurrentSnapshot :: Snapshot Tx
+healthyCurrentSnapshot = healthySnapshot healthyCurrentSnapshotNumber healthyCurrentSnapshotVersion
 
-  lookupUTxO =
-    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
-      <> registryUTxO scriptRegistry
-
-  scriptRegistry = genScriptRegistry `generateWith` 42
-
-  openThreadOutput =
-    OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
-      , openParties = healthyOnChainParties
-      , openContestationPeriod = healthyContestationPeriod
-      }
-
-healthyCloseSnapshotNumber :: SnapshotNumber
-healthyCloseSnapshotNumber = 1
-
-healthyCloseSnapshotVersion :: SnapshotVersion
-healthyCloseSnapshotVersion = 1
-
-healthyCloseUTxO :: UTxO
-healthyCloseUTxO =
-  genOneUTxOFor somePartyCardanoVerificationKey
-    `generateWith` 42
-
-splittedCloseUTxO :: (UTxO, UTxO)
-splittedCloseUTxO = splitUTxO healthyCloseUTxO
-
-splitUTxOInHead :: UTxO
-splitUTxOInHead = fst splittedCloseUTxO
-
-splitUTxOToDecommit :: UTxO
-splitUTxOToDecommit = snd splittedCloseUTxO
-
-healthySnapshot :: Snapshot Tx
-healthySnapshot =
-  Snapshot
-    { headId = mkHeadId Fixture.testPolicyId
-    , number = healthyCloseSnapshotNumber
-    , utxo = splitUTxOInHead
-    , confirmed = []
-    , -- XXX even after observing a decrement tx,
-      -- the snapshot still contains something to decommit.
-      utxoToDecommit = Just splitUTxOToDecommit
-    , version = healthyCloseSnapshotVersion
-    }
-
-closingSnapshot :: ClosingSnapshot
-closingSnapshot =
-  CloseWithConfirmedSnapshot
-    { snapshotNumber = number healthySnapshot
-    , closeUtxoHash = UTxOHash $ hashUTxO @Tx (utxo healthySnapshot)
-    , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
-    , signatures = healthySignature (number healthySnapshot)
-    , version = Snapshot.version healthySnapshot
-    }
-
-healthyOpenDatum :: Head.State
-healthyOpenDatum =
-  Head.Open
-    { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx splitUTxOInHead
-    , snapshotNumber = toInteger healthyCloseSnapshotNumber
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = toInteger healthyCloseSnapshotVersion
-    }
-
--- NOTE: We need to use the contestation period when generating start/end tx
--- validity slots/time since if tx validity bound difference is bigger than
--- contestation period our close validator will fail
-healthyCloseLowerBoundSlot :: SlotNo
-healthyCloseUpperBoundPointInTime :: PointInTime
-(healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime) =
-  genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` 42
-
-healthyOpenHeadTxIn :: TxIn
-healthyOpenHeadTxIn = generateWith arbitrary 42
-
-healthyOpenHeadTxOut :: TxOutDatum CtxUTxO -> TxOut CtxUTxO
-healthyOpenHeadTxOut headTxOutDatum =
-  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
-
-healthyContestationPeriod :: OnChain.ContestationPeriod
-healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
-
-healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = 10
-
-healthyParticipants :: [VerificationKey PaymentKey]
-healthyParticipants =
-  genForParty genVerificationKey <$> healthyParties
-
-somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-somePartyCardanoVerificationKey =
-  elements healthyParticipants `generateWith` 42
-
-healthySigningKeys :: [SigningKey HydraKey]
-healthySigningKeys = [aliceSk, bobSk, carolSk]
-
-healthyParties :: [Party]
-healthyParties = deriveParty <$> healthySigningKeys
-
-healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = partyToChain <$> healthyParties
-
-healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
-healthySignature number =
-  aggregate [sign sk snapshot | sk <- healthySigningKeys]
- where
-  snapshot = healthySnapshot{number}
-
-healthyContestationDeadline :: UTCTime
-healthyContestationDeadline =
-  addUTCTime
-    (fromInteger healthyContestationPeriodSeconds)
-    (snd healthyCloseUpperBoundPointInTime)
+healthyCurrentOpenDatum :: Head.State
+healthyCurrentOpenDatum = healthyOpenDatum healthyCurrentSnapshot
 
 data CloseMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -287,10 +157,10 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $
           Changes
             [ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
-            , ChangeInputHeadDatum healthyOpenDatum{Head.utxoHash = ""}
+            , ChangeInputHeadDatum healthyCurrentOpenDatum{Head.utxoHash = ""}
             ]
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotNumber)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , -- , -- XXX: Last known open state version is recorded in closed state
       --   SomeMutation (pure $ toErrorCode LastKnownVersionIsNotMatching) MutateSnapshotVersion <$> do
@@ -298,7 +168,7 @@ genCloseCurrentMutation (tx, _utxo) =
       --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
       SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ healthyOpenDatum{Head.parties = mutatedParties}
+        pure $ healthyCurrentOpenDatum {Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         n <- choose (1, length healthyOnChainParties - 1)
         fn <- elements [drop n, take n]
@@ -318,7 +188,7 @@ genCloseCurrentMutation (tx, _utxo) =
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx splitUTxOInHead)) . toBuiltin)
+        mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx healthySplitUTxOInHead)) . toBuiltin)
         pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
     , -- XXX: Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
@@ -344,7 +214,7 @@ genCloseCurrentMutation (tx, _utxo) =
       -- This is a bit confusing and not giving much value. Maybe we can remove this.
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) CloseFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthySnapshot)
+        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyCurrentSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
@@ -356,7 +226,7 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           { signature =
                               toPlutusSignatures $
-                                healthySignature healthyCloseSnapshotNumber
+                                healthySignature healthyCurrentSnapshot
                           , version = Head.CurrentVersion
                           , utxoToDecommitHash = expectedHash
                           }
@@ -388,7 +258,7 @@ genCloseCurrentMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyOpenDatum)
+  datum = toUTxOContext (mkTxOutDatumInline healthyCurrentOpenDatum)
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime
