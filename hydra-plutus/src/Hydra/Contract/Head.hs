@@ -507,13 +507,19 @@ checkFanout ::
 checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutputs numberOfDecommitOutputs ScriptContext{scriptContextTxInfo = txInfo} currencySymbol parties =
   mustBurnAllHeadTokens minted currencySymbol parties
     && hasSameUTxOHash
+    && hasSameUTxOToDecommitHash
     && afterContestationDeadline
  where
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
     traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
-      fannedOutUtxoHash == utxoHash && decommitUtxoHash == utxoToDecommitHash
+      fannedOutUtxoHash == utxoHash
+
+  hasSameUTxOToDecommitHash =
+    traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) $
+      decommitUtxoHash == utxoToDecommitHash
+
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
   decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
