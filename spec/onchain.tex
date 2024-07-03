@@ -579,13 +579,13 @@ hence there is no state machine output.
 \end{figure}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
+$\redeemerHead = (\mathsf{fanout}, m\red{, m'})$, where $m$ \red{and $m'$ are
 	outputs to distribute from the $\stClosed$ state}, and checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stClosed$ to terminal state
 	$\stFinal$: % XXX: What does this actually mean?
 	\[
-		(\stClosed,\cid,\hydraKeys,\cPer,\red{v, s,}\eta,\red{\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[m\red{,n}]{\stFanout} \stFinal
+		(\stClosed,\cid,\hydraKeys,\cPer,\red{v, s,}\eta,\red{\eta_{\Delta}},\contesters,\Tfinal) \xrightarrow[m\red{,m'}]{\stFanout} \stFinal
 	\]
 	\item The first $m$ outputs are distributing funds according to $\eta$. That is,
 	the outputs exactly correspond to the UTxO canonically combined $U^{\#}$ (see
@@ -593,16 +593,16 @@ $\redeemerHead = (\mathsf{fanout}, m\red{, n})$, where $m$ \red{and $n$ are
 	\[
 		\eta = U^{\#} = \hash(\bigoplus_{j=1}^{m} \bytes(o_{j}))
 	\]
-	\red{\item The following $n$ outputs are distributing funds according to
+	\red{\item The following $m'$ outputs are distributing funds according to
 		$\eta_{\Delta}$. That is, the outputs exactly correspond to the UTxO canonically
 		combined $U^{\#}_{\Delta}$ (see Section~\ref{sec:collect-tx}):
 		\[
-			\eta_{\Delta} = U^{\#}_{\Delta} = \hash(\bigoplus_{j=m}^{m+n} \bytes(o_{j}))
+			\eta_{\Delta} = U^{\#}_{\Delta} = \hash(\bigoplus_{j=m}^{m+m'} \bytes(o_{j}))
 		\]
 	}
 	\item Transaction is posted after contestation deadline $\txValidityMin > \Tfinal$.
 	\item All tokens are burnt
-	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = n + 1$.
+	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = m' + 1$.
 \end{menumerate}
 
 \noindent The $\muHead(\seed)$ minting policy governs the burning of tokens via
