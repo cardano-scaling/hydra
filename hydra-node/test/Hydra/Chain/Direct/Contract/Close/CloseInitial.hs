@@ -8,21 +8,21 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime, healthyContestationDeadline, healthyContestationPeriod, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthyUTxO, somePartyCardanoVerificationKey, healthySnapshot)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime, healthyContestationDeadline, healthyContestationPeriod, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySnapshot, healthyUTxO, somePartyCardanoVerificationKey)
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
+import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Ledger (hashUTxO)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import PlutusLedgerApi.V2 (POSIXTime)
+import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion, utxo, utxoToDecommit)
+import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
-import Hydra.Snapshot (Snapshot, SnapshotVersion, SnapshotNumber)
-import qualified Hydra.Contract.HeadState as HeadState
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
@@ -79,10 +79,10 @@ healthyCloseInitialTx =
       }
 
 healthyInitialSnapshot :: Snapshot Tx
-healthyInitialSnapshot = healthySnapshot healthyCloseSnapshotNumber healthyCloseSnapshotVersion
+healthyInitialSnapshot = (healthySnapshot healthyCloseSnapshotNumber healthyCloseSnapshotVersion){utxo = healthyUTxO, utxoToDecommit = mempty}
 
 healthyInitialOpenDatum :: HeadState.State
-healthyInitialOpenDatum = healthyOpenDatum healthyInitialSnapshot
+healthyInitialOpenDatum = (healthyOpenDatum healthyInitialSnapshot){HeadState.utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO}
 
 --- | Mutations for the specific case of closing with the intial state.
 --- We should probably validate all the mutation to this initial state but at
