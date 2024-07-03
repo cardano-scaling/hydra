@@ -6,7 +6,9 @@ module Hydra.Chain.Direct.Contract.Close.CloseOutdated where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUTxOHash, healthyCloseUpperBoundPointInTime, healthyConfirmedClosingSnapshot, healthyContestationDeadline, healthyContestationPeriod, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySplitUTxOInHead, healthySplitUTxOToDecommit, scriptRegistry, somePartyCardanoVerificationKey)
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -22,12 +24,19 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceSnapshotNumber,
   replaceUtxoHash,
  )
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, somePartyCardanoVerificationKey, healthySplitUTxOInHead, healthySplitUTxOToDecommit, healthyCloseUTxOHash, healthyConfirmedClosingSnapshot, healthyConfirmedClosingSnapshotTx)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), UTxOHash (UTxOHash), mkHeadId)
+import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
+import Hydra.Chain.Direct.Tx (
+  ClosingSnapshot (..),
+  OpenThreadOutput (..),
+  UTxOHash (UTxOHash),
+  closeTx,
+  mkHeadId,
+ )
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Crypto (MultiSignature (..), toPlutusSignatures)
@@ -69,8 +78,38 @@ healthyOutdatedConfirmedClosingSnapshot :: ClosingSnapshot
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedClosingSnapshot healthyOutdatedSnapshot
 
 healthyCloseOutdatedTx :: (Tx, UTxO)
-healthyCloseOutdatedTx = healthyConfirmedClosingSnapshotTx healthyOutdatedSnapshot
+healthyCloseOutdatedTx =
+  (tx, lookupUTxO)
+ where
+  tx =
+    closeTx
+      scriptRegistry
+      somePartyCardanoVerificationKey
+      (healthyConfirmedClosingSnapshot healthyOutdatedSnapshot)
+      healthyCloseLowerBoundSlot
+      healthyCloseUpperBoundPointInTime
+      openThreadOutput
+      (mkHeadId Fixture.testPolicyId)
+      (healthyOutdatedSnapshotVersion + 1)
 
+  lookupUTxO :: UTxO' (TxOut CtxUTxO)
+  lookupUTxO =
+    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+      <> registryUTxO scriptRegistry
+
+  datum :: TxOutDatum CtxUTxO
+  datum = toUTxOContext (mkTxOutDatumInline openDatum)
+
+  openDatum :: HeadState.State
+  openDatum = healthyOpenDatum healthyOutdatedSnapshot
+
+  openThreadOutput :: OpenThreadOutput
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+      , openParties = healthyOnChainParties
+      , openContestationPeriod = healthyContestationPeriod
+      }
 
 data CloseMutation
   = -- | Ensures collectCom does not allow any output address but νHead.

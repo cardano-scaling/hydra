@@ -6,13 +6,15 @@ module Hydra.Chain.Direct.Contract.Close.Healthy where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
+import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
-import Hydra.Chain.Direct.Tx (mkHeadId, mkHeadOutput, ClosingSnapshot (..), UTxOHash (..), OpenThreadOutput (..), closeTx)
+import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (..), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
@@ -24,12 +26,10 @@ import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot as Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import PlutusLedgerApi.V2 (toBuiltin, BuiltinByteString)
+import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Instances ()
-import qualified Cardano.Api.UTxO as UTxO
-import Hydra.Chain.Direct.ScriptRegistry (registryUTxO, genScriptRegistry, ScriptRegistry)
 
 healthySeed :: Int
 healthySeed = 42
@@ -40,6 +40,9 @@ healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` healt
 healthySplitUTxOInHead :: UTxO
 healthySplitUTxOToDecommit :: UTxO
 (healthySplitUTxOInHead, healthySplitUTxOToDecommit) = splitUTxO healthyUTxO
+
+scriptRegistry :: ScriptRegistry
+scriptRegistry = genScriptRegistry `generateWith` 42
 
 -- NOTE: We need to use the contestation period when generating start/end tx
 -- validity slots/time since if tx validity bound difference is bigger than
@@ -127,8 +130,8 @@ healthyConfirmedClosingSnapshot snapshot =
     , version = Snapshot.version snapshot
     }
 
-healthyConfirmedClosingSnapshotTx :: Snapshot Tx -> (Tx, UTxO)
-healthyConfirmedClosingSnapshotTx snapshot@Snapshot{version} =
+healthyConfirmedClosingTx :: Snapshot Tx -> (Tx, UTxO)
+healthyConfirmedClosingTx snapshot@Snapshot{version} =
   (tx, lookupUTxO)
  where
   tx :: Tx
@@ -150,9 +153,6 @@ healthyConfirmedClosingSnapshotTx snapshot@Snapshot{version} =
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
-
-  scriptRegistry :: ScriptRegistry
-  scriptRegistry = genScriptRegistry `generateWith` healthySeed
 
   openThreadOutput :: OpenThreadOutput
   openThreadOutput =

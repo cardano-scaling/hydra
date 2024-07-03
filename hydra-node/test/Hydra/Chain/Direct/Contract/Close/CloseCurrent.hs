@@ -7,7 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, somePartyCardanoVerificationKey, healthySplitUTxOInHead, healthyConfirmedClosingSnapshotTx)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, somePartyCardanoVerificationKey, healthySplitUTxOInHead, healthyConfirmedClosingTx)
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -52,7 +52,7 @@ healthyCurrentSnapshotVersion = 1
 -- | Healthy close transaction for the generic case were we close a head
 --   after one or more snapshot have been agreed upon between the members.
 healthyCloseCurrentTx :: (Tx, UTxO)
-healthyCloseCurrentTx = healthyConfirmedClosingSnapshotTx healthyCurrentSnapshot
+healthyCloseCurrentTx = healthyConfirmedClosingTx healthyCurrentSnapshot
 
 healthyCurrentSnapshot :: Snapshot Tx
 healthyCurrentSnapshot = healthySnapshot healthyCurrentSnapshotNumber healthyCurrentSnapshotVersion
