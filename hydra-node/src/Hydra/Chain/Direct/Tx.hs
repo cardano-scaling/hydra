@@ -553,6 +553,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   closeVersion
+    | offChainVersion == version && toInteger version == snapshotNumber && snapshotNumber == 0 = Head.InitialVersion
     | offChainVersion == version = Head.CurrentVersion
     | offChainVersion == version + 1 = Head.OutdatedVersion
     | otherwise = Head.InitialVersion
