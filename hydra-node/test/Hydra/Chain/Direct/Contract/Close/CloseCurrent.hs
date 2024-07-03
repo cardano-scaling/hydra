@@ -7,7 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, somePartyCardanoVerificationKey, healthySplitUTxOInHead, healthyConfirmedClosingTx)
+import Hydra.Chain.Direct.Contract.Close.Healthy (healthyConfirmedClosingTx, healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, healthySplitUTxOInHead, somePartyCardanoVerificationKey)
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -41,7 +41,6 @@ import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
-
 
 healthyCurrentSnapshotNumber :: Snapshot.SnapshotNumber
 healthyCurrentSnapshotNumber = 1
@@ -168,7 +167,7 @@ genCloseCurrentMutation (tx, _utxo) =
       --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
       SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ healthyCurrentOpenDatum {Head.parties = mutatedParties}
+        pure $ healthyCurrentOpenDatum{Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         n <- choose (1, length healthyOnChainParties - 1)
         fn <- elements [drop n, take n]
