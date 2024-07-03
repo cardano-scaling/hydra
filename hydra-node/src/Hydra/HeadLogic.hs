@@ -273,11 +273,16 @@ onInitialChainCollectTx ::
   ChainStateType tx ->
   Outcome tx
 onInitialChainCollectTx st newChainState =
-  newState HeadOpened{chainState = newChainState, initialUTxO = u0}
-    <> cause (ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0})
+  -- Spec: 𝑈₀  ← ⋃ⁿⱼ₌₁ 𝑈ⱼ
+  let u0 = fold committed
+   in -- Spec: L̂  ← 𝑈₀
+      --       S⁻  ← snObj(0, 0, 𝑈₀, ∅, ⊥)
+      --       vˆ , ŝ ← 0
+      --       T̂  ← ∅
+      --       txω ← ⊥
+      newState HeadOpened{chainState = newChainState, initialUTxO = u0}
+        <> cause (ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0})
  where
-  u0 = fold committed
-
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
   -- untrue?
@@ -313,24 +318,17 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
-  -- REVIEW: would it brake the retry mechanism
-  -- if we produce this inside `waitApplyTx`?
+  -- REVIEW: would it brake the retry mechanism if we produce this inside `waitApplyTx`?
+  -- Spec Gap: this event is missing
   (newState TransactionReceived{tx} <>) $
-    -- Spec: wait L̂ ◦ tx ≠ ⊥ combined with calculating L̂ ◦ tx
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
-      ( if not snapshotInFlight && isLeader parameters party nextSn
-          then -- REVIEW: this is done in both branches, can we extract it to
-          -- make it look closer to spec?
-          -- Spec: Tall ← ̂Tall ∪ {tx} combined with L̂ ← L̂ ◦ tx
-
-            newState TransactionAppliedToLocalUTxO{tx = tx, newLocalUTxO}
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <>
-              -- Spec: multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
-              cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
-          else -- Spec: Tall ← ̂Tall ∪ {tx} combined with L̂ ← L̂ ◦ tx
-            newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
+      ( -- Spec: T̂ ← T̂ ⋃ {tx}
+        --       L̂  ← L̂ ◦ tx
+        newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
+          -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
+          --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+          & maybeEmitSnapshot
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
  where
@@ -353,6 +351,17 @@ onOpenNetworkReqTx env ledger st ttl tx =
             -- from allTxs, we would make the head stuck.
             cause . ClientEffect $ ServerOutput.TxInvalid headId localUTxO tx err
 
+  maybeEmitSnapshot outcome =
+    -- Spec Gap: how snapshotInFlight is calculated
+    if not snapshotInFlight && isLeader parameters party nextSn
+      then -- Spec Gap: this event is missing
+
+        outcome
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <>
+          -- Spec: multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
+      else outcome
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
@@ -402,57 +411,70 @@ onOpenNetworkReqSn ::
   Maybe tx ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
-  -- Spec: require v = vˆ
-  requireReqSv $
-    -- Spec: require s = ŝ + 1 and leader(s) = j
-    requireReqSn $
-      -- Spec: wait s̅ = ŝ
-      waitNoSnapshotInFlight $
-        -- Spec: require Ū ◦ txω /= ⊥ combined with ηω ← combine(outputs(txω)) and Ū_active ← Ū ◦ txω
-        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-          -- REVIEW: Gap
-          -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ Tall
-          waitResolvableTxs $ do
-            -- REVIEW: Gap
-            -- Spec: Treq ← {Tall [h] | h ∈ Treq#}
-            let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
-            -- Spec: require Ū_active ◦ Treq /= ⊥ combined with η′ ← combine(Û) and Û ← Ū_active ◦ Treq
-            requireApplyTxs activeUTxO requestedTxs $ \u -> do
-              -- Spec: ŝ ← s̅ + 1
-              let nextConfSn = confSn + 1
-              -- NOTE: confSn == seenSn == sn here
-              let nextSnapshot =
-                    Snapshot
-                      { headId
-                      , number = nextConfSn
-                      , utxo = u
-                      , confirmed = requestedTxIds
-                      , utxoToDecommit = mUtxoToDecommit
-                      , version = version
-                      }
-              -- Spec: σᵢ
-              let snapshotSignature = sign signingKey nextSnapshot
-              -- Spec: multicast (ackSn, ŝ, σᵢ)
-              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
-                do
-                  -- Spec: for loop which updates T̂ and L̂
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                  -- Spec (in aggregate): Tall ← {tx | ∀tx ∈ Tall : tx ∉ Treq }
-                  newState
-                    SnapshotRequested
-                      { snapshot = nextSnapshot
-                      , requestedTxIds
-                      , newLocalUTxO
-                      , newLocalTxs
-                      }
+  -- Spec: require v = vˆ ∧ s = ŝ + 1 ∧ leader(s) = j
+  requireReqSn $
+    -- Spec: wait ŝ = S⁻.s
+    waitNoSnapshotInFlight $
+      -- Spec: require S⁻.𝑈 ◦ txω ≠ ⊥
+      --       ηω ← combine(outputs(txω))
+      --       𝑈_active ← S⁻.𝑈 ◦ txω
+      requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
+        -- Spec Gap: this is missing
+        -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂
+        waitResolvableTxs $ do
+          -- Spec Gap: this is missing
+          -- Spec: Treq ← {T̂ [h] | h ∈ Treq#}
+          let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+          -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+          --       𝑈 ← 𝑈_active ◦ Treq
+          --       η ← combine(𝑈)
+          requireApplyTxs activeUTxO requestedTxs $ \u -> do
+            -- Spec: ŝ ← S⁻.s + 1
+            let nextConfSn = confSn + 1
+            -- NOTE: confSn == seenSn == sn here
+            let nextSnapshot =
+                  Snapshot
+                    { headId
+                    , number = nextConfSn
+                    , utxo = u
+                    , confirmed = requestedTxIds
+                    , utxoToDecommit = mUtxoToDecommit
+                    , version = version
+                    }
+            -- Spec: σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
+            let snapshotSignature = sign signingKey nextSnapshot
+            -- Spec Gap: missing Σ̂ ← ∅
+            -- Spec: multicast (ackSn, ŝ, σᵢ)
+            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
+              do
+                -- Spec Gap: missing ∀tx ∈ Treq : output (seen, tx)
+                --                   L̂ ← 𝑈
+                --                   𝑋 ← T̂
+                --                   T̂ ← ∅
+
+                -- Spec: for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                --         T̂ ← T̂ ⋃ {tx}
+                --         L̂ ← L̂ ◦ tx
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
+                    }
  where
+  requireReqSn continue =
+    requireReqSv $
+      requireReqSnbr continue
+
   requireReqSv continue
     | sv /= version =
         Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
     | otherwise =
         continue
 
-  requireReqSn continue
+  requireReqSnbr continue
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -475,14 +497,14 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
-        -- Spec: require Ū ◦ txω /= ⊥
+        -- Spec: require S⁻.𝑈 ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
             Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
           Right newConfirmedUTxO -> do
             -- Spec: ηω ← combine(outputs(txω))
             let utxoToDecommit = utxoFromTx decommitTx
-            -- Spec: Ū_active ← Ū ◦ txω
+            -- Spec: 𝑈_active ← S⁻.𝑈 ◦ txω
             let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
             cont (activeUTxO, Just utxoToDecommit)
 
@@ -553,34 +575,31 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
     waitOnSeenSnapshot $ \snapshot sigs -> do
-      -- Spec: (j,.) ∉ ̂Σ
+      -- Spec: require (j,⋅) ∉ Σ̂
       requireNotSignedYet sigs $ do
-        -- Spec: if ∀k ∈ [1..n] : (k, ·) ∈ Σ̂
+        -- Spec Gap: missing Σ̂[j] ← σⱼ
+        -- Spec: if ∀k ∈ [1..n] : (k,·) ∈ Σ̂
         ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
-          -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
+          -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,Σ̂)
           let multisig = aggregateInOrder sigs' parties
-          -- REVIEW: Gap
-          --         η ← combine(Uˆ)
+          -- Spec Gap: missing
+          --         η ← combine(𝑈ˆ)
           --         ηω ← combine(outputs(txω ))
-
-          -- Spec: require MS-Verify(k ̃H, (cid||vˆ||ŝ||η′||ηω), σ̃)
+          -- Spec: require MS-Verify(k ̃H, (cid‖v^‖ŝ‖η‖ηω), σ̃)
           requireVerifiedMultisignature multisig snapshot $
             do
-              -- Spec: S ̄   ← snObj(vˆ, sˆ, Uˆ, Tˆ , txω )
-              --       S ̄.σ ← σ ̃
+              -- Spec: S⁻   ← snObj(vˆ, ŝ, 𝑈ˆ, T̂ , txω)
+              --       S⁻.σ ← σ ̃
               newState SnapshotConfirmed{snapshot, signatures = multisig}
-              -- REVIEW: Gap
               -- Spec: ∀tx ∈ Treq : output(conf, tx)
               <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
-              -- REVIEW: Gap
-              -- Spec: if leader(s̄ + 1) = i ∧ Tˆ ≠ ∅
-              --         multicast (reqSn, vˆ, s̄ + 1, Tˆ, txω )
-              & maybeEmitSnapshot
-              -- REVIEW: Gap
-              -- Spec: if txω  ̸= ⊥
-              --         postTx (decrement, vˆ, sˆ, η, ηω )
-              --         output(conf, txω )
+              -- Spec: if txω ≠ ⊥
+              --         postTx (decrement, vˆ, ŝ, η, ηω)
+              --         output (conf, txω )
               & maybeEmitDecrementTx snapshot multisig
+              -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
+              --         multicast (reqSn, vˆ, S⁻.s + 1, T̂, txω)
+              & maybeEmitSnapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -629,6 +648,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          -- Spec Gap: how S⁻.s + 1 is calculated is not the same as nextSn
           <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
@@ -746,18 +766,17 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
-  -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥ combined
+  -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO ->
     let decommitUTxO = utxoFromTx decommitTx
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
-     in -- Spec: txω ← tx combined with L̂ \ inputs(tx)
+     in -- Spec: L̂   ← L̂ \ inputs(tx)
+        --       txω ← tx
         newState (DecommitRecorded decommitTx activeUTxO)
           <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
-          -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
-          <> if isLeader parameters party nextSn
-            then -- Spec: multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
-              cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
-            else noop
+          -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
+          --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+          <> maybeEmitSnapshot
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
@@ -784,6 +803,11 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
         | otherwise ->
             -- REVIW: cause . ClientEffect $ ServerOutput.DecommitInvalid
             Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+
+  maybeEmitSnapshot =
+    if isLeader parameters party nextSn
+      then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
+      else noop
 
   Environment{party} = env
 
@@ -818,15 +842,15 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx :: IsTx tx => Environment -> OpenState tx -> Outcome tx
 onOpenChainDecrementTx Environment{party} openState
-  | -- Spec: if outputs(txω) = Uω
+  | -- Spec: if outputs(txω) = 𝑈ω
     -- REVIEW: should we get Uω from observation instead of local state?
     (utxoFromTx <$> decommitTx) == utxoToDecommit =
       -- Spec: txω ← ⊥
       --       vˆ  ← v
       newState DecommitFinalized
         <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
-        -- Spec: if ŝ = s̄ ∧ leader(s̄ + 1) = i
-        --          multicast (reqSn, vˆ, s̄ + 1, Tˆ , txω )
+        -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
+        --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
         & maybeEmitSnapshot
   | otherwise = noop
  where
@@ -863,10 +887,10 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: η ← combine(S ̄.U)
-  --       ηω ← combine(outputs(S ̄.txω))
-  --       ξ ← S ̄.σ
-  --       postTx (close, S ̄.v, S ̄.s, η, ηω,ξ)
+  -- Spec: η ← combine(S⁻.𝑈)
+  --       ηω ← combine(outputs(S⁻.txω))
+  --       ξ ← S⁻.σ
+  --       postTx (close, S⁻.v, S⁻.s, η, ηω,ξ)
   cause
     OnChainEffect
       { postChainTx =
