@@ -100,6 +100,7 @@ export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
 - Building from source is always an option.
 
 Please check out each project's GitHub pages for more options.
+</details>
 
 ## Step 1. Connect to Cardano
 
@@ -231,6 +232,8 @@ cardano-cli address build \
 ```
 
 </TabItem>
+</Tabs>
+
 Next, fund these addresses. If you have test ada on the `pre-production` network, distribute it to the newly created addresses:
 
 <Tabs queryString="role">
@@ -257,6 +260,8 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 </TabItem>
 </Tabs>
+
+:::info Where to get funds
 
 In case you don't have test ada on `pre-production`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
@@ -287,6 +292,8 @@ cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /d
 ```
 
 </TabItem>
+</Tabs>
+
 Next, generate Hydra key pairs for use on layer 2. Use the
 
 `hydra-tools` to generate the keys for `alice` and/or `bob` respectively:
@@ -306,6 +313,8 @@ hydra-node gen-hydra-key --output-file credentials/bob-hydra
 ```
 
 </TabItem>
+</Tabs>
+
 If you are collaborating with another individual, exchange the verification (public) keys: `{alice,bob}-node.vk` and `{alice,bob}-hydra.vk` to ensure secure communication.
 
 Before launching the `hydra-node`, it's crucial to establish and communicate each participant's network connectivity details. This includes the IP addresses and ports where `Alice` and `Bob's` nodes will be reachable for layer 2 network interactions. For this tutorial, we're using placeholder IP addresses and ports which should be replaced with your actual network details:
@@ -324,6 +333,8 @@ The next step involves configuring the protocol parameters for the ledger within
 cardano-cli query protocol-parameters \
   | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0' \
   > protocol-parameters.json
+```
+
 This command adjusts the fees and pricing mechanisms to zero, ensuring that transactions within the Hydra head incur no costs.
 
 
@@ -501,6 +512,7 @@ If you don't want to commit any funds and only want to receive on layer two, you
 curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
 cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
+</details>
 
 After you've prepared your transactions, the `hydra-node` will find all UTXOs associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network. 
 
