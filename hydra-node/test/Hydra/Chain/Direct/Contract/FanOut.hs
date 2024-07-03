@@ -119,37 +119,57 @@ data FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
+    [ -- XXX: Transaction is posted after contestation deadline tmin > tfinal .
+      SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
+        lb <- genSlotBefore $ slotNoFromUTCTime systemStart slotLength healthyContestationDeadline
+        pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
+    , -- XXX: All tokens are burnt |{cid 7→ · 7→ −1} ∈ mint| = m′ + 1.
+      SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
+        (token, _) <- elements burntTokens
+        changeMintedTokens tx (valueFromList [(token, 1)])
+
+    , -- XXX: The first m outputs are distributing funds according to η. That is, the outputs exactly
+      -- correspond to the UTxO canonically combined U
+    SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
-    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
+    , -- XXX: The following n outputs are distributing funds according to η∆ .
+      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
+      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
         -- to ensure it by at least one utxo is in healthyFanoutUTxO
-        (ix, out) <- elements (zip [0 .. length outs - 1] outs)
+
+        let noOfUtxoToOutputs = size $ toMap (fst healthyFanoutSnapshotUTxO)
+        (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutateValidityBeforeDeadline . ChangeValidityInterval <$> do
-        lb <- genSlotBefore $ slotNoFromUTCTime systemStart slotLength healthyContestationDeadline
-        pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
-    , SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
-        (token, _) <- elements burntTokens
-        changeMintedTokens tx (valueFromList [(token, 1)])
-    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
-        arbitrary >>= genOutput
-    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+    , -- XXX: The following n outputs are distributing funds according to η∆ .
+      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
+      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
+        let outs = txOuts' tx
+        -- NOTE: Assumes the fanout transaction has non-empty outputs, which
+        -- might not be always the case when testing unbalanced txs and we need
+        -- to ensure it by at least one utxo is in healthyFanoutUTxO
+
+        let noOfUtxoToDecommitOutputs = size $ toMap (snd healthyFanoutSnapshotUTxO)
+        (ix, out) <- elements (zip [0 .. (length outs - noOfUtxoToDecommitOutputs) - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , -- XXX: The following n outputs are distributing funds according to η∆ .
+      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
+      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
         let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
         let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
         n <- elements [1 .. 3]
         pure (Head.Fanout noOfUtxoToOutputs (noOfUtxoDecommitToOutputs - n))
-    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+    , -- XXX: The first m outputs are distributing funds according to η. That is, the outputs exactly
+      -- correspond to the UTxO canonically combined U
+      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
         let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
         let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
         n <- elements [1 .. 3]
         pure (Head.Fanout (noOfUtxoToOutputs - n) noOfUtxoDecommitToOutputs)
-    , SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
-        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
-        pure (Head.Fanout noOfUtxoToOutputs 0)
     ]
  where
   burntTokens =
