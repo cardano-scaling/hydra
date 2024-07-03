@@ -288,34 +288,46 @@
             "postChainTx": {
                 "confirmedSnapshot": {
                     "signatures": {
-                        "multiSignature": []
+                        "multiSignature": [
+                            "27e3021885412debd91cb686f9b4cb44efe8a27da3f4b12783cc593e245e7924aadf8921f7bc3cb18e819f6cecdc941b39371af167d30066f8c17b12e994c200",
+                            "e8bae04ad36693c9c11168293c68040c45e176d6555e453de95d7c674b66f6da0e2ab651a7112561c2d9452a12076e08212c331eb241fb3e9ef6a23bf684100f",
+                            "62110908bce1d40bf988fdd18391d37cc7824423144dddc2c41d2d62473ad739d665454ab3d543011a033b120dcd5851466eb64f1a06522394bb2cd720dccf08"
+                        ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "06080407040804030000050507000606",
-                        "snapshotNumber": 5,
+                        "headId": "00020600030707020806050501080305",
+                        "snapshotNumber": 4,
                         "utxo": [
-                            -4
+                            -2
                         ],
                         "utxoToDecommit": [
+                            -6,
+                            -5,
                             -3,
-                            3,
-                            6
+                            0
                         ],
                         "version": 0
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "headId": "06060003020700000006070601030402",
+                "headId": "05060302000701030700010402070006",
                 "headParameters": {
-                    "contestationPeriod": 86400,
+                    "contestationPeriod": 43200,
                     "parties": [
                         {
-                            "vkey": "6daa70754d6c0c156b206fb59a89b51d981c16ac50ab183b888f41fae6ec29ef"
+                            "vkey": "23711cbc95f54c05a5381fd70dc124092dcddb687aa4866ab017c135421bfecd"
+                        },
+                        {
+                            "vkey": "a83e710c9c06dfd348acb194d2a5b5908be60ac5737cf77aa2eeae61440f5290"
+                        },
+                        {
+                            "vkey": "c2f68032397c7844412d69e59cb44854781de59831a6c2d5b1a39f0a17e1fa19"
                         }
                     ]
                 },
-                "tag": "ContestTx"
+                "tag": "ContestTx",
+                "version": 0
             },
             "postTxError": {
                 "headUTxO": [
@@ -681,38 +693,19 @@
         {
             "postChainTx": {
                 "confirmedSnapshot": {
-                    "signatures": {
-                        "multiSignature": []
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "06030101010805010506030208010405",
-                        "snapshotNumber": 2,
-                        "utxo": [
-                            -5,
-                            -1,
-                            0,
-                            2,
-                            5,
-                            6
-                        ],
-                        "utxoToDecommit": [
-                            -2
-                        ],
-                        "version": 0
-                    },
-                    "tag": "ConfirmedSnapshot"
+                    "headId": "08000606030308040406030101010306",
+                    "initialUTxO": [
+                        3
+                    ],
+                    "tag": "InitialSnapshot"
                 },
-                "headId": "00010706080606040503040002070102",
+                "headId": "02070802020402070007080701030405",
                 "headParameters": {
-                    "contestationPeriod": 49815,
-                    "parties": [
-                        {
-                            "vkey": "bef463cc229564cee4cd84e61579f5d8c85fa1f19eb648ad0e4e16063466a363"
-                        }
-                    ]
+                    "contestationPeriod": 31536000,
+                    "parties": []
                 },
-                "tag": "ContestTx"
+                "tag": "ContestTx",
+                "version": 0
             },
             "postTxError": {
                 "headUTxO": [
@@ -1030,39 +1023,38 @@
                 "confirmedSnapshot": {
                     "signatures": {
                         "multiSignature": [
-                            "6c14d2f7e5d67ae356fb7275949b0a7083902a9ec37b9119895f8d78b9fe8e9d0deda3b71190ce4b4766b51f9e77c52e517ad7200d0e0367b73066e5b969040a",
-                            "d08e5e4ffc91dbbd85b7a7b3f70ff0a6bcc76c14e2ee93728964e267085883a842cc1e333596d680068946a9bec2f72fd0b6ece14ec144cc65616940a398d109"
+                            "646444d31367deae9284026537398271414e6b4d05e48d004018722dd9d06fead10b3966288271e63cd1eef553b30176529530595825ec1bff494844475fdb0c",
+                            "5f6c2e6006fb902e88d36257d8eacc0e6b617ddf45c5ea0b3d476c9697081fd292faae5202d65ec66560fbb7709d80129945f9924584ae8a3a4df80a855aaf05",
+                            "462b4cc47583073cab2a52cd8113b0ea69a167974365d7b28e6d1f8254a2c73798658b042328199806cc45813ca52b443075bd2c3da8b549acfdaae9cc120307",
+                            "68b95e5fd6ab43f82d396752620d033ccc47b685ec57eb4d5463752775a7361b6760d51e1b9bce790a90690ddd22da958fdb5a3ab25ed91079f2ba26ef434a0f",
+                            "dbef51f0f3f2be7beb3234b73730e1c2a26939af9e45160f471f65ba9d3818f7e625e5b600e97dfc687729c74c0a5b204ff54f0d163df4a8112a47e0f6f0550e"
                         ]
                     },
                     "snapshot": {
                         "confirmedTransactions": [],
-                        "headId": "00000803010206060200050708050503",
-                        "snapshotNumber": 2,
+                        "headId": "07020504060102070602040602060305",
+                        "snapshotNumber": 6,
                         "utxo": [
-                            -5,
-                            0,
-                            4,
-                            5,
-                            6
+                            -1
                         ],
                         "utxoToDecommit": [
-                            -3,
-                            -2
+                            -6,
+                            -1,
+                            1,
+                            4,
+                            5
                         ],
                         "version": 0
                     },
                     "tag": "ConfirmedSnapshot"
                 },
-                "headId": "03040001080508020702050503020301",
+                "headId": "05030006080408040206080101030404",
                 "headParameters": {
-                    "contestationPeriod": 2592000,
-                    "parties": [
-                        {
-                            "vkey": "3796f41d802169b71968f880ad7b73efe90fa551a9e3b496aa36bc933ffa7ca5"
-                        }
-                    ]
+                    "contestationPeriod": 604800,
+                    "parties": []
                 },
-                "tag": "ContestTx"
+                "tag": "ContestTx",
+                "version": 2
             },
             "postTxError": {
                 "chainState": {
