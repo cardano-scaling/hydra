@@ -73,7 +73,7 @@
             }
         },
         {
-            "signed": "55b5c0a76461a10c5d0796233e0282cf8d3af91a962e3c143ab3d35618d9082a97af24c5168c17184c8b0ee50b8593b03d64894e38fba07c9dc583e869ce630f",
+            "signed": "50f0905bb2ca9789c0203092c4be75c730ec34c62a22f5baba9183f74ae4564d0c0f90879b45fa6601af6a00bae8a48ce0aea0feb1bca23cd717d23c5a319405",
             "snapshotNumber": 2,
             "tag": "AckSn"
         },
@@ -146,7 +146,8 @@
                     26
                 ]
             },
-            "snapshotNumber": 1,
+            "snapshotNumber": 22,
+            "snapshotVersion": 11,
             "tag": "ReqSn",
             "transactionIds": [
                 22,
