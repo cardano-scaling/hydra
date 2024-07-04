@@ -619,12 +619,13 @@ canDecommit tracer workDir node hydraScriptsTxId =
       let headAmount = 8_000_000
       let commitAmount = 5_000_000
       headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
-      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+      commitUTxO1 <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+      commitUTxO2 <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
 
-      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
+      requestCommitTx n1 (headUTxO <> commitUTxO1 <> commitUTxO2) <&> signTx walletSk >>= submitTx node
 
       waitFor hydraTracer 10 [n1] $
-        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO1 <> commitUTxO2), "headId" .= headId]
 
       let walletAddress = mkVkAddress networkId walletVk
       aliceAddress <-
@@ -641,22 +642,29 @@ canDecommit tracer workDir node hydraScriptsTxId =
             [ TxOut walletAddress (lovelaceToValue decommitAmount) TxOutDatumNone ReferenceScriptNone
             ]
       -- here we set the change address to Alice to simplify the balance assertion in the end of test.
-      buildTransaction networkId nodeSocket aliceAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput >>= \case
+      buildTransaction networkId nodeSocket aliceAddress commitUTxO1 (fst <$> UTxO.pairs commitUTxO1) decommitOutput >>= \case
         Left e -> failure $ show e
-        Right body -> do
-          let callDecommitHttpEndpoint tx =
-                void $
-                  L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
-                    <&> setRequestBodyJSON tx
-                      >>= httpLbs
+        Right body1 -> do
+          buildTransaction networkId nodeSocket aliceAddress commitUTxO2 (fst <$> UTxO.pairs commitUTxO2) decommitOutput >>= \case
+            Left e -> failure $ show e
+            Right body2 -> do
+              let callDecommitHttpEndpoint tx =
+                    void $
+                      L.parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+                        <&> setRequestBodyJSON tx
+                          >>= httpLbs
 
-          -- Send unsigned decommit tx and expect failure
-          expectFailureOnUnsignedDecommitTx n1 headId body callDecommitHttpEndpoint
+              -- Send unsigned decommit tx and expect failure
+              expectFailureOnUnsignedDecommitTx n1 headId body1 callDecommitHttpEndpoint
 
-          -- Sign and re-send the decommit tx
-          expectSuccessOnSignedDecommitTx n1 headId walletSk body callDecommitHttpEndpoint
-          -- Close and Fanout put whatever is left in the Head back to L1
-          closeAndFanout headId n1 headUTxO (headAmount + decommitAmount) walletVk
+              -- Sign and re-send the decommit tx
+              expectSuccessOnSignedDecommitTx n1 headId walletSk body1 callDecommitHttpEndpoint
+
+              -- Decommit the second utxo
+              expectSuccessOnSignedDecommitTx n1 headId walletSk body2 callDecommitHttpEndpoint
+
+              -- Close and Fanout put whatever is left in the Head back to L1
+              closeAndFanout headId n1 headUTxO (headAmount + (2 * decommitAmount)) walletVk
  where
   closeAndFanout headId n expectedUTxOAfterDecommit expectedFinalBalance vk = do
     -- After decommit Head UTxO should not contain decommitted outputs
