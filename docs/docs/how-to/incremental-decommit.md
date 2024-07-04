@@ -3,7 +3,7 @@ sidebar_position: 3
 ---
 
 # Decommit funds
-> This example assumes you have the hydra-node repo at your disposal together with `hydra-node`, `hydra-tui`, `cardano-cli` and `curl` binaries.
+> This example assumes you have the hydra-node repo at your disposal together with `hydra-node`, `hydra-tui`, `cardano-cli` and `curl` binaries and that cardano-node is running on local devnet.
 
 To take out some `UTxO` present in an already open Head and send it back to the layer one, you need to use the `Decommit` command of the WebSocket API.
 
@@ -12,9 +12,9 @@ To do this we need to find out which `UTxO` we can spend.
 In this example we will use Alice and her external wallet key so first let's find out the address:
 ```shell
 cardano-cli address build \
-  --payment-verification-key-file credentials/alice-funds.vk \
+  --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk \
   --testnet-magic 42 \
-  --out-file credentials/alice-funds.addr
+  --out-file alice-funds.addr
 ```
 
 output:
@@ -27,7 +27,7 @@ Next, let's query the state of Alice's UTxO available in the head:
 ```shell
 curl localhost:4001/snapshot/utxo \
   | jq "to_entries \
-  | map(select(.value.address == \"$(cat credentials/alice-funds.addr)\")) \
+  | map(select(.value.address == \"$(cat alice-funds.addr)\")) \
   | from_entries" \
   > utxo.json
 ```
@@ -58,15 +58,14 @@ output:
 }
 ```
 
-Certainly! Here is your markdown with the shell command included as part of the note:
+We can also do this by querying the state of Alice's funds in the `websocat` session:
 
-> We can also do this by querying the state of Alice's funds in the `websocat` session:
-> ```shell
-> websocat -U "ws://0.0.0.0:4001?history=no" \
->   | jq "select(.tag == \"Greetings\") \
->   | .snapshotUtxo \
->   | with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
->   > utxo.json
+```shell
+websocat -U "ws://0.0.0.0:4001?history=no" \
+   | jq "select(.tag == \"Greetings\") \
+   | .snapshotUtxo \
+   | with_entries(select(.value.address == \"$(cat alice-funds.addr)\"))" \
+   > utxo.json
 ```
 
 Now we need another key to send funds to and construct a decommit
@@ -100,7 +99,7 @@ cardano-cli transaction build-raw \
 
 cardano-cli transaction sign \
   --tx-file decommit.json \
-  --signing-key-file credentials/alice-funds.sk \
+  --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
   --out-file alice-decommit-tx-signed.json
 ```
 
