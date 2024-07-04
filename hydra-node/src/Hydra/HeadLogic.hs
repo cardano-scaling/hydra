@@ -887,7 +887,8 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: η ← combine(S⁻.𝑈)
+  -- Spec: missing?
+  --       η ← combine(S⁻.𝑈)
   --       ηω ← combine(outputs(S⁻.txω))
   --       ξ ← S⁻.σ
   --       postTx (close, S⁻.v, S⁻.s, η, ηω,ξ)
@@ -922,15 +923,22 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
+  -- Spec Gap: out of order & missing?
+  --       η ← combine(S⁻.𝑈)
+  --       ηω ← combine(outputs(S⁻.txω))
+  --       ξ ← S⁻.σ
   newState HeadClosed{chainState = newChainState, contestationDeadline}
-    <> causes
-      ( notifyClient
-          : [ OnChainEffect
-              { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}
-              }
-            | doContest
-            ]
-      )
+    <> cause notifyClient
+    <> ( -- Spec: if S⁻.s > sc
+         --          postTx (contest, S⁻.v, S⁻.s, η, ηω, ξ)
+         if doContest
+          then
+            cause
+              OnChainEffect
+                { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}
+                }
+          else noop
+       )
  where
   doContest =
     number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -961,10 +969,16 @@ onClosedChainContestTx ::
   UTCTime ->
   Outcome tx
 onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
+  -- Spec Gap: out of order & missing?
+  --       η ← combine(S⁻.𝑈)
+  --       ηω ← combine(outputs(S⁻.txω))
+  --       ξ ← S⁻.σ
   newState HeadContested{chainState = newChainState, contestationDeadline}
     <> if
-      | snapshotNumber < number (getSnapshot confirmedSnapshot) ->
+      | -- Spec: if S⁻.s > sc
+        snapshotNumber < number (getSnapshot confirmedSnapshot) ->
           cause notifyClients
+            -- Spec: postTx (contest, S⁻.v, S⁻.s, η, ηω, ξ)
             <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
