@@ -1,10 +1,6 @@
 module.exports = {
   userDocumentation: [
-    {
-      type: "doc",
-      label: "Welcome",
-      id: "index",
-    },
+    "index",
     "protocol-overview",
     "known-issues",
     {
@@ -13,32 +9,16 @@ module.exports = {
       defaultStyle: true,
       className: "sidebar-header",
     },
-    {
-      type: "doc",
-      id: "getting-started",
-      label: "Getting started",
-    },
-    {
-      type: "doc",
-      id: "tutorial/index",
-      label: "Open a head on testnet",
-    },
+    "getting-started",
+    "tutorial/index",
     {
       type: "html",
       value: "<small><b>Documentation</b></small>",
       defaultStyle: true,
       className: "sidebar-header",
     },
-    {
-      type: "doc",
-      id: "installation",
-      label: "Installation",
-    },
-    {
-      type: "doc",
-      id: "configuration",
-      label: "Configuration",
-    },
+    "installation",
+    "configuration",
     {
       type: "category",
       label: "How to ...",
@@ -51,11 +31,7 @@ module.exports = {
         },
       ],
     },
-    {
-      type: "doc",
-      id: "faqs",
-      label: "FAQ",
-    },
+    "faqs",
     {
       type: "html",
       value: "<small><b>Reference</b></small>",
@@ -81,11 +57,7 @@ module.exports = {
   ],
 
   developerDocumentation: [
-    {
-      type: "doc",
-      label: "About Hydra",
-      id: "dev/index",
-    },
+    "dev/index",
     {
       type: "doc",
       id: "dev/specification",
@@ -95,46 +67,24 @@ module.exports = {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },
       label: "Architecture",
-      items: [
-        {
-          type: "doc",
-          id: "dev/architecture/networking",
-          label: "Networking",
-        },
-      ],
+      items: ["dev/architecture/networking"],
     },
-    {
-      type: "doc",
-      id: "dev/rollbacks/index",
-      label: "Handling rollbacks",
-    },
+    "dev/rollbacks/index",
     {
       type: "html",
       value: "<small><b>Background</b></small>",
       defaultStyle: true,
       className: "sidebar-header",
     },
-    {
-      type: "doc",
-      id: "dev/scalability",
-      label: "Scalability",
-    },
-    {
-      type: "doc",
-      id: "dev/layer-two",
-      label: "Layer 2 solutions",
-    },
+    "dev/scalability",
+    "dev/layer-two",
     {
       type: "html",
       value: "<small><b>Reference</b></small>",
       defaultStyle: true,
       className: "sidebar-header",
     },
-    {
-      type: "doc",
-      id: "dev/haskell-packages",
-      label: "Haskell Packages",
-    },
+    "dev/haskell-packages",
     {
       type: "link",
       href: "/adr",
