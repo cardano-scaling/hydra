@@ -52,7 +52,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "faq",
+      id: "faqs",
       label: "FAQ",
     },
     {
