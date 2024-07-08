@@ -1,8 +1,4 @@
----
-sidebar_position: 4
----
-
-# Hydra Node Architecture
+# Architecture
 
 This document describes the architecture of the current implementation
 of a `hydra-node`. The following picture represents the main

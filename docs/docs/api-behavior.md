@@ -1,4 +1,4 @@
-# API Behavior
+# API behavior
 
 :::caution Deprecated
 This page will soon move into the [API reference](/api-reference) itself.

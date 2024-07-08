@@ -46,7 +46,7 @@ module.exports = {
     {
       type: "link",
       href: "/api-reference",
-      label: "API Reference",
+      label: "API reference",
     },
     "api-behavior",
     {
