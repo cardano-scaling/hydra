@@ -70,8 +70,9 @@ module.exports = {
     {
       type: "link",
       href: "/api-reference",
-      label: "API reference",
+      label: "API Reference",
     },
+    "api-behavior",
     {
       type: "link",
       href: "/benchmarks",

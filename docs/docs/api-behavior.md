@@ -1,7 +1,3 @@
----
-sidebar_position: 5
----
-
 # API Behavior
 
 :::caution Deprecated
