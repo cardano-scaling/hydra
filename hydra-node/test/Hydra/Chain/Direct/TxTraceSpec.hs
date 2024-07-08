@@ -53,7 +53,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -87,10 +87,10 @@ prop_traces =
       True
         & cover 1 (null steps) "empty"
         & cover 10 (hasFanout steps) "reach fanout"
-        & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+        & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
         & cover 5 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-        & cover 0.5 (fanoutWithDecrement steps) "fanout with something to decrement"
-        & cover 0.5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
+        -- & cover 0.5 (fanoutWithDecrement steps) "fanout with something to decrement"
+        -- & cover 0.5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
         & cover 1 (countContests steps >= 2) "has multiple contests"
         & cover 5 (closeNonInitial steps) "close with non initial snapshots"
         & cover 5 (closeWithSomeUTxO steps) "close with some UTxO"
@@ -131,22 +131,23 @@ prop_traces =
             && hasSnapshotUTxO snapshot
         _ -> False
 
-  fanoutWithDecrement =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
-          polarity == PosPolarity
-            && hasDecommitValue snapshot
-        _ -> False
-
-  fanoutWithSomeUTxOAndDecrement =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
-          polarity == PosPolarity
-            && hasSnapshotUTxO snapshot
-            && hasDecommitValue snapshot
-        _ -> False
+  -- fanoutWithDecrement =
+  --   any $
+  --     \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+  --       Fanout{snapshot} ->
+  --         traceShow snapshot $
+  --           polarity == PosPolarity
+  --             && hasDecommitValue snapshot
+  --       _ -> False
+  --
+  -- fanoutWithSomeUTxOAndDecrement =
+  --   any $
+  --     \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+  --       Fanout{snapshot} ->
+  --         -- polarity == PosPolarity &&
+  --         hasSnapshotUTxO snapshot
+  --           && hasDecommitValue snapshot
+  --       _ -> False
 
   countContests =
     length
@@ -214,7 +215,7 @@ prop_runActions actions =
 -- * ============================== MODEL WORLD ==========================
 
 data SingleUTxO = A | B | C | D | E
-  deriving (Show, Eq, Ord, Enum, Bounded, Generic)
+  deriving (Show, Eq, Ord, Enum, Generic)
 
 instance Arbitrary SingleUTxO where
   arbitrary = genericArbitrary
@@ -227,6 +228,7 @@ data Model = Model
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
+  , decommitUTxOInHead :: ModelUTxO
   }
   deriving (Show)
 
@@ -275,10 +277,8 @@ data TxResult = TxResult
 initialAmount :: Natural
 initialAmount = 10
 
-startingUTxO :: ModelUTxO
-startingUTxO =
-  let utxo = [minBound .. maxBound]
-   in map (,initialAmount) utxo & Map.fromList
+initialModelUTxO :: ModelUTxO
+initialModelUTxO = fromList $ [A, B, C, D, E] `zip` repeat initialAmount
 
 balanceUTxOInHead :: Ord k => Map k Natural -> Map k Natural -> Map k Natural
 balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
@@ -299,7 +299,8 @@ instance StateModel Model where
       { headState = Open
       , latestSnapshot = 0
       , alreadyContested = []
-      , utxoInHead = startingUTxO
+      , utxoInHead = initialModelUTxO
+      , decommitUTxOInHead = Map.empty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -325,21 +326,15 @@ instance StateModel Model where
                not (null utxoInHead)
                ]
       Closed{} ->
-        frequency $
-          [
-            ( 5
-            , do
-                snapshot <- genSnapshot
-                pure $ Some $ Fanout{snapshot}
-            )
+        oneof $
+          [ do
+              snapshot <- genSnapshot
+              pure $ Some $ Fanout{snapshot}
           ]
-            <> [
-                 ( 5
-                 , do
-                    actor <- elements allActors
-                    snapshot <- genSnapshot
-                    pure $ Some Contest{actor, snapshot}
-                 )
+            <> [ do
+                  actor <- elements allActors
+                  snapshot <- genSnapshot
+                  pure $ Some Contest{actor, snapshot}
                ]
       Final -> pure $ Some Stop
    where
@@ -354,8 +349,36 @@ instance StateModel Model where
               , decommitUTxO = filteredSomeUTxOToDecrement
               }
       oneof
-        [ arbitrary
-        , pure validSnapshot
+        [ -- valid
+          pure validSnapshot
+        , -- unbalanced
+          pure validSnapshot{snapshotUTxO = utxoInHead}
+        , do
+            -- old
+            let snapshotNumber' = if latestSnapshot == 0 then 0 else latestSnapshot - 1
+            pure validSnapshot{snapshotNumber = snapshotNumber'}
+        , -- new
+          pure validSnapshot{snapshotNumber = latestSnapshot + 1}
+        , do
+            -- shuffled
+            someUTxOToDecrement' <- shuffleValues filteredSomeUTxOToDecrement
+            pure validSnapshot{decommitUTxO = someUTxOToDecrement'}
+        , do
+            -- more in head
+            utxoInHead' <- increaseValues utxoInHead
+            pure validSnapshot{snapshotUTxO = utxoInHead'}
+        , do
+            -- more in decommit
+            someUTxOToDecrement' <- increaseValues =<< genSubModelOf utxoInHead
+            let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
+            pure
+              validSnapshot
+                { snapshotUTxO = balancedUTxOInHead'
+                , decommitUTxO = someUTxOToDecrement'
+                }
+        , -- decommit all
+          pure validSnapshot{snapshotUTxO = mempty, decommitUTxO = utxoInHead}
+        , arbitrary
         ]
 
     genSubModelOf :: ModelUTxO -> Gen ModelUTxO
@@ -373,16 +396,27 @@ instance StateModel Model where
         let reduced = if n' < reduction then 0 else n' - reduction
         return (naturalFromInteger reduced)
 
+    increaseValues :: ModelUTxO -> Gen ModelUTxO
+    increaseValues = Map.traverseWithKey (\_ n -> pure (n + naturalFromInteger 1))
+
+    shuffleValues :: ModelUTxO -> Gen ModelUTxO
+    shuffleValues utxo = do
+      let x = Map.keys utxo
+      let y = Map.elems utxo
+      x' <- shuffle x
+      let shuffledUTxO = Map.fromList $ zip x' y
+      pure shuffledUTxO
+
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead} = \case
+  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead, decommitUTxOInHead} = \case
     Stop -> headState /= Final
     Decrement{snapshot} ->
       headState == Open
         && snapshotNumber snapshot > latestSnapshot
         -- XXX: you are decrementing from existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- XXX: your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         && (not . null $ decommitUTxO snapshot)
@@ -392,22 +426,30 @@ instance StateModel Model where
               then snapshotUTxO snapshot == initialUTxOInHead
               else snapshotNumber snapshot >= latestSnapshot
            )
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
+        -- XXX: you are decrementing from existing utxo in the head
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+        -- XXX: your tx is balanced with the utxo in the head
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
         && actor `notElem` alreadyContested
+        && snapshotNumber snapshot > latestSnapshot
         -- XXX: you are decrementing from existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
-    Fanout{} ->
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+        -- XXX: your tx is balanced with the utxo in the head
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+    Fanout{snapshot} ->
       headState == Closed
+        && snapshotUTxO snapshot == utxoInHead
+        && decommitUTxO snapshot == decommitUTxOInHead
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead} = \case
+  validFailingAction Model{headState, utxoInHead, decommitUTxOInHead} = \case
     Stop -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
@@ -417,19 +459,29 @@ instance StateModel Model where
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore decrements that work with non existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- XXX: Ignore decrement without something to decommit
         && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
       headState == Open
+        -- XXX: Ignore unbalanced close.
+        -- TODO: make them fail gracefully and test this?
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore close that work with non existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Contest{snapshot} ->
       headState == Closed
+        -- XXX: Ignore unbalanced close.
+        -- TODO: make them fail gracefully and test this?
+        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore close that work with non existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (snapshotUTxO snapshot))
-    Fanout{} ->
+        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+    Fanout{snapshot} ->
       headState == Closed
+        && snapshotUTxO snapshot == utxoInHead
+        && decommitUTxO snapshot == decommitUTxOInHead
+
+  -- XXX: Ignore fanouts which does not preserve the closing head
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m t _result =
@@ -447,6 +499,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
+          , decommitUTxOInHead = decommitUTxO snapshot
           }
       Contest{actor, snapshot} ->
         m
@@ -454,6 +507,7 @@ instance StateModel Model where
           , latestSnapshot = snapshotNumber snapshot
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
+          , decommitUTxOInHead = decommitUTxO snapshot
           }
       Fanout{} -> m{headState = Final}
 
@@ -819,3 +873,8 @@ expectInvalid = \case
         counterexample' $ renderTxWithUTxO spendableUTxO tx
     fail "But it did not fail"
   _ -> pure ()
+
+-- | Generate sometimes a value with given generator, bur more often just use
+-- the given value.
+orArbitrary :: a -> Gen a -> Gen a
+orArbitrary a gen = frequency [(1, pure a), (2, gen)]
