@@ -85,6 +85,11 @@ module.exports = {
       id: "dev/index",
     },
     {
+      type: "doc",
+      id: "dev/specification",
+      label: "Specification",
+    },
+    {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },
       label: "Architecture",
