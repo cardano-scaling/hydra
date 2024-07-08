@@ -20,6 +20,8 @@ changes.
   
 - Change `--start-chain-from` to always use the newer point when also a head state is known.
 
+- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.
+
 ## [0.17.0] - 2024-05-20
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/input-output-hk/hydra/pull/1380):
