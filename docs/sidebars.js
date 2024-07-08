@@ -108,6 +108,22 @@ module.exports = {
     },
     {
       type: "html",
+      value: "<small><b>Background</b></small>",
+      defaultStyle: true,
+      className: "sidebar-header",
+    },
+    {
+      type: "doc",
+      id: "dev/scalability",
+      label: "Scalability",
+    },
+    {
+      type: "doc",
+      id: "dev/layer-two",
+      label: "Layer 2 solutions",
+    },
+    {
+      type: "html",
       value: "<small><b>Reference</b></small>",
       defaultStyle: true,
       className: "sidebar-header",

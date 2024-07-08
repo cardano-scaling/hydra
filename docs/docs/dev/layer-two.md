@@ -1,7 +1,3 @@
----
-sidebar_position: 3
----
-
 # Layer 2 solutions
 
 This section provides an overview of various types of layer 2 solutions, along with several examples.
