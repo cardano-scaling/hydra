@@ -8,8 +8,6 @@ Decentralized applications (DApps), exchanges, and enterprise-level services can
 
 The `hydra-node` interfaces with the Cardano blockchain, connects to other `hydra-nodes` on a dedicated overlay network, runs a simplified (coordinated) Hydra Head protocol, and provides an API for clients.
 
-Navigate through tutorials and documentation guides to get started. If you want to learn more about core concepts, see [this section](https://hydra.family/head-protocol/core-concepts). If you're interested in building, see [developer documentation](https://hydra.family/head-protocol/docs/dev).
-
 :::warning Mainnet availability disclaimer
 
 The Hydra Head protocol version 0.10.0 or newer is compatible with the Cardano
@@ -34,7 +32,7 @@ implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 :::
 
-Now, without further ado, you can learn more about the protocol by visiting the [protocol overview page](/core-concepts/protocol-overview) or directly dive into [getting started using a local devnet](./getting-started).
+Now, without further ado, you can learn more about the protocol by visiting the [protocol overview page](./protocol-overview) or directly dive into [getting started using a local devnet](./getting-started).
 
 [known-issues]: ./known-issues.md
 [license]: https://github.com/input-output-hk/hydra/blob/master/LICENSE

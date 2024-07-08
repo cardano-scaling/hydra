@@ -950,7 +950,7 @@ definitions:
           'contents' field. Please note each possible precondition
           failure is tied to some specific 'require p' expression in
           the specification (check
-          https://hydra.family/head-protocol/core-concepts/specification).
+          https://hydra.family/head-protocol/dev/specification).
         additionalProperties: false
         required:
           - tag

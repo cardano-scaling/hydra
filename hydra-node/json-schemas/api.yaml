@@ -10,7 +10,7 @@ info:
     For example if client provides a path that looks like this `/?history=no&snapshot-utxo=no` the server will not serve prior history of server outputs, and the utxo field in the json will be omitted.
 
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
-    See [the documentation](https://hydra.family/head-protocol/core-concepts/behavior/) for more details on the overall API behavior.
+    See [the documentation](https://hydra.family/head-protocol/dev/api-behavior/) for more details on the overall API behavior.
 
     Users can also use the HTTP endpoint to draft a commit tx using their own utxo, potentially including a blueprint tx as part of the draft.
 

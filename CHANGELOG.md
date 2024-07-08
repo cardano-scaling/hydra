@@ -446,7 +446,7 @@ head again.
 - Add the
   [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
   the repository and
-  [website](https://hydra.family/head-protocol/core-concepts/specification).
+  [website](https://hydra.family/head-protocol/dev/specification).
   [#693](693)
 
 - Disabled `aarch64-darwin` support, until a `cardano-node` for this platform is
@@ -611,7 +611,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 
 - After restarting `hydra-node`, clients will receive the whole history.  [#580](https://github.com/input-output-hk/hydra/issues/580)
   + This history will be stored in the `server-output` file in `--persistence-dir`.
-  + Clients should use `Greetings` to identify the end of a [restart/replay of events](https://hydra.family/head-protocol/core-concepts/behavior#replay-of-past-server-outputs).
+  + Clients should use `Greetings` to identify the end of a [restart/replay of events](https://hydra.family/head-protocol/docs/api-behavior#replay-of-past-server-outputs).
 
 - Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/input-output-hk/hydra/issues/599)
 
@@ -733,9 +733,9 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
   + Not crash anymore on rollbacks
   + Rewind the internal head state to the point prior to rollback point
   + Added `RolledBack` server output, see [API reference](https://hydra.family/head-protocol/api-reference)
-  + See the [user manual](https://hydra.family/head-protocol/core-concepts/rollbacks/) for a detailed explanation on how rollbacks are handled.
+  + See the [user manual](https://hydra.family/head-protocol/dev/rollbacks/) for a detailed explanation on how rollbacks are handled.
 
-- [Hydra Network](https://hydra.family/head-protocol/core-concepts/networking) section on the website about networking requirements and considerations
+- [Hydra Network](https://hydra.family/head-protocol/dev/networking) section on the website about networking requirements and considerations
 
 - [Benchmarks](https://hydra.family/head-protocol/benchmarks) section on the website with continuously updated and published results on transaction costs of Hydra protocol transactions
   + These are also performed and reported now on every PR -> [Example](https://github.com/input-output-hk/hydra/pull/340#issuecomment-1116247611)

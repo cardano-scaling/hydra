@@ -79,17 +79,6 @@ const config = {
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
       ({
-        id: "core-concepts",
-        path: "core-concepts",
-        routeBasePath: "core-concepts",
-        editUrl,
-        editLocalizedFiles: true,
-      }),
-    ],
-    [
-      "content-docs",
-      /** @type {import('@docusaurus/plugin-content-docs').Options} */
-      ({
         id: "use-cases",
         path: "use-cases",
         routeBasePath: "use-cases",
@@ -164,11 +153,6 @@ const config = {
             to: "/docs/dev",
             label: "Developer Documentation",
             position: "left",
-          },
-          {
-            to: "/core-concepts",
-            label: "Core Concepts",
-            position: "right",
           },
           {
             to: "/topologies",
