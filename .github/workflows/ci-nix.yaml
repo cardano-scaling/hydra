@@ -15,6 +15,10 @@ on:
     # Everyday at 4:00 AM
     - cron: "0 4 * * *"
 
+permissions:
+  checks: write
+  pull-requests: write
+
 jobs:
   build-test:
     name: "Build & test"
