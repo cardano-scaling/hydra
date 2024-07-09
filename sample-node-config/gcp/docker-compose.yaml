@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   cardano-node:
     image: inputoutput/cardano-node:latest
