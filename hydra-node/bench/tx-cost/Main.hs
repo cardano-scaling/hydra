@@ -30,7 +30,7 @@ import TxCost (
   computeCollectComCost,
   computeCommitCost,
   computeContestCost,
-  computeDecommitCost,
+  computeDecrementCost,
   computeFanOutCost,
   computeInitCost,
  )
@@ -77,7 +77,7 @@ writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
   commitC <- costOfCommit
   collectComC <- costOfCollectCom
-  decommitC <- costOfDecommit
+  decrementC <- costOfDecrement
   closeC <- costOfClose
   contestC <- costOfContest
   abortC <- costOfAbort
@@ -92,7 +92,7 @@ writeTransactionCostMarkdown hdl = do
             [ initC
             , commitC
             , collectComC
-            , decommitC
+            , decrementC
             , closeC
             , contestC
             , abortC
@@ -231,12 +231,12 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
           )
           stats
 
-costOfDecommit :: IO Text
-costOfDecommit = markdownDecommitCost <$> computeDecommitCost
+costOfDecrement :: IO Text
+costOfDecrement = markdownDecrementCost <$> computeDecrementCost
  where
-  markdownDecommitCost stats =
+  markdownDecrementCost stats =
     unlines $
-      [ "## Cost of Decommit Transaction"
+      [ "## Cost of Decrement Transaction"
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"

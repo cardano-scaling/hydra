@@ -140,8 +140,8 @@ computeCollectComCost =
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeDecommitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
-computeDecommitCost = do
+computeDecrementCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
+computeDecrementCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
   pure $ interesting <> limit
@@ -189,10 +189,10 @@ computeContestCost = do
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    let (inHead, toDecommit) = splitUTxO utxo
-    (closedSnapshotNumber, inHead', toDecommit', stClosed@ClosedState{headId}) <- genStClosed ctx inHead (Just toDecommit)
+    let (inHead, toDecremenetC) = splitUTxO utxo
+    (closedSnapshotNumber, inHead', toDecremenetC', stClosed@ClosedState{headId}) <- genStClosed ctx inHead (Just toDecremenetC)
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) 0 inHead' toDecommit' (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) 0 inHead' toDecremenetC' (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
@@ -248,9 +248,9 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    let (inHead, toDecommit) = splitUTxO utxo
+    let (inHead, toDecremenetC) = splitUTxO utxo
     let version = 1
-    snapshot <- genConfirmedSnapshot headId 1 version inHead (Just toDecommit) [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 1 version inHead (Just toDecremenetC) [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
@@ -258,7 +258,7 @@ computeFanOutCost = do
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn inHead (Just toDecommit) deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn inHead (Just toDecremenetC) deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
