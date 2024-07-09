@@ -43,7 +43,7 @@ pageHeader =
   , "sidebar_position: 3 "
   , "--- "
   , ""
-  , "# Plutus Merkle-Tree Contract"
+  , "# Plutus Merkle tree contract"
   , ""
   ]
 
@@ -52,7 +52,7 @@ costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
  where
   markdownMerkleTreeCost stats =
     unlines $
-      [ "## Cost of on-chain Merkle-Tree"
+      [ "## On-chain Merkle tree costs"
       , ""
       , "| Size | % member max mem | % member max cpu | % builder max mem | % builder max cpu |"
       , "| :--- | ---------------: | ---------------: | ----------------: | ----------------: |"
