@@ -36,7 +36,7 @@ For convenience, we provide a script `./run-docker.sh`, which combines all the f
 
 ## Set up the devnet
 
-Next, prepare the devnet configuration to bootstrap a local Cardano blockchain. 
+Next, prepare the devnet configuration to bootstrap a local Cardano blockchain.
 **Note** that we use a simplified variant of Cardano that does not require any stake pools.
 
 ```shell
@@ -56,9 +56,20 @@ docker compose logs cardano-node -f
 
 You should see traces containing `TraceAdoptedBlock`, which means that the devnet is producing blocks .. nice!
 
+
 :::info
 Do not wait too long between these two commands. If you get `TraceNoLedgerView` errors from the Cardano node, the genesis start time is too far in the past, and you need to update them by running `prepare-devnet.sh` again.
 :::
+
+:::tip
+You can use [jq](https://jqlang.github.io/jq/) to follow the logs and see the node update kinds with the
+following command:
+
+```
+docker compose logs -f --no-log-prefix cardano-node | jq -Rr 'fromjson? | .data.val.kind'
+```
+:::
+
 
 Next, we need to give Alice, Bob, and Carol some UTXOs for committing and ada for paying fees. To do this, use the `seed-devnet.sh` script, which uses the `cardano-cli` within the already running `cardano-node` container:
 

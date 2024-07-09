@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Note: awslogs-group value depends on `key_name` under terraform.tfvars
 
 services:
