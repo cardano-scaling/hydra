@@ -53,13 +53,13 @@ markdownReport now summaries =
     , "# End-to-end benchmark results "
     , ""
     , "This page is intended to collect the latest end-to-end benchmark \
-      \ results produced by Hydra's Continuous Integration system (CI) from \
+      \ results produced by Hydra's continuous integration (CI) system from \
       \ the latest `master` code."
     , ""
     , ":::caution"
     , ""
-    , "Please take those results with a grain of \
-      \ Please note that these results are approximate, as they are currently produced from limited cloud VMs and not controlled hardware \
+    , "Please note that these results are approximate \
+      \ as they are currently produced from limited cloud VMs and not controlled hardware. \
       \ Rather than focusing on the absolute results, \
       \  the emphasis should be on relative results, \
       \ such as how the timings for a scenario evolve as the code changes."
