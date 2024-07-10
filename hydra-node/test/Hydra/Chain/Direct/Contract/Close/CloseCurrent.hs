@@ -7,7 +7,19 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyConfirmedClosingTx, healthyContestationDeadline, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySnapshot, healthySplitUTxOInHead, somePartyCardanoVerificationKey)
+import Hydra.Chain.Direct.Contract.Close.Healthy (
+  healthyConfirmedClosingTx,
+  healthyContestationDeadline,
+  healthyContestationPeriodSeconds,
+  healthyOnChainParties,
+  healthyOpenDatum,
+  healthyOpenHeadTxIn,
+  healthyOpenHeadTxOut,
+  healthySignature,
+  healthySnapshot,
+  healthySplitUTxOInHead,
+  somePartyCardanoVerificationKey,
+ )
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -40,7 +52,7 @@ import Hydra.Snapshot (Snapshot (..))
 import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyCurrentSnapshotNumber :: Snapshot.SnapshotNumber
@@ -237,7 +249,7 @@ genCloseCurrentMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , -- Initializes the set of contesters
       SomeMutation (pure $ toErrorCode ContestersNonEmpty) MutateContesters . ChangeOutput 0 <$> do
-        mutatedContesters <- listOf1 $ PubKeyHash . toBuiltin <$> genHash
+        mutatedContesters <- resize 3 . listOf1 $ PubKeyHash . toBuiltin <$> genHash
         pure $ headTxOut & modifyInlineDatum (replaceContesters mutatedContesters)
     , -- Value in the head is preserved
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do

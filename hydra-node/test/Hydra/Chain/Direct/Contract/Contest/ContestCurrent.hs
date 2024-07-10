@@ -52,7 +52,7 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -381,19 +381,13 @@ genContestMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (pure $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
         let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
-            contesterAndSomeOthers = do
-              contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
-              pure (contester : contesters)
-        mutatedContesters <-
-          oneof
-            [ pure [contester]
-            , contesterAndSomeOthers
-            ]
+        mutatedContesters <- do
+          contesters <- resize (length healthyParticipants - 1) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+          pure (contester : contesters)
         pure $
           healthyClosedState & replaceContesters mutatedContesters
     , SomeMutation (pure $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
-        hashes <- listOf genHash
-        let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+        mutatedContesters <- resize (length healthyParticipants) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
         pure $ modifyInlineDatum (replaceContesters mutatedContesters) headTxOut
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
