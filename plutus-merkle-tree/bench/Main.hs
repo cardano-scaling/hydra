@@ -88,7 +88,7 @@ computeMerkleTreeCost =
         (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
     pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
 
-  -- NOTE: assume size of a UTXO is around  60 bytes
+  -- NOTE: assume the size of a UTXO is around  60 bytes
   genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
 
 executionCostForMember :: [Plutus.BuiltinByteString] -> Either Text (Natural, Natural)
