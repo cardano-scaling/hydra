@@ -50,7 +50,7 @@ library
     , hspec
     , hspec-api
     , hspec-core
-    , hspec-junit-formatter
+    , hspec-junit-formatter  <1.1.1
     , HUnit
     , hydra-cardano-api
     , hydra-prelude
