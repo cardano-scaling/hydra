@@ -43,7 +43,7 @@ data State
       , utxoHash :: Hash
       -- ^ Spec: η
       , utxoToDecommitHash :: Hash
-      -- ^ Spec: ηω
+      -- ^ Spec: ηΔ
       , contestationDeadline :: POSIXTime
       , contestationPeriod :: ContestationPeriod
       , headId :: CurrencySymbol
@@ -55,30 +55,49 @@ data State
 
 PlutusTx.unstableMakeIsData ''State
 
-data Version
-  = InitialVersion
-  | CurrentVersion
-  | OutdatedVersion
+-- | Type of close and auxiliary data if needed.
+data CloseRedeemer
+  = -- | Intial snapshot is used to close.
+    CloseInitial
+  | -- | Closing snapshot refers to the current state version
+    CloseCurrent
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      }
+  | -- | Closing snapshot refers to the previous state version
+    CloseOutdated
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyDecommittedUTxOHash :: Hash
+      -- ^ UTxO which was already decommitted ηω
+      }
   deriving stock (Show, Generic)
 
-PlutusTx.unstableMakeIsData ''Version
+PlutusTx.unstableMakeIsData ''CloseRedeemer
+
+-- | Type of contestation and auxiliary data if needed.
+data ContestRedeemer
+  = -- | Contesting snapshot refers to the current state version
+    ContestCurrent
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      }
+  | -- | Contesting snapshot refers to the previous state version
+    ContestOutdated
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyDecommittedUTxOHash :: Hash
+      -- ^ UTxO which was already decommitted ηω
+      }
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''ContestRedeemer
 
 data Input
   = CollectCom
-  | Decrement
-      { signature :: [Signature]
-      , numberOfDecommitOutputs :: Integer
-      }
-  | Close
-      { signature :: [Signature]
-      , version :: Version
-      , utxoToDecommitHash :: Hash
-      }
-  | Contest
-      { signature :: [Signature]
-      , version :: Version
-      , utxoToDecommitHash :: Hash
-      }
+  | Decrement {signature :: [Signature], numberOfDecommitOutputs :: Integer}
+  | Close CloseRedeemer
+  | Contest ContestRedeemer
   | Abort
   | Fanout {numberOfFanoutOutputs :: Integer, numberOfDecommitOutputs :: Integer}
   deriving stock (Generic, Show)

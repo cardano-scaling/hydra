@@ -46,6 +46,9 @@ data HeadError
   | IncorrectVersion
   | MustNotChangeVersion
   | FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit
+  | FailedCloseInitial
+  | FailedCloseCurrent
+  | FailedCloseOutdated
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -59,6 +62,7 @@ instance ToErrorCode HeadError where
     MissingCommits -> "H08"
     HeadValueIsNotPreserved -> "H09"
     HasBoundedValidityCheckFailed -> "H10"
+    -- TODO: remove as unused (and re-order?)
     ClosedWithNonInitialHash -> "H11"
     IncorrectClosedContestationDeadline -> "H12"
     InfiniteUpperBound -> "H13"
@@ -89,3 +93,6 @@ instance ToErrorCode HeadError where
     IncorrectVersion -> "H38"
     MustNotChangeVersion -> "H39"
     FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit -> "H40"
+    FailedCloseInitial -> "H41"
+    FailedCloseCurrent -> "H42"
+    FailedCloseOutdated -> "H43"
