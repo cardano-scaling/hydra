@@ -210,8 +210,12 @@ genCollectComMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
-    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation (pure $ toErrorCode IncorrectVersion) MutateOpenVersion . ChangeOutput 0 <$> mutateVersion
+    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- genHash
+        pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
+    , SomeMutation (pure $ toErrorCode IncorrectVersion) MutateOpenVersion . ChangeOutput 0 <$> do
+        mutatedVersion <- arbitrary `suchThat` (/= 0)
+        pure $ modifyInlineDatum (mutateStateVersion mutatedVersion) headTxOut
     , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
@@ -262,18 +266,10 @@ genCollectComMutation (tx, _utxo) =
         Head.Open{Head.parties = parties, snapshotNumber, contestationPeriod, headId, version, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
-  mutateUTxOHash = do
-    mutatedUTxOHash <- genHash
-    pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
-
   mutateState mutatedUTxOHash = \case
     Head.Open{parties, contestationPeriod, headId, snapshotNumber, version} ->
       Head.Open{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, snapshotNumber, version}
     st -> st
-
-  mutateVersion = do
-    mutatedVersion <- arbitrary `suchThat` (> 0)
-    pure $ modifyInlineDatum (mutateStateVersion mutatedVersion) headTxOut
 
   mutateStateVersion mutatedVersion = \case
     Head.Open{parties, contestationPeriod, headId, snapshotNumber, utxoHash} ->
