@@ -552,26 +552,20 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  closeVersion
-    | offChainVersion == version && toInteger version == snapshotNumber && snapshotNumber == 0 = Head.InitialVersion
-    | offChainVersion == version = Head.CurrentVersion
-    | offChainVersion == version + 1 = Head.OutdatedVersion
-    | otherwise = Head.InitialVersion
+  headRedeemer = toScriptData $ Head.Close closeRedeemer
 
-  headRedeemer =
-    toScriptData
-      Head.Close
-        { signature
-        , version = closeVersion
-        , utxoToDecommitHash =
-            case closeVersion of
-              Head.CurrentVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
-              Head.OutdatedVersion ->
-                toBuiltin decommitUTxOHashBytes
-              Head.InitialVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
-        }
+  -- TODO: push this further out to avoid 'offChainVersion'?
+  closeRedeemer
+    | offChainVersion == version && toInteger version == snapshotNumber && snapshotNumber == 0 =
+        Head.CloseInitial
+    | offChainVersion == version =
+        Head.CloseCurrent{signature}
+    | offChainVersion == version + 1 =
+        Head.CloseOutdated
+          { signature
+          , alreadyDecommittedUTxOHash = toBuiltin decommitUTxOHashBytes
+          }
+    | otherwise = Head.CloseInitial
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -582,13 +576,9 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         { snapshotNumber
         , utxoHash = toBuiltin utxoHashBytes
         , utxoToDecommitHash =
-            case closeVersion of
-              Head.CurrentVersion ->
-                toBuiltin decommitUTxOHashBytes
-              Head.OutdatedVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
-              Head.InitialVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
+            case closeRedeemer of
+              Head.CloseCurrent{} -> toBuiltin decommitUTxOHashBytes
+              _ -> toBuiltin $ hashUTxO @Tx mempty
         , parties = openParties
         , contestationDeadline
         , contestationPeriod = openContestationPeriod
@@ -597,6 +587,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , version = toInteger version
         }
 
+  -- TODO: use CloseWithInitialSnapshot etc directly to avoid this tuple
   (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) = case closing of
     CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty, 0)
     CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s, version = v} ->
@@ -664,25 +655,21 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  contestVersion
-    | offChainVersion == version = Head.CurrentVersion
-    | offChainVersion == version + 1 = Head.OutdatedVersion
-    | otherwise = Head.InitialVersion
+  headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
-  headRedeemer =
-    toScriptData
-      Head.Contest
-        { signature = toPlutusSignatures sig
-        , version = contestVersion
-        , utxoToDecommitHash =
-            case contestVersion of
-              Head.CurrentVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
-              Head.OutdatedVersion ->
-                utxoToDecommitHash
-              Head.InitialVersion ->
-                toBuiltin $ hashUTxO @Tx mempty
-        }
+  -- TODO: push this further out to avoid 'offChainVersion'?
+  contestRedeemer
+    | offChainVersion == version =
+        Head.ContestCurrent
+          { signature = toPlutusSignatures sig
+          }
+    | offChainVersion == version + 1 =
+        Head.ContestOutdated
+          { signature = toPlutusSignatures sig
+          , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+          }
+    | otherwise = error "FIXME: should not happen"
+
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
