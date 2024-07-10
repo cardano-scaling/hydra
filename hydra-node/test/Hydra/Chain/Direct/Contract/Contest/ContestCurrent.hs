@@ -23,6 +23,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
+  replaceSnapshotVersionInClosed,
   replaceUtxoHash,
   replaceUtxoToDecommitHash,
  )
@@ -222,6 +223,8 @@ data ContestMutation
     --
     -- Ensures the snapshot signature is aligned with snapshot number.
     MutateSnapshotNumberButNotSignature
+  | -- | Check the snapshot version is preserved from last open state.
+    MutateSnapshotVersion
   | -- | Invalidates the tx by changing the contest snapshot number too old.
     --
     -- This is achieved by updating the head input datum to be older, so the
@@ -302,6 +305,10 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , -- Last known open state version stays recorded in closed state
+      SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
         let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)

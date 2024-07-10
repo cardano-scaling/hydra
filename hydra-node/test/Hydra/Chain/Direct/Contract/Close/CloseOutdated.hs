@@ -8,7 +8,24 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUTxOHash, healthyCloseUpperBoundPointInTime, healthyConfirmedClosingSnapshot, healthyContestationDeadline, healthyContestationPeriod, healthyContestationPeriodSeconds, healthyOnChainParties, healthyOpenDatum, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySignature, healthySplitUTxOInHead, healthySplitUTxOToDecommit, scriptRegistry, somePartyCardanoVerificationKey)
+import Hydra.Chain.Direct.Contract.Close.Healthy (
+  healthyCloseLowerBoundSlot,
+  healthyCloseUTxOHash,
+  healthyCloseUpperBoundPointInTime,
+  healthyConfirmedClosingSnapshot,
+  healthyContestationDeadline,
+  healthyContestationPeriod,
+  healthyContestationPeriodSeconds,
+  healthyOnChainParties,
+  healthyOpenDatum,
+  healthyOpenHeadTxIn,
+  healthyOpenHeadTxOut,
+  healthySignature,
+  healthySplitUTxOInHead,
+  healthySplitUTxOToDecommit,
+  scriptRegistry,
+  somePartyCardanoVerificationKey,
+ )
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -223,7 +240,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , -- , -- XXX: Last known open state version is recorded in closed state
-      --   SomeMutation (pure $ toErrorCode LastKnownVersionIsNotMatching) MutateSnapshotVersion <$> do
+      --   SomeMutation (pure $ toErrorCode VersionChangedOnClose) MutateSnapshotVersion <$> do
       --     mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
       --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
       SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
