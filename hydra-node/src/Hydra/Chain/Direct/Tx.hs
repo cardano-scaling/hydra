@@ -588,10 +588,11 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         }
 
   -- TODO: use CloseWithInitialSnapshot etc directly to avoid this tuple
-  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty, 0)
-    CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s, version = v} ->
-      (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s, v)
+  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) =
+    case closing of
+      CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty, 0)
+      CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s, version = v} ->
+        (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s, v)
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod

@@ -57,7 +57,6 @@ import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Crypto (MultiSignature (..), toPlutusSignatures)
-import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genAddressInEra, genValue, genVerificationKey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -73,7 +72,7 @@ healthyOutdatedSnapshotNumber = 1
 healthyOutdatedSnapshotVersion :: SnapshotVersion
 healthyOutdatedSnapshotVersion = 1
 
---- XXX: Decommit snapshot which we want to mimick so that we test how close
+--- Decommit snapshot which we want to mimick so that we test how close
 --- behaves after decommit.
 healthyOutdatedSnapshot :: Snapshot Tx
 healthyOutdatedSnapshot =
@@ -170,13 +169,13 @@ data CloseMutation
     --
     -- Ensures the output state is consistent with the redeemer.
     MutateCloseUTxOToDecommitHash
-  | -- | Invalidates the tx by changing the version in redeemer.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateCloseVersion
+  | -- | Invalidates the tx by changing claimed closing type. i.e. claim the
+    -- snapshot is current but provide signatures from an previous version
+    MutateCloseType
   | -- | Invalidates the tx by changing the signatures in redeemer.
     --
     -- Ensures the output state is consistent with the redeemer.
+    -- FIXME: Redundant to other signature mutations?
     MutateCloseSignatures
   | -- | Ensures parties do not change between head input datum and head output
     --  datum.
@@ -227,8 +226,8 @@ genCloseOutdatedMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close sigs Head.CurrentVersion mempty
+        signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        pure $ Head.Close Head.CloseCurrent{signature}
     , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateInitialSnapshotNumber <$> do
         let mutatedSnapshotNumber = 0
         pure $
@@ -239,7 +238,7 @@ genCloseOutdatedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , -- , -- XXX: Last known open state version is recorded in closed state
+    , -- , -- Last known open state version is recorded in closed state
       --   SomeMutation (pure $ toErrorCode VersionChangedOnClose) MutateSnapshotVersion <$> do
       --     mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
       --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
@@ -254,7 +253,7 @@ genCloseOutdatedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId otherHeadId) headTxOut
-    , -- XXX: Transaction is signed by a participant
+    , -- Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
@@ -267,17 +266,17 @@ genCloseOutdatedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyCloseUTxOHash) . toBuiltin)
         pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
-    , -- XXX: Correct contestation deadline is set
+    , -- Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateContestationPeriod <$> do
         mutatedPeriod <- arbitrary
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationPeriod mutatedPeriod) headTxOut
-    , -- XXX: Transaction validity range is bounded
+    , -- Transaction validity range is bounded
       SomeMutation (pure $ toErrorCode InfiniteLowerBound) MutateInfiniteLowerBound . ChangeValidityLowerBound <$> do
         pure TxValidityNoLowerBound
-    , -- XXX: Transaction validity range is bounded
+    , -- Transaction validity range is bounded
       SomeMutation (pure $ toErrorCode InfiniteUpperBound) MutateInfiniteUpperBound . ChangeValidityUpperBound <$> do
         pure TxValidityNoUpperBound
     , SomeMutation (pure $ toErrorCode HasBoundedValidityCheckFailed) MutateValidityInterval <$> do
@@ -287,11 +286,10 @@ genCloseOutdatedMutation (tx, _utxo) =
             [ ChangeValidityInterval (TxValidityLowerBound lowerSlotNo, TxValidityUpperBound upperSlotNo)
             , ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline adjustedContestationDeadline) headTxOut
             ]
-    , -- XXX: Transaction is signed by a participant
+    , -- Transaction is signed by a participant
       -- This is a bit confusing and not giving much value. Maybe we can remove this.
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) CloseFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyOutdatedSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
@@ -301,42 +299,51 @@ genCloseOutdatedMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          { signature =
-                              toPlutusSignatures $
-                                healthySignature healthyOutdatedSnapshot
-                          , version = Head.CurrentVersion
-                          , utxoToDecommitHash = expectedHash
-                          }
+                          Head.CloseCurrent
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyOutdatedSnapshot
+                            }
                       )
                 )
             ]
-    , -- XXX: No minting or burning
+    , -- No minting or burning
       SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
-    , -- XXX: Initializes the set of contesters
+    , -- Initializes the set of contesters
       SomeMutation (pure $ toErrorCode ContestersNonEmpty) MutateContesters . ChangeOutput 0 <$> do
         mutatedContesters <- listOf1 $ PubKeyHash . toBuiltin <$> genHash
         pure $ headTxOut & modifyInlineDatum (replaceContesters mutatedContesters)
-    , -- XXX: Value in the head is preserved
+    , -- Value in the head is preserved
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeHeadRedeemer <$> do
         let UTxOHash expectedHash = closeUtxoToDecommitHash healthyOutdatedConfirmedClosingSnapshot
-        -- XXX: Close redeemer contains the hash of a decommit utxo. If we
+        -- Close redeemer contains the hash of a decommit utxo. If we
         -- change it should cause invalid signature error.
-        pure $ Head.Close (toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot) Head.OutdatedVersion (toBuiltin $ expectedHash <> "0")
+        pure $
+          Head.Close
+            Head.CloseOutdated
+              { signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot
+              , alreadyDecommittedUTxOHash = toBuiltin $ expectedHash <> "0"
+              }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseSignatures . ChangeHeadRedeemer <$> do
         let UTxOHash expectedHash = closeUtxoToDecommitHash healthyOutdatedConfirmedClosingSnapshot
-        sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        -- XXX: Close redeemer contains the signatures. If we
+        signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        -- Close redeemer contains the signatures. If we
         -- change them should cause invalid signature error.
-        pure $ Head.Close sigs Head.OutdatedVersion (toBuiltin expectedHash)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseVersion . ChangeHeadRedeemer <$> do
-        let UTxOHash expectedHash = closeUtxoToDecommitHash healthyOutdatedConfirmedClosingSnapshot
-        -- XXX: Close redeemer contains the appropriate version. If we
-        -- change it then it should cause invalid signature error.
-        pure $ Head.Close (toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot) Head.CurrentVersion (toBuiltin expectedHash)
+        pure $
+          Head.Close
+            Head.CloseOutdated
+              { signature
+              , alreadyDecommittedUTxOHash = toBuiltin expectedHash
+              }
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseType . ChangeHeadRedeemer <$> do
+        -- Close redeemer claims whether the snapshot is valid against current
+        -- or previous version. If we change it then it should cause invalid
+        -- signature error.
+        pure $ Head.Close Head.CloseCurrent{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot}
     ]
  where
   genOversizedTransactionValidity = do
