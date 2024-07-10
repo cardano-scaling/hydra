@@ -142,7 +142,9 @@ cardano-node run \
   --database-path db
 ```
 
-To monitor the synchronization status, use `cardano-cli` in a separate terminal window while the node runs:
+Once all the blocks have been replayed, you can monitor the synchronization
+status with use `cardano-cli` in a separate terminal window while the node
+runs:
 
 ```shell
 cardano-cli query tip
