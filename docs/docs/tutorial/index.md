@@ -34,7 +34,7 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 mkdir -p bin
 version=0.17.0
 mithril_version=2423.0
-node_version=8.12.2
+node_version=8.9.3
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-linux.tar.gz
@@ -52,7 +52,7 @@ chmod +x bin/*
 mkdir -p bin
 version=0.17.0
 mithril_version=2423.0
-node_version=8.12.2
+node_version=8.9.3
 curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-macos.tar.gz
