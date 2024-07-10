@@ -1,8 +1,4 @@
----
-sidebar_position: 4
----
-
-# Hydra Head protocol overview
+# Protocol overview
 
 Hydra is the layer 2 scalability solution for Cardano, designed to increase transaction speed through low latency and high throughput while minimizing transaction costs. [Hydra Head](https://eprint.iacr.org/2020/299.pdf) is the first protocol of the Hydra family that lays the foundation for more advanced deployment scenarios using isomorphic, multi-party state channels. For an introduction to the protocol, refer to these two blog posts: 
 

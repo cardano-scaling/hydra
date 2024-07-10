@@ -1,4 +1,4 @@
-# Handling Rollbacks
+# Handling rollbacks
 
 Rollbacks are an integral part of the behaviour of the Cardano chain: Any application built on top of Cardano and synchronizing its behaviour with the chain must be prepared to occasionally observe such _rollbacks_ and Hydra is no exception.
 

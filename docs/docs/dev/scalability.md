@@ -1,7 +1,3 @@
----
-sidebar_position: 2
----
-
 # Scalability
 
 Decentralized systems, including blockchains, face fundamental scalability limitations due to their reliance on global transaction replication to ensure security. This constraint is commonly known as the blockchain trilemma, where _decentralization_, _security_, and _scalability_ counteract each other. Although Cardano employs an efficient consensus algorithm, its global distribution among thousands of block-producing nodes results in block creation approximately every twenty seconds. During peak transaction times, this can lead to increased settlement times as transactions may not be included in the immediate next block.
