@@ -177,7 +177,7 @@ genDecrementMutation (tx, utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , -- New version v′ is incremented correctly
       SomeMutation (pure $ toErrorCode IncorrectVersion) UseDifferentSnapshotVersion <$> do
-        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthySnapshotVersion + 1)
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInOpen $ toInteger mutatedSnapshotVersion) headTxOut
     , -- XXX: Decrement snapshot number s′ is higher than the currently stored snapshot number s
       SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
