@@ -58,7 +58,7 @@ logFilterOptions =
         <> progDesc
           "Runs benchmarks assessing the execution cost of various on-chain \
           \ constructs: Some specific Plutus code, all OCV transactions,... \
-          \ The output is valid markdown that can be used as is to be processed \
+          \ The output is valid Markdown that can be used as is to be processed \
           \ and published."
         <> header "tx-cost - Hydra OCV Code Benchmarks"
     )
@@ -96,7 +96,7 @@ writeTransactionCostMarkdown hdl = do
             , fanoutC
             ]
 
--- NOTE: Github Actions CI depends on the number of header lines, see
+-- NOTE: GitHub actions CI depends on the number of header lines, see
 -- .github/workflows/ci-nix.yaml
 pageHeader :: [Text]
 pageHeader =
@@ -105,7 +105,7 @@ pageHeader =
   , "sidebar_position: 3 "
   , "--- "
   , ""
-  , "# Transactions costs "
+  , "# Transaction costs "
   , ""
   , "Sizes and execution budgets for Hydra protocol transactions. Note that unlisted parameters are currently using `arbitrary` values and results are not fully deterministic and comparable to previous runs."
   , ""
