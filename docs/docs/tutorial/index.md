@@ -143,7 +143,7 @@ cardano-node run \
 ```
 
 Once all the blocks have been replayed, you can monitor the synchronization
-status with use `cardano-cli` in a separate terminal window while the node
+status using `cardano-cli` in a separate terminal window while the node
 runs:
 
 ```shell
@@ -513,7 +513,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
 </details>
 
-After you've prepared your transactions, the `hydra-node` will find all UTxO associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
+After you've prepared your transactions, the `hydra-node` will find all UTxOs associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
 
 Once the `hydra-node` sees this transaction, you should see a `Committed` status displayed on your WebSocket connection.
 
