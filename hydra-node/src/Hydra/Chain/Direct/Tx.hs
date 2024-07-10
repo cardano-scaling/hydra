@@ -710,6 +710,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
         }
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+  -- TODO: Make this a 'Maybe Hash'
   utxoToDecommitHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
 
 data FanoutTxError
