@@ -12,7 +12,7 @@ import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Environment (Environment (..))
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.Events (EventSource (..))
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
@@ -71,18 +71,10 @@ run opts = do
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <-
-          eventPairFromPersistenceIncremental
-            =<< createPersistenceIncremental (persistenceDir <> "/state")
-        -- NOTE: Add any custom sink setup code here
-        -- customSink <- createCustomSink
-        let eventSinks =
-              [ filePersistenceSink
-              -- NOTE: Add any custom sinks here
-              -- , customSink
-              ]
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        -- FIXME: NO PERSISTENCE
+        let noopSource = EventSource{getEvents = pure mempty}
+        let eventSinks = []
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState noopSource eventSinks
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
