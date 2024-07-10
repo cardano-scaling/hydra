@@ -33,11 +33,14 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 ```shell
 mkdir -p bin
 version=0.17.0
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
+mithril_version=2423.0
+node_version=8.12.2
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
-curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-linux.tar.gz \
-  | tar xz ./bin/cardano-node ./bin/cardano-cli
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-linux-x64.tar.gz \
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-linux.tar.gz
+tar xf cardano-node-${node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
+tar xf cardano-node-${node_version}-linux.tar.gz ./share/preprod --strip-components=3
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
 chmod +x bin/*
 ```
@@ -48,11 +51,14 @@ chmod +x bin/*
 ```shell
 mkdir -p bin
 version=0.17.0
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
+mithril_version=2423.0
+node_version=8.12.2
+curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
-curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-macos.tar.gz \
-  | tar xz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-macos-x64.tar.gz \
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-macos.tar.gz
+tar xf cardano-node-${node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
+tar xf cardano-node-${node_version}-macos.tar.gz ./share/preprod --strip-components=3
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-macos-x64.tar.gz \
   | tar xz -C bin
 chmod +x bin/*
 ```
@@ -126,16 +132,9 @@ mithril CI, PRs are welcome!
 
 </details>
 
-Next, run a `cardano-node` after downloading the necessary configuration files:
+Next, run a `cardano-node`:
 
 ```shell
-curl -O https://book.world.dev.cardano.org/environments/preprod/config.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/topology.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/byron-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
-
 cardano-node run \
   --config config.json \
   --topology topology.json \
@@ -512,7 +511,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
 </details>
 
-After you've prepared your transactions, the `hydra-node` will find all UTxO associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network. 
+After you've prepared your transactions, the `hydra-node` will find all UTxO associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
 
 Once the `hydra-node` sees this transaction, you should see a `Committed` status displayed on your WebSocket connection.
 
