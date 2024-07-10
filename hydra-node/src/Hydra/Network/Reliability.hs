@@ -197,11 +197,15 @@ mkMessagePersistence numberOfParties msgPersistence ackPersistence =
           Nothing -> pure $ replicate numberOfParties 0
           Just acks -> pure acks
     , saveAcks = \acks -> do
-        save ackPersistence acks
+        -- FIXME: no network message persistence
+        -- save ackPersistence acks
+        pure ()
     , loadMessages = do
         loadAll msgPersistence
     , appendMessage = \msg -> do
-        append msgPersistence msg
+        -- FIXME: no network message persistence
+        -- append msgPersistence msg
+        pure ()
     }
 
 -- | Middleware function to handle message counters tracking and resending logic.
