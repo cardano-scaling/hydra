@@ -161,8 +161,8 @@ genCloseCurrentMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        sigs <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close sigs Head.CurrentVersion mempty
+        signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        pure $ Head.Close Head.CloseCurrent{signature}
     , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateInitialSnapshotNumber <$> do
         let mutatedSnapshotNumber = 0
         pure $
@@ -225,7 +225,6 @@ genCloseCurrentMutation (tx, _utxo) =
       -- This is a bit confusing and not giving much value. Maybe we can remove this.
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) CloseFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyCurrentSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
@@ -235,12 +234,9 @@ genCloseCurrentMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          { signature =
-                              toPlutusSignatures $
-                                healthySignature healthyCurrentSnapshot
-                          , version = Head.CurrentVersion
-                          , utxoToDecommitHash = expectedHash
-                          }
+                          Head.CloseCurrent
+                            { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
+                            }
                       )
                 )
             ]

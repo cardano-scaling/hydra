@@ -497,9 +497,13 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 -- * Orphans
 
 deriving stock instance Eq Head.Input
-deriving stock instance Eq Head.Version
+deriving stock instance Eq Head.CloseRedeemer
+deriving stock instance Eq Head.ContestRedeemer
 
-instance Arbitrary Head.Version where
+instance Arbitrary Head.CloseRedeemer where
+  arbitrary = genericArbitrary
+
+instance Arbitrary Head.ContestRedeemer where
   arbitrary = genericArbitrary
 
 instance Arbitrary Head.Input where

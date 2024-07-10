@@ -226,7 +226,10 @@ prop_verifyOffChainSignatures =
           snapshotVersion = toInteger version
           utxoHash = (toBuiltin $ hashUTxO @SimpleTx utxo)
           utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash snapshotVersion onChainParty onChainSig
+       in verifyPartySignature
+            (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
+            onChainParty
+            onChainSig
             & counterexample ("headId: " <> show headId)
             & counterexample ("signed: " <> show onChainSig)
             & counterexample ("party: " <> show onChainParty)
@@ -245,4 +248,7 @@ prop_verifySnapshotSignatures =
           snapshotVersion = toInteger version
           utxoHash = toBuiltin (hashUTxO @SimpleTx utxo)
           utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash utxoToDecommitHash snapshotVersion signatures
+       in verifySnapshotSignature
+            onChainParties
+            (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
+            signatures

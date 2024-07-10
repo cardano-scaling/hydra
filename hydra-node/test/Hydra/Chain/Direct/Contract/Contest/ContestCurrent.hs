@@ -295,13 +295,11 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Head.Contest
-            { signature = toPlutusSignatures mutatedSignature
-            , version = Head.CurrentVersion
-            , utxoToDecommitHash = expectedHash
-            }
+            Head.ContestCurrent
+              { signature = toPlutusSignatures mutatedSignature
+              }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -311,19 +309,17 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeInputHeadDatum $
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  { signature =
-                      toPlutusSignatures $
-                        healthySignature (fromInteger mutatedSnapshotNumber)
-                  , version = Head.CurrentVersion
-                  , utxoToDecommitHash = expectedHash
-                  }
+                  Head.ContestCurrent
+                    { signature =
+                        toPlutusSignatures $
+                          healthySignature (fromInteger mutatedSnapshotNumber)
+                    }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
@@ -354,11 +350,10 @@ genContestMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
         pure (lb, ub)
-    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+    , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
@@ -368,12 +363,11 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          { signature =
-                              toPlutusSignatures $
-                                healthySignature healthyContestSnapshotNumber
-                          , version = Head.CurrentVersion
-                          , utxoToDecommitHash = expectedHash
-                          }
+                          Head.ContestCurrent
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyContestSnapshotNumber
+                            }
                       )
                 )
             ]
