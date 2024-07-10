@@ -122,7 +122,8 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
-    append timedOutput
+    -- FIXME: no server output persistence
+    -- append timedOutput
     pure timedOutput
 
   onIOException ioException =
