@@ -44,7 +44,7 @@ data HeadError
   | NotAllValueCollected
   | SnapshotNumberMismatch
   | IncorrectVersion
-  | LastKnownVersionIsNotMatching
+  | MustNotChangeVersion
   | FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit
 
 instance ToErrorCode HeadError where
@@ -87,5 +87,5 @@ instance ToErrorCode HeadError where
     NotAllValueCollected -> "H36"
     SnapshotNumberMismatch -> "H37"
     IncorrectVersion -> "H38"
-    LastKnownVersionIsNotMatching -> "H39"
+    MustNotChangeVersion -> "H39"
     FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit -> "H40"

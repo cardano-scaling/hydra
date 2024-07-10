@@ -297,7 +297,7 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber i
     && hasBoundedValidity
     && checkDeadline
     && mustBeSignedByParticipant ctx headPolicyId
-    -- && checkLastKnownVersion
+    && mustNotChangeVersion
     && checkSnapshot
     && mustInitializeContesters
     && mustPreserveValue
@@ -323,11 +323,8 @@ checkClose ctx parties initialUtxoHash sig cperiod headPolicyId snapshotNumber i
   (closedSnapshotNumber, closedUtxoHash, decommitHash, parties', closedContestationDeadline, cperiod', headId', contesters', outputVersion) =
     extractClosedDatum ctx
 
-  -- TODO: This check can't be done currently since we set the version in the close datum
-  -- to be whatever we have in the snapshot and not what we had in the open
-  -- datum.
-  checkLastKnownVersion =
-    traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
+  mustNotChangeVersion =
+    traceIfFalse $(errorCode MustNotChangeVersion) $
       inputVersion == outputVersion
 
   (correctDecommitHash, correctVersion) =
@@ -413,7 +410,7 @@ checkContest ::
   Bool
 checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber sig contesters headId inputVersion expectedVersion utxoToDecommitHash =
   mustNotMintOrBurn txInfo
-    -- && checkLastKnownVersion
+    && mustNotChangeVersion
     && mustBeNewer
     && mustBeMultiSigned
     && mustBeSignedByParticipant ctx headId
@@ -436,10 +433,8 @@ checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotN
     traceIfFalse $(errorCode TooOldSnapshot) $
       contestSnapshotNumber > closedSnapshotNumber
 
-  -- TODO: This check can't be done currently since we set the version in the close datum
-  -- to be whatever we have in the snapshot and not what we had in the open datum.
-  checkLastKnownVersion =
-    traceIfFalse $(errorCode LastKnownVersionIsNotMatching) $
+  mustNotChangeVersion =
+    traceIfFalse $(errorCode MustNotChangeVersion) $
       inputVersion == outputVersion
 
   (correctDecommitHash, correctVersion) =
