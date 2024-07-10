@@ -50,7 +50,7 @@ Draft
   - Inclusion of the whole UTxO set in the head is not always desirable and
     filtering by address would be beneficial. (not addressed in this ADR though,
     relevant discussion
-    [#797](https://github.com/input-output-hk/hydra/discussions/797))
+    [#797](https://github.com/cardano-scaling/hydra/discussions/797))
 
   - As [ADR-15](/adr/15) also proposes, some clients may not need (or should
     not have) access to administrative information.

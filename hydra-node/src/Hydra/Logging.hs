@@ -3,7 +3,7 @@
 -- | Adapter module to the actual logging framework.
 -- All Hydra node components implements /Structured logging/ via [contra-tracer](https://hackage.haskell.org/package/contra-tracer)
 -- generic logging framework. All logs are output in [JSON](https://www.json.org/json-en.html) in a format which is
--- documented in a [JSON-Schema](https://github.com/input-output-hk/hydra/blob/master/hydra-node/json-schemas/logs.yaml).
+-- documented in a [JSON-Schema](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/json-schemas/logs.yaml).
 module Hydra.Logging (
   -- * Tracer
   Tracer (..),

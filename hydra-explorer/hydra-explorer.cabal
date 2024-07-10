@@ -11,7 +11,7 @@ license-files:
 
 source-repository head
   type:     git
-  location: https://github.com/input-output-hk/hydra/hydra-explorer/
+  location: https://github.com/cardano-scaling/hydra/hydra-explorer/
 
 common project-config
   default-language:   GHC2021

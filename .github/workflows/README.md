@@ -22,7 +22,7 @@ sudo chown "$(whoami)" /srv/var/cardano
 
 # Add the server as a github runner
 
-In the project settings, go to Actions/Runners and click on [New self-hosted runner](https://github.com/input-output-hk/hydra/settings/actions/runners/new) and follow the procedure.
+In the project settings, go to Actions/Runners and click on [New self-hosted runner](https://github.com/cardano-scaling/hydra/settings/actions/runners/new) and follow the procedure.
 
 :warning: When asked, add the following label to this runner: `cardano`
 

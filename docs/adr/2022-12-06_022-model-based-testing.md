@@ -12,7 +12,7 @@ Accepted
 
 ## Context
 
-- We have been experimenting with [quickcheck-dynamic](https://hackage.org/packages/quickcheck-dynamic) for a while, leading to the implementation of basic [Model-Based tests](https://github.com/input-output-hk/hydra/blob/master/hydra-node/test/Hydra/ModelSpec.hs) for the Hydra Head Protocol
+- We have been experimenting with [quickcheck-dynamic](https://hackage.org/packages/quickcheck-dynamic) for a while, leading to the implementation of basic [Model-Based tests](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/ModelSpec.hs) for the Hydra Head Protocol
 - These tests fill a gap in our testing strategy, between [BehaviorSpec](https://github.com/input-output-hk/hydra/blob/master/hydra-node/test/Hydra/BehaviorSpec.hs) tests which test a "network" of nodes but only at the level of the off-chain Head logic, and [EndToEndSpec](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/test/Test/EndToEndSpec.hs) tests which test a full blown network of nodes interconnected through real network connections and to a real cardano-node:
   - The former are fast but do not test the complete lifecycle of a Head. Furthermore, they are only unit tests so do not provide coverage into various corner cases that could arise in practice
   - The latter exercise the full lifecycle but are very slow and brittle
@@ -20,7 +20,7 @@ Accepted
 
 ## Decision
 
-- We will maintain and evolve the [Model](https://github.com/input-output-hk/hydra/blob/master/hydra-node/test/Hydra/Model.hs) over time to cover more features
+- We will maintain and evolve the [Model](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/Model.hs) over time to cover more features
 - Key properties of the whole system should be written-down as proper `DynamicLogic` properties and thoroughly tested using quickcheck-dynamic. This includes but is not limited to:
   - Liveness of the Head
   - Consistency of the Head

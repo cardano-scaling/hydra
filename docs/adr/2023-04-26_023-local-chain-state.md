@@ -18,13 +18,13 @@ Accepted
 - Having the `headState` containing the `chainState` made persistency easier to
   deal with: we ensure that we always save cohesive states.
 - When opening our first head on mainnet we suffered from a [commit/rollback
-  issue](https://github.com/input-output-hk/hydra/issues/784) that was the
+  issue](https://github.com/cardano-scaling/hydra/issues/784) that was the
   result of a race condition in the management of the `chainState` as implemented
   in the context of [ADR 18](/adr/18).
 - Reproducing the issue by introducing rollbacks in the model based tests, we
   discovered that, as a client of a hydra-node, we had no idea how to deal with
   the rollback event as it is defined now.
-- [#185](https://github.com/input-output-hk/hydra/issues/185) plans to improve
+- [#185](https://github.com/cardano-scaling/hydra/issues/185) plans to improve
   rollback management.
 
 The following picture details the race condition through an exemple:
@@ -59,7 +59,7 @@ testing.
 - A copy of the `chainState` is kept in the `headState` to keep the benefits of
   [ADR 18](/adr/18) regarding persistency.
 - The `RolledBack` output is removed from the API unless actionable by users or
-  [#185](https://github.com/input-output-hk/hydra/issues/185) implemented.
+  [#185](https://github.com/cardano-scaling/hydra/issues/185) implemented.
 
 ## Consequences
 

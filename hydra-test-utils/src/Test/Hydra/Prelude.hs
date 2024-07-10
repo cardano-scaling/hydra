@@ -48,7 +48,7 @@ import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 createSystemTempDirectory :: String -> IO FilePath
 createSystemTempDirectory template = do
   tmpDir <- case os of
-    "darwin" -> pure "/tmp" -- https://github.com/input-output-hk/hydra/issues/158.
+    "darwin" -> pure "/tmp" -- https://github.com/cardano-scaling/hydra/issues/158.
     _ -> getCanonicalTemporaryDirectory
   createTempDirectory tmpDir template
 

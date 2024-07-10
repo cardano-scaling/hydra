@@ -19,7 +19,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
-        repository: input-output-hk/hydra
+        repository: cardano-scaling/hydra
         ref: release
         # Also ensure we have all history with all tags
         fetch-depth: 0

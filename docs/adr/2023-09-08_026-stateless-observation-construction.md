@@ -38,7 +38,7 @@ Draft
   where `InitialState`, `OpenState` and `ClosedState` hold elaborate information
   about the currently tracked Hydra head.
 
-- We face [difficulties](https://github.com/input-output-hk/hydra/issues/529) to
+- We face [difficulties](https://github.com/cardano-scaling/hydra/issues/529) to
   provide sufficient user feedback when an `initTx` was observed but (for
   example) keys do not match our expectation.
 
@@ -48,7 +48,7 @@ Draft
     and `API` layers.
 
 - We want to build a [Hydra head
-  explorer](https://github.com/input-output-hk/hydra/issues/696), which should
+  explorer](https://github.com/cardano-scaling/hydra/issues/696), which should
   be able to keep track and discover Hydra heads and their state changes even
   when the heads were initialized before starting the explorer.
 

@@ -18,7 +18,7 @@ info:
 
   license:
     name: Apache 2.0
-    url: https://raw.githubusercontent.com/input-output-hk/hydra/master/LICENSE
+    url: https://raw.githubusercontent.com/cardano-scaling/hydra/master/LICENSE
 
 defaultContentType: application/json
 

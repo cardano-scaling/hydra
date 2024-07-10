@@ -34,7 +34,7 @@ hydra-node gen-hydra-key --output-file my-key
 
 This command creates two files: `my-key.sk` and `my-key.vk` containing Hydra keys suitable for use inside a head.
 
-For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bob.{vk,sk}`, and `carol.{vk,sk}`) in our [demo folder](https://github.com/input-output-hk/hydra/tree/master/demo). These demo keys should not be used in production.
+For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bob.{vk,sk}`, and `carol.{vk,sk}`) in our [demo folder](https://github.com/cardano-scaling/hydra/tree/master/demo). These demo keys should not be used in production.
 
 ### Contestation period
 

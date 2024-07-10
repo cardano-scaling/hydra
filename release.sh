@@ -188,7 +188,7 @@ update_demo_version() {
   local version="$1"
   (
     cd demo
-    sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
+    sed -i"" -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
   )
 }
 
@@ -196,7 +196,7 @@ update_explorer_version() {
   local version="$1"
   (
     cd .github/workflows/explorer
-    sed -i"" -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml
+    sed -i"" -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml
   )
 }
 

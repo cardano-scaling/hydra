@@ -47,7 +47,7 @@ Discussion quickly derived on performance, with Neil Davies giving some interest
 - Within cardano network, propagation of a single empty block takes 400ms (to reach 10K nodes)
   - ouroboros network should withstand 1000s of connections (there are some system-level limits)
 - Modelling Hydra network
-  - A logical framework for modelling performance of network associate CDF with time for a message to appear at all nodes (this is what is done in the [hydra-sim](https://github.com/input-output-hk/hydra-sim)
+  - A logical framework for modelling performance of network associate CDF with time for a message to appear at all nodes (this is what is done in the [hydra-sim](https://github.com/cardano-scaling/hydra-sim)
   - We could define a layer w/ the semantics we expect, eg. Snocket = PTP connection w/ ordered guaranteed messages delivery. Do we need that in Hydra?
 - How about [Wireguard](https://wireguard.io)? It's a very interesting approach, with some shortcomings:
   - no global addressing scheme
@@ -57,7 +57,7 @@ Discussion quickly derived on performance, with Neil Davies giving some interest
 
 ## Cardano Networking
 
-See [this wiki page](https://github.com/input-output-hk/hydra.wiki/blob/master/Networking.md#L1) for detailed notes about how Cardano network works and uses Ouroboros.
+See [this wiki page](https://github.com/cardano-scaling/hydra.wiki/blob/master/Networking.md#L1) for detailed notes about how Cardano network works and uses Ouroboros.
 
 - Cardano is a global network spanning 1000s of nodes, with nodes coming and going and a widely varying topology. Its main purpose is _block propagation_: Blocks produced by some nodes according to the consensus rules needs to reach every node in the network in less than 20 seconds.
 - Nodes cannot be connected to all other nodes, as such block diffusion occurs through some form of _gossipping_ whereby a node is connected to a limited set of peers with which it exchanges blocks

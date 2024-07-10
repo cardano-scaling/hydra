@@ -20,7 +20,7 @@ echo "Including hydra env variables"
 export NETWORK_MAGIC=$(jq .networkMagic repos/cardano-configurations/network/$NETWORK/genesis/shelley.json)
 echo "export NETWORK_MAGIC=$NETWORK_MAGIC" >> ~/.bash_env
 
-# this is manually hardcoded from https://github.com/input-output-hk/hydra/releases/tag/0.10.0
+# this is manually hardcoded from https://github.com/cardano-scaling/hydra/releases/tag/0.10.0
 # perhaps there would be a way to look those up in the Chain?
 export HYDRA_SCRIPTS_TX_ID=$(jq -r .$NETWORK.hydraScriptsTxId ~/scripts/configure.json)
 echo "export HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" >> ~/.bash_env

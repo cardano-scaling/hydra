@@ -83,7 +83,7 @@ services:
       ]
 
   hydra-tui:
-    image: ghcr.io/input-output-hk/hydra-tui:unstable
+    image: ghcr.io/cardano-scaling/hydra-tui:unstable
     profiles:
       - tui
     command:
@@ -98,7 +98,7 @@ services:
       - ~/network:/network
 
   hydraw:
-    image: ghcr.io/input-output-hk/hydraw:latest
+    image: ghcr.io/cardano-scaling/hydraw:latest
     profiles:
       - hydraw
     environment:

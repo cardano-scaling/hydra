@@ -23,7 +23,7 @@ curl -X POST -s "https://faucet.preview.world.dev.cardano.org/send-money/$(cat c
 
 Now we need to locate the Hydra scripts for the given testnet. For tagged &
 released versions we will publish them on the respective [release
-page](https://github.com/input-output-hk/hydra/releases).
+page](https://github.com/cardano-scaling/hydra/releases).
 
 You can also publish them yourselves by paying some some 50ADA and using this
 command and keep:
