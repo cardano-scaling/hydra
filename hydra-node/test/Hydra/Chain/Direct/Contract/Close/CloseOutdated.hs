@@ -141,12 +141,8 @@ data CloseMutation
     -- Invalidates the tx by changing the snapshot number
     -- in resulting head output but not the redeemer signature.
     MutateSnapshotNumberButNotSignature
-  | -- TODO: | -- Check the snapshot version is preserved from last open state.
-    --   MutateSnapshotVersion
-
-    -- | Check that snapshot numbers = 0 need to close the head with the
-    -- initial UTxO hash.
-    MutateInitialSnapshotNumber
+  | -- | Check the snapshot version is preserved from last open state.
+    MutateSnapshotVersion
   | -- | Ensures the close snapshot is multisigned by all Head participants by
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
@@ -219,6 +215,11 @@ data CloseMutation
     MutateContestationPeriod
   deriving stock (Generic, Show, Enum, Bounded)
 
+-- TODO: Add mutations which work "this way" around now. For example, before
+-- we did mutate a close with signed snapshot to result in snapshot number 0,
+-- which would trigger the validator. However, that would not be a faithful
+-- representation of an "attack" anymore. Now, the tx creator needs to claim
+-- what situation we are in now and how the snapshot signature is valid.
 genCloseOutdatedMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseOutdatedMutation (tx, _utxo) =
   oneof
@@ -228,21 +229,14 @@ genCloseOutdatedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
         pure $ Head.Close Head.CloseCurrent{signature}
-    , SomeMutation (pure $ toErrorCode ClosedWithNonInitialHash) MutateInitialSnapshotNumber <$> do
-        let mutatedSnapshotNumber = 0
-        pure $
-          Changes
-            [ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headTxOut
-            , ChangeInputHeadDatum healthyOutdatedOpenDatum{Head.utxoHash = ""}
-            ]
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , -- , -- Last known open state version is recorded in closed state
-      --   SomeMutation (pure $ toErrorCode VersionChangedOnClose) MutateSnapshotVersion <$> do
-      --     mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthyCloseSnapshotVersion)
-      --     pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
-      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+    , -- Last known open state version is recorded in closed state
+      SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyOutdatedSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ healthyOutdatedOpenDatum{Head.parties = mutatedParties}
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
