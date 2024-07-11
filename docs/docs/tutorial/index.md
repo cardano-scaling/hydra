@@ -503,7 +503,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 </Tabs>
 
 <details>
-<summary>Alternative: Not commit anything</summary>
+<summary>Alternative: Don't commit anything</summary>
 
 If you don't want to commit any funds and only want to receive on layer two, you can request an empty commit transaction as shown below (example for `bob`):
 
