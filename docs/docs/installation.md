@@ -11,13 +11,13 @@ Selecting the right installation method for the `hydra-node` depends on your req
 The quickest way to install and run a `hydra-node` is by using Docker images:
 
 ```shell
-docker pull ghcr.io/input-output-hk/hydra-node
-docker run --rm ghcr.io/input-output-hk/hydra-node --help
+docker pull ghcr.io/cardano-scaling/hydra-node
+docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 ```
 
 ### Prebuilt binaries
 
-We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [github releases](https://github.com/input-output-hk/hydra/releases).
+We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [github releases](https://github.com/cardano-scaling/hydra/releases).
 
 
 ### Build from source

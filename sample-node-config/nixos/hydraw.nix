@@ -72,7 +72,7 @@ in
 
   # The hydraw application / bridge
   virtualisation.oci-containers.containers.hydraw = {
-    image = "ghcr.io/input-output-hk/hydraw:latest";
+    image = "ghcr.io/cardano-scaling/hydraw:latest";
     volumes = [
       "/data/hydra-node/credentials:/credentials:ro"
     ];

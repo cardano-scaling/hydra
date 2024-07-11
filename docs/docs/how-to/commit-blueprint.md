@@ -100,7 +100,7 @@ cardano-cli query protocol-parameters \
 ## Step 5
 Start the `hydra-node` as a _single_ party head instance.
 
-Note: The value `6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711` comes from the `hydra-node` release [0.16.0](https://github.com/input-output-hk/hydra/releases/tag/0.16.0).
+Note: The value `6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711` comes from the `hydra-node` release [0.16.0](https://github.com/cardano-scaling/hydra/releases/tag/0.16.0).
 
 ```shell
 hydra-node \

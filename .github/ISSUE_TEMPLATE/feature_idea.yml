@@ -8,7 +8,7 @@ body:
       value: |
         **Thank you for contributing to our project!** :green_heart:
 
-        Instead of opening this issue, consider [starting a new idea discussion](https://github.com/input-output-hk/hydra/discussions/new?category=ideas).
+        Instead of opening this issue, consider [starting a new idea discussion](https://github.com/cardano-scaling/hydra/discussions/new?category=ideas).
         That way, we can discuss & refine your idea together, before we adopt it as a feature into the roadmap.
 
   - type: textarea

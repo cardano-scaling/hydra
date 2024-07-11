@@ -25,7 +25,7 @@ These instructions have been tested only on Linux environments (Ubuntu, NixOS). 
 All commands below are written as if executed from the `demo` folder in the project repository. Ensure you clone the repository, switch into the `demo` folder, and pull the latest Docker images:
 
 ```shell
-git clone git@github.com:input-output-hk/hydra.git
+git clone git@github.com:cardano-scaling/hydra.git
 cd hydra/demo
 docker compose pull
 ```

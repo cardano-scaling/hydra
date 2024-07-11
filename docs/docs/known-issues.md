@@ -16,10 +16,10 @@ Currently, participants may be denied access to their funds by other protocol pa
 
 See these resources for additional information about reducing the risk of locking up funds in a Hydra head:
 
-* [Directly open heads](https://github.com/input-output-hk/hydra/issues/1329)
-* [Always abortable head](https://github.com/input-output-hk/hydra/issues/699)
-* [Limit size/complexity of UTXOs in the head](https://github.com/input-output-hk/hydra/issues/698)
-* [Only sign closable snapshots](https://github.com/input-output-hk/hydra/issues/370)
+* [Directly open heads](https://github.com/cardano-scaling/hydra/issues/1329)
+* [Always abortable head](https://github.com/cardano-scaling/hydra/issues/699)
+* [Limit size/complexity of UTXOs in the head](https://github.com/cardano-scaling/hydra/issues/698)
+* [Only sign closable snapshots](https://github.com/cardano-scaling/hydra/issues/370)
 
 ### Training wheels
 

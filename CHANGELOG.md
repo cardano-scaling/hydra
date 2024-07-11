@@ -14,7 +14,7 @@ changes.
 
 - Tested with `cardano-node 8.11.0` and `cardano-cli 8.23.1.0`.
 
-- **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/input-output-hk/hydra/pull/1463):
+- **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
   
@@ -24,31 +24,31 @@ changes.
 
 ## [0.17.0] - 2024-05-20
 
-- **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/input-output-hk/hydra/pull/1380):
+- **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/cardano-scaling/hydra/pull/1380):
   - Instead of the custom `witness` extension of `UTxO`, the endpoint now accepts a _blueprint_ transaction together with the `UTxO` which is spent in this transaction.
   - Usage is still the same for commiting "normal" `UTxO` owned by public key addresses.
   - Spending from a script `UTxO` now needs the `blueprintTx` request type, which also unlocks more involved use-cases, where the commit transaction should also satisfy script spending constraints (like additional signers, validity ranges etc.)
 
 - _DEPRECATED_ the `GetUTxO` client input and `GetUTxOResponse` server output. Use `GET /snapshot/utxo` instead.
 
-- Update navigation and re-organized documentation website https://hydra.family [#1440](https://github.com/input-output-hk/hydra/pull/1440)
+- Update navigation and re-organized documentation website https://hydra.family [#1440](https://github.com/cardano-scaling/hydra/pull/1440)
   - Updated logos
   - Removed localization as it got outdated and on-demand site translation tools exist.
 
-- Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand. [#1398](https://github.com/input-output-hk/hydra/pull/1398)
+- Add `GET /snapshot/utxo` API endpoint to query confirmed UTxO set on demand. [#1398](https://github.com/cardano-scaling/hydra/pull/1398)
   - Always responds with the last confirmed UTxO
 
-- Set [CORS](https://fetch.spec.whatwg.org/#http-cors-protocol) headers on `hydra-node` API to allow requests from any origin `*`. [#1434](https://github.com/input-output-hk/hydra/pull/1434)
+- Set [CORS](https://fetch.spec.whatwg.org/#http-cors-protocol) headers on `hydra-node` API to allow requests from any origin `*`. [#1434](https://github.com/cardano-scaling/hydra/pull/1434)
 
-- `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network. [#1396](https://github.com/input-output-hk/hydra/pull/1396)
+- `hydra-node` logs will now report `NetworkEvents` to distinguish between `ConnectivityEvent`s and `ReceivedMessage`s on the network. [#1396](https://github.com/cardano-scaling/hydra/pull/1396)
 
 - Hydra now uses a versioned protocol for handshaking. In the event of a node
   attempting to connect using a different version of the networking protocol, a
   `HandshakeFailure` event will be recorded in the logs and sent as a server
-  output on the API. [#1381](https://github.com/input-output-hk/hydra/pull/1381)
+  output on the API. [#1381](https://github.com/cardano-scaling/hydra/pull/1381)
 
 - Make `hydra-cluster --devnet` more configurable
-  - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO. [#1420](https://github.com/input-output-hk/hydra/pull/1420)
+  - Now it is idle by default again and a `--busy` will make it busy respending the same UTxO. [#1420](https://github.com/cardano-scaling/hydra/pull/1420)
 
 ## [0.16.0] - 2024-04-03
 
@@ -77,7 +77,7 @@ changes.
 
 - Provide more details about why a command failed. Added the state of the head logic at the point of failure.
 
-- Fix a bug where the `hydra-node` would not correctly observe a contest transaction and fail to fanout a head [#1260](https://github.com/input-output-hk/hydra/issues/1260).
+- Fix a bug where the `hydra-node` would not correctly observe a contest transaction and fail to fanout a head [#1260](https://github.com/cardano-scaling/hydra/issues/1260).
 
 - Add `contestationDeadline` to the `HeadIsContested` output on the `hydra-node` API.
 
@@ -85,37 +85,37 @@ changes.
 
 - Enhance `hydra-cluster --devnet` mode to produce a constant stream of snaphsots by re-spending the sandbox UTxO.
 
-- Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/input-output-hk/hydra/pull/1315).
+- Reduce cost of transactions submitted by `hydra-node` by better estimating fees in internal wallet [#1315](https://github.com/cardano-scaling/hydra/pull/1315).
 
 - Fix conversion of `Conway` blocks in `hydra-node` and `hydra-chain-observer`. This also includes tests that verify `hydra-node` working on Conway networks like `sanchonet` and the `hydra-explorer` observing heads on `sanchonet`.
 
 - Fix a bug in the contest observation where contesters were extracted from the
   input instead of the output datum.
-  [#1266](https://github.com/input-output-hk/hydra/pull/1266)
+  [#1266](https://github.com/cardano-scaling/hydra/pull/1266)
 
 
 ## [0.15.0] - 2024-01-18
 
 - Tested with `cardano-node 8.7.3` and `cardano-cli 8.17.0.0`.
 
-- **BREAKING** Remove head state from `hydra-node` chain layer [#1196](https://github.com/input-output-hk/hydra/pull/1196):
+- **BREAKING** Remove head state from `hydra-node` chain layer [#1196](https://github.com/cardano-scaling/hydra/pull/1196):
   - Not maintain head state in the chain layer anymore and all decision making (whether it's "our" head) is now fully contained in the logic layer.
   - This is a breaking change on the persisted `state` file, which now only stores so-called `spendableUTxO`. This raises a `PersistenceException` if an incompatible `state` file is loaded.
   - Heads need to be closed before upgrade to this version, as wiping `state` in the `--persistence-dir` is needed.
   - This also changes the `NodeOptions` log output because of internal restructuring of chain layer configuration.
 
-- New `offline` sub-command for `hydra-node` [#1118](https://github.com/input-output-hk/hydra/pull/1118), [#1222](https://github.com/input-output-hk/hydra/pull/1222):
+- New `offline` sub-command for `hydra-node` [#1118](https://github.com/cardano-scaling/hydra/pull/1118), [#1222](https://github.com/cardano-scaling/hydra/pull/1222):
   - Initializes a head with given `--initial-utxo` parameter, and does not connect to the Cardano network.
   - Transactions submitted on the L2 are validated as usual, where the offline chain simulates time passing in slots.
   - The `--ledger-genesis` option allows to give a shelley genesis file to configure start time and slot length of the simulated chain time.
 
-- Prepare `hydra-node` for the upcoming `Conway` hard-fork [#1177](https://github.com/input-output-hk/hydra/issues/1177):
+- Prepare `hydra-node` for the upcoming `Conway` hard-fork [#1177](https://github.com/cardano-scaling/hydra/issues/1177):
   - Interactions with `cardano-node` are updated to work in both, `Babbage` and `Conway` era.
   - Unsupported eras are reported as error when starting.
 
 - Add a default for `hydra-node --node-id` (`"hydra-node-1"`) to simplify configuration.
 
-- Fix `hydra-node` API reference & schema for `/protocol-parameters` [#1241](https://github.com/input-output-hk/hydra/pull/1241). This now matches the JSON returned by `cardano-cli query protocol-parameters`, expected at `hydra-node --ledger-protocol-parameters` and produced by the API endpoint.
+- Fix `hydra-node` API reference & schema for `/protocol-parameters` [#1241](https://github.com/cardano-scaling/hydra/pull/1241). This now matches the JSON returned by `cardano-cli query protocol-parameters`, expected at `hydra-node --ledger-protocol-parameters` and produced by the API endpoint.
 
 - The `hydra-cluster` binary can bootstrap `cardano-node`s running on public networks using `mithril-client`.
 
@@ -130,10 +130,10 @@ changes.
 
   - Sign the head identifier as part of snapshot signature and verify it
     on-chain. This fully addresses security advisory
-    [CVE-2023-42806](https://github.com/input-output-hk/hydra/security/advisories/GHSA-gr36-mc6v-72qq).
+    [CVE-2023-42806](https://github.com/cardano-scaling/hydra/security/advisories/GHSA-gr36-mc6v-72qq).
 
   - Switched to using inline datums instead of (optionally) published datums in
-    transactions. [#1162](https://github.com/input-output-hk/hydra/pull/1162)
+    transactions. [#1162](https://github.com/cardano-scaling/hydra/pull/1162)
 
   - Upgraded toolchain to GHC 9.6 and a newer `plutus-tx` compiler.
 
@@ -143,7 +143,7 @@ changes.
 
 - **BREAKING** Introduced messages resending logic in the `Network` layer to
   improve reliability in the face of connection issues.
-  [#188](https://github.com/input-output-hk/hydra/issues/188) This persists
+  [#188](https://github.com/cardano-scaling/hydra/issues/188) This persists
   network messages on disk in order to gracefully handle crashes and detects
   inconsistencies between persisted state and configuration.
 
@@ -153,30 +153,30 @@ changes.
 - Removed hard-coded deposit of 2₳ from internal wallet. Now the wallet does
   only use as much deposit for script outputs as minimally needed and reduces
   the Ada locked throughout a head life-cycle.
-  [#1176](https://github.com/input-output-hk/hydra/pull/1176)
+  [#1176](https://github.com/cardano-scaling/hydra/pull/1176)
 
 - Clients are notified when head initialization is ignored via a new
   `IgnoredHeadInitializing` API server output. This helps detecting
   misconfigurations of credentials and head parameters (which need to match).
-  [#529](https://github.com/input-output-hk/hydra/issues/529)
+  [#529](https://github.com/cardano-scaling/hydra/issues/529)
 
 - Removed false positive `PostTxOnChainFailed` error from API outputs when the
   collect transaction of another `hydra-node` was "faster" than ours.
-  [#839](https://github.com/input-output-hk/hydra/issues/839)
+  [#839](https://github.com/cardano-scaling/hydra/issues/839)
 
 - Hydra node API `submit-transaction` endpoint now accepts three types of
   encoding: Base16 encoded CBOR string, a TextEnvelope with CBOR and full JSON.
-  [#1111](https://github.com/input-output-hk/hydra/issues/1111)
+  [#1111](https://github.com/cardano-scaling/hydra/issues/1111)
 
 - Improved `gen-hydra-keys` command to not overwrite keys if they are present
-  already. [#1136](https://github.com/input-output-hk/hydra/issues/1136)
+  already. [#1136](https://github.com/cardano-scaling/hydra/issues/1136)
 
 - Add a `hydra-chain-observer` executable to subscribe to a chain and just
   observe Hydra Head transactions (with minimal information right now).
-  [#1158](https://github.com/input-output-hk/hydra/pull/1158)
+  [#1158](https://github.com/cardano-scaling/hydra/pull/1158)
 
 - Fixed `hydra-tui` key bindings for exiting in dialogs.
-  [#1159](https://github.com/input-output-hk/hydra/issues/1159)
+  [#1159](https://github.com/cardano-scaling/hydra/issues/1159)
 
 ## [0.13.0] - 2023-10-03
 
@@ -335,15 +335,15 @@ running a head:
     - Repurpose `log-filter` executable to compute duration of events and
       effects.
 
-[#774]: https://github.com/input-output-hk/hydra/pull/774
-[#215]: https://github.com/input-output-hk/hydra/issues/215
-[#196]: https://github.com/input-output-hk/hydra/issues/196
-[#922]: https://github.com/input-output-hk/hydra/pull/922
-[#863]: https://github.com/input-output-hk/hydra/pull/863
-[#849]: https://github.com/input-output-hk/hydra/issues/849
-[#927]: https://github.com/input-output-hk/hydra/issues/927
-[#932]: https://github.com/input-output-hk/hydra/issues/932
-[#849]: https://github.com/input-output-hk/hydra/pull/859
+[#774]: https://github.com/cardano-scaling/hydra/pull/774
+[#215]: https://github.com/cardano-scaling/hydra/issues/215
+[#196]: https://github.com/cardano-scaling/hydra/issues/196
+[#922]: https://github.com/cardano-scaling/hydra/pull/922
+[#863]: https://github.com/cardano-scaling/hydra/pull/863
+[#849]: https://github.com/cardano-scaling/hydra/issues/849
+[#927]: https://github.com/cardano-scaling/hydra/issues/927
+[#932]: https://github.com/cardano-scaling/hydra/issues/932
+[#849]: https://github.com/cardano-scaling/hydra/pull/859
 
 ## [0.10.0] - 2023-05-11
 
@@ -446,7 +446,7 @@ head again.
   https://hydra.family/head-protocol/unstable. [#803](803) [#805](805) [#783](783)
 
 - Add the
-  [specification](https://github.com/input-output-hk/hydra/tree/master/spec) to
+  [specification](https://github.com/cardano-scaling/hydra/tree/master/spec) to
   the repository and
   [website](https://hydra.family/head-protocol/dev/specification).
   [#693](693)
@@ -468,30 +468,30 @@ head again.
   - Added `genTxIn` and `arbitrary` instance for `TxIn`.
   - Added `getChainPoint`.
 
-[185]: https://github.com/input-output-hk/hydra/issues/185
-[380]: https://github.com/input-output-hk/hydra/issues/380
-[693]: https://github.com/input-output-hk/hydra/issues/693
-[713]: https://github.com/input-output-hk/hydra/issues/713
-[764]: https://github.com/input-output-hk/hydra/pull/764
-[766]: https://github.com/input-output-hk/hydra/pull/766
-[772]: https://github.com/input-output-hk/hydra/pull/772
-[777]: https://github.com/input-output-hk/hydra/pull/777
-[783]: https://github.com/input-output-hk/hydra/pull/783
-[784]: https://github.com/input-output-hk/hydra/issues/784
-[786]: https://github.com/input-output-hk/hydra/pull/786
-[803]: https://github.com/input-output-hk/hydra/pull/803
-[805]: https://github.com/input-output-hk/hydra/pull/805
-[808]: https://github.com/input-output-hk/hydra/pull/808
-[813]: https://github.com/input-output-hk/hydra/pull/813
-[825]: https://github.com/input-output-hk/hydra/pull/825
-[826]: https://github.com/input-output-hk/hydra/pull/826
-[826]: https://github.com/input-output-hk/hydra/pull/826
-[837]: https://github.com/input-output-hk/hydra/issues/837
-[839]: https://github.com/input-output-hk/hydra/issues/839
+[185]: https://github.com/cardano-scaling/hydra/issues/185
+[380]: https://github.com/cardano-scaling/hydra/issues/380
+[693]: https://github.com/cardano-scaling/hydra/issues/693
+[713]: https://github.com/cardano-scaling/hydra/issues/713
+[764]: https://github.com/cardano-scaling/hydra/pull/764
+[766]: https://github.com/cardano-scaling/hydra/pull/766
+[772]: https://github.com/cardano-scaling/hydra/pull/772
+[777]: https://github.com/cardano-scaling/hydra/pull/777
+[783]: https://github.com/cardano-scaling/hydra/pull/783
+[784]: https://github.com/cardano-scaling/hydra/issues/784
+[786]: https://github.com/cardano-scaling/hydra/pull/786
+[803]: https://github.com/cardano-scaling/hydra/pull/803
+[805]: https://github.com/cardano-scaling/hydra/pull/805
+[808]: https://github.com/cardano-scaling/hydra/pull/808
+[813]: https://github.com/cardano-scaling/hydra/pull/813
+[825]: https://github.com/cardano-scaling/hydra/pull/825
+[826]: https://github.com/cardano-scaling/hydra/pull/826
+[826]: https://github.com/cardano-scaling/hydra/pull/826
+[837]: https://github.com/cardano-scaling/hydra/issues/837
+[839]: https://github.com/cardano-scaling/hydra/issues/839
 
 ## [0.9.0] - 2023-03-02
 
-:dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/input-output-hk/hydra)!
+:dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/cardano-scaling/hydra)!
 
 :warning: Delete your persistence directory!
 
@@ -509,23 +509,23 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 ### Changes to `hydra-node`
 
 - **BREAKING** Changes in the persistence format
-  [#725](https://github.com/input-output-hk/hydra/pull/725),
-  [#745](https://github.com/input-output-hk/hydra/pull/745).
+  [#725](https://github.com/cardano-scaling/hydra/pull/725),
+  [#745](https://github.com/cardano-scaling/hydra/pull/745).
 
 - **BREAKING** Changes to the API:
   + Removed `TxSeen` and `TxExpired` server outputs. Use the `TxValid` and
     `TxInvalid` responses instead.
   + All participants now see `TxValid` for all valid transactions (it replaces `TxSeen`).
   + Renamed `ReadyToCommit -> HeadIsInitializing`
-  + Added a `headId` to most server outputs. [#678](https://github.com/input-output-hk/hydra/pull/678)
-  + Added a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/input-output-hk/hydra/pull/618)
+  + Added a `headId` to most server outputs. [#678](https://github.com/cardano-scaling/hydra/pull/678)
+  + Added a `timestamp` and a monotonic `seq`uence number. [#618](https://github.com/cardano-scaling/hydra/pull/618)
 
 - **BREAKING** Addressed short-comings in `hydra-plutus` scripts
-  [#452](https://github.com/input-output-hk/hydra/pull/452) and improved their
+  [#452](https://github.com/cardano-scaling/hydra/pull/452) and improved their
   performance / reduced cost
-  [#652](https://github.com/input-output-hk/hydra/pull/652),
-  [#701](https://github.com/input-output-hk/hydra/pull/701),
-  [#709](https://github.com/input-output-hk/hydra/pull/709). Roughly the cost of
+  [#652](https://github.com/cardano-scaling/hydra/pull/652),
+  [#701](https://github.com/cardano-scaling/hydra/pull/701),
+  [#709](https://github.com/cardano-scaling/hydra/pull/709). Roughly the cost of
   transactions according to our
   [benchmarks](https://hydra.family/head-protocol/benchmarks/transaction-cost/)
   changed:
@@ -545,17 +545,17 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
     node will close the head 60s after submitting the close transaction and
     other parties will have another 60s to contest. This means the deadline may
     be up `2 * --contestation-period` after a close transaction.
-    [#615](https://github.com/input-output-hk/hydra/pull/615) and
+    [#615](https://github.com/cardano-scaling/hydra/pull/615) and
     [ADR21](https://hydra.family/head-protocol/adr/21/)
   + If hydra-node receives a `init` transaction with _not matching_
     `--contestation-period` then this tx is ignored which implies that all
     parties need to agree on the same value for contestation period.
   + Removed `contestationPeriod` from the `Init` API request payload.
   + The deadline get's pushed by `--contestation-period` **on each** contest
-    transaction. [#716](https://github.com/input-output-hk/hydra/pull/716)
+    transaction. [#716](https://github.com/cardano-scaling/hydra/pull/716)
 
 - Change the way the internal wallet initializes its state.
-  [#621](https://github.com/input-output-hk/hydra/pull/621)
+  [#621](https://github.com/cardano-scaling/hydra/pull/621)
   + The internal wallet does now always query ledger state and parameters at the
     tip. This should fix the `AcquireFailure` issues.
 
@@ -596,7 +596,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
   [CHaP](https://input-output-hk.github.io/cardano-haskell-packages/all-packages/)
   + Makes configuration of binary-caches easier to discover (you get asked about adding them).
   + Will make bumping dependencies (e.g. cardano-node) easier.
-  + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md)
+  + Build commands for binaries and docker images change, see updated [Contribution Guidelines](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md)
 
 ## [0.8.1] - 2022-11-17
 
@@ -605,77 +605,77 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
   + The `chainState` does not include read-only chain context information anymore (is smaller now).
   + Include the `chainState` in `InvalidStateToPost` errors.
   + Moved received transaction ids into `RolledForward` log message.
-  + Reduce log size by removing ChainContext. [#598](https://github.com/input-output-hk/hydra/issues/598)
+  + Reduce log size by removing ChainContext. [#598](https://github.com/cardano-scaling/hydra/issues/598)
 
-- **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/input-output-hk/hydra/pull/600)
+- **BREAKING** Changed internal wallet logs to help with debugging [#600](https://github.com/cardano-scaling/hydra/pull/600)
   + Split `ApplyBlock` into `BeginUpdate` and `EndUpdate`
   + Split `InitializedWallet` into `BeginInitialize` and `EndInitialize`
 
-- After restarting `hydra-node`, clients will receive the whole history.  [#580](https://github.com/input-output-hk/hydra/issues/580)
+- After restarting `hydra-node`, clients will receive the whole history.  [#580](https://github.com/cardano-scaling/hydra/issues/580)
   + This history will be stored in the `server-output` file in `--persistence-dir`.
   + Clients should use `Greetings` to identify the end of a [restart/replay of events](https://hydra.family/head-protocol/docs/api-behavior#replay-of-past-server-outputs).
 
-- Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/input-output-hk/hydra/issues/599)
+- Fixed observing the chain for Hydra L1 transactions after restart. [599](https://github.com/cardano-scaling/hydra/issues/599)
 
-- `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/input-output-hk/hydra/issues/504)
+- `hydra-cardano-api` now published on [Cardano Haskell Packages (CHaP)](https://input-output-hk.github.io/cardano-haskell-packages/package/hydra-cardano-api-0.8.0/). [#504](https://github.com/cardano-scaling/hydra/issues/504)
 
 ## [0.8.0] - 2022-10-27
 
 - **BREAKING** Hydra keys now use the text envelope format.
   + `hydra-tools` executable now produces keys in the same format as cardano keys so this should make key handling simpler.
-  +  Take a look at the [example](https://github.com/input-output-hk/hydra/blob/master/docs/docs/getting-started/quickstart.md#hydra-keys) on how to use `hydra-tools` to generate necessary hydra keys.
+  +  Take a look at the [example](https://github.com/cardano-scaling/hydra/blob/master/docs/docs/getting-started/quickstart.md#hydra-keys) on how to use `hydra-tools` to generate necessary hydra keys.
 
 - **BREAKING** hydra-node command line flag `--node-id` is now mandatory.
   + Instead of `Host` we are using the `node-id` in the server messages like + `PeerConnected/Disconnected` which are also used in
   + the TUI to distinguish between different connected peers.
   + This also changes the way how `NodeId`s are represented on the API.
 
-- **BREAKING** Keep track of `contestationDeadline` instead of `remainingContestationPeriod` and fix `ReadyToFanout`. [#483](https://github.com/input-output-hk/hydra/pull/483)
+- **BREAKING** Keep track of `contestationDeadline` instead of `remainingContestationPeriod` and fix `ReadyToFanout`. [#483](https://github.com/cardano-scaling/hydra/pull/483)
   + Clients can now rely on `ReadyToFanout`, such that sending a `Fanout` input after seeing this output will never be "too early".
   + The `HeadIsClosed` server output now contains the deadline instead of the remaining time.
   + See `hydra-tui` for an example how to use the `contestationDeadline` and `ReadyToFanout`.
   + See [ADR20](./docs/adr/2022-08-02_020-handling-time.md) for details and the rationale.
 
 - **BREAKING** Several changes to the API:
-  + The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless. [#533](https://github.com/input-output-hk/hydra/pull/533)
-  + Renamed `CannotSpendInput -> InternalWalletError` and `CannotCoverFees -> NotEnoughFuel`. [#582](https://github.com/input-output-hk/hydra/pull/582)
+  + The `InitialSnapshot` only contains the `initialUTxO` as the rest of the information was useless. [#533](https://github.com/cardano-scaling/hydra/pull/533)
+  + Renamed `CannotSpendInput -> InternalWalletError` and `CannotCoverFees -> NotEnoughFuel`. [#582](https://github.com/cardano-scaling/hydra/pull/582)
 
-- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors. [#472](https://github.com/input-output-hk/hydra/pull/472)
+- **BREAKING** Changed logs to improve legibility and trace on-chain posting errors. [#472](https://github.com/cardano-scaling/hydra/pull/472)
   + Strip chain layer logs to only contain `TxId` instead of full transactions in the nominal cases.
   + Renamed log entry prefixes `Processing -> Begin` and `Processed -> End`.
   + Added `PostingFailed` log entry.
 
 - **BREAKING** The `hydra-cluster` executable (our smoke test) does require `--publish-hydra-scripts` or `--hydra-scripts-tx-id` now as it may be provided with pre-published hydra scripts.
 
-- The `hydra-node` does persist L1 and L2 states on disk now: [#187](https://github.com/input-output-hk/hydra/issues/187)
+- The `hydra-node` does persist L1 and L2 states on disk now: [#187](https://github.com/cardano-scaling/hydra/issues/187)
   + New `--persistence-dir` command line argument to configure location.
   + Writes two JSON files `headstate` and `chainstate` to the persistence directory.
   + While introspectable, modification of these files is not recommended.
 
 - *Fixed bugs* in `hydra-node`:
-  + Crash after `3k` blocks because of a failed time conversion. [#523](https://github.com/input-output-hk/hydra/pull/523)
-  + Internal wallet was losing memory of spent fuel UTxOs in presence of transaction failures. [#525](https://github.com/input-output-hk/hydra/pull/525)
-  + Node does not see some UTxOs sent to the internal wallet on startup. [#526](https://github.com/input-output-hk/hydra/pull/526)
-  + Prevent transactions from being resubmitted for application over and over. [#485](https://github.com/input-output-hk/hydra/pull/485)
+  + Crash after `3k` blocks because of a failed time conversion. [#523](https://github.com/cardano-scaling/hydra/pull/523)
+  + Internal wallet was losing memory of spent fuel UTxOs in presence of transaction failures. [#525](https://github.com/cardano-scaling/hydra/pull/525)
+  + Node does not see some UTxOs sent to the internal wallet on startup. [#526](https://github.com/cardano-scaling/hydra/pull/526)
+  + Prevent transactions from being resubmitted for application over and over. [#485](https://github.com/cardano-scaling/hydra/pull/485)
 
 - Prevent misconfiguration of `hydra-node` by logging the command line options used and error out when:
   + provided number of Hydra parties exceeds a known working maximum (currently 4)
   + number of provided Cardano and Hydra keys is not the same
 
-- Added a `hydra-tools` executable, to help with generating Hydra keys and get hold of the marker datum hash. [#474](https://github.com/input-output-hk/hydra/pull/474)
+- Added a `hydra-tools` executable, to help with generating Hydra keys and get hold of the marker datum hash. [#474](https://github.com/cardano-scaling/hydra/pull/474)
 
 - Compute transaction costs as a "min fee" and report it in the [tx-cost benchmark](https://hydra.family/head-protocol/benchmarks/transaction-cost/).
 
 - Update [hydra-node-options](https://hydra.family/head-protocol/docs/getting-started/quickstart/#hydra-node-options) section in docs.
 
-- Publish test results on [website](https://hydra.family/head-protocol/benchmarks/tests/hydra-node/hspec-results). [#547](https://github.com/input-output-hk/hydra/pull/547)
+- Publish test results on [website](https://hydra.family/head-protocol/benchmarks/tests/hydra-node/hspec-results). [#547](https://github.com/cardano-scaling/hydra/pull/547)
 
 - Improved `hydra-tui` user experience:
-  + Fixed too fast clearing of errors and other feedback [#506](https://github.com/input-output-hk/hydra/pull/506)
-  + Introduced a pending state to avoid resubmission of transactions [#526](https://github.com/input-output-hk/hydra/pull/526)
-  + Can show full history (scrollable) [#577](https://github.com/input-output-hk/hydra/pull/577)
+  + Fixed too fast clearing of errors and other feedback [#506](https://github.com/cardano-scaling/hydra/pull/506)
+  + Introduced a pending state to avoid resubmission of transactions [#526](https://github.com/cardano-scaling/hydra/pull/526)
+  + Can show full history (scrollable) [#577](https://github.com/cardano-scaling/hydra/pull/577)
 
-- Build & publish static Linux x86_64 executables on each [release](https://github.com/input-output-hk/hydra/releases/tag/0.8.0) :point_down: [#546](https://github.com/input-output-hk/hydra/pull/546)
+- Build & publish static Linux x86_64 executables on each [release](https://github.com/cardano-scaling/hydra/releases/tag/0.8.0) :point_down: [#546](https://github.com/cardano-scaling/hydra/pull/546)
 
 ## [0.7.0] - 2022-08-23
 
@@ -690,19 +690,19 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
   + Need to provide a `--hydra-scripts-tx-id` to the `hydra-node` containing the current (`--script-info`) Hydra scripts.
   + Added the `publish-scripts` sub-command to `hydra-node` to publish the current Hydra scripts.
 
-- Added a `hydra-cluster` executable, which runs a single scenario against a known network (smoke test) [#430](https://github.com/input-output-hk/hydra/pull/430) [#423](https://github.com/input-output-hk/hydra/pull/430).
+- Added a `hydra-cluster` executable, which runs a single scenario against a known network (smoke test) [#430](https://github.com/cardano-scaling/hydra/pull/430) [#423](https://github.com/cardano-scaling/hydra/pull/430).
 
-- Use deadline when posting a `fanoutTx` instead of the current slot [#441](https://github.com/input-output-hk/hydra/pull/441).
+- Use deadline when posting a `fanoutTx` instead of the current slot [#441](https://github.com/cardano-scaling/hydra/pull/441).
 
 - The user manual is now also available in Japanese thanks to @btbf! :jp:
 
-- Fixed display of remaining contestation period in `hydra-tui` [#437](https://github.com/input-output-hk/hydra/pull/437).
+- Fixed display of remaining contestation period in `hydra-tui` [#437](https://github.com/cardano-scaling/hydra/pull/437).
 
 ## [0.6.0] - 2022-06-22
 
 #### Added
 
-- Implement on-chain contestation logic [#192](https://github.com/input-output-hk/hydra/issues/192):
+- Implement on-chain contestation logic [#192](https://github.com/cardano-scaling/hydra/issues/192):
   + Node will automatically post a `Contest` transaction when it observes a `Close` or `Contest` with an obsolete snapshot
   + Posting a fan-out transaction is not possible before the contestation dealine has passed
 
@@ -720,18 +720,18 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 
 #### Fixed
 
-- Head script to check UTxO hash upon closing the head correctly [#338](https://github.com/input-output-hk/hydra/pull/338). Previously it was possible to close the head with arbitrary UTxO.
-- Clients can fanout a Head closed without any off-chain transactions (eg. with initial snapshot)  [#395](https://github.com/input-output-hk/hydra/issues/395)
+- Head script to check UTxO hash upon closing the head correctly [#338](https://github.com/cardano-scaling/hydra/pull/338). Previously it was possible to close the head with arbitrary UTxO.
+- Clients can fanout a Head closed without any off-chain transactions (eg. with initial snapshot)  [#395](https://github.com/cardano-scaling/hydra/issues/395)
 
 ## [0.5.0] - 2022-05-06
 
 #### Added
 
-- Start `hydra-node` tracking the chain starting at a previous point using new `--start-chain-from` command line option [#300](https://github.com/input-output-hk/hydra/issues/300).
+- Start `hydra-node` tracking the chain starting at a previous point using new `--start-chain-from` command line option [#300](https://github.com/cardano-scaling/hydra/issues/300).
   + This is handy to re-initialize a stopped (or crashed) `hydra-node` with an already inititalized Head
   + Note that off-chain state is NOT persisted, but this feature is good enough to continue opening or closing/finalizing a Head
 
-- Handle rollbacks [#184](https://github.com/input-output-hk/hydra/issues/184)
+- Handle rollbacks [#184](https://github.com/cardano-scaling/hydra/issues/184)
   + Not crash anymore on rollbacks
   + Rewind the internal head state to the point prior to rollback point
   + Added `RolledBack` server output, see [API reference](https://hydra.family/head-protocol/api-reference)
@@ -740,7 +740,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 - [Hydra Network](https://hydra.family/head-protocol/dev/networking) section on the website about networking requirements and considerations
 
 - [Benchmarks](https://hydra.family/head-protocol/benchmarks) section on the website with continuously updated and published results on transaction costs of Hydra protocol transactions
-  + These are also performed and reported now on every PR -> [Example](https://github.com/input-output-hk/hydra/pull/340#issuecomment-1116247611)
+  + These are also performed and reported now on every PR -> [Example](https://github.com/cardano-scaling/hydra/pull/340#issuecomment-1116247611)
 
 - New architectural decision records:
   + [ADR-0017: UDP for Hydra networking](https://hydra.family/head-protocol/adr/17)
@@ -756,7 +756,7 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 - **BREAKING** Switch to Ed25519 keys and proper EdDSA signatures for the Hydra Head protocol
   + The `--hydra-signing-key` and consequently `--hydra-verification-key` are now longer and not compatible with previous versions!
 
-- **BREAKING** The Hydra plutus scripts have changed in course of finalizing [#181](https://github.com/input-output-hk/hydra/issues/181)
+- **BREAKING** The Hydra plutus scripts have changed in course of finalizing [#181](https://github.com/cardano-scaling/hydra/issues/181)
   + All Hydra protocol transactions need to be signed by a Head participant now
   + This changes the script address(es) and the current `hydra-node` would not detect old Heads on the testnet.
 
@@ -767,14 +767,14 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 
 #### Fixed
 
-- Reject commit transactions locking a UTxO locked by Byron addresses, part of [#182](https://github.com/input-output-hk/hydra/issues/182)
+- Reject commit transactions locking a UTxO locked by Byron addresses, part of [#182](https://github.com/cardano-scaling/hydra/issues/182)
   + This would render a Head unclosable because Byron addresses are filtered out by the ledger and not visible to plutus scripts
 
 - Fix instructions in [demo setup without docker](https://hydra.family/head-protocol/docs/getting-started/demo/without-docker) to use `0.0.0.0` and correct paths.
 
 #### Known Issues
 
-- TUI quickly flashes an error on fanout. This is because all nodes try to post a fanout transaction, but only one of the participants' transactions wins. Related to [#279](https://github.com/input-output-hk/hydra/issues/279)
+- TUI quickly flashes an error on fanout. This is because all nodes try to post a fanout transaction, but only one of the participants' transactions wins. Related to [#279](https://github.com/cardano-scaling/hydra/issues/279)
 - Recipient addresses to send money to in the TUI are inferred from the current UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything anymore.
 - TUI crashes when user tries to post a new transaction without any UTXO remaining.
 - The internal wallet of hydra-node requires a UTXO to be marked as "fuel" to drive the Hydra protocol transactions. See [user manual](https://hydra.family/head-protocol/docs/getting-started/demo/with-docker/#seeding-the-network).
@@ -784,8 +784,8 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 #### Added
 
 - Our [user manual 📖](https://hydra.family/head-protocol) is now available! It includes installation and usage instructions, a full API reference and also a knowledge base about Hydra concepts. The manual will be an ever-evolving source of documentation that we'll maintain alongside the project.
-- Support multiple Heads per Cardano network by identifying and distinguishing transactions of individual Head instances [#180](https://github.com/input-output-hk/hydra/issues/180).
-- Mint and burn state token used to thread state across the OCV state machine, and participation tokens for each party in the head [#181](https://github.com/input-output-hk/hydra/issues/181)
+- Support multiple Heads per Cardano network by identifying and distinguishing transactions of individual Head instances [#180](https://github.com/cardano-scaling/hydra/issues/180).
+- Mint and burn state token used to thread state across the OCV state machine, and participation tokens for each party in the head [#181](https://github.com/cardano-scaling/hydra/issues/181)
 - Provide (mandatory) command-line options `--ledger-genesis` and `--ledger-protocol-parameters` to configure the ledger that runs _inside a head_. Options are provided as filepath to JSON files which match formats from `cardano-cli` and `cardano-node` [#180](https://github.com/input-output-hk/hydra/issues/180).
 - Created [hydra-cardano-api](https://hydra.family/head-protocol/haddock/hydra-cardano-api/) as wrapper around [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api#cardano-api) specialized to the latest Cardano's era, and with useful extra utility functions.
 - Two new architectural decision records:
@@ -795,16 +795,16 @@ Only when this procedure has been applied to all Hydra nodes can you open a new 
 #### Changed
 
 - `--network-magic` option for the `hydra-node` and `hydra-tui` has been changed to `--network-id`. Also, the `hydra-tui` command-line used to default to mainnet when not provided with any `--network-magic` option, it doesn't anymore, `--network-id` is mandatory. [#180](https://github.com/input-output-hk/hydra/issues/180)
-- Optimize the `CollectCom` transition of the on-chain Hydra contract to allow collecting commits from more than 2 parties! [#254](https://github.com/input-output-hk/hydra/issues/254)
+- Optimize the `CollectCom` transition of the on-chain Hydra contract to allow collecting commits from more than 2 parties! [#254](https://github.com/cardano-scaling/hydra/issues/254)
 - Use a faucet to distribute funds in test suites and the `demo/` setup.
 - Internally, better decouple the management of the on-chain head state from the network component. While not visible to the end user, this improvement paves the way for better handling rollbacks and on-chain _"instability"_ of newly posted transactions. [#184](https://github.com/input-output-hk/hydra/issues/184)
 - Internally, improved and consolidate generators used for property-based testing to cover a wider range of cases, be more consistent and also faster (avoiding to generate too large nested data-structures).
 
 #### Fixed
 
-- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow more than 7 peer connections [#203](https://github.com/input-output-hk/hydra/issues/203).
-- Build issues due to explicit packages list in nix shell [#223](https://github.com/input-output-hk/hydra/issues/223).
-- `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values to be submitted [#224](https://github.com/input-output-hk/hydra/issues/224).
+- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow more than 7 peer connections [#203](https://github.com/cardano-scaling/hydra/issues/203).
+- Build issues due to explicit packages list in nix shell [#223](https://github.com/cardano-scaling/hydra/issues/223).
+- `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values to be submitted [#224](https://github.com/cardano-scaling/hydra/issues/224).
 - Repaired benchmarks and improved collected metrics; in particular, benchmarks now collect CPU usage and provide average confirmation times over 5s windows.
 - Fixed a bug in the Fanout transaction scheduling and submission where clients would attempt to post a fanout transaction before a 'Close' transaction is even observed. Now, every participant of the head will attempt to post a fanout a transaction after they successfully observed a transaction. Of course, the layer 1 will enforce that only one fanout is posted [#279](https://github.com/input-output-hk/hydra/issues/279).
 

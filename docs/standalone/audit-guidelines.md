@@ -12,7 +12,7 @@ Shall you decide to share your findings with us, please consider the following, 
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Hydra, we ask that you report it to us confidentially. See [`SECURITY.md`](https://github.com/input-output-hk/hydra/blob/master/SECURITY.md) on how to report a security vulnerability.
+If you discover a security vulnerability in Hydra, we ask that you report it to us confidentially. See [`SECURITY.md`](https://github.com/cardano-scaling/hydra/blob/master/SECURITY.md) on how to report a security vulnerability.
 
 ## Context and assumptions
 
@@ -123,8 +123,8 @@ The [Hydra Head specification](/docs/dev/specification) captures these deviation
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
-- Source code repository: [input-output-hk/hydra](https://github.com/input-output-hk/hydra)
-- Version ready to be audited: Any [release](https://github.com/input-output-hk/hydra/releases) after version 0.10.0
+- Source code repository: [cardano-scaling/hydra](https://github.com/cardano-scaling/hydra)
+- Version ready to be audited: Any [release](https://github.com/cardano-scaling/hydra/releases) after version 0.10.0
 
 The following parts are described below:
  - Hydra plutus scripts (on-chain code)
@@ -132,12 +132,12 @@ The following parts are described below:
 
 #### Artifact 2.1: Hydra plutus scripts (on-chain code)
 
-Hydra plutus scripts source code can be found in the [hydra-plutus module](https://github.com/input-output-hk/hydra/tree/master/hydra-plutus).
+Hydra plutus scripts source code can be found in the [hydra-plutus module](https://github.com/cardano-scaling/hydra/tree/master/hydra-plutus).
 
-Hydra plutus mutation based testing can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/Contract/.
+Hydra plutus mutation based testing can be found in the [hydra-node module](https://github.com/cardano-scaling/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/Contract/.
 
 #### Artifact 2.2: Hydra node chain layer code (off-chain code)
 
-Hydra node chain layer code can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node/src/Hydra/Chain) in src/Hydra/Chain/Direct/
+Hydra node chain layer code can be found in the [hydra-node module](https://github.com/cardano-scaling/hydra/tree/master/hydra-node/src/Hydra/Chain) in src/Hydra/Chain/Direct/
 
-Hydra node chain layer tests can be found in the [hydra-node module](https://github.com/input-output-hk/hydra/tree/master/hydra-node/test/Hydra/Chain) in test/Hydra/Chain/Direct/
+Hydra node chain layer tests can be found in the [hydra-node module](https://github.com/cardano-scaling/hydra/tree/master/hydra-node/test/Hydra/Chain) in test/Hydra/Chain/Direct/

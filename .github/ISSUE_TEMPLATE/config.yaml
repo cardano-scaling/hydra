@@ -1,13 +1,13 @@
 blank_issues_enabled: true
 contact_links:
   - name: Contributing guidelines
-    url: https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md
+    url: https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md
     about: Some rules & processes we honor.
 
   - name: Feature ideas
-    url: https://github.com/input-output-hk/hydra/discussions/categories/ideas
+    url: https://github.com/cardano-scaling/hydra/discussions/categories/ideas
     about: Maybe someone else had the same or a similar idea already?
 
   - name: All issues
-    url: https://github.com/input-output-hk/hydra/issues
+    url: https://github.com/cardano-scaling/hydra/issues
     about: Check whether your issue is not already covered here.

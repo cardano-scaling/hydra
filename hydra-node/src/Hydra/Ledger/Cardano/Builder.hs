@@ -47,7 +47,7 @@ instance Exception InvalidTransactionException
 -- scripts and no protocol parameters (needed to compute the script integrity
 -- hash). This is also added by our wallet at the moment and this ugly
 -- work-around will be removed eventually (related item
--- [215](https://github.com/input-output-hk/hydra/issues/215).
+-- [215](https://github.com/cardano-scaling/hydra/issues/215).
 --
 -- So we currently bypass this by having default but seemingly innofensive
 -- values for collaterals and protocol params in the 'empty' value

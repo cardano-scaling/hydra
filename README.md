@@ -2,8 +2,8 @@
 
 <div align="center">
   <p>Implementation of the Hydra scalability protocols.</p>
-  <a href='https://github.com/input-output-hk/hydra/actions'><img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/hydra/ci-nix.yaml?branch=master&label=Tests&style=for-the-badge" /></a>
-  <a href='https://github.com/input-output-hk/hydra/pkgs/container/hydra-node'><img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/hydra/docker.yaml?branch=master&label=Docker&style=for-the-badge" /></a>
+  <a href='https://github.com/cardano-scaling/hydra/actions'><img src="https://img.shields.io/github/actions/workflow/status/cardano-scaling/hydra/ci-nix.yaml?branch=master&label=Tests&style=for-the-badge" /></a>
+  <a href='https://github.com/cardano-scaling/hydra/pkgs/container/hydra-node'><img src="https://img.shields.io/github/actions/workflow/status/cardano-scaling/hydra/docker.yaml?branch=master&label=Docker&style=for-the-badge" /></a>
 </div>
 
 ## :sunrise_over_mountains: Introduction
@@ -50,8 +50,8 @@ The quickest way to get a `hydra-node` running is to use our [docker
 images](https://github.com/orgs/input-output-hk/packages?repo_name=hydra).
 
 ```sh
-docker pull ghcr.io/input-output-hk/hydra-node
-docker run --rm ghcr.io/input-output-hk/hydra-node --help
+docker pull ghcr.io/cardano-scaling/hydra-node
+docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 ```
 
 Get started with the [user manual 📖](https://hydra.family/head-protocol/docs/getting-started)!
@@ -83,8 +83,8 @@ The best way to contribute is to provide feedback. Give the [demo](./demo) a spi
 Should you have any questions, ideas or issues, we would like to hear from you:
 
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
-- create a Github [Discussion](https://github.com/input-output-hk/hydra/discussions)
-- open a Github [Issue](https://github.com/input-output-hk/hydra/issues/new)
+- create a Github [Discussion](https://github.com/cardano-scaling/hydra/discussions)
+- open a Github [Issue](https://github.com/cardano-scaling/hydra/issues/new)
 
 Please follow our [Contributing Guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CODE-OF-CONDUCT.md).
 

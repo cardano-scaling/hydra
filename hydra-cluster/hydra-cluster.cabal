@@ -41,7 +41,7 @@ data-files:
 
 source-repository head
   type:     git
-  location: https://github.com/input-output-hk/hydra
+  location: https://github.com/cardano-scaling/hydra
 
 common project-config
   default-language:   GHC2021

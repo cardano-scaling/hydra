@@ -64,7 +64,7 @@ services:
       - ./devnet:/devnet
 
   hydraw:
-    image: ghcr.io/input-output-hk/hydraw:latest
+    image: ghcr.io/cardano-scaling/hydraw:latest
     profiles:
       - hydraw
     entrypoint:

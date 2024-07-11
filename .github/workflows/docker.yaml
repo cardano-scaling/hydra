@@ -59,7 +59,7 @@ jobs:
           VERSION_NAME=${{github.ref_name}}
         # Use 'FROM' instruction to use docker build with --label
         echo "FROM ${{matrix.target}}" | docker build \
-          --label org.opencontainers.image.source=https://github.com/input-output-hk/hydra \
+          --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \

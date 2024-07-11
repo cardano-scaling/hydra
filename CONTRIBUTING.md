@@ -30,7 +30,7 @@ The documentation is also available in multiple languages and we can easily add 
 
 ### Bug reports
 
-[Submit an issue](https://github.com/input-output-hk/hydra/issues/new/choose)
+[Submit an issue](https://github.com/cardano-scaling/hydra/issues/new/choose)
 using the "Bug report :bug:" template. It's very important that you fill the
 template as thoroughly as possible.
 
@@ -40,9 +40,9 @@ Feature ideas are precursors to high-level features items, which will be
 discussed and fleshed out to ideally become items on our feature roadmap.
 
 We use the [Ideas discussions
-category](https://github.com/input-output-hk/hydra/discussions/categories/ideas)
+category](https://github.com/cardano-scaling/hydra/discussions/categories/ideas)
 to discuss and vote on feature ideas, but you can also [submit an
-issue](https://github.com/input-output-hk/hydra/issues/new/choose) using the
+issue](https://github.com/cardano-scaling/hydra/issues/new/choose) using the
 "Feature idea :thought_balloon:" template and we convert that to a discussion.
 
 We expect a description of
@@ -118,7 +118,7 @@ before we merge any contributions.
 ### Coding standards
 
 Make sure to follow our [Coding
-Standards](https://github.com/input-output-hk/hydra/wiki/Coding-Standards).
+Standards](https://github.com/cardano-scaling/hydra/wiki/Coding-Standards).
 It includes guidelines on Haskell code style, but also on Git commit messages
 and some processes (TODO: clarify separation or unify with these guidelines). To
 propose new standards or changes to the existing standards, file an issue.
@@ -188,7 +188,7 @@ During development
 + Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
 + Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
 + Ensure `unstable` version of docker images is used in demo
-  - `sed -i.bak -e "s,\(ghcr.io/input-output-hk/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`
+  - `sed -i.bak -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`
 + All `hydra-` packages are versioned the same, at latest on release their versions are aligned.
 + Other packages are versioned independently of `hydra-` packages and keep a dedicated changelog.
 
@@ -213,7 +213,7 @@ To perform a release of next `<version>`:
      `aarch64-darwin` (the same for `cardano-node` instead of `hydra`)
    * The just published `hydra-scripts-tx-id` from step 1
 
-[smoke-test]: https://github.com/input-output-hk/hydra/actions/workflows/smoke-test.yaml
+[smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml
 
 ## Communication
 
@@ -272,7 +272,7 @@ To conduct this meeting and write this report:
       + Store latest roadmap screenshot in slides and on [miro](https://miro.com/app/board/uXjVMA4bSao=/), with and without 💭 **idea** items
       + Check milestones and versions are consistent
       + Mark up and summarize notable changes in the roadmap to last month to support slides
-    - Update repository status in slides using <https://github.com/input-output-hk/hydra/pulse/monthly>
+    - Update repository status in slides using <https://github.com/cardano-scaling/hydra/pulse/monthly>
 
     - Prepare invitation, by creating an event in discord, update the invitation used last month with it.
     - Send invitation to Hydra and Mithril #announcements channels on our discord server.

@@ -53,6 +53,6 @@ sequenceDiagram
 - New possibilities this change introduces with respect to `ServerOutput` handling and client's access to a head's state:
 
   - Instead of having the `HeadLogic` emits directly a `ClientEffect`, the latter could be the result of a client-centric _interpretation_ of a `StateChanged`.
-  - Pushing this a little further, we could maintain a _Query Model_ for clients with a dedicated [Query API](https://github.com/input-output-hk/hydra/discussions/686) to ease implementation of stateless clients.
+  - Pushing this a little further, we could maintain a _Query Model_ for clients with a dedicated [Query API](https://github.com/cardano-scaling/hydra/discussions/686) to ease implementation of stateless clients.
 
 - Calling `StateChanged` an _event_ while treating it in the code alongside _effects_ might introduce some confusion as we already use the word [Event](https://github.com/input-output-hk/hydra/blob/45913954eb18ef550a31017daa443cee6720a00c/hydra-node/src/Hydra/HeadLogic.hs#L64) to designate the inputs (a.k.a. commands) to the Head logic state machine. We might want at some later point to unify the terminology.

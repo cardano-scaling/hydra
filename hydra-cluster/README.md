@@ -50,7 +50,7 @@ To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
 
 Note: To get the transaction id for `--hydra-scripts-tx-id` parameter you can
-consult our [release page](https://github.com/input-output-hk/hydra/releases)
+consult our [release page](https://github.com/cardano-scaling/hydra/releases)
 where you can find pre-published Hydra scripts for different networks.
 
 ```sh

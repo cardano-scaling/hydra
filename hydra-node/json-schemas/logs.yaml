@@ -1,5 +1,5 @@
 ---
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra/master/hydra-node/json-schemas/
+"$id": https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/
 "$schema": http://json-schema.org/draft/2020-12/schema
 "$comment": A description of the log items produced by a Hydra node
 title: Hydra Log API

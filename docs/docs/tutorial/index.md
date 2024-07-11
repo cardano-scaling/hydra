@@ -33,7 +33,7 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 ```shell
 mkdir -p bin
 version=0.17.0
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-linux.tar.gz \
   | tar xz ./bin/cardano-node ./bin/cardano-cli
@@ -48,7 +48,7 @@ chmod +x bin/*
 ```shell
 mkdir -p bin
 version=0.17.0
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-macos.tar.gz \
   | tar xz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
@@ -347,7 +347,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 ## Step 3. Start the Hydra node
 
 
-Scripts are pre-published for all [released](https://github.com/input-output-hk/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../configuration#reference-scripts) for guidance on publishing your own scripts.
+Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../configuration#reference-scripts) for guidance on publishing your own scripts.
 
 
 Start the `hydra-node` using these parameters:
@@ -362,7 +362,7 @@ hydra-node \
   --persistence-dir persistence-alice \
   --cardano-signing-key credentials/alice-node.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/input-output-hk/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
@@ -385,7 +385,7 @@ hydra-node \
   --persistence-dir persistence-bob \
   --cardano-signing-key credentials/bob-node.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/input-output-hk/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
@@ -596,7 +596,7 @@ The `hydra-node` will then submit a protocol transaction with the last known sna
 :::caution Known bug
 You might need to submit the `Close` command multiple times if the head is not getting closed within approximately 30 seconds.
 
-See [#1039](https://github.com/input-output-hk/hydra/issues/1039) for details.
+See [#1039](https://github.com/cardano-scaling/hydra/issues/1039) for details.
 :::
 
 The message will include a `contestationDeadline`, set using the configurable `--contestation-period`. Until this deadline, the closing snapshot can be contested with a more recent, multi-signed snapshot. Your `hydra-node` would contest automatically for you if the closed snapshot is not the last known one.

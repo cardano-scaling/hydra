@@ -40,7 +40,7 @@ module.exports = {
     },
     {
       type: "link",
-      href: "https://github.com/input-output-hk/hydra/releases",
+      href: "https://github.com/cardano-scaling/hydra/releases",
       label: "Release notes",
     },
     {
