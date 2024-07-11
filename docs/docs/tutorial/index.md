@@ -267,10 +267,15 @@ In case you don't have test ada on `preprod`, you can use the [testnet faucet](h
 Something like the following (if you used the faucet to give funds only to `alice-funds.addr`):
 
 ```
+# Get alices UTxO state
+cardano-cli query utxo \
+    --address $(cat credentials/alice-funds.addr) \
+    --out-file alice-funds-utxo.json
+
 # Build a Tx to send funds from `alice-funds` to the others who need them: bob
 # funds and nodes.
 cardano-cli transaction build \
-    --tx-in <the TxId of the faucet Tx that provided the funds> \
+    $(cat alice-funds-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
     --change-address $(cat credentials/alice-funds.addr) \
     --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
     --tx-out $(cat credentials/bob-node.addr)+1000000000 \
