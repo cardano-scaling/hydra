@@ -855,7 +855,7 @@ genChainStateWithTx =
 
   genDecrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genDecrementWithState = do
-    (ctx, st, tx) <- genDecrementTx maxGenParties
+    (ctx, _, st, tx) <- genDecrementTx maxGenParties
     pure (ctx, Open st, tx, Decrement)
 
   genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -1028,7 +1028,7 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
-genDecrementTx :: Int -> Gen (ChainContext, OpenState, Tx)
+genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
@@ -1040,7 +1040,12 @@ genDecrementTx numParties = do
     pure Snapshot{headId, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit, version}
   let signatures = aggregate $ fmap (`sign` snapshot) (ctxHydraSigningKeys ctx)
   let openUTxO = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures)
+  pure
+    ( cctx
+    , maybe mempty toList (utxoToDecommit snapshot)
+    , stOpen
+    , unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures
+    )
 
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =

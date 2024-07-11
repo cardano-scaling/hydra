@@ -146,7 +146,8 @@ computeDecrementCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (ctx, st, tx) <- generate $ genDecrementTx numParties
+    -- TODO: add decrementedOutputs to the result
+    (ctx, _decrementedOutputs, st, tx) <- generate $ genDecrementTx numParties
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->

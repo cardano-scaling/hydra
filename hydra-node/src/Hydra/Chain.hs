@@ -24,7 +24,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (MultiSignature)
 import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
-import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
+import Hydra.Ledger (ChainSlot, IsTx (..), UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotVersion)
@@ -123,7 +123,11 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
-  | OnDecrementTx {headId :: HeadId, newVersion :: SnapshotVersion}
+  | OnDecrementTx
+      { headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , distributedOutputs :: [TxOutType tx]
+      }
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -142,7 +146,7 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (TxOutType tx), Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Exceptions thrown by 'postTx'.

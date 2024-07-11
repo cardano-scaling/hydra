@@ -621,7 +621,7 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
-        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1}
+        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedOutputs = mempty}
         update bobEnv ledger (inOpenState threeParties) decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
