@@ -72,12 +72,10 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
-    (Open OpenDatum{parties, contestationPeriod, headId, version}, Decrement redeemer) ->
-      -- TODO: use sub-type
-      checkDecrement ctx parties contestationPeriod headId version redeemer
-    (Open OpenDatum{parties, utxoHash = initialUtxoHash, contestationPeriod, headId, version}, Close redeemer) ->
-      -- TODO: use sub-type
-      checkClose ctx parties initialUtxoHash contestationPeriod headId version redeemer
+    (Open openBefore, Decrement redeemer) ->
+      checkDecrement ctx openBefore redeemer
+    (Open openBefore, Close redeemer) ->
+      checkClose ctx openBefore redeemer
     (Closed{parties, snapshotNumber = closedSnapshotNumber, contestationDeadline, contestationPeriod, headId, contesters, version}, Contest redeemer) ->
       checkContest ctx contestationDeadline contestationPeriod parties closedSnapshotNumber contesters headId version redeemer
     (Closed{parties, utxoHash, utxoToDecommitHash, contestationDeadline, headId}, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
@@ -223,15 +221,14 @@ commitDatum input = do
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
+-- | Verify a decrement transaction.
 checkDecrement ::
   ScriptContext ->
-  [Party] ->
-  ContestationPeriod ->
-  CurrencySymbol ->
-  Integer ->
+  -- | Open state before the decrement
+  OpenDatum ->
   DecrementRedeemer ->
   Bool
-checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevCperiod prevHeadId prevVersion redeemer =
+checkDecrement ctx openBefore redeemer =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
@@ -254,6 +251,13 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevC
   DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
 
   OpenDatum
+    { parties = prevParties
+    , contestationPeriod = prevCperiod
+    , headId = prevHeadId
+    , version = prevVersion
+    } = openBefore
+
+  OpenDatum
     { utxoHash = nextUtxoHash
     , parties = nextParties
     , contestationPeriod = nextCperiod
@@ -270,20 +274,19 @@ checkDecrement ctx@ScriptContext{scriptContextTxInfo = txInfo} prevParties prevC
   decommitOutputs = take numberOfDecommitOutputs (tail outputs)
 
   outputs = txInfoOutputs txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkDecrement #-}
 
 -- | Verify a close transaction.
 checkClose ::
   ScriptContext ->
-  [Party] ->
-  BuiltinByteString ->
-  ContestationPeriod ->
-  CurrencySymbol ->
-  SnapshotVersion ->
+  -- | Open state before the close
+  OpenDatum ->
   -- | Type of close transition.
   CloseRedeemer ->
   Bool
-checkClose ctx parties initialUtxoHash cperiod headId version redeemer =
+checkClose ctx openBefore redeemer =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -294,6 +297,14 @@ checkClose ctx parties initialUtxoHash cperiod headId version redeemer =
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
  where
+  OpenDatum
+    { parties
+    , utxoHash = initialUtxoHash
+    , contestationPeriod = cperiod
+    , headId
+    , version
+    } = openBefore
+
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       val === val'
