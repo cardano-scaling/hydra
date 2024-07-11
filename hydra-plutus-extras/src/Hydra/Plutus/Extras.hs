@@ -19,12 +19,12 @@ import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.V2 (ScriptHash (..))
 import PlutusTx (BuiltinData, UnsafeFromData (..))
-import PlutusTx.Prelude (check, toBuiltin)
+import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 
 -- | Signature of an untyped validator script.
-type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> ()
+type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed validator to get the basic `ValidatorType` signature which can
 -- be passed to `PlutusTx.compile`.
@@ -42,7 +42,7 @@ wrapValidator f d r c =
 {-# INLINEABLE wrapValidator #-}
 
 -- | Signature of an untyped minting policy script.
-type MintingPolicyType = BuiltinData -> BuiltinData -> ()
+type MintingPolicyType = BuiltinData -> BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.

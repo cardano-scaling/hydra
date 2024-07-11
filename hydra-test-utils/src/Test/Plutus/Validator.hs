@@ -1,3 +1,7 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use <$>" #-}
+
 -- | A helper module mostly wrapping the Alonzo.Tools'
 -- 'evaluateTransactionExecutionUnits' with a much simpler API (just a plutus
 -- script).
@@ -56,6 +60,7 @@ import Hydra.Cardano.Api (
   pattern TxInsCollateral,
   pattern TxOut,
  )
+import Hydra.Cardano.Api.Prelude (ScriptExecutionError, ScriptWitnessIndex, TransactionValidityError)
 import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusTx qualified as Plutus
 import Prelude qualified
@@ -76,14 +81,25 @@ evaluateScriptExecutionUnits validatorScript redeemer =
     Left e ->
       Left ("unexpected failure: " <> show e)
  where
+  result ::
+    Either
+      (TransactionValidityError UTxO.Era)
+      ( Map
+          ScriptWitnessIndex
+          ( Either
+              ScriptExecutionError
+              ExecutionUnits
+          )
+      )
   result =
-    evaluateTransactionExecutionUnits
-      cardanoEra
-      systemStart
-      (LedgerEpochInfo epochInfo)
-      (LedgerProtocolParameters pparams)
-      (UTxO.toApi utxo)
-      body
+    (fmap . fmap . fmap) snd $
+      evaluateTransactionExecutionUnits
+        cardanoEra
+        systemStart
+        (LedgerEpochInfo epochInfo)
+        (LedgerProtocolParameters pparams)
+        (UTxO.toApi utxo)
+        body
 
   (body, utxo) = transactionBodyFromScript validatorScript redeemer
 
