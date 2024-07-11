@@ -12,10 +12,8 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
-    # Use a patched 2.6.0.0 as we are also affected by
-    # https://github.com/haskell/haskell-language-server/issues/4046
     hls = {
-      url = "github:cardano-scaling/haskell-language-server?ref=2.6-patched";
+      url = "github:haskell/haskell-language-server";
       flake = false;
     };
     cardano-node.url = "github:intersectmbo/cardano-node/8.11.0-pre";
@@ -39,7 +37,7 @@
       ];
       perSystem = { pkgs, config, lib, system, ... }:
         let
-          compiler = "ghc965";
+          compiler = "ghc966";
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
