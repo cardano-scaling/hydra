@@ -85,17 +85,18 @@ healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
-    { snapshotNumber = 1
-    , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-    , utxoToDecommitHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
-    , parties =
-        partyToChain <$> healthyParties
-    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol testPolicyId
-    , contesters = []
-    , version = 0
-    }
+    Head.ClosedDatum
+      { snapshotNumber = 1
+      , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
+      , deltaUTxOHash = Just . toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
+      , parties =
+          partyToChain <$> healthyParties
+      , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , contestationPeriod = healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , contesters = []
+      , version = 0
+      }
  where
   healthyContestationPeriodSeconds = 10
 
@@ -127,10 +128,9 @@ genFanoutMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
         (token, _) <- elements burntTokens
         changeMintedTokens tx (valueFromList [(token, 1)])
-
     , -- XXX: The first m outputs are distributing funds according to η. That is, the outputs exactly
       -- correspond to the UTxO canonically combined U
-    SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
     , -- XXX: The following n outputs are distributing funds according to η∆ .
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆

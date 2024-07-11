@@ -18,6 +18,7 @@ import Hydra.Chain.Direct.Contract.Close.Healthy (
   healthySignature,
   healthySnapshot,
   healthySplitUTxOInHead,
+  healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
@@ -29,13 +30,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceDeltaUTxOHash,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUtxoHash,
-  replaceUtxoToDecommitHash,
+  replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Contract.Error (toErrorCode)
@@ -195,7 +196,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx healthySplitUTxOInHead)) . toBuiltin)
-        pure $ modifyInlineDatum (replaceUtxoHash $ toBuiltin mutatedUTxOHash) headTxOut
+        pure $ modifyInlineDatum (replaceUTxOHash $ toBuiltin mutatedUTxOHash) headTxOut
     , -- Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
@@ -247,7 +248,8 @@ genCloseCurrentMutation (tx, _utxo) =
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
-        pure $ headTxOut & modifyInlineDatum (replaceUtxoToDecommitHash "")
+        mutatedHash <- arbitrary `suchThat` (/= Just (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
+        pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
     ]
  where
   genOversizedTransactionValidity = do
