@@ -54,7 +54,7 @@ library
   -- dependencies on cardano-ledger* follow.
   build-depends:
     , base                   >=4.16
-    , cardano-api            ^>=8.48
+    , cardano-api            ^>=9.0
     , cardano-ledger-alonzo
     , cardano-ledger-conway
     , cardano-ledger-core

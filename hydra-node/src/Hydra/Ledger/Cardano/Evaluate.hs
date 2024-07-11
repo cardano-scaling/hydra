@@ -1,3 +1,7 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use <$>" #-}
+
 -- | Simplified interface to phase-2 validation of transactions, eg. evaluation
 -- of Plutus scripts.
 --
@@ -17,10 +21,9 @@ import Cardano.Ledger.Alonzo.Plutus.Evaluate (collectPlutusScriptsWithContext)
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
-import Cardano.Ledger.Binary (getVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
-import Cardano.Ledger.Plutus (PlutusDatums (unPlutusDatums), PlutusLanguage (decodePlutusRunnable), PlutusRunnable (..), PlutusWithContext (..))
+import Cardano.Ledger.Plutus (PlutusLanguage (decodePlutusRunnable, mkTermToEvaluate), PlutusWithContext (..))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -75,8 +78,6 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import PlutusCore qualified as PLC
-import PlutusLedgerApi.Common (mkTermToEvaluate)
-import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
@@ -112,14 +113,26 @@ evaluateTx' maxUnits tx utxo = do
       | all isRight report -> checkBudget maxUnits report
       | otherwise -> Right report
  where
+  result ::
+    LedgerProtocolParameters UTxO.Era ->
+    Either
+      (TransactionValidityError UTxO.Era)
+      ( Map
+          ScriptWitnessIndex
+          ( Either
+              ScriptExecutionError
+              ExecutionUnits
+          )
+      )
   result pparams' =
-    evaluateTransactionExecutionUnits
-      cardanoEra
-      systemStart
-      (LedgerEpochInfo epochInfo)
-      pparams'
-      (UTxO.toApi utxo)
-      (getTxBody tx)
+    (fmap . fmap . fmap) snd $
+      evaluateTransactionExecutionUnits
+        cardanoEra
+        systemStart
+        (LedgerEpochInfo epochInfo)
+        pparams'
+        (UTxO.toApi utxo)
+        (getTxBody tx)
 
 -- | Check the budget used by provided 'EvaluationReport' does not exceed given
 -- maximum 'ExecutionUnits'.
@@ -220,12 +233,11 @@ prepareTxScripts tx utxo = do
 
   -- Fully applied UPLC programs which we could run using the cekMachine
   programs <- forM results $ \(PlutusWithContext protocolVersion script _ arguments _exUnits _costModel) -> do
-    (PlutusRunnable x) <-
+    x <-
       case script of
         Right runnable -> pure runnable
         Left serialised -> left show $ decodePlutusRunnable protocolVersion serialised
-    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion x (unPlutusDatums arguments)
+    appliedTerm <- left show $ mkTermToEvaluate protocolVersion x arguments
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat . UnrestrictedProgram <$> programs
