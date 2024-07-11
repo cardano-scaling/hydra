@@ -792,7 +792,7 @@ createMockNetwork node nodes =
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
 -- all heads will have the same 'headId' and 'headSeed'.
-toOnChainTx :: Monoid (UTxOType tx) => UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx{participants, headParameters} ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
@@ -801,7 +801,11 @@ toOnChainTx now = \case
   CollectComTx{headId} ->
     OnCollectComTx{headId}
   DecrementTx{headId, snapshot} ->
-    OnDecrementTx{headId, newVersion = getField @"version" snapshot}
+    OnDecrementTx
+      { headId
+      , newVersion = getField @"version" snapshot
+      , distributedOutputs = maybe mempty outputsOfUTxO $ getField @"utxoToDecommit" snapshot
+      }
   CloseTx{confirmedSnapshot} ->
     OnCloseTx
       { headId = testHeadId

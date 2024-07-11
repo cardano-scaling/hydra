@@ -109,6 +109,7 @@ fromChainSlot (ChainSlot s) = fromIntegral s
 
 instance IsTx Tx where
   type TxIdType Tx = TxId
+  type TxOutType Tx = TxOut CtxUTxO
   type UTxOType Tx = UTxO
   type ValueType Tx = Value
 
@@ -121,6 +122,8 @@ instance IsTx Tx where
   txSpendingUTxO = Hydra.Cardano.Api.txSpendingUTxO
 
   utxoFromTx = Api.utxoFromTx
+
+  outputsOfUTxO = toList
 
   withoutUTxO = UTxO.difference
 

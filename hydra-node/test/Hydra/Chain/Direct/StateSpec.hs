@@ -11,10 +11,12 @@ import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
+  CtxUTxO,
   NetworkId (Mainnet),
   PlutusScriptV2,
   Tx,
   TxIn,
+  TxOut,
   UTxO,
   findRedeemerSpending,
   fromPlutusScript,
@@ -38,7 +40,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -90,7 +92,7 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), ClosedThreadOutput (closedContesters), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeHeadTx, observeInitTx)
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), ClosedThreadOutput (closedContesters), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeDecrementTx, observeHeadTx, observeInitTx)
 import Hydra.ContestationPeriod (toNominalDiffTime)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -317,6 +319,14 @@ spec = parallel $ do
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
+
+    prop "observes distributed outputs" $
+      forAllDecrement' $ \toDistribute utxo tx ->
+        case observeDecrementTx utxo tx of
+          Just DecrementObservation{distributedOutputs} ->
+            distributedOutputs === toDistribute
+          Nothing ->
+            False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
@@ -597,9 +607,17 @@ forAllDecrement ::
   (UTxO -> Tx -> property) ->
   Property
 forAllDecrement action = do
-  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, st, tx) ->
+  forAllDecrement' $ \_ utxo tx ->
+    action utxo tx
+
+forAllDecrement' ::
+  Testable property =>
+  ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
+  Property
+forAllDecrement' action = do
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, tx) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
-     in action utxo tx
+     in action distributed utxo tx
 
 forAllClose ::
   Testable property =>

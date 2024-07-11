@@ -1105,6 +1105,7 @@ observeCollectComTx utxo tx = do
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
+  , distributedOutputs :: [TxOut CtxUTxO]
   }
   deriving stock (Show, Eq, Generic)
 
@@ -1123,7 +1124,7 @@ observeDecrementTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{}, Head.Decrement{}) -> do
+    (Head.Open{}, Head.Decrement{numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       case fromScriptData newHeadDatum of
@@ -1132,6 +1133,10 @@ observeDecrementTx utxo tx = do
             DecrementObservation
               { headId
               , newVersion = fromChainSnapshotVersion version
+              , distributedOutputs =
+                  toUTxOContext <$> txOuts' tx
+                    & drop 1 -- NOTE: Head output must be in first position
+                    & take (fromIntegral numberOfDecommitOutputs)
               }
         _ -> Nothing
     _ -> Nothing
