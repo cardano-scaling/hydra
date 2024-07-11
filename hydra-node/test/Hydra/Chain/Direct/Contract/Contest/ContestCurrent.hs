@@ -19,13 +19,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceDeltaUTxOHash,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUtxoHash,
-  replaceUtxoToDecommitHash,
+  replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -131,16 +131,17 @@ healthyContestSnapshot =
 healthyClosedState :: Head.State
 healthyClosedState =
   Head.Closed
-    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-    , utxoHash = healthyClosedUTxOHash
-    , utxoToDecommitHash = mempty
-    , parties = healthyOnChainParties
-    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = healthyOnChainContestationPeriod
-    , headId = toPlutusCurrencySymbol testPolicyId
-    , contesters = []
-    , version = toInteger healthyCloseSnapshotVersion
-    }
+    Head.ClosedDatum
+      { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+      , utxoHash = healthyClosedUTxOHash
+      , deltaUTxOHash = mempty
+      , parties = healthyOnChainParties
+      , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , contestationPeriod = healthyOnChainContestationPeriod
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , contesters = []
+      , version = toInteger healthyCloseSnapshotVersion
+      }
 
 healthyContestUTxOHash :: BuiltinByteString
 healthyContestUTxOHash =
@@ -334,13 +335,13 @@ genContestMutation (tx, _utxo) =
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
         pure $
           modifyInlineDatum
-            (replaceUtxoHash (toBuiltin mutatedUTxOHash))
+            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOToDecommitHash) . toBuiltin)
+        mutatedUTxOHash <- arbitrary `suchThat` (/= Just healthyContestUTxOToDecommitHash)
         pure $
           modifyInlineDatum
-            (replaceUtxoToDecommitHash (toBuiltin mutatedUTxOHash))
+            (replaceDeltaUTxOHash mutatedUTxOHash)
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)

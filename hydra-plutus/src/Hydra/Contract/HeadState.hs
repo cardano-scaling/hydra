@@ -24,8 +24,11 @@ type Signature = BuiltinByteString
 -- | Sub-type for the open state-machine state.
 data OpenDatum = OpenDatum
   { headId :: CurrencySymbol
+  -- ^ Spec: cid
   , parties :: [Party]
+  -- ^ Spec: kH
   , contestationPeriod :: ContestationPeriod
+  -- ^ Spec: T
   , version :: SnapshotVersion
   -- ^ Spec: v
   , utxoHash :: Hash
@@ -35,6 +38,31 @@ data OpenDatum = OpenDatum
 
 PlutusTx.unstableMakeIsData ''OpenDatum
 
+-- | Sub-type for the closed state-machine state.
+data ClosedDatum = ClosedDatum
+  { headId :: CurrencySymbol
+  -- ^ Spec: cid
+  , parties :: [Party]
+  -- ^ Spec: kH
+  , contestationPeriod :: ContestationPeriod
+  -- ^ Spec: T
+  , version :: SnapshotVersion
+  -- ^ Spec: v
+  , snapshotNumber :: SnapshotNumber
+  -- ^ Spec: s
+  , utxoHash :: Hash
+  -- ^ Spec: η. Digest of snapshotted UTxO
+  , deltaUTxOHash :: Maybe Hash
+  -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
+  , contesters :: [PubKeyHash]
+  -- ^ Spec: C
+  , contestationDeadline :: POSIXTime
+  -- ^ Spec: tfinal
+  }
+  deriving stock (Generic, Show)
+
+PlutusTx.unstableMakeIsData ''ClosedDatum
+
 data State
   = Initial
       { contestationPeriod :: ContestationPeriod
@@ -43,19 +71,7 @@ data State
       , seed :: TxOutRef
       }
   | Open OpenDatum
-  | Closed
-      { parties :: [Party]
-      , snapshotNumber :: SnapshotNumber
-      , utxoHash :: Hash
-      -- ^ Spec: η
-      , utxoToDecommitHash :: Hash
-      -- ^ Spec: ηΔ
-      , contestationDeadline :: POSIXTime
-      , contestationPeriod :: ContestationPeriod
-      , headId :: CurrencySymbol
-      , contesters :: [PubKeyHash]
-      , version :: SnapshotVersion
-      }
+  | Closed ClosedDatum
   | Final
   deriving stock (Generic, Show)
 

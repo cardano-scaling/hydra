@@ -224,8 +224,8 @@ prop_verifyOffChainSignatures =
           onChainParty = partyToChain $ deriveParty sk
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-          utxoHash = (toBuiltin $ hashUTxO @SimpleTx utxo)
-          utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
+          utxoHash = toBuiltin $ hashUTxO utxo
+          utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
        in verifyPartySignature
             (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
             onChainParty
@@ -246,8 +246,8 @@ prop_verifySnapshotSignatures =
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-          utxoHash = toBuiltin (hashUTxO @SimpleTx utxo)
-          utxoToDecommitHash = (toBuiltin . hashUTxO @SimpleTx $ fromMaybe mempty utxoToDecommit)
+          utxoHash = toBuiltin $ hashUTxO utxo
+          utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
        in verifySnapshotSignature
             onChainParties
             (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
