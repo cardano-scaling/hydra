@@ -214,7 +214,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
 -- if it is there return the committed utxo
 commitDatum :: TxOut -> [Commit]
 commitDatum input = do
-  let !datum = getTxOutDatum input
+  let datum = getTxOutDatum input
   case fromBuiltinData @Commit.DatumType $ getDatum datum of
     Just (_party, commits, _headId) ->
       commits
@@ -624,7 +624,7 @@ hashTxOuts =
 -- | Check if 'TxOut' contains the PT token.
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
-  let !pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
+  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
