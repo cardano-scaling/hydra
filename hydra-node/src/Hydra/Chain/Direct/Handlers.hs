@@ -319,8 +319,8 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
-  Decrement DecrementObservation{headId} ->
-    pure OnDecrementTx{headId}
+  Decrement DecrementObservation{headId, newVersion} ->
+    pure OnDecrementTx{headId, newVersion}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx

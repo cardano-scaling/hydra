@@ -77,7 +77,7 @@ import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshot)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
@@ -1102,8 +1102,9 @@ observeCollectComTx utxo tx = do
       Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
       _ -> Nothing
 
-newtype DecrementObservation = DecrementObservation
+data DecrementObservation = DecrementObservation
   { headId :: HeadId
+  , newVersion :: SnapshotVersion
   }
   deriving stock (Show, Eq, Generic)
 
@@ -1126,10 +1127,11 @@ observeDecrementTx utxo tx = do
       (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       case fromScriptData newHeadDatum of
-        Just Head.Open{} ->
+        Just Head.Open{version} ->
           pure
             DecrementObservation
               { headId
+              , newVersion = fromChainSnapshotVersion version
               }
         _ -> Nothing
     _ -> Nothing
@@ -1177,7 +1179,7 @@ observeCloseTx utxo tx = do
                 , closedContesters = []
                 }
           , headId
-          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           }
     _ -> Nothing
  where
@@ -1218,7 +1220,7 @@ observeContestTx utxo tx = do
         ContestObservation
           { contestedThreadOutput = (newHeadInput, newHeadOutput)
           , headId
-          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
           }

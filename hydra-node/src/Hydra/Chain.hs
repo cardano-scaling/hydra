@@ -123,7 +123,7 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
-  | OnDecrementTx {headId :: HeadId}
+  | OnDecrementTx {headId :: HeadId, newVersion :: SnapshotVersion}
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber

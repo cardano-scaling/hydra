@@ -27,6 +27,11 @@ newtype SnapshotNumber
 instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
+-- NOTE: On-chain scripts ensure snapshot number does not become negative.
+fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
+fromChainSnapshotNumber =
+  UnsafeSnapshotNumber . fromMaybe 0 . integerToNatural
+
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
@@ -34,6 +39,11 @@ newtype SnapshotVersion
 
 instance Arbitrary SnapshotVersion where
   arbitrary = UnsafeSnapshotVersion <$> arbitrary
+
+-- NOTE: On-chain scripts ensure snapshot version does not become negative.
+fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
+fromChainSnapshotVersion =
+  UnsafeSnapshotVersion . fromMaybe 0 . integerToNatural
 
 data Snapshot tx = Snapshot
   { headId :: HeadId
@@ -217,10 +227,3 @@ genConfirmedSnapshot headId minSn version utxo utxoToDecommit sks
     let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit, version}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
-
-fromChainSnapshot :: Onchain.SnapshotNumber -> SnapshotNumber
-fromChainSnapshot onChainSnapshotNumber =
-  maybe
-    (error "Failed to convert on-chain SnapShotNumber to off-chain one.")
-    UnsafeSnapshotNumber
-    (integerToNatural onChainSnapshotNumber)
