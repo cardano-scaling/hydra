@@ -12,12 +12,12 @@ changes.
 
 - **DO NOT RELEASE** as the tested `cardano-node` version is not intended to be used on `mainnet` yet.
 
-- Tested with `cardano-node 8.11.0` and `cardano-cli 8.23.1.0`.
+- Tested with `cardano-node 9.0.0` and `cardano-cli 9.0.0.0`.
 
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
-  
+
 - Change `--start-chain-from` to always use the newer point when also a head state is known.
 
 - Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.
