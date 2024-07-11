@@ -243,7 +243,7 @@ checkDecrement ctx openBefore redeemer =
       headInValue == headOutValue <> foldMap txOutValue decommitOutputs
 
   mustIncreaseVersion =
-    traceIfFalse $(errorCode IncorrectVersion) $
+    traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
   decommitUtxoHash = hashTxOuts decommitOutputs
@@ -414,16 +414,18 @@ checkContest ctx contestationDeadline contestationPeriod parties snapshotNumber 
   mustBeValidSnapshot =
     case redeemer of
       ContestCurrent{signature} ->
-        verifySnapshotSignature
-          parties
-          (headId, version, snapshotNumber', utxoHash', utxoDeltaHash')
-          signature
-      ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
-        utxoDeltaHash' == mempty -- TODO: make this 'Maybe Hash'
-          && verifySnapshotSignature
+        traceIfFalse $(errorCode FailedContestCurrent) $
+          verifySnapshotSignature
             parties
-            (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
+            (headId, version, snapshotNumber', utxoHash', utxoDeltaHash')
             signature
+      ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
+        traceIfFalse $(errorCode FailedContestOutdated) $
+          utxoDeltaHash' == mempty -- TODO: make this 'Maybe Hash'
+            && verifySnapshotSignature
+              parties
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
+              signature
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -479,11 +481,11 @@ checkFanout utxoHash utxoToDecommitHash contestationDeadline numberOfFanoutOutpu
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
-    traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) $
+    traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       fannedOutUtxoHash == utxoHash
 
   hasSameUTxOToDecommitHash =
-    traceIfFalse $(errorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) $
+    traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       decommitUtxoHash == utxoToDecommitHash
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs

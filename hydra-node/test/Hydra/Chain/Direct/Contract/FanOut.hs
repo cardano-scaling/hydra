@@ -130,11 +130,11 @@ genFanoutMutation (tx, _utxo) =
 
     , -- XXX: The first m outputs are distributing funds according to η. That is, the outputs exactly
       -- correspond to the UTxO canonically combined U
-    SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateAddUnexpectedOutput . PrependOutput <$> do
+    SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
     , -- XXX: The following n outputs are distributing funds according to η∆ .
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) MutateChangeOutputValue <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
@@ -146,7 +146,7 @@ genFanoutMutation (tx, _utxo) =
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- XXX: The following n outputs are distributing funds according to η∆ .
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateChangeOutputValue <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateChangeOutputValue <$> do
         let outs = txOuts' tx
         -- NOTE: Assumes the fanout transaction has non-empty outputs, which
         -- might not be always the case when testing unbalanced txs and we need
@@ -158,14 +158,14 @@ genFanoutMutation (tx, _utxo) =
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- XXX: The following n outputs are distributing funds according to η∆ .
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
         let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
         let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
         n <- elements [1 .. 3]
         pure (Head.Fanout noOfUtxoToOutputs (noOfUtxoDecommitToOutputs - n))
     , -- XXX: The first m outputs are distributing funds according to η. That is, the outputs exactly
       -- correspond to the UTxO canonically combined U
-      SomeMutation (pure $ toErrorCode FannedOutUtxoHashNotEqualToClosedUtxoHash) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
         let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
         let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
         n <- elements [1 .. 3]

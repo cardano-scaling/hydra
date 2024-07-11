@@ -172,7 +172,7 @@ genDecrementMutation (tx, _utxo) =
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , -- New version v′ is incremented correctly
-      SomeMutation (pure $ toErrorCode IncorrectVersion) UseDifferentSnapshotVersion <$> do
+      SomeMutation (pure $ toErrorCode VersionNotIncremented) UseDifferentSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , -- XXX: ξ is a valid multi-signature of the currency id cid, the current snapshot state η,
