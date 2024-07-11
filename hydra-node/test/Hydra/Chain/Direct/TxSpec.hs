@@ -76,6 +76,7 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
@@ -263,13 +264,13 @@ spec =
               let headId' = mkHeadId Fixture.testPolicyId
               let openDatum =
                     HeadState.Open
-                      { parties = partyToChain <$> [alice, bob, carol]
-                      , utxoHash = toBuiltin $ hashUTxO @Tx utxo'
-                      , snapshotNumber = 1
-                      , contestationPeriod = contestationPeriodFromDiffTime 10
-                      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-                      , version = 0
-                      }
+                      Head.OpenDatum
+                        { parties = partyToChain <$> [alice, bob, carol]
+                        , utxoHash = toBuiltin $ hashUTxO @Tx utxo'
+                        , contestationPeriod = contestationPeriodFromDiffTime 10
+                        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+                        , version = 0
+                        }
               let datum = toUTxOContext (mkTxOutDatumInline openDatum)
               let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs utxoToDecommit')
               let headTxIn = generateWith arbitrary 42

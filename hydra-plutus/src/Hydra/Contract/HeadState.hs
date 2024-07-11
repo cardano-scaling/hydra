@@ -21,6 +21,20 @@ type Hash = BuiltinByteString
 
 type Signature = BuiltinByteString
 
+-- | Sub-type for the open state-machine state.
+data OpenDatum = OpenDatum
+  { headId :: CurrencySymbol
+  , parties :: [Party]
+  , contestationPeriod :: ContestationPeriod
+  , version :: SnapshotVersion
+  -- ^ Spec: v
+  , utxoHash :: Hash
+  -- ^ Spec: η
+  }
+  deriving stock (Generic, Show)
+
+PlutusTx.unstableMakeIsData ''OpenDatum
+
 data State
   = Initial
       { contestationPeriod :: ContestationPeriod
@@ -28,15 +42,7 @@ data State
       , headId :: CurrencySymbol
       , seed :: TxOutRef
       }
-  | Open
-      { contestationPeriod :: ContestationPeriod
-      , parties :: [Party]
-      , utxoHash :: Hash
-      -- ^ Spec: η
-      , headId :: CurrencySymbol
-      , snapshotNumber :: SnapshotNumber
-      , version :: SnapshotVersion
-      }
+  | Open OpenDatum
   | Closed
       { parties :: [Party]
       , snapshotNumber :: SnapshotNumber
@@ -55,7 +61,7 @@ data State
 
 PlutusTx.unstableMakeIsData ''State
 
--- | Type of close and auxiliary data if needed.
+-- | Sub-type for close transition with auxiliary data as needed.
 data CloseRedeemer
   = -- | Intial snapshot is used to close.
     CloseInitial
@@ -75,7 +81,7 @@ data CloseRedeemer
 
 PlutusTx.unstableMakeIsData ''CloseRedeemer
 
--- | Type of contestation and auxiliary data if needed.
+-- | Sub-type for contest transition with auxiliary data as needed.
 data ContestRedeemer
   = -- | Contesting snapshot refers to the current state version
     ContestCurrent
@@ -93,9 +99,22 @@ data ContestRedeemer
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
 
+-- | Sub-type for decrement transition with auxiliary data as needed.
+data DecrementRedeemer = DecrementRedeemer
+  { signature :: [Signature]
+  -- ^ Spec: ξ
+  , snapshotNumber :: SnapshotNumber
+  -- ^ Spec: s
+  , numberOfDecommitOutputs :: Integer
+  -- ^ Spec: m
+  }
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''DecrementRedeemer
+
 data Input
   = CollectCom
-  | Decrement {signature :: [Signature], numberOfDecommitOutputs :: Integer}
+  | Decrement DecrementRedeemer
   | Close CloseRedeemer
   | Contest ContestRedeemer
   | Abort

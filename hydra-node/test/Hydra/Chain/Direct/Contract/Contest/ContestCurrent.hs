@@ -23,7 +23,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceSnapshotVersionInClosed,
+  replaceSnapshotVersion,
   replaceUtxoHash,
   replaceUtxoToDecommitHash,
  )
@@ -306,7 +306,7 @@ genContestMutation (tx, _utxo) =
     , -- Last known open state version stays recorded in closed state
       SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
         pure $
