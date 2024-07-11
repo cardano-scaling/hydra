@@ -584,7 +584,7 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
         , contestationPeriod = openContestationPeriod
         , headId = headIdToCurrencySymbol headId
         , contesters = []
-        , version = toInteger version
+        , version = toInteger offChainVersion -- TODO: rename or explain. This is rather "last known open state version"
         }
 
   -- TODO: use CloseWithInitialSnapshot etc directly to avoid this tuple
