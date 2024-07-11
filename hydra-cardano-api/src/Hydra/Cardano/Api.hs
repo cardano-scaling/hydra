@@ -403,6 +403,8 @@ pattern TxBodyContent ::
   TxScriptValidity ->
   Maybe (Featured ConwayEraOnwards Era (TxProposalProcedures buidl Era)) ->
   Maybe (Featured ConwayEraOnwards Era (TxVotingProcedures buidl Era)) ->
+  Maybe (Featured ConwayEraOnwards Era Coin) ->
+  Maybe (Featured ConwayEraOnwards Era Coin) ->
   TxBodyContent buidl
 pattern TxBodyContent
   { txIns
@@ -425,6 +427,8 @@ pattern TxBodyContent
   , txScriptValidity
   , txProposalProcedures
   , txVotingProcedures
+  , txCurrentTreasuryValue
+  , txTreasuryDonation
   } <-
   Cardano.Api.TxBodyContent
     txIns
@@ -447,6 +451,8 @@ pattern TxBodyContent
     txScriptValidity
     txProposalProcedures
     txVotingProcedures
+    txCurrentTreasuryValue
+    txTreasuryDonation
   where
     TxBodyContent = Cardano.Api.TxBodyContent
 

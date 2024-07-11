@@ -126,7 +126,7 @@ roundtripProtocolParameters pparams = do
       (expected === actual)
         & counterexample ("ledger: " <> show pparams)
  where
-  expected = fromLedgerPParams shelleyBasedEra pparams
+  expected = pparams
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =

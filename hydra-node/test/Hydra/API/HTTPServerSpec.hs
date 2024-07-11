@@ -9,9 +9,7 @@ import Data.Aeson.Lens (key, nth)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
-  fromLedgerPParams,
   serialiseToTextEnvelope,
-  shelleyBasedEra,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..))
 import Hydra.Chain.Direct.Fixture (defaultPParams)
@@ -103,7 +101,7 @@ apiServerSpec = do
         it "responds given parameters" $
           get "/protocol-parameters"
             `shouldRespondWith` 200
-              { matchBody = matchJSON $ fromLedgerPParams shelleyBasedEra defaultPParams
+              { matchBody = matchJSON defaultPParams
               }
 
     describe "GET /snapshot/utxo" $ do

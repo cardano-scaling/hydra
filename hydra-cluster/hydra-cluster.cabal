@@ -87,6 +87,7 @@ library
     , async
     , base                  >=4.7 && <5
     , bytestring
+    , cardano-api
     , cardano-slotting
     , containers
     , contra-tracer
