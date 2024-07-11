@@ -673,7 +673,12 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
           { signature = toPlutusSignatures sig
           , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
           }
-    | otherwise = error "FIXME: should not happen"
+    | otherwise =
+        -- FIXME: make this impossible to reach (from HeadLogic)
+        -- NOTE: Won't work, but allow to construct the tx
+        Head.ContestCurrent
+          { signature = toPlutusSignatures sig
+          }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
