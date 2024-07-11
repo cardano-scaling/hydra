@@ -7,9 +7,7 @@ sidebar_position: 2
 
 :hammer_and_wrench: This document is a work in progress
 
-This document explains the deployment architecture of a basic Hydra Head. It
-serves as a reference to other topologies discussed in this chapter and is
-schematically depicted below:
+This document outlines the deployment architecture of a basic Hydra Head. It serves as a foundational reference for other topologies discussed in this chapter and is illustrated below:
 
 ```mdx-code-block
 <p align="center">
@@ -21,8 +19,8 @@ schematically depicted below:
 </p>
 ```
 
-The basic setup of a Hydra Head consists of several `hydra-node`s, each connected to the Cardano network through a (not pictured) `cardano-node`. A Hydra client (like the `hydra-tui`) would connect, usually via a local connection, to a `hydra-node` to open a Hydra Head using an off-chain network. The picture shows two Hydra Heads (blue and green) opened between two distinct sets of `hydra-node`s, where the lines indicate Hydra network connections and circles represent a Hydra Head state and credentials - summarized by a socalled *Hydra Head Party*. 
+The basic setup of a Hydra Head involves several `hydra-node`s, each connected to the Cardano network via a `cardano-node` (not depicted in the image). A Hydra client, such as `hydra-tui`, typically connects locally to a `hydra-node` to initiate a Hydra Head using an off-chain network. The diagram displays two Hydra Heads (colored blue and green) established between two distinct sets of `hydra-node`s. The lines in the diagram represent Hydra network connections, and the circles symbolize the Hydra Head state and credentials, collectively referred to as a *Hydra Head Party*.
 
-Not shown in the picture are multiple, logical Hydra Heads being open in the same `hydra-node`, which is very likely something we will support eventually and allow for re-using network connections between `hydra-node` processes.
+The diagram does not show multiple, logical Hydra Heads operating concurrently within the same `hydra-node`. This capability, likely to be supported in the future, would facilitate the reuse of network connections between `hydra-node` processes.
 
-Each head, the blue or green one, can progress independently and requires a signature of all the respective *Hydra Parties* of each head. That is, 2 signatures in the green Head and 4 signatures in the blue Head.
+Each head, whether blue or green, progresses independently and requires the endorsement of all respective *Hydra Parties* within each head. For instance, the green head requires 2 signatures, while the blue head requires 4.

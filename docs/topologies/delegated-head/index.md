@@ -3,16 +3,17 @@ sidebar_label: 'Delegated Head'
 sidebar_position: 4
 ---
 
-# Delegated Head Network
+# Delegated Head network
 
-This document details the behaviour of so-called _Delegated Hydra Head Network_.
+This document outlines the behavior and structure of the so-called _Delegated Hydra Head Network_.
 
 ## Summary
 
-A _Delegated Hydra Head Network_ comprises the following type of actors:
+A _Delegated Hydra Head Network_ involves two primary types of actors:
 
-* _Operator_ nodes with low expected downtime, probably operated by some company or organisation with enough resources to host this service,
-* _Client_ nodes, either DApp instances, or mobile/personal wallets, which might not be always online and possibly can come and go.
+* **Operator nodes**. These nodes are expected to have low downtime and are likely operated by companies or organizations with sufficient resources to host such services reliably.
+* **Client nodes**. These can be DApp instances or mobile/personal wallets that might not always be online and can intermittently connect or disconnect.
+
 
 <p align="center">
   <img
@@ -22,17 +23,17 @@ A _Delegated Hydra Head Network_ comprises the following type of actors:
   />
 </p>
 
-Client nodes want to be able to interact with each other efficiently, at a low cost, using standard Cardano (L1) transactions. They are willing to trust *at least one* _Operator_ to run a full Hydra and Cardano node on their behalf, in effect trading some trust for efficiency. They interact with other _clients_ in a single head using the Hydra [API](/api-reference) and retain ownership of signing keys for transactions submitted to the Head.
+Client nodes aim for efficient and low-cost interaction using standard Cardano (L1) transactions. They are prepared to place trust in *at least one* _Operator_ to manage a full Hydra and Cardano node on their behalf, essentially trading some degree of trust for increased efficiency. Clients interact with other clients within a single head using the Hydra [API](/api-reference) and maintain control over their signing keys for transactions submitted to the Head.
 
-Client nodes, may come and go offline without hampering progress of the Hydra Head. The safety of their funds rely on having at least one honest _Operator_ node with whom they can interact but importantly, they do not relinquish keys for spending funds inside the Head.
+Client nodes can go offline without affecting the progress of the Hydra Head. The security of their funds depends on the integrity of at least one honest _Operator_ node. Importantly, clients do not relinquish control over the keys used for spending funds within the Head.
 
-Operator nodes hold the _Hydra keys_ used by the protocol to sign snapshots, and the _Cardano keys_ used to progress the Head State Machine on L1. Each of them can sport 100s of client connections through (possibly short lived) _WebSocket_ connections.
+Operator nodes maintain the _Hydra keys_ necessary for signing snapshots and the _Cardano keys_ required for advancing the Head State Machine on L1. Each operator can manage connections with hundreds of clients through potentially short-lived _WebSocket_ connections.
 
-## Use Cases
+## Use cases
 
-This deployment model has the undesirable property of requiring trust from clients to operators and custodianship of funds committed to the Head. In effect, it's a simple way to create a _Side-chain-a-la-carte_ with the _Operators_ being responsible for its safety and liveness. Such "alternative chains" can be easily created and deployed in an ad-hoc way without requiring the complexity associated with "classic" Side-chains.
+This deployment model, while requiring some level of trust from clients towards operators and involving the custodianship of funds committed to the Head, offers a straightforward method to create a _Side-chain-a-la-carte_. In this model, Operators are accountable for the safety and liveness of the network. These alternative chains can be created and deployed ad-hoc without the complexities associated with ‘classic’ side-chains.
 
-This deployment model could be interesting in scenarios where:
+Potential scenarios for this deployment model include:
 
-1. The Hydra nodes can be fully trusted, either because of their identity, reputation, or lack of personal interest in the purpose of the Head,
-2. There's a need to scale the involved parties to the 100s or 1000s, something which is not possible on a normal head.
+1. Environments where the Hydra nodes are fully trusted, either due to their established reputation, identity, or a disinterest in the specific purposes of the Head.
+2. Situations that require scaling to hundreds or thousands of parties, which is unfeasible with a standard Hydra Head.
