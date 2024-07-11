@@ -15,7 +15,7 @@ import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 import Test.QuickCheck (oneof)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emited to
@@ -73,7 +73,7 @@ data StateChanged tx
       { decommitTx :: tx
       , newLocalUTxO :: UTxOType tx
       }
-  | DecommitFinalized
+  | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}

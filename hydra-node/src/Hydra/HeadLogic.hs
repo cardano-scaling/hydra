@@ -834,28 +834,33 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 
 -- | Observe a decommit transaction. If the outputs of the pending decommit tx
 -- are equal to the latest confirmed UTxO to decommit, then we consider the
--- decommit valid, and we take the funds out of the head and remove the
--- decommit tx in flight.
--- Finally, if the client observing happens to be the leader, then a new
--- ReqSn is broadcasted.
+-- decommit valid, and we take the funds out of the head and remove the decommit
+-- tx in flight.
+--
+-- Finally, if the client observing happens to be the leader, then a new ReqSn
+-- is broadcasted.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenChainDecrementTx :: IsTx tx => Environment -> OpenState tx -> Outcome tx
-onOpenChainDecrementTx Environment{party} openState
+onOpenChainDecrementTx ::
+  IsTx tx =>
+  Environment ->
+  OpenState tx ->
+  -- | New open state version
+  SnapshotVersion ->
+  Outcome tx
+onOpenChainDecrementTx Environment{party} openState newVersion
   | -- Spec: if outputs(txω) = 𝑈ω
     -- REVIEW: should we get Uω from observation instead of local state?
     (utxoFromTx <$> decommitTx) == utxoToDecommit =
       -- Spec: txω ← ⊥
       --       vˆ  ← v
-      newState DecommitFinalized
+      newState DecommitFinalized{newVersion}
         <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
         -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
         --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
         & maybeEmitSnapshot
   | otherwise = noop
  where
-  version' = version + 1
-
   partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
 
   maybeEmitSnapshot outcome =
@@ -863,12 +868,12 @@ onOpenChainDecrementTx Environment{party} openState
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version' nextSn (txId <$> localTxs) decommitTx)
+          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
   OpenState{parameters, coordinatedHeadState, headId} = openState
 
-  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, version, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, seenSnapshot} = coordinatedHeadState
 
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -1106,10 +1111,10 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion}})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env openState
+        onOpenChainDecrementTx env openState newVersion
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -1358,18 +1363,16 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  DecommitFinalized ->
+  DecommitFinalized{newVersion} ->
     case st of
       Open
-        os@OpenState
-          { coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{version}
-          } ->
+        os@OpenState{coordinatedHeadState} ->
           Open
             os
               { coordinatedHeadState =
                   coordinatedHeadState
                     { decommitTx = Nothing
-                    , version = version + 1
+                    , version = newVersion
                     }
               }
       _otherState -> st
@@ -1417,7 +1420,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
-    DecommitFinalized -> history
+    DecommitFinalized{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout{} -> history
