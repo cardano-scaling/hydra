@@ -14,8 +14,6 @@ import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
-  fromLedgerPParams,
-  shelleyBasedEra,
  )
 import Hydra.Chain (Chain (..), CommitBlueprintTx (..), IsChainState, PostTxError (..), draftCommitTx)
 import Hydra.Chain.Direct.State ()
@@ -148,8 +146,7 @@ httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO reques
         >>= handleDraftCommitUtxo directChain getInitializingHeadId
         >>= respond
     ("GET", ["protocol-parameters"]) ->
-      respond . responseLBS status200 [] . Aeson.encode $
-        fromLedgerPParams shelleyBasedEra pparams
+      respond . responseLBS status200 [] . Aeson.encode $ pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
         >>= handleSubmitUserTx directChain

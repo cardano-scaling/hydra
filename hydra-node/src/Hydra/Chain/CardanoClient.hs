@@ -141,6 +141,8 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxScriptValidityNone
       Nothing
       Nothing
+      Nothing
+      Nothing
 
 -- | Submit a (signed) transaction to the node.
 --

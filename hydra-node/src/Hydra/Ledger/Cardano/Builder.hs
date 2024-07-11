@@ -74,6 +74,8 @@ emptyTxBody =
     TxScriptValidityNone
     Nothing
     Nothing
+    Nothing
+    Nothing
 
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
