@@ -865,14 +865,12 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
             & maybeEmitSnapshot
       | otherwise -> noop -- TODO: what if decrement not matching pending decommit?
  where
-  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
-
   maybeEmitSnapshot outcome =
-    if seenSn == confirmedSn && partyIsLeader
+    if seenSn == confirmedSn && isLeader parameters party nextSn
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> localTxs) decommitTx)
+          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> localTxs) Nothing)
       else outcome
 
   OpenState{parameters, coordinatedHeadState, headId} = openState
