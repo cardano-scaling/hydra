@@ -775,6 +775,7 @@ canCloseWithPendingDecommit tracer workDir node hydraScriptsTxId =
 
           -- Send signed decommit tx
           submitSignedDecommitTx n1 headId walletSk body callDecommitHttpEndpoint
+          threadDelay 2 -- FIXME: this test is actually the same as above, especially as we need to wait here to not fail submission
           -- Close and Fanout put whatever is left in the Head back to L1
           closeAndFanout headId n1 (headAmount + decommitAmount) walletVk
  where

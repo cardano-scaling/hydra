@@ -17,7 +17,6 @@ import Hydra.Chain.Direct.Contract.Close.Healthy (
   healthyContestationPeriod,
   healthyContestationPeriodSeconds,
   healthyOnChainParties,
-  healthyOpenDatum,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
   healthySignature,
@@ -39,6 +38,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
+  replaceSnapshotVersionInClosed,
   replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -53,10 +53,10 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (genAddressInEra, genValue, genVerificationKey)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -88,7 +88,15 @@ healthyOutdatedSnapshot =
     }
 
 healthyOutdatedOpenDatum :: Head.State
-healthyOutdatedOpenDatum = healthyOpenDatum healthyOutdatedSnapshot
+healthyOutdatedOpenDatum =
+  Head.Open
+    { parties = healthyOnChainParties
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
+    , snapshotNumber = toInteger healthyOutdatedSnapshotNumber
+    , contestationPeriod = healthyContestationPeriod
+    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+    , version = toInteger $ healthyOutdatedSnapshotVersion + 1
+    }
 
 healthyOutdatedConfirmedClosingSnapshot :: ClosingSnapshot
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedClosingSnapshot healthyOutdatedSnapshot
@@ -114,10 +122,7 @@ healthyCloseOutdatedTx =
       <> registryUTxO scriptRegistry
 
   datum :: TxOutDatum CtxUTxO
-  datum = toUTxOContext (mkTxOutDatumInline openDatum)
-
-  openDatum :: HeadState.State
-  openDatum = healthyOpenDatum healthyOutdatedSnapshot
+  datum = toUTxOContext (mkTxOutDatumInline healthyOutdatedOpenDatum)
 
   openThreadOutput :: OpenThreadOutput
   openThreadOutput =
