@@ -267,6 +267,14 @@ spec =
           update aliceEnv ledger s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx decommitTx'
 
+        it "emits snapshot onDecrementTx with cleared decommitTx" $ do
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              s0 = inOpenState' threeParties coordinatedHeadState{decommitTx = Just decommitTx}
+              leaderEnv = aliceEnv
+          o <- runHeadLogic leaderEnv ledger s0 $ do
+            step (observeTx OnDecrementTx{headId = testHeadId, newVersion = 1, distributedOutputs = [1]})
+          o `hasEffect` NetworkEffect (ReqSn 1 1 [] Nothing)
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties
