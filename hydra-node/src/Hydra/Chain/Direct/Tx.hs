@@ -390,15 +390,15 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Open
-        { Head.parties = partyToChain <$> parties
-        , utxoHash
-        , snapshotNumber = 0
-        , contestationPeriod = toChain contestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , version = 0
-        }
+        Head.OpenDatum
+          { Head.parties = partyToChain <$> parties
+          , utxoHash
+          , contestationPeriod = toChain contestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , version = 0
+          }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxoToCollect
 
@@ -446,10 +446,13 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headRedeemer =
     toScriptData $
       Head.Decrement
-        { signature = toPlutusSignatures signatures
-        , numberOfDecommitOutputs =
-            fromIntegral $ length $ maybe [] toList utxoToDecommit
-        }
+        Head.DecrementRedeemer
+          { signature = toPlutusSignatures signatures
+          , snapshotNumber = fromIntegral number
+          , numberOfDecommitOutputs =
+              fromIntegral $ length $ maybe [] toList utxoToDecommit
+          }
+
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters
@@ -473,15 +476,16 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
 
   headDatumAfter =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Open
-        { Head.parties = partyToChain <$> parties
-        , utxoHash
-        , snapshotNumber = toInteger number
-        , contestationPeriod = toChain contestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , version = toInteger version + 1
-        }
+        Head.OpenDatum
+          { Head.parties = partyToChain <$> parties
+          , utxoHash
+          , contestationPeriod = toChain contestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , version = toInteger version + 1
+          }
+
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
 -- | Low-level data type of a snapshot to close the head with. This is different
@@ -1099,7 +1103,7 @@ observeCollectComTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
   decodeUtxoHash datum =
     case fromScriptData datum of
-      Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
+      Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
 
 data DecrementObservation = DecrementObservation
@@ -1124,11 +1128,11 @@ observeDecrementTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{}, Head.Decrement{numberOfDecommitOutputs}) -> do
+    (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       case fromScriptData newHeadDatum of
-        Just Head.Open{version} ->
+        Just (Head.Open Head.OpenDatum{version}) ->
           pure
             DecrementObservation
               { headId
@@ -1168,7 +1172,7 @@ observeCloseTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{parties}, Head.Close{}) -> do
+    (Head.Open Head.OpenDatum{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of

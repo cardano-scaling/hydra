@@ -109,16 +109,17 @@ healthySnapshot number version =
     , version
     }
 
+-- FIXME: check all usages of this
 healthyOpenDatum :: Snapshot Tx -> Head.State
-healthyOpenDatum Snapshot{version, number} =
+healthyOpenDatum Snapshot{version} =
   Head.Open
-    { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
-    , snapshotNumber = toInteger number
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = toInteger version
-    }
+    Head.OpenDatum
+      { parties = healthyOnChainParties
+      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
+      , contestationPeriod = healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+      , version = toInteger version
+      }
 
 healthyConfirmedClosingSnapshot :: Snapshot Tx -> ClosingSnapshot
 healthyConfirmedClosingSnapshot snapshot =

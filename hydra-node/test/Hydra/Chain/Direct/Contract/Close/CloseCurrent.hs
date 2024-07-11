@@ -33,7 +33,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceSnapshotVersionInClosed,
+  replaceSnapshotVersion,
   replaceUtxoHash,
   replaceUtxoToDecommitHash,
  )
@@ -171,10 +171,10 @@ genCloseCurrentMutation (tx, _utxo) =
     , -- Last known open state version is recorded in closed state
       SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCurrentSnapshotVersion)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ healthyCurrentOpenDatum{Head.parties = mutatedParties}
+        pure . ChangeInputHeadDatum $ replaceParties mutatedParties healthyCurrentOpenDatum
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         n <- choose (1, length healthyOnChainParties - 1)
         fn <- elements [drop n, take n]

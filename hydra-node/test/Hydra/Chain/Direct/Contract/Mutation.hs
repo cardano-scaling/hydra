@@ -497,8 +497,12 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 -- * Orphans
 
 deriving stock instance Eq Head.Input
+deriving stock instance Eq Head.DecrementRedeemer
 deriving stock instance Eq Head.CloseRedeemer
 deriving stock instance Eq Head.ContestRedeemer
+
+instance Arbitrary Head.DecrementRedeemer where
+  arbitrary = genericArbitrary
 
 instance Arbitrary Head.CloseRedeemer where
   arbitrary = genericArbitrary
@@ -507,6 +511,9 @@ instance Arbitrary Head.ContestRedeemer where
   arbitrary = genericArbitrary
 
 instance Arbitrary Head.Input where
+  arbitrary = genericArbitrary
+
+instance Arbitrary Head.OpenDatum where
   arbitrary = genericArbitrary
 
 instance Arbitrary Head.State where
@@ -743,28 +750,27 @@ replacePolicyInValue original replacement =
       | pid == original -> (AssetId replacement an, q)
     _ -> (aid, q)
 
-replaceSnapshotNumberInOpen :: Head.SnapshotNumber -> Head.State -> Head.State
-replaceSnapshotNumberInOpen snapshotNumber = \case
-  Head.Open{parties, utxoHash, headId, contestationPeriod, version} ->
+replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
+replaceSnapshotVersion snapshotVersion = \case
+  Head.Open Head.OpenDatum{parties, utxoHash, headId, contestationPeriod} ->
     Head.Open
+      Head.OpenDatum
+        { Head.parties = parties
+        , Head.utxoHash = utxoHash
+        , Head.contestationPeriod = contestationPeriod
+        , Head.headId = headId
+        , Head.version = snapshotVersion
+        }
+  Head.Closed{parties, snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod} ->
+    Head.Closed
       { Head.parties = parties
       , Head.snapshotNumber = snapshotNumber
       , Head.utxoHash = utxoHash
+      , Head.utxoToDecommitHash = utxoToDecommitHash
+      , Head.contestationDeadline = contestationDeadline
       , Head.contestationPeriod = contestationPeriod
       , Head.headId = headId
-      , Head.version = version
-      }
-  otherState -> otherState
-
-replaceSnapshotVersionInOpen :: Head.SnapshotVersion -> Head.State -> Head.State
-replaceSnapshotVersionInOpen snapshotVersion = \case
-  Head.Open{parties, utxoHash, headId, contestationPeriod, snapshotNumber} ->
-    Head.Open
-      { Head.parties = parties
-      , Head.snapshotNumber
-      , Head.utxoHash = utxoHash
-      , Head.contestationPeriod = contestationPeriod
-      , Head.headId = headId
+      , Head.contesters = contesters
       , Head.version = snapshotVersion
       }
   otherState -> otherState
@@ -785,22 +791,6 @@ replaceSnapshotNumber snapshotNumber = \case
       }
   otherState -> otherState
 
-replaceSnapshotVersionInClosed :: Head.SnapshotVersion -> Head.State -> Head.State
-replaceSnapshotVersionInClosed snapshotVersion = \case
-  Head.Closed{parties, snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod} ->
-    Head.Closed
-      { Head.parties = parties
-      , Head.snapshotNumber = snapshotNumber
-      , Head.utxoHash = utxoHash
-      , Head.utxoToDecommitHash = utxoToDecommitHash
-      , Head.contestationDeadline = contestationDeadline
-      , Head.contestationPeriod = contestationPeriod
-      , Head.headId = headId
-      , Head.contesters = contesters
-      , Head.version = snapshotVersion
-      }
-  otherState -> otherState
-
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
   Head.Initial{contestationPeriod, headId, seed} ->
@@ -810,15 +800,15 @@ replaceParties parties = \case
       , Head.headId = headId
       , Head.seed = seed
       }
-  Head.Open{contestationPeriod, snapshotNumber, utxoHash, headId, version} ->
+  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, headId, version} ->
     Head.Open
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.snapshotNumber = snapshotNumber
-      , Head.utxoHash = utxoHash
-      , Head.headId = headId
-      , Head.version = version
-      }
+      Head.OpenDatum
+        { Head.contestationPeriod = contestationPeriod
+        , Head.parties = parties
+        , Head.utxoHash = utxoHash
+        , Head.headId = headId
+        , Head.version = version
+        }
   Head.Closed{snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       { Head.parties = parties
@@ -835,15 +825,15 @@ replaceParties parties = \case
 
 replaceUtxoHash :: Head.Hash -> Head.State -> Head.State
 replaceUtxoHash utxoHash = \case
-  Head.Open{contestationPeriod, snapshotNumber, parties, headId, version} ->
+  Head.Open Head.OpenDatum{contestationPeriod, parties, headId, version} ->
     Head.Open
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.snapshotNumber = snapshotNumber
-      , Head.utxoHash = utxoHash
-      , Head.headId = headId
-      , Head.version = version
-      }
+      Head.OpenDatum
+        { Head.contestationPeriod = contestationPeriod
+        , Head.parties = parties
+        , Head.utxoHash = utxoHash
+        , Head.headId = headId
+        , Head.version = version
+        }
   Head.Closed{parties, utxoToDecommitHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       { Head.parties = parties
@@ -915,15 +905,15 @@ replaceHeadId headId = \case
       , Head.headId = headId
       , Head.seed = seed
       }
-  Head.Open{contestationPeriod, utxoHash, snapshotNumber, parties, version} ->
+  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, parties, version} ->
     Head.Open
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.snapshotNumber = snapshotNumber
-      , Head.utxoHash = utxoHash
-      , Head.headId = headId
-      , Head.version = version
-      }
+      Head.OpenDatum
+        { Head.contestationPeriod = contestationPeriod
+        , Head.parties = parties
+        , Head.utxoHash = utxoHash
+        , Head.headId = headId
+        , Head.version = version
+        }
   Head.Closed{snapshotNumber, utxoHash, utxoToDecommitHash, contestationDeadline, parties, contesters, contestationPeriod, version} ->
     Head.Closed
       { Head.parties = parties

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DuplicateRecordFields#-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 -- Avoid trace calls to be optimized away when inlining functions.
@@ -23,7 +24,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState (headId, seed)
+import Hydra.Contract.HeadState (seed)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial

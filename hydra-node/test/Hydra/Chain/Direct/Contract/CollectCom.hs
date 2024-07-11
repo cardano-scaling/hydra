@@ -262,18 +262,18 @@ genCollectComMutation (tx, _utxo) =
 
   mutatedPartiesHeadTxOut parties =
     modifyInlineDatum $ \case
-      Head.Open{snapshotNumber, contestationPeriod, headId, version, utxoHash} ->
-        Head.Open{Head.parties = parties, snapshotNumber, contestationPeriod, headId, version, utxoHash}
+      Head.Open Head.OpenDatum{contestationPeriod, headId, version, utxoHash} ->
+        Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod, headId, snapshotNumber, version} ->
-      Head.Open{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, snapshotNumber, version}
+    Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version} ->
+      Head.Open Head.OpenDatum{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, version}
     st -> st
 
   mutateStateVersion mutatedVersion = \case
-    Head.Open{parties, contestationPeriod, headId, snapshotNumber, utxoHash} ->
-      Head.Open{version = mutatedVersion, parties, contestationPeriod, headId, snapshotNumber, utxoHash}
+    Head.Open Head.OpenDatum{parties, contestationPeriod, headId, utxoHash} ->
+      Head.Open Head.OpenDatum{version = mutatedVersion, parties, contestationPeriod, headId, utxoHash}
     st -> st
 
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation

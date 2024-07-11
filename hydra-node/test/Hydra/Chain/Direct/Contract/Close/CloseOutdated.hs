@@ -38,7 +38,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceSnapshotVersionInClosed,
+  replaceSnapshotVersion,
   replaceUtxoHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -90,13 +90,17 @@ healthyOutdatedSnapshot =
 healthyOutdatedOpenDatum :: Head.State
 healthyOutdatedOpenDatum =
   Head.Open
-    { parties = healthyOnChainParties
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
-    , snapshotNumber = toInteger healthyOutdatedSnapshotNumber
-    , contestationPeriod = healthyContestationPeriod
-    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-    , version = toInteger $ healthyOutdatedSnapshotVersion + 1
-    }
+    Head.OpenDatum
+      { parties = healthyOnChainParties
+      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
+      , contestationPeriod = healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+      , version = toInteger healthyOpenStateVersion
+      }
+
+-- | In the outdated case, the used snapshot version is exactly one lower than the open state version.
+healthyOpenStateVersion :: SnapshotVersion
+healthyOpenStateVersion = healthyOutdatedSnapshotVersion + 1
 
 healthyOutdatedConfirmedClosingSnapshot :: ClosingSnapshot
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedClosingSnapshot healthyOutdatedSnapshot
@@ -114,7 +118,7 @@ healthyCloseOutdatedTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       (mkHeadId Fixture.testPolicyId)
-      (healthyOutdatedSnapshotVersion + 1)
+      healthyOpenStateVersion
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
@@ -239,11 +243,11 @@ genCloseOutdatedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , -- Last known open state version is recorded in closed state
       SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
-        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyOutdatedSnapshotVersion)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInClosed $ toInteger mutatedSnapshotVersion) headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyOpenStateVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ healthyOutdatedOpenDatum{Head.parties = mutatedParties}
+        pure . ChangeInputHeadDatum $ replaceParties mutatedParties healthyOutdatedOpenDatum
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
         n <- choose (1, length healthyOnChainParties - 1)
         fn <- elements [drop n, take n]

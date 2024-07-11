@@ -721,15 +721,15 @@ openHeadUTxO =
       & modifyTxOutValue (<> foldMap txOutValue inHeadUTxO)
 
   openHeadDatum =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Open
-        { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-        , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
-        , contestationPeriod = CP.toChain Fixture.cperiod
-        , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
-        , snapshotNumber = 0
-        , version = 0
-        }
+        Head.OpenDatum
+          { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
+          , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
+          , contestationPeriod = CP.toChain Fixture.cperiod
+          , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
+          , version = 0
+          }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
 
