@@ -7,7 +7,7 @@ sidebar_position: 3
 
 :hammer_and_wrench: This document is a work in progress
 
-This document outlines the _Managed Hydra Head_ topology, which could also be described as _Hydra as a Service_.
+This document outlines the _managed Hydra head_ topology, which could also be described as _Hydra as a service_.
 
 <p align="center">
   <img
@@ -17,10 +17,15 @@ This document outlines the _Managed Hydra Head_ topology, which could also be de
   />
 </p>
 
-The [basic Hydra Head setup](../basic) requires each participant to host an instance of a `hydra-node`, similar to how `cardano-node`s operate on the Cardano network. In contrast, "light node" setups allow users to access the blockchain through a hosted API, with light wallets being a common example.
-In this topology, clients do not need to run their own `hydra-node`s but instead access a `hydra-node` provided by a _Service Provider_. Client applications, such as light wallets, do not need to be aware of individual `hydra-node` instances. Instead, logical _Hydra Heads_ are accessible via an API.
-The illustration above depicts three different Hydra Heads: two pairwise (yellow and green) and one multi-party (blue). Clients A, B, and C access their Heads using the service provider, while Client D manages their own hosting.
-For this setup to be feasible, it is crucial that the _Hydra keys_ remain on the client-side and that the `hydra-node` serves purely as infrastructure—it does not take custody of the user's funds.
-As a result, the client must be online for any progress to occur within a Hydra Head. This requirement can be cumbersome in multi-party Hydra Heads, as they may stall if a lightweight, mobile client is offline for a period. However, this setup aligns well with _two-party Hydra Heads_, where a transaction is only completed if both parties are online to send, receive, and acknowledge it.
-An example use case for two-party Hydra Heads includes payment channels between two [machines](../../use-cases/payments/pay-per-use-api) or [individuals](../../use-cases/payments/inter-wallet-payments), especially if multiple such channels are logically interconnected, similar to the Lightning Network.
-Although access to Hydra Heads is facilitated by the Service Provider, this does not centralize the system. A client can always close a head and recover funds with an alternative provider or even use a transaction created out-of-band (e.g., by the client application using another service to submit the transaction).
+The [basic Hydra head setup](../basic) requires each participant to host an instance of a `hydra-node`, similar to how `cardano-node`s operate on the Cardano network. In contrast, 'light node' setups allow users to access the blockchain through a hosted API, with light wallets being a common example.
+
+In this topology, clients do not need to run their own `hydra-node`s but instead access a `hydra-node` provided by a _service provider_. Client applications, such as light wallets, do not need to be aware of individual `hydra-node` instances. Instead, logical _Hydra heads_ are accessible via an API.
+
+The illustration above depicts three different Hydra heads: two pairwise (yellow and green) and one multi-party (blue). Clients A, B, and C access their heads using the service provider, while client D manages their own hosting.
+For this setup to be feasible, it is crucial that the _Hydra keys_ remain on the client side and that the `hydra-node` serves purely as infrastructure — it does not take custody of the user's funds.
+
+As a result, the client must be online for any progress to occur within a Hydra head. This requirement can be cumbersome in multi-party Hydra heads, as they may stall if a lightweight mobile client is offline for a period. However, this setup aligns well with _two-party Hydra heads_, where a transaction is only completed if both parties are online to send, receive, and acknowledge it.
+
+An example use case for two-party Hydra heads includes payment channels between two [machines](../../use-cases/payments/pay-per-use-api) or [individuals](../../use-cases/payments/inter-wallet-payments), especially if such multiple channels are logically interconnected, similar to the Lightning Network.
+
+Although access to Hydra heads is facilitated by the service provider, this does not centralize the system. A client can always close a head and recover funds with an alternative provider or even use a transaction created out-of-band (eg, by the client application using another service to submit the transaction).
