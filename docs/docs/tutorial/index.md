@@ -35,7 +35,7 @@ mkdir -p bin
 version=0.17.0
 mithril_version=2423.0
 node_version=8.9.3
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-linux.tar.gz
 tar xf cardano-node-${node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
@@ -53,7 +53,7 @@ mkdir -p bin
 version=0.17.0
 mithril_version=2423.0
 node_version=8.9.3
-curl -L -O https://github.com/input-output-hk/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-macos.tar.gz
 tar xf cardano-node-${node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
@@ -264,6 +264,26 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 In case you don't have test ada on `preprod`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
+Something like the following (if you used the faucet to give funds only to `alice-funds.addr`):
+
+```
+# Build a Tx to send funds from `alice-funds` to the others who need them: bob
+# funds and nodes.
+cardano-cli transaction build \
+    --tx-in <the TxId of the faucet Tx that provided the funds> \
+    --change-address $(cat credentials/alice-funds.addr) \
+    --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
+    --tx-out $(cat credentials/bob-node.addr)+1000000000 \
+    --tx-out $(cat credentials/alice-node.addr)+1000000000 \
+    --out-file tx.json
+
+cardano-cli transaction sign \
+  --tx-file tx.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file tx-signed.json
+
+cardano-cli transaction submit --tx-file tx-signed.json
+```
 :::
 
 You can check the balance of your addresses via:
@@ -441,6 +461,16 @@ This opens a duplex connection and you should see messages indicating successful
   "timestamp": "2023-08-17T18:32:29.092329511Z"
 }
 ```
+
+:::tip
+You can use the `hydra-tui` to view the state of the node and perform actions
+as well. For example, to run the TUI for alice:
+
+```
+hydra-tui -k credentials/alice-node.sk
+```
+:::
+
 
 ## Step 4. Open a Hydra head
 
