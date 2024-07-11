@@ -23,7 +23,6 @@ This tutorial assumes the following tools are available on your system:
 - [ ] `tar`
 - [ ] [`jq`](https://jqlang.github.io/jq/).
 - [ ] [`websocat`](https://github.com/vi/websocat)
-- [ ] [`jq`](https://jqlang.github.io/jq/).
 
 After ensuring the tools above are available, begin by downloading pre-built binaries of the involved Cardano software components and placing them in a `bin/` directory:
 
