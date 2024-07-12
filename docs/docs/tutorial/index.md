@@ -471,7 +471,7 @@ You can use the `hydra-tui` to view the state of the node and perform actions
 as well. For example, to run the TUI for alice:
 
 ```
-hydra-tui -k credentials/alice-node.sk
+hydra-tui -k credentials/alice-funds.sk
 ```
 :::
 
