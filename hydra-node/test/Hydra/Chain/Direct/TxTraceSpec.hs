@@ -682,11 +682,11 @@ signedSnapshot ms v =
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
+      , version = v
       , number = snapshotNumber ms
       , confirmed = []
       , utxo
       , utxoToDecommit = Just toDecommit
-      , version = v
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]

@@ -72,19 +72,17 @@ healthyOutdatedSnapshotNumber = 1
 healthyOutdatedSnapshotVersion :: SnapshotVersion
 healthyOutdatedSnapshotVersion = 1
 
---- Decommit snapshot which we want to mimick so that we test how close
---- behaves after decommit.
+-- | Decommit snapshot which refers to the previous open state version. That is,
+-- 'healthyOpenStateVersion' - 1.
 healthyOutdatedSnapshot :: Snapshot Tx
 healthyOutdatedSnapshot =
   Snapshot
     { headId = mkHeadId Fixture.testPolicyId
-    , number = healthyOutdatedSnapshotNumber
-    , utxo = healthySplitUTxOInHead
-    , confirmed = []
-    , -- XXX even after observing a decrement tx,
-      -- the snapshot still contains something to decommit.
-      utxoToDecommit = Just healthySplitUTxOToDecommit
     , version = healthyOutdatedSnapshotVersion
+    , number = healthyOutdatedSnapshotNumber
+    , confirmed = []
+    , utxo = healthySplitUTxOInHead
+    , utxoToDecommit = Just healthySplitUTxOToDecommit
     }
 
 healthyOutdatedOpenDatum :: Head.State
