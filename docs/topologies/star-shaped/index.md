@@ -1,5 +1,5 @@
 ---
-sidebar_label: 'Star-shaped Network'
+sidebar_label: 'Star-shaped network'
 sidebar_position: 4
 ---
 
@@ -19,7 +19,6 @@ A _star-shaped Hydra network_, or more precisely a star-shaped heads network, co
 
 * A central _server_ node that provides 'head-as-a-service' with low expected downtime, likely operated by a company or organization equipped to host this service.
 * _Client_ nodes, which may be DApp instances or mobile/personal wallets. These nodes might not always be online and can come and go.
-
 
 ![Star-shaped Heads Network](./star-shaped-general.jpg)
 
@@ -46,7 +45,7 @@ _Remarks_:
 
 * It is assumed that transactions occurring in one head are reflected in the other, resulting in a consistently final UTXO `c`
   * Both heads must start with the _same_ initial UTXO set, which is challenging to implement (highlighted in red in the diagram)
-  * If the final UTXO set is consistent, then it can be fanned out by any party. However, this could result in one `ν_head` staying dangling and becoming unspendable as it would recreate an already existing UTXO (grayed out transaction in the diagram)
+  * If the final UTXO set is consistent, then it can be fanned out by any party. However, this could result in one `ν_head` staying dangling and becoming unspendable as it would recreate an already existing UTXO (grayed out transaction in the diagram).
 * The lifecycles of the heads are interconnected: when one is closed, the other must also be closed, as ensured by the server.
 
 ## Off-chain transactions
