@@ -767,6 +767,7 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
+  -- TODO: require outputs(tx) ≠ ∅ to prevent decommit spam?
   -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO ->
     let decommitUTxO = utxoFromTx decommitTx
