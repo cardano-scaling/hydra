@@ -100,13 +100,11 @@ healthySnapshot :: SnapshotNumber -> SnapshotVersion -> Snapshot Tx
 healthySnapshot number version =
   Snapshot
     { headId = mkHeadId Fixture.testPolicyId
-    , number
-    , utxo = healthySplitUTxOInHead
-    , confirmed = []
-    , -- XXX even after observing a decrement tx,
-      -- the snapshot still contains something to decommit.
-      utxoToDecommit = Just healthySplitUTxOToDecommit
     , version
+    , number
+    , confirmed = []
+    , utxo = healthySplitUTxOInHead
+    , utxoToDecommit = Just healthySplitUTxOToDecommit
     }
 
 -- FIXME: check all usages of this

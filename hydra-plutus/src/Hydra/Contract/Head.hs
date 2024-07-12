@@ -672,10 +672,10 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToD
   message =
     -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
     Builtins.serialiseData (toBuiltinData headId)
+      <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
       <> Builtins.serialiseData (toBuiltinData $ fromMaybe mempty utxoToDecommitHash)
-      <> Builtins.serialiseData (toBuiltinData snapshotVersion)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering

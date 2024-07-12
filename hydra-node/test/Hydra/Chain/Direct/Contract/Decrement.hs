@@ -106,11 +106,11 @@ healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
-        , number = succ healthySnapshotNumber
-        , utxo
-        , confirmed = []
-        , utxoToDecommit = Just utxoToDecommit'
         , version = healthySnapshotVersion
+        , number = succ healthySnapshotNumber
+        , confirmed = []
+        , utxo
+        , utxoToDecommit = Just utxoToDecommit'
         }
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)

@@ -436,11 +436,11 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
             let nextSnapshot =
                   Snapshot
                     { headId
+                    , version = version
                     , number = nextConfSn
                     , utxo = u
                     , confirmed = requestedTxIds
                     , utxoToDecommit = mUtxoToDecommit
-                    , version = version
                     }
             -- Spec: σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
             let snapshotSignature = sign signingKey nextSnapshot
