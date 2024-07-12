@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mk
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
@@ -83,7 +84,7 @@ spec = do
                 chainObserverSees observer "HeadDecrementTx" headId
 
                 waitFor hydraTracer 50 [hydraNode] $
-                  output "DecommitFinalized" ["headId" .= headId]
+                  output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= txId decommitTx]
 
                 send hydraNode $ input "Close" []
 

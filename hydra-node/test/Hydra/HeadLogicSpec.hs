@@ -169,9 +169,8 @@ spec =
                   coordinatedHeadState
                     { decommitTx = Just decommitTxInFlight
                     }
-          update bobEnv ledger s0 reqDecEvent `shouldSatisfy` \case
-            Error (RequireFailed DecommitTxInFlight{decommitTx = transaction}) ->
-              transaction == decommitTxInFlight
+          update bobEnv ledger s0 reqDecEvent `hasEffectSatisfying` \case
+            ClientEffect DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
         it "wait for second decommit when another one is in flight" $ do
