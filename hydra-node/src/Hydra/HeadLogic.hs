@@ -29,6 +29,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
@@ -501,7 +502,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
         -- Spec: require S⁻.𝑈 ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
-            Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
+            Error $ RequireFailed $ DecommitDoesNotApply (txId decommitTx) err
           Right newConfirmedUTxO -> do
             -- Spec: ηω ← combine(outputs(txω))
             let utxoToDecommit = utxoFromTx decommitTx
@@ -654,11 +655,16 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
-    case utxoToDecommit of
-      Just utxoToDecommit' ->
+    case (decommitTx, utxoToDecommit) of
+      (Just tx, Just utxo) ->
         outcome
           <> causes
-            [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+            [ ClientEffect $
+                ServerOutput.DecommitApproved
+                  { headId
+                  , decommitTxId = txId tx
+                  , utxoToDecommit = utxo
+                  }
             , OnChainEffect
                 { postChainTx =
                     DecrementTx
@@ -669,7 +675,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       }
                 }
             ]
-      Nothing -> outcome
+      _ -> outcome
 
   nextSn = sn + 1
 
@@ -688,7 +694,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 -- | Decide to output 'ReqDec' effect by checking first if there is no decommit
 -- _in flight_ and if the tx applies cleanly to the local ledger state.
 onOpenClientDecommit ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   Environment ->
   HeadId ->
   Ledger tx ->
@@ -708,7 +714,11 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
           ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
-                , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+                , decommitTx
+                , decommitInvalidReason =
+                    ServerOutput.DecommitAlreadyInFlight
+                      { otherDecommitTxId = txId existingDecommitTx
+                      }
                 }
           )
       Nothing -> continue
@@ -720,10 +730,10 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
           ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
+                , decommitTx
                 , decommitInvalidReason =
                     ServerOutput.DecommitTxInvalid
                       { confirmedUTxO
-                      , decommitTx
                       , validationError = err
                       }
                 }
@@ -775,7 +785,14 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
      in -- Spec: L̂   ← L̂ \ inputs(tx)
         --       txω ← tx
         newState (DecommitRecorded decommitTx activeUTxO)
-          <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
+          <> cause
+            ( ClientEffect $
+                ServerOutput.DecommitRequested
+                  { headId
+                  , decommitTx = decommitTx
+                  , utxoToDecommit = decommitUTxO
+                  }
+            )
           -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
           --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
           <> maybeEmitSnapshot
@@ -792,10 +809,10 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                 cause . ClientEffect $
                   ServerOutput.DecommitInvalid
                     { headId
+                    , decommitTx
                     , decommitInvalidReason =
                         ServerOutput.DecommitTxInvalid
                           { confirmedUTxO
-                          , decommitTx
                           , validationError = err
                           }
                     }
@@ -803,8 +820,15 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
         | ttl > 0 ->
             wait $ WaitOnNotApplicableDecommitTx decommitTx
         | otherwise ->
-            -- REVIW: cause . ClientEffect $ ServerOutput.DecommitInvalid
-            Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+            cause . ClientEffect $
+              ServerOutput.DecommitInvalid
+                { headId
+                , decommitTx
+                , decommitInvalidReason =
+                    DecommitAlreadyInFlight
+                      { otherDecommitTxId = txId existingDecommitTx
+                      }
+                }
 
   maybeEmitSnapshot =
     if isLeader parameters party nextSn
@@ -860,7 +884,7 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
           -- Spec: txω ← ⊥
           --       vˆ  ← v
           newState DecommitFinalized{newVersion}
-            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
+            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
             -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
             --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
             & maybeEmitSnapshot
