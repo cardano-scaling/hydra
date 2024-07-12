@@ -1,5 +1,5 @@
 ---
-sidebar_label: 'Delegated Head'
+sidebar_label: 'Delegated head'
 sidebar_position: 4
 ---
 
