@@ -33,3 +33,11 @@ hspec-results.md
 /demo/devnet/
 /demo/persistence/
 /docs/static/haddock/
+
+# demo
+devnet
+.env
+logs
+acks
+server-output
+state
