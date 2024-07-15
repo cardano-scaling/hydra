@@ -86,6 +86,7 @@ instance HasVariables Payment where
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
   type TxIdType Payment = Int
+  type TxOutType Payment = (CardanoSigningKey, Value)
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
   txId = error "undefined"
@@ -96,6 +97,7 @@ instance IsTx Payment where
     [(from, value)] -> Payment{from, to = from, value}
     _ -> error "cant spend from multiple utxo in one payment"
   utxoFromTx Payment{to, value} = [(to, value)]
+  outputsOfUTxO = id
   withoutUTxO a b =
     let as = second valueToList <$> a
         bs = second valueToList <$> b

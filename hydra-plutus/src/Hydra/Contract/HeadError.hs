@@ -7,20 +7,35 @@ import Hydra.Contract.Error (ToErrorCode (..), errorCode)
 
 data HeadError
   = InvalidHeadStateTransition
+  | ChangedParameters
+  | WrongStateInOutputDatum
+  | HeadValueIsNotPreserved
+  | SignerIsNotAParticipant
+  | NoSigners
+  | TooManySigners
+  | ScriptNotSpendingAHeadInput
+  | NoOutputDatumError
+  | UnexpectedNonInlineDatum
+  | NotPayingToHead
+  | SignatureVerificationFailed
+  | MustNotChangeVersion
   | BurntTokenNumberMismatch
   | ReimbursedOutputsDontMatch
   | STNotSpent
   | IncorrectUtxoHash
-  | ChangedParameters
-  | WrongStateInOutputDatum
   | MissingCommits
-  | HeadValueIsNotPreserved
+  | NotAllValueCollected
+  | IncorrectVersion
+  | VersionNotIncremented
   | HasBoundedValidityCheckFailed
-  | ClosedWithNonInitialHash
   | IncorrectClosedContestationDeadline
   | InfiniteUpperBound
   | InfiniteLowerBound
   | ContestersNonEmpty
+  | CloseNoUpperBoundDefined
+  | FailedCloseInitial
+  | FailedCloseCurrent
+  | FailedCloseOutdated
   | TooOldSnapshot
   | UpperBoundBeyondContestationDeadline
   | ContestNoUpperBoundDefined
@@ -29,63 +44,63 @@ data HeadError
   | ContesterNotIncluded
   | WrongNumberOfSigners
   | SignerAlreadyContested
-  | FannedOutUtxoHashNotEqualToClosedUtxoHash
+  | FailedContestCurrent
+  | FailedContestOutdated
+  | FanoutUTxOHashMismatch
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
-  | CloseNoUpperBoundDefined
-  | ScriptNotSpendingAHeadInput
-  | SignerIsNotAParticipant
-  | NoSigners
-  | TooManySigners
-  | NoOutputDatumError
-  | UnexpectedNonInlineDatum
-  | SignatureVerificationFailed
-  | NotPayingToHead
-  | NotAllValueCollected
-  | SnapshotNumberMismatch
-  | IncorrectVersion
-  | LastKnownVersionIsNotMatching
-  | FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit
+  | FanoutUTxOToDecommitHashMismatch
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
-    InvalidHeadStateTransition -> "H01"
-    BurntTokenNumberMismatch -> "H02"
-    ReimbursedOutputsDontMatch -> "H03"
-    STNotSpent -> "H04"
-    IncorrectUtxoHash -> "H05"
-    ChangedParameters -> "H06"
-    WrongStateInOutputDatum -> "H07"
-    MissingCommits -> "H08"
-    HeadValueIsNotPreserved -> "H09"
-    HasBoundedValidityCheckFailed -> "H10"
-    ClosedWithNonInitialHash -> "H11"
-    IncorrectClosedContestationDeadline -> "H12"
-    InfiniteUpperBound -> "H13"
-    InfiniteLowerBound -> "H14"
-    ContestersNonEmpty -> "H15"
-    TooOldSnapshot -> "H16"
-    UpperBoundBeyondContestationDeadline -> "H17"
-    ContestNoUpperBoundDefined -> "H18"
-    MustNotPushDeadline -> "H19"
-    MustPushDeadline -> "H20"
-    ContesterNotIncluded -> "H21"
-    WrongNumberOfSigners -> "H22"
-    SignerAlreadyContested -> "H23"
-    FannedOutUtxoHashNotEqualToClosedUtxoHash -> "H24"
-    LowerBoundBeforeContestationDeadline -> "H25"
-    FanoutNoLowerBoundDefined -> "H26"
+    -- Generic
+    InvalidHeadStateTransition -> "H1"
+    ChangedParameters -> "H2"
+    WrongStateInOutputDatum -> "H3"
+    HeadValueIsNotPreserved -> "H4"
+    SignerIsNotAParticipant -> "H5"
+    NoSigners -> "H6"
+    TooManySigners -> "H7"
+    ScriptNotSpendingAHeadInput -> "H8"
+    NoOutputDatumError -> "H9"
+    UnexpectedNonInlineDatum -> "H10"
+    NotPayingToHead -> "H11"
+    SignatureVerificationFailed -> "H12"
+    MustNotChangeVersion -> "H13"
+    -- Abort
+    BurntTokenNumberMismatch -> "H14"
+    ReimbursedOutputsDontMatch -> "H15"
+    -- Collect
+    STNotSpent -> "H16"
+    IncorrectUtxoHash -> "H17"
+    MissingCommits -> "H18"
+    NotAllValueCollected -> "H19"
+    IncorrectVersion -> "H20"
+    -- Decrement
+    VersionNotIncremented -> "H21"
+    -- Close
+    HasBoundedValidityCheckFailed -> "H22"
+    IncorrectClosedContestationDeadline -> "H23"
+    InfiniteUpperBound -> "H24"
+    InfiniteLowerBound -> "H25"
+    ContestersNonEmpty -> "H26"
     CloseNoUpperBoundDefined -> "H27"
-    ScriptNotSpendingAHeadInput -> "H28"
-    SignerIsNotAParticipant -> "H29"
-    NoSigners -> "H30"
-    TooManySigners -> "H31"
-    NoOutputDatumError -> "H32"
-    UnexpectedNonInlineDatum -> "H33"
-    SignatureVerificationFailed -> "H34"
-    NotPayingToHead -> "H35"
-    NotAllValueCollected -> "H36"
-    SnapshotNumberMismatch -> "H37"
-    IncorrectVersion -> "H38"
-    LastKnownVersionIsNotMatching -> "H39"
-    FannedOutUtxoHashNotEqualToClosedUtxoHashToDecommit -> "H40"
+    FailedCloseInitial -> "H28"
+    FailedCloseCurrent -> "H29"
+    FailedCloseOutdated -> "H30"
+    -- Contest
+    TooOldSnapshot -> "H31"
+    UpperBoundBeyondContestationDeadline -> "H32"
+    ContestNoUpperBoundDefined -> "H33"
+    MustNotPushDeadline -> "H34"
+    MustPushDeadline -> "H35"
+    ContesterNotIncluded -> "H36"
+    WrongNumberOfSigners -> "H37"
+    SignerAlreadyContested -> "H38"
+    FailedContestCurrent -> "H39"
+    FailedContestOutdated -> "H40"
+    -- Fanout
+    FanoutUTxOHashMismatch -> "H41"
+    FanoutUTxOToDecommitHashMismatch -> "H42"
+    LowerBoundBeforeContestationDeadline -> "H43"
+    FanoutNoLowerBoundDefined -> "H44"

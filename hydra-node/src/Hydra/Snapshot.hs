@@ -27,6 +27,11 @@ newtype SnapshotNumber
 instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
+-- NOTE: On-chain scripts ensure snapshot number does not become negative.
+fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
+fromChainSnapshotNumber =
+  UnsafeSnapshotNumber . fromMaybe 0 . integerToNatural
+
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
@@ -35,18 +40,22 @@ newtype SnapshotVersion
 instance Arbitrary SnapshotVersion where
   arbitrary = UnsafeSnapshotVersion <$> arbitrary
 
+-- NOTE: On-chain scripts ensure snapshot version does not become negative.
+fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
+fromChainSnapshotVersion =
+  UnsafeSnapshotVersion . fromMaybe 0 . integerToNatural
+
 data Snapshot tx = Snapshot
   { headId :: HeadId
+  , version :: SnapshotVersion
+  -- ^ Open state version this snapshot is based on.
   , number :: SnapshotNumber
-  , utxo :: UTxOType tx
+  -- ^ Monotonically increasing snapshot number.
   , confirmed :: [TxIdType tx]
+  , utxo :: UTxOType tx
   -- ^ The set of transactions that lead to 'utxo'
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Ûω
-  -- TODO: what is the difference between Noting and (Just mempty) here?
-  -- | Snapshot version is 0 at start and is only bumped further on each
-  -- decommit that happens.
-  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 
@@ -56,38 +65,36 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     object
-      ( [ "headId" .= headId
-        , "snapshotNumber" .= number
-        , "utxo" .= utxo
-        , "confirmedTransactions" .= confirmed
-        ]
-          <> maybe mempty (pure . ("utxoToDecommit" .=)) utxoToDecommit
-          <> ["version" .= version]
-      )
+      [ "headId" .= headId
+      , "version" .= version
+      , "snapshotNumber" .= number
+      , "confirmedTransactions" .= confirmed
+      , "utxo" .= utxo
+      , "utxoToDecommit" .= utxoToDecommit
+      ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
     Snapshot
       <$> (obj .: "headId")
+      <*> (obj .: "version")
       <*> (obj .: "snapshotNumber")
-      <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
+      <*> (obj .: "utxo")
       <*> ( obj .:? "utxoToDecommit" >>= \case
               Nothing -> pure mempty
               (Just utxo) -> pure utxo
           )
-      <*> (obj .: "version")
 
 instance IsTx tx => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
-    [ Snapshot headId number utxo' confirmed' utxoToDecommit' version'
-    | utxo' <- shrink utxo
-    , confirmed' <- shrink confirmed
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoToDecommit'
+    | confirmed' <- shrink confirmed
+    , utxo' <- shrink utxo
     , utxoToDecommit' <- shrink utxoToDecommit
-    , version' <- shrink version
     ]
 
 -- | Binary representation of snapshot signatures
@@ -105,22 +112,22 @@ instance IsTx tx => Arbitrary (Snapshot tx) where
 --
 -- root = [* snapshot ]
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{number, headId, utxo, utxoToDecommit, version} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
+        <> serialise (toData . toBuiltin $ toInteger version) -- CBOR(I(integer))
         <> serialise (toData . toBuiltin $ toInteger number) -- CBOR(I(integer))
         <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit) -- CBOR(B(bytestring)
-        <> serialise (toData . toBuiltin $ toInteger version) -- CBOR(I(integer))
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     toCBOR headId
-      <> toCBOR number
-      <> toCBOR utxo
-      <> toCBOR confirmed
-      <> toCBOR utxoToDecommit
       <> toCBOR version
+      <> toCBOR number
+      <> toCBOR confirmed
+      <> toCBOR utxo
+      <> toCBOR utxoToDecommit
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR =
@@ -159,11 +166,11 @@ getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     Snapshot
       { headId
-      , number = 0
-      , utxo = initialUTxO
-      , confirmed = []
-      , utxoToDecommit = mempty
       , version = 0
+      , number = 0
+      , confirmed = []
+      , utxo = initialUTxO
+      , utxoToDecommit = mempty
       }
   ConfirmedSnapshot{snapshot} -> snapshot
 
@@ -189,17 +196,18 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
 genConfirmedSnapshot ::
   IsTx tx =>
   HeadId ->
+  -- | Exact snapshot version to generate.
+  SnapshotVersion ->
   -- | The lower bound on snapshot number to generate.
   -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
   -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
   -- this lower bound.
   SnapshotNumber ->
-  SnapshotVersion ->
   UTxOType tx ->
   Maybe (UTxOType tx) ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId minSn version utxo utxoToDecommit sks
+genConfirmedSnapshot headId version minSn utxo utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -214,13 +222,6 @@ genConfirmedSnapshot headId minSn version utxo utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, number, utxo, confirmed = [], utxoToDecommit, version}
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
-
-fromChainSnapshot :: Onchain.SnapshotNumber -> SnapshotNumber
-fromChainSnapshot onChainSnapshotNumber =
-  maybe
-    (error "Failed to convert on-chain SnapShotNumber to off-chain one.")
-    UnsafeSnapshotNumber
-    (integerToNatural onChainSnapshotNumber)

@@ -576,7 +576,7 @@ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTim
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
 
     case datum of
-      Head.Closed{contesters, parties, contestationDeadline} -> do
+      Head.Closed Head.ClosedDatum{contesters, parties, contestationDeadline} -> do
         let closedThreadUTxO = headUTxO
             closedParties = parties
             closedContestationDeadline = contestationDeadline
@@ -855,7 +855,7 @@ genChainStateWithTx =
 
   genDecrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genDecrementWithState = do
-    (ctx, st, tx) <- genDecrementTx maxGenParties
+    (ctx, _, st, tx) <- genDecrementTx maxGenParties
     pure (ctx, Open st, tx, Decrement)
 
   genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
@@ -1028,7 +1028,7 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
-genDecrementTx :: Int -> Gen (ChainContext, OpenState, Tx)
+genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
@@ -1037,10 +1037,15 @@ genDecrementTx numParties = do
   snapshot <- do
     number <- getPositive <$> arbitrary
     let (utxo, toDecommit) = splitUTxO u0
-    pure Snapshot{headId, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit, version}
+    pure Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit}
   let signatures = aggregate $ fmap (`sign` snapshot) (ctxHydraSigningKeys ctx)
   let openUTxO = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures)
+  pure
+    ( cctx
+    , maybe mempty toList (utxoToDecommit snapshot)
+    , stOpen
+    , unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures
+    )
 
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
@@ -1055,7 +1060,7 @@ genCloseTx numParties = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUtxo, utxoToDecommit) = splitUTxO u0
   let version = 0
-  snapshot <- genConfirmedSnapshot headId 1 version confirmedUtxo (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 confirmedUtxo (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -1068,7 +1073,7 @@ genContestTx = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUtXO, utxoToDecommit) = splitUTxO u0
   let version = 1
-  confirmed <- genConfirmedSnapshot headId 1 version confirmedUtXO (Just utxoToDecommit) []
+  confirmed <- genConfirmedSnapshot headId version 1 confirmedUtXO (Just utxoToDecommit) []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -1078,7 +1083,7 @@ genContestTx = do
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
-  contestSnapshot <- genConfirmedSnapshot headId (succ $ number $ getSnapshot confirmed) version confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime version)
 

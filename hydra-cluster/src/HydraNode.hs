@@ -28,8 +28,10 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
+import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -180,6 +182,14 @@ requestCommitTx HydraClient{hydraNodeId} utxos =
       (ReqBodyJson $ SimpleCommitRequest @Tx utxos)
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
       (Req.port $ 4_000 + hydraNodeId)
+
+-- | Submit a decommit transaction to the hydra-node.
+postDecommit :: HydraClient -> Tx -> IO ()
+postDecommit HydraClient{hydraNodeId} decommitTx = do
+  void $
+    parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+      <&> setRequestBodyJSON decommitTx
+        >>= httpLbs
 
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we usually
 -- avoid parsing responses using the same data types as the system under test,

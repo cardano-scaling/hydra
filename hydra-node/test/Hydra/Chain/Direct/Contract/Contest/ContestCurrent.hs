@@ -19,12 +19,13 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceDeltaUTxOHash,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceUtxoHash,
-  replaceUtxoToDecommitHash,
+  replaceSnapshotVersion,
+  replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
@@ -51,7 +52,7 @@ import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -130,16 +131,17 @@ healthyContestSnapshot =
 healthyClosedState :: Head.State
 healthyClosedState =
   Head.Closed
-    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-    , utxoHash = healthyClosedUTxOHash
-    , utxoToDecommitHash = mempty
-    , parties = healthyOnChainParties
-    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = healthyOnChainContestationPeriod
-    , headId = toPlutusCurrencySymbol testPolicyId
-    , contesters = []
-    , version = toInteger healthyCloseSnapshotVersion
-    }
+    Head.ClosedDatum
+      { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+      , utxoHash = healthyClosedUTxOHash
+      , deltaUTxOHash = mempty
+      , parties = healthyOnChainParties
+      , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , contestationPeriod = healthyOnChainContestationPeriod
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , contesters = []
+      , version = toInteger healthyCloseSnapshotVersion
+      }
 
 healthyContestUTxOHash :: BuiltinByteString
 healthyContestUTxOHash =
@@ -222,6 +224,8 @@ data ContestMutation
     --
     -- Ensures the snapshot signature is aligned with snapshot number.
     MutateSnapshotNumberButNotSignature
+  | -- | Check the snapshot version is preserved from last open state.
+    MutateSnapshotVersion
   | -- | Invalidates the tx by changing the contest snapshot number too old.
     --
     -- This is achieved by updating the head input datum to be older, so the
@@ -292,31 +296,31 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Head.Contest
-            { signature = toPlutusSignatures mutatedSignature
-            , version = Head.CurrentVersion
-            , utxoToDecommitHash = expectedHash
-            }
+            Head.ContestCurrent
+              { signature = toPlutusSignatures mutatedSignature
+              }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , -- Last known open state version stays recorded in closed state
+      SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeInputHeadDatum $
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  { signature =
-                      toPlutusSignatures $
-                        healthySignature (fromInteger mutatedSnapshotNumber)
-                  , version = Head.CurrentVersion
-                  , utxoToDecommitHash = expectedHash
-                  }
+                  Head.ContestCurrent
+                    { signature =
+                        toPlutusSignatures $
+                          healthySignature (fromInteger mutatedSnapshotNumber)
+                    }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
@@ -331,13 +335,13 @@ genContestMutation (tx, _utxo) =
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
         pure $
           modifyInlineDatum
-            (replaceUtxoHash (toBuiltin mutatedUTxOHash))
+            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOToDecommitHash) . toBuiltin)
+        mutatedUTxOHash <- arbitrary `suchThat` (/= Just healthyContestUTxOToDecommitHash)
         pure $
           modifyInlineDatum
-            (replaceUtxoToDecommitHash (toBuiltin mutatedUTxOHash))
+            (replaceDeltaUTxOHash mutatedUTxOHash)
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
@@ -347,11 +351,10 @@ genContestMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
         pure (lb, ub)
-    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+    , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
-        let expectedHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty $ utxoToDecommit healthyContestSnapshot)
         pure $
           Changes
             [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
@@ -361,12 +364,11 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          { signature =
-                              toPlutusSignatures $
-                                healthySignature healthyContestSnapshotNumber
-                          , version = Head.CurrentVersion
-                          , utxoToDecommitHash = expectedHash
-                          }
+                          Head.ContestCurrent
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyContestSnapshotNumber
+                            }
                       )
                 )
             ]
@@ -374,19 +376,13 @@ genContestMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (pure $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
         let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
-            contesterAndSomeOthers = do
-              contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
-              pure (contester : contesters)
-        mutatedContesters <-
-          oneof
-            [ pure [contester]
-            , contesterAndSomeOthers
-            ]
+        mutatedContesters <- do
+          contesters <- resize (length healthyParticipants - 1) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+          pure (contester : contesters)
         pure $
           healthyClosedState & replaceContesters mutatedContesters
     , SomeMutation (pure $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
-        hashes <- listOf genHash
-        let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+        mutatedContesters <- resize (length healthyParticipants) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
         pure $ modifyInlineDatum (replaceContesters mutatedContesters) headTxOut
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue

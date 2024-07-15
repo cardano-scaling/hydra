@@ -9,8 +9,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
-  replaceSnapshotNumberInOpen,
-  replaceSnapshotVersionInOpen,
+  replaceSnapshotVersion,
  )
 import Hydra.Prelude hiding (label)
 
@@ -107,11 +106,11 @@ healthySnapshot =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
    in Snapshot
         { headId = mkHeadId testPolicyId
-        , number = succ healthySnapshotNumber
-        , utxo
-        , confirmed = []
-        , utxoToDecommit = Just utxoToDecommit'
         , version = healthySnapshotVersion
+        , number = succ healthySnapshotNumber
+        , confirmed = []
+        , utxo
+        , utxoToDecommit = Just utxoToDecommit'
         }
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
@@ -133,21 +132,18 @@ healthyDatum :: Head.State
 healthyDatum =
   let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
    in Head.Open
-        { utxoHash = toBuiltin $ hashUTxO @Tx utxo
-        , parties = healthyOnChainParties
-        , contestationPeriod = toChain healthyContestationPeriod
-        , snapshotNumber = toInteger healthySnapshotNumber
-        , headId = toPlutusCurrencySymbol testPolicyId
-        , version = toInteger healthySnapshotVersion
-        }
+        Head.OpenDatum
+          { utxoHash = toBuiltin $ hashUTxO @Tx utxo
+          , parties = healthyOnChainParties
+          , contestationPeriod = toChain healthyContestationPeriod
+          , headId = toPlutusCurrencySymbol testPolicyId
+          , version = toInteger healthySnapshotVersion
+          }
 
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
     --  datum.
     ChangePartiesInOuput
-  | -- | Invalidates the tx by changing the snapshot number in resulting head
-    -- output.
-    UseDifferentSnapshotNumber
   | -- | Produce invalid signature by changing signers in the redeemer
     ProduceInvalidSignatures
   | -- | Ensures decrement is authenticated by one of the Head members by changing
@@ -169,25 +165,28 @@ data DecrementMutation
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
-genDecrementMutation (tx, utxo) =
+genDecrementMutation (tx, _utxo) =
   oneof
-    [ -- XXX: parameters cid, ̃kH,n,T stay unchanged
+    [ -- Spec: parameters cid, ̃kH,n,T stay unchanged
       SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOuput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , -- New version v′ is incremented correctly
-      SomeMutation (pure $ toErrorCode IncorrectVersion) UseDifferentSnapshotVersion <$> do
-        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (> healthySnapshotVersion + 1)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersionInOpen $ toInteger mutatedSnapshotVersion) headTxOut
-    , -- XXX: Decrement snapshot number s′ is higher than the currently stored snapshot number s
-      SomeMutation (pure $ toErrorCode SnapshotNumberMismatch) UseDifferentSnapshotNumber <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (< healthySnapshotNumber)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumberInOpen $ toInteger mutatedSnapshotNumber) headTxOut
-    , -- XXX: ξ is a valid multi-signature of the currency id cid, the current snapshot state η,
-      -- the new snapshot number s′ and state η
+      SomeMutation (pure $ toErrorCode VersionNotIncremented) UseDifferentSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
+    , -- Spec: ξ is a valid multi-signature of the currency id cid, the current
+      -- snapshot state η, the new snapshot number s′ and state η
       SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
-        Head.Decrement . toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx))) <*> pure (fromIntegral $ length utxo - 1)
-    , -- XXX: Transaction is signed by a participant
+        invalidSignature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        pure $
+          Head.Decrement
+            Head.DecrementRedeemer
+              { signature = invalidSignature
+              , snapshotNumber = fromIntegral healthySnapshotNumber
+              , numberOfDecommitOutputs = fromIntegral $ maybe 0 length $ utxoToDecommit healthySnapshot
+              }
+    , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
@@ -197,7 +196,7 @@ genDecrementMutation (tx, utxo) =
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , -- XXX: The value in the head output is decreased accordingly
+    , -- Spec: The value in the head output is decreased accordingly
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})

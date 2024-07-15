@@ -31,19 +31,26 @@ class
   , FromJSONKey (TxIdType tx)
   , ToJSONKey (TxIdType tx)
   , --
+    Eq (TxOutType tx)
+  , Show (TxOutType tx)
+  , Arbitrary (TxOutType tx)
+  , ToJSON (TxOutType tx)
+  , FromJSON (TxOutType tx)
+  , --
     Eq (UTxOType tx)
   , Show (UTxOType tx)
   , Arbitrary (UTxOType tx)
-  , FromJSON (UTxOType tx)
   , Monoid (UTxOType tx)
+  , FromJSON (UTxOType tx)
   , ToJSON (UTxOType tx)
   , FromCBOR (UTxOType tx)
   , ToCBOR (UTxOType tx)
   ) =>
   IsTx tx
   where
-  type UTxOType tx = utxo | utxo -> tx
   type TxIdType tx
+  type TxOutType tx = out | out -> tx
+  type UTxOType tx = utxo | utxo -> tx
   type ValueType tx
 
   -- XXX(SN): this name easily conflicts
@@ -58,8 +65,15 @@ class
   -- | Get the UTxO produced by given transaction.
   utxoFromTx :: tx -> UTxOType tx
 
+  -- | Get only the outputs in given UTxO.
+  outputsOfUTxO :: UTxOType tx -> [TxOutType tx]
+
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
+
+-- | Get outputs of a transaction.
+outputsOfTx :: IsTx tx => tx -> [TxOutType tx]
+outputsOfTx = outputsOfUTxO . utxoFromTx
 
 -- | A generic description for a chain slot all implementions need to use.
 newtype ChainSlot = ChainSlot Natural

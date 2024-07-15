@@ -73,15 +73,10 @@ data Message tx
       , transactionIds :: [TxIdType tx]
       , decommitTx :: Maybe tx
       }
-  | -- NOTE: We remove the party from the ackSn but, it would make sense to put it
-    -- back as the signed snapshot is tied to the party and we should not
-    -- consider which party sent this message to validate this snapshot signature.
-    -- but currently we do not validate the snapshot signature itself, which is
-    -- a problem.
-    -- When we fix that, when we check the snapshot signature, that would be a
-    -- good idea to introduce the party in AckSn again or, maybe better, only
-    -- the verification key of the party.
-    AckSn {signed :: Signature (Snapshot tx), snapshotNumber :: SnapshotNumber}
+  | AckSn
+      { signed :: Signature (Snapshot tx)
+      , snapshotNumber :: SnapshotNumber
+      }
   | ReqDec {transaction :: tx, decommitRequester :: Party}
   deriving stock (Generic)
 

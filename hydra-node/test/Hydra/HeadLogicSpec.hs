@@ -117,9 +117,8 @@ spec =
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
-        -- TODO: perhaps use smart constructor for ReqSn to reduce the noise
         let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing
-            snapshot1 = Snapshot testHeadId 1 mempty [] mempty 0
+            snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
@@ -127,7 +126,7 @@ spec =
           step (ackFrom aliceSk alice)
           getState
 
-        getConfirmedSnapshot snapshotInProgress `shouldBe` Just (testSnapshot 0 0 mempty [])
+        getConfirmedSnapshot snapshotInProgress `shouldBe` Just (testSnapshot 0 0 [] mempty)
 
         snapshotConfirmed <-
           runHeadLogic bobEnv ledger snapshotInProgress $ do
@@ -170,9 +169,8 @@ spec =
                   coordinatedHeadState
                     { decommitTx = Just decommitTxInFlight
                     }
-          update bobEnv ledger s0 reqDecEvent `shouldSatisfy` \case
-            Error (RequireFailed DecommitTxInFlight{decommitTx = transaction}) ->
-              transaction == decommitTxInFlight
+          update bobEnv ledger s0 reqDecEvent `hasEffectSatisfying` \case
+            ClientEffect DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
         it "wait for second decommit when another one is in flight" $ do
@@ -267,6 +265,14 @@ spec =
           update aliceEnv ledger s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx decommitTx'
 
+        it "emits snapshot onDecrementTx with cleared decommitTx" $ do
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              s0 = inOpenState' threeParties coordinatedHeadState{decommitTx = Just decommitTx}
+              leaderEnv = aliceEnv
+          o <- runHeadLogic leaderEnv ledger s0 $ do
+            step (observeTx OnDecrementTx{headId = testHeadId, newVersion = 1, distributedOutputs = [1]})
+          o `hasEffect` NetworkEffect (ReqSn 1 1 [] Nothing)
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties
@@ -298,7 +304,7 @@ spec =
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
               reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing
-              snapshot1 = testSnapshot 1 0 (utxoRefs [1]) [1]
+              snapshot1 = testSnapshot 1 0 [1] (utxoRefs [1])
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -318,8 +324,8 @@ spec =
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing
-            snapshot = testSnapshot 1 0 mempty []
-            snapshot' = testSnapshot 2 0 mempty []
+            snapshot = testSnapshot 1 0 [] mempty
+            snapshot' = testSnapshot 2 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
             invalidAckFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot') 1
         waitingForLastAck <-
@@ -335,7 +341,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing
-            snapshot = testSnapshot 1 0 mempty []
+            snapshot = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -351,7 +357,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing
-            snapshot1 = testSnapshot 1 0 mempty []
+            snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
@@ -370,7 +376,7 @@ spec =
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn = receiveMessage $ ReqSn 0 1 [] Nothing
-            snapshot1 = testSnapshot 1 0 mempty []
+            snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -404,7 +410,7 @@ spec =
           `assertWait` WaitOnTxs [1]
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
-        let snapshot = testSnapshot 1 0 mempty []
+        let snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
         update bobEnv ledger (inOpenState threeParties) input
           `assertWait` WaitOnSeenSnapshot
@@ -431,7 +437,7 @@ spec =
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
-            snapshot = testSnapshot 1 0 mempty []
+            snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
@@ -449,7 +455,7 @@ spec =
       it "rejects too-old snapshots" $ do
         let input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing
             theLeader = alice
-            snapshot = testSnapshot 2 0 mempty []
+            snapshot = testSnapshot 2 0 [] mempty
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])}
@@ -458,12 +464,12 @@ spec =
       it "rejects too-old snapshots when collecting signatures" $ do
         let input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing
             theLeader = alice
-            snapshot = testSnapshot 2 0 mempty []
+            snapshot = testSnapshot 2 0 [] mempty
             st =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
-                  , seenSnapshot = SeenSnapshot (testSnapshot 3 0 mempty []) mempty
+                  , seenSnapshot = SeenSnapshot (testSnapshot 3 0 [] mempty) mempty
                   }
         update bobEnv ledger st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
@@ -575,7 +581,7 @@ spec =
 
       it "contests when detecting close with old snapshot" $ do
         let snapshotVersion = 0
-            snapshot = testSnapshot 2 snapshotVersion mempty []
+            snapshot = testSnapshot 2 snapshotVersion [] mempty
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
             s0 =
               inOpenState' threeParties $
@@ -593,7 +599,7 @@ spec =
 
       it "re-contests when detecting contest with old snapshot" $ do
         let snapshotVersion = 0
-            snapshot2 = testSnapshot 2 snapshotVersion mempty []
+            snapshot2 = testSnapshot 2 snapshotVersion [] mempty
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
@@ -621,7 +627,7 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
-        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId}
+        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedOutputs = mempty}
         update bobEnv ledger (inOpenState threeParties) decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
@@ -951,15 +957,15 @@ testSnapshot ::
   Monoid (UTxOType tx) =>
   SnapshotNumber ->
   SnapshotVersion ->
-  UTxOType tx ->
   [TxIdType tx] ->
+  UTxOType tx ->
   Snapshot tx
-testSnapshot number version utxo confirmed =
+testSnapshot number version confirmed utxo =
   Snapshot
     { headId = testHeadId
-    , number
-    , utxo
-    , confirmed
-    , utxoToDecommit = mempty
     , version
+    , number
+    , confirmed
+    , utxo
+    , utxoToDecommit = mempty
     }

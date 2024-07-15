@@ -29,6 +29,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
@@ -84,11 +85,12 @@ import Hydra.HeadLogic.State (
  )
 import Hydra.Ledger (
   ChainSlot,
-  IsTx,
+  IsTx (..),
   Ledger (..),
   TxIdType,
   UTxOType,
   applyTransactions,
+  outputsOfTx,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -435,11 +437,11 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
             let nextSnapshot =
                   Snapshot
                     { headId
+                    , version = version
                     , number = nextConfSn
                     , utxo = u
                     , confirmed = requestedTxIds
                     , utxoToDecommit = mUtxoToDecommit
-                    , version = version
                     }
             -- Spec: σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
             let snapshotSignature = sign signingKey nextSnapshot
@@ -500,7 +502,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
         -- Spec: require S⁻.𝑈 ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
-            Error $ RequireFailed $ DecommitDoesNotApply decommitTx err
+            Error $ RequireFailed $ DecommitDoesNotApply (txId decommitTx) err
           Right newConfirmedUTxO -> do
             -- Spec: ηω ← combine(outputs(txω))
             let utxoToDecommit = utxoFromTx decommitTx
@@ -653,11 +655,16 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
-    case utxoToDecommit of
-      Just utxoToDecommit' ->
+    case (decommitTx, utxoToDecommit) of
+      (Just tx, Just utxo) ->
         outcome
           <> causes
-            [ ClientEffect $ ServerOutput.DecommitApproved{headId, utxoToDecommit = utxoToDecommit'}
+            [ ClientEffect $
+                ServerOutput.DecommitApproved
+                  { headId
+                  , decommitTxId = txId tx
+                  , utxoToDecommit = utxo
+                  }
             , OnChainEffect
                 { postChainTx =
                     DecrementTx
@@ -668,7 +675,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       }
                 }
             ]
-      Nothing -> outcome
+      _ -> outcome
 
   nextSn = sn + 1
 
@@ -687,7 +694,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 -- | Decide to output 'ReqDec' effect by checking first if there is no decommit
 -- _in flight_ and if the tx applies cleanly to the local ledger state.
 onOpenClientDecommit ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   Environment ->
   HeadId ->
   Ledger tx ->
@@ -707,7 +714,11 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
           ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
-                , decommitInvalidReason = ServerOutput.DecommitAlreadyInFlight{decommitTx = existingDecommitTx}
+                , decommitTx
+                , decommitInvalidReason =
+                    ServerOutput.DecommitAlreadyInFlight
+                      { otherDecommitTxId = txId existingDecommitTx
+                      }
                 }
           )
       Nothing -> continue
@@ -719,10 +730,10 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
           ( ClientEffect
               ServerOutput.DecommitInvalid
                 { headId
+                , decommitTx
                 , decommitInvalidReason =
                     ServerOutput.DecommitTxInvalid
                       { confirmedUTxO
-                      , decommitTx
                       , validationError = err
                       }
                 }
@@ -766,6 +777,7 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
+  -- TODO: require outputs(tx) ≠ ∅ to prevent decommit spam?
   -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO ->
     let decommitUTxO = utxoFromTx decommitTx
@@ -773,7 +785,14 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
      in -- Spec: L̂   ← L̂ \ inputs(tx)
         --       txω ← tx
         newState (DecommitRecorded decommitTx activeUTxO)
-          <> cause (ClientEffect $ ServerOutput.DecommitRequested headId decommitUTxO)
+          <> cause
+            ( ClientEffect $
+                ServerOutput.DecommitRequested
+                  { headId
+                  , decommitTx = decommitTx
+                  , utxoToDecommit = decommitUTxO
+                  }
+            )
           -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
           --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
           <> maybeEmitSnapshot
@@ -790,10 +809,10 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                 cause . ClientEffect $
                   ServerOutput.DecommitInvalid
                     { headId
+                    , decommitTx
                     , decommitInvalidReason =
                         ServerOutput.DecommitTxInvalid
                           { confirmedUTxO
-                          , decommitTx
                           , validationError = err
                           }
                     }
@@ -801,8 +820,15 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
         | ttl > 0 ->
             wait $ WaitOnNotApplicableDecommitTx decommitTx
         | otherwise ->
-            -- REVIW: cause . ClientEffect $ ServerOutput.DecommitInvalid
-            Error $ RequireFailed $ DecommitTxInFlight{decommitTx = existingDecommitTx}
+            cause . ClientEffect $
+              ServerOutput.DecommitInvalid
+                { headId
+                , decommitTx
+                , decommitInvalidReason =
+                    DecommitAlreadyInFlight
+                      { otherDecommitTxId = txId existingDecommitTx
+                      }
+                }
 
   maybeEmitSnapshot =
     if isLeader parameters party nextSn
@@ -832,47 +858,53 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 
 -- ** Decrementing funds from the Head
 
--- | Observe a decommit transaction. If the outputs of the pending decommit tx
--- are equal to the latest confirmed UTxO to decommit, then we consider the
--- decommit valid, and we take the funds out of the head and remove the
+-- | Observe a decrement transaction. If the outputs match the ones of the
+-- pending decommit tx, then we consider the decommit finalized, and remove the
 -- decommit tx in flight.
--- Finally, if the client observing happens to be the leader, then a new
--- ReqSn is broadcasted.
+--
+-- Finally, if the client observing happens to be the leader, then a new ReqSn
+-- is broadcasted.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenChainDecrementTx :: IsTx tx => Environment -> OpenState tx -> Outcome tx
-onOpenChainDecrementTx Environment{party} openState
-  | -- Spec: if outputs(txω) = 𝑈ω
-    -- REVIEW: should we get Uω from observation instead of local state?
-    (utxoFromTx <$> decommitTx) == utxoToDecommit =
-      -- Spec: txω ← ⊥
-      --       vˆ  ← v
-      newState DecommitFinalized
-        <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId})
-        -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
-        --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
-        & maybeEmitSnapshot
-  | otherwise = noop
+onOpenChainDecrementTx ::
+  IsTx tx =>
+  Environment ->
+  OpenState tx ->
+  -- | New open state version
+  SnapshotVersion ->
+  -- | Outputs removed by the decrement
+  [TxOutType tx] ->
+  Outcome tx
+onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts =
+  -- Spec: if outputs(txω) = 𝑈ω
+  case decommitTx of
+    Nothing -> noop -- TODO: what if decommit observed but none pending?
+    Just tx
+      | outputsOfTx tx == distributedTxOuts ->
+          -- Spec: txω ← ⊥
+          --       vˆ  ← v
+          newState DecommitFinalized{newVersion}
+            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
+            -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
+            --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+            & maybeEmitSnapshot
+      | otherwise -> noop -- TODO: what if decrement not matching pending decommit?
  where
-  version' = version + 1
-
-  partyIsLeader = isLeader parameters party nextSn && not (null localTxs)
-
   maybeEmitSnapshot outcome =
-    if seenSn == confirmedSn && partyIsLeader
+    if seenSn == confirmedSn && isLeader parameters party nextSn
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version' nextSn (txId <$> localTxs) decommitTx)
+          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> localTxs) Nothing)
       else outcome
 
   OpenState{parameters, coordinatedHeadState, headId} = openState
 
-  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, version, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, seenSnapshot} = coordinatedHeadState
 
   seenSn = seenSnapshotNumber seenSnapshot
 
-  Snapshot{number = confirmedSn, utxoToDecommit} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   nextSn = confirmedSn + 1
 
@@ -1106,10 +1138,10 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env openState
+        onOpenChainDecrementTx env openState newVersion distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -1358,18 +1390,16 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  DecommitFinalized ->
+  DecommitFinalized{newVersion} ->
     case st of
       Open
-        os@OpenState
-          { coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{version}
-          } ->
+        os@OpenState{coordinatedHeadState} ->
           Open
             os
               { coordinatedHeadState =
                   coordinatedHeadState
                     { decommitTx = Nothing
-                    , version = version + 1
+                    , version = newVersion
                     }
               }
       _otherState -> st
@@ -1417,7 +1447,7 @@ recoverChainStateHistory initialChainState =
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
     DecommitRecorded{} -> history
-    DecommitFinalized -> history
+    DecommitFinalized{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
     HeadIsReadyToFanout{} -> history

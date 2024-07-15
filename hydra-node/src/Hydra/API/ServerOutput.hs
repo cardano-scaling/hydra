@@ -14,7 +14,7 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Crypto (MultiSignature)
 import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx, UTxOType, ValidationError)
+import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network (Host, NodeId)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
@@ -49,23 +49,20 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
 data DecommitInvalidReason tx
-  = DecommitTxInvalid {confirmedUTxO :: UTxOType tx, decommitTx :: tx, validationError :: ValidationError}
-  | DecommitAlreadyInFlight {decommitTx :: tx}
+  = DecommitTxInvalid {confirmedUTxO :: UTxOType tx, validationError :: ValidationError}
+  | DecommitAlreadyInFlight {otherDecommitTxId :: TxIdType tx}
   deriving stock (Generic)
 
-deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)
-deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DecommitInvalidReason tx)
+deriving stock instance (Eq (TxIdType tx), Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)
+deriving stock instance (Show (TxIdType tx), Show (UTxOType tx)) => Show (DecommitInvalidReason tx)
 
-instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DecommitInvalidReason tx) where
+instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalidReason tx) where
   toJSON = genericToJSON defaultOptions
 
-instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
+instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
 
-instance
-  IsTx tx =>
-  Arbitrary (DecommitInvalidReason tx)
-  where
+instance IsTx tx => Arbitrary (DecommitInvalidReason tx) where
   arbitrary = genericArbitrary
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
@@ -123,10 +120,10 @@ data ServerOutput tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
-  | DecommitRequested {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitInvalid {headId :: HeadId, decommitInvalidReason :: DecommitInvalidReason tx}
-  | DecommitApproved {headId :: HeadId, utxoToDecommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId}
+  | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
+  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
+  | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -183,10 +180,10 @@ instance
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
-    DecommitRequested headId u -> DecommitRequested <$> shrink headId <*> shrink u
-    DecommitInvalid headId reason -> DecommitInvalid <$> shrink headId <*> shrink reason
-    DecommitApproved headId u -> DecommitApproved <$> shrink headId <*> shrink u
-    DecommitFinalized headId -> DecommitFinalized <$> shrink headId
+    DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
+    DecommitInvalid{} -> []
+    DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
+    DecommitFinalized{} -> []
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO

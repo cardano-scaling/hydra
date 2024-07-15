@@ -61,7 +61,7 @@ spec = do
     let sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
-    let snapshot1 = Snapshot testHeadId 1 mempty [] Nothing 0
+    let snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing
 
     let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -87,7 +87,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
-            sn1 = Snapshot testHeadId 1 u0 mempty mempty 1 :: Snapshot SimpleTx
+            sn1 = Snapshot testHeadId 1 1 [] u0 Nothing :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             outcome = update (envFor aliceSk) simpleLedger (inOpenState' [alice, bob] st) $ receiveMessage $ ReqTx tx
 

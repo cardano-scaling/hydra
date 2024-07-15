@@ -40,7 +40,6 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeClose,
   pickChainContext,
-  splitUTxO,
   unsafeAbort,
   unsafeClose,
   unsafeCollect,
@@ -140,14 +139,15 @@ computeCollectComCost =
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
-computeDecommitCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
-computeDecommitCost = do
+computeDecrementCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
+computeDecrementCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
   limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
   pure $ interesting <> limit
  where
   compute numParties = do
-    (ctx, st, tx) <- generate $ genDecrementTx numParties
+    -- TODO: add decrementedOutputs to the result
+    (ctx, _decrementedOutputs, st, tx) <- generate $ genDecrementTx numParties
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
@@ -184,19 +184,16 @@ computeContestCost = do
       Nothing ->
         pure Nothing
 
-  version = 1
-
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    let (inHead, toDecommit) = splitUTxO utxo
-    (closedSnapshotNumber, inHead', toDecommit', stClosed@ClosedState{headId}) <- genStClosed ctx inHead (Just toDecommit)
+    (closedSnapshotNumber, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot headId (succ closedSnapshotNumber) 0 inHead' toDecommit' (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo mempty (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime version, contestUtxo)
+    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime 0, contestUtxo)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeAbortCost =
@@ -248,17 +245,15 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    let (inHead, toDecommit) = splitUTxO utxo
-    let version = 1
-    snapshot <- genConfirmedSnapshot headId 1 version inHead (Just toDecommit) [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) snapshot startSlot closePoint version
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) snapshot startSlot closePoint 0
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn inHead (Just toDecommit) deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
