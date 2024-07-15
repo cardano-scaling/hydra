@@ -740,9 +740,9 @@ newDecrementTx actor (snapshot, signatures) = do
   pure $
     decrement
       (actorChainContext actor)
+      spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
-      spendableUTxO
       snapshot
       signatures
 
