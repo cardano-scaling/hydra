@@ -699,7 +699,7 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
         Head.ClosedDatum
           { snapshotNumber = toInteger number
           , utxoHash
-          , deltaUTxOHash = toBuiltin . hashUTxO @Tx <$> utxoToDecommit
+          , deltaUTxOHash
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod
@@ -707,6 +707,16 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
           , contesters = contester : closedContesters
           , version = toInteger version
           }
+
+  -- TODO: DRY with contestRedeemer
+  deltaUTxOHash
+    | offChainVersion == version =
+        Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+    | offChainVersion == version + 1 =
+        Nothing
+    | otherwise =
+        -- XXX: should not be needed
+        Nothing
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
