@@ -476,17 +476,19 @@ data DecrementTxError
   | SnapshotDecrementUTxOIsNull
   deriving stock (Show)
 
+-- | Construct a decrement transaction spending the head output in given 'UTxO',
+-- and producing outputs for all pending 'utxoToDecommit' of given 'Snapshot'.
 decrement ::
   ChainContext ->
-  HeadId ->
-  HeadParameters ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
+  HeadId ->
+  HeadParameters ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Either DecrementTxError Tx
-decrement ctx headId headParameters spendableUTxO snapshot signatures = do
+decrement ctx spendableUTxO headId headParameters snapshot signatures = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
@@ -1044,7 +1046,7 @@ genDecrementTx numParties = do
     ( cctx
     , maybe mempty toList (utxoToDecommit snapshot)
     , stOpen
-    , unsafeDecrement cctx headId (ctxHeadParameters ctx) openUTxO snapshot signatures
+    , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot signatures
     )
 
 splitUTxO :: UTxO -> (UTxO, UTxO)
@@ -1180,15 +1182,15 @@ unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
 unsafeDecrement ::
   HasCallStack =>
   ChainContext ->
-  HeadId ->
-  HeadParameters ->
   -- | Spendable 'UTxO'
   UTxO ->
+  HeadId ->
+  HeadParameters ->
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-unsafeDecrement ctx headId parameters spendableUTxO snapshot signatures =
-  either (error . show) id $ decrement ctx headId parameters spendableUTxO snapshot signatures
+unsafeDecrement ctx spendableUTxO headId parameters snapshot signatures =
+  either (error . show) id $ decrement ctx spendableUTxO headId parameters snapshot signatures
 
 unsafeClose ::
   HasCallStack =>
