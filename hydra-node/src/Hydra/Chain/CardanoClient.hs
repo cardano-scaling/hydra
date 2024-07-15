@@ -141,6 +141,8 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxScriptValidityNone
       Nothing
       Nothing
+      Nothing
+      Nothing
 
 -- | Submit a (signed) transaction to the node.
 --
@@ -416,7 +418,7 @@ queryInShelleyBasedEraExpr sbe query =
 -- | Throws at least 'QueryException' if query fails.
 runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode a -> IO a
 runQuery networkId socket point query =
-  queryNodeLocalState (localNodeConnectInfo networkId socket) queryTarget query >>= \case
+  runExceptT (queryNodeLocalState (localNodeConnectInfo networkId socket) queryTarget query) >>= \case
     Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where

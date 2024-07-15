@@ -59,8 +59,8 @@ spec =
 
       prop "Roundtrip to and from Api" roundtripFromAndToApi
 
-    describe "ProtocolParameters" $
-      prop "Roundtrip JSON encoding" roundtripProtocolParameters
+    describe "PParamss" $
+      prop "Roundtrip JSON encoding" roundtripPParams
 
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
@@ -114,19 +114,14 @@ roundtripFromAndToApi :: UTxO -> Property
 roundtripFromAndToApi utxo =
   fromApi (toApi utxo) === utxo
 
--- | Test that the 'ProtocolParameters' To/FromJSON instances to roundtrip. Note
--- that we use the ledger 'PParams' type to generate values, but the cardano-api
--- type 'ProtocolParameters' is used for the serialization.
-roundtripProtocolParameters :: PParams LedgerEra -> Property
-roundtripProtocolParameters pparams = do
-  case Aeson.decode (Aeson.encode expected) of
+-- | Test that the 'PParams' To/FromJSON instances to roundtrip.
+roundtripPParams :: PParams LedgerEra -> Property
+roundtripPParams pparams = do
+  case Aeson.decode (Aeson.encode pparams) of
     Nothing ->
       property False
     Just actual ->
-      (expected === actual)
-        & counterexample ("ledger: " <> show pparams)
- where
-  expected = fromLedgerPParams shelleyBasedEra pparams
+      pparams === actual
 
 roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =
