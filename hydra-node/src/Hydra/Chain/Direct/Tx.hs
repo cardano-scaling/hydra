@@ -87,7 +87,6 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
 
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
-  deriving newtype (Semigroup, Monoid)
 
 instance ToJSON UTxOHash where
   toJSON (UTxOHash bytes) =
@@ -438,7 +437,6 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      -- NOTE: at this point 'utxoToDecommit' is populated
       & addOutputs (headOutput' : map toTxContext decommitOutputs)
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
