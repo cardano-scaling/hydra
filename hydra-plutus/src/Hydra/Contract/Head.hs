@@ -327,10 +327,10 @@ checkClose ctx openBefore redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
-    } = extractClosedDatum ctx
+    } = decodeHeadOutputClosedDatum ctx
 
   -- (snapshotNumber', utxoHash', utxoDeltaHash', parties', deadline, cperiod', headId', contesters', version') =
-  --   extractClosedDatum ctx
+  --   decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
     traceIfFalse $(errorCode MustNotChangeVersion) $
@@ -471,7 +471,7 @@ checkContest ctx closedDatum redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
-    } = extractClosedDatum ctx
+    } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
@@ -657,7 +657,6 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
--- TODO: use newtypes to not mix arguments?
 verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Maybe Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
@@ -697,16 +696,17 @@ validatorScript = serialiseCompiledCode compiledValidator
 validatorHash :: ScriptHash
 validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
 
-extractClosedDatum :: ScriptContext -> ClosedDatum
-extractClosedDatum ctx =
+decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
+decodeHeadOutputClosedDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
     Just (Closed closedDatum) -> closedDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)
-{-# INLINEABLE extractClosedDatum #-}
+{-# INLINEABLE decodeHeadOutputClosedDatum #-}
 
 decodeHeadOutputOpenDatum :: ScriptContext -> OpenDatum
 decodeHeadOutputOpenDatum ctx =
+  -- XXX: fromBuiltinData is super big (and also expensive?)
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
     Just (Open openDatum) -> openDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)

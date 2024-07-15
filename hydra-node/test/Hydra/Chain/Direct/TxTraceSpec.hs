@@ -53,7 +53,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -83,7 +83,7 @@ spec = do
 prop_traces :: Property
 prop_traces =
   forAll (arbitrary :: Gen (Actions Model)) $ \(Actions_ _ (Smart _ steps)) ->
-    -- FIXME: fix generators and minimums
+    -- FIXME: fix generators and minimums and re-enable coverage
     -- checkCoverage $
     True
       & cover 1 (null steps) "empty"
@@ -279,7 +279,7 @@ initialAmount :: Natural
 initialAmount = 10
 
 initialModelUTxO :: ModelUTxO
-initialModelUTxO = fromList $ [A, B, C, D, E] `zip` repeat initialAmount
+initialModelUTxO = fromList $ map (,initialAmount) [A, B, C, D, E]
 
 balanceUTxOInHead :: Ord k => Map k Natural -> Map k Natural -> Map k Natural
 balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
