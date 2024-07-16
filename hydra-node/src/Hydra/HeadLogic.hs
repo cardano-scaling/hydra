@@ -278,8 +278,8 @@ onInitialChainCollectTx st newChainState =
   -- Spec: 𝑈₀  ← ⋃ⁿⱼ₌₁ 𝑈ⱼ
   let u0 = fold committed
    in -- Spec: L̂  ← 𝑈₀
-      --       S⁻  ← snObj(0, 0, 𝑈₀, ∅, ⊥)
-      --       vˆ , ŝ ← 0
+      --       ̅S  ← snObj(0, 0, 𝑈₀, ∅, ⊥)
+      --       v , ŝ ← 0
       --       T̂  ← ∅
       --       txω ← ⊥
       newState HeadOpened{chainState = newChainState, initialUTxO = u0}
@@ -327,8 +327,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
       ( -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
-          -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
-          --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+          -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+          --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
           & maybeEmitSnapshot
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
@@ -411,20 +411,20 @@ onOpenNetworkReqSn ::
   Maybe tx ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
-  -- Spec: require v = vˆ ∧ s = ŝ + 1 ∧ leader(s) = j
+  -- Spec: require v = v ∧ s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
-    -- Spec: wait ŝ = S⁻.s
+    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- Spec: require S⁻.𝑈 ◦ txω ≠ ⊥
+      -- Spec: require ̅S.𝑈 ◦ txω ≠ ⊥
       --       ηω ← combine(outputs(txω))
-      --       𝑈_active ← S⁻.𝑈 ◦ txω
+      --       𝑈_active ← ̅S.𝑈 ◦ txω
       requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
         -- Resolve transactions by-id
         waitResolvableTxs $ \requestedTxs -> do
           -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
           --       𝑈 ← 𝑈_active ◦ Treq
           requireApplyTxs activeUTxO requestedTxs $ \u -> do
-            -- Spec: ŝ ← S⁻.s + 1
+            -- Spec: ŝ ← ̅S.s + 1
             let nextConfSn = confSn + 1
             -- NOTE: confSn == seenSn == sn here
             let nextSnapshot =
@@ -444,7 +444,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
             (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
               -- Spec: ̂Σ ← ∅
               --       L̂ ← 𝑈
-              --       𝑋 ← T̂
+              --       𝑋 ← T
               --       T̂ ← ∅
               --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
               --         T̂ ← T̂ ⋃ {tx}
@@ -491,14 +491,14 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
-        -- Spec: require S⁻.𝑈 ◦ txω /= ⊥
+        -- Spec: require ̅S.𝑈 ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
             Error $ RequireFailed $ DecommitDoesNotApply (txId decommitTx) err
           Right newConfirmedUTxO -> do
             -- Spec: ηω ← combine(outputs(txω))
             let utxoToDecommit = utxoFromTx decommitTx
-            -- Spec: 𝑈_active ← S⁻.𝑈 ◦ txω
+            -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω
             let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
             cont (activeUTxO, Just utxoToDecommit)
 
@@ -564,36 +564,34 @@ onOpenNetworkAckSn ::
   SnapshotNumber ->
   Outcome tx
 onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn =
-  -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
     waitOnSeenSnapshot $ \snapshot sigs -> do
-      -- Spec: require (j,⋅) ∉ Σ̂
+      -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        -- Spec Gap: missing Σ̂[j] ← σⱼ
-        -- Spec: if ∀k ∈ [1..n] : (k,·) ∈ Σ̂
-        ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
-          -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,Σ̂)
-          let multisig = aggregateInOrder sigs' parties
-          -- Spec Gap: missing
-          --         η ← combine(𝑈ˆ)
-          --         ηω ← combine(outputs(txω ))
-          -- Spec: require MS-Verify(k ̃H, (cid‖v^‖ŝ‖η‖ηω), σ̃)
-          requireVerifiedMultisignature multisig snapshot $
-            do
-              -- Spec: S⁻   ← snObj(vˆ, ŝ, 𝑈ˆ, T̂ , txω)
-              --       S⁻.σ ← σ ̃
-              newState SnapshotConfirmed{snapshot, signatures = multisig}
-              -- Spec: ∀tx ∈ Treq : output(conf, tx)
-              <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
-              -- Spec: if txω ≠ ⊥
-              --         postTx (decrement, vˆ, ŝ, η, ηω)
-              --         output (conf, txω )
-              & maybeEmitDecrementTx snapshot multisig
-              -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-              --         multicast (reqSn, vˆ, S⁻.s + 1, T̂, txω)
-              & maybeEmitSnapshot
+        -- Spec: ̂Σ[j] ← σⱼ
+        (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
+          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+          ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
+            -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
+            let multisig = aggregateInOrder sigs' parties
+            -- Spec: η ← combine(𝑈ˆ)
+            --       ηω ← combine(outputs(txω))
+            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖ηω), σ̃)
+            requireVerifiedMultisignature multisig snapshot $
+              do
+                -- Spec: ̅S   ← snObj(v̂, ŝ, Û, T̂, txω)
+                --       ̅S.σ ← ̃σ
+                newState SnapshotConfirmed{snapshot, signatures = multisig}
+                <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
+                -- Spec: if txω ≠ ⊥
+                --         postTx (decrement, v̂, ŝ, η, ηω)
+                --         output (conf, txω)
+                & maybeEmitDecrementTx snapshot multisig
+                -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
+                --         multicast (reqSn, v, ̅S.s + 1, T̂, txω)
+                & maybeEmitSnapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -642,7 +640,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          -- Spec Gap: how S⁻.s + 1 is calculated is not the same as nextSn
+          -- Spec Gap: how ̅S.s + 1 is calculated is not the same as nextSn
           <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
@@ -774,8 +772,8 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                   , utxoToDecommit = decommitUTxO
                   }
             )
-          -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
-          --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+          -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+          --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
           <> maybeEmitSnapshot
  where
   waitOnApplicableDecommit cont =
@@ -872,11 +870,11 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
     Just tx
       | outputsOfTx tx == distributedTxOuts ->
           -- Spec: txω ← ⊥
-          --       vˆ  ← v
+          --       v  ← v
           newState DecommitFinalized{newVersion}
             <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
-            -- Spec: if ŝ = S⁻.s ∧ leader(S⁻.s + 1) = i
-            --         multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
+            -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+            --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
             & maybeEmitSnapshot
       | otherwise -> noop -- TODO: what if decrement not matching pending decommit?
  where
@@ -910,10 +908,10 @@ onOpenClientClose ::
   Outcome tx
 onOpenClientClose st =
   -- Spec: missing?
-  --       η ← combine(S⁻.𝑈)
-  --       ηω ← combine(outputs(S⁻.txω))
-  --       ξ ← S⁻.σ
-  --       postTx (close, S⁻.v, S⁻.s, η, ηω,ξ)
+  --       η ← combine(̅S.𝑈)
+  --       ηω ← combine(outputs(̅S.txω))
+  --       ξ ← ̅S.σ
+  --       postTx (close, ̅S.v, ̅S.s, η, ηω,ξ)
   cause
     OnChainEffect
       { postChainTx =
@@ -946,13 +944,13 @@ onOpenChainCloseTx ::
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
   -- Spec Gap: out of order & missing?
-  --       η ← combine(S⁻.𝑈)
-  --       ηω ← combine(outputs(S⁻.txω))
-  --       ξ ← S⁻.σ
+  --       η ← combine(̅S.𝑈)
+  --       ηω ← combine(outputs(̅S.txω))
+  --       ξ ← ̅S.σ
   newState HeadClosed{chainState = newChainState, contestationDeadline}
     <> cause notifyClient
-    <> ( -- Spec: if S⁻.s > sc
-         --          postTx (contest, S⁻.v, S⁻.s, η, ηω, ξ)
+    <> ( -- Spec: if ̅S.s > sc
+         --          postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
          if doContest
           then
             cause
@@ -992,15 +990,15 @@ onClosedChainContestTx ::
   Outcome tx
 onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
   -- Spec Gap: out of order & missing?
-  --       η ← combine(S⁻.𝑈)
-  --       ηω ← combine(outputs(S⁻.txω))
-  --       ξ ← S⁻.σ
+  --       η ← combine(̅S.𝑈)
+  --       ηω ← combine(outputs(̅S.txω))
+  --       ξ ← ̅S.σ
   newState HeadContested{chainState = newChainState, contestationDeadline}
     <> if
-      | -- Spec: if S⁻.s > sc
+      | -- Spec: if ̅S.s > sc
         snapshotNumber < number (getSnapshot confirmedSnapshot) ->
           cause notifyClients
-            -- Spec: postTx (contest, S⁻.v, S⁻.s, η, ηω, ξ)
+            -- Spec: postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
             <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -1347,22 +1345,25 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
-  PartySignedSnapshot{snapshot, party, signature} ->
+  PartySignedSnapshot{party, signature} ->
     case st of
       Open
         os@OpenState
           { coordinatedHeadState =
             chs@CoordinatedHeadState
-              { seenSnapshot = SeenSnapshot{signatories}
+              { seenSnapshot = ss@SeenSnapshot{signatories}
               }
           } ->
           Open
             os
               { coordinatedHeadState =
-                  chs{seenSnapshot = SeenSnapshot snapshot sigs}
+                  chs
+                    { seenSnapshot =
+                        ss
+                          { signatories = Map.insert party signature signatories
+                          }
+                    }
               }
-         where
-          sigs = Map.insert party signature signatories
       _otherState -> st
   DecommitRecorded decommitTx newLocalUTxO ->
     case st of
