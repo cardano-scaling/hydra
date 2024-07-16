@@ -137,7 +137,7 @@ spec =
       describe "Decommit" $ do
         it "observes DecommitRequested and ReqDec in an Open state" $
           let decommitTx = SimpleTx 1 mempty (utxoRef 1)
-              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              reqDec = ReqDec{transaction = decommitTx}
               input = receiveMessage reqDec
               st = inOpenState threeParties
               outcome = update aliceEnv ledger st input
@@ -145,12 +145,10 @@ spec =
                 `hasEffectSatisfying` \case
                   ClientEffect DecommitRequested{headId, utxoToDecommit} ->
                     headId == testHeadId && utxoToDecommit == utxoRef 1
-                  NetworkEffect ReqDec{transaction, decommitRequester} ->
-                    transaction == decommitTx && decommitRequester == alice
                   _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
-          let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1), decommitRequester = alice}
+          let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
           let input = receiveMessage reqDec
           st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
@@ -161,7 +159,7 @@ spec =
           let inputs = utxoRef 1
               decommitTx = SimpleTx 1 mempty inputs
               ttl = 0
-              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              reqDec = ReqDec{transaction = decommitTx}
               reqDecEvent = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = reqDec}
               decommitTxInFlight = SimpleTx 2 mempty (utxoRef 2)
               s0 =
@@ -176,8 +174,8 @@ spec =
         it "wait for second decommit when another one is in flight" $ do
           let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
               decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
-              reqDec1 = ReqDec{transaction = decommitTx1, decommitRequester = alice}
-              reqDec2 = ReqDec{transaction = decommitTx2, decommitRequester = bob}
+              reqDec1 = ReqDec{transaction = decommitTx1}
+              reqDec2 = ReqDec{transaction = decommitTx2}
               reqDecEvent1 = receiveMessage reqDec1
               reqDecEvent2 = receiveMessageFrom bob reqDec2
               s0 = inOpenState threeParties
@@ -197,7 +195,7 @@ spec =
         it "waits if a requested decommit tx is not (yet) applicable due to already in flight" $ do
           let inputs = utxoRef 1
               decommitTx = SimpleTx 1 mempty inputs
-              reqDec = ReqDec{transaction = decommitTx, decommitRequester = alice}
+              reqDec = ReqDec{transaction = decommitTx}
               reqDecEvent = receiveMessage reqDec
               decommitTxInFlight = SimpleTx 2 mempty (utxoRef 2)
               s0 =
@@ -211,7 +209,7 @@ spec =
 
         it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
-          let reqDec = ReqDec{transaction = decommitTx', decommitRequester = alice}
+          let reqDec = ReqDec{transaction = decommitTx'}
               reqDecEvent = receiveMessage reqDec
               s0 = inOpenState threeParties
 
@@ -245,7 +243,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
-          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx', decommitRequester = alice}
+          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
 
           let s1 = update aliceEnv ledger s0 reqDecEvent
 
@@ -260,7 +258,7 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
-          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx', decommitRequester = alice}
+          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
 
           update aliceEnv ledger s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx decommitTx'
@@ -513,7 +511,7 @@ spec =
 
       it "ignores in-flight ReqDec when closed" $ do
         let s0 = inClosedState threeParties
-            input = receiveMessage $ ReqDec{transaction = aValidTx 42, decommitRequester = alice}
+            input = receiveMessage $ ReqDec{transaction = aValidTx 42}
         update bobEnv ledger s0 input `shouldBe` Error (UnhandledInput input s0)
 
       it "everyone does collect on last commit after collect com" $ do

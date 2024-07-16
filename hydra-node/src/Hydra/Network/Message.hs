@@ -77,7 +77,7 @@ data Message tx
       { signed :: Signature (Snapshot tx)
       , snapshotNumber :: SnapshotNumber
       }
-  | ReqDec {transaction :: tx, decommitRequester :: Party}
+  | ReqDec {transaction :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -93,7 +93,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Mess
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     ReqSn sv sn txs decommitTx -> toCBOR ("ReqSn" :: Text) <> toCBOR sv <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
-    ReqDec utxo requester -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo <> toCBOR requester
+    ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
@@ -101,7 +101,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
-      "ReqDec" -> ReqDec <$> fromCBOR <*> fromCBOR
+      "ReqDec" -> ReqDec <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance IsTx tx => SignableRepresentation (Message tx) where
