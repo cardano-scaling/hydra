@@ -15,7 +15,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -135,22 +135,21 @@ spec =
         getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
 
       describe "Decommit" $ do
-        it "observes DecommitRequested and ReqDec in an Open state" $
-          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
-              reqDec = ReqDec{transaction = decommitTx}
-              input = receiveMessage reqDec
+        it "observes DecommitRequested and ReqDec in an Open state" $ do
+          let outputs = utxoRef 1
+              input = receiveMessage ReqDec{transaction = SimpleTx 1 mempty outputs}
               st = inOpenState threeParties
-              outcome = update aliceEnv ledger st input
-           in outcome
-                `hasEffectSatisfying` \case
-                  ClientEffect DecommitRequested{headId, utxoToDecommit} ->
-                    headId == testHeadId && utxoToDecommit == utxoRef 1
-                  _ -> False
+
+          update aliceEnv ledger st input
+            `hasEffectSatisfying` \case
+              ClientEffect DecommitRequested{headId, utxoToDecommit} ->
+                headId == testHeadId && utxoToDecommit == outputs
+              _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
           let input = receiveMessage reqDec
-          st <- pickBlind $ oneof $ pure <$> [inInitialState threeParties, inIdleState, inClosedState threeParties]
+          st <- pickBlind $ elements [inInitialState threeParties, inIdleState, inClosedState threeParties]
           pure $
             update aliceEnv ledger st input
               `shouldNotBe` cause (NetworkEffect reqDec)
@@ -171,41 +170,36 @@ spec =
             ClientEffect DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
-        it "wait for second decommit when another one is in flight" $ do
-          let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
-              decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
-              reqDec1 = ReqDec{transaction = decommitTx1}
-              reqDec2 = ReqDec{transaction = decommitTx2}
-              reqDecEvent1 = receiveMessage reqDec1
-              reqDecEvent2 = receiveMessageFrom bob reqDec2
-              s0 = inOpenState threeParties
+        it "wait for second decommit when another one is in flight" $
+          do
+            let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
+                decommitTx2 = SimpleTx 2 mempty (utxoRef 2)
+                s0 = inOpenState threeParties
 
-          s1 <- runHeadLogic aliceEnv ledger s0 $ do
-            step reqDecEvent1
-            getState
+            s1 <- runHeadLogic aliceEnv ledger s0 $ do
+              step $ receiveMessageFrom alice ReqDec{transaction = decommitTx1}
+              getState
 
-          let outcome = update bobEnv ledger s1 reqDecEvent2
+            update bobEnv ledger s1 (receiveMessageFrom bob ReqDec{transaction = decommitTx2})
+              `assertWait` WaitOnNotApplicableDecommitTx
+                { notApplicableReason =
+                    DecommitAlreadyInFlight
+                      { otherDecommitTxId = txId decommitTx1
+                      }
+                }
 
-          outcome `shouldSatisfy` \case
-            Wait (WaitOnNotApplicableDecommitTx{waitingOnDecommitTx = decommitTx''}) _ ->
-              decommitTx2 == decommitTx''
+        it "waits if a requested decommit tx is not (yet) applicable" $ do
+          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+          let s0 = inOpenState threeParties
+
+          s0 `shouldSatisfy` \case
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
             _ -> False
 
-        -- REVIEW: check if duplicated with -> "wait for second decommit"
-        it "waits if a requested decommit tx is not (yet) applicable due to already in flight" $ do
-          let inputs = utxoRef 1
-              decommitTx = SimpleTx 1 mempty inputs
-              reqDec = ReqDec{transaction = decommitTx}
-              reqDecEvent = receiveMessage reqDec
-              decommitTxInFlight = SimpleTx 2 mempty (utxoRef 2)
-              s0 =
-                inOpenState' threeParties $
-                  coordinatedHeadState
-                    { decommitTx = Just decommitTxInFlight
-                    }
+          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
 
-          update bobEnv ledger s0 reqDecEvent
-            `assertWait` WaitOnNotApplicableDecommitTx decommitTx
+          update aliceEnv ledger s0 reqDecEvent
+            `assertWait` WaitOnNotApplicableDecommitTx (DecommitTxInvalid mempty (ValidationError "cannot apply transaction"))
 
         it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
@@ -249,19 +243,6 @@ spec =
 
           let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx'}
           s1 `hasEffect` NetworkEffect reqSn
-
-        it "waits if a requested decommit tx is not (yet) applicable" $ do
-          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          let s0 = inOpenState threeParties
-
-          s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
-            _ -> False
-
-          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
-
-          update aliceEnv ledger s0 reqDecEvent
-            `assertWait` WaitOnNotApplicableDecommitTx decommitTx'
 
         it "emits snapshot onDecrementTx with cleared decommitTx" $ do
           let decommitTx = SimpleTx 1 mempty (utxoRef 1)

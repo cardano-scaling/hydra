@@ -1117,10 +1117,6 @@ components:
                   enum: ["DecommitAlreadyInFlight"]
                 otherDecommitTxId:
                   $ref: "api.yaml#/components/schemas/TxId"
-                seq:
-                  $ref: "api.yaml#/components/schemas/SequenceNumber"
-                timestamp:
-                  $ref: "api.yaml#/components/schemas/UTCTime"
 
     DecommitRequested:
       title: DecommitRequested

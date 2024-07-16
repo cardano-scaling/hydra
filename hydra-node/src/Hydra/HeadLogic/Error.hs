@@ -38,9 +38,6 @@ data RequirementFailure tx
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
-  | DecommitTxInvalid {decommitTxId :: TxIdType tx, error :: ValidationError}
-  | DecommitTxInFlight {decommitTxId :: TxIdType tx}
-  | DecommitDoesNotApply {decommitTxId :: TxIdType tx, error :: ValidationError}
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
