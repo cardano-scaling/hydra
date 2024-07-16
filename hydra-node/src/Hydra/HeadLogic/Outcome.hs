@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (ServerOutput)
+import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.Environment (Environment (..))
@@ -160,7 +160,7 @@ data WaitReason tx
   | WaitOnSeenSnapshot
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
-  | WaitOnNotApplicableDecommitTx {waitingOnDecommitTx :: tx}
+  | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

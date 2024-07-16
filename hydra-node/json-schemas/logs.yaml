@@ -1021,9 +1021,9 @@ definitions:
           tag:
             type: string
             enum: ["ReqSvNumberInvalid"]
-          requestedSn:
+          requestedSv:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
-          lastSeenSn:
+          lastSeenSv:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
       - title: "ReqSnNotLeader"
         description: >-
@@ -1125,35 +1125,6 @@ definitions:
           tag:
             type: string
             enum: ["DecommitTxInvalid"]
-          decommitTx:
-            $ref: "api.yaml#/components/schemas/Transaction"
-          error:
-            $ref: "logs.yaml#/definitions/ValidationError"
-      - title: "DecommitTxInFlight"
-        description: >-
-          Received a Decommit request but there is a previous decommit that is still not resolved.
-        additionalProperties: false
-        required:
-          - tag
-          - decommitTx
-        properties:
-          tag:
-            type: string
-            enum: ["DecommitTxInFlight"]
-          decommitTx:
-            $ref: "api.yaml#/components/schemas/Transaction"
-      - title: "DecommitDoesNotApply"
-        description: >-
-          Decommit which was requested contains transaction that does not apply
-          on the current UTxO set when trying to acknowledge new Snapshot.
-        additionalProperties: false
-        required:
-          - tag
-          - decommitTx
-        properties:
-          tag:
-            type: string
-            enum: ["DecommitDoesNotApply"]
           decommitTx:
             $ref: "api.yaml#/components/schemas/Transaction"
           error:
@@ -2264,18 +2235,45 @@ definitions:
               $ref: "api.yaml#/components/schemas/TxId"
       - title: WaitOnNotApplicableDecommitTx
         description: >-
-          Somebody requested a Decommit but there is another one in flight already.
+          The decommit transaction does not apply right now, but may do so later.
         type: object
         additionalProperties: false
         required:
           - tag
-          - waitingOnDecommitTx
+          - notApplicableReason
         properties:
           tag:
             type: string
             enum: ["WaitOnNotApplicableDecommitTx"]
-          waitingOnDecommitTx:
-            $ref: "api.yaml#/components/schemas/Transaction"
+          notApplicableReason:
+            oneOf:
+              - type: object
+                required:
+                  - tag
+                  - localUTxO
+                  - validationError
+                properties:
+                  tag:
+                    type: string
+                    enum: ["DecommitTxInvalid"]
+                  localUTxO:
+                    $ref: "api.yaml#/components/schemas/UTxO"
+                  validationError:
+                    type: object
+                    properties:
+                      reason:
+                        type: string
+
+              - type: object
+                required:
+                  - tag
+                  - otherDecommitTxId
+                properties:
+                  tag:
+                    type: string
+                    enum: ["DecommitAlreadyInFlight"]
+                  otherDecommitTxId:
+                    $ref: "api.yaml#/components/schemas/TxId"
 
   RunOptions:
     type: object

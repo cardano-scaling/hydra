@@ -485,7 +485,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
         -- Spec: require ̅S.𝑈 ◦ txω /= ⊥
         case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
           Left (_, err) ->
-            Error $ RequireFailed $ DecommitDoesNotApply (txId decommitTx) err
+            Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
           Right newConfirmedUTxO -> do
             -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
             let utxoToDecommit = utxoFromTx decommitTx
@@ -765,32 +765,31 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
       Nothing ->
         case applyTransactions currentSlot localUTxO [decommitTx] of
           Right utxo' -> cont utxo'
-          Left (_, err)
+          Left (_, validationError)
             | ttl > 0 ->
-                wait $ WaitOnNotApplicableDecommitTx decommitTx
+                wait $
+                  WaitOnNotApplicableDecommitTx
+                    ServerOutput.DecommitTxInvalid{localUTxO, validationError}
             | otherwise ->
                 cause . ClientEffect $
                   ServerOutput.DecommitInvalid
                     { headId
                     , decommitTx
                     , decommitInvalidReason =
-                        ServerOutput.DecommitTxInvalid
-                          { localUTxO
-                          , validationError = err
-                          }
+                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
                     }
       Just existingDecommitTx
         | ttl > 0 ->
-            wait $ WaitOnNotApplicableDecommitTx decommitTx
+            wait $
+              WaitOnNotApplicableDecommitTx
+                DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
         | otherwise ->
             cause . ClientEffect $
               ServerOutput.DecommitInvalid
                 { headId
                 , decommitTx
                 , decommitInvalidReason =
-                    DecommitAlreadyInFlight
-                      { otherDecommitTxId = txId existingDecommitTx
-                      }
+                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
                 }
 
   maybeRequestSnapshot =
