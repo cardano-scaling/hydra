@@ -320,8 +320,7 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger st ttl tx =
-  -- REVIEW: would it brake the retry mechanism if we produce this inside `waitApplyTx`?
-  -- Spec Gap: this event is missing
+  -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
@@ -354,15 +353,14 @@ onOpenNetworkReqTx env ledger st ttl tx =
             cause . ClientEffect $ ServerOutput.TxInvalid headId localUTxO tx err
 
   maybeEmitSnapshot outcome =
-    -- Spec Gap: how snapshotInFlight is calculated
     if not snapshotInFlight && isLeader parameters party nextSn
-      then -- Spec Gap: this event is missing
-
+      then
         outcome
+          -- XXX: This state update has no equivalence in the
+          -- spec. Do we really need to store that we have
+          -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <>
-          -- Spec: multicast (reqSn, vˆ, S⁻.s + 1, T̂ , txω )
-          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx)
       else outcome
   Environment{party} = env
 
@@ -421,15 +419,10 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
       --       ηω ← combine(outputs(txω))
       --       𝑈_active ← S⁻.𝑈 ◦ txω
       requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-        -- Spec Gap: this is missing
-        -- Spec: wait ∀h ∈ Treq : (h, ·) ∈ T̂
-        waitResolvableTxs $ do
-          -- Spec Gap: this is missing
-          -- Spec: Treq ← {T̂ [h] | h ∈ Treq#}
-          let requestedTxs = mapMaybe (`Map.lookup` allTxs) requestedTxIds
+        -- Resolve transactions by-id
+        waitResolvableTxs $ \requestedTxs -> do
           -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
           --       𝑈 ← 𝑈_active ◦ Treq
-          --       η ← combine(𝑈)
           requireApplyTxs activeUTxO requestedTxs $ \u -> do
             -- Spec: ŝ ← S⁻.s + 1
             let nextConfSn = confSn + 1
@@ -443,28 +436,27 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
                     , confirmed = requestedTxIds
                     , utxoToDecommit = mUtxoToDecommit
                     }
-            -- Spec: σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
-            let snapshotSignature = sign signingKey nextSnapshot
-            -- Spec Gap: missing Σ̂ ← ∅
-            -- Spec: multicast (ackSn, ŝ, σᵢ)
-            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $
-              do
-                -- Spec Gap: missing ∀tx ∈ Treq : output (seen, tx)
-                --                   L̂ ← 𝑈
-                --                   𝑋 ← T̂
-                --                   T̂ ← ∅
 
-                -- Spec: for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                --         T̂ ← T̂ ⋃ {tx}
-                --         L̂ ← L̂ ◦ tx
-                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                newState
-                  SnapshotRequested
-                    { snapshot = nextSnapshot
-                    , requestedTxIds
-                    , newLocalUTxO
-                    , newLocalTxs
-                    }
+            -- Spec: η ← combine(𝑈)
+            --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
+            let snapshotSignature = sign signingKey nextSnapshot
+            -- Spec: multicast (ackSn, ŝ, σᵢ)
+            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+              -- Spec: ̂Σ ← ∅
+              --       L̂ ← 𝑈
+              --       𝑋 ← T̂
+              --       T̂ ← ∅
+              --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+              --         T̂ ← T̂ ⋃ {tx}
+              --         L̂ ← L̂ ◦ tx
+              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+              newState
+                SnapshotRequested
+                  { snapshot = nextSnapshot
+                  , requestedTxIds
+                  , newLocalUTxO
+                  , newLocalTxs
+                  }
  where
   requireReqSn continue =
     requireReqSv $
@@ -492,7 +484,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-      [] -> continue
+      [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
       unseen -> wait $ WaitOnTxs unseen
 
   requireApplicableDecommitTx cont =
@@ -1208,7 +1200,6 @@ aggregate st = \case
         Open
           os
             { coordinatedHeadState =
-                -- Spec: Tall ← ̂Tall ∪ { (hash(tx), tx) }
                 coordinatedHeadState
                   { allTxs = allTxs <> fromList [(txId tx, tx)]
                   }
