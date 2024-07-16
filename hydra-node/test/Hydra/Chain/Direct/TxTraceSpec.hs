@@ -546,7 +546,8 @@ instance RunModel Model AppM where
     case action of
       Decrement{actor, snapshot} -> do
         (_, v) <- get
-        tx <- newDecrementTx actor (signedSnapshot snapshot (UnsafeSnapshotVersion v))
+        let (s, signatures) = signedSnapshot snapshot (UnsafeSnapshotVersion v)
+        tx <- newDecrementTx actor ConfirmedSnapshot{snapshot = s, signatures}
         performTx tx True
       Close{actor, snapshot} -> do
         (_, v) <- get
@@ -734,8 +735,8 @@ openHeadUTxO =
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
-newDecrementTx :: Actor -> (Snapshot Tx, MultiSignature (Snapshot Tx)) -> AppM (Either DecrementTxError Tx)
-newDecrementTx actor (snapshot, signatures) = do
+newDecrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either DecrementTxError Tx)
+newDecrementTx actor snapshot = do
   (spendableUTxO, _v) <- get
   pure $
     decrement
@@ -744,7 +745,6 @@ newDecrementTx actor (snapshot, signatures) = do
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       snapshot
-      signatures
 
 -- | Creates a transaction that closes 'openHeadUTxO' with given the snapshot.
 -- NOTE: This uses fixtures for headId, parties (alice, bob, carol),
@@ -858,7 +858,11 @@ expectValid :: Monad m => TxResult -> (HeadObservation -> PostconditionM' m a) -
 expectValid TxResult{validationError = Just err} _ = do
   counterexample' "Expected to pass validation"
   fail err
-expectValid TxResult{observation} fn = do
+expectValid TxResult{observation, constructedTx, spendableUTxO} fn = do
+  case constructedTx of
+    Left err -> counterexample' $ "But construction failed with: " <> err
+    Right tx -> do
+      counterexample' $ renderTxWithUTxO spendableUTxO tx
   counterexample' $ "Wrong observation: " <> show observation
   fn observation
 
@@ -868,7 +872,7 @@ expectInvalid = \case
   TxResult{validationError = Nothing, constructedTx, spendableUTxO} -> do
     counterexample' "Expected tx to fail validation"
     case constructedTx of
-      Left err -> counterexample' $ "But construction failed with:" <> err
+      Left err -> counterexample' $ "But construction failed with: " <> err
       Right tx -> do
         counterexample' $ renderTxWithUTxO spendableUTxO tx
     fail "But it did not fail"

@@ -21,13 +21,12 @@ import Hydra.Cardano.Api (
   Coin (..),
  )
 import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Crypto (MultiSignature)
 import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..), UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber, SnapshotVersion)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -70,8 +69,7 @@ data PostChainTx tx
   | DecrementTx
       { headId :: HeadId
       , headParameters :: HeadParameters
-      , snapshot :: Snapshot tx
-      , signatures :: MultiSignature (Snapshot tx)
+      , decrementingSnapshot :: ConfirmedSnapshot tx
       }
   | CloseTx
       { headId :: HeadId
@@ -99,8 +97,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    DecrementTx{headId, headParameters, snapshot, signatures} ->
-      DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink snapshot <*> shrink signatures
+    DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline

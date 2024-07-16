@@ -1555,8 +1555,7 @@ components:
             - tag
             - headId
             - headParameters
-            - snapshot
-            - signatures
+            - decrementingSnapshot
           description: |
             Post a transaction to decommit some UTxO from the Head.
           properties:
@@ -1567,10 +1566,8 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
-            snapshot:
-              $ref: "api.yaml#/components/schemas/Snapshot"
-            signatures:
-              $ref: "api.yaml#/components/schemas/MultiSignature"
+            decrementingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         - title: CloseTx
           type: object
           additionalProperties: false

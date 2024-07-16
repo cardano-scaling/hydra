@@ -646,8 +646,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                     DecrementTx
                       { headId
                       , headParameters = parameters
-                      , snapshot
-                      , signatures
+                      , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                       }
                 }
             ]
