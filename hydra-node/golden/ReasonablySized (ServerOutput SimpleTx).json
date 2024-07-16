@@ -145,19 +145,30 @@
         {
             "postChainTx": {
                 "closingSnapshot": {
-                    "headId": "00030205050507000303070200000504",
-                    "initialUTxO": [
-                        0
-                    ],
-                    "tag": "InitialSnapshot"
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "headId": "02010502000203010300080104080307",
+                        "snapshotNumber": 1,
+                        "utxo": [
+                            -4,
+                            -3,
+                            4
+                        ],
+                        "utxoToDecommit": null,
+                        "version": 0
+                    },
+                    "tag": "ConfirmedSnapshot"
                 },
                 "headId": "02050000020303080300080506030501",
                 "headParameters": {
                     "contestationPeriod": 604800,
                     "parties": []
                 },
-                "tag": "CloseTx",
-                "openVersion": 0
+                "openVersion": 4,
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "tag": "FailedToConstructDecrementTx"
@@ -368,13 +379,23 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
-                    "headId": "06010601030008070105000500070808",
-                    "initialUTxO": [
-                        2,
-                        6
-                    ],
-                    "tag": "InitialSnapshot"
+                "contestingSnapshot": {
+                    "signatures": {
+                        "multiSignature": []
+                    },
+                    "snapshot": {
+                        "confirmedTransactions": [],
+                        "headId": "03020508030406010301040700030802",
+                        "snapshotNumber": 6,
+                        "utxo": [],
+                        "utxoToDecommit": [
+                            -3,
+                            3,
+                            5
+                        ],
+                        "version": 0
+                    },
+                    "tag": "ConfirmedSnapshot"
                 },
                 "headId": "03080401080205040806040800030407",
                 "headParameters": {
@@ -394,8 +415,8 @@
                         }
                     ]
                 },
-                "tag": "ContestTx",
-                "version": 0
+                "openVersion": 6,
+                "tag": "ContestTx"
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZ41qDR2ReAVKDzynJTVsA7KoYtgsPjRn6P1ssRQKf1X7u9Ve5",

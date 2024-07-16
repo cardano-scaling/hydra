@@ -74,13 +74,13 @@ healthyContestTx =
     contestTx
       scriptRegistry
       healthyContesterVerificationKey
+      (mkHeadId testPolicyId)
+      healthyContestationPeriod
+      healthyCloseSnapshotVersion
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
-      (mkHeadId testPolicyId)
-      healthyContestationPeriod
-      healthyCloseSnapshotVersion
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

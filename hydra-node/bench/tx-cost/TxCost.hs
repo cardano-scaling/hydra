@@ -193,7 +193,7 @@ computeContestCost = do
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (unsafeContest cctx contestUtxo headId cp snapshot pointInTime 0, contestUtxo)
+    pure (unsafeContest cctx contestUtxo headId cp 0 snapshot pointInTime, contestUtxo)
 
 computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeAbortCost =

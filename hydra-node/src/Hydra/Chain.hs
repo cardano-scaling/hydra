@@ -82,8 +82,8 @@ data PostChainTx tx
   | ContestTx
       { headId :: HeadId
       , headParameters :: HeadParameters
-      , confirmedSnapshot :: ConfirmedSnapshot tx
-      , version :: SnapshotVersion
+      , openVersion :: SnapshotVersion
+      , contestingSnapshot :: ConfirmedSnapshot tx
       }
   | FanoutTx {utxo :: UTxOType tx, utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
@@ -102,7 +102,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     DecrementTx{headId, headParameters, snapshot, signatures} ->
       DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink snapshot <*> shrink signatures
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
-    ContestTx{headId, headParameters, confirmedSnapshot, version} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot <*> shrink version
+    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as

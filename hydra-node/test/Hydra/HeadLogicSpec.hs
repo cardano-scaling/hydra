@@ -564,7 +564,7 @@ spec =
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
         runHeadLogic bobEnv ledger s0 $ do
           o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
-          lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot snapshotVersion)
+          lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
           s1 <- getState
           lift $
             s1 `shouldSatisfy` \case
@@ -579,7 +579,7 @@ spec =
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters s0)
         update bobEnv ledger s0 (observeTx $ OnContestTx testHeadId 1 deadline)
-          `hasEffect` chainEffect (ContestTx testHeadId params latestConfirmedSnapshot snapshotVersion)
+          `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
