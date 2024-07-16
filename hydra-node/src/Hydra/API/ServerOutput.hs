@@ -49,7 +49,7 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
 
 data DecommitInvalidReason tx
-  = DecommitTxInvalid {confirmedUTxO :: UTxOType tx, validationError :: ValidationError}
+  = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
   | DecommitAlreadyInFlight {otherDecommitTxId :: TxIdType tx}
   deriving stock (Generic)
 

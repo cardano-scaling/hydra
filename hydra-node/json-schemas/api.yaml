@@ -1076,6 +1076,7 @@ components:
       required:
         - tag
         - headId
+        - decommitTx
         - decommitInvalidReason
         - seq
         - timestamp
@@ -1085,22 +1086,21 @@ components:
           enum: ["DecommitInvalid"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
         decommitInvalidReason:
           oneOf:
             - type: object
               required:
                 - tag
-                - confirmedUTxO
-                - decommitTx
+                - localUTxO
                 - validationError
               properties:
                 tag:
                   type: string
                   enum: ["DecommitTxInvalid"]
-                confirmedUTxO:
+                localUTxO:
                   $ref: "api.yaml#/components/schemas/UTxO"
-                decommitTx:
-                  $ref: "api.yaml#/components/schemas/Transaction"
                 validationError:
                   type: object
                   properties:
@@ -1110,13 +1110,13 @@ components:
             - type: object
               required:
                 - tag
-                - decommitTx
+                - otherDecommitTxId
               properties:
                 tag:
                   type: string
                   enum: ["DecommitAlreadyInFlight"]
-                decommitTx:
-                  $ref: "api.yaml#/components/schemas/Transaction"
+                otherDecommitTxId:
+                  $ref: "api.yaml#/components/schemas/TxId"
                 seq:
                   $ref: "api.yaml#/components/schemas/SequenceNumber"
                 timestamp:
@@ -1131,6 +1131,7 @@ components:
       required:
         - tag
         - headId
+        - decommitTx
         - utxoToDecommit
         - seq
         - timestamp
@@ -1140,6 +1141,8 @@ components:
           enum: ["DecommitRequested"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
         utxoToDecommit:
           $ref: "api.yaml#/components/schemas/UTxO"
         seq:
@@ -1156,6 +1159,7 @@ components:
       required:
         - tag
         - headId
+        - decommitTxId
         - utxoToDecommit
         - seq
         - timestamp
@@ -1165,6 +1169,8 @@ components:
           enum: ["DecommitApproved"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTxId:
+          $ref: "api.yaml#/components/schemas/TxId"
         utxoToDecommit:
           $ref: "api.yaml#/components/schemas/UTxO"
         seq:
@@ -1181,6 +1187,7 @@ components:
       required:
         - tag
         - headId
+        - decommitTxId
         - seq
         - timestamp
       properties:
@@ -1189,6 +1196,8 @@ components:
           enum: ["DecommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTxId:
+          $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
