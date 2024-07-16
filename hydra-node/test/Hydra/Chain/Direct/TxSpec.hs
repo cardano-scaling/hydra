@@ -425,7 +425,7 @@ produceDecrement ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceDecrement ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case decrement ctx spendableUTxO headId parameters snapshot signatures of
+  case decrement ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx -> do
       case utxoToDecommit snapshot of

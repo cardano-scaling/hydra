@@ -20,7 +20,6 @@ import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forCon
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
-import GHC.Records (getField)
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
@@ -810,12 +809,14 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  DecrementTx{headId, snapshot} ->
+  DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId
-      , newVersion = getField @"version" snapshot
-      , distributedOutputs = maybe mempty outputsOfUTxO $ getField @"utxoToDecommit" snapshot
+      , newVersion = version
+      , distributedOutputs = maybe mempty outputsOfUTxO utxoToDecommit
       }
+   where
+    Snapshot{version, utxoToDecommit} = getSnapshot decrementingSnapshot
   CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId

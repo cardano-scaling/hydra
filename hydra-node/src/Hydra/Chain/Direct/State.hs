@@ -104,7 +104,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import Hydra.Crypto (HydraKey)
 import Hydra.HeadId (HeadId (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxOut, genUTxO1, genUTxOAdaOnlyOfSize, genVerificationKey)
@@ -121,7 +121,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, getPositive, oneof, vector)
+import Test.QuickCheck (choose, oneof, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -483,11 +483,10 @@ decrement ::
   UTxO ->
   HeadId ->
   HeadParameters ->
-  -- | Confirmed Snapshot
-  Snapshot Tx ->
-  MultiSignature (Snapshot Tx) ->
+  -- | Snapshot to decrement with.
+  ConfirmedSnapshot Tx ->
   Either DecrementTxError Tx
-decrement ctx spendableUTxO headId headParameters snapshot signatures = do
+decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
@@ -498,12 +497,21 @@ decrement ctx spendableUTxO headId headParameters snapshot signatures = do
       | null decrementUTxO ->
           Left SnapshotDecrementUTxOIsNull
     _ ->
-      Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO snapshot signatures
+      Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
+  Snapshot{utxoToDecommit} = sn
+
+  (sn, sigs) =
+    case decrementingSnapshot of
+      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+      -- XXX: This way of retrofitting an 'InitialSnapshot' into a Snapshot +
+      -- Signatures indicates we might want to simplify 'ConfirmedSnapshot' into
+      -- a product directly.
+      _ -> (getSnapshot decrementingSnapshot, mempty)
+
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
-  Snapshot{utxoToDecommit} = snapshot
 
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
@@ -1037,18 +1045,15 @@ genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   cctx <- pickChainContext ctx
+  let (confirmedUtxo, toDecommit) = splitUTxO u0
   let version = 0
-  snapshot <- do
-    number <- getPositive <$> arbitrary
-    let (utxo, toDecommit) = splitUTxO u0
-    pure Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit = Just toDecommit}
-  let signatures = aggregate $ fmap (`sign` snapshot) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 confirmedUtxo (Just toDecommit) (ctxHydraSigningKeys ctx)
   let openUTxO = getKnownUTxO stOpen
   pure
     ( cctx
-    , maybe mempty toList (utxoToDecommit snapshot)
+    , maybe mempty toList (utxoToDecommit $ getSnapshot snapshot)
     , stOpen
-    , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot signatures
+    , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot
     )
 
 splitUTxO :: UTxO -> (UTxO, UTxO)
@@ -1188,11 +1193,10 @@ unsafeDecrement ::
   UTxO ->
   HeadId ->
   HeadParameters ->
-  Snapshot Tx ->
-  MultiSignature (Snapshot Tx) ->
+  ConfirmedSnapshot Tx ->
   Tx
-unsafeDecrement ctx spendableUTxO headId parameters snapshot signatures =
-  either (error . show) id $ decrement ctx spendableUTxO headId parameters snapshot signatures
+unsafeDecrement ctx spendableUTxO headId parameters decrementingSnapshot =
+  either (error . show) id $ decrement ctx spendableUTxO headId parameters decrementingSnapshot
 
 -- | Unsafe version of 'close' that throws an error if the transaction fails to build.
 unsafeClose ::
