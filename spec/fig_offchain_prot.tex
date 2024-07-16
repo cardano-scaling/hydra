@@ -85,7 +85,7 @@
 							\Req{$\red{v = \hatv ~ \land} ~ s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\hats = \bar{\mc S}.s$}{
 							    \red{\Req{$\bar{\mc S}.U \applytx \tx_{\omega} \not= \bot$}} \;
-							    \red{$U_{\mathsf{active}} \gets \bar{\mc S}.U \applytx \tx_{\omega}$} \;
+							    \red{$U_{\mathsf{active}} \gets \bar{\mc S}.U \applytx \tx_{\omega} \setminus \mathsf{outputs(\tx_{\omega})}$} \;
 								\Req{$\red{U_{\mathsf{active}}} \applytx \mT_{\mathsf{req}} \not= \bot$} \;
 								$U \gets \red{U_{\mathsf{active}}} \applytx \mT_{\mathsf{req}}$ \;
 								% XXX: why +1? ̂s ← s would be clearer here

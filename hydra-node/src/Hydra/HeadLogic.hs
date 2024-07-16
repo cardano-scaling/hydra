@@ -329,7 +329,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
           -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
           --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-          & maybeEmitSnapshot
+          & maybeRequestSnapshot
       )
         <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
  where
@@ -352,7 +352,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
             -- from allTxs, we would make the head stuck.
             cause . ClientEffect $ ServerOutput.TxInvalid headId localUTxO tx err
 
-  maybeEmitSnapshot outcome =
+  maybeRequestSnapshot outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
       then
         outcome
@@ -496,9 +496,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
           Left (_, err) ->
             Error $ RequireFailed $ DecommitDoesNotApply (txId decommitTx) err
           Right newConfirmedUTxO -> do
-            -- Spec: ηω ← combine(outputs(txω))
+            -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
             let utxoToDecommit = utxoFromTx decommitTx
-            -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω
             let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
             cont (activeUTxO, Just utxoToDecommit)
 
@@ -587,11 +586,10 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
                 -- Spec: if txω ≠ ⊥
                 --         postTx (decrement, v̂, ŝ, η, ηω)
-                --         output (conf, txω)
-                & maybeEmitDecrementTx snapshot multisig
+                & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
                 --         multicast (reqSn, v, ̅S.s + 1, T̂, txω)
-                & maybeEmitSnapshot
+                & maybeRequestNextSnapshot (number snapshot + 1)
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -635,16 +633,15 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys}
 
-  maybeEmitSnapshot outcome =
-    if partyIsLeader && not (null localTxs)
+  maybeRequestNextSnapshot nextSn outcome =
+    if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          -- Spec Gap: how ̅S.s + 1 is calculated is not the same as nextSn
           <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx)
       else outcome
 
-  maybeEmitDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
+  maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
     case (decommitTx, utxoToDecommit) of
       (Just tx, Just utxo) ->
         outcome
@@ -667,11 +664,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             ]
       _ -> outcome
 
-  nextSn = sn + 1
-
   vkeys = vkey <$> parties
-
-  partyIsLeader = isLeader parameters party nextSn
 
   OpenState
     { parameters = parameters@HeadParameters{parties}
@@ -763,7 +756,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
      in -- Spec: L̂   ← L̂ \ inputs(tx)
         --       txω ← tx
-        newState (DecommitRecorded decommitTx activeUTxO)
+        newState DecommitRecorded{decommitTx, newLocalUTxO = activeUTxO}
           <> cause
             ( ClientEffect $
                 ServerOutput.DecommitRequested
@@ -774,7 +767,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
             )
           -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
           --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-          <> maybeEmitSnapshot
+          <> maybeRequestSnapshot
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
@@ -809,7 +802,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                       }
                 }
 
-  maybeEmitSnapshot =
+  maybeRequestSnapshot =
     if not snapshotInFlight && isLeader parameters party nextSn
       then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
       else noop
@@ -844,8 +837,6 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     , currentSlot
     } = openState
 
--- ** Decrementing funds from the Head
-
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
 -- decommit tx in flight.
@@ -875,10 +866,10 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
             <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
             -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
             --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-            & maybeEmitSnapshot
+            & maybeRequestSnapshot
       | otherwise -> noop -- TODO: what if decrement not matching pending decommit?
  where
-  maybeEmitSnapshot outcome =
+  maybeRequestSnapshot outcome =
     if seenSn == confirmedSn && isLeader parameters party nextSn
       then
         outcome
@@ -907,8 +898,7 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: missing?
-  --       η ← combine(̅S.𝑈)
+  -- Spec: η ← combine(̅S.𝑈)
   --       ηω ← combine(outputs(̅S.txω))
   --       ξ ← ̅S.σ
   --       postTx (close, ̅S.v, ̅S.s, η, ηω,ξ)
@@ -916,11 +906,13 @@ onOpenClientClose st =
     OnChainEffect
       { postChainTx =
           CloseTx
-            headId
-            parameters
-            confirmedSnapshot
-            version
-            (fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot)
+            { headId
+            , headParameters = parameters
+            , confirmedSnapshot
+            , version
+            , -- FIXME: We should not need to pass this here
+              closeUTxOToDecommit = fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot
+            }
       }
  where
   CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
@@ -943,25 +935,24 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  -- Spec Gap: out of order & missing?
-  --       η ← combine(̅S.𝑈)
-  --       ηω ← combine(outputs(̅S.txω))
-  --       ξ ← ̅S.σ
   newState HeadClosed{chainState = newChainState, contestationDeadline}
     <> cause notifyClient
-    <> ( -- Spec: if ̅S.s > sc
-         --          postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
-         if doContest
-          then
-            cause
-              OnChainEffect
-                { postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}
-                }
-          else noop
-       )
+    & maybePostContest
  where
-  doContest =
-    number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+  maybePostContest outcome =
+    -- Spec: if ̅S.s > sc
+    if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
+      then
+        outcome
+          -- TODO: As we use 'version' in the contest here, this is implies
+          -- that our last 'confirmedSnapshot' must match version or
+          -- version-1. Assert this fact?
+          -- Spec: η ← combine(̅S.𝑈)
+          --       ηω ← combine(outputs(̅S.txω))
+          --       ξ ← ̅S.σ
+          --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
+          <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
+      else outcome
 
   notifyClient =
     ClientEffect $
@@ -989,16 +980,18 @@ onClosedChainContestTx ::
   UTCTime ->
   Outcome tx
 onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
-  -- Spec Gap: out of order & missing?
-  --       η ← combine(̅S.𝑈)
-  --       ηω ← combine(outputs(̅S.txω))
-  --       ξ ← ̅S.σ
   newState HeadContested{chainState = newChainState, contestationDeadline}
     <> if
       | -- Spec: if ̅S.s > sc
-        snapshotNumber < number (getSnapshot confirmedSnapshot) ->
+        number (getSnapshot confirmedSnapshot) > snapshotNumber ->
           cause notifyClients
-            -- Spec: postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
+            -- TODO: As we use 'version' in the contest here, this is implies
+            -- that our last 'confirmedSnapshot' must match version or
+            -- version-1. Assert this fact?
+            -- Spec: η ← combine(̅S.𝑈)
+            --       ηω ← combine(outputs(̅S.txω))
+            --       ξ ← ̅S.σ
+            --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
             <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
@@ -1365,12 +1358,10 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  DecommitRecorded decommitTx newLocalUTxO ->
+  DecommitRecorded{decommitTx, newLocalUTxO} ->
     case st of
       Open
-        os@OpenState
-          { coordinatedHeadState
-          } ->
+        os@OpenState{coordinatedHeadState} ->
           Open
             os
               { coordinatedHeadState =
