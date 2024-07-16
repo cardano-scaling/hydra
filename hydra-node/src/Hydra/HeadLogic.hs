@@ -820,7 +820,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                 }
 
   maybeEmitSnapshot =
-    if isLeader parameters party nextSn
+    if not snapshotInFlight && isLeader parameters party nextSn
       then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx)))
       else noop
 
@@ -832,7 +832,20 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 
   nextSn = number + 1
 
-  CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version} = coordinatedHeadState
+  snapshotInFlight = case seenSnapshot of
+    NoSeenSnapshot -> False
+    LastSeenSnapshot{} -> False
+    RequestedSnapshot{} -> True
+    SeenSnapshot{} -> True
+
+  CoordinatedHeadState
+    { decommitTx = mExistingDecommitTx
+    , confirmedSnapshot
+    , localTxs
+    , localUTxO
+    , version
+    , seenSnapshot
+    } = coordinatedHeadState
 
   OpenState
     { headId
