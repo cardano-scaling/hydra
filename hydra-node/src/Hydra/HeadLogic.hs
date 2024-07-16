@@ -19,11 +19,11 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
-  module Hydra.HeadLogic.SnapshotOutcome,
 ) where
 
 import Hydra.Prelude
 
+import Data.List (elemIndex)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
@@ -69,7 +69,6 @@ import Hydra.HeadLogic.Outcome (
   noop,
   wait,
  )
-import Hydra.HeadLogic.SnapshotOutcome (isLeader)
 import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
@@ -878,6 +877,12 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   nextSn = confirmedSn + 1
+
+isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
+isLeader HeadParameters{parties} p sn =
+  case p `elemIndex` parties of
+    Just i -> ((fromIntegral sn - 1) `mod` length parties) == i
+    _ -> False
 
 -- ** Closing the Head
 
