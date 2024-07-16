@@ -6,17 +6,19 @@ module Hydra.Chain.Direct.Contract.Close.CloseCurrent where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Close.Healthy (
-  healthyConfirmedClosingTx,
+  healthyCloseLowerBoundSlot,
+  healthyCloseUpperBoundPointInTime,
+  healthyConfirmedSnapshot,
   healthyContestationDeadline,
+  healthyContestationPeriod,
   healthyContestationPeriodSeconds,
   healthyOnChainParties,
-  healthyOpenDatum,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
   healthySignature,
-  healthySnapshot,
   healthySplitUTxOInHead,
   healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
@@ -39,6 +41,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.Tx (OpenThreadOutput (..), closeTx, mkHeadId)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -65,13 +69,56 @@ healthyCurrentSnapshotVersion = 1
 -- | Healthy close transaction for the generic case were we close a head
 --  after one or more snapshot have been agreed upon between the members.
 healthyCloseCurrentTx :: (Tx, UTxO)
-healthyCloseCurrentTx = healthyConfirmedClosingTx healthyCurrentSnapshot
+healthyCloseCurrentTx =
+  (tx, lookupUTxO)
+ where
+  tx =
+    closeTx
+      scriptRegistry
+      somePartyCardanoVerificationKey
+      (mkHeadId Fixture.testPolicyId)
+      healthyCurrentSnapshotVersion
+      (healthyConfirmedSnapshot healthyCurrentSnapshot)
+      healthyCloseLowerBoundSlot
+      healthyCloseUpperBoundPointInTime
+      openThreadOutput
+
+  datum = toUTxOContext $ mkTxOutDatumInline healthyCurrentOpenDatum
+
+  lookupUTxO =
+    UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+      <> registryUTxO scriptRegistry
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
+
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
+      , openParties = healthyOnChainParties
+      , openContestationPeriod = healthyContestationPeriod
+      }
 
 healthyCurrentSnapshot :: Snapshot Tx
-healthyCurrentSnapshot = healthySnapshot healthyCurrentSnapshotNumber healthyCurrentSnapshotVersion
+healthyCurrentSnapshot =
+  Snapshot
+    { headId = mkHeadId Fixture.testPolicyId
+    , version = healthyCurrentSnapshotVersion
+    , number = healthyCurrentSnapshotNumber
+    , confirmed = []
+    , utxo = healthySplitUTxOInHead
+    , utxoToDecommit = Just healthySplitUTxOToDecommit
+    }
 
 healthyCurrentOpenDatum :: Head.State
-healthyCurrentOpenDatum = healthyOpenDatum healthyCurrentSnapshot
+healthyCurrentOpenDatum =
+  Head.Open
+    Head.OpenDatum
+      { parties = healthyOnChainParties
+      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
+      , contestationPeriod = healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+      , version = toInteger healthyCurrentSnapshotVersion
+      }
 
 data CloseMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
