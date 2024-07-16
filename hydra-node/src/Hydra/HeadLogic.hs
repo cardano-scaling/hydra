@@ -941,7 +941,16 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           --       ηω ← combine(outputs(̅S.txω))
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
-          <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
+          <> cause
+            OnChainEffect
+              { postChainTx =
+                  ContestTx
+                    { headId
+                    , headParameters
+                    , openVersion = version
+                    , contestingSnapshot = confirmedSnapshot
+                    }
+              }
       else outcome
 
   notifyClient =
@@ -981,7 +990,16 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
             --       ηω ← combine(outputs(̅S.txω))
             --       ξ ← ̅S.σ
             --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
-            <> cause OnChainEffect{postChainTx = ContestTx{headId, headParameters, confirmedSnapshot, version}}
+            <> cause
+              OnChainEffect
+                { postChainTx =
+                    ContestTx
+                      { headId
+                      , headParameters
+                      , openVersion = version
+                      , contestingSnapshot = confirmedSnapshot
+                      }
+                }
       | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
           -- TODO: A more recent snapshot number was succesfully contested, we will
           -- not be able to fanout! We might want to communicate that to the client!

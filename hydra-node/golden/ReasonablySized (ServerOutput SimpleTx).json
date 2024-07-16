@@ -368,7 +368,7 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
+                "contestingSnapshot": {
                     "headId": "06010601030008070105000500070808",
                     "initialUTxO": [
                         2,
@@ -395,7 +395,7 @@
                     ]
                 },
                 "tag": "ContestTx",
-                "version": 0
+                "openVersion": 0
             },
             "postTxError": {
                 "byronAddress": "Ae2tdPwUPEZ41qDR2ReAVKDzynJTVsA7KoYtgsPjRn6P1ssRQKf1X7u9Ve5",

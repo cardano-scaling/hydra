@@ -1602,8 +1602,8 @@ components:
             - tag
             - headId
             - headParameters
-            - confirmedSnapshot
-            - version
+            - openVersion
+            - contestingSnapshot
           description: |
             Contest a previously posted snapshot (from a Close or Contest
             transaction) with a newer snapshot.
@@ -1615,10 +1615,10 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
-            confirmedSnapshot:
-              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-            version:
+            openVersion:
               $ref: "api.yaml#/components/schemas/SnapshotVersion"
+            contestingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
 
         - title: FanoutTx
           type: object

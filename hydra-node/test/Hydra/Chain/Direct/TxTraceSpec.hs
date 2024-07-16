@@ -780,9 +780,9 @@ newContestTx actor snapshot = do
       spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.cperiod
+      (UnsafeSnapshotVersion v)
       snapshot
       currentTime
-      (UnsafeSnapshotVersion v)
  where
   currentTime = (0, posixSecondsToUTCTime 0)
 

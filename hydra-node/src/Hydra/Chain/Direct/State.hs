@@ -554,18 +554,23 @@ contest ::
   UTxO ->
   HeadId ->
   ContestationPeriod ->
+  -- | Last known version of the open head. NOTE: We deliberately require a
+  -- 'SnapshotVersion' to be passed in, even though it could be extracted from the
+  -- open head output in the spendable UTxO, to stay consistent with the way
+  -- parameters are handled.
+  SnapshotVersion ->
+  -- | Snapshot to contest with.
   ConfirmedSnapshot Tx ->
   -- | Current slot and posix time to be used as the contestation time.
   PointInTime ->
-  SnapshotVersion ->
   Either ContestTxError Tx
-contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime offChainVersion = do
+contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInContest{headId}
   headUTxO <-
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
-  pure $ contestTx scriptRegistry ownVerificationKey sn sigs pointInTime closedThreadOutput headId contestationPeriod offChainVersion
+  pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput
  where
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <- txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInContest
@@ -587,9 +592,12 @@ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTim
       _ -> Left WrongDatumInContest
 
   (sn, sigs) =
-    case confirmedSnapshot of
-      ConfirmedSnapshot{signatures} -> (getSnapshot confirmedSnapshot, signatures)
-      _ -> (getSnapshot confirmedSnapshot, mempty)
+    case contestingSnapshot of
+      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+      -- XXX: This way of retrofitting an 'InitialSnapshot' into a Snapshot +
+      -- Signatures indicates we might want to simplify 'ConfirmedSnapshot' into
+      -- a product directly.
+      _ -> (getSnapshot contestingSnapshot, mempty)
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -1081,7 +1089,7 @@ genContestTx = do
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
   contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp contestSnapshot contestPointInTime version)
+  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
 genFanoutTx numParties numOutputs = do
@@ -1215,6 +1223,7 @@ unsafeCollect ::
 unsafeCollect ctx headId headParameters utxoToCollect spendableUTxO =
   either (error . show) id $ collect ctx headId headParameters utxoToCollect spendableUTxO
 
+-- | Unsafe version of 'contest' that throws an error if the transaction fails to build.
 unsafeContest ::
   HasCallStack =>
   ChainContext ->
@@ -1222,12 +1231,12 @@ unsafeContest ::
   UTxO ->
   HeadId ->
   ContestationPeriod ->
+  SnapshotVersion ->
   ConfirmedSnapshot Tx ->
   PointInTime ->
-  SnapshotVersion ->
   Tx
-unsafeContest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime version =
-  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot pointInTime version
+unsafeContest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime =
+  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime
 
 unsafeFanout ::
   HasCallStack =>

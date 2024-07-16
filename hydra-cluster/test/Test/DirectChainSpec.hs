@@ -460,14 +460,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     }
             postTx $
               ContestTx
-                headId
-                headParameters
-                ( ConfirmedSnapshot
-                    { snapshot = snapshot1
-                    , signatures = aggregate [sign aliceSk snapshot1]
-                    }
-                )
-                0
+                { headId
+                , headParameters
+                , openVersion = 0
+                , contestingSnapshot =
+                    ConfirmedSnapshot
+                      { snapshot = snapshot1
+                      , signatures = aggregate [sign aliceSk snapshot1]
+                      }
+                }
             aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1, contestationDeadline = deadline}
 
             -- Alice contests with some snapshot U2 -> expect fail
@@ -483,14 +484,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             let contestAgain =
                   postTx $
                     ContestTx
-                      headId
-                      headParameters
-                      ( ConfirmedSnapshot
-                          { snapshot = snapshot2
-                          , signatures = aggregate [sign aliceSk snapshot2]
-                          }
-                      )
-                      1
+                      { headId
+                      , headParameters
+                      , openVersion = 1
+                      , contestingSnapshot =
+                          ConfirmedSnapshot
+                            { snapshot = snapshot2
+                            , signatures = aggregate [sign aliceSk snapshot2]
+                            }
+                      }
             -- NOTE: We deliberately expect the transaction creation and
             -- submission code of the Chain.Direct module to fail here because
             -- the scripts don't validate. That is, the on-chain code prevented

@@ -545,10 +545,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
-        | openVersion == version ->
+        | version == openVersion ->
             Head.CloseCurrent{signature = toPlutusSignatures signatures}
         | otherwise ->
-            -- NOTE: This will only work for openVersion == version + 1
+            -- NOTE: This will only work for version == openVersion - 1
             Head.CloseOutdated
               { signature = toPlutusSignatures signatures
               , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
@@ -600,6 +600,9 @@ contestTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
+  HeadId ->
+  ContestationPeriod ->
+  SnapshotVersion ->
   -- | Contested snapshot number (i.e. the one we contest to)
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
@@ -608,11 +611,8 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
-  HeadId ->
-  ContestationPeriod ->
-  SnapshotVersion ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod openVersion =
+contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -642,22 +642,16 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
-  -- TODO: push this further out to avoid 'openVersion'?
   contestRedeemer
-    | openVersion == version =
+    | version == openVersion =
         Head.ContestCurrent
           { signature = toPlutusSignatures sig
           }
-    | openVersion == version + 1 =
+    | otherwise =
+        -- NOTE: This will only work for version == openVersion - 1
         Head.ContestOutdated
           { signature = toPlutusSignatures sig
           , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-          }
-    | otherwise =
-        -- FIXME: make this impossible to reach (from HeadLogic)
-        -- NOTE: Won't work, but allow to construct the tx
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
           }
 
   headOutputAfter =
@@ -677,27 +671,19 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
       Head.Closed
         Head.ClosedDatum
           { snapshotNumber = toInteger number
-          , utxoHash
-          , deltaUTxOHash
+          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
+          , deltaUTxOHash =
+              case contestRedeemer of
+                Head.ContestCurrent{} ->
+                  Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+                _ -> Nothing
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
-          , version = toInteger version
+          , version = toInteger openVersion -- TODO: This was 'version' before and that was wrong. Which test can catch it?
           }
-
-  -- TODO: DRY with contestRedeemer
-  deltaUTxOHash
-    | openVersion == version =
-        Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-    | openVersion == version + 1 =
-        Nothing
-    | otherwise =
-        -- XXX: should not be needed
-        Nothing
-
-  utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
 data FanoutTxError
   = CannotFindHeadOutputToFanout

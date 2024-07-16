@@ -3948,7 +3948,7 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
+                "contestingSnapshot": {
                     "signatures": {
                         "multiSignature": [
                             "d445cad71bd986c5f251e3b025e6189604b24ed658ea96a2521ef7fe4ec76c721e5e255851e00bb600a22c3693a5c3bb6c47c1f313869a69522d94534710f404",
@@ -4288,7 +4288,7 @@
                     ]
                 },
                 "tag": "ContestTx",
-                "version": 5
+                "openVersion": 5
             },
             "postTxError": {
                 "knownUTxO": {

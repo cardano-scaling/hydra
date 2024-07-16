@@ -10510,7 +10510,7 @@
         },
         {
             "postChainTx": {
-                "confirmedSnapshot": {
+                "contestingSnapshot": {
                     "signatures": {
                         "multiSignature": [
                             "fc402e49266b85991e061028cbe7e3004e014c00723a17f06358cb29c8d43ce5050743d65e2457fb3df04fda1a2a86a30104859796c4c64ce4e2d774a1d9c401"
@@ -10545,7 +10545,7 @@
                     ]
                 },
                 "tag": "ContestTx",
-                "version": 4
+                "openVersion": 4
             },
             "postTxError": {
                 "headId": "00070401010402030408070003060303",
