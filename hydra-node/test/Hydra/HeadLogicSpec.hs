@@ -189,14 +189,9 @@ spec =
                 }
 
         it "waits if a requested decommit tx is not (yet) applicable" $ do
-          let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-          let s0 = inOpenState threeParties
-
-          s0 `shouldSatisfy` \case
-            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
-            _ -> False
-
-          let reqDecEvent = receiveMessage ReqDec{transaction = decommitTx'}
+          let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              s0 = inOpenState threeParties
+              reqDecEvent = receiveMessage ReqDec{transaction = decommitTx}
 
           update aliceEnv ledger s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx (DecommitTxInvalid mempty (ValidationError "cannot apply transaction"))
