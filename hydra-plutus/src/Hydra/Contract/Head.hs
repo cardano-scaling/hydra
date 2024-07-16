@@ -657,6 +657,9 @@ hasPT headCurrencySymbol txOut =
    in length pts == 1
 {-# INLINEABLE hasPT #-}
 
+-- | Verify the multi-signature of a snapshot using given constituents 'headId',
+-- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
+-- 'SignableRepresentation Snapshot' for more details.
 verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Maybe Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
@@ -664,12 +667,13 @@ verifySnapshotSignature parties msg sigs =
       && all (uncurry $ verifyPartySignature msg) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
+-- | Verify individual party signature of a snapshot. See
+-- 'SignableRepresentation Snapshot' for more details.
 verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Maybe Hash) -> Party -> Signature -> Bool
 verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) party =
   verifyEd25519Signature (vkey party) message
  where
   message =
-    -- TODO: document CDDL format, either here or in 'Hydra.Snapshot.getSignableRepresentation'
     Builtins.serialiseData (toBuiltinData headId)
       <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
