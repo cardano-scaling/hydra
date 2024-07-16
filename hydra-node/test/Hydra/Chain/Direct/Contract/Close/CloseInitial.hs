@@ -8,10 +8,20 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime, healthyContestationDeadline, healthyContestationPeriod, healthyOnChainParties, healthyOpenHeadTxIn, healthyOpenHeadTxOut, healthySnapshot, healthyUTxO, scriptRegistry, somePartyCardanoVerificationKey)
+import Hydra.Chain.Direct.Contract.Close.Healthy (
+  healthyCloseLowerBoundSlot,
+  healthyCloseUpperBoundPointInTime,
+  healthyContestationDeadline,
+  healthyContestationPeriod,
+  healthyOnChainParties,
+  healthyOpenHeadTxIn,
+  healthyOpenHeadTxOut,
+  healthyUTxO,
+  somePartyCardanoVerificationKey,
+ )
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (OpenThreadOutput (..), closeTx, mkHeadId)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
@@ -20,7 +30,7 @@ import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Ledger (hashUTxO)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, SnapshotNumber, SnapshotVersion, utxo, utxoToDecommit)
+import Hydra.Snapshot (ConfirmedSnapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -62,6 +72,8 @@ healthyCloseInitialTx =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       <> registryUTxO scriptRegistry
 
+  scriptRegistry = genScriptRegistry `generateWith` 42
+
   openThreadOutput :: OpenThreadOutput
   openThreadOutput =
     OpenThreadOutput
@@ -73,9 +85,6 @@ healthyCloseInitialTx =
   headId = mkHeadId Fixture.testPolicyId
 
   closingSnapshot = InitialSnapshot{headId, initialUTxO = healthyUTxO}
-
-healthyInitialSnapshot :: Snapshot Tx
-healthyInitialSnapshot = (healthySnapshot healthyCloseSnapshotNumber healthyCloseSnapshotVersion){utxo = healthyUTxO, utxoToDecommit = mempty}
 
 healthyInitialOpenDatum :: HeadState.State
 healthyInitialOpenDatum =

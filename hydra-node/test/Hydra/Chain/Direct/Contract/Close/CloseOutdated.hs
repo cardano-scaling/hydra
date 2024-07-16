@@ -22,7 +22,6 @@ import Hydra.Chain.Direct.Contract.Close.Healthy (
   healthySignature,
   healthySplitUTxOInHead,
   healthySplitUTxOToDecommit,
-  scriptRegistry,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Chain.Direct.Contract.Gen (genHash, genMintedOrBurnedValue)
@@ -42,7 +41,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.Tx (
   OpenThreadOutput (..),
   closeTx,
@@ -120,6 +119,8 @@ healthyCloseOutdatedTx =
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       <> registryUTxO scriptRegistry
+
+  scriptRegistry = genScriptRegistry `generateWith` 42
 
   datum :: TxOutDatum CtxUTxO
   datum = toUTxOContext (mkTxOutDatumInline healthyOutdatedOpenDatum)
