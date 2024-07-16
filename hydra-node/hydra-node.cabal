@@ -75,7 +75,6 @@ library
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
-    Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
     Hydra.Ledger
     Hydra.Ledger.Cardano
