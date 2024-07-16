@@ -54,10 +54,12 @@ data StateChanged tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | TransactionReceived {tx :: tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
+  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
@@ -67,11 +69,6 @@ data StateChanged tx
       , requestedTxIds :: [TxIdType tx]
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
-      }
-  | TransactionReceived {tx :: tx}
-  | DecommitRecorded
-      { decommitTx :: tx
-      , newLocalUTxO :: UTxOType tx
       }
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
@@ -99,12 +96,14 @@ genStateChanged env =
     , CommittedUTxO party <$> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary
     , pure HeadIsReadyToFanout
