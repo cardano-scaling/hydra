@@ -76,10 +76,8 @@ data PostChainTx tx
   | CloseTx
       { headId :: HeadId
       , headParameters :: HeadParameters
-      , confirmedSnapshot :: ConfirmedSnapshot tx
-      , version :: SnapshotVersion
-      , -- REVIEW: remove it?
-        closeUTxOToDecommit :: UTxOType tx
+      , openVersion :: SnapshotVersion
+      , closingSnapshot :: ConfirmedSnapshot tx
       }
   | ContestTx
       { headId :: HeadId
@@ -103,7 +101,7 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
     DecrementTx{headId, headParameters, snapshot, signatures} ->
       DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink snapshot <*> shrink signatures
-    CloseTx{headId, headParameters, confirmedSnapshot, version, closeUTxOToDecommit} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot <*> shrink version <*> shrink closeUTxOToDecommit
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, confirmedSnapshot, version} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot <*> shrink version
     FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 

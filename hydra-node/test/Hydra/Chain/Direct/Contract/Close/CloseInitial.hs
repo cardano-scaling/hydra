@@ -12,7 +12,7 @@ import Hydra.Chain.Direct.Contract.Close.Healthy (healthyCloseLowerBoundSlot, he
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (UTxOHash), closeTx, mkHeadId)
+import Hydra.Chain.Direct.Tx (OpenThreadOutput (..), closeTx, mkHeadId)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -20,7 +20,7 @@ import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Ledger (hashUTxO)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion, utxo, utxoToDecommit)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot, SnapshotNumber, SnapshotVersion, utxo, utxoToDecommit)
 import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -47,12 +47,12 @@ healthyCloseInitialTx =
     closeTx
       scriptRegistry
       somePartyCardanoVerificationKey
+      headId
+      healthyCloseSnapshotVersion
       closingSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
-      healthyCloseSnapshotVersion
 
   initialDatum :: TxOutDatum CtxUTxO
   initialDatum = toUTxOContext (mkTxOutDatumInline healthyInitialOpenDatum)
@@ -70,11 +70,9 @@ healthyCloseInitialTx =
       , openContestationPeriod = healthyContestationPeriod
       }
 
-  closingSnapshot :: ClosingSnapshot
-  closingSnapshot =
-    CloseWithInitialSnapshot
-      { openUtxoHash = UTxOHash $ hashUTxO @Tx healthyUTxO
-      }
+  headId = mkHeadId Fixture.testPolicyId
+
+  closingSnapshot = InitialSnapshot{headId, initialUTxO = healthyUTxO}
 
 healthyInitialSnapshot :: Snapshot Tx
 healthyInitialSnapshot = (healthySnapshot healthyCloseSnapshotNumber healthyCloseSnapshotVersion){utxo = healthyUTxO, utxoToDecommit = mempty}

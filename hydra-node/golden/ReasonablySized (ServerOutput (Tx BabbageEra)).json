@@ -12409,8 +12409,7 @@
         },
         {
             "postChainTx": {
-                "closeUTxOToDecommit": {},
-                "confirmedSnapshot": {
+                "closingSnapshot": {
                     "signatures": {
                         "multiSignature": [
                             "bcf7094f88f4644a86f70bb322b4be74e80b42d06f0eb38adde309d004dadb72749e1c71611f4a1365119a24cde2afa6eee63fb1474618ef2867887030089904",
@@ -12614,7 +12613,7 @@
                     ]
                 },
                 "tag": "CloseTx",
-                "version": 3
+                "openVersion": 3
             },
             "postTxError": {
                 "tag": "FailedToConstructFanoutTx"

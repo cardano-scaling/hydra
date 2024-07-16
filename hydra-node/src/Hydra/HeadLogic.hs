@@ -888,7 +888,6 @@ isLeader HeadParameters{parties} p sn =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose ::
-  Monoid (UTxOType tx) =>
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
@@ -902,10 +901,8 @@ onOpenClientClose st =
           CloseTx
             { headId
             , headParameters = parameters
-            , confirmedSnapshot
-            , version
-            , -- FIXME: We should not need to pass this here
-              closeUTxOToDecommit = fromMaybe mempty $ Hydra.Snapshot.utxoToDecommit $ getSnapshot confirmedSnapshot
+            , openVersion = version
+            , closingSnapshot = confirmedSnapshot
             }
       }
  where
@@ -919,7 +916,6 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
-  Monoid (UTxOType tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -965,7 +961,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
-  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1036,7 +1031,6 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
-  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->

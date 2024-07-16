@@ -144,12 +144,7 @@
         },
         {
             "postChainTx": {
-                "closeUTxOToDecommit": [
-                    -4,
-                    -3,
-                    4
-                ],
-                "confirmedSnapshot": {
+                "closingSnapshot": {
                     "headId": "00030205050507000303070200000504",
                     "initialUTxO": [
                         0
@@ -162,7 +157,7 @@
                     "parties": []
                 },
                 "tag": "CloseTx",
-                "version": 0
+                "openVersion": 0
             },
             "postTxError": {
                 "tag": "FailedToConstructDecrementTx"

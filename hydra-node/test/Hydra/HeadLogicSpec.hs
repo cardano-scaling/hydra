@@ -857,10 +857,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot ::
-  Monoid (UTxOType tx) =>
-  HeadState tx ->
-  Maybe (Snapshot tx)
+getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)

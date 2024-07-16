@@ -254,6 +254,7 @@ spec =
                   ]
 
     describe "Chained Head transactions work" $ do
+      -- REVIEW: Is this test needed in presence of TxTraceSpec?
       it "Alter snapshots to test transactions" $
         forAllBlind arbitrary $ \chainContext -> do
           let ctx@ChainContext{scriptRegistry} =
@@ -453,7 +454,7 @@ produceClose ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceClose ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case close ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) (version snapshot) of
+  case close ctx spendableUTxO headId parameters (version snapshot) ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
       ( p <> [evaluateTransaction tx spendableUTxO]

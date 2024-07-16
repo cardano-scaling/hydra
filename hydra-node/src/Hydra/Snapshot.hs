@@ -158,7 +158,7 @@ data ConfirmedSnapshot tx
 -- happens.
 
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
-getSnapshot :: Monoid (UTxOType tx) => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     Snapshot
@@ -167,7 +167,7 @@ getSnapshot = \case
       , number = 0
       , confirmed = []
       , utxo = initialUTxO
-      , utxoToDecommit = mempty
+      , utxoToDecommit = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot
 
