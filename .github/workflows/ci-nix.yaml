@@ -276,14 +276,14 @@ jobs:
 
     - name: ❄ Build specification PDF
       run: |
-        nix build .#spec && cp result/*.pdf spec/
+        nix build .#spec && cp result/*.pdf .
 
     - name: 💾 Upload specification
       uses: actions/upload-artifact@v4
       with:
         name: hydra-spec
         path: |
-          ./spec/*.pdf
+          *.pdf
 
   documentation:
     name: Documentation
