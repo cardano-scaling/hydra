@@ -148,8 +148,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
   , decommitTx :: Maybe tx
-  -- ^ Client requested to decommit a 'UTxO' which is present in the
-  -- 'ConfirmedSnapshot'.
+  -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last seen open state version.
   }

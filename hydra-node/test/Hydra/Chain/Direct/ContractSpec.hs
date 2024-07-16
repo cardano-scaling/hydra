@@ -15,6 +15,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api (
   UTxO,
+  serialiseToRawBytesHexText,
   toLedgerTxOut,
   toPlutusTxOut,
  )
@@ -33,12 +34,9 @@ import Hydra.Chain.Direct.Contract.Mutation (propMutation)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Head (
-  verifyPartySignature,
-  verifySnapshotSignature,
- )
+import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Head qualified as OnChain
-import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
+import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger qualified as OffChain
 import Hydra.Ledger.Cardano (
@@ -71,16 +69,7 @@ import Test.QuickCheck.Instances ()
 spec :: Spec
 spec = parallel $ do
   describe "Signature validator" $ do
-    prop
-      "verifies single signature produced off-chain"
-      prop_verifyOffChainSignatures
-    -- FIXME(AB): This property exists solely because our current multisignature implementation
-    -- is just the aggregates of individual (mock) signatures and there is no point in doing some
-    -- complicated shuffle logic to verify signatures given we'll end up verifying a single Ed25519
-    -- signatures.
-    prop
-      "verifies snapshot multi-signature for list of parties and signatures"
-      prop_verifySnapshotSignatures
+    prop "verifies snapshot multi-signature" prop_verifySnapshotSignatures
 
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $ do
@@ -214,29 +203,6 @@ prop_hashingCaresAboutOrderingOfTxOuts =
                     & counterexample ("Plutus: " <> show plutusTxOuts)
                     & counterexample ("Shuffled: " <> show shuffledTxOuts)
 
-prop_verifyOffChainSignatures :: Property
-prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
-    forAll arbitrary $ \seed ->
-      let sk = generateSigningKey seed
-          offChainSig = sign sk snapshot
-          onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
-          onChainParty = partyToChain $ deriveParty sk
-          snapshotNumber = toInteger number
-          snapshotVersion = toInteger version
-          utxoHash = toBuiltin $ hashUTxO utxo
-          utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
-       in verifyPartySignature
-            (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
-            onChainParty
-            onChainSig
-            & counterexample ("headId: " <> show headId)
-            & counterexample ("signed: " <> show onChainSig)
-            & counterexample ("party: " <> show onChainParty)
-            & counterexample ("utxoHash: " <> show utxoHash)
-            & counterexample ("version: " <> show version)
-            & counterexample ("message: " <> show (getSignableRepresentation snapshot))
-
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
   forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
@@ -248,7 +214,11 @@ prop_verifySnapshotSignatures =
           snapshotVersion = toInteger version
           utxoHash = toBuiltin $ hashUTxO utxo
           utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
-       in verifySnapshotSignature
-            onChainParties
-            (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash)
-            signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) signatures
+            & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
+            & counterexample ("version: " <> show snapshotVersion)
+            & counterexample ("number: " <> show snapshotNumber)
+            & counterexample ("utxoHash: " <> show utxoHash)
+            & counterexample ("utxoToDecommitHash: " <> show utxoToDecommitHash)
+            & counterexample ("off-chain message: " <> show (Base16.encode $ getSignableRepresentation snapshot))
+            & counterexample ("signatures: " <> show signatures)

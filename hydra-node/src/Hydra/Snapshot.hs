@@ -97,28 +97,25 @@ instance IsTx tx => Arbitrary (Snapshot tx) where
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
 
--- | Binary representation of snapshot signatures
--- CDDL definition for 'Snapshot'. Parseable either from JSON Snapshot
--- representation or hex encoded CBOR string:
+-- | Binary representation of snapshot signatures. That is, concatenated CBOR for
+-- 'headId', 'version', 'number', 'utxoHash' and 'utxoToDecommitHash' according
+-- to CDDL schemata:
 --
--- snapshot = {
---    headId : text
---    snapshotNumber : uint
---    confirmedTransactions  : []
---    utxo : {}
---    utxoToDecommit : {}
---    version : uint
---   } / bytes
+-- headId = bytes .size 16
+-- version = uint
+-- number = uint
+-- utxoHash = bytes
+-- utxoToDecommitHash = bytes
 --
--- root = [* snapshot ]
+-- where hashes are the result of applying 'hashUTxO'.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
-        <> serialise (toData . toBuiltin $ toInteger version) -- CBOR(I(integer))
-        <> serialise (toData . toBuiltin $ toInteger number) -- CBOR(I(integer))
-        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
-        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit) -- CBOR(B(bytestring)
+        <> serialise (toData . toBuiltin $ toInteger version)
+        <> serialise (toData . toBuiltin $ toInteger number)
+        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
+        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
