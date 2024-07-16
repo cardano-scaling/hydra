@@ -458,17 +458,9 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
                   , newLocalTxs
                   }
  where
-  requireReqSn continue =
-    requireReqSv $
-      requireReqSnbr continue
-
-  requireReqSv continue
+  requireReqSn continue
     | sv /= version =
         Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
-    | otherwise =
-        continue
-
-  requireReqSnbr continue
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
