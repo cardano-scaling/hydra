@@ -72,7 +72,6 @@ import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CloseTxError (..),
   ClosedThreadOutput (..),
-  ClosingSnapshot (..),
   CollectComObservation (..),
   CommitObservation (..),
   ContestTxError (..),
@@ -81,7 +80,7 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   NotAnInitReason,
   OpenThreadOutput (..),
-  UTxOHash (UTxOHash),
+  UTxOHash,
   abortTx,
   closeTx,
   collectComTx,
@@ -107,7 +106,7 @@ import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.HeadId (HeadId (..))
-import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (hashUTxO))
+import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxOut, genUTxO1, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
@@ -513,17 +512,23 @@ close ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
+  -- | Head id to close.
   HeadId ->
+  -- | Parameters of the head to close.
   HeadParameters ->
+  -- | Last known version of the open head. NOTE: We deliberately require a
+  -- 'SnapshotVersion' to be passed in, even though it could be extracted from the
+  -- open head output in the spendable UTxO, to stay consistent with the way
+  -- parameters are handled.
+  SnapshotVersion ->
+  -- | Snapshot to close with.
   ConfirmedSnapshot Tx ->
   -- | 'Tx' validity lower bound
   SlotNo ->
   -- | 'Tx' validity upper bound
   PointInTime ->
-  -- | Current off-chain snapshot version in coordinated head state
-  SnapshotVersion ->
   Either CloseTxError Tx
-close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confirmedSnapshot startSlotNo pointInTime offChainVersion = do
+close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
@@ -534,20 +539,9 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} confi
           , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
           , openParties = partyToChain <$> parties
           }
-  pure $ closeTx scriptRegistry ownVerificationKey closingSnapshot startSlotNo pointInTime openThreadOutput headId offChainVersion
+  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
-
-  closingSnapshot = case confirmedSnapshot of
-    InitialSnapshot{initialUTxO} -> CloseWithInitialSnapshot{openUtxoHash = UTxOHash $ hashUTxO @Tx initialUTxO}
-    ConfirmedSnapshot{snapshot = Snapshot{number, utxo, utxoToDecommit, version}, signatures} ->
-      CloseWithConfirmedSnapshot
-        { snapshotNumber = number
-        , closeUtxoHash = UTxOHash $ hashUTxO @Tx utxo
-        , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-        , signatures
-        , version
-        }
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -1067,7 +1061,7 @@ genCloseTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeClose cctx utxo headId (ctxHeadParameters ctx) snapshot startSlot pointInTime version, snapshot)
+  pure (cctx, stOpen, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
 genContestTx = do
@@ -1080,7 +1074,7 @@ genContestTx = do
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) confirmed startSlot closePointInTime version
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
@@ -1149,7 +1143,7 @@ genStClosed ctx utxo utxoToDecommit = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo' = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx utxo' headId (ctxHeadParameters ctx) snapshot startSlot pointInTime v
+  let txClose = unsafeClose cctx utxo' headId (ctxHeadParameters ctx) v snapshot startSlot pointInTime
   pure (sn, toFanout, toDecommit, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
@@ -1192,6 +1186,7 @@ unsafeDecrement ::
 unsafeDecrement ctx spendableUTxO headId parameters snapshot signatures =
   either (error . show) id $ decrement ctx spendableUTxO headId parameters snapshot signatures
 
+-- | Unsafe version of 'close' that throws an error if the transaction fails to build.
 unsafeClose ::
   HasCallStack =>
   ChainContext ->
@@ -1199,15 +1194,13 @@ unsafeClose ::
   UTxO ->
   HeadId ->
   HeadParameters ->
-  ConfirmedSnapshot Tx ->
-  -- | 'Tx' validity lower bound
-  SlotNo ->
-  -- | 'Tx' validity upper bound
-  PointInTime ->
   SnapshotVersion ->
+  ConfirmedSnapshot Tx ->
+  SlotNo ->
+  PointInTime ->
   Tx
-unsafeClose ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime version =
-  either (error . show) id $ close ctx spendableUTxO headId headParameters confirmedSnapshot startSlotNo pointInTime version
+unsafeClose ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
+  either (error . show) id $ close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
 
 unsafeCollect ::
   ChainContext ->

@@ -816,10 +816,10 @@ toOnChainTx now = \case
       , newVersion = getField @"version" snapshot
       , distributedOutputs = maybe mempty outputsOfUTxO $ getField @"utxoToDecommit" snapshot
       }
-  CloseTx{confirmedSnapshot} ->
+  CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId
-      , snapshotNumber = number (getSnapshot confirmedSnapshot)
+      , snapshotNumber = number (getSnapshot closingSnapshot)
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
   ContestTx{headId, confirmedSnapshot} ->

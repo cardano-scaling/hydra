@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.TimeHandle (PointInTime)
-import Hydra.Chain.Direct.Tx (ClosingSnapshot (..), OpenThreadOutput (..), UTxOHash (..), closeTx, mkHeadId, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (OpenThreadOutput (..), closeTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (fromChain)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
@@ -25,6 +25,7 @@ import Hydra.Ledger.Cardano (genOneUTxOFor, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Orphans ()
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Snapshot as Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
@@ -119,14 +120,11 @@ healthyOpenDatum Snapshot{version} =
       , version = toInteger version
       }
 
-healthyConfirmedClosingSnapshot :: Snapshot Tx -> ClosingSnapshot
-healthyConfirmedClosingSnapshot snapshot =
-  CloseWithConfirmedSnapshot
-    { snapshotNumber = number snapshot
-    , closeUtxoHash = UTxOHash $ hashUTxO @Tx $ utxo snapshot
-    , closeUtxoToDecommitHash = UTxOHash $ hashUTxO @Tx $ fromMaybe mempty $ utxoToDecommit snapshot
+healthyConfirmedSnapshot :: Snapshot Tx -> ConfirmedSnapshot Tx
+healthyConfirmedSnapshot snapshot =
+  ConfirmedSnapshot
+    { snapshot
     , signatures = healthySignature snapshot
-    , version = Snapshot.version snapshot
     }
 
 healthyConfirmedClosingTx :: Snapshot Tx -> (Tx, UTxO)
@@ -138,12 +136,12 @@ healthyConfirmedClosingTx snapshot@Snapshot{version} =
     closeTx
       scriptRegistry
       somePartyCardanoVerificationKey
-      (healthyConfirmedClosingSnapshot snapshot)
+      (mkHeadId Fixture.testPolicyId)
+      version
+      (healthyConfirmedSnapshot snapshot)
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
-      (mkHeadId Fixture.testPolicyId)
-      version
 
   datum :: TxOutDatum CtxUTxO
   datum = toUTxOContext $ mkTxOutDatumInline $ healthyOpenDatum snapshot

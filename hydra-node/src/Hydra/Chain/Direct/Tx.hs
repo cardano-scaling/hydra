@@ -77,7 +77,7 @@ import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion, getSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
@@ -486,22 +486,6 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
--- | Low-level data type of a snapshot to close the head with. This is different
--- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
--- contains relevant chain state like the 'openUtxoHash'.
-data ClosingSnapshot
-  = CloseWithInitialSnapshot {openUtxoHash :: UTxOHash}
-  | CloseWithConfirmedSnapshot
-      { snapshotNumber :: SnapshotNumber
-      , closeUtxoHash :: UTxOHash
-      , closeUtxoToDecommitHash :: UTxOHash
-      , -- XXX: This is a bit of a wart and stems from the fact that our
-        -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
-        -- and the closeUtxoHash as also included above
-        signatures :: MultiSignature (Snapshot Tx)
-      , version :: SnapshotVersion
-      }
-
 data CloseTxError
   = InvalidHeadIdInClose {headId :: HeadId}
   | CannotFindHeadOutputToClose
@@ -514,19 +498,20 @@ closeTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | The snapshot to close with, can be either initial or confirmed one.
-  ClosingSnapshot ->
+  -- | Head identifier
+  HeadId ->
+  -- | Last known version of the open head.
+  SnapshotVersion ->
+  -- | Snapshot with instructions how to close the head.
+  ConfirmedSnapshot Tx ->
   -- | Lower validity slot number, usually a current or quite recent slot number.
   SlotNo ->
   -- | Upper validity slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
-  -- | Head identifier
-  HeadId ->
-  SnapshotVersion ->
   Tx
-closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId offChainVersion =
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -556,18 +541,18 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
 
   headRedeemer = toScriptData $ Head.Close closeRedeemer
 
-  -- TODO: push this further out to avoid 'offChainVersion'?
-  closeRedeemer
-    | offChainVersion == version && toInteger version == snapshotNumber && snapshotNumber == 0 =
-        Head.CloseInitial
-    | offChainVersion == version =
-        Head.CloseCurrent{signature}
-    | offChainVersion == version + 1 =
-        Head.CloseOutdated
-          { signature
-          , alreadyDecommittedUTxOHash = toBuiltin decommitUTxOHashBytes
-          }
-    | otherwise = Head.CloseInitial
+  closeRedeemer =
+    case confirmedSnapshot of
+      InitialSnapshot{} -> Head.CloseInitial
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
+        | openVersion == version ->
+            Head.CloseCurrent{signature = toPlutusSignatures signatures}
+        | otherwise ->
+            -- NOTE: This will only work for openVersion == version + 1
+            Head.CloseOutdated
+              { signature = toPlutusSignatures signatures
+              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+              }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -576,26 +561,22 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
     mkTxOutDatumInline $
       Head.Closed
         Head.ClosedDatum
-          { snapshotNumber
-          , utxoHash = toBuiltin utxoHashBytes
+          { snapshotNumber =
+              fromIntegral . number $ getSnapshot confirmedSnapshot
+          , utxoHash =
+              toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
           , deltaUTxOHash =
               case closeRedeemer of
-                Head.CloseCurrent{} -> Just $ toBuiltin decommitUTxOHashBytes
+                Head.CloseCurrent{} ->
+                  Just . toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> Nothing
           , parties = openParties
           , contestationDeadline
           , contestationPeriod = openContestationPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = []
-          , version = toInteger offChainVersion -- TODO: rename or explain. This is rather "last known open state version"
+          , version = fromIntegral openVersion
           }
-
-  -- TODO: use CloseWithInitialSnapshot etc directly to avoid this tuple
-  (UTxOHash utxoHashBytes, UTxOHash decommitUTxOHashBytes, snapshotNumber, signature, version) =
-    case closing of
-      CloseWithInitialSnapshot{openUtxoHash} -> (openUtxoHash, UTxOHash $ hashUTxO @Tx mempty, 0, mempty, 0)
-      CloseWithConfirmedSnapshot{closeUtxoHash, closeUtxoToDecommitHash, snapshotNumber = sn, signatures = s, version = v} ->
-        (closeUtxoHash, closeUtxoToDecommitHash, toInteger sn, toPlutusSignatures s, v)
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
@@ -631,7 +612,7 @@ contestTx ::
   ContestationPeriod ->
   SnapshotVersion ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod offChainVersion =
+contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput headId contestationPeriod openVersion =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -661,13 +642,13 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
-  -- TODO: push this further out to avoid 'offChainVersion'?
+  -- TODO: push this further out to avoid 'openVersion'?
   contestRedeemer
-    | offChainVersion == version =
+    | openVersion == version =
         Head.ContestCurrent
           { signature = toPlutusSignatures sig
           }
-    | offChainVersion == version + 1 =
+    | openVersion == version + 1 =
         Head.ContestOutdated
           { signature = toPlutusSignatures sig
           , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
@@ -708,9 +689,9 @@ contestTx scriptRegistry vk Snapshot{number, utxo, utxoToDecommit, version} sig 
 
   -- TODO: DRY with contestRedeemer
   deltaUTxOHash
-    | offChainVersion == version =
+    | openVersion == version =
         Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-    | offChainVersion == version + 1 =
+    | openVersion == version + 1 =
         Nothing
     | otherwise =
         -- XXX: should not be needed

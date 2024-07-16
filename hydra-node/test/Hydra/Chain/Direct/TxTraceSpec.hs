@@ -759,10 +759,10 @@ newCloseTx actor snapshot = do
       spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
+      (UnsafeSnapshotVersion v)
       snapshot
       lowerBound
       upperBound
-      (UnsafeSnapshotVersion v)
  where
   lowerBound = 0
 

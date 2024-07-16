@@ -462,7 +462,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   -- Close
   (closeLower, closeUpper) <- pickBlind $ genValidityBoundsFromContestationPeriod ctxContestationPeriod
   let closeUTxO = getKnownUTxO stOpen
-      txClose = unsafeClose cctx closeUTxO headId (ctxHeadParameters ctx) InitialSnapshot{headId, initialUTxO} closeLower closeUpper 0
+      txClose = unsafeClose cctx closeUTxO headId (ctxHeadParameters ctx) 0 InitialSnapshot{headId, initialUTxO} closeLower closeUpper
   (deadline, stClosed) <- case observeClose stOpen txClose of
     Just (OnCloseTx{contestationDeadline}, st) -> pure (contestationDeadline, st)
     _ -> fail "not observed close"
