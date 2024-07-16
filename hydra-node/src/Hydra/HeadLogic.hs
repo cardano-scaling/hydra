@@ -1204,6 +1204,18 @@ aggregate st = \case
        where
         CoordinatedHeadState{localTxs} = coordinatedHeadState
       _otherState -> st
+  DecommitRecorded{decommitTx, newLocalUTxO} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { localUTxO = newLocalUTxO
+                  , decommitTx = Just decommitTx
+                  }
+            }
+    _otherState -> st
   SnapshotRequestDecided{snapshotNumber} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
@@ -1350,19 +1362,6 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  DecommitRecorded{decommitTx, newLocalUTxO} ->
-    case st of
-      Open
-        os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { coordinatedHeadState =
-                  coordinatedHeadState
-                    { localUTxO = newLocalUTxO
-                    , decommitTx = Just decommitTx
-                    }
-              }
-      _otherState -> st
   DecommitFinalized{newVersion} ->
     case st of
       Open
@@ -1414,12 +1413,12 @@ recoverChainStateHistory initialChainState =
     HeadAborted{chainState} -> pushNewState chainState history
     HeadOpened{chainState} -> pushNewState chainState history
     TransactionAppliedToLocalUTxO{} -> history
+    DecommitRecorded{} -> history
     SnapshotRequestDecided{} -> history
     SnapshotRequested{} -> history
     TransactionReceived{} -> history
     PartySignedSnapshot{} -> history
     SnapshotConfirmed{} -> history
-    DecommitRecorded{} -> history
     DecommitFinalized{} -> history
     HeadClosed{chainState} -> pushNewState chainState history
     HeadContested{chainState} -> pushNewState chainState history
