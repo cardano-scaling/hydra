@@ -788,7 +788,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": [],
+                "localUTxO": [],
                 "tag": "DecommitTxInvalid",
                 "validationError": {
                     "reason": ""
@@ -2235,7 +2235,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": [
+                "localUTxO": [
                     -4,
                     -1
                 ],
@@ -2772,7 +2772,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": [
+                "localUTxO": [
                     -5,
                     5
                 ],
@@ -3051,7 +3051,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": [
+                "localUTxO": [
                     -6,
                     1,
                     4,
@@ -3124,7 +3124,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": [
+                "localUTxO": [
                     5
                 ],
                 "tag": "DecommitTxInvalid",

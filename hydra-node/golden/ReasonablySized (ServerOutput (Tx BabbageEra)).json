@@ -7009,7 +7009,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {},
+                "localUTxO": {},
                 "tag": "DecommitTxInvalid",
                 "validationError": {
                     "reason": "(\u0003|\u0015~"
@@ -7240,7 +7240,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0808030701070102010201040600030400050003050107000804020806050201#52": {
                         "address": "addr_test1wz5cs3j5ef4r4tht3d473qwkd9w75c2gvh0szgdj5hcj2zgpuf9lr",
                         "datum": null,
@@ -13955,7 +13955,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {},
+                "localUTxO": {},
                 "tag": "DecommitTxInvalid",
                 "validationError": {
                     "reason": "}"
@@ -14536,7 +14536,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0106050608080403030101060803070301080403060504030008050507040002#17": {
                         "address": "addr_test1gz3xuexnzv42w0epctpj5ykdk5xnxe5fg2k67qfnv773ppqqqvrq8ctf2k",
                         "datum": null,

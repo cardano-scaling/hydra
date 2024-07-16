@@ -691,14 +691,19 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, version} = coordinatedHeadState
 
--- | Decide to output 'ReqDec' effect by checking first if there is no decommit
--- _in flight_ and if the tx applies cleanly to the local ledger state.
+-- | Client request to decommit UTxO from the head.
+--
+-- Only possible if there is no decommit _in flight_ and if the tx applies
+-- cleanly to the local ledger state.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientDecommit ::
   IsTx tx =>
   HeadId ->
   Ledger tx ->
   ChainSlot ->
   CoordinatedHeadState tx ->
+  -- | Decommit transaction.
   tx ->
   Outcome tx
 onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
@@ -723,7 +728,7 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
       Nothing -> continue
 
   checkValidDecommitTx cont =
-    case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+    case applyTransactions ledger currentSlot localUTxO [decommitTx] of
       Left (_, err) ->
         cause
           ( ClientEffect
@@ -732,18 +737,14 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
                 , decommitTx
                 , decommitInvalidReason =
                     ServerOutput.DecommitTxInvalid
-                      { confirmedUTxO
+                      { localUTxO
                       , validationError = err
                       }
                 }
           )
       Right _ -> cont
 
-  confirmedUTxO = (getSnapshot confirmedSnapshot).utxo
-
-  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
-
-  CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
@@ -756,15 +757,6 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
 --   - Issue a 'ReqSn' since all parties need to agree in order for decommit to
 --   be taken out of a Head.
 -- - Check if we are the leader
---
--- We don't check here if decommit tx can be applied to the confirmed ledger
--- state since this is already done if our party is the decommit _initiator_
--- (see usage of 'requireValidDecommitTx' when receiving 'Decommit' client
--- input) and should be done when the snapshot is to be acknowledged.
---
--- This way we are checking _later_ than we could but it will allow us to not
--- discard decommit tx which is maybe part of the snapshot _in flight_ but we
--- just didn't see the `AckSn` for it yet.
 onOpenNetworkReqDec ::
   IsTx tx =>
   Environment ->
@@ -809,7 +801,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                     , decommitTx
                     , decommitInvalidReason =
                         ServerOutput.DecommitTxInvalid
-                          { confirmedUTxO
+                          { localUTxO
                           , validationError = err
                           }
                     }
@@ -841,10 +833,6 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
   nextSn = number + 1
 
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version} = coordinatedHeadState
-
-  confirmedUTxO = case confirmedSnapshot of
-    InitialSnapshot{initialUTxO} -> initialUTxO
-    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
 
   OpenState
     { headId

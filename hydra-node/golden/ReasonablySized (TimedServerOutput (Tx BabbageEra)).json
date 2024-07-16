@@ -7324,7 +7324,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0303070408030104030305010401050003080806000704020603030107000008#32": {
                         "address": "addr_test1wrhmumz798zu9cl3vc7r80qqxecgwaqssesze77tz23n4zqrmemr9",
                         "datum": null,
@@ -10849,7 +10849,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0102080207080407080404020200050502030402020402070207070600020500#42": {
                         "address": "2RhQhCGqYPDpDAzvSmhDmBDp7qrw7Qs262TFS3vLZDFUtyKtW4gB2irjew4nMsHKrxysRq2dzNWnq4sQsuFPrusTiki8ahszdfZSGnuKtZ8LU6",
                         "datum": null,
@@ -13094,7 +13094,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0502080704030604070206020703080406080208080500020005000400070803#9": {
                         "address": "Ae2tdPwUPEZN8yq5VGfbZgeX9XVoH7ZuWtNUQBCe4n4LmGzCp6oAR41QEAP",
                         "datum": null,
@@ -13475,7 +13475,7 @@
         },
         {
             "decommitInvalidReason": {
-                "confirmedUTxO": {
+                "localUTxO": {
                     "0008070507040404010103050201040705000201010201000102020800000807#93": {
                         "address": "2RhQhCGqYPDoCJVtng2B6UB8LPiR3JiCPS3cuADfeKNHKvKgsQJCpPFeDgFWcM5C4LZMNr4XVEEZHW6477DdmV6QQHrEaYRzSzW79jQbcPBB2P",
                         "datum": null,
