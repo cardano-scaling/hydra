@@ -695,17 +695,16 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 -- _in flight_ and if the tx applies cleanly to the local ledger state.
 onOpenClientDecommit ::
   IsTx tx =>
-  Environment ->
   HeadId ->
   Ledger tx ->
   ChainSlot ->
   CoordinatedHeadState tx ->
   tx ->
   Outcome tx
-onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx =
+onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight $
     checkValidDecommitTx $
-      cause (NetworkEffect ReqDec{transaction = decommitTx, decommitRequester = party})
+      cause (NetworkEffect ReqDec{transaction = decommitTx})
  where
   checkNoDecommitInFlight continue =
     case mExistingDecommitTx of
@@ -745,8 +744,6 @@ onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommit
   CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
 
   CoordinatedHeadState{decommitTx = mExistingDecommitTx} = coordinatedHeadState
-
-  Environment{party} = env
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
@@ -1135,7 +1132,7 @@ update env ledger st ev = case (st, ev) of
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
-    onOpenClientDecommit env headId ledger currentSlot coordinatedHeadState decommitTx
+    onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})

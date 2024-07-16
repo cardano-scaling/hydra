@@ -1854,7 +1854,6 @@ definitions:
         required:
           - tag
           - transaction
-          - decommitRequester
         description: >-
           Notify the peers about the request to decommit some funds from the Head.
         properties:
@@ -1864,9 +1863,6 @@ definitions:
           transaction:
             type: object
             $ref: "api.yaml#/components/schemas/Transaction"
-          decommitRequester:
-            type: object
-            $ref: "api.yaml#/components/schemas/Party"
 
   ChainEvent:
     oneOf:

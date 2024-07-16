@@ -35,9 +35,6 @@
             }
         },
         {
-            "decommitRequester": {
-                "vkey": "31eb008ec9b806ac368ea4a20f7299dc9f8666812ceecdaf8536ab0caeddc05e"
-            },
             "tag": "ReqDec",
             "transaction": {
                 "id": 23,
