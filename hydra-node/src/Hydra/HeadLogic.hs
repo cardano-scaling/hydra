@@ -844,7 +844,7 @@ onOpenChainDecrementTx ::
 onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts =
   -- Spec: if outputs(txω) = 𝑈ω
   case decommitTx of
-    Nothing -> noop -- TODO: what if decommit observed but none pending?
+    Nothing -> Error $ AssertionFailed "decrement observed but no decommit pending"
     Just tx
       | outputsOfTx tx == distributedTxOuts ->
           -- Spec: txω ← ⊥
@@ -854,7 +854,7 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
             -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
             --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
             & maybeRequestSnapshot
-      | otherwise -> noop -- TODO: what if decrement not matching pending decommit?
+      | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
   maybeRequestSnapshot outcome =
     if seenSn == confirmedSn && isLeader parameters party nextSn
