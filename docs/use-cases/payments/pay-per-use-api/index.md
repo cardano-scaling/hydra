@@ -3,25 +3,26 @@
 > Micro-payments between a service provider and a client.
 
 :::caution This is a legacy article
-
-The payments category will be restructured into a more consistent
-use-case-centric roadmap of application scenarios.
+The payments category will be restructured into a more consistent use-case-centric roadmap of application scenarios.
 :::
 
-Let's consider a web service for transaction datum resolution in the form of an HTTP API. Given some datum hash, the API can return, if it exists, the pre-image of that hash digest. On the other end, we have a light-wallet provider with full Cardano smart-contract support and extra care for user experience and security. Part of the transaction workflow of the wallet consists of looking up datums and scripts included in transactions it sees, coming from various DApps its users interact with. Doing so, it can better show how a specific transaction will affect a contract and the data it carries.
+Consider a web service for transaction datum resolution in the form of an HTTP API. This service, when provided with a datum hash, returns the pre-image of that hash digest if it exists. Concurrently, there's a light-wallet provider equipped with full Cardano smart-contract support, prioritizing user experience and security. This provider’s workflow involves looking up datums and scripts included in transactions from various DApps its users engage with. By resolving these datums, the wallet can more accurately display the impact of specific transactions on contracts and their data.
 
-To keep the light-wallet infrastructure setup simple, the implementors decide to rely on that external service for datum resolution. However, their relatively new product makes it hard to estimate appropriately the number of resources they would need and how many users they would eventually serve. Thus, they agree with the service provider to create a Hydra Head and use it to issue short-lived API credentials in exchange for a micro-payment.
+To streamline their infrastructure, the light-wallet implementors decide to utilize this external service for datum resolution. Given the novelty of their product, it’s challenging to precisely estimate the required resources and the potential user base. Consequently, they enter into an agreement with the service provider to create a Hydra head for exchanging short-lived API credentials through micro-payments.
 
-Indeed, the service provider demands 10 lovelace per API lookup. In the final infrastructure, the light-wallet backend server is connected to the service provider with a long-running head. On every request from a user, the light wallet also issues a transaction in the Head. In exchange, the API provider gives a one-time token credential which can be used to authorize a request in the API. The whole dance is resolved in sub-second delays and without any transaction fee.
+Specifically, the service provider charges 10 lovelace per API lookup. In the deployed infrastructure, the light-wallet backend server maintains a long-running connection with the service provider via a Hydra head. Each user request triggers a corresponding transaction within the head. In return, the API provider issues a one-time token credential that authorizes the API request. This interaction completes in sub-second delays without incurring any transaction fees.
 
 ![](./diagram.png)
 
-Regularly, the light-wallet service refuels its Head via incremental commits (i.e. a Layer 1 transaction locking more value inside the Head). Similarly, every now and then, the service provider redeems its funds back to the Layer 1 using incremental de-commits. These two steps happen without ever closing the Head.
+Periodically, the light-wallet service replenishes its head with incremental commits (i.e. a layer 1 transaction locking additional value inside the head). Similarly, the service provider occasionally redeems its accumulated funds back to layer 1 through incremental de-commits. These financial adjustments occur without needing to close the head.
 
 :::tip Rewards
-If both parties agree, they can also delegate funds locked inside the Head. This delegation may allow, for instance, the light wallet to keep earning rewards on amounts locked in the Head until the service provider redeems it. Said differently, Head participants can still make a passive income through network rewards to cover the cost of running the Head.
+If mutually agreed upon, both parties can delegate the funds locked inside the head. This arrangement might allow, for instance, the light wallet to continue earning rewards on amounts locked in the head until the service provider redeems them. Essentially, participants can still generate passive income through network rewards to offset the operational costs of maintaining the head.
 :::
 
-All-in-all, the light wallet service pay only for what it uses -- in the spirit of _cloud computing_. For the service provider, this is also highly beneficial because they can mutualize their Hydra infrastructure for multiple clients, further spreading their cost and thus, increasing their margin. In addition, they can earn Ada directly and avoid transaction fees on their clients' payments.
+Ultimately, the light wallet service pays only for what it uses, embodying the essence of cloud computing. This setup is also advantageous for the service provider because it allows them to share their Hydra infrastructure across multiple clients, thereby spreading costs and enhancing profit margins. Additionally, they benefit from direct ada earnings and avoid transaction fees on client payments.
 
-Note also that there are many possible ways this kind of construction can be set up between a client and service provider. For example, one could also imagine API tokens to be fungible tokens, like credits, bought by the client and spent on each request inside the Head. In such a scenario, it would be possible for the server to (a) limit its circulating supply to the number of resources it can handle and (b) create a secondary marketplace for credit surplus that clients have accumulated but won't use.
+It’s worth noting that numerous configurations are possible for this type of arrangement between a client and service provider. For example, API tokens could be treated as fungible tokens, like credits, purchased by the client and expended on each request within the head. In such a scenario, the server could:
+
+- (a) Limit its circulating supply to match its capacity
+- (b) Create a secondary marketplace for excess credits that clients have purchased but do not intend to use.

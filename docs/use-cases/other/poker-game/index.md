@@ -2,16 +2,16 @@
 
 > A prototypical example of a multi-party state channel.
 
-We love to explain how Hydra heads work using the analogy of a _poker game_ because it suits pretty well the fundamentals behind the Head protocol. A poker game (or any game in general) is a situation with a clear beginning and an end that evolves around a set of agreed-upon rules. In the case of a poker game, the monetary component is at the centre; players place bids and exchange money at every step of the game. Furthermore, it is comprised of a fixed set of players who have conflicting goals (i.e. win the game), don't fully trust each other but are still willing to collaborate given the agreed set of rules.
+We often use the analogy of a _poker game_ to explain how Hydra heads function, as it closely aligns with the fundamentals of the head protocol. A poker game, like any game, has a clear start and end, and progresses according to a set of agreed-upon rules. In poker, the monetary component is central; players place bids and exchange money throughout the game. Moreover, the game involves a fixed number of players who have conflicting goals (i.e. to win the game), may not fully trust each other, but are willing to cooperate within the established rules.
 
 :::tip Decentralized randomness & Multi-Party Computation
-For this use case, we assume that there's a way an agreed-upon way to implement a decentralized poker game with pseudo-randomness or multi-party computation (see, for example [ROYALE by David & al](https://eprint.iacr.org/2018/157)). We focus on the state channel aspect of the story for which Hydra heads provide a solution. 
+For this use case, we consider the possibility of implementing a decentralized poker game with pseudo-randomness or multi-party computation (refer to [ROYALE by David & al](https://eprint.iacr.org/2018/157)). Our focus here is on the state channel aspect, for which Hydra heads provide a robust solution.
 :::
 
-In a poker game, every player can embody a Hydra Head member, running its own Hydra node. Each participant starts a Head by committing funds to that Head. These represent their chips. Once the Head is established, participants can begin playing the game by leveraging on-head Plutus contracts. Players can instantly process the transfer of funds inside the Head. This is a simple scenario where participants mainly send money to one another, mediated by a script (acting as the game dealer, warrants of the rules and good progress of the game). 
+In this scenario, each player represents a member of a Hydra head, operating their own Hydra node. The game begins with each participant committing funds to the head, which serve as their chips. Once the head is active, participants can start the game, utilizing on-head Plutus contracts to facilitate gameplay. Players can instantly process fund transfers within the head, with the script acting as the game dealer—ensuring adherence to rules and smooth progression of the game.
 
 ![](./poker.webp)
 
-Eventually, the game reaches an end with a well-defined distribution of funds. Participants can then play another game or close the Head and write the end result onto the Layer 1. The whole game(s) is (are) unknown of the Layer 1. Only the final UTxO distribution is. 
+Ultimately, the game concludes with a well-defined distribution of funds. Participants can choose to play another game or close the head and record the final outcomes on Layer 1. The entire gameplay remains opaque to Layer 1; only the ultimate UTXO distribution is known.
 
-Since the game only involves basic payments and script interactions, it could have been played entirely on the Layer 1, without reaching for a Hydra head. However, a Hydra head provides fast-paced transactions for the course of the game and cheap (or even none) fees -- besides the costs needed to establish the Hydra Head.
+While it is technically feasible to conduct this game entirely on Layer 1, using a Hydra head offers significant advantages. It enables fast-paced transactions throughout the game and minimizes transaction fees—beyond the initial costs needed to establish the Hydra head.
