@@ -682,7 +682,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
           , contestationPeriod = onChainConstestationPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
-          , version = toInteger openVersion -- TODO: This was 'version' before and that was wrong. Which test can catch it?
+          , version = toInteger openVersion
           }
 
 data FanoutTxError

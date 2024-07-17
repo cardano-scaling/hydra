@@ -1,4 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
@@ -71,7 +73,7 @@ import Hydra.Chain.Direct.Tx (
   txInToHeadSeed,
   verificationKeyToOnChainId,
  )
-import Hydra.Chain.Direct.TxTraceSpec (ModelSnapshot (..), generateUTxOFromModelSnapshot, snapshotNumber)
+import Hydra.Chain.Direct.TxTraceSpec (ModelSnapshot (..), generateUTxOFromModelSnapshot)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Contract.Commit qualified as Commit
@@ -389,12 +391,12 @@ spec =
 
 mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
 mutateSnapshotNumber fn snapshot =
-  let sn = fn (number snapshot)
+  let sn = fn snapshot.number
    in snapshot{number = sn}
 
 mutateVersionNumber :: (SnapshotVersion -> SnapshotVersion) -> Snapshot Tx -> Snapshot Tx
 mutateVersionNumber fn snapshot =
-  let sn = fn (version snapshot)
+  let sn = fn snapshot.version
    in snapshot{version = sn}
 
 mutateSnapshotUTxO :: (UTxO -> UTxO) -> Snapshot Tx -> Snapshot Tx
@@ -454,7 +456,7 @@ produceClose ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceClose ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case close ctx spendableUTxO headId parameters (version snapshot) ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
+  case close ctx spendableUTxO headId parameters snapshot.version ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
       ( p <> [evaluateTransaction tx spendableUTxO]
@@ -470,7 +472,7 @@ produceContest ::
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
   ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
 produceContest ctx scriptRegistry headId (p, spendableUTxO, snapshot, signatures) = do
-  case contest ctx spendableUTxO headId defaultContestationPeriod (version snapshot) ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
+  case contest ctx spendableUTxO headId defaultContestationPeriod snapshot.version ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
     Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
     Right tx ->
       ( p <> [evaluateTransaction tx spendableUTxO]
@@ -497,11 +499,11 @@ produceFanout ctx scriptRegistry seedTxIn (p, spendableUTxO, snapshot, signature
 
 hasHigherSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
 hasHigherSnapshotNumber =
-  any (\(mutated, original, _) -> number mutated > number original)
+  any (\(mutated, original, _) -> mutated.number > original.number)
 
 hasLowerSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
 hasLowerSnapshotNumber =
-  any (\(mutated, original, _) -> number mutated < number original)
+  any (\(mutated, original, _) -> mutated.number < original.number)
 
 evaluateTransaction :: Tx -> UTxO -> Bool
 evaluateTransaction tx spendableUTxO =
@@ -515,7 +517,7 @@ genPerfectModelSnapshot = do
   (decommit, amount) <- arbitrary
   let decommitUTxO = Map.fromList [(decommit, amount)]
   snapshotUTxO' <- arbitrary
-  pure $ ModelSnapshot{snapshotNumber = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
+  pure $ ModelSnapshot{version = 0, number = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
