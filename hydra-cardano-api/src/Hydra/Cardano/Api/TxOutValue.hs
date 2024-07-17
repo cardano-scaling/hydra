@@ -6,8 +6,8 @@ import Hydra.Cardano.Api.Prelude
 mkTxOutValue ::
   forall era.
   IsShelleyBasedEra era =>
-  IsMaryEraOnwards era =>
+  IsMaryBasedEra era =>
   Value ->
   TxOutValue era
 mkTxOutValue v =
-  shelleyBasedEraConstraints (shelleyBasedEra @era) $ TxOutValueShelleyBased (shelleyBasedEra @era) (toLedgerValue (maryEraOnwards @era) v)
+  shelleyBasedEraConstraints (shelleyBasedEra @era) $ TxOutValueShelleyBased (shelleyBasedEra @era) (toLedgerValue (maryBasedEra @era) v)

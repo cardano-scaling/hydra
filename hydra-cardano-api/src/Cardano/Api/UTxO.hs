@@ -10,9 +10,6 @@ module Cardano.Api.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api qualified
-import Cardano.Api.Class.IsAlonzoEraOnwards (IsAlonzoEraOnwards (..))
-import Cardano.Api.Class.IsBabbageEraOnwards (IsBabbageEraOnwards (..))
-import Cardano.Api.Class.IsMaryEraOnwards (IsMaryEraOnwards (..))
 import Cardano.Api.Shelley (ReferenceScript (..))
 import Cardano.Ledger.Babbage ()
 import Data.Bifunctor (second)
@@ -113,16 +110,16 @@ fromApi (Cardano.Api.UTxO eraUTxO) =
 
   convertValueToEra :: TxOutValue era -> TxOutValue Era
   convertValueToEra (TxOutValueByron lovelace) = lovelaceToTxOutValue shelleyBasedEra lovelace
-  convertValueToEra (TxOutValueShelleyBased sbe value) = TxOutValueShelleyBased shelleyBasedEra (toLedgerValue (maryEraOnwards @Era) $ fromLedgerValue sbe value)
+  convertValueToEra (TxOutValueShelleyBased sbe value) = TxOutValueShelleyBased shelleyBasedEra (toLedgerValue (maryBasedEra @Era) $ fromLedgerValue sbe value)
 
   convertDatumToEra :: TxOutDatum CtxUTxO era -> TxOutDatum CtxUTxO Era
   convertDatumToEra TxOutDatumNone = TxOutDatumNone
-  convertDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash alonzoEraOnwards hashScriptData
-  convertDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline babbageEraOnwards hashableScriptData
+  convertDatumToEra (TxOutDatumHash _ hashScriptData) = TxOutDatumHash alonzoBasedEra hashScriptData
+  convertDatumToEra (TxOutDatumInline _ hashableScriptData) = TxOutDatumInline babbageBasedEra hashableScriptData
 
   convertRefScriptToEra :: ReferenceScript era -> ReferenceScript Era
   convertRefScriptToEra ReferenceScriptNone = ReferenceScriptNone
-  convertRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript babbageEraOnwards scriptInAnyLang
+  convertRefScriptToEra (ReferenceScript _ scriptInAnyLang) = ReferenceScript babbageBasedEra scriptInAnyLang
 
 toApi :: UTxO -> Cardano.Api.UTxO Era
 toApi = coerce

@@ -154,7 +154,6 @@
               treefmt = pkgs.treefmt;
             };
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
-            "cardano-api-classy"
             "hydra-cardano-api"
             "hydra-chain-observer"
             "hydra-cluster"

@@ -43,7 +43,7 @@ mkTxOutAutoBalance ::
   ReferenceScript Era ->
   TxOut CtxTx Era
 mkTxOutAutoBalance pparams addr val dat ref =
-  let out = TxOut addr (TxOutValueShelleyBased (shelleyBasedEra @Era) (toLedgerValue (maryEraOnwards @Era) val)) dat ref
+  let out = TxOut addr (TxOutValueShelleyBased (shelleyBasedEra @Era) (toLedgerValue (maryBasedEra @Era) val)) dat ref
       minValue = minUTxOValue pparams out
    in modifyTxOutValue (const minValue) out
 
@@ -57,7 +57,7 @@ modifyTxOutAddress fn (TxOut addr value dat ref) =
 
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
-  IsMaryEraOnwards era =>
+  IsMaryBasedEra era =>
   IsShelleyBasedEra era =>
   (Value -> Value) ->
   TxOut ctx era ->
@@ -159,12 +159,12 @@ toLedgerTxOut =
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
   forall era.
-  (IsMaryEraOnwards era, IsAlonzoEraOnwards era, IsBabbageEraOnwards era, IsShelleyBasedEra era) =>
+  (IsMaryBasedEra era, IsAlonzoBasedEra era, IsBabbageBasedEra era, IsShelleyBasedEra era) =>
   Network ->
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
 fromPlutusTxOut network out = do
-  value <- shelleyBasedEraConstraints (shelleyBasedEra @era) (TxOutValueShelleyBased (shelleyBasedEra @era) . toLedgerValue (maryEraOnwards @era) <$> fromPlutusValue plutusValue)
+  value <- shelleyBasedEraConstraints (shelleyBasedEra @era) (TxOutValueShelleyBased (shelleyBasedEra @era) . toLedgerValue (maryBasedEra @era) <$> fromPlutusValue plutusValue)
   pure $ TxOut addressInEra value datum ReferenceScriptNone
  where
   addressInEra = fromPlutusAddress network plutusAddress
@@ -172,9 +172,9 @@ fromPlutusTxOut network out = do
   datum = case plutusDatum of
     NoOutputDatum -> TxOutDatumNone
     OutputDatumHash (Plutus.DatumHash hashBytes) ->
-      TxOutDatumHash alonzoEraOnwards . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
+      TxOutDatumHash alonzoBasedEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
     OutputDatum (Plutus.Datum datumData) ->
-      TxOutDatumInline babbageEraOnwards $ toScriptData datumData
+      TxOutDatumInline babbageBasedEra $ toScriptData datumData
 
   Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 
