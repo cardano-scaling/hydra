@@ -961,6 +961,20 @@ definitions:
           requirementFailure:
             $ref: "logs.yaml#/definitions/RequirementFailure"
 
+      - title: AssertionFailed
+        description: >-
+          An unexpected situation arose in the implementation of the protocol logic. This is different to 'RequireFailed' as these conditions are not defined in the specified protocol.
+        additionalProperties: false
+        required:
+          - tag
+          - message
+        properties:
+          tag:
+            type: string
+            enum: ["AssertionFailed"]
+          message:
+            type: string
+
       - title: NotOurHead
         description: >-
           We just observed an on-chain event that does not apply to

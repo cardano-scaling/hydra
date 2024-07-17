@@ -16,6 +16,7 @@ import Hydra.Snapshot (SnapshotNumber, SnapshotVersion)
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}
   | RequireFailed {requirementFailure :: RequirementFailure tx}
+  | AssertionFailed {message :: Text}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
