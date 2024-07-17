@@ -134,7 +134,12 @@ data Input
   | Close CloseRedeemer
   | Contest ContestRedeemer
   | Abort
-  | Fanout {numberOfFanoutOutputs :: Integer, numberOfDecommitOutputs :: Integer}
+  | Fanout
+      { numberOfFanoutOutputs :: Integer
+      -- ^ Spec: m
+      , numberOfDecommitOutputs :: Integer
+      -- ^ Spec: n
+      }
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

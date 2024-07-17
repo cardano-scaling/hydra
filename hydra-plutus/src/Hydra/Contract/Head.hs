@@ -232,8 +232,8 @@ checkDecrement ctx openBefore redeemer =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
-    && mustBeSignedByParticipant ctx prevHeadId
     && mustDecreaseValue
+    && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, Just decommitUtxoHash) signature
@@ -328,9 +328,6 @@ checkClose ctx openBefore redeemer =
     , contesters = contesters'
     , version = version'
     } = decodeHeadOutputClosedDatum ctx
-
-  -- (snapshotNumber', utxoHash', utxoDeltaHash', parties', deadline, cperiod', headId', contesters', version') =
-  --   decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
     traceIfFalse $(errorCode MustNotChangeVersion) $
