@@ -94,7 +94,6 @@ import Cardano.Api.Shelley as X (
   Key (..),
   PlutusScriptOrReferenceInput (PScript),
   PoolId,
-  ProtocolParameters (..),
   ShelleyGenesis (..),
   ShelleyLedgerEra,
   SigningKey (..),

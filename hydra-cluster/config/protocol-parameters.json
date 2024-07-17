@@ -354,8 +354,6 @@
             10
         ]
     },
-    "decentralization": null,
-    "extraPraosEntropy": null,
     "maxBlockBodySize": 90112,
     "maxBlockExecutionUnits": {
         "memory": 62000000,
@@ -370,7 +368,6 @@
     "maxTxSize": 16384,
     "maxValueSize": 5000,
     "minPoolCost": 170000000,
-    "minUTxOValue": null,
     "monetaryExpansion": 3.0e-3,
     "poolPledgeInfluence": 0.3,
     "poolRetireMaxEpoch": 18,
@@ -382,6 +379,5 @@
     "stakePoolDeposit": 500000000,
     "stakePoolTargetNum": 500,
     "treasuryCut": 0.2,
-    "utxoCostPerByte": 4310,
-    "utxoCostPerWord": null
+    "utxoCostPerByte": 4310
 }
