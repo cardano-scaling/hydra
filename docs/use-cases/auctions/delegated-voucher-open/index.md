@@ -1,18 +1,17 @@
 ---
-sidebar_label: Delegated voucher open
+sidebar_label: Delegated voucher: open
 sidebar_position: 2
 ---
 
-# Delegated Voucher Auctions (Open)
+# Delegated voucher auctions (open)
 
-> Extension of invitational auctions to enable open auctions, where bidders can freely participate without permission from sellers. Bids must be fully collateralized upon submission.
+This is an extension of invitational auctions to enable open auctions, where bidders can freely participate without sellers' permission. Bids must be fully collateralized upon submission.
 
 ## Overview
 
-The private invitational auction from the initial prototype is a very common use case. However, there is also demand for a more casual auction format where bidders can freely participate in any public auction without any vetting from sellers. For sellers to be comfortable with this auction format, we need stronger backing for bids to mitigate the risk of bidders attempting to dishonor their bids. Ideally, all bids should be fully collateralized by bidder deposits towards the auction. 
+The private invitational auction from the initial prototype is a very common use case. However, there is also demand for a more casual auction format where bidders can freely participate in any public auction without any vetting from sellers. For sellers to be comfortable with this auction format, we need stronger backing for bids to mitigate the risk of bidders attempting to dishonor their bids. Ideally, all bids should be fully collateralized by bidder deposits toward the auction. 
 
-As a possible extension of the initial prototype auction design, we can replace the fixed security deposit from the prototype with a method that allows bidders to place sufficient deposits on layer 1 and then show proof of these deposits whenever they make bids on layer 2.
-
+As a possible extension of the initial prototype auction design, we can replace the fixed security deposit from the prototype with a method that allows bidders to place sufficient deposits on layer 1 and then show proof of these deposits whenever they bid on layer 2.
 
 ## Workflow
 
@@ -25,7 +24,6 @@ The workflow for each public auction proceeds as follows:
 5. **Closing the auction**. At the end of the bidding phase, the Hydra head is closed, and the highest bid is confirmed on layer 1. The bidder with the highest bid becomes the auction winner.
 6. **Transaction completion**. The winning bidder’s deposit and the standing bid are used to transfer the auction lot to the winner and the payment to the seller.
 7. **Deposit reclamation**. All other bidders reclaim their deposits after the bidding phase ends.
-
 
 ## Prerequisites from Hydra technical roadmap
 
