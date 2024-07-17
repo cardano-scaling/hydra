@@ -321,14 +321,13 @@ onOpenNetworkReqTx env ledger st ttl tx =
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      ( -- Spec: T̂ ← T̂ ⋃ {tx}
+      (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
+        -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
           -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
           --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-          & maybeRequestSnapshot
-      )
-        <> cause (ClientEffect $ ServerOutput.TxValid headId tx)
+          & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
@@ -349,7 +348,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
             -- from allTxs, we would make the head stuck.
             cause . ClientEffect $ ServerOutput.TxInvalid headId localUTxO tx err
 
-  maybeRequestSnapshot outcome =
+  maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
       then
         outcome
@@ -374,8 +373,6 @@ onOpenNetworkReqTx env ledger st ttl tx =
     LastSeenSnapshot{} -> False
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
-
-  nextSn = confirmedSn + 1
 
   localTxs' = localTxs <> [tx]
 
@@ -414,7 +411,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     waitNoSnapshotInFlight $
       -- Spec: require ̅S.𝑈 ◦ txω ≠ ⊥
       --       ηω ← combine(outputs(txω))
-      --       𝑈_active ← ̅S.𝑈 ◦ txω
+      --       𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
       requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
         -- Resolve transactions by-id
         waitResolvableTxs $ \requestedTxs -> do
@@ -422,18 +419,16 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
           --       𝑈 ← 𝑈_active ◦ Treq
           requireApplyTxs activeUTxO requestedTxs $ \u -> do
             -- Spec: ŝ ← ̅S.s + 1
-            let nextConfSn = confSn + 1
             -- NOTE: confSn == seenSn == sn here
             let nextSnapshot =
                   Snapshot
                     { headId
                     , version = version
-                    , number = nextConfSn
-                    , utxo = u
+                    , number = sn
                     , confirmed = requestedTxIds
+                    , utxo = u
                     , utxoToDecommit = mUtxoToDecommit
                     }
-
             -- Spec: η ← combine(𝑈)
             --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
             let snapshotSignature = sign signingKey nextSnapshot
@@ -569,7 +564,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖ηω), σ̃)
             requireVerifiedMultisignature multisig snapshot $
               do
-                -- Spec: ̅S   ← snObj(v̂, ŝ, Û, T̂, txω)
+                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, txω)
                 --       ̅S.σ ← ̃σ
                 newState SnapshotConfirmed{snapshot, signatures = multisig}
                 <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
@@ -737,25 +732,25 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
-  -- TODO: require outputs(tx) ≠ ∅ to prevent decommit spam?
+  -- TODO: require outputs(tx) ≠ ∅ to prevent decommit spam? See hydra#1502
   -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
-  waitOnApplicableDecommit $ \newLocalUTxO ->
+  waitOnApplicableDecommit $ \newLocalUTxO -> do
+    -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
     let decommitUTxO = utxoFromTx decommitTx
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
-     in -- Spec: L̂   ← L̂ \ inputs(tx)
-        --       txω ← tx
-        newState DecommitRecorded{decommitTx, newLocalUTxO = activeUTxO}
-          <> cause
-            ( ClientEffect $
-                ServerOutput.DecommitRequested
-                  { headId
-                  , decommitTx = decommitTx
-                  , utxoToDecommit = decommitUTxO
-                  }
-            )
-          -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-          --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-          <> maybeRequestSnapshot
+    -- Spec: txω ← tx
+    newState DecommitRecorded{decommitTx, newLocalUTxO = activeUTxO}
+      <> cause
+        ( ClientEffect $
+            ServerOutput.DecommitRequested
+              { headId
+              , decommitTx = decommitTx
+              , utxoToDecommit = decommitUTxO
+              }
+        )
+      -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+      --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
+      <> maybeRequestSnapshot
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
@@ -1100,10 +1095,8 @@ update env ledger st ev = case (st, ev) of
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger openState ttl tx
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx})) ->
-    -- XXX: ttl == 0 not handled for ReqSn
     onOpenNetworkReqSn env ledger openState sender sv sn txIds decommitTx
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    -- XXX: ttl == 0 not handled for AckSn
     onOpenNetworkAckSn env openState sender snapshotSignature sn
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}

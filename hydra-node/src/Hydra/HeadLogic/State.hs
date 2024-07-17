@@ -144,13 +144,13 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Map containing all the transactions ever seen by this node and not yet
   -- included in a snapshot. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
-  -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
+  -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
-  -- ^ Last seen open state version.
+  -- ^ Last seen open state version. Spec: ̂v
   }
   deriving stock (Generic)
 
