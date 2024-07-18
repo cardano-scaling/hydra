@@ -31,7 +31,6 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
-  AsType (..),
   Coin (..),
   File (File),
   Key (SigningKey),
@@ -57,7 +56,6 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
@@ -69,7 +67,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (ChainConfig (Direct), DirectChainConfig (..), networkId, startChainFrom)
+import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -624,13 +622,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO1 <> commitUTxO2), "headId" .= headId]
 
       let walletAddress = mkVkAddress networkId walletVk
-      aliceAddress <-
-        case aliceChainConfig of
-          Direct DirectChainConfig{cardanoSigningKey} -> do
-            aliceSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-            let alicePVk = getVerificationKey aliceSigningKey
-            pure $ mkVkAddress networkId alicePVk
-          _ -> failure "Not using DirectChainConfig"
+      aliceAddress <- mkVkAddress networkId . fst <$> keysFor Alice
 
       let decommitAmount = 3_000_000
 
