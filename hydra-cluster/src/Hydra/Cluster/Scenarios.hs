@@ -595,7 +595,7 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 
       participants `shouldMatchList` expectedParticipants
 
--- | Open a a single participant head with some UTxO and decommit parts of it.
+-- | Open a a single participant head with some UTxO and incrementally decommit it.
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canDecommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
@@ -613,64 +613,51 @@ canDecommit tracer workDir node hydraScriptsTxId =
       let headAmount = 8_000_000
       let commitAmount = 5_000_000
       headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
-      commitUTxO1 <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
-      commitUTxO2 <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
 
-      requestCommitTx n1 (headUTxO <> commitUTxO1 <> commitUTxO2) <&> signTx walletSk >>= submitTx node
+      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
 
       waitFor hydraTracer 10 [n1] $
-        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO1 <> commitUTxO2), "headId" .= headId]
+        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
 
       let walletAddress = mkVkAddress networkId walletVk
-      aliceAddress <- mkVkAddress networkId . fst <$> keysFor Alice
-
       let decommitAmount = 3_000_000
 
       let decommitOutput =
             [ TxOut walletAddress (lovelaceToValue decommitAmount) TxOutDatumNone ReferenceScriptNone
             ]
-      -- here we set the change address to Alice to simplify the balance assertion in the end of test.
-      buildTransaction networkId nodeSocket aliceAddress commitUTxO1 (fst <$> UTxO.pairs commitUTxO1) decommitOutput >>= \case
-        Left e -> failure $ show e
-        Right body1 -> do
-          buildTransaction networkId nodeSocket aliceAddress commitUTxO2 (fst <$> UTxO.pairs commitUTxO2) decommitOutput >>= \case
-            Left e -> failure $ show e
-            Right body2 -> do
-              -- Send unsigned decommit tx and expect failure
-              expectFailureOnUnsignedDecommitTx n1 headId body1
 
-              -- Sign and re-send the decommit tx
-              expectSuccessOnSignedDecommitTx n1 headId walletSk body1
+      body1 <-
+        buildTransaction networkId nodeSocket walletAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput
+          >>= either (failure . show) pure
 
-              -- Decommit the second utxo
-              expectSuccessOnSignedDecommitTx n1 headId walletSk body2
+      -- Send unsigned decommit tx and expect failure
+      expectFailureOnUnsignedDecommitTx n1 headId body1
 
-              -- Close and Fanout put whatever is left in the Head back to L1
-              closeAndFanout headId n1 headUTxO (headAmount + (2 * decommitAmount)) walletVk
+      -- Sign and re-send the decommit tx
+      expectSuccessOnSignedDecommitTx n1 headId walletSk body1
+
+      -- After decommit Head UTxO should not contain decommitted outputs
+      getSnapshotUTxO n1 `shouldReturn` headUTxO
+
+      -- Close and Fanout whatever is left in the Head back to L1
+      send n1 $ input "Close" []
+      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        v ^? key "contestationDeadline" . _JSON
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitMatch (10 * blockTime) n1 $ \v ->
+        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+      -- Assert final wallet balance
+      walletUTxO <- queryUTxOFor networkId nodeSocket QueryTip walletVk
+      let walletBalance = sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs walletUTxO
+      -- TODO: weird value in scenario due to fees and change
+      walletBalance `shouldBe` (headAmount + (2 * decommitAmount))
  where
-  closeAndFanout headId n expectedUTxOAfterDecommit expectedFinalBalance vk = do
-    -- After decommit Head UTxO should not contain decommitted outputs
-    send n $ input "GetUTxO" []
-    headUTxOAfterDecommit <- waitMatch 10 n $ \v -> do
-      guard $ v ^? key "headId" == Just (toJSON headId)
-      guard $ v ^? key "tag" == Just (Aeson.String "GetUTxOResponse")
-      v ^? key "utxo" . _JSON
-    headUTxOAfterDecommit `shouldBe` expectedUTxOAfterDecommit
-    send n $ input "Close" []
-    deadline <- waitMatch (10 * blockTime) n $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsClosed"
-      guard $ v ^? key "headId" == Just (toJSON headId)
-      v ^? key "contestationDeadline" . _JSON
-    remainingTime <- diffUTCTime deadline <$> getCurrentTime
-    waitFor hydraTracer (remainingTime + 3 * blockTime) [n] $
-      output "ReadyToFanout" ["headId" .= headId]
-    send n $ input "Fanout" []
-    waitFor hydraTracer (10 * blockTime) [n] $
-      output "HeadIsFinalized" ["utxo" .= toJSON headUTxOAfterDecommit, "headId" .= headId]
-    walletUTxO <- queryUTxOFor networkId nodeSocket QueryTip vk
-    let walletBalance = sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs walletUTxO
-    walletBalance `shouldBe` expectedFinalBalance
-
   expectSuccessOnSignedDecommitTx n headId sk body = do
     let signedDecommitTx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
     join . generate $
