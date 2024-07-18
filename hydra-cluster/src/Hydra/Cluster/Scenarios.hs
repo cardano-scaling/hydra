@@ -25,36 +25,13 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
+import Data.List qualified as List
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
-import Hydra.Cardano.Api (
-  Coin (..),
-  File (File),
-  Key (SigningKey),
-  PaymentKey,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  Tx,
-  TxId,
-  UTxO,
-  getVerificationKey,
-  isVkTxOut,
-  lovelaceToValue,
-  makeShelleyKeyWitness,
-  makeSignedTransaction,
-  mkVkAddress,
-  selectLovelace,
-  signTx,
-  txOutAddress,
-  txOutValue,
-  utxoFromTx,
-  writeFileTextEnvelope,
-  pattern ReferenceScriptNone,
-  pattern TxOut,
-  pattern TxOutDatumNone,
- )
+import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, ShelleyWitnessSigningKey (WitnessPaymentKey), Tx, TxId, UTxO, getTxBody, getVerificationKey, isVkTxOut, lovelaceToValue, makeShelleyKeyWitness, makeSignedTransaction, mkVkAddress, selectLovelace, signTx, txOutAddress, txOutValue, utxoFromTx, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -620,25 +597,20 @@ canDecommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
 
+      -- Decommit the single commitUTxO by creating a fully "respending" decommit transaction
       let walletAddress = mkVkAddress networkId walletVk
-      let decommitAmount = 3_000_000
+      decommitTx <- do
+        let (i, o) = List.head $ UTxO.pairs commitUTxO
+        either (failure . show) pure $
+          mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
 
-      let decommitOutput =
-            [ TxOut walletAddress (lovelaceToValue decommitAmount) TxOutDatumNone ReferenceScriptNone
-            ]
+      expectFailureOnUnsignedDecommitTx n1 headId decommitTx
+      expectSuccessOnSignedDecommitTx n1 headId decommitTx
 
-      body1 <-
-        buildTransaction networkId nodeSocket walletAddress commitUTxO (fst <$> UTxO.pairs commitUTxO) decommitOutput
-          >>= either (failure . show) pure
-
-      -- Send unsigned decommit tx and expect failure
-      expectFailureOnUnsignedDecommitTx n1 headId body1
-
-      -- Sign and re-send the decommit tx
-      expectSuccessOnSignedDecommitTx n1 headId walletSk body1
-
-      -- After decommit Head UTxO should not contain decommitted outputs
+      -- After decommit Head UTxO should not contain decommitted outputs and wallet owns the funds on L1
       getSnapshotUTxO n1 `shouldReturn` headUTxO
+      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+        `shouldReturn` lovelaceToValue commitAmount
 
       -- Close and Fanout whatever is left in the Head back to L1
       send n1 $ input "Close" []
@@ -653,31 +625,28 @@ canDecommit tracer workDir node hydraScriptsTxId =
         guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
       -- Assert final wallet balance
-      walletUTxO <- queryUTxOFor networkId nodeSocket QueryTip walletVk
-      let walletBalance = sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs walletUTxO
-      -- TODO: weird value in scenario due to fees and change
-      walletBalance `shouldBe` (headAmount + (2 * decommitAmount))
+      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+        `shouldReturn` lovelaceToValue (headAmount + commitAmount)
  where
-  expectSuccessOnSignedDecommitTx n headId sk body = do
-    let signedDecommitTx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+  expectSuccessOnSignedDecommitTx n headId decommitTx = do
+    let decommitUTxO = utxoFromTx decommitTx
+        decommitTxId = txId decommitTx
+    -- Sometimes use websocket, sometimes use HTTP
     join . generate $
       elements
-        [ send n $ input "Decommit" ["decommitTx" .= signedDecommitTx]
-        , postDecommit n signedDecommitTx
+        [ send n $ input "Decommit" ["decommitTx" .= decommitTx]
+        , postDecommit n decommitTx
         ]
-    let decommitUTxO = utxoFromTx signedDecommitTx
-        decommitTxId = txId signedDecommitTx
-
     waitFor hydraTracer 10 [n] $
-      output "DecommitRequested" ["headId" .= headId, "decommitTx" .= signedDecommitTx, "utxoToDecommit" .= decommitUTxO]
+      output "DecommitRequested" ["headId" .= headId, "decommitTx" .= decommitTx, "utxoToDecommit" .= decommitUTxO]
     waitFor hydraTracer 10 [n] $
       output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
     failAfter 10 $ waitForUTxO node decommitUTxO
     waitFor hydraTracer 10 [n] $
       output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= decommitTxId]
 
-  expectFailureOnUnsignedDecommitTx n headId body = do
-    let unsignedDecommitTx = makeSignedTransaction [] body
+  expectFailureOnUnsignedDecommitTx n headId decommitTx = do
+    let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
     join . generate $
       elements
         [ send n $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
