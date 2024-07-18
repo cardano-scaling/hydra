@@ -205,22 +205,19 @@ instance StateModel WorldState where
     -- can be generated.
     genOpenActions :: UTxOType Payment -> Gen (Any (Action WorldState))
     genOpenActions confirmedUTxO =
-      oneof
-        ( [ frequency
-            [ (1, genClose)
+      if null confirmedUTxO
+        then
+          oneof
+            [ genClose
+            , genRollbackAndForward
+            ]
+        else
+          frequency $
+            [ (10, genNewTx)
+            , (1, genClose)
             , (1, genRollbackAndForward)
             ]
-          | null confirmedUTxO
-          ]
-            <> [ frequency $
-                [ (10, genNewTx)
-                , (1, genClose)
-                , (1, genRollbackAndForward)
-                ]
-                  <> ([(2, genDecommit) | length confirmedUTxO > 1])
-               | not (null confirmedUTxO)
-               ]
-        )
+              <> [(2, genDecommit) | length confirmedUTxO > 1]
 
     genDecommit :: Gen (Any (Action WorldState))
     genDecommit = do
