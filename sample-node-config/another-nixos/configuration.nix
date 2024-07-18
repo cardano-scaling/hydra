@@ -135,7 +135,7 @@ in
 
               # Jump to specific revision
               cd hydra-team-config && \
-                git checkout current-script-id && \
+                git checkout dee7986b1377a0fa93d06cfc131ae7c26ca34299 && \
                 cd ..
 
               # Make our cardano signing keys
