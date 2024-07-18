@@ -26,6 +26,13 @@ let
   mithrilDir = "testing-${nodeRelease}";
 
   nodeVersion = "9.0.0"; # Note: This must match the node version in the flake.nix
+
+  commonEnvVars = {
+    "CARDANO_NODE_NETWORK_ID" = "${networkMagic}";
+    "CARDANO_NODE_SOCKET_PATH" = "${cardanoDataPath}/node.socket";
+  };
+
+  envVarAsList = lib.attrsets.mapAttrsToList (k: v: "${k}=${v}") commonEnvVars;
 in
 {
   system.stateVersion = "24.05";
@@ -87,10 +94,7 @@ in
     logs = "journalctl -u mithril-maybe-download -u cardano-node -u hydra-node -u necessary-files";
   };
 
-  environment.variables = {
-    "CARDANO_NODE_NETWORK_ID" = "${networkMagic}";
-    "CARDANO_NODE_SOCKET_PATH" = "${cardanoDataPath}/node.socket";
-  };
+  environment.variables = commonEnvVars;
 
   systemd.services = {
     necessary-files = {
@@ -206,10 +210,7 @@ in
                 --socket-path ${cardanoDataPath}/node.socket \
                 --database-path db
         '';
-        Environment = [
-          "CARDANO_NODE_NETWORK_ID=${networkMagic}"
-          "CARDANO_NODE_SOCKET_PATH=${cardanoDataPath}/node.socket"
-        ];
+        Environment = envVarAsList;
       };
     };
 
@@ -222,10 +223,6 @@ in
       serviceConfig = {
         User = "hydra";
         WorkingDirectory = cardanoDataPath;
-        Environment = [
-          "CARDANO_NODE_NETWORK_ID=${networkMagic}"
-          "CARDANO_NODE_SOCKET_PATH=${cardanoDataPath}/node.socket"
-        ];
         # Wait 10 minutes before restarting
         RestartSec = 1 * 60;
         ExecStart =
