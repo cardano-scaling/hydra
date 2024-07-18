@@ -578,19 +578,13 @@ instance
         performFanout party
       Wait delay ->
         lift $ threadDelay delay
-      ObserveConfirmedTx var ->
-        case hydraState of
-          Open{offChainState = OffChainState{confirmedUTxO}} -> do
-            let tx = lookup var
-            when ((to tx, value tx) `List.elem` confirmedUTxO) $ do
-              nodes <- Map.toList <$> gets nodes
-              forM_ nodes $ \(_, node) -> do
-                lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
-                  Left u -> throwIO $ TransactionNotObserved tx u
-                  Right _ -> pure ()
-          _ -> pure ()
-       where
-        WorldState{hydraState} = st
+      ObserveConfirmedTx var -> do
+        let tx = lookup var
+        nodes <- Map.toList <$> gets nodes
+        forM_ nodes $ \(_, node) -> do
+          lift (waitForUTxOToSpend mempty (to tx) (value tx) node) >>= \case
+            Left u -> throwIO $ TransactionNotObserved tx u
+            Right _ -> pure ()
       ObserveHeadIsOpen -> do
         nodes' <- Map.toList <$> gets nodes
         forM_ nodes' $ \(_, node) -> do
