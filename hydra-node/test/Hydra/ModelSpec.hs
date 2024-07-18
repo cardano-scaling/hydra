@@ -152,7 +152,6 @@ import Test.QuickCheck.DynamicLogic (
   Quantification,
   action,
   anyActions_,
-  elementsQ,
   forAllDL,
   forAllNonVariableQ,
   forAllQ,
@@ -205,9 +204,8 @@ partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
   headOpensIfAllPartiesCommit
   getModelStateDL >>= \case
-    st@WorldState{hydraParties, hydraState = Open{}} -> do
-      (_, to) <- forAllNonVariableQ (elementsQ hydraParties)
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
       action_ $ Model.CloseWithInitialSnapshot party
@@ -225,9 +223,8 @@ fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 fanoutContainsWholeConfirmedUTxO = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraParties, hydraState = Open{}} -> do
-      (_, to) <- forAllNonVariableQ (elementsQ hydraParties)
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
       action_ $ Model.Close party
@@ -289,9 +286,8 @@ conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraParties, hydraState = Open{}} -> do
-      (_, to) <- forAllNonVariableQ $ elementsQ hydraParties
-      (party, payment) <- forAllNonVariableQ (nonConflictingTx to st)
+    st@WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
     _ -> pure ()
@@ -438,9 +434,9 @@ runRunMonadIOSimGen f = do
           }
     runReaderT (runMonad (eval f)) (RunState v)
 
-nonConflictingTx :: Payment.CardanoSigningKey -> WorldState -> Quantification (Party, Payment.Payment)
-nonConflictingTx to st =
-  withGenQ (genPayment to st) (const True) (const [])
+nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
+nonConflictingTx st =
+  withGenQ (genPayment st) (const True) (const [])
     `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
 eventually :: Action WorldState () -> DL WorldState ()

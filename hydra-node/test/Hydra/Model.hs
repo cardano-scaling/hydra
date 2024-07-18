@@ -224,15 +224,12 @@ instance StateModel WorldState where
 
     genDecommit :: Gen (Any (Action WorldState))
     genDecommit = do
-      to <- CardanoSigningKey <$> genSigningKey
-      genPayment to st >>= \(party, tx) -> pure . Some $ Decommit party tx
+      genPayment st >>= \(party, tx) -> pure . Some $ Decommit party tx
 
     genAbort =
       Some . Abort . deriveParty . fst <$> elements hydraParties
 
-    genNewTx = do
-      (_, to) <- elements hydraParties
-      genPayment to st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
+    genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
     genClose =
       Some . Close . deriveParty . fst <$> elements hydraParties
@@ -443,12 +440,16 @@ genInit hydraParties = do
   let party = deriveParty key
   pure $ Init party
 
-genPayment :: CardanoSigningKey -> WorldState -> Gen (Party, Payment)
-genPayment to WorldState{hydraParties, hydraState} =
+genPayment :: WorldState -> Gen (Party, Payment)
+genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      (from, value) <- elements $ filter (not . null . valueToList . snd) confirmedUTxO
+      (from, value) <-
+        elements (filter (not . null . valueToList . snd) confirmedUTxO)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
+      -- NOTE: It's perfectly possible this yields a payment to self and it
+      -- assumes hydraParties is not empty else `elements` will crash
+      (_, to) <- elements hydraParties
       pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
