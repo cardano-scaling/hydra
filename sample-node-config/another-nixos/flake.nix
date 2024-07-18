@@ -6,8 +6,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    cardano-node.url = "github:IntersectMBO/cardano-node/8.9.3";
-    hydra.url = "github:cardano-scaling/hydra/0.17.0";
+    cardano-node.url = "github:IntersectMBO/cardano-node/9.0.0";
+    hydra.url = "github:cardano-scaling/hydra/209de1dd8c5ae484a45a4db3af043c4a9d271306";
     mithril.url = "github:input-output-hk/mithril/2423.0";
   };
 
@@ -26,7 +26,22 @@
     in
     {
       packages."${system}" = {
-        vb = nixos-generators.nixosGenerate {
+        gce = nixos-generators.nixosGenerate {
+          inherit system;
+          specialArgs = {
+            inherit
+              system
+              cardano-node
+              hydra
+              mithril;
+          };
+          modules = [
+            ./configuration.nix
+          ];
+          format = "gce";
+        };
+
+        qemu = nixos-generators.nixosGenerate {
           inherit system;
           specialArgs = {
             inherit
@@ -39,8 +54,6 @@
           modules = [
             ./configuration.nix
           ];
-          # format = "docker";
-          # format = "virtualbox";
           format = "qcow";
         };
       };
