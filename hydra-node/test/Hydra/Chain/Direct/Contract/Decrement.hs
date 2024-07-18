@@ -150,12 +150,12 @@ data DecrementMutation
     --  the signer used on the tx to not be one of PTs.
     AlterRequiredSigner
   | -- | Mutate the output value to produce different 'UTxO' hash to the one in the signed 'Snapshot'.
-    ChangeOutputValue
+    ChangeDecrementedValue
   | -- | Invalidates the tx by changing the output values arbitrarily to be
     -- different (not preserved) from the head.
     --
     -- Ensures values are preserved between head input and output.
-    ChangeValueInOutput
+    ChangeHeadValue
   | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
     DropDecommitOutput
   | ExtractSomeValue
@@ -190,15 +190,15 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeOutputValue <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeDecrementedValue <$> do
         let outs = txOuts' tx
         -- NOTE: Skip the first output since this is the Head output.
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- Spec: The value in the head output is decreased accordingly
-      SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeValueInOutput <$> do
-        newValue <- genValue
+      SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
+        newValue <- genValue `suchThat` (/= txOutValue headTxOut)
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
