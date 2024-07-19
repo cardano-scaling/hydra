@@ -121,7 +121,7 @@ import Hydra.Snapshot (
   genConfirmedSnapshot,
   getSnapshot,
  )
-import Test.QuickCheck (choose, oneof, vector)
+import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
 
@@ -1023,10 +1023,18 @@ genCommits' genUTxO ctx txInit = do
     valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
 
 genCommitFor :: VerificationKey PaymentKey -> Gen UTxO
-genCommitFor = genOneUTxOFor
+genCommitFor vkey =
+  frequency
+    [ (1, pure mempty)
+    , (10, genOneUTxOFor vkey)
+    ]
 
 genCommit :: Gen UTxO
-genCommit = genVerificationKey >>= genOneUTxOFor
+genCommit =
+  frequency
+    [ (1, pure mempty)
+    , (10, genVerificationKey >>= genOneUTxOFor)
+    ]
 
 genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
 genCollectComTx = do
@@ -1043,7 +1051,7 @@ genCollectComTx = do
 genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (null u)
   cctx <- pickChainContext ctx
   let (confirmedUtxo, toDecommit) = splitUTxO u0
   let version = 0
