@@ -2,12 +2,12 @@
 
 # Prepare a "devnet" directory holding credentials, a dummy topology and
 # "up-to-date" genesis files. If the directory exists, it is wiped out.
-set -e
+set -eo pipefail
 
-BASEDIR=$(realpath $(dirname $(realpath $0))/..)
-TARGETDIR="devnet"
+BASEDIR=${BASEDIR:-$(realpath $(dirname $(realpath $0))/..)}
+TARGETDIR=${TARGETDIR:-devnet}
 
-[ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; sudo rm -r $TARGETDIR ; }
+[ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; rm -r $TARGETDIR ; }
 
 cp -af "$BASEDIR/hydra-cluster/config/devnet/" "$TARGETDIR"
 cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
@@ -15,7 +15,7 @@ echo '{"Producers": []}' > "$TARGETDIR/topology.json"
 sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
 sed -i.bak "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
 
-find $TARGETDIR -type f -exec chmod 0400 {} \;
+find $TARGETDIR -type f -name '*.skey' -exec chmod 0400 {} \;
 mkdir "$TARGETDIR/ipc"
 echo "Prepared devnet, you can start the cluster now"
 
