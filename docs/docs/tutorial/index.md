@@ -618,7 +618,7 @@ The transation will be validated by both `hydra-node`s and either result in a
 in a Hydra head!
 
 
-## Step 6: Closing the Hydra head
+## Step 6. Closing the Hydra head
 
 Any participant can initiate closing the Hydra head. Use the WebSocket API to submit the closing command:
 

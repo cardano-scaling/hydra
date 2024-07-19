@@ -31,7 +31,30 @@ import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
-import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, ShelleyWitnessSigningKey (WitnessPaymentKey), Tx, TxId, UTxO, getTxBody, getVerificationKey, isVkTxOut, lovelaceToValue, makeShelleyKeyWitness, makeSignedTransaction, mkVkAddress, selectLovelace, signTx, txOutAddress, txOutValue, utxoFromTx, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
+import Hydra.Cardano.Api (
+  Coin (..),
+  File (File),
+  Key (SigningKey),
+  PaymentKey,
+  Tx,
+  TxId,
+  UTxO,
+  getTxBody,
+  getVerificationKey,
+  isVkTxOut,
+  lovelaceToValue,
+  makeSignedTransaction,
+  mkVkAddress,
+  selectLovelace,
+  signTx,
+  txOutAddress,
+  txOutValue,
+  utxoFromTx,
+  writeFileTextEnvelope,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
+ )
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
