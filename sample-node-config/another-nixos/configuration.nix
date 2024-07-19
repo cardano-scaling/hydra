@@ -18,6 +18,8 @@ let
   ];
   nodeId = "noon";
 
+  hydraPort = "5005";
+
   # These three variables must agree
   nodeRelease = "preview";
   networkMagic = "2";
@@ -35,6 +37,12 @@ let
   envVarAsList = lib.attrsets.mapAttrsToList (k: v: "${k}=${v}") commonEnvVars;
 in
 {
+
+  # TODO: Optionally enable if not running via nixos-generators
+  # imports = [
+  #   <nixpkgs/nixos/modules/virtualisation/google-compute-image.nix>
+  # ];
+
   system.stateVersion = "24.05";
 
   # Incase we want to do some nixing
@@ -243,7 +251,6 @@ in
         RestartSec = 1 * 60;
         ExecStart =
           let
-            port = "5005";
             # Select only the friends we want from the full list:
             # <https://github.com/input-output-hk/hydra-team-config/tree/master/parties>
             peerArgs =
@@ -264,7 +271,7 @@ in
                 --node-id ${nodeId} \
                 --cardano-signing-key credentials/${nodeId}-node.sk \
                 --hydra-signing-key credentials/${nodeId}-hydra.sk \
-                --port ${port} \
+                --port ${hydraPort} \
                 --api-host 0.0.0.0 \
                 --host 0.0.0.0 \
                 --testnet-magic ${networkMagic}  \
