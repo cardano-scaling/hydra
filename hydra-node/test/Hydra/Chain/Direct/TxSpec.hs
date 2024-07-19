@@ -1,8 +1,3 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
 module Hydra.Chain.Direct.TxSpec where
@@ -38,10 +33,8 @@ import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Close.Healthy (healthyOpenHeadTxOut)
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
   epochInfo,
@@ -52,8 +45,8 @@ import Hydra.Chain.Direct.Fixture (
   testSeedInput,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), close, contest, decrement, fanout, genChainStateWithTx, utxoOfThisHead)
+import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
@@ -73,27 +66,16 @@ import Hydra.Chain.Direct.Tx (
   txInToHeadSeed,
   verificationKeyToOnChainId,
  )
-import Hydra.Chain.Direct.TxTraceSpec (ModelSnapshot (..), generateUTxOFromModelSnapshot)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import Hydra.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (MultiSignature, aggregate, sign)
-import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.HeadId (HeadId (..))
-import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, evaluateTx, maxTxExecutionUnits, propTransactionEvaluates)
-import Hydra.Party (Party, partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
+import Hydra.Party (Party)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import PlutusLedgerApi.V2 (toBuiltin)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
-import Test.Hydra.Fixture (alice, alicePVk, aliceSk, bob, bobSk, carol, carolSk, genForParty)
+import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,
@@ -254,270 +236,6 @@ spec =
                   , (blueprintBody ^. referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. referenceInputsTxBodyL)
                       & counterexample "Blueprint reference inputs missing"
                   ]
-
-    describe "Chained Head transactions work" $ do
-      -- REVIEW: Is this test needed in presence of TxTraceSpec?
-      it "Alter snapshots to test transactions" $
-        forAllBlind arbitrary $ \chainContext -> do
-          let ctx@ChainContext{scriptRegistry} =
-                chainContext{ownVerificationKey = alicePVk, networkId = testNetworkId}
-          forAllBlind genPerfectModelSnapshot $ \modelSnapshot ->
-            do
-              let (utxo', utxoToDecommit') = generateUTxOFromModelSnapshot modelSnapshot
-              let headId' = mkHeadId Fixture.testPolicyId
-              let openDatum =
-                    HeadState.Open
-                      Head.OpenDatum
-                        { parties = partyToChain <$> [alice, bob, carol]
-                        , utxoHash = toBuiltin $ hashUTxO @Tx utxo'
-                        , contestationPeriod = contestationPeriodFromDiffTime 10
-                        , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-                        , version = 0
-                        }
-              let datum = toUTxOContext (mkTxOutDatumInline openDatum)
-              let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs utxoToDecommit')
-              let headTxIn = generateWith arbitrary 42
-              let parameters = HeadParameters defaultContestationPeriod [alice, bob, carol]
-              let txIn = generateWith arbitrary 42
-
-              let spendableUTxO =
-                    UTxO.singleton (headTxIn, modifyTxOutValue (<> decommitValue) (healthyOpenHeadTxOut datum))
-                      <> registryUTxO scriptRegistry
-
-              let startingSnapshot =
-                    Snapshot{headId = headId', confirmed = [], number = 2, utxo = utxo', utxoToDecommit = Just utxoToDecommit', version = 0}
-
-              let decrementAction =
-                    produceDecrement ctx scriptRegistry headId' parameters
-              let closeAction =
-                    produceClose ctx scriptRegistry headId' parameters
-              let contestAction =
-                    produceContest ctx scriptRegistry headId'
-              let fanoutAction =
-                    produceFanout ctx scriptRegistry txIn
-
-              let signSnapshot sn = aggregate [sign sk sn | sk <- [aliceSk, bobSk, carolSk]]
-
-              -- We want to chain decommit/close, contest and fanout actions/txs
-              -- here. For this we use the function composition `(.)` and what
-              -- we pass around In between actions are  ([Bool], UTxO, Snapshot, MultiSignature).
-              -- Then we modify snapshot to determine if further actions down the line can suceed or not.
-              -- Note that we start with one valid snapshot (signed by everyone) and expect this to
-              -- work. After mutating the snapshot we need to re-sign it in case we don't expect signature verification to fail
-              -- (eg. we need to increase the contest snapshot number but we re-sign if we don't want to test this change).
-              let validSnapshot = ([], spendableUTxO, startingSnapshot, signSnapshot startingSnapshot)
-
-              let bumpSnapshotNumber = mutateSnapshotNumber (1 +)
-
-              let bumpVersionNumber = mutateVersionNumber (1 +)
-
-              let bumpSnapshot (a, b, c, _) =
-                    let alteredSnapshot = bumpSnapshotNumber c
-                     in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
-
-              let bumpVersion (a, b, c, _) =
-                    let alteredSnapshot = bumpVersionNumber c
-                     in (a, b, alteredSnapshot, signSnapshot alteredSnapshot)
-
-              let reAddUTxOToDecommit (a, b, c, d) =
-                    let alteredSnapshot = mutateUTxOToDecommit (const (utxoToDecommit startingSnapshot)) c
-                     in (a, b, alteredSnapshot, d)
-
-              let removeUTxOToDecommit (a, b, c, d) =
-                    let alteredSnapshot = mutateUTxOToDecommit (const Nothing) c
-                     in (a, b, alteredSnapshot, d)
-
-              let expectAllValid = counterexample "All Valid" . and . fst4 . fanoutAction . contestAction . bumpSnapshot . closeAction . bumpVersion . decrementAction
-
-              -- Should be able to close with something to decommit
-              let expectValidCloseWithDecommit =
-                    counterexample "Close with something to decommit"
-                      . property
-                      . and
-                      . fst4
-                      . fanoutAction
-                      . contestAction
-                      . bumpSnapshot
-                      . closeAction
-
-              -- Should be able to contest with removed decommit
-              let expectValidContestWithRemovedDecommit =
-                    counterexample "Contest with removed decommit"
-                      . property
-                      . and
-                      . fst4
-                      . fanoutAction
-                      . contestAction
-                      . bumpSnapshot
-                      . removeUTxOToDecommit
-                      . closeAction
-
-              -- Decrement, Close, contest, then remove what was decremented and try to fanout
-              let expectInvalidFanoutWithRemovedDecommit =
-                    counterexample "Fanout with removed decommit"
-                      . property
-                      . any not
-                      . fst4
-                      . fanoutAction
-                      . removeUTxOToDecommit
-                      . contestAction
-                      . bumpSnapshot
-                      . closeAction
-                      . decrementAction
-
-              -- Decrement, remove decrement UTxO, Close, then add decrement UTxO and fanout
-              let expectInvalidFanoutWithRemovedAndReAddedDecommit =
-                    counterexample "Fanout with removed decommit"
-                      . property
-                      . any not
-                      . fst4
-                      . fanoutAction
-                      . reAddUTxOToDecommit
-                      . closeAction
-                      . removeUTxOToDecommit
-                      . decrementAction
-
-              let expectedInvalid =
-                    [ expectInvalidFanoutWithRemovedDecommit validSnapshot
-                    , expectInvalidFanoutWithRemovedAndReAddedDecommit validSnapshot
-                    ]
-              let expectedValid =
-                    [ expectAllValid validSnapshot
-                    , expectValidCloseWithDecommit validSnapshot
-                    , expectValidContestWithRemovedDecommit validSnapshot
-                    ]
-
-              conjoin (expectedValid <> expectedInvalid)
-
-mutateSnapshotNumber :: (SnapshotNumber -> SnapshotNumber) -> Snapshot Tx -> Snapshot Tx
-mutateSnapshotNumber fn snapshot =
-  let sn = fn snapshot.number
-   in snapshot{number = sn}
-
-mutateVersionNumber :: (SnapshotVersion -> SnapshotVersion) -> Snapshot Tx -> Snapshot Tx
-mutateVersionNumber fn snapshot =
-  let sn = fn snapshot.version
-   in snapshot{version = sn}
-
-mutateSnapshotUTxO :: (UTxO -> UTxO) -> Snapshot Tx -> Snapshot Tx
-mutateSnapshotUTxO fn snapshot =
-  let utxo' = fn (utxo snapshot)
-   in snapshot{utxo = utxo'}
-
-mutateUTxOToDecommit :: (Maybe UTxO -> Maybe UTxO) -> Snapshot Tx -> Snapshot Tx
-mutateUTxOToDecommit fn snapshot =
-  let toDecommit = fn (utxoToDecommit snapshot)
-   in snapshot{utxoToDecommit = toDecommit}
-
-defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = UnsafeContestationPeriod 10
-
-findHeadUTxO :: UTxO -> (TxIn, TxOut CtxUTxO)
-findHeadUTxO utxo =
-  let headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
-   in case UTxO.find (isScriptTxOut headScript) (utxoOfThisHead Fixture.testPolicyId utxo) of
-        Nothing -> error "Missing head output"
-        Just headUTxO -> headUTxO
-
-produceDecrement ::
-  ChainContext ->
-  ScriptRegistry ->
-  HeadId ->
-  HeadParameters ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
-produceDecrement ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case decrement ctx spendableUTxO headId parameters ConfirmedSnapshot{snapshot, signatures} of
-    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
-    Right tx -> do
-      case utxoToDecommit snapshot of
-        Nothing ->
-          ( p <> [evaluateTransaction tx spendableUTxO]
-          , utxoFromTx tx <> registryUTxO scriptRegistry
-          , snapshot
-          , signatures
-          )
-        Just toDecommit -> do
-          -- increase Head UTxO by the decommit amount
-          let decommitValue = foldMap (txOutValue . snd) (UTxO.pairs toDecommit)
-          let (headIn, headOut) = findHeadUTxO (utxoFromTx tx)
-          let headUTxO = UTxO.singleton (headIn, modifyTxOutValue (<> decommitValue) headOut)
-          ( p <> [evaluateTransaction tx spendableUTxO]
-            , headUTxO <> registryUTxO scriptRegistry
-            , snapshot
-            , signatures
-            )
-
-produceClose ::
-  ChainContext ->
-  ScriptRegistry ->
-  HeadId ->
-  HeadParameters ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
-produceClose ctx scriptRegistry headId parameters (p, spendableUTxO, snapshot, signatures) = do
-  case close ctx spendableUTxO headId parameters snapshot.version ConfirmedSnapshot{snapshot, signatures} 0 (0, posixSecondsToUTCTime 0) of
-    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
-    Right tx ->
-      ( p <> [evaluateTransaction tx spendableUTxO]
-      , utxoFromTx tx <> registryUTxO scriptRegistry
-      , snapshot
-      , signatures
-      )
-
-produceContest ::
-  ChainContext ->
-  ScriptRegistry ->
-  HeadId ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
-produceContest ctx scriptRegistry headId (p, spendableUTxO, snapshot, signatures) = do
-  case contest ctx spendableUTxO headId defaultContestationPeriod snapshot.version ConfirmedSnapshot{snapshot, signatures} (0, posixSecondsToUTCTime 0) of
-    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
-    Right tx ->
-      ( p <> [evaluateTransaction tx spendableUTxO]
-      , utxoFromTx tx <> registryUTxO scriptRegistry
-      , snapshot
-      , signatures
-      )
-
-produceFanout ::
-  ChainContext ->
-  ScriptRegistry ->
-  TxIn ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx)) ->
-  ([Bool], UTxO, Snapshot Tx, MultiSignature (Snapshot Tx))
-produceFanout ctx scriptRegistry seedTxIn (p, spendableUTxO, snapshot, signatures) =
-  case fanout ctx spendableUTxO seedTxIn (utxo snapshot) (utxoToDecommit snapshot) 20 of
-    Left _ -> (p <> [False], spendableUTxO, snapshot, signatures)
-    Right tx ->
-      ( p <> [evaluateTransaction tx spendableUTxO]
-      , utxoFromTx tx <> registryUTxO scriptRegistry
-      , snapshot
-      , signatures
-      )
-
-hasHigherSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
-hasHigherSnapshotNumber =
-  any (\(mutated, original, _) -> mutated.number > original.number)
-
-hasLowerSnapshotNumber :: [(Snapshot Tx, Snapshot Tx, Maybe String)] -> Bool
-hasLowerSnapshotNumber =
-  any (\(mutated, original, _) -> mutated.number < original.number)
-
-evaluateTransaction :: Tx -> UTxO -> Bool
-evaluateTransaction tx spendableUTxO =
-  case evaluateTx tx spendableUTxO of
-    Left _ -> False
-    Right redeemerReport ->
-      all isRight (Map.elems redeemerReport)
-
-genPerfectModelSnapshot :: Gen ModelSnapshot
-genPerfectModelSnapshot = do
-  (decommit, amount) <- arbitrary
-  let decommitUTxO = Map.fromList [(decommit, amount)]
-  snapshotUTxO' <- arbitrary
-  pure $ ModelSnapshot{version = 0, number = 1, snapshotUTxO = Map.union snapshotUTxO' decommitUTxO, decommitUTxO}
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
