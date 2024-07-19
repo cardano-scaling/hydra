@@ -38,16 +38,22 @@ in
   system.stateVersion = "24.05";
 
   # Incase we want to do some nixing
-  nix.extraOptions = ''
-    experimental-features = nix-command flakes ca-derivations
-  '';
+  nix = {
+    settings.trusted-users = [ "root" "hydra" ];
+    extraOptions = ''
+      experimental-features = nix-command flakes ca-derivations
+    '';
+  };
 
-  services.openssh.enable = true;
+  services.openssh = {
+    settings.PasswordAuthentication = false;
+    enable = true;
+  };
 
   users.users.hydra = {
     isNormalUser = true;
     description = "hydra";
-    extraGroups = [ "systemd-journal" ];
+    extraGroups = [ "systemd-journal" "wheel" ];
     initialPassword = ""; # No password
 
     # Your ssh key
@@ -55,6 +61,8 @@ in
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIATz/Jv+AnBft+9Q01UF07OydvgTTaTdCa+nMqabkUNl"
     ];
   };
+
+  security.sudo.wheelNeedsPassword = false;
 
   services.getty.autologinUser = "hydra";
 
@@ -72,13 +80,27 @@ in
           gen-hydra-key \
             --output-file ${nodeId}-hydra
       '';
+
+      genCardanoKey = pkgs.writeShellScriptBin "genCardanoKey" ''
+        if [ -f ${nodeId}-node.sk ]; then
+          echo "Found a cardano secret key for ${nodeId}; not generating another one."
+          exit 0
+        fi
+
+        # Make our cardano signing keys
+        ${lib.getExe cardano-node.packages.${system}.cardano-cli} address key-gen \
+          --verification-key-file ${nodeId}-node.vk \
+          --signing-key-file ${nodeId}-node.sk
+      '';
     in
     [
+      pkgs.git
       # So you can just do:
       #
       #  > cd ~/cardano-data/credentials && genHydraKey
       #
       genHydraKey
+      genCardanoKey
       # These aren't really needed, as the systemd services just pull in the
       # binaries directly, but might be useful for debugging, so we leave them
       # in the system path.
@@ -122,7 +144,7 @@ in
                 exit 0
               fi
 
-              mkdir -p ${cardanoDataPath}
+              mkdir -p ${cardanoDataPath}/credentials
 
               cd ${cardanoDataPath}
 
@@ -134,19 +156,13 @@ in
                   ./share/${nodeRelease} \
                   --strip-components=3
 
-              # Get our peer data (and peer config)
+              # Get our hydra config (and peer config)
               git clone https://github.com/cardano-scaling/hydra-team-config.git
 
               # Jump to specific revision
               cd hydra-team-config && \
                 git checkout dee7986b1377a0fa93d06cfc131ae7c26ca34299 && \
                 cd ..
-
-              # Make our cardano signing keys
-              mkdir credentials
-              cardano-cli address key-gen \
-                --verification-key-file credentials/${nodeId}-node.vk \
-                --signing-key-file credentials/${nodeId}-node.sk
 
               systemd-notify --ready
             '';
@@ -230,19 +246,19 @@ in
             port = "5005";
             # Select only the friends we want from the full list:
             # <https://github.com/input-output-hk/hydra-team-config/tree/master/parties>
-            # We build a bash list out of a nix list :tear:
-            peerList = pkgs.lib.strings.concatMapStringsSep " " (x: "\"${x}\"") peers;
+            peerArgs =
+              let
+                dir = "hydra-team-config/parties";
+                f = name: lib.strings.concatStringsSep " "
+                  [
+                    "--peer $(cat ${dir}/${name}.peer)"
+                    "--hydra-verification-key ${dir}/${name}.hydra.vk"
+                    "--cardano-verification-key ${dir}/${name}.cardano.vk"
+                  ];
+              in
+              pkgs.lib.strings.concatMapStringsSep " " f peers;
             spinupHydra = pkgs.writeShellScriptBin "spinupHydra" ''
               set -e
-
-              peerArgs="";
-              folder=hydra-team-config/parties
-              for peer in ${peerList};
-              do
-                peerArgs+=" --peer $(cat ''${folder}/''${peer}.peer) "
-                peerArgs+=" --hydra-verification-key ''${folder}/''${peer}.hydra.vk "
-                peerArgs+=" --cardano-verification-key ''${folder}/''${peer}.cardano.vk "
-              done
 
               ${hydra.packages.${system}.hydra-node}/bin/hydra-node \
                 --node-id ${nodeId} \
@@ -256,7 +272,7 @@ in
                 --persistence-dir persistence \
                 --ledger-protocol-parameters hydra-team-config/protocol-parameters.json \
                 --hydra-scripts-tx-id $(cat hydra-team-config/hydra-scripts-tx-id) \
-                ''${peerArgs}
+                ${peerArgs}
             '';
           in
           "${lib.getExe spinupHydra}";

@@ -25,6 +25,20 @@
       system = "x86_64-linux";
     in
     {
+      nixosConfigurations.noon-hydra = nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = {
+          inherit
+            system
+            cardano-node
+            hydra
+            mithril;
+        };
+        modules = [
+          ./configuration.nix
+        ];
+      };
+
       packages."${system}" = {
         gce = nixos-generators.nixosGenerate {
           inherit system;
