@@ -315,7 +315,7 @@ genBlueprintTxWithUTxO =
                 ( \_ ->
                     BuildTxWith $
                       ScriptWitness ScriptWitnessForSpending $
-                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn datum) redeemer
+                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn $ Just datum) redeemer
                 )
                   <$> utxoToSpend
             )
