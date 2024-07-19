@@ -3,13 +3,13 @@ sidebar_label: 'Overview'
 sidebar_position: 1
 ---
 
-# Use Cases for Hydra
+# Hydra use cases
 
-We hope this section will trigger a discussion with those in the community interested in how Hydra as a technology can be applied to help solve real world problems or perhaps even considering to use Hydra as a framework to build solutions on Cardano. We also hope to grow this collection of use case studies, with participation from the community, so it can be used as a point of reference, including for those not necessarily familiar with the detailed [technical feature roadmap](https://github.com/orgs/input-output-hk/projects/21).
+This section aims to initiate a dialogue with community members interested in exploring how Hydra can be leveraged to address real-world problems or those considering using Hydra as a framework to develop solutions on the Cardano platform. Our goal is to expand this collection of case studies with contributions from the community, making it a valuable reference point, even for those not deeply familiar with the [technical feature roadmap](https://github.com/orgs/input-output-hk/projects/21).
 
-We want to share the initial use cases where we consider Hydra can add significant value (by driving down related transaction costs and confirmation times and increasing transaction throughput) and actively engage the community to discuss and contribute to the use cases featured on the roadmap. Of course, we also want to encourage the community to raise additional use cases we inevitably omitted.
+We are eager to highlight the initial use cases where Hydra can significantly enhance value by reducing transaction costs, decreasing confirmation times, and increasing transaction throughput. We actively invite the community to engage in discussions, contribute to the featured use cases on the roadmap, and suggest additional scenarios we may have overlooked.
 
-We are currently exploring use cases in domains of payments, digital asset auctions, decentralized voting, and decentralized finance. The use case section will be updated as these use cases are worked out in more detail. So keep an eye out! 
+We are currently exploring use cases across various domains, including payments, digital asset auctions, decentralized voting, and decentralized finance. This section will be updated as these use cases are further developed and detailed. So, stay tuned! 
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';

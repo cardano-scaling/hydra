@@ -1,24 +1,24 @@
 ---
-sidebar_label: Auctions-as-a-service Multi
+sidebar_label: Auctions-as-a-service: multi
 sidebar_position: 5
 ---
 
-# Always-On Delegated Auction Service (Multi-Head)
+# Always-on delegated auction service (multi-head)
 
-> A persistent service for DApps, offering auctinos as-a-service over a a choice of multiple Hydra heads to host delegated auctions.
+The always-on delegated auction service is a persistent service for DApps, providing auctions-as-a-service across multiple Hydra heads to facilitate delegated auctions.
 
 ## Overview
 
-The always-on single-head service is suitable for a wide range of dApps, but for some use cases, we want to be able to increase the decentralization of the L2 host beyond the group of delegates in a single Hydra Head. We can do this by adapting Hydra-enabled dApps to be able to use more than one Hydra Head to host their L2 processes. This dilutes the power of any one Head’s delegates over the L2 processes. It also makes the L2 bidding process more robust to L2 downtime – if one Hydra Head goes down, bidders can continue bidding on L2 via the other Hydra Heads.
+The always-on single-head service is suitable for a wide range of DApps, but some use cases demand an increased level of decentralization beyond the group of delegates in a single Hydra head. By allowing DApps to use multiple Hydra heads for their layer 2 processes, we can distribute the influence of any one head’s delegates. This approach also enhances the robustness of the layer 2 bidding process — if one Hydra head goes down, bidders can continue on the other Hydra heads.
 
-## Features and Scope
+## Features and scope
 
 To be determined.
 
 ## Remaining limitations
 
-1. Delegates can censor bidders from submitting bids to the auction, but if bidders are censored by the delegates of one Hydra Head then they can go to another Hydra Head to submit their bids for the auction.
-2. Delegates are responsible on L2 for ensuring that the standing bid of the auction can only be replaced by a new bid that exceeds it by the minimum increment defined in the auction terms. However, bidders receive a multi-signed proof for every confirmed bid, which can be used as incontrovertible proof against delegates if there’s any foul play
+1. Delegates can censor bidders from submitting bids to the auction. However, if bidders are censored by the delegates of one Hydra head, they can participate in another Hydra head to submit their bids.
+2. Delegates on layer 2 are responsible for ensuring that the standing bid of the auction can only be replaced by a new bid that exceeds it by the minimum increment defined in the auction terms. However, bidders receive a multi-signed proof for every confirmed bid, which can be used as incontrovertible proof against delegates if there’s any foul play.
 
 ## Prerequisites from Hydra technical roadmap
 

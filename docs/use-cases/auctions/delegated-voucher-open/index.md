@@ -1,37 +1,37 @@
 ---
-sidebar_label: Delegated Voucher Open
+sidebar_label: Delegated voucher: open
 sidebar_position: 2
 ---
 
-# Delegated Voucher Auctions (Open)
+# Delegated voucher auctions (open)
 
-> Extension of invitational auctions to enable open auctions, where bidders can freely participate without permission from sellers. It would require bids to be fully collateralized upon submission.
+This is an extension of invitational auctions to enable open auctions, where bidders can freely participate without sellers' permission. Bids must be fully collateralized upon submission.
 
 ## Overview
 
-The private invitational auction from the initial prototype is a very common use case, but there is also demand for a more casual auction format, whereby bidders can freely participate in any public auction without any vetting from sellers.
-However, for sellers to be comfortable with this auction format, we need stronger backing for bids to mitigate the risk of bidders attempting to dishonor their bids – ideally, all bids should be fully collateralized by bidder deposits towards the auction. Thus, as a possible extension of the initial prototype auction design , we can replace the fixed security deposit from the prototype with a method that allows bidders to place sufficient deposits on L1 and then show proof of these deposits whenever they make bids on L2.
+The private invitational auction from the initial prototype is a very common use case. However, there is also demand for a more casual auction format where bidders can freely participate in any public auction without any vetting from sellers. For sellers to be comfortable with this auction format, we need stronger backing for bids to mitigate the risk of bidders attempting to dishonor their bids. Ideally, all bids should be fully collateralized by bidder deposits toward the auction. 
+
+As a possible extension of the initial prototype auction design, we can replace the fixed security deposit from the prototype with a method that allows bidders to place sufficient deposits on layer 1 and then show proof of these deposits whenever they bid on layer 2.
 
 ## Workflow
 
-In this step, each public auction would work as follows:
+The workflow for each public auction proceeds as follows:
 
-1. Delegates initialize a Hydra Head, making it available to host the bidding for a yet-to-be-announced auction.
-2. The seller announces an auction to sell a given NFT (the “auction lot”), sets the terms of the auction, deposits the NFT into the auction smart contract, and indicates which Hydra Head will host the auction’s bidding process on L2.
-3. Near the bidding start-time, the bidding process for the auction moves from L1 (where the auction was announced) to L2 (the delegates’ Hydra Head).
-4. Bidders submit bids to delegates, who collectively witness the bids in the Hydra Head ledger and confirm bids to bidders via multi-signed ledger snapshots.
-   A bid is valid only if proof is attached of a sufficient deposit placed by the bidder on L1 towards the auction. Bidders make these deposits as needed on L1, to support their bids on L2.
-5. At the end of the bidding phase, the Hydra Head is closed and the standing bid is moved to L1. The bidder that submitted that standing bid becomes the winner of the auction.
-6. At the end of the bidding phase, the standing bid and the winning bidder’s deposit are used to send the auction lot to the winning bidder and the winning bid payment to the seller.
-7. At the end of the bidding phase, all other bidders can reclaim their bid deposits.
+1. **Hydra head initialization**. Delegates set up a Hydra head to host the bidding for an upcoming auction.
+2. **Auction announcement**. The seller announces the auction, detailing the terms and depositing the NFT into the auction smart contract, and indicates which Hydra head will handle the bidding on layer 2.
+3. **Transition to bidding**. As the bidding start-time approaches, the auction transitions from layer 1, where it was announced, to layer 2, managed by the delegate's Hydra head.
+4. **Bid submission and validation**. Bidders submit their bids along with proof of a sufficient layer 1 deposit. Delegates verify the bids and confirm them to bidders via multi-signed ledger snapshots within the Hydra head.
+5. **Closing the auction**. At the end of the bidding phase, the Hydra head is closed, and the highest bid is confirmed on layer 1. The bidder with the highest bid becomes the auction winner.
+6. **Transaction completion**. The winning bidder’s deposit and the standing bid are used to transfer the auction lot to the winner and the payment to the seller.
+7. **Deposit reclamation**. All other bidders reclaim their deposits after the bidding phase ends.
 
 ## Prerequisites from Hydra technical roadmap
 
-No specific prerequisites are currently anticipated, but some may come up.
+Currently, no specific prerequisites are anticipated, though new requirements may emerge during development.
 
 ## Remaining limitations
 
-- Auction implementation is a prototype, not necessarily ready for production.
-- A new Hydra Head must be opened for every auction.
-- Delegates can censor bidders from submitting bids to the auction.
-- Delegates are responsible on L2 for ensuring that the standing bid of the auction can only be replaced by a new bid that exceeds it by the minimum increment defined in the auction terms. However, bidders receive a multi-signed proof for every confirmed bid, which can be used as incontrovertible proof against delegates if there’s any foul play.
+- The auction system is still in the prototype stage and may not be ready for production.
+- A new Hydra head is required for each auction.
+- Delegates have the potential to censor bidders from submitting bids.
+- Delegates are tasked with ensuring on layer 2 that any new bid exceeds the standing bid by at least the minimum increment specified in the auction terms. Bidders receive multi-signed proof for each confirmed bid, providing incontrovertible evidence against potential delegate misconduct.
