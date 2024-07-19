@@ -10,14 +10,17 @@
 
 let
   cardanoDataPath = "/home/hydra/cardano-data";
+
+  # Select only the friends we want from the full list:
+  # <https://github.com/input-output-hk/hydra-team-config/tree/master/parties>
   peers = [
     "dan"
     "franco"
     "sasha"
     "sebastian"
   ];
-  nodeId = "noon";
 
+  nodeId = "noon";
   hydraPort = "5005";
 
   # These three variables must agree
@@ -34,15 +37,8 @@ let
     "CARDANO_NODE_SOCKET_PATH" = "${cardanoDataPath}/node.socket";
   };
 
-  envVarAsList = lib.attrsets.mapAttrsToList (k: v: "${k}=${v}") commonEnvVars;
 in
 {
-
-  # TODO: Optionally enable if not running via nixos-generators
-  # imports = [
-  #   <nixpkgs/nixos/modules/virtualisation/google-compute-image.nix>
-  # ];
-
   system.stateVersion = "24.05";
 
   # Incase we want to do some nixing
@@ -89,31 +85,40 @@ in
             --output-file ${nodeId}-hydra
       '';
 
-      genCardanoKey = pkgs.writeShellScriptBin "genCardanoKey" ''
-        if [ -f ${nodeId}-node.sk ]; then
-          echo "Found a cardano secret key for ${nodeId}; not generating another one."
+      genSomeCardanoKey = script: name: pkgs.writeShellScriptBin script ''
+        if [ -f ${nodeId}-${name}.sk ]; then
+          echo "Found a ${name} key for ${nodeId}; not generating another one."
           exit 0
         fi
 
-        # Make our cardano signing keys
         ${lib.getExe cardano-node.packages.${system}.cardano-cli} address key-gen \
-          --verification-key-file ${nodeId}-node.vk \
-          --signing-key-file ${nodeId}-node.sk
+          --verification-key-file ${nodeId}-${name}.vk \
+          --signing-key-file ${nodeId}-${name}.sk
       '';
+
+      genCardanoKey = genSomeCardanoKey "genCardanoKey" "node";
+      genFundsKey = genSomeCardanoKey "genFundsKey" "funds";
     in
     [
       pkgs.git
-      # So you can just do:
+
+      # So you can just do (if you just want fresh credentials):
       #
-      #  > cd ~/cardano-data/credentials && genHydraKey
+      #  > cd ~/cardano-data/credentials
+      #  > genHydraKey
+      #  > genCardanoKey
+      #  > genFundsKey
       #
       genHydraKey
       genCardanoKey
+      genFundsKey
+
+      hydra.packages."${system}".hydra-tui # To interact with your node/peers
+
       # These aren't really needed, as the systemd services just pull in the
       # binaries directly, but might be useful for debugging, so we leave them
       # in the system path.
       hydra.packages."${system}".hydra-node # To run a hydra node
-      hydra.packages."${system}".hydra-tui # To interact with your node/peers
       cardano-node.packages."${system}".cardano-node # To talk to the cardano network
       mithril.packages."${system}".mithril-client-cli # Efficient syncing of the cardano node
       cardano-node.packages."${system}".cardano-cli # For any ad-hoc cardano actions we may like to run
@@ -122,6 +127,9 @@ in
   programs.bash.shellAliases = {
     # Run 'logs -f' to follow
     logs = "journalctl -u mithril-maybe-download -u cardano-node -u hydra-node -u necessary-files";
+
+    # Always open hydra-tui with the right args:
+    hydra-tui = "hydra-tui --testnet-magic ${networkMagic} --node-socket ${cardanoDataPath}/node.socket -k ${cardanoDataPath}/credentials/${nodeId}-funds.sk";
   };
 
   environment.variables = commonEnvVars;
@@ -148,7 +156,8 @@ in
               set -e
 
               if [ -d ${cardanoDataPath} ]; then
-                echo "Not re-creating configs and credentials; ${cardanoDataPath} exists."
+                echo "Not re-creating configs because ${cardanoDataPath} exists."
+                systemd-notify --ready
                 exit 0
               fi
 
@@ -234,7 +243,8 @@ in
                 --socket-path ${cardanoDataPath}/node.socket \
                 --database-path db
         '';
-        Environment = envVarAsList;
+        # We have to make a list here; this field doesn't support an attrset.
+        Environment = lib.attrsets.mapAttrsToList (k: v: "${k}=${v}") commonEnvVars;
       };
     };
 
@@ -251,8 +261,6 @@ in
         RestartSec = 1 * 60;
         ExecStart =
           let
-            # Select only the friends we want from the full list:
-            # <https://github.com/input-output-hk/hydra-team-config/tree/master/parties>
             peerArgs =
               let
                 dir = "hydra-team-config/parties";
@@ -265,8 +273,6 @@ in
               in
               pkgs.lib.strings.concatMapStringsSep " " f peers;
             spinupHydra = pkgs.writeShellScriptBin "spinupHydra" ''
-              set -e
-
               ${hydra.packages.${system}.hydra-node}/bin/hydra-node \
                 --node-id ${nodeId} \
                 --cardano-signing-key credentials/${nodeId}-node.sk \

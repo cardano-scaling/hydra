@@ -1,17 +1,52 @@
 # Another NixOS setup
 
-A Hydra signing key needs to be generated on the host, once it is spun up.
-It is expected to be created in `~/cardano-data/credentials` like so:
+A full NixOS-based image to run a Hydra Head with a group of peers.
+
+It allows for:
+
+- Deployment to GCP (by producing a GCE-compatible image; see <https://wiki.nixos.org/wiki/Install_NixOS_on_GCE> for steps to get the image onto GCP by uploading it to a bucket)
+- Local-spin-up via qemu (for testing)
+- A nixosConfiguration for re-building and redeploying via nixos-rebuild
+
+
+### Redeploying
 
 ```shell
-cd ~/cardano-data
-hydra-node gen-hydra-key --output-file credentials/noon-hydra
+nixos-rebuild switch --target-host hydra@... --flake .#noon-hydra --use-remote-sudo
 ```
 
-where `noon` should be the value you have set as the `nodeId` in
-`configuration.nix`
 
-Once created, the service will restart and then will be up and running!
+### Keys
+
+Keys are expected to be generated/provided once it is spun up.
+
+If you don't have keys already, you can generate them (one-off!) on the host
+once it is up:
+
+```shell
+cd ~/cardano-data/credentials
+genHydraKey
+genCardanoKey
+genFundsKey
+```
+
+The hydra-node service will
+
+
+### Building an image for GCE
+
+```shell
+nix build .#gce
+```
+
+This gives a .raw.tar.gz file that can be:
+
+- Uploaded to a bucket,
+- Then used to make a new image on GCP,
+- Which can then be used as a boot image
+
+See "Create a VM instance" here: <https://wiki.nixos.org/wiki/Install_NixOS_on_GCE>
+
 
 ### Trivia
 
@@ -24,9 +59,5 @@ chmod 755 nixos.qcow2
 qemu-system-x86_64 -enable-kvm -m 8000 -drive file=nixos.qcow2,media=disk,if=virtio -nic user,model=virtio
 ```
 
-### Todo
-
-- [ ] Get setup for remote nixos-rebuilds as well. Presently this creates an
-      image, but assumes that it won't every be changed. It might be nice to
-      also add a way to do a nixos-rebuild so that we can deploy changes to a
-      deployed instance.
+Note that this results in very large nix store allocations; so if you do it
+often don't forget to garbage-collect!

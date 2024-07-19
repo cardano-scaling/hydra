@@ -25,6 +25,7 @@
       system = "x86_64-linux";
     in
     {
+      # For rebuilding the image once deployed
       nixosConfigurations.noon-hydra = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
@@ -35,11 +36,13 @@
             mithril;
         };
         modules = [
+          "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
           ./configuration.nix
         ];
       };
 
       packages."${system}" = {
+        # For deploying to GCP
         gce = nixos-generators.nixosGenerate {
           inherit system;
           specialArgs = {
@@ -55,6 +58,7 @@
           format = "gce";
         };
 
+        # For testing locally
         qemu = nixos-generators.nixosGenerate {
           inherit system;
           specialArgs = {
