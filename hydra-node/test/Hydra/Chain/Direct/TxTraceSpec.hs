@@ -5,10 +5,15 @@
 -- chain modules.
 --
 -- The model is focusing on transitions between Open and Closed states of the
--- head right now. We have a simple UTxO model that consists of `SingleUTxO`
--- constructor and value is represented as a natural number. Snapshot versions
--- are tracked in the `AppM` monad (together with the _real_ Cardano UTxO) and
--- we update those on each successfull decommit transaction.
+-- head right now. It generates plausible sequences of Decrement and Close
+-- actions, along with Contest and Fanout, each using a snapshot of some version
+-- and number. UTxOs are simplified such that their identity is A-E and value is
+-- just a number.
+--
+-- Actions and snapshots are generated "just-in-time" and result in valid, but
+-- also deliberately invalid combinations of versions/numbers. Generated
+-- snapshots are correctly signed and consistent in what they decommit from the
+-- head. FIXME: the latter is currently not the case.
 module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
@@ -56,7 +61,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -79,7 +84,7 @@ import Text.Show (Show (..))
 spec :: Spec
 spec = do
   prop "generates interesting transaction traces" prop_traces
-  prop "all valid transactions" $ withMaxSuccess 500 prop_runActions
+  prop "all valid transactions" prop_runActions
   prop "realWorldModelUTxO preserves addition" $ \u1 u2 ->
     realWorldModelUTxO (u1 <> u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
 
@@ -90,28 +95,17 @@ prop_traces =
     -- checkCoverage $
     True
       & cover 1 (null steps) "empty"
+      & cover 5 (hasDecrement steps) "has decrements"
+      & cover 1 (countContests steps >= 2) "has multiple contests"
+      & cover 5 (closeNonInitial steps) "close with non initial snapshots"
       & cover 10 (hasFanout steps) "reach fanout"
       & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
       & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-      -- & cover 0.5 (fanoutWithDecrement steps) "fanout with something to decrement"
-      -- & cover 0.5 (fanoutWithSomeUTxOAndDecrement steps) "fanout with some UTxO and something to decrement"
-      & cover 1 (countContests steps >= 2) "has multiple contests"
-      & cover 5 (closeNonInitial steps) "close with non initial snapshots"
-      & cover 5 (closeWithSomeUTxO steps) "close with some UTxO"
-      & cover 0.5 (closeWithDecrement steps) "close with something to decrement"
-      & cover 0.1 (closeWithSomeUTxOAndDecrement steps) "close with some UTxO and something to decrement"
-      & cover 5 (hasDecrement steps) "has successful decrements"
-      & cover 5 (hasManyDecrement steps) "has many successful decrements"
+      & cover 0.5 (fanoutWithDecommit steps) "fanout with something to decommit"
  where
   hasSnapshotUTxO snapshot = not . null $ snapshotUTxO snapshot
 
-  hasNoSnapshotUTxO snapshot = null $ snapshotUTxO snapshot
-
-  hasDecommitValue snapshot = sum (Map.elems (decommitUTxO snapshot)) > 0
-
-  hasManyDecommits snapshot =
-    let utxoToDecommit = Map.filter (> 0) (decommitUTxO snapshot)
-     in size utxoToDecommit > 1
+  hasUTxOToDecommit snapshot = not . null $ decommitUTxO snapshot
 
   hasFanout =
     any $
@@ -124,7 +118,7 @@ prop_traces =
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
         Fanout{snapshot} ->
           polarity == PosPolarity
-            && hasNoSnapshotUTxO snapshot
+            && null (snapshotUTxO snapshot)
         _ -> False
 
   fanoutWithSomeUTxO =
@@ -135,23 +129,13 @@ prop_traces =
             && hasSnapshotUTxO snapshot
         _ -> False
 
-  -- fanoutWithDecrement =
-  --   any $
-  --     \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-  --       Fanout{snapshot} ->
-  --         traceShow snapshot $
-  --           polarity == PosPolarity
-  --             && hasDecommitValue snapshot
-  --       _ -> False
-  --
-  -- fanoutWithSomeUTxOAndDecrement =
-  --   any $
-  --     \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-  --       Fanout{snapshot} ->
-  --         -- polarity == PosPolarity &&
-  --         hasSnapshotUTxO snapshot
-  --           && hasDecommitValue snapshot
-  --       _ -> False
+  fanoutWithDecommit =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{snapshot} ->
+          polarity == PosPolarity
+            && hasUTxOToDecommit snapshot
+        _ -> False
 
   countContests =
     length
@@ -166,43 +150,12 @@ prop_traces =
       Close{snapshot} -> snapshot > 0
       _ -> False
 
-  closeWithDecrement =
-    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} ->
-        snapshot > 0
-          && hasDecommitValue snapshot
-      _ -> False
-
-  closeWithSomeUTxO =
-    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} ->
-        snapshot > 0
-          && hasSnapshotUTxO snapshot
-      _ -> False
-
-  closeWithSomeUTxOAndDecrement =
-    any $ \(_ := ActionWithPolarity{polarAction}) -> case polarAction of
-      Close{snapshot} ->
-        snapshot > 0
-          && hasSnapshotUTxO snapshot
-          && hasDecommitValue snapshot
-      _ -> False
-
   hasDecrement =
     all $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
         Decrement{snapshot} ->
           polarity == PosPolarity
-            && hasDecommitValue snapshot
-        _ -> False
-
-  hasManyDecrement =
-    all $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Decrement{snapshot} ->
-          polarity == PosPolarity
-            && hasDecommitValue snapshot
-            && hasManyDecommits snapshot
+            && hasUTxOToDecommit snapshot
         _ -> False
 
 prop_runActions :: Actions Model -> Property
@@ -233,7 +186,7 @@ data Model = Model
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
-  , decommitUTxOInHead :: ModelUTxO
+  , pendingDecommitUTxO :: ModelUTxO
   }
   deriving (Show)
 
@@ -313,13 +266,13 @@ instance StateModel Model where
       , latestSnapshot = 0
       , alreadyContested = []
       , utxoInHead = initialModelUTxO
-      , decommitUTxOInHead = Map.empty
+      , pendingDecommitUTxO = Map.empty
       }
 
   -- FIXME: 14k discards is too much, adapt arbitraryAction, precondition and validFailingAction
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, currentVersion, latestSnapshot, utxoInHead} =
+  arbitraryAction _lookup Model{headState, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
     case headState of
       Open{} ->
         frequency $
@@ -428,7 +381,7 @@ instance StateModel Model where
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead, decommitUTxOInHead, currentVersion} = \case
+  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
     Stop -> headState /= Final
     Decrement{snapshot} ->
       headState == Open
@@ -463,14 +416,14 @@ instance StateModel Model where
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Fanout{snapshot} ->
       headState == Closed
-        && snapshotUTxO snapshot == utxoInHead
-        && decommitUTxO snapshot == decommitUTxOInHead
+        && (snapshotUTxO snapshot == utxoInHead)
+        && (decommitUTxO snapshot == pendingDecommitUTxO)
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead, decommitUTxOInHead, currentVersion} = \case
+  validFailingAction Model{headState, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
     Stop -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
@@ -504,7 +457,7 @@ instance StateModel Model where
     Fanout{snapshot} ->
       headState == Closed
         && snapshotUTxO snapshot == utxoInHead
-        && decommitUTxO snapshot == decommitUTxOInHead
+        && decommitUTxO snapshot == pendingDecommitUTxO
 
   -- XXX: Ignore fanouts which does not preserve the closing head
 
@@ -525,7 +478,7 @@ instance StateModel Model where
           , latestSnapshot = snapshot.number
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
-          , decommitUTxOInHead = decommitUTxO snapshot
+          , pendingDecommitUTxO = decommitUTxO snapshot
           }
       Contest{actor, snapshot} ->
         m
@@ -533,7 +486,7 @@ instance StateModel Model where
           , latestSnapshot = snapshot.number
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
-          , decommitUTxOInHead = decommitUTxO snapshot
+          , pendingDecommitUTxO = decommitUTxO snapshot
           }
       Fanout{} -> m{headState = Final}
 
@@ -581,7 +534,6 @@ instance RunModel Model AppM where
         tx <- newContestTx actor currentVersion (confirmedSnapshot snapshot)
         performTx tx
       Fanout{snapshot} -> do
-        -- TODO: why do we do newFanoutTx differently to other transactions?
         tx <- newFanoutTx Alice snapshot
         performTx tx
       Stop -> pure ()
