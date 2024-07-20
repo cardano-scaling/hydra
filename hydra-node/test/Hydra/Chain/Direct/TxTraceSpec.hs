@@ -13,7 +13,7 @@
 -- Actions and snapshots are generated "just-in-time" and result in valid, but
 -- also deliberately invalid combinations of versions/numbers. Generated
 -- snapshots are correctly signed and consistent in what they decommit from the
--- head. FIXME: the latter is currently not the case.
+-- head.
 module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
@@ -61,7 +61,7 @@ import Hydra.Party (partyToChain)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Fixture qualified as Fixture
-import Test.QuickCheck (Property, Smart (..), checkCoverage, choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, withMaxSuccess, (===))
+import Test.QuickCheck (Property, Smart (..), choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -101,10 +101,8 @@ prop_traces =
       & cover 10 (hasFanout steps) "reach fanout"
       & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
       & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-      & cover 0.5 (fanoutWithDecommit steps) "fanout with something to decommit"
+      & cover 0.5 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
  where
-  hasSnapshotUTxO snapshot = not . null $ snapshotUTxO snapshot
-
   hasUTxOToDecommit snapshot = not . null $ decommitUTxO snapshot
 
   hasFanout =
@@ -116,25 +114,25 @@ prop_traces =
   fanoutWithEmptyUTxO =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
+        Fanout{utxo} ->
           polarity == PosPolarity
-            && null (snapshotUTxO snapshot)
+            && null utxo
         _ -> False
 
   fanoutWithSomeUTxO =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
+        Fanout{utxo} ->
           polarity == PosPolarity
-            && hasSnapshotUTxO snapshot
+            && not (null utxo)
         _ -> False
 
-  fanoutWithDecommit =
+  fanoutWithDelta =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{snapshot} ->
+        Fanout{deltaUTxO} ->
           polarity == PosPolarity
-            && hasUTxOToDecommit snapshot
+            && not (null deltaUTxO)
         _ -> False
 
   countContests =
@@ -254,7 +252,7 @@ instance StateModel Model where
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
-    Fanout :: {snapshot :: ModelSnapshot} -> Action Model TxResult
+    Fanout :: {utxo :: ModelUTxO, deltaUTxO :: ModelUTxO} -> Action Model TxResult
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
@@ -269,7 +267,7 @@ instance StateModel Model where
       , pendingDecommitUTxO = Map.empty
       }
 
-  -- FIXME: 14k discards is too much, adapt arbitraryAction, precondition and validFailingAction
+  -- FIXME: 1.5k discards on 100 runs
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
   arbitraryAction _lookup Model{headState, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
@@ -296,8 +294,13 @@ instance StateModel Model where
       Closed{} ->
         oneof $
           [ do
-              snapshot <- genSnapshot
-              pure $ Some $ Fanout{snapshot}
+              -- Fanout with the currently known model state.
+              pure $
+                Some $
+                  Fanout
+                    { utxo = utxoInHead
+                    , deltaUTxO = pendingDecommitUTxO
+                    }
           ]
             <> [ do
                   actor <- elements allActors
@@ -414,16 +417,16 @@ instance StateModel Model where
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- XXX: your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-    Fanout{snapshot} ->
+    Fanout{utxo, deltaUTxO} ->
       headState == Closed
-        && (snapshotUTxO snapshot == utxoInHead)
-        && (decommitUTxO snapshot == pendingDecommitUTxO)
+        && utxo == utxoInHead
+        && deltaUTxO == pendingDecommitUTxO
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
+  validFailingAction Model{headState, utxoInHead, currentVersion} = \case
     Stop -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
@@ -454,10 +457,8 @@ instance StateModel Model where
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- XXX: Ignore close that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-    Fanout{snapshot} ->
+    Fanout{} ->
       headState == Closed
-        && snapshotUTxO snapshot == utxoInHead
-        && decommitUTxO snapshot == pendingDecommitUTxO
 
   -- XXX: Ignore fanouts which does not preserve the closing head
 
@@ -533,8 +534,8 @@ instance RunModel Model AppM where
       Contest{actor, snapshot} -> do
         tx <- newContestTx actor currentVersion (confirmedSnapshot snapshot)
         performTx tx
-      Fanout{snapshot} -> do
-        tx <- newFanoutTx Alice snapshot
+      Fanout{utxo, deltaUTxO} -> do
+        tx <- newFanoutTx Alice utxo deltaUTxO
         performTx tx
       Stop -> pure ()
 
@@ -553,7 +554,7 @@ instance RunModel Model AppM where
           counterexample' $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
           guard $ length contesters == length (alreadyContested modelAfter)
         _ -> fail "Expected Contest"
-      Fanout{snapshot} -> do
+      Fanout{utxo, deltaUTxO} -> do
         case result of
           TxResult{constructedTx = Left err} -> fail $ "Failed to construct transaction: " <> err
           TxResult{constructedTx = Right tx} -> do
@@ -564,7 +565,7 @@ instance RunModel Model AppM where
             let fannedOut = utxoFromTx tx
             -- counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
             -- counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
-            guard $ sorted fannedOut == sorted (fst $ generateUTxOFromModelSnapshot snapshot)
+            guard $ sorted fannedOut == sorted (realWorldModelUTxO utxo <> realWorldModelUTxO deltaUTxO)
 
         expectValid result $ \case
           Tx.Fanout{} -> pure ()
@@ -764,17 +765,17 @@ newContestTx actor openVersion snapshot = do
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
-newFanoutTx :: Actor -> ModelSnapshot -> AppM (Either FanoutTxError Tx)
-newFanoutTx actor snapshot = do
+newFanoutTx :: Actor -> ModelUTxO -> ModelUTxO -> AppM (Either FanoutTxError Tx)
+newFanoutTx actor utxo deltaUTxO = do
   spendableUTxO <- get
-  let (snapshot', _) = signedSnapshot snapshot
   pure $
     fanout
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (utxo snapshot')
-      (utxoToDecommit snapshot')
+      (realWorldModelUTxO utxo)
+      -- XXX: Model world has no 'Maybe ModelUTxO', but real world does.
+      (if null deltaUTxO then Nothing else Just $ realWorldModelUTxO deltaUTxO)
       deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
