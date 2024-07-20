@@ -28,7 +28,6 @@ import Hydra.Cardano.Api (
   modifyTxOutAddress,
   modifyTxOutValue,
   scriptPolicyId,
-  selectLovelace,
   toPlutusCurrencySymbol,
   toScriptData,
   txInputSet,
@@ -137,6 +136,7 @@ import Test.QuickCheck (
   (.&&.),
   (.||.),
   (===),
+  (==>),
  )
 import Test.QuickCheck.Monadic (monadicIO, monadicST, pick)
 import Prelude qualified
@@ -153,7 +153,7 @@ spec = parallel $ do
     prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
 
   describe "splitUTxO" $ do
-    prop "splitUTxO works" prop_splitUTxO
+    prop "it splits at least one utxo off" prop_splitUTxO
 
   describe "init" $ do
     propBelowSizeLimit maxTxSize forAllInit
@@ -435,13 +435,16 @@ prop_observeAnyTx =
     Open OpenState{headId} -> Just headId
     Closed ClosedState{headId} -> Just headId
 
+-- | Given a UTxO with more than one entry, we can split it into two non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_splitUTxO utxo =
-  let (inHead, toDecommit) = splitUTxO utxo
-      getLovelace a =
-        sum $ selectLovelace . txOutValue . snd <$> UTxO.pairs a
-   in getLovelace utxo === getLovelace (inHead <> toDecommit)
-        .&&. UTxO.difference (inHead <> toDecommit) utxo === mempty
+  (length utxo > 1) ==>
+    let (inHead, toDecommit) = splitUTxO utxo
+     in conjoin
+          [ not (null inHead) & counterexample "inHead is empty"
+          , not (null toDecommit) & counterexample "toDecommit is empty"
+          , inHead /= toDecommit & counterexample "inHead == toDecommit"
+          ]
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do

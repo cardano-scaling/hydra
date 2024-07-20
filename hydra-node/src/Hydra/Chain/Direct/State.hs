@@ -10,7 +10,6 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -1064,12 +1063,13 @@ genDecrementTx numParties = do
     , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot
     )
 
+-- | Split a given UTxO into two, such that the second UTxO is non-empty. This
+-- is useful to pick a UTxO to decommit.
 splitUTxO :: UTxO -> (UTxO, UTxO)
 splitUTxO utxo =
-  let pairs = UTxO.pairs utxo
-   in case uncons $ List.filter ((> 0) . selectLovelace . txOutValue . snd) pairs of
-        Nothing -> (mempty, mempty)
-        Just (toDecommit, rest) -> (UTxO.fromPairs rest, UTxO.singleton toDecommit)
+  case UTxO.pairs utxo of
+    [] -> (mempty, mempty)
+    (u : us) -> (UTxO.fromPairs us, UTxO.singleton u)
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
