@@ -177,7 +177,6 @@ data CloseMutation
   | -- | Invalidates the tx by changing the signatures in redeemer.
     --
     -- Ensures the output state is consistent with the redeemer.
-    -- FIXME: Redundant to other signature mutations?
     MutateCloseSignatures
   | -- | Ensures parties do not change between head input datum and head output
     --  datum.
@@ -318,7 +317,8 @@ genCloseOutdatedMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeHeadRedeemer <$> do
+    , -- XXX: The following mutations are quite redundant
+      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeHeadRedeemer <$> do
         -- Close redeemer contains the hash of a decommit utxo. If we
         -- change it should cause invalid signature error.
         let healthyUTxOToDecommitHash =

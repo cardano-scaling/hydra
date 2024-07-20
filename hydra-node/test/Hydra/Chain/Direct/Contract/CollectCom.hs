@@ -276,9 +276,10 @@ genCollectComMutation (tx, _utxo) =
       Head.Open Head.OpenDatum{version = mutatedVersion, parties, contestationPeriod, headId, utxoHash}
     st -> st
 
+-- | Remove a random asset and quantity from headOutput by adding another output
+-- that "extracts" that value.
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
 extractHeadOutputValue headTxOut policyId = do
-  -- Remove a random asset and quantity from headOutput
   removedValue <- do
     let allAssets = valueToList $ txOutValue headTxOut
         nonPTs = flip filter allAssets $ \case
@@ -287,9 +288,8 @@ extractHeadOutputValue headTxOut policyId = do
     (assetId, Quantity n) <- elements nonPTs
     q <- Quantity <$> choose (1, n)
     pure $ valueFromList [(assetId, q)]
-  -- Add another output which would extract the 'removedValue'. The ledger
-  -- would check for this, and this is needed because the way we implement
-  -- collectCom checks.
+  -- Add another output which would extract the 'removedValue'. The ledger would
+  -- require this to have a balanced transaction.
   extractionTxOut <- do
     someAddress <- genAddressInEra testNetworkId
     pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone

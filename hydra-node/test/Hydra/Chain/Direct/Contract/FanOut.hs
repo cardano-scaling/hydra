@@ -69,8 +69,7 @@ healthyFanoutTx =
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
-  -- FIXME: fanoutTx would result in 0 outputs and MutateChangeOutputValue below fail
-  adaOnly <$> generateWith (genUTxOWithSimplifiedAddresses `suchThat` (not . null)) 42
+  adaOnly <$> generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> length u > 1) 42
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
@@ -108,13 +107,12 @@ healthyParties =
   ]
 
 data FanoutMutation
-  = MutateAddUnexpectedOutput
-  | MutateChangeOutputValue
-  | MutateValidityBeforeDeadline
+  = MutateValidityBeforeDeadline
   | -- | Meant to test that the minting policy is burning all PTs and ST present in tx
     MutateThreadTokenQuantity
-  | -- | Alter the fanout redeemer in order to trigger output hash missmatches.
-    MutateFanoutRedeemer
+  | MutateAddUnexpectedOutput
+  | MutateFanoutOutputValue
+  | MutateDecommitOutputValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -132,44 +130,22 @@ genFanoutMutation (tx, _utxo) =
       -- correspond to the UTxO canonically combined U
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
+    , -- Spec: The following n outputs are distributing funds according to η∆ .
+      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutOutputValue <$> do
+        let outs = txOuts' tx
+        let noOfUtxoToOutputs = size $ toMap (fst healthyFanoutSnapshotUTxO)
+        (ix, out) <- elements (zip [0 .. noOfUtxoToOutputs - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- Spec: The following n outputs are distributing funds according to η∆.
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateChangeOutputValue <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateDecommitOutputValue <$> do
         let outs = txOuts' tx
-        -- NOTE: Assumes the fanout transaction has non-empty outputs, which
-        -- might not be always the case when testing unbalanced txs and we need
-        -- to ensure it by at least one utxo is in healthyFanoutUTxO
-
         let noOfUtxoToOutputs = size $ toMap (fst healthyFanoutSnapshotUTxO)
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , -- Spec: The following n outputs are distributing funds according to η∆ .
-      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateChangeOutputValue <$> do
-        let outs = txOuts' tx
-        -- NOTE: Assumes the fanout transaction has non-empty outputs, which
-        -- might not be always the case when testing unbalanced txs and we need
-        -- to ensure it by at least one utxo is in healthyFanoutUTxO
-
-        let noOfUtxoToDecommitOutputs = size $ toMap (snd healthyFanoutSnapshotUTxO)
-        (ix, out) <- elements (zip [0 .. (length outs - noOfUtxoToDecommitOutputs) - 1] outs)
-        value' <- genValue `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , -- Spec: The following n outputs are distributing funds according to η∆ .
-      -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
-        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
-        let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
-        n <- elements [1 .. 3]
-        pure (Head.Fanout noOfUtxoToOutputs (noOfUtxoDecommitToOutputs - n))
-    , -- Spec: The first m outputs are distributing funds according to η. That is, the outputs exactly
-      -- correspond to the UTxO canonically combined U
-      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutRedeemer . ChangeHeadRedeemer <$> do
-        let noOfUtxoToOutputs = fromIntegral . size $ toMap (fst healthyFanoutSnapshotUTxO)
-        let noOfUtxoDecommitToOutputs = fromIntegral . size $ toMap (snd healthyFanoutSnapshotUTxO)
-        n <- elements [1 .. 3]
-        pure (Head.Fanout (noOfUtxoToOutputs - n) noOfUtxoDecommitToOutputs)
     ]
  where
   burntTokens =
