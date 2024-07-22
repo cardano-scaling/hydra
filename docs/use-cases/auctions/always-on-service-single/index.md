@@ -1,5 +1,5 @@
 ---
-sidebar_label: Auctions-as-a-service: single
+sidebar_label: 'Auctions-as-a-service: single'
 sidebar_position: 4
 ---
 
