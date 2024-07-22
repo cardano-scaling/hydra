@@ -299,11 +299,11 @@ handleHydraEventsInfo = \case
   Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
     info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
   Update TimedServerOutput{time, output = TxValid{}} ->
-    report Success time "Transaction submitted successfully!"
+    report Success time "Transaction submitted successfully"
   Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
     warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
   Update TimedServerOutput{time, output = DecommitApproved{}} ->
-    report Success time "Decommit Transaction submitted successfully!"
+    report Success time "Decommit approved and submitted to Cardano"
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
