@@ -1987,12 +1987,20 @@ definitions:
         required:
           - tag
           - headId
+          - newVersion
+          - distributedOutputs
         properties:
           tag:
             type: string
             enum: ["OnDecrementTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+          newVersion:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
+          distributedOutputs:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxOut"
       - title: OnCollectComTx
         type: object
         additionalProperties: false
