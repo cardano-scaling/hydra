@@ -1,7 +1,7 @@
 # About Hydra
 
-So you already read the [User Manual](../index.md) and still want to learn more about the Hydra protocol, its inner workings and how it is implemented?
+If you've read the [user manual](../index.md) and want to learn more about the Hydra protocol, its inner workings, and its implementation, you're in the right place.
 
-The developer documentation can help you with that. It is a collection of materials expanding on _using_ into _understanding_ Hydra. It is aimed anyone wanting to get a deeper understanding of the Hydra protocol, protocol architects who want to build their own variants and of course developers who contribute to the [reference implementation](https://github.com/input-output-hk/hydra) of Hydra itself.
+The developer documentation provides detailed materials that move beyond just _using_ Hydra to _understanding_ it. This section is for anyone looking to gain a comprehensive understanding of the Hydra protocol, including protocol architects interested in developing their own variants and developers contributing to the [reference implementation](https://github.com/input-output-hk/hydra) of Hydra.
 
-Consequently, the following sections are more technical and maybe not as cohesive as the user manual, but the [architecture](./architecture) or the [specification](./specification) should be a good starting point.
+The following sections are more technical and may be less cohesive than the user manual. However, the [architecture](./architecture) and the [specification](./specification) sections are good starting points.
