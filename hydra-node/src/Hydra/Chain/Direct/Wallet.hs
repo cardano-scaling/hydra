@@ -137,7 +137,7 @@ data TinyWallet m = TinyWallet
   -- wallet is still initializing.
   }
 
-data SomePParams = ConwayPParams (PParams Conway)
+newtype SomePParams = ConwayPParams (PParams Conway)
   deriving (Show)
 
 data WalletInfoOnChain = WalletInfoOnChain

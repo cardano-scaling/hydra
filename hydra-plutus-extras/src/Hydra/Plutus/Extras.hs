@@ -17,7 +17,7 @@ import Cardano.Api (
  )
 import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
-import PlutusLedgerApi.V2 (ScriptHash (..))
+import PlutusLedgerApi.V3 (ScriptHash (..))
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
 

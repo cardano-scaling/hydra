@@ -49,8 +49,8 @@ import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
 import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)

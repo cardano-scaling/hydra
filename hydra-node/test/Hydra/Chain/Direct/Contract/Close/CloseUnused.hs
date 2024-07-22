@@ -56,7 +56,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
-import PlutusLedgerApi.V2 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
+import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 

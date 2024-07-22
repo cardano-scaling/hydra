@@ -114,7 +114,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Snapshot qualified as Snapshot
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (
   Property,

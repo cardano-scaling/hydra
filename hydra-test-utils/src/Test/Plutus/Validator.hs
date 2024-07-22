@@ -20,7 +20,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core qualified as Ledger
 import Cardano.Ledger.Alonzo.Scripts (CostModel, mkCostModel, mkCostModels)
 import Cardano.Ledger.BaseTypes (ProtVer (..), natVersion)
-import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
+import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (mkSlotLength)
@@ -111,7 +111,7 @@ evaluateScriptExecutionUnits validatorScript redeemer =
 pparams :: Ledger.PParams LedgerEra
 pparams =
   def
-    & Ledger.ppCostModelsL .~ mkCostModels (Map.fromList [(PlutusV2, plutusV2CostModel)])
+    & Ledger.ppCostModelsL .~ mkCostModels (Map.fromList [(PlutusV3, plutusV3CostModel)])
     & Ledger.ppMaxTxExUnitsL .~ toLedgerExUnits defaultMaxExecutionUnits
     & Ledger.ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @8, pvMinor = 0}
 
@@ -169,185 +169,261 @@ defaultDatum = ()
 
 -- ** Plutus cost model fixtures
 
--- | Current (2023-08-04) mainnet PlutusV2 cost model.
-plutusV2CostModel :: CostModel
-plutusV2CostModel =
+-- | Current (2024-07-20) sanchonet PlutusV3 cost model.
+plutusV3CostModel :: CostModel
+plutusV3CostModel =
   either (error . show) id $
     mkCostModel
-      PlutusV2
-      [ 205665
-      , 812
+      PlutusV3
+      [ 100788
+      , 420
       , 1
       , 1
       , 1000
-      , 571
+      , 173
       , 0
       , 1
       , 1000
-      , 24177
+      , 59957
       , 4
       , 1
-      , 1000
+      , 11183
       , 32
-      , 117366
-      , 10475
+      , 201305
+      , 8356
       , 4
-      , 23000
+      , 16000
       , 100
-      , 23000
+      , 16000
       , 100
-      , 23000
+      , 16000
       , 100
-      , 23000
+      , 16000
       , 100
-      , 23000
+      , 16000
       , 100
-      , 23000
+      , 16000
       , 100
       , 100
       , 100
-      , 23000
+      , 16000
       , 100
-      , 19537
+      , 94375
       , 32
-      , 175354
+      , 132994
       , 32
-      , 46417
+      , 61462
       , 4
-      , 221973
-      , 511
+      , 72010
+      , 178
       , 0
       , 1
-      , 89141
+      , 22151
       , 32
-      , 497525
-      , 14068
+      , 91189
+      , 769
       , 4
       , 2
-      , 196500
-      , 453240
-      , 220
+      , 85848
+      , 123203
+      , 7305
+      , -900
+      , 1716
+      , 549
+      , 57
+      , 85848
       , 0
       , 1
       , 1
       , 1000
-      , 28662
+      , 42921
       , 4
       , 2
-      , 245000
-      , 216773
-      , 62
+      , 24548
+      , 29498
+      , 38
       , 1
-      , 1060367
-      , 12586
+      , 898148
+      , 27279
       , 1
-      , 208512
-      , 421
+      , 51775
+      , 558
       , 1
-      , 187000
+      , 39184
       , 1000
-      , 52998
+      , 60594
       , 1
-      , 80436
+      , 141895
       , 32
-      , 43249
+      , 83150
       , 32
-      , 1000
+      , 15299
       , 32
-      , 80556
+      , 76049
       , 1
-      , 57667
+      , 13169
       , 4
-      , 1000
+      , 22100
       , 10
-      , 197145
-      , 156
+      , 28999
+      , 74
       , 1
-      , 197145
-      , 156
+      , 28999
+      , 74
       , 1
-      , 204924
-      , 473
+      , 43285
+      , 552
       , 1
-      , 208896
-      , 511
+      , 44749
+      , 541
       , 1
-      , 52467
+      , 33852
       , 32
-      , 64832
+      , 68246
       , 32
-      , 65493
+      , 72362
       , 32
-      , 22558
+      , 7243
       , 32
-      , 16563
+      , 7391
       , 32
-      , 76511
+      , 11546
       , 32
-      , 196500
-      , 453240
-      , 220
+      , 85848
+      , 123203
+      , 7305
+      , -900
+      , 1716
+      , 549
+      , 57
+      , 85848
+      , 0
+      , 1
+      , 90434
+      , 519
+      , 0
+      , 1
+      , 74433
+      , 32
+      , 85848
+      , 123203
+      , 7305
+      , -900
+      , 1716
+      , 549
+      , 57
+      , 85848
       , 0
       , 1
       , 1
-      , 69522
-      , 11687
+      , 85848
+      , 123203
+      , 7305
+      , -900
+      , 1716
+      , 549
+      , 57
+      , 85848
       , 0
       , 1
-      , 60091
-      , 32
-      , 196500
-      , 453240
-      , 220
-      , 0
-      , 1
-      , 1
-      , 196500
-      , 453240
-      , 220
-      , 0
-      , 1
-      , 1
-      , 1159724
-      , 392670
+      , 955506
+      , 213312
       , 0
       , 2
-      , 806990
-      , 30482
+      , 270652
+      , 22588
       , 4
-      , 1927926
-      , 82523
+      , 1457325
+      , 64566
       , 4
-      , 265318
+      , 20467
+      , 1
+      , 4
       , 0
-      , 4
-      , 0
-      , 85931
+      , 141992
       , 32
-      , 205665
-      , 812
+      , 100788
+      , 420
       , 1
       , 1
-      , 41182
+      , 81663
       , 32
-      , 212342
+      , 59498
       , 32
-      , 31220
+      , 20142
       , 32
-      , 32696
+      , 24588
       , 32
-      , 43357
+      , 20744
       , 32
-      , 32247
+      , 25933
       , 32
-      , 38314
+      , 24623
       , 32
-      , 35892428
+      , 43053543
       , 10
-      , 57996947
-      , 18975
+      , 53384111
+      , 14333
       , 10
-      , 38887044
-      , 32947
+      , 43574283
+      , 26308
       , 10
+      , 16000
+      , 100
+      , 16000
+      , 100
+      , 962335
+      , 18
+      , 2780678
+      , 6
+      , 442008
+      , 1
+      , 52538055
+      , 3756
+      , 18
+      , 267929
+      , 18
+      , 76433006
+      , 8868
+      , 18
+      , 52948122
+      , 18
+      , 1995836
+      , 36
+      , 3227919
+      , 12
+      , 901022
+      , 1
+      , 166917843
+      , 4307
+      , 36
+      , 284546
+      , 36
+      , 158221314
+      , 26549
+      , 36
+      , 74698472
+      , 36
+      , 333849714
+      , 1
+      , 254006273
+      , 72
+      , 2174038
+      , 72
+      , 2261318
+      , 64571
+      , 4
+      , 207616
+      , 8310
+      , 4
+      , 1293828
+      , 28716
+      , 63
+      , 0
+      , 1
+      , 1006041
+      , 43623
+      , 251
+      , 0
+      , 1
       ]

@@ -61,7 +61,7 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
  )
 import Hydra.Contract.HeadState qualified as OnChain
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))

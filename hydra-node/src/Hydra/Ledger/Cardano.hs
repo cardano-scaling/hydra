@@ -39,7 +39,7 @@ import Formatting.Buildable (build)
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
-import PlutusLedgerApi.V2 (fromBuiltin)
+import PlutusLedgerApi.V3 (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.QuickCheck (
   choose,

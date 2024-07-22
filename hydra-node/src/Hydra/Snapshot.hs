@@ -15,7 +15,7 @@ import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (..))
-import PlutusLedgerApi.V2 (toBuiltin, toData)
+import PlutusLedgerApi.V3 (toBuiltin, toData)
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 

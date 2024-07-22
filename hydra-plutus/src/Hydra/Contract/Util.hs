@@ -8,7 +8,7 @@ import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   CurrencySymbol,
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),

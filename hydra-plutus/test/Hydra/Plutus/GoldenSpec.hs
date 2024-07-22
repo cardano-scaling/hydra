@@ -14,7 +14,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
-  AsType (AsPlutusScriptV2, AsScript),
+  AsType (AsPlutusScriptV3, AsScript),
   File (..),
   Script,
   fromPlutusScript,
@@ -28,8 +28,8 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Version (gitDescribe)
-import PlutusLedgerApi.V2 (serialiseCompiledCode)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (serialiseCompiledCode)
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
@@ -64,4 +64,4 @@ goldenScript name plutusScript =
 
   readFromFile fp =
     either (die . show) pure
-      =<< readFileTextEnvelope (AsScript AsPlutusScriptV2) (File fp)
+      =<< readFileTextEnvelope (AsScript AsPlutusScriptV3) (File fp)

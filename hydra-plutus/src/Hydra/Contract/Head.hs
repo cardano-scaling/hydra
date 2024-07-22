@@ -22,8 +22,8 @@ import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (valueOf)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V1.Value (lovelaceValue, valueOf)
+import PlutusLedgerApi.V3 (
   Address,
   CurrencySymbol,
   Datum (..),
@@ -46,8 +46,9 @@ import PlutusLedgerApi.V2 (
   Value (Value),
   adaSymbol,
   adaToken,
+  getLovelace,
  )
-import PlutusLedgerApi.V2.Contexts (findOwnInput)
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -167,7 +168,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       -- value, we do ensure the output value is all non collected value - fees.
       -- This makes the script not scale badly with number of participants as it
       -- would commonly only be a small number of inputs/outputs to pay fees.
-      otherValueOut == notCollectedValueIn - txInfoFee txInfo
+      otherValueOut == notCollectedValueIn - lovelaceValue (txInfoFee txInfo)
 
   OpenDatum
     { utxoHash
@@ -539,7 +540,7 @@ txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
 {-# INLINEABLE txOutAdaValue #-}
 
 txInfoAdaFee :: TxInfo -> Integer
-txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
+txInfoAdaFee tx = getLovelace $ txInfoFee tx
 {-# INLINEABLE txInfoAdaFee #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime

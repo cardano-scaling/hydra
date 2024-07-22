@@ -13,7 +13,7 @@ import PlutusTx.Prelude
 
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.ByteString.Lazy (fromStrict, toStrict)
-import Hydra.Cardano.Api (CtxUTxO, PlutusScriptVersion (PlutusScriptV2), fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
+import Hydra.Cardano.Api (CtxUTxO, PlutusScriptVersion (PlutusScriptV3), fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import Hydra.Cardano.Api qualified as OffChain
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
@@ -21,7 +21,7 @@ import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
@@ -117,7 +117,7 @@ validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
+validatorHash = scriptValidatorHash PlutusScriptV3 validatorScript
 
 datum :: DatumType -> Datum
 datum a = Datum (toBuiltinData a)

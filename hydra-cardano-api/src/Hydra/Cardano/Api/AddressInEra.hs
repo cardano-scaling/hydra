@@ -9,13 +9,13 @@ import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Hashes qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Hydra.Cardano.Api.Network (Network)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   StakingCredential (StakingHash, StakingPtr),
   fromBuiltin,
  )
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

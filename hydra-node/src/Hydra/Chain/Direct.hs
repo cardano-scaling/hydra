@@ -45,7 +45,6 @@ import Hydra.Cardano.Api (
   connectToLocalNode,
   getTxBody,
   getTxId,
-  toLedgerTx,
   toLedgerUTxO,
   pattern Block,
  )

@@ -156,8 +156,8 @@ import Hydra.Ledger.Cardano (genKeyPair, genOutput)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label)
-import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
+import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (

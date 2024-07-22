@@ -7,15 +7,15 @@
 -- | A custom ScriptContext and TxInfo which only "decodes" the fields we need.
 module Hydra.ScriptContext where
 
-import PlutusLedgerApi.V2.Contexts hiding (
+import PlutusLedgerApi.V3.Contexts hiding (
   ScriptContext,
   TxInfo (..),
-  scriptContextPurpose,
+  scriptContextScriptInfo,
   scriptContextTxInfo,
  )
 import PlutusTx.Prelude
 
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol,
@@ -24,7 +24,10 @@ import PlutusLedgerApi.V2 (
   Map,
   OutputDatum,
   PubKeyHash,
+  Redeemer,
   ScriptHash,
+  TxOut (..),
+  TxOutRef,
   Value,
  )
 import PlutusTx (makeIsDataIndexed)
@@ -68,8 +71,11 @@ makeIsDataIndexed ''TxInfo [('TxInfo, 0)]
 data ScriptContext = ScriptContext
   { scriptContextTxInfo :: TxInfo
   -- ^ information about the transaction the currently-executing script is included in
-  , scriptContextPurpose :: ScriptPurpose
-  -- ^ the purpose of the currently-executing script
+  , scriptContextRedeemer :: Redeemer
+  -- ^ Redeemer for the currently-executing script
+  , scriptContextScriptInfo :: ScriptInfo
+  -- ^ the purpose of the currently-executing script, along with information associated
+  -- with the purpose
   }
 
 makeIsDataIndexed ''ScriptContext [('ScriptContext, 0)]
@@ -94,8 +100,14 @@ valueLockedBy ptx h =
 
 -- | Find the input currently being validated.
 findOwnInput :: ScriptContext -> Maybe TxInInfo
-findOwnInput ScriptContext{scriptContextTxInfo = TxInfo{txInfoInputs}, scriptContextPurpose = Spending txOutRef} =
-  find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == txOutRef) txInfoInputs
+findOwnInput
+  ScriptContext
+    { scriptContextTxInfo = TxInfo{txInfoInputs}
+    , scriptContextScriptInfo = SpendingScript txOutRef _
+    } =
+    find
+      (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == txOutRef)
+      txInfoInputs
 findOwnInput _ = Nothing
 {-# INLINEABLE findOwnInput #-}
 
@@ -112,6 +124,8 @@ findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
 
 -- | The 'CurrencySymbol' of the current validator script.
 ownCurrencySymbol :: ScriptContext -> CurrencySymbol
-ownCurrencySymbol ScriptContext{scriptContextPurpose = Minting cs} = cs
-ownCurrencySymbol _ = traceError "Lh" -- "Can't get currency symbol of the current validator script"
+ownCurrencySymbol ScriptContext{scriptContextScriptInfo = MintingScript cs} = cs
+ownCurrencySymbol _ =
+  -- "Can't get currency symbol of the current validator script"
+  traceError "Lh"
 {-# INLINEABLE ownCurrencySymbol #-}

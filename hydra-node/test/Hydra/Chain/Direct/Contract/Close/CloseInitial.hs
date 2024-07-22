@@ -31,7 +31,7 @@ import Hydra.Ledger (hashUTxO)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (ConfirmedSnapshot (..), SnapshotNumber, SnapshotVersion)
-import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
+import PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
 

@@ -3,7 +3,7 @@ module Hydra.Cardano.Api.ReferenceScript where
 import Hydra.Cardano.Api.Prelude
 
 import Hydra.Cardano.Api.PlutusScript (fromPlutusScript)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- | Construct a 'ReferenceScript' from any given Plutus script.
 --

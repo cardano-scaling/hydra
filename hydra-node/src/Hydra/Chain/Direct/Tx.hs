@@ -78,8 +78,8 @@ import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion, getSnapshot)
-import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.QuickCheck (vectorOf)
 
 -- | Needed on-chain data to create Head transactions.
