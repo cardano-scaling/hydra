@@ -1,4 +1,4 @@
-# Poker Game
+# Poker game
 
 > A prototypical example of a multi-party state channel.
 
