@@ -72,7 +72,9 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
               , hLimit 20 $ joinBorders $ drawCommandPanel s
               ]
           , hBorder
-          , viewport shortFeedbackViewportName Horizontal $ maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
+          , vLimit 1 $
+              viewport shortFeedbackViewportName Horizontal $
+                maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
           ]
 
 drawCommandPanel :: RootState -> Widget n
