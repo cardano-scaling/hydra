@@ -58,7 +58,7 @@ logFilterOptions =
         <> progDesc
           "Runs benchmarks assessing the execution cost of various on-chain \
           \ constructs: Some specific Plutus code, all OCV transactions,... \
-          \ The output is valid markdown that can be used as is to be processed \
+          \ The output is valid Markdown that can be used as is to be processed \
           \ and published."
         <> header "tx-cost - Hydra OCV Code Benchmarks"
     )
@@ -96,7 +96,7 @@ writeTransactionCostMarkdown hdl = do
             , fanoutC
             ]
 
--- NOTE: Github Actions CI depends on the number of header lines, see
+-- NOTE: GitHub actions CI depends on the number of header lines, see
 -- .github/workflows/ci-nix.yaml
 pageHeader :: [Text]
 pageHeader =
@@ -105,7 +105,7 @@ pageHeader =
   , "sidebar_position: 3 "
   , "--- "
   , ""
-  , "# Transactions Costs "
+  , "# Transaction costs "
   , ""
   , "Sizes and execution budgets for Hydra protocol transactions. Note that unlisted parameters are currently using `arbitrary` values and results are not fully deterministic and comparable to previous runs."
   , ""
@@ -133,7 +133,7 @@ scriptSizes =
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   , "| " <> "μHead" <> " | " <> serialiseToRawBytesHexText mintingScriptHash <> "* | " <> show mintingScriptSize <> " | "
   , ""
-  , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per Head."
+  , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per head."
   ]
  where
   ScriptInfo
@@ -152,7 +152,7 @@ costOfInit = markdownInitCost <$> computeInitCost
  where
   markdownInitCost stats =
     unlines $
-      [ "## Cost of Init Transaction"
+      [ "## `Init` transaction costs"
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"
@@ -178,8 +178,8 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
  where
   markdownCommitCost stats =
     unlines $
-      [ "## Cost of Commit Transaction"
-      , " This is using ada-only outputs for better comparability."
+      [ "## `Commit` transaction costs"
+      , " This uses ada-only outputs for better comparability."
       , ""
       , "| UTxO | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :--- | ------: | --------: | --------: | --------: |"
@@ -205,7 +205,7 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
  where
   markdownCollectComCost stats =
     unlines $
-      [ "## Cost of CollectCom Transaction"
+      [ "## `CollectCom` transaction costs"
       , ""
       , "| Parties | UTxO (bytes) |Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | :----------- |------: | --------: | --------: | --------: |"
@@ -233,7 +233,7 @@ costOfClose = markdownClose <$> computeCloseCost
  where
   markdownClose stats =
     unlines $
-      [ "## Cost of Close Transaction"
+      [ "## `Close` transaction costs"
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"
@@ -259,7 +259,7 @@ costOfContest = markdownContest <$> computeContestCost
  where
   markdownContest stats =
     unlines $
-      [ "## Cost of Contest Transaction"
+      [ "## `Contest` transaction costs"
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"
@@ -285,8 +285,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
  where
   markdownAbortCost stats =
     unlines $
-      [ "## Cost of Abort Transaction"
-      , "Some variation because of random mixture of still initial and already committed outputs."
+      [ "## `Abort` transaction costs"
+      , "There is some variation due to the random mixture of initial and already committed outputs."
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"
@@ -312,7 +312,7 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
  where
   markdownFanOutCost stats =
     unlines $
-      [ "## Cost of FanOut Transaction"
+      [ "## `FanOut` transaction costs"
       , "Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
       , ""
       , "| Parties | UTxO  | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
