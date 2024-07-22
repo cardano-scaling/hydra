@@ -1,5 +1,5 @@
 ---
-sidebar_label: Delegated voucher: open
+sidebar_label: 'Delegated voucher: open'
 sidebar_position: 2
 ---
 

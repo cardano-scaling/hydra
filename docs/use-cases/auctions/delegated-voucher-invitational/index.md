@@ -1,5 +1,5 @@
 ---
-sidebar_label: Delegated voucher: invitational
+sidebar_label: 'Delegated voucher: invitational'
 sidebar_position: 1
 ---
 
