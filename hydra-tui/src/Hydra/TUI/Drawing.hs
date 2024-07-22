@@ -130,17 +130,17 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
   ConfirmingAbort x -> vBox [txt "Confirm Abort action:", renderForm x]
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> OpenScreen -> Widget Name
-drawFocusPanelOpen networkId vk utxo pendingUTxOToDecrement = \case
+drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit = \case
   OpenHome ->
     vBox
       [ txt "Active UTxO: "
       , drawUTxO (highlightOwnAddress ownAddress) utxo
       , hBorder
-      , txt "Pending UTxO to decrement: "
-      , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecrement
+      , txt "Pending UTxO to decommit: "
+      , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
       ]
   SelectingUTxO x -> renderForm x
-  SelectingUTxOToDecrement x -> renderForm x
+  SelectingUTxOToDecommit x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
@@ -167,9 +167,9 @@ highlightOwnAddress ownAddress a =
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
   Idle -> emptyWidget
-  Active (ActiveLink{utxo, pendingUTxOToDecrement, activeHeadState}) -> case activeHeadState of
+  Active (ActiveLink{utxo, pendingUTxOToDecommit, activeHeadState}) -> case activeHeadState of
     Initializing x -> drawFocusPanelInitializing me x
-    Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecrement x
+    Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit x
     Closed x -> drawFocusPanelClosed now x
     FanoutPossible -> txt "Ready to fanout!"
     Final -> drawFocusPanelFinal networkId vk utxo

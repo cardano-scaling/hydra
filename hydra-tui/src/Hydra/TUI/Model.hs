@@ -57,7 +57,7 @@ data InitializingScreen
 data OpenScreen
   = OpenHome
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
-  | SelectingUTxOToDecrement {selectingUTxOToDecrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
+  | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
   | SelectingRecipient {utxoSelected :: (TxIn, TxOut CtxUTxO), amountEntered :: Integer, selectingRecipientForm :: Form AddressInEra (HydraEvent Tx) Name}
   | ConfirmingClose {confirmingCloseForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
@@ -70,7 +70,7 @@ data HeadState
 
 data ActiveLink = ActiveLink
   { utxo :: UTxO
-  , pendingUTxOToDecrement :: UTxO
+  , pendingUTxOToDecommit :: UTxO
   , parties :: [Party]
   , headId :: HeadId
   , activeHeadState :: ActiveHeadState
@@ -87,7 +87,7 @@ type Name = Text
 
 makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
-  , ("selectingUTxOToDecrementForm", "selectingUTxOToDecrementFormL")
+  , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
   , ("confirmingCloseForm", "confirmingCloseFormL")
@@ -140,7 +140,7 @@ makeLensesFor
 
 makeLensesFor
   [ ("utxo", "utxoL")
-  , ("pendingUTxOToDecrement", "pendingUTxOToDecrementL")
+  , ("pendingUTxOToDecommit", "pendingUTxOToDecommitL")
   , ("parties", "partiesL")
   , ("activeHeadState", "activeHeadStateL")
   , ("headId", "headIdL")
@@ -174,6 +174,6 @@ newActiveLink parties headId =
                 }
           }
     , utxo = mempty
-    , pendingUTxOToDecrement = mempty
+    , pendingUTxOToDecommit = mempty
     , headId
     }
