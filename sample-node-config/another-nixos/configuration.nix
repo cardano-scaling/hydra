@@ -24,11 +24,11 @@ let
   hydraPort = "5005";
 
   # These three variables must agree
-  nodeRelease = "preview";
+  networkName = "preview";
   networkMagic = "2";
   # This is it's own var, as mithril calls "preprod" `release-preprod`
   # and "preview" `testing-preview`
-  mithrilDir = "testing-${nodeRelease}";
+  mithrilDir = "testing-${networkName}";
 
   nodeVersion = "9.0.0"; # Note: This must match the node version in the flake.nix
 
@@ -170,7 +170,7 @@ in
                 https://github.com/IntersectMBO/cardano-node/releases/download/${nodeVersion}/cardano-node-${nodeVersion}-linux.tar.gz
 
               tar xf cardano-node-${nodeVersion}-linux.tar.gz \
-                  ./share/${nodeRelease} \
+                  ./share/${networkName} \
                   --strip-components=3
 
               # Get our hydra config (and peer config)
