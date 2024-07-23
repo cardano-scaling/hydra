@@ -246,24 +246,22 @@ instance StateModel WorldState where
     party `Map.member` pendingCommits
   precondition WorldState{hydraState = Initial{commits, pendingCommits}} (Abort party) =
     party `Set.member` (Map.keysSet pendingCommits <> Map.keysSet commits)
-  precondition WorldState{hydraState = Open{headParameters = HeadParameters{parties}}} (Close party) =
-    party `elem` parties
-  precondition WorldState{hydraState = Open{offChainState, headParameters = HeadParameters{parties}}} (NewTx party tx) =
-    party `List.elem` parties
-      && (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{}} (Close _) =
+    True
+  precondition WorldState{hydraState = Open{offChainState}} (NewTx _ tx) =
+    (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{offChainState, headParameters = HeadParameters{parties}}} (Decommit party tx) =
-    party `elem` parties
-      && (from tx, value tx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{offChainState}} (Decommit _ tx) =
+    (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition WorldState{hydraState = Open{}} (ObserveConfirmedTx _) =
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
-  precondition WorldState{hydraState = Closed{headParameters = HeadParameters{parties}}} (Fanout p) =
-    p `elem` parties
-  precondition WorldState{hydraState = Open{headParameters = HeadParameters{parties}}} (CloseWithInitialSnapshot p) =
-    p `elem` parties
+  precondition WorldState{hydraState = Closed{}} (Fanout _) =
+    True
+  precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
+    True
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
       Start{} -> False

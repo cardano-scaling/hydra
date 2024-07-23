@@ -72,7 +72,9 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
               , hLimit 20 $ joinBorders $ drawCommandPanel s
               ]
           , hBorder
-          , viewport shortFeedbackViewportName Horizontal $ maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
+          , vLimit 1 $
+              viewport shortFeedbackViewportName Horizontal $
+                maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
           ]
 
 drawCommandPanel :: RootState -> Widget n
@@ -105,7 +107,7 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
     Idle -> ["[I]nit", "[Q]uit"]
     Active (ActiveLink{activeHeadState}) -> case activeHeadState of
       Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
-      Open{} -> ["[N]ew Transaction", "[C]lose", "[Q]uit"]
+      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[C]lose", "[Q]uit"]
       Closed{} -> ["[Q]uit"]
       FanoutPossible{} -> ["[F]anout", "[Q]uit"]
       Final{} -> ["[I]nit", "[Q]uit"]
@@ -129,10 +131,18 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
   CommitMenu x -> vBox [txt "Select UTxOs to commit:", renderForm x]
   ConfirmingAbort x -> vBox [txt "Confirm Abort action:", renderForm x]
 
-drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> OpenScreen -> Widget Name
-drawFocusPanelOpen networkId vk utxo = \case
-  OpenHome -> drawUTxO (highlightOwnAddress ownAddress) utxo
+drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> OpenScreen -> Widget Name
+drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit = \case
+  OpenHome ->
+    vBox
+      [ txt "Active UTxO: "
+      , drawUTxO (highlightOwnAddress ownAddress) utxo
+      , hBorder
+      , txt "Pending UTxO to decommit: "
+      , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
+      ]
   SelectingUTxO x -> renderForm x
+  SelectingUTxOToDecommit x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
@@ -159,9 +169,9 @@ highlightOwnAddress ownAddress a =
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
   Idle -> emptyWidget
-  Active (ActiveLink{utxo, activeHeadState}) -> case activeHeadState of
+  Active (ActiveLink{utxo, pendingUTxOToDecommit, activeHeadState}) -> case activeHeadState of
     Initializing x -> drawFocusPanelInitializing me x
-    Open x -> drawFocusPanelOpen networkId vk utxo x
+    Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit x
     Closed x -> drawFocusPanelClosed now x
     FanoutPossible -> txt "Ready to fanout!"
     Final -> drawFocusPanelFinal networkId vk utxo
