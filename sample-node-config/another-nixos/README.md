@@ -30,7 +30,10 @@ genCardanoKey
 genFundsKey
 ```
 
-The hydra-node service will
+The hydra-node service will restart until these are present.
+
+If you do generate them on the host in this way, you will want to back them
+up, just as you would with any secret.
 
 
 ### Building an image for GCE
