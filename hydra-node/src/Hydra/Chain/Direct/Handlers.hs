@@ -48,6 +48,7 @@ import Hydra.Chain.Direct.State (
   collect,
   commit',
   contest,
+  decrement,
   fanout,
   getKnownUTxO,
   initialize,
@@ -60,6 +61,7 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
+  DecrementObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   InitObservation (..),
@@ -77,7 +79,6 @@ import Hydra.Ledger (ChainSlot (ChainSlot), UTxOType)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
-import Hydra.Plutus.Orphans ()
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -315,6 +316,8 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
+  Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
+    pure OnDecrementTx{headId, newVersion, distributedOutputs}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx
@@ -363,27 +366,31 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
-    CloseTx{headId, headParameters, confirmedSnapshot} -> do
+    DecrementTx{headId, headParameters, decrementingSnapshot} ->
+      case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
+        Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
+        Right decrementTx' -> pure decrementTx'
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case close ctx spendableUTxO headId headParameters confirmedSnapshot currentSlot upperBound of
+      case close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
-    ContestTx{headId, headParameters, confirmedSnapshot} -> do
+    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case contest ctx spendableUTxO headId contestationPeriod confirmedSnapshot upperBound of
+      case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{utxo, headSeed, contestationDeadline} -> do
+    FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       case headSeedToTxIn headSeed of
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case fanout ctx spendableUTxO seedTxIn utxo deadlineSlot of
+          case fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
             Right fanoutTx -> pure fanoutTx
  where

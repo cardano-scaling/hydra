@@ -30,6 +30,7 @@ import TxCost (
   computeCollectComCost,
   computeCommitCost,
   computeContestCost,
+  computeDecrementCost,
   computeFanOutCost,
   computeInitCost,
  )
@@ -76,6 +77,7 @@ writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
   commitC <- costOfCommit
   collectComC <- costOfCollectCom
+  decrementC <- costOfDecrement
   closeC <- costOfClose
   contestC <- costOfContest
   abortC <- costOfAbort
@@ -90,6 +92,7 @@ writeTransactionCostMarkdown hdl = do
             [ initC
             , commitC
             , collectComC
+            , decrementC
             , closeC
             , contestC
             , abortC
@@ -217,6 +220,32 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
                 <> " | "
                 <> show utxoSize
                 <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfDecrement :: IO Text
+costOfDecrement = markdownDecrementCost <$> computeDecrementCost
+ where
+  markdownDecrementCost stats =
+    unlines $
+      [ "## Cost of Decrement Transaction"
+      , ""
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show numParties
+                <> "| "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)

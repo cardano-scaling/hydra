@@ -1,4 +1,4 @@
--- NOTE: Usage of 'trace' in 'spy'.
+-- NOTE: Usage of 'trace' in 'spy' is accepted here.
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Prelude (

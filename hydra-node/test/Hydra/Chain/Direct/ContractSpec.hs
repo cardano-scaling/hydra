@@ -15,27 +15,28 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api (
   UTxO,
+  serialiseToRawBytesHexText,
   toLedgerTxOut,
   toPlutusTxOut,
  )
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import Hydra.Chain.Direct.Contract.Close (genCloseInitialMutation, genCloseMutation, healthyCloseInitialTx, healthyCloseTx)
+import Hydra.Chain.Direct.Contract.Close.CloseCurrent (genCloseCurrentMutation, healthyCloseCurrentTx)
+import Hydra.Chain.Direct.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
+import Hydra.Chain.Direct.Contract.Close.CloseOutdated (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
-import Hydra.Chain.Direct.Contract.Contest (genContestMutation, healthyContestTx)
+import Hydra.Chain.Direct.Contract.Contest.ContestCurrent (genContestMutation, healthyContestTx)
+import Hydra.Chain.Direct.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (propMutation)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (headIdToCurrencySymbol)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Head (
-  verifyPartySignature,
-  verifySnapshotSignature,
- )
+import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Head qualified as OnChain
-import Hydra.Crypto (aggregate, generateSigningKey, sign, toPlutusSignatures)
+import Hydra.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Ledger (hashUTxO)
 import Hydra.Ledger qualified as OffChain
 import Hydra.Ledger.Cardano (
@@ -68,16 +69,7 @@ import Test.QuickCheck.Instances ()
 spec :: Spec
 spec = parallel $ do
   describe "Signature validator" $ do
-    prop
-      "verifies single signature produced off-chain"
-      prop_verifyOffChainSignatures
-    -- FIXME(AB): This property exists solely because our current multisignature implementation
-    -- is just the aggregates of individual (mock) signatures and there is no point in doing some
-    -- complicated shuffle logic to verify signatures given we'll end up verifying a single Ed25519
-    -- signatures.
-    prop
-      "verifies snapshot multi-signature for list of parties and signatures"
-      prop_verifySnapshotSignatures
+    prop "verifies snapshot multi-signature" prop_verifySnapshotSignatures
 
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $ do
@@ -113,17 +105,27 @@ spec = parallel $ do
       propTransactionEvaluates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
-  describe "Close" $ do
+  describe "Decrement" $ do
     prop "is healthy" $
-      propTransactionEvaluates healthyCloseTx
+      propTransactionEvaluates healthyDecrementTx
     prop "does not survive random adversarial mutations" $
-      propMutation healthyCloseTx genCloseMutation
+      propMutation healthyDecrementTx genDecrementMutation
   describe "CloseInitial" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "Contest" $ do
+  describe "CloseCurrent" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCurrentTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCurrentTx genCloseCurrentMutation
+  describe "CloseOutdated" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseOutdatedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+  describe "ContestCurrent" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
@@ -201,29 +203,22 @@ prop_hashingCaresAboutOrderingOfTxOuts =
                     & counterexample ("Plutus: " <> show plutusTxOuts)
                     & counterexample ("Shuffled: " <> show shuffledTxOuts)
 
-prop_verifyOffChainSignatures :: Property
-prop_verifyOffChainSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
-    forAll arbitrary $ \seed ->
-      let sk = generateSigningKey seed
-          offChainSig = sign sk snapshot
-          onChainSig = List.head . toPlutusSignatures $ aggregate [offChainSig]
-          onChainParty = partyToChain $ deriveParty sk
-          snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifyPartySignature (headIdToCurrencySymbol headId) snapshotNumber utxoHash onChainParty onChainSig
-            & counterexample ("headId: " <> show headId)
-            & counterexample ("signed: " <> show onChainSig)
-            & counterexample ("party: " <> show onChainParty)
-            & counterexample ("message: " <> show (getSignableRepresentation snapshot))
-
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
-          utxoHash = toBuiltin $ hashUTxO @SimpleTx utxo
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId) snapshotNumber utxoHash signatures
+          snapshotVersion = toInteger version
+          utxoHash = toBuiltin $ hashUTxO utxo
+          utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) signatures
+            & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
+            & counterexample ("version: " <> show snapshotVersion)
+            & counterexample ("number: " <> show snapshotNumber)
+            & counterexample ("utxoHash: " <> show utxoHash)
+            & counterexample ("utxoToDecommitHash: " <> show utxoToDecommitHash)
+            & counterexample ("off-chain message: " <> show (Base16.encode $ getSignableRepresentation snapshot))
+            & counterexample ("signatures: " <> show signatures)

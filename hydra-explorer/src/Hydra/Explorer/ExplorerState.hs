@@ -225,6 +225,28 @@ aggregateCollectComObservation headId point blockNo currentHeads =
       , blockNo = blockNo
       }
 
+aggregateDecrementObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
+aggregateDecrementObservation headId point blockNo currentHeads =
+  case findHeadState headId currentHeads of
+    Just headState ->
+      let newHeadState = headState{status = Open}
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Open
+      , contestationPeriod = Unknown
+      , members = Unknown
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
+      , point = point
+      , blockNo = blockNo
+      }
+
 aggregateCloseObservation :: HeadId -> ChainPoint -> BlockNo -> SnapshotNumber -> UTCTime -> [HeadState] -> [HeadState]
 aggregateCloseObservation headId point blockNo (UnsafeSnapshotNumber sn) contestationDeadline currentHeads =
   case findHeadState headId currentHeads of
@@ -339,6 +361,11 @@ aggregateHeadObservations observations explorerState =
       HeadObservation{point, blockNo, onChainTx = OnCollectComTx{headId}} ->
         ExplorerState
           { heads = aggregateCollectComObservation headId point blockNo heads
+          , tick = TickState point blockNo
+          }
+      HeadObservation{point, blockNo, onChainTx = OnDecrementTx{headId}} ->
+        ExplorerState
+          { heads = aggregateDecrementObservation headId point blockNo heads
           , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnCloseTx{headId, snapshotNumber, contestationDeadline}} ->

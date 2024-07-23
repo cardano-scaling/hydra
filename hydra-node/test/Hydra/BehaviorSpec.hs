@@ -22,7 +22,7 @@ import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
@@ -237,7 +237,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 42)
                 waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-                let snapshot = Snapshot testHeadId 1 (utxoRefs [1, 2, 42]) [42]
+                let snapshot = Snapshot testHeadId 0 1 [42] (utxoRefs [1, 2, 42]) mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -297,14 +297,14 @@ spec = parallel $ do
                 -- Expect a snapshot of the firstTx transaction
                 waitUntil [n1, n2] $ TxValid testHeadId firstTx
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 (utxoRefs [2, 3]) [1]
+                  let snapshot = testSnapshot 1 0 [1] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
                 waitUntil [n1, n2] $ TxValid testHeadId secondTx
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 2 (utxoRefs [2, 4]) [2]
+                  let snapshot = testSnapshot 2 0 [2] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
@@ -348,7 +348,7 @@ spec = parallel $ do
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 (utxoRefs [2, 10]) [1]
+                  let snapshot = testSnapshot 1 0 [1] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
                 waitUntilMatch [n1, n2] $ \case
@@ -364,7 +364,7 @@ spec = parallel $ do
                 let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
                 send n1 (NewTx newTx)
 
-                let snapshot = testSnapshot 1 (utxoRefs [2, 42]) [42]
+                let snapshot = testSnapshot 1 0 [42] (utxoRefs [2, 42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
@@ -372,6 +372,102 @@ spec = parallel $ do
                 send n1 GetUTxO
 
                 waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
+
+      it "can request decommit" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+
+                let decommitTx = aValidTx 42
+                send n1 (Decommit decommitTx)
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+
+      it "requested decommits get approved" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+                let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                send n2 (Decommit decommitTx)
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+
+                waitUntilMatch [n1] $
+                  \case
+                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                      maybe False (42 `member`) utxoToDecommit
+                    _ -> False
+
+                waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
+                waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+
+                send n1 GetUTxO
+                waitUntilMatch [n1] $
+                  \case
+                    GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
+                    _ -> False
+
+      it "can only process one decommit at once" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+                let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                send n2 (Decommit{decommitTx = decommitTx1})
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
+
+                let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
+                send n1 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n1] $
+                  DecommitInvalid
+                    { headId = testHeadId
+                    , decommitTx = decommitTx2
+                    , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
+                    }
+
+                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
+
+                send n1 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
+                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
+
+    it "can close with decommit in flight" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 -> do
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead chain n1 n2
+              let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
+              send n2 (Decommit{decommitTx})
+              send n1 Close
+              waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+              send n1 Fanout
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+    it "fanout utxo is correct after a decommit" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 -> do
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead chain n1 n2
+              let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+              send n2 (Decommit{decommitTx})
+              waitUntil [n1, n2] $
+                DecommitApproved
+                  { headId = testHeadId
+                  , decommitTxId = txId decommitTx
+                  , utxoToDecommit = utxoRefs [42]
+                  }
+              send n1 Close
+              waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+              send n1 Fanout
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
@@ -491,17 +587,28 @@ waitUntil nodes expected =
 -- years before - but we since we are having the protocol produce 'Tick' events
 -- constantly this would be fully simulated to the end.
 waitUntilMatch ::
-  (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
-waitUntilMatch nodes predicate =
-  failAfter oneMonth $
-    forConcurrently_ nodes go
+waitUntilMatch nodes predicate = do
+  seenMsgs <- newTVarIO []
+  timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "waitUntilMatch did not match a message within " <> show oneMonth
+            , unlines (show <$> msgs)
+            ]
  where
-  go n = do
-    next <- waitForNext n
-    unless (predicate next) $ go n
+  match seenMsgs n = do
+    msg <- waitForNext n
+    atomically (modifyTVar' seenMsgs (msg :))
+    unless (predicate msg) $
+      match seenMsgs n
 
   oneMonth = 3600 * 24 * 30
 
@@ -693,7 +800,7 @@ createMockNetwork node nodes =
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
 -- all heads will have the same 'headId' and 'headSeed'.
-toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx{participants, headParameters} ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
@@ -701,16 +808,24 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  CloseTx{confirmedSnapshot} ->
+  DecrementTx{headId, decrementingSnapshot} ->
+    OnDecrementTx
+      { headId
+      , newVersion = version
+      , distributedOutputs = maybe mempty outputsOfUTxO utxoToDecommit
+      }
+   where
+    Snapshot{version, utxoToDecommit} = getSnapshot decrementingSnapshot
+  CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId
-      , snapshotNumber = number (getSnapshot confirmedSnapshot)
+      , snapshotNumber = number (getSnapshot closingSnapshot)
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
-  ContestTx{headId, confirmedSnapshot} ->
+  ContestTx{headId, contestingSnapshot} ->
     OnContestTx
       { headId
-      , snapshotNumber = number (getSnapshot confirmedSnapshot)
+      , snapshotNumber = number (getSnapshot contestingSnapshot)
       , contestationDeadline = addUTCTime (toNominalDiffTime testContestationPeriod) now
       }
   FanoutTx{} ->

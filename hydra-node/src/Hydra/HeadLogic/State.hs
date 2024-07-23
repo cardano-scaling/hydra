@@ -12,7 +12,7 @@ import Hydra.Crypto (Signature)
 import Hydra.HeadId (HeadId, HeadSeed)
 import Hydra.Ledger (ChainSlot, IsTx (..))
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, SnapshotVersion)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -144,9 +144,13 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Map containing all the transactions ever seen by this node and not yet
   -- included in a snapshot. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
-  -- ^ The latest confirmed snapshot. Spec: U̅, s̅ and σ̅
+  -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
+  , decommitTx :: Maybe tx
+  -- ^ Pending decommit transaction. Spec: txω
+  , version :: SnapshotVersion
+  -- ^ Last seen open state version. Spec: ̂v
   }
   deriving stock (Generic)
 
@@ -208,6 +212,7 @@ data ClosedState tx = ClosedState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
+  , version :: SnapshotVersion
   }
   deriving stock (Generic)
 
@@ -220,6 +225,7 @@ instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) 
   arbitrary =
     ClosedState
       <$> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

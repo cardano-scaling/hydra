@@ -23,10 +23,10 @@ import Hydra.Cardano.Api (
 import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Environment (Environment (..))
 import Hydra.HeadId (HeadId, HeadSeed)
-import Hydra.Ledger (ChainSlot, IsTx, UTxOType)
+import Hydra.Ledger (ChainSlot, IsTx (..), UTxOType)
 import Hydra.OnChainId (OnChainId)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber, SnapshotVersion)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -66,9 +66,24 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
-  | CloseTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
-  | ContestTx {headId :: HeadId, headParameters :: HeadParameters, confirmedSnapshot :: ConfirmedSnapshot tx}
-  | FanoutTx {utxo :: UTxOType tx, headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | DecrementTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , decrementingSnapshot :: ConfirmedSnapshot tx
+      }
+  | CloseTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , openVersion :: SnapshotVersion
+      , closingSnapshot :: ConfirmedSnapshot tx
+      }
+  | ContestTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , openVersion :: SnapshotVersion
+      , contestingSnapshot :: ConfirmedSnapshot tx
+      }
+  | FanoutTx {utxo :: UTxOType tx, utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -82,9 +97,10 @@ instance IsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    CloseTx{headId, headParameters, confirmedSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
-    ContestTx{headId, headParameters, confirmedSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink confirmedSnapshot
-    FanoutTx{utxo, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink headSeed <*> shrink contestationDeadline
+    DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
+    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
+    FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -102,6 +118,11 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
+  | OnDecrementTx
+      { headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , distributedOutputs :: [TxOutType tx]
+      }
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -120,7 +141,7 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (TxOutType tx), Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Exceptions thrown by 'postTx'.
@@ -157,6 +178,7 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructDecrementTx
   | FailedToConstructFanoutTx
   deriving stock (Generic)
 

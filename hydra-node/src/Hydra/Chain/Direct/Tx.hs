@@ -77,7 +77,7 @@ import Hydra.OnChainId (OnChainId (..))
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, fromChainSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion, getSnapshot)
 import PlutusLedgerApi.V2 (CurrencySymbol (CurrencySymbol), fromBuiltin, getPubKeyHash, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.QuickCheck (vectorOf)
@@ -389,13 +389,15 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
       headDatumAfter
       ReferenceScriptNone
   headDatumAfter =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Open
-        { Head.parties = partyToChain <$> parties
-        , utxoHash
-        , contestationPeriod = toChain contestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        }
+        Head.OpenDatum
+          { Head.parties = partyToChain <$> parties
+          , utxoHash
+          , contestationPeriod = toChain contestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , version = 0
+          }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxoToCollect
 
@@ -413,19 +415,76 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
 
--- | Low-level data type of a snapshot to close the head with. This is different
--- to the 'ConfirmedSnasphot', which is provided to `CloseTx` as it also
--- contains relevant chain state like the 'openUtxoHash'.
-data ClosingSnapshot
-  = CloseWithInitialSnapshot {openUtxoHash :: UTxOHash}
-  | CloseWithConfirmedSnapshot
-      { snapshotNumber :: SnapshotNumber
-      , closeUtxoHash :: UTxOHash
-      , -- XXX: This is a bit of a wart and stems from the fact that our
-        -- SignableRepresentation of 'Snapshot' is in fact the snapshotNumber
-        -- and the closeUtxoHash as also included above
-        signatures :: MultiSignature (Snapshot Tx)
-      }
+-- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
+-- in the L2 ledger state and makes it available on L1.
+decrementTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
+  -- | Head identifier
+  HeadId ->
+  -- | Parameters of the head.
+  HeadParameters ->
+  -- | Everything needed to spend the Head state-machine output.
+  (TxIn, TxOut CtxUTxO) ->
+  -- | Confirmed Snapshot
+  Snapshot Tx ->
+  MultiSignature (Snapshot Tx) ->
+  Tx
+decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
+  unsafeBuildTransaction $
+    emptyTxBody
+      & addInputs [(headInput, headWitness)]
+      & addReferenceInputs [headScriptRef]
+      & addOutputs (headOutput' : map toTxContext decommitOutputs)
+      & addExtraRequiredSigners [verificationKeyHash vk]
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
+ where
+  headRedeemer =
+    toScriptData $
+      Head.Decrement
+        Head.DecrementRedeemer
+          { signature = toPlutusSignatures signatures
+          , snapshotNumber = fromIntegral number
+          , numberOfDecommitOutputs =
+              fromIntegral $ length $ maybe [] toList utxoToDecommit
+          }
+
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
+  HeadParameters{parties, contestationPeriod} = headParameters
+
+  headOutput' =
+    headOutput
+      & modifyTxOutDatum (const headDatumAfter)
+      & modifyTxOutValue (\v -> v <> negateValue decomittedValue)
+
+  decomittedValue = foldMap txOutValue decommitOutputs
+
+  decommitOutputs = maybe [] toList utxoToDecommit
+
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  headScriptRef = fst (headReference scriptRegistry)
+
+  headWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
+  headDatumAfter =
+    mkTxOutDatumInline $
+      Head.Open
+        Head.OpenDatum
+          { Head.parties = partyToChain <$> parties
+          , utxoHash
+          , contestationPeriod = toChain contestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , version = toInteger version + 1
+          }
+
+  Snapshot{utxo, utxoToDecommit, number, version} = snapshot
 
 data CloseTxError
   = InvalidHeadIdInClose {headId :: HeadId}
@@ -439,18 +498,20 @@ closeTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | The snapshot to close with, can be either initial or confirmed one.
-  ClosingSnapshot ->
+  -- | Head identifier
+  HeadId ->
+  -- | Last known version of the open head.
+  SnapshotVersion ->
+  -- | Snapshot with instructions how to close the head.
+  ConfirmedSnapshot Tx ->
   -- | Lower validity slot number, usually a current or quite recent slot number.
   SlotNo ->
   -- | Upper validity slot and UTC time to compute the contestation deadline time.
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
-  -- | Head identifier
-  HeadId ->
   Tx
-closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOutput headId =
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -478,38 +539,44 @@ closeTx scriptRegistry vk closing startSlotNo (endSlotNo, utcTime) openThreadOut
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  headRedeemer =
-    toScriptData
-      Head.Close
-        { signature
-        }
+  headRedeemer = toScriptData $ Head.Close closeRedeemer
+
+  closeRedeemer =
+    case confirmedSnapshot of
+      InitialSnapshot{} -> Head.CloseInitial
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
+        | version == openVersion ->
+            Head.CloseCurrent{signature = toPlutusSignatures signatures}
+        | otherwise ->
+            -- NOTE: This will only work for version == openVersion - 1
+            Head.CloseOutdated
+              { signature = toPlutusSignatures signatures
+              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+              }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   headDatumAfter =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Closed
-        { snapshotNumber
-        , utxoHash = toBuiltin utxoHashBytes
-        , parties = openParties
-        , contestationDeadline
-        , contestationPeriod = openContestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , contesters = []
-        }
-
-  snapshotNumber = toInteger $ case closing of
-    CloseWithInitialSnapshot{} -> 0
-    CloseWithConfirmedSnapshot{snapshotNumber = sn} -> sn
-
-  UTxOHash utxoHashBytes = case closing of
-    CloseWithInitialSnapshot{openUtxoHash} -> openUtxoHash
-    CloseWithConfirmedSnapshot{closeUtxoHash} -> closeUtxoHash
-
-  signature = case closing of
-    CloseWithInitialSnapshot{} -> mempty
-    CloseWithConfirmedSnapshot{signatures = s} -> toPlutusSignatures s
+        Head.ClosedDatum
+          { snapshotNumber =
+              fromIntegral . number $ getSnapshot confirmedSnapshot
+          , utxoHash =
+              toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
+          , deltaUTxOHash =
+              case closeRedeemer of
+                Head.CloseCurrent{} ->
+                  Just . toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
+                _ -> Nothing
+          , parties = openParties
+          , contestationDeadline
+          , contestationPeriod = openContestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , contesters = []
+          , version = fromIntegral openVersion
+          }
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
@@ -533,6 +600,9 @@ contestTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
+  HeadId ->
+  ContestationPeriod ->
+  SnapshotVersion ->
   -- | Contested snapshot number (i.e. the one we contest to)
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
@@ -541,10 +611,8 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
-  HeadId ->
-  ContestationPeriod ->
   Tx
-contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadOutput headId contestationPeriod =
+contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -565,15 +633,27 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
   headScriptRef =
     fst (headReference scriptRegistry)
+
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
-  headRedeemer =
-    toScriptData
-      Head.Contest
-        { signature = toPlutusSignatures sig
-        }
+
+  headRedeemer = toScriptData $ Head.Contest contestRedeemer
+
+  contestRedeemer
+    | version == openVersion =
+        Head.ContestCurrent
+          { signature = toPlutusSignatures sig
+          }
+    | otherwise =
+        -- NOTE: This will only work for version == openVersion - 1
+        Head.ContestOutdated
+          { signature = toPlutusSignatures sig
+          , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+          }
+
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
@@ -587,17 +667,23 @@ contestTx scriptRegistry vk Snapshot{number, utxo} sig (slotNo, _) closedThreadO
       else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
   headDatumAfter =
-    mkTxOutDatumInline
+    mkTxOutDatumInline $
       Head.Closed
-        { snapshotNumber = toInteger number
-        , utxoHash
-        , parties = closedParties
-        , contestationDeadline = newContestationDeadline
-        , contestationPeriod = onChainConstestationPeriod
-        , headId = headIdToCurrencySymbol headId
-        , contesters = contester : closedContesters
-        }
-  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+        Head.ClosedDatum
+          { snapshotNumber = toInteger number
+          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
+          , deltaUTxOHash =
+              case contestRedeemer of
+                Head.ContestCurrent{} ->
+                  Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+                _ -> Nothing
+          , parties = closedParties
+          , contestationDeadline = newContestationDeadline
+          , contestationPeriod = onChainConstestationPeriod
+          , headId = headIdToCurrencySymbol headId
+          , contesters = contester : closedContesters
+          , version = toInteger openVersion
+          }
 
 data FanoutTxError
   = CannotFindHeadOutputToFanout
@@ -614,6 +700,8 @@ fanoutTx ::
   ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
+  -- | Snapshotted decommit UTxO to fanout on layer 1
+  Maybe UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -621,12 +709,12 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs orderedTxOutsToFanout
+      & addOutputs (orderedTxOutsToFanout <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
@@ -640,13 +728,22 @@ fanoutTx scriptRegistry utxo (headInput, headOutput) deadlineSlotNo headTokenScr
   headScript =
     fromPlutusScript @PlutusScriptV2 Head.validatorScript
   headRedeemer =
-    toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+    toScriptData $
+      Head.Fanout
+        { numberOfFanoutOutputs = fromIntegral $ length utxo
+        , numberOfDecommitOutputs = fromIntegral $ maybe 0 length utxoToDecommit
+        }
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
+
+  orderedTxOutsToDecommit =
+    case utxoToDecommit of
+      Nothing -> []
+      Just decommitUTxO -> toTxContext <$> toList decommitUTxO
 
 data AbortTxError
   = OverlappingInputs
@@ -744,6 +841,7 @@ data HeadObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
+  | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
@@ -760,6 +858,7 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
@@ -984,8 +1083,49 @@ observeCollectComTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
   decodeUtxoHash datum =
     case fromScriptData datum of
-      Just Head.Open{utxoHash} -> Just $ fromBuiltin utxoHash
+      Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
+
+data DecrementObservation = DecrementObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , distributedOutputs :: [TxOut CtxUTxO]
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary DecrementObservation where
+  arbitrary = genericArbitrary
+
+observeDecrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe DecrementObservation
+observeDecrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
+      (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) ->
+          pure
+            DecrementObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , distributedOutputs =
+                  toUTxOContext <$> txOuts' tx
+                    & drop 1 -- NOTE: Head output must be in first position
+                    & take (fromIntegral numberOfDecommitOutputs)
+              }
+        _ -> Nothing
+    _ -> Nothing
+ where
+  headScript = fromPlutusScript Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput
@@ -1012,11 +1152,12 @@ observeCloseTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{parties}, Head.Close{}) -> do
+    (Head.Open Head.OpenDatum{parties}, Head.Close{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
-        Just Head.Closed{contestationDeadline, snapshotNumber} -> pure (contestationDeadline, snapshotNumber)
+        Just (Head.Closed Head.ClosedDatum{contestationDeadline, snapshotNumber}) ->
+          pure (contestationDeadline, snapshotNumber)
         _ -> Nothing
       pure
         CloseObservation
@@ -1028,7 +1169,7 @@ observeCloseTx utxo tx = do
                 , closedContesters = []
                 }
           , headId
-          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           }
     _ -> Nothing
  where
@@ -1061,7 +1202,7 @@ observeContestTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed{}, Head.Contest{}) -> do
+    (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
       (newHeadInput, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
       newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
       let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
@@ -1069,7 +1210,7 @@ observeContestTx utxo tx = do
         ContestObservation
           { contestedThreadOutput = (newHeadInput, newHeadOutput)
           , headId
-          , snapshotNumber = fromChainSnapshot onChainSnapshotNumber
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
           }
@@ -1079,7 +1220,8 @@ observeContestTx utxo tx = do
 
   decodeDatum headDatum =
     case fromScriptData headDatum of
-      Just Head.Closed{snapshotNumber, contestationDeadline, contesters} -> (snapshotNumber, contestationDeadline, contesters)
+      Just (Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, contesters}) ->
+        (snapshotNumber, contestationDeadline, contesters)
       _ -> error "wrong state in output datum"
 
 newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)

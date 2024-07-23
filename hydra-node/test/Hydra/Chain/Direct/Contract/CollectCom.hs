@@ -184,6 +184,7 @@ data CollectComMutation
   | -- | Needs to prevent that not all value is collected into the head output.
     ExtractSomeValue
   | MutateOpenUTxOHash
+  | MutateOpenVersion
   | -- | Ensures collectCom cannot collect from an initial UTxO.
     MutateCommitToInitial
   | -- | Every party should have commited and been taken into account for the
@@ -208,27 +209,13 @@ genCollectComMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode NotAllValueCollected) ExtractSomeValue <$> do
-        -- Remove a random asset and quantity from headOutput
-        removedValue <- do
-          let allAssets = valueToList $ txOutValue headTxOut
-              nonPTs = flip filter allAssets $ \case
-                (AssetId pid _, _) -> pid /= testPolicyId
-                _ -> True
-          (assetId, Quantity n) <- elements nonPTs
-          q <- Quantity <$> choose (1, n)
-          pure $ valueFromList [(assetId, q)]
-        -- Add another output which would extract the 'removedValue'. The ledger
-        -- would check for this, and this is needed because the way we implement
-        -- collectCom checks.
-        extractionTxOut <- do
-          someAddress <- genAddressInEra testNetworkId
-          pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
-        pure $
-          Changes
-            [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
-            , AppendOutput extractionTxOut
-            ]
-    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+        extractHeadOutputValue headTxOut testPolicyId
+    , SomeMutation (pure $ toErrorCode IncorrectUtxoHash) MutateOpenUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- genHash
+        pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
+    , SomeMutation (pure $ toErrorCode IncorrectVersion) MutateOpenVersion . ChangeOutput 0 <$> do
+        mutatedVersion <- arbitrary `suchThat` (/= 0)
+        pure $ modifyInlineDatum (mutateStateVersion mutatedVersion) headTxOut
     , SomeMutation (pure $ toErrorCode MissingCommits) MutateNumberOfParties <$> do
         moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
@@ -275,15 +262,39 @@ genCollectComMutation (tx, _utxo) =
 
   mutatedPartiesHeadTxOut parties =
     modifyInlineDatum $ \case
-      Head.Open{utxoHash, contestationPeriod, headId} ->
-        Head.Open{Head.parties = parties, contestationPeriod, utxoHash, headId}
+      Head.Open Head.OpenDatum{contestationPeriod, headId, version, utxoHash} ->
+        Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version, utxoHash}
       st -> error $ "Unexpected state " <> show st
 
-  mutateUTxOHash = do
-    mutatedUTxOHash <- genHash
-    pure $ modifyInlineDatum (mutateState mutatedUTxOHash) headTxOut
-
   mutateState mutatedUTxOHash = \case
-    Head.Open{parties, contestationPeriod, headId} ->
-      Head.Open{parties, contestationPeriod, Head.utxoHash = toBuiltin mutatedUTxOHash, headId}
+    Head.Open Head.OpenDatum{parties, contestationPeriod, headId, version} ->
+      Head.Open Head.OpenDatum{Head.utxoHash = toBuiltin mutatedUTxOHash, parties, contestationPeriod, headId, version}
     st -> st
+
+  mutateStateVersion mutatedVersion = \case
+    Head.Open Head.OpenDatum{parties, contestationPeriod, headId, utxoHash} ->
+      Head.Open Head.OpenDatum{version = mutatedVersion, parties, contestationPeriod, headId, utxoHash}
+    st -> st
+
+-- | Remove a random asset and quantity from headOutput by adding another output
+-- that "extracts" that value.
+extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
+extractHeadOutputValue headTxOut policyId = do
+  removedValue <- do
+    let allAssets = valueToList $ txOutValue headTxOut
+        nonPTs = flip filter allAssets $ \case
+          (AssetId pid _, _) -> pid /= policyId
+          _ -> True
+    (assetId, Quantity n) <- elements nonPTs
+    q <- Quantity <$> choose (1, n)
+    pure $ valueFromList [(assetId, q)]
+  -- Add another output which would extract the 'removedValue'. The ledger would
+  -- require this to have a balanced transaction.
+  extractionTxOut <- do
+    someAddress <- genAddressInEra testNetworkId
+    pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
+  pure $
+    Changes
+      [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
+      , AppendOutput extractionTxOut
+      ]

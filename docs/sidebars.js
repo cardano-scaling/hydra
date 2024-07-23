@@ -63,6 +63,7 @@ module.exports = {
       id: "dev/specification",
       label: "Specification",
     },
+    "dev/protocol",
     {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },

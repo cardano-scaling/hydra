@@ -18,6 +18,11 @@ changes.
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
 
+- Add capability to move UTxO out of an open Head to the Cardano main chain:
+  - Submitting a decommit transaction to `POST /decommit` or as `Decommit` command through websocket, requests removal of this transactions' outputs from the head.
+  - When successful, `DecommitApproved` and `DecommitFinalized` indicate that all outputs are made available on the layer one.
+  - Invalid transactions are explained through a `DecommitInvalid` server output.
+  
 - Change `--start-chain-from` to always use the newer point when also a head state is known.
 
 - Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.
