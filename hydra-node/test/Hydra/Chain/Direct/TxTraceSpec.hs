@@ -288,7 +288,7 @@ instance StateModel Model where
                     snapshot <- genSnapshot
                     pure $ Some Decrement{actor, snapshot}
                  )
-               | -- XXX: We dont want to generate decrements if there is nothing in the head.
+               | -- We dont want to generate decrements if there is nothing in the head.
                not (null utxoInHead)
                ]
       Closed{} ->
@@ -389,9 +389,9 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshot.version == currentVersion
-        -- XXX: you are decrementing from existing utxo in the head
+        -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- XXX: your tx is balanced with the utxo in the head
+        -- your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
@@ -402,9 +402,9 @@ instance StateModel Model where
                 snapshot.number >= latestSnapshot
                   && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
-        -- XXX: you are decrementing from existing utxo in the head
+        -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- XXX: your tx is balanced with the utxo in the head
+        -- your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -413,9 +413,9 @@ instance StateModel Model where
         && actor `notElem` alreadyContested
         && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
         && snapshot.number > latestSnapshot
-        -- XXX: you are decrementing from existing utxo in the head
+        -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- XXX: your tx is balanced with the utxo in the head
+        -- your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Fanout{utxo, deltaUTxO} ->
       headState == Closed
@@ -433,34 +433,32 @@ instance StateModel Model where
     Decrement{snapshot} ->
       headState == Open
         && snapshot.version /= currentVersion
-        -- XXX: Ignore unbalanced decrements.
+        -- Ignore unbalanced decrements.
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-        -- XXX: Ignore decrements that work with non existing utxo in the head
+        -- Ignore decrements that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- XXX: Ignore decrement without something to decommit
+        -- Ignore decrement without something to decommit
         && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
       headState == Open
         && ( snapshot.number == 0
               || snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
-        -- XXX: Ignore unbalanced close.
+        -- Ignore unbalanced close.
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-        -- XXX: Ignore close that work with non existing utxo in the head
+        -- Ignore close that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Contest{snapshot} ->
       headState == Closed
-        -- XXX: Ignore unbalanced close.
+        -- Ignore unbalanced close.
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-        -- XXX: Ignore close that work with non existing utxo in the head
+        -- Ignore close that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Fanout{} ->
       headState == Closed
-
-  -- XXX: Ignore fanouts which does not preserve the closing head
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m@Model{currentVersion} t _result =
@@ -774,7 +772,7 @@ newFanoutTx actor utxo deltaUTxO = do
       spendableUTxO
       Fixture.testSeedInput
       (realWorldModelUTxO utxo)
-      -- XXX: Model world has no 'Maybe ModelUTxO', but real world does.
+      -- Model world has no 'Maybe ModelUTxO', but real world does.
       (if null deltaUTxO then Nothing else Just $ realWorldModelUTxO deltaUTxO)
       deadline
  where

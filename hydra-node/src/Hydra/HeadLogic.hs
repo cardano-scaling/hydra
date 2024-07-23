@@ -928,7 +928,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
       then
         outcome
-          -- TODO: As we use 'version' in the contest here, this is implies
+          -- XXX: As we use 'version' in the contest here, this is implies
           -- that our last 'confirmedSnapshot' must match version or
           -- version-1. Assert this fact?
           -- Spec: η ← combine(̅S.𝑈)
@@ -977,7 +977,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
       | -- Spec: if ̅S.s > sc
         number (getSnapshot confirmedSnapshot) > snapshotNumber ->
           cause notifyClients
-            -- TODO: As we use 'version' in the contest here, this is implies
+            -- XXX: As we use 'version' in the contest here, this is implies
             -- that our last 'confirmedSnapshot' must match version or
             -- version-1. Assert this fact?
             -- Spec: η ← combine(̅S.𝑈)

@@ -220,11 +220,6 @@ data CloseMutation
     MutateContestationPeriod
   deriving stock (Generic, Show, Enum, Bounded)
 
--- TODO: Add mutations which work "this way" around now. For example, before
--- we did mutate a close with signed snapshot to result in snapshot number 0,
--- which would trigger the validator. However, that would not be a faithful
--- representation of an "attack" anymore. Now, the tx creator needs to claim
--- what situation we are in now and how the snapshot signature is valid.
 genCloseOutdatedMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseOutdatedMutation (tx, _utxo) =
   oneof
