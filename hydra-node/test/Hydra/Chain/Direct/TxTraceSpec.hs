@@ -463,7 +463,7 @@ instance StateModel Model where
   -- XXX: Ignore fanouts which does not preserve the closing head
 
   nextState :: Model -> Action Model a -> Var a -> Model
-  nextState m t _result =
+  nextState m@Model{currentVersion} t _result =
     case t of
       Stop -> m
       Decrement{snapshot} ->
@@ -479,7 +479,7 @@ instance StateModel Model where
           , latestSnapshot = snapshot.number
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
-          , pendingDecommitUTxO = decommitUTxO snapshot
+          , pendingDecommitUTxO = if currentVersion == snapshot.version then decommitUTxO snapshot else mempty
           }
       Contest{actor, snapshot} ->
         m
