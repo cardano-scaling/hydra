@@ -26,6 +26,7 @@ reactive system that processes three kinds of inputs:
 	\item Off-chain network messages sent between protocol actors (parties):
 	      \begin{itemize}
 		      \item $\hpRT$: to request a transaction to be included in the next snapshot
+		      \item $\hpRI$: to request inclusion of UTxO via a commit transaction
 		      \item $\hpRD$: to request exclusion of UTxO via a decommit transaction
 		      \item $\hpRS$: to request a snapshot to be created \& signed by every head member
 		      \item $\hpAS$: to acknowledge a snapshot by replying with their signatures
@@ -115,21 +116,24 @@ party's local state consists of the following variables:
 	\item $\hatmL$: UTxO set representing the local ledger state resulting from
 	      applying $\hatmT$ to $\bar{S}.U$ to validate requested transactions.
 	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
-	      inclusion in a snapshot (if this party is the next leader).
-	\item $\tx_{\omega} \in \mathcal{T}^{?}$: Pending decommit transaction, whose outputs are to be decommitted from the head. May be $\bot$ if nothing to decommit.
+		inclusion in a snapshot (if this party is the next leader).
+	\item \red{$\tx_\alpha \in \mathcal{T}$: Pending increment transaction, whose inputs are to be deposited to the head.}
+	\item $\tx_\omega \in \mathcal{T}$: Pending decrement transaction, whose outputs are to be withdrawn from the head.
 	\item $\bar{\mc S}$: Snapshot object of the latest confirmed snapshot which contains:
-	      \begin{center}
-		      \begin{tabular}{|l|l|}\hline
-			      $\bar{\mc S}.v$            & snapshot version                                              \\ \hline
-			      $\bar{\mc S}.s$            & snapshot number                                               \\ \hline
-			      $\bar{\mc S}.T$            & set of transactions relating this snapshot to its predecessor \\ \hline
-			      $\bar{\mc S}.U$            & snapshotted UTxO set                                          \\ \hline
-			      $\bar{\mc S}.\tx_{\omega}$ & optional decommit transaction                                 \\ \hline
-			      $\bar{\mc S}.\sigma$       & multisignature                                                \\ \hline
-		      \end{tabular}
-	      \end{center}
-	      The function $\Sno(v,n,T,U,\tx_{\omega})$ initializes a snapshot object with no multi-signature set.
-	      \todo{add types?}
+		\begin{center}
+			\begin{tabular}{|l|l|}\hline
+				$\bar{\mc S}.v$         & snapshot version \\ \hline
+				$\bar{\mc S}.s$         & snapshot number \\ \hline
+				$\bar{\mc S}.T$         & set of transactions relating this snapshot to its predecessor \\ \hline
+				$\bar{\mc S}.U$         & snapshotted UTxO set \\ \hline
+				\red{$\bar{\mc S}.U_\alpha = \mathsf{inputs}(\tx_\alpha)$}  & \red{pending UTxO to commit} \\ \hline
+				\red{$\bar{\mc S}.U_\omega = \mathsf{outputs}(\tx_\omega)$}  & \red{pending UTxO to decommit} \\ \hline
+				$\bar{\mc S}.\sigma$    & multisignature \\ \hline
+			\end{tabular}
+		\end{center}
+    The function $\Sno(v,n,U,T,\red{\mathsf{inputs}(tx_\alpha)}, \mathsf{outputs}(tx_\omega))$ initializes a snapshot object with no multi-signature set.
+	 \todo{handwavy; types?}
+
 \end{itemize}
 
 \subsection{Protocol flow}
@@ -163,9 +167,9 @@ transaction and the protocol would end at this point.\\
 transaction, the parties compute $\Uinit \gets \bigcup_{j=1}^{n} C_j$ using previously
 observed $C_j$ and initialize $\hatmL = \Uinit$. The seen transaction set is
 initialized empty $\hatmT = \emptyset$, seen head state version $\hatv = 0$, as
-well as snapshot number $\hats = 0$. No commit transaction is pending
-$\tx_{\omega} = \bot$ and the initial snapshot object is defined accordingly
-$\bar{\mc S} \gets \blue{\Sno(0, 0, \Uinit, \emptyset, \bot)}$.
+well as snapshot number $\hats = 0$. No \red{increment/}decrement UTxO is pending
+($U_\alpha = \mathsf{inputs}(\tx_\alpha) = \bot \land U_\omega = \mathsf{outputs}(\tx_\omega) = \bot$) and the initial snapshot object is defined accordingly
+$\bar{\mc S} \gets \blue{\Sno(0, 0, \Uinit, \emptyset, \red{U_\alpha}, U_\omega)}$.
 
 \subsubsection{Processing transactions off-chain}
 
@@ -185,45 +189,75 @@ applying and if there is no current snapshot in flight ($\hats = \bar{\mc S}.s$)
 receiving party $\party_{i}$ is the next snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 
-\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx)$, the transaction is
-checked against the \emph{local} ledger state. If decommit is not applicable yet
-or another decommit is still pending, the protocol does $\KwWait$ to retry later or
-eventually marks the decommit as invalid. In case there is no snapshot in flight
-and party is the leader then a snapshot request $\hpRS$ is
-sent containing the decommit transaction $\tx_{\omega}$. \\
+\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx_\omega)$, \red{if
+  another decrement (or increment) is pending to be settled the transaction is
+  rejected. Otherwise} the transaction is checked against the \emph{local}
+  ledger state and if it is not applicable yet or another decommit is still, the protocol does $\KwWait$ to
+  retry later or eventually marks the decommit as invalid. \red{After applying $\tx$, it's inputs
+  are removed from \emph{local} ledger state so that they are not available any
+  more and the outputs are kept in the local state ($U_\omega$) to be posted
+  on-chain in the next snapshot.} Finally, if there is no current snapshot in flight
+  ($\hats = \bar{\mc S}.s$) and the receiving party $\party_{i}$ is the next
+  snapshot leader, a message to request snapshot signatures $\hpRS$ containing
+  the decrement transaction $\tx_\omega$ is sent. \\
 
 \dparagraph{$\mathtt{decrementTx}$.}\quad Upon observing the \mtxDecrement{}
-transaction, which removed outputs $U_{\omega}$ from the head, the corresponding
-decommit transaction is cleared and the observed version $v$ is used for future
-snapshots by
-setting $\hatv \gets v$. Note that the version of the open head state is incremented on each \mtxDecrement{} transaction as described in Section~\ref{sec:decrement-tx} \\
+transaction, which removed outputs $U$ from the head, the corresponding
+pending decrement transaction is cleared and the observed version $v$ is used for future
+snapshots by setting $\hatv \gets v$.  Note that the version of the open head state
+is incremented on each \mtxDecrement{} transaction as described in Section~\ref{sec:decrement-tx}
+\todo{missing to mention the multicast of $\hpRS$} \\
+
+\red{\dparagraph{$\hpRI$.}\quad Upon receiving request $(\hpRI,\tx)$, if
+  another decrement (or increment) is pending to be settled the transaction is
+  rejected. Otherwise the transaction inputs are kept in the local state ($U_\alpha$) to be included
+  in the \emph{local} ledger state upon observing the relevant transaction on-chain.
+  Finally, if there is no current snapshot in flight ($\hats = \bar{\mc S}.s$) and the
+  receiving party $\party_{i}$ is the next snapshot leader, a message to request
+  snapshot signatures $\hpRS$ containing the increment transaction $\tx_\alpha$ is sent.} \\
+
+\red{\dparagraph{$\mathtt{incrementTx}$.}\quad Upon observing the \mtxIncrement{}
+	transaction which inputs are added to the confirmed UTxO in the Head, we include
+  the inputs to the \emph{local} ledger state so that they become available.
+  Finally the corresponding pending increment
+  transaction is cleared and the observed version is used for future snapshots by setting
+  $\hatv = v$. The version of the open head state is incremented on each \mtxIncrement{}
+  transaction as described in Section~\ref{sec:increment-tx}
+}
+\todo{missing to mention the multicast of $\hpRS$} \\
 
 \dparagraph{$\hpRS$.}\quad Upon receiving request
-$(\hpRS,v,s,\mT_{\mathsf{req}}, \tx_{\omega})$\footnote{Snapshot requests
+$(\hpRS,v,s,\mT_{\mathsf{req}}, \red{\tx_\alpha}, \tx_\omega)$\footnote{Snapshot requests
 	with only transaction identifiers are possible too if all parties keep an
 	index of previously seen transactions and their identifiers.} from party
 $\party_j$, the receiving $\party_i$ $\Req$s that $v$ refers to the current
 open state version, $s$ is the next snapshot number
 and that party $\party_j$ is responsible for leading its creation.\todo{define
 	$\hpLdr$} Party $\party_i$ may has to $\KwWait$ until the previous snapshot is
-confirmed ($\bar{\mc S}.s = \hats$). If the decommit transaction $\tx_{\omega}$
-is not $\bot$, the transaction is $\Req$d to be applicable to the last confirmed
-UTxO set $\bar{\mc S}.U$ and decommitted transaction outputs must be removed, yielding the still
-active UTxO set $U_{\mathsf{active}}$. Then, all requested transactions
-$\mT_{\mathsf{req}}$ are $\Req$d to be applicable to $U_{\mathsf{active}}$,
-otherwise the snapshot is rejected as invalid. Only then, $\party_i$ increments
-their seen-snapshot counter $\hats$, resets the signature accumulator
-$\hatSigma$, and computes the UTxO set of the new local snapshot as
-$U \gets U_{\mathsf{active}} \applytx \mT_{\mathsf{req}}$. Then, $\party_i$
-creates a signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a
-message comprised by the $\cid$, the new snapshot number $\hats$, the new $\eta$
-resulting from canonically combining $U$ (see Section~\ref{sec:close-tx} for
-details), and $\eta_{\omega}$ derived from decommit transaction $\tx_{\omega}$ outputs.
-The signature is sent to all head members via message $(\hpAS,\hats,\msSig_i)$.
-Finally, the local ledger state $\hatmL$ and pending transaction set $\hatmT$
-get pruned by re-applying all locally pending transactions $\hatmT$ to the just
-requested snapshot's UTxO set iteratively and
-ultimately yielding a ``pruned'' version of $\hatmT$ and $\hatmL$. \\
+  confirmed ($\bar{\mc S}.s = \hats$). Then either:
+\begin{itemize}
+  \item
+    there is a pending decrement and we check that $\tx_\omega$ transaction is applicable to the last confirmed
+	  UTxO set $\bar{\mc S}.U$ and it's outputs are removed, yielding the still active UTxO set $U_{\mathsf{active}}$
+\red{\item
+    there is a pending increment $\tx_\alpha$ which inputs will be made available in the active UTxO set
+	$U_{\mathsf{active}}$}
+\end{itemize}
+  Then, all requested transactions $\mT_{\mathsf{req}}$ are $\Req$d to be applicable
+  to $U_{\mathsf{active}}$,
+  otherwise the snapshot is rejected as invalid. Only then, $\party_i$ increments
+  their seen-snapshot counter $\hats$, resets the signature accumulator
+  $\hatSigma$, and computes the UTxO set of the new local snapshot as
+  $U \gets U_{\mathsf{active}} \applytx \mT_{\mathsf{req}}$. Then, $\party_i$
+  creates a signature $\msSig_i$ using their signing key $\hydraSigningKey$ on a
+  message comprised by the $\cid$, the new snapshot number $\hats$, the new $\eta$
+  resulting from canonically combining $U$ (see Section~\ref{sec:close-tx} for
+  details), \red{$\eta_\alpha$ derived from $\tx_\alpha$} and $\eta_\omega$ derived from $\tx_\omega$.
+  The signature is sent to all head members via message $(\hpAS,\hats,\msSig_i)$.
+  Finally, the local ledger state $\hatmL$ and pending transaction set $\hatmT$
+  get pruned by re-applying all locally pending transactions $\hatmT$ to the just
+  requested snapshot's UTxO set iteratively and
+  ultimately yielding a ``pruned'' version of $\hatmT$ and $\hatmL$. \\
 
 \dparagraph{$\hpAS$.}\quad Upon receiving acknowledgment $(\hpAS,s,\msSig_j)$, all
 participants $\Req$ that it is from an expected snapshot (either the last seen
@@ -232,32 +266,41 @@ $\hats = s$ and $\Req$ that the signature is not yet included in $\hatSigma$.
 They store the received signature in the signature accumulator $\hatSigma$, and
 if the signature from each party has been collected, $\party_i$ aggregates the
 multisignature $\msCSig$ and $\Req$ it to be valid (constructing the signed message
-as in $\hpRS$). If everything is fine, the snapshot can be considered
-confirmed by creating the snapshot object
-$\bar{\mc S} \gets \Sno(\hatv, \hats, \hatmU, \hatmT , \tx_{\omega})$ and storing
-the multi-signature $\msCSig$ in it for later reference. In case there is a pending
-decommit, any participant\todo{Shouldn't the decommitting party do this?} can now submit a \mtxDecrement{} transaction by
-providing the just confirmed snapshot with its digests of the active UTxO set
-$\eta$ and the to be removed UTxO set $\eta_{\omega}$. Similar to the $\hpRT$, if
-$\party_i$ is the next snapshot leader and there are already transactions to
-snapshot in $\hatmT$, a corresponding $\hpRS$ is distributed.
+as in $\hpRS$). If everything is fine, the snapshot can be considered confirmed by creating
+the snapshot object $\bar{\mc S} \gets \Sno(\hatv, \hats, \hatmU, \hatmT, \red{\mathsf{inputs}(tx_\alpha)}, \mathsf{outputs}(tx_\omega))$
+and storing the multi-signature $\msCSig$ in it for later reference. Then, in case:
+\begin{itemize}
+\item
+	there is a pending decrement any participant\todo{Shouldn't the decommitting party do this?} can now submit a $\mathtt{decrementTx}$
+	by providing the just confirmed snapshot with its digests of the active UTxO set
+	$\eta$ and the UTxO set to be removed $\eta_\omega$.
+
+\red{\item
+	there is a pending increment any participant can now submit an $\mathtt{incrementTx}$
+	by providing the confirmed snapshot with its digests of the active UTxO set
+	$\eta$ and the UTxO set to be added $\eta_\alpha$.}
+\end{itemize}
+Similar to the $\hpRT$, if $\party_i$ is the next snapshot leader and there are
+already transactions to snapshot in $\hatmT$, a corresponding $\hpRS$ is distributed.
 
 \subsubsection{Closing the head}
 
 \dparagraph{$\hpClose$.}\quad In order to close a head, a client issues the
 $\hpClose$ input which uses the latest confirmed snapshot $\bar{\mc S}$ to
-create the new $\eta$-state from the last confirmed UTxO set, the digest of
-to-decommit UTxO set $\eta_{\omega}$, and the certifiate $\xi$ using the corresponding
-multi-signature. With these, the $\mtxClose$ transaction can be constructed and
-posted. See Section~\ref{sec:close-tx} for details about this transaction. \\
+create the new $\eta$-state from the last confirmed UTxO set, \red{the digest of
+either increment or decrement UTxO set ($\eta_\alpha$ or $\eta_\omega$)}, and the certifiate
+$\xi$ using the corresponding multi-signature. With these, the $\mtxClose$ transaction
+can be constructed and posted. See Section~\ref{sec:close-tx} for details about this
+transaction. \\
 
 \dparagraph{$\mathtt{closeTx}/\mathtt{contestTx}$.}\quad When a party observes
 the head getting closed or contested, the $\eta$-state extracted from the
 \mtxClose{} or \mtxContest{} transaction represents the latest head status that
 has been aggregated on-chain so far (by a sequence of \mtxClose{} and
 \mtxContest{} transactions). If the last confirmed (off-chain) snapshot is newer
-than the observed (on-chain) snapshot number $s_{c}$, an updated $\eta$-state
-and certificate $\xi$ is constructed posted in a \mtxContest{} transaction (see
+than the observed (on-chain) snapshot number $s_{c}$, an updated $\eta$-state,
+\red{along with the digest of either increment or decrement UTxO set ($\eta_\alpha$ or $\eta_\omega$)},
+and certificate $\xi$ is constructed and posted in a \mtxContest{} transaction (see
 Section~\ref{sec:contest-tx}).
 
 \subsection{Rollbacks and protocol changes}\label{sec:rollbacks}
@@ -321,7 +364,7 @@ including $\eta_{0}$. \todo{version-counting is less powerfull}
 \todo{Write about contestation deadline vs. rollbacks}
 
 \input{fig_offchain_prot}
-
+\todo{FIXME: race-condition on RecInc/RecDec requests; use seen snapshot to resolve}
 \todo{In figure: $\combine$ on UTxO slightly different than on commits}
 
 %%% Local Variables:
