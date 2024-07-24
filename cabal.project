@@ -15,19 +15,6 @@ index-state:
   , hackage.haskell.org 2024-07-19T19:07:04Z
   , cardano-haskell-packages 2024-07-19T19:04:02Z
 
-source-repository-package
-  type: git
-  location: https://github.com/IntersectMBO/cardano-ledger
-  tag: 516b4555c8c7b2faa821f05fdca9c9bb11a74d66
-  --sha256: sha256-4cPWwRAL815smViecuKZ2LAj/PSCI4ohdddFuJCiPxc=
-  subdir:
-    libs/cardano-ledger-core
-    eras/alonzo/impl
-    eras/conway/impl
-    eras/shelley/test-suite
-
-allow-newer: cardano-ledger-core
-
 packages:
   hydra-prelude
   hydra-cardano-api
