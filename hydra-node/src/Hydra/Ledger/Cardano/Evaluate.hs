@@ -20,10 +20,19 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Plutus.Evaluate (collectPlutusScriptsWithContext)
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
-import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
+import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), getVersion, natVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
-import Cardano.Ledger.Plutus (PlutusLanguage (decodePlutusRunnable, mkTermToEvaluate), PlutusWithContext (..))
+import Cardano.Ledger.Plutus (
+  LegacyPlutusArgs (..),
+  PlutusArgs (..),
+  PlutusLanguage (decodePlutusRunnable),
+  PlutusRunnable (..),
+  PlutusWithContext (..),
+  SLanguage (..),
+  isLanguage,
+  unPlutusV2Args,
+ )
 import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -78,6 +87,8 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import PlutusCore qualified as PLC
+import PlutusLedgerApi.Common (mkTermToEvaluate, toData)
+import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
 import UntypedPlutusCore (UnrestrictedProgram (..))
@@ -232,12 +243,20 @@ prepareTxScripts tx utxo = do
       Right x -> pure x
 
   -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(PlutusWithContext protocolVersion script _ arguments _exUnits _costModel) -> do
-    x <-
+  programs <- forM results $ \(PlutusWithContext protocolVersion script _ (arguments :: PlutusArgs l) _exUnits _costModel) -> do
+    (PlutusRunnable rs) <-
       case script of
         Right runnable -> pure runnable
         Left serialised -> left show $ decodePlutusRunnable protocolVersion serialised
-    appliedTerm <- left show $ mkTermToEvaluate protocolVersion x arguments
+    -- TODO: replace with mkTermToEvaluate from PlutusLanguage type class once available
+    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
+        args =
+          case isLanguage @l of
+            SPlutusV2 -> case unPlutusV2Args arguments of
+              LegacyPlutusArgs2 redeemer scriptContext -> [redeemer, toData scriptContext]
+              _ -> error "unexpeted args"
+            _ -> error "unsupported language"
+    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion rs args
     pure $ UPLC.Program () PLC.latestVersion appliedTerm
 
   pure $ flat . UnrestrictedProgram <$> programs
