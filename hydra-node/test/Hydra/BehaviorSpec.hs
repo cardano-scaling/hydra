@@ -45,6 +45,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   Input (..),
   defaultTTL,
+  emptyDecommitError,
  )
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
@@ -468,6 +469,21 @@ spec = parallel $ do
               waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
               send n1 Fanout
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
+
+    it "prevents empty decommits" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead chain n1 n2
+
+              send n1 (Decommit $ SimpleTx 1 (utxoRef 1) mempty)
+              waitUntilMatch [n1] $ \case
+                DecommitInvalid{headId, decommitInvalidReason = DecommitTxInvalid{validationError}}
+                  | headId == testHeadId
+                  , validationError == emptyDecommitError ->
+                      True
+                _ -> False
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do

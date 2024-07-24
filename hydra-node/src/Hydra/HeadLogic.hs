@@ -86,6 +86,7 @@ import Hydra.Ledger (
   Ledger (..),
   TxIdType,
   UTxOType,
+  ValidationError (..),
   applyTransactions,
   outputsOfTx,
   txId,
@@ -657,6 +658,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, version} = coordinatedHeadState
 
+emptyDecommitError :: ValidationError
+emptyDecommitError = ValidationError "Cannot decommit empty UTxO"
+
 -- | Client request to decommit UTxO from the head.
 --
 -- Only possible if there is no decommit _in flight_ and if the tx applies
@@ -694,23 +698,27 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
       Nothing -> continue
 
   checkValidDecommitTx cont =
-    case applyTransactions ledger currentSlot localUTxO [decommitTx] of
-      Left (_, err) ->
-        cause
-          ( ClientEffect
-              ServerOutput.DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason =
-                    ServerOutput.DecommitTxInvalid
-                      { localUTxO
-                      , validationError = err
-                      }
-                }
-          )
-      Right _ -> cont
+    if utxoFromTx decommitTx == mempty
+      then emitInvalidDecommit emptyDecommitError
+      else case applyTransactions ledger currentSlot localUTxO [decommitTx] of
+        Left (_, err) -> emitInvalidDecommit err
+        Right _ -> cont
 
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
+
+  emitInvalidDecommit e =
+    cause
+      ( ClientEffect
+          ServerOutput.DecommitInvalid
+            { headId
+            , decommitTx
+            , decommitInvalidReason =
+                ServerOutput.DecommitTxInvalid
+                  { localUTxO
+                  , validationError = e
+                  }
+            }
+      )
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
@@ -755,21 +763,30 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
       Nothing ->
-        case applyTransactions currentSlot localUTxO [decommitTx] of
-          Right utxo' -> cont utxo'
-          Left (_, validationError)
-            | ttl > 0 ->
-                wait $
-                  WaitOnNotApplicableDecommitTx
-                    ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-            | otherwise ->
-                cause . ClientEffect $
-                  ServerOutput.DecommitInvalid
-                    { headId
-                    , decommitTx
-                    , decommitInvalidReason =
-                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-                    }
+        if utxoFromTx decommitTx == mempty
+          then
+            cause . ClientEffect $
+              ServerOutput.DecommitInvalid
+                { headId
+                , decommitTx
+                , decommitInvalidReason =
+                    ServerOutput.DecommitTxInvalid{localUTxO, validationError = emptyDecommitError}
+                }
+          else case applyTransactions currentSlot localUTxO [decommitTx] of
+            Right utxo' -> cont utxo'
+            Left (_, validationError)
+              | ttl > 0 ->
+                  wait $
+                    WaitOnNotApplicableDecommitTx
+                      ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+              | otherwise ->
+                  cause . ClientEffect $
+                    ServerOutput.DecommitInvalid
+                      { headId
+                      , decommitTx
+                      , decommitInvalidReason =
+                          ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                      }
       Just existingDecommitTx
         | ttl > 0 ->
             wait $

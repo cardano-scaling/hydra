@@ -47,6 +47,7 @@ import Hydra.HeadLogic (
   aggregateState,
   cause,
   defaultTTL,
+  emptyDecommitError,
   update,
  )
 import Hydra.HeadLogic.State (getHeadParameters)
@@ -195,6 +196,17 @@ spec =
 
           update aliceEnv ledger s0 reqDecEvent
             `assertWait` WaitOnNotApplicableDecommitTx (DecommitTxInvalid mempty (ValidationError "cannot apply transaction"))
+
+        it "prevents ReqDec with empty decommit" $ do
+          let emptyDecommitTx = SimpleTx 1 (utxoRef 1) mempty
+              ttl = 0
+              reqDec = ReqDec{transaction = emptyDecommitTx}
+              reqDecEvent = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = reqDec}
+              s0 = inOpenState' threeParties coordinatedHeadState
+          update bobEnv ledger s0 reqDecEvent `hasEffectSatisfying` \case
+            ClientEffect DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason = DecommitTxInvalid{validationError}} ->
+              invalidTx == emptyDecommitTx && validationError == emptyDecommitError
+            _ -> False
 
         it "updates decommitTx on valid ReqDec" $ do
           let decommitTx' = SimpleTx 1 mempty (utxoRef 1)
