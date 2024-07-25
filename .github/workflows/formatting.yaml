@@ -6,7 +6,7 @@ on:
 jobs:
   formatting:
     name: Check code formatting
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X86]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4

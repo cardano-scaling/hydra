@@ -22,7 +22,7 @@ permissions:
 jobs:
   build-test:
     name: "Build & test"
-    runs-on: ubuntu-latest
+    runs-on: explorer
     strategy:
       matrix:
         include:
@@ -90,7 +90,7 @@ jobs:
   publish-test-results:
     name: Publish test results
     needs: [build-test]
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Download test results
       uses: actions/download-artifact@v4
@@ -105,7 +105,7 @@ jobs:
 
   haddock:
     name: "Build haddock using nix"
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -137,7 +137,7 @@ jobs:
 
   benchmarks:
     name: "Benchmarks"
-    runs-on: ubuntu-latest
+    runs-on: explorer
     strategy:
       matrix:
         include:
@@ -197,7 +197,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [benchmarks]
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v4
@@ -231,7 +231,7 @@ jobs:
 
   nix-flake-check:
     name: "nix flake check"
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -256,7 +256,7 @@ jobs:
 
   build-specification:
     name: "Build specification using nix"
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -288,7 +288,7 @@ jobs:
   documentation:
     name: Documentation
     needs: [haddock,benchmarks,build-test,build-specification]
-    runs-on: ubuntu-latest
+    runs-on: explorer
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4

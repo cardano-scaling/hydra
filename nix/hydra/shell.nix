@@ -54,6 +54,7 @@ let
     pkgs.lzma
     pkgs.secp256k1
     pkgs.zlib
+    pkgs.cacert
   ]
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
