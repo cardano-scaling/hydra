@@ -164,12 +164,12 @@ const config = {
           {
             to: "/docs",
             label: "User manual",
-            position: "right",
+            position: "left",
           },
           {
             to: "/docs/dev",
             label: "Developer documentation",
-            position: "right",
+            position: "left",
           },
           //commenting out for the time being
           // {
