@@ -175,6 +175,7 @@ jobs:
 
     - name: ❄ Magic nix
       uses: DeterminateSystems/magic-nix-cache-action@main
+      source-url: https://github.com/locallycompact/magic-nix-cache
 
     - name: 📈 Benchmark
       run: |
@@ -255,6 +256,7 @@ jobs:
 
     - name: ❄ Magic nix
       uses: DeterminateSystems/magic-nix-cache-action@main
+      source-url: https://github.com/locallycompact/magic-nix-cache
 
     - run: cat ~/.config/nix/nix.conf
 
@@ -291,6 +293,7 @@ jobs:
 
     - name: ❄ Magic nix
       uses: DeterminateSystems/magic-nix-cache-action@main
+      source-url: https://github.com/locallycompact/magic-nix-cache
 
     - name: ❄ Build specification PDF
       run: |
