@@ -222,7 +222,7 @@ const config = {
                 href: "https://discord.gg/Qq5vNTg9PT",
               },
               {
-                label: "Github discussions",
+                label: "GitHub discussions",
                 href: "https://github.com/cardano-scaling/hydra/discussions",
               },
               {
