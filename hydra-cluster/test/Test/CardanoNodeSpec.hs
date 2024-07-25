@@ -18,10 +18,10 @@ import System.Directory (doesFileExist)
 import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 supportedNetworks :: [KnownNetwork]
-supportedNetworks = [Sanchonet]
+supportedNetworks = [Mainnet, Preproduction, Preview, Sanchonet]
 
 supportedCardanoNodeVersion :: String
-supportedCardanoNodeVersion = "9.0.0"
+supportedCardanoNodeVersion = "9.1.0"
 
 forSupportedKnownNetworks :: String -> (KnownNetwork -> IO ()) -> Spec
 forSupportedKnownNetworks msg action = forEachKnownNetwork msg $ \network -> do
