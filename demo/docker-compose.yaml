@@ -1,6 +1,6 @@
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:9.0.0
+    image: ghcr.io/intersectmbo/cardano-node:9.1.0
     volumes:
       - ./devnet:/devnet
     environment:
