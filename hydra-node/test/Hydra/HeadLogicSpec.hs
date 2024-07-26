@@ -12,11 +12,13 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
+import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
-import Hydra.Cardano.Api (genTxIn, mkVkAddress, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
   HeadParameters (..),
@@ -669,6 +671,34 @@ spec =
                 CoordinatedHeadState{localTxs}
               } -> null localTxs
           _ -> False
+
+    prop "empty inputs in decommit tx are prevented" $ \tx -> do
+      let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+      let st =
+            Open
+              OpenState
+                { parameters = HeadParameters defaultContestationPeriod threeParties
+                , coordinatedHeadState =
+                    CoordinatedHeadState
+                      { localUTxO = mempty
+                      , allTxs = mempty
+                      , localTxs = []
+                      , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                      , seenSnapshot = NoSeenSnapshot
+                      , decommitTx = Nothing
+                      , version = 0
+                      }
+                , chainState = Prelude.error "should not be used"
+                , headId = testHeadId
+                , headSeed = testHeadSeed
+                , currentSlot = ChainSlot 1
+                }
+
+      let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
+      let input = receiveMessage $ ReqDec{transaction = tx'}
+      update bobEnv ledger st input `shouldSatisfy` \case
+        Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
+        _ -> False
 
 -- * Properties
 

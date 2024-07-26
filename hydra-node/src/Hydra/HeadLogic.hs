@@ -732,7 +732,6 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
-  -- TODO: require outputs(tx) ≠ ∅ to prevent decommit spam? See hydra#1502
   -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO -> do
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
