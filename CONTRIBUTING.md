@@ -146,6 +146,12 @@ factor](https://en.wikipedia.org/wiki/Bus_factor) on the project,
 disseminating information about contributions and changes in order to
 prevent creation of a bottleneck.
 
+### Technical writing
+
+Please follow our [technical writing style
+guide](./docs/standalone/writing-style-guide.md) when
+contributing changes to documentation.
+
 ### Updating dependencies
 
 #### From Hackage
