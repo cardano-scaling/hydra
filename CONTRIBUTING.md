@@ -1,66 +1,56 @@
 # Contributing to Hydra
 
-Thanks for considering contributing and help us on creating the Hydra protocols!
+Thank you for considering contributing and helping us create the Hydra protocols!
 
-The best way to contribute right now is to try things out and provide feedback,
-but we also accept contributions to the documentation and the obviously to the
-code itself.
+The best way to contribute right now is to try things out and provide feedback. We also welcome contributions to the documentation and, of course, the code itself.
 
-This document contains guidelines to help you get started and how to make sure
-your contribution gets accepted, making you our newest Hydra contributor!
+This document contains guidelines to help you get started and ensure your contribution gets accepted, making you our newest Hydra contributor!
 
 ## Ask for help
 
-See [`SUPPORT.md`](SUPPORT.md) should you have any questions or need some help in getting set up.
+See [`SUPPORT.md`](SUPPORT.md) if you have any questions or need help setting up.
 
 ## Your first contribution
 
-Contributing to the documentation, its translation, reporting bugs or proposing features are awesome ways to get started.
+Contributing to the documentation, translating it, reporting bugs, or proposing features are excellent ways to get started.
 
-### Documentation + translations
+### Documentation
 
-We host our documentation / user manual as a website [here](https://input-output-hk.github.io/hydra).
+Documentation and a user manual are available on [this website](https://hydra.family/head-protocol/).
 
-Each page has an "Edit this page" button which should take you to the source
-file containing the markup. Should you want to extend the documentation or
-find some errors, please file an issue pointing to the mistake or even better,
-create a pull request with the changes directly!
-
-The documentation is also available in multiple languages and we can easily add more languages. If you want to extend, update or contribute a new translation make sure to check out the instructions [in the docs component](./docs/README.md#Translating).
+Each page has an 'Edit this page' button that takes you to the source file containing the markup. If you want to extend the documentation or find errors, please file an issue pointing to the mistake or, even better, create a pull request with the changes directly.
 
 ### Bug reports
 
 [Submit an issue](https://github.com/cardano-scaling/hydra/issues/new/choose)
-using the "Bug report :bug:" template. It's very important that you fill the
+using the 'Bug report :bug:' template. It's very important that you fill the
 template as thoroughly as possible.
 
 ### Feature ideas
 
-Feature ideas are precursors to high-level features items, which will be
+Feature ideas are precursors to high-level feature items, which will be
 discussed and fleshed out to ideally become items on our feature roadmap.
 
-We use the [Ideas discussions
+We use the ['Ideas' discussions
 category](https://github.com/cardano-scaling/hydra/discussions/categories/ideas)
-to discuss and vote on feature ideas, but you can also [submit an
+to discuss and vote on feature ideas. You can also [submit an
 issue](https://github.com/cardano-scaling/hydra/issues/new/choose) using the
-"Feature idea :thought_balloon:" template and we convert that to a discussion.
+'Feature idea :thought_balloon:' template, and we will convert that to a discussion.
 
-We expect a description of
-* why you (or the user) need/want something (e.g. problem, challenge, pain, benefit), and
-* what this is roughly about (e.g. description of a new API endpoint or message format).
+We expect a description of:
 
-Note that we do NOT require a detailed technical description, but are much more
-interested in *why* a feature is needed. This also helps in understanding the
-relevance and ultimately the priority of such an item.
+* why you (or the user) need/want something (eg, problem, challenge, pain, benefit)
+* what this is roughly about (eg, description of a new API endpoint or message format).
+
+Note that we do NOT require a detailed technical description, but are much more interested in *why* a feature is needed. This helps us understand the relevance and, ultimately, the priority of such an item.
 
 ## Making changes
 
-When contributing code, it helps to have discussed the rationale and (ideally)
-how something is implemented in a feature idea or bug ticket beforehand.
+When contributing code, it is helpful to have discussed the rationale and (ideally) the implementation details in a feature idea or a bug ticket beforehand.
 
-### Building & Testing
+### Building and testing
 
-We use and require [nix](https://nixos.org/download.html) to provide a
+We use and require [Nix](https://nixos.org/download.html) to provide a
 consistent development environment via our `flake.nix`.
 
 Make sure that you have activated flakes in your `nix.conf`:
@@ -72,11 +62,9 @@ experimental-features = nix-command flakes
 ```
 
 <details>
-<summary>For Mac OS X users</summary>
+<summary>For macOS users</summary>
 
-Daemon mode is the recommended way to install and run nix on Mac OS. Therefore,
-you might want to add yourself as a _trusted user_ in order to ensure flake's
-substituters will be picked up:
+Daemon mode is the recommended way to install and run Nix on macOS. Therefore, you might want to add yourself as a _trusted user_ to ensure that Flake's substitutes will be picked up:
 
 ```
 build-users-group = nixbld
@@ -86,69 +74,56 @@ trusted-users = root pascal
 </details>
 
 Then `nix build` will ask you about using our caches and download or build the
-`hydra-node` into `result/bin/hydra-node`. Other things you might want to build:
+`hydra-node` into `result/bin/hydra-node`. You might also be interested in the following:
 
-- Build the `hydra-node` using nix: `nix build .#hydra-node`
-- Build a statically linked `hydra-node` using nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` docker image: `nix build .#docker-hydra-node`
-- Build the specification as pdf: `nix build .#spec`
+- Build the `hydra-node` using Nix: `nix build .#hydra-node`
+- Build a statically linked `hydra-node` using Nix: `nix build .#hydra-node-static`
+- Build the `hydra-node` Docker image: `nix build .#docker-hydra-node`
+- Build the specification as a PDF: `nix build .#spec`.
 
-For development, a call to `nix develop` will put everything in place so that
-you can:
+For development, a call to `nix develop` will set up the environment so you can:
 
-- Build & run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
-- Build & run all tests: `cabal test all`
-- Build & run all benchmarks: `cabal bench all`
+- Build and run the `hydra-node`: `cabal build hydra-node && cabal exec hydra-node -- --version`
+- Build and run all tests: `cabal test all`
+- Build and run all benchmarks: `cabal bench all`
 - Format code as enforced by CI: `treefmt`
-- Run `haskell-language-server` for an IDE experience
-- Run `hoogle` for symbol & documentation lookup
+- Use `haskell-language-server` for an IDE experience
+- Use `hoogle` for symbol and documentation lookup.
 
-Also, some of us use [direnv](https://direnv.net/) and
-[nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
-import the nix environment into our favorite shell or editor and not need
-explicit call to enter the nix shell.
+Some of us use [direnv](https://direnv.net/) and [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically import the Nix environment into our preferred shell or editor, eliminating the need for an explicit call to enter the Nix shell.
 
-Besides these general build instructions, some components might document
-additional steps and useful tools in their `README.md` files, e.g. the
-[docs](./docs/README.md) or the [hydra-cluster](./hydra-cluster/README.md)
+In addition to these general build instructions, individual components might have additional steps and useful tools documented in their `README.md` files. For example, see the documentation for [docs](./docs/README.md) or [hydra-cluster](./hydra-cluster/README.md).
 
-While warnings are not treated as errors during builds, CI will check for it
-before we merge any contributions.
+While warnings are not treated as errors during builds, CI will check for them before we merge any contributions.
 
 ### Coding standards
 
-Make sure to follow our [Coding
-Standards](https://github.com/cardano-scaling/hydra/wiki/Coding-Standards).
-It includes guidelines on Haskell code style, but also on Git commit messages
-and some processes (TODO: clarify separation or unify with these guidelines). To
-propose new standards or changes to the existing standards, file an issue.
+Be sure to follow our [coding standards](https://github.com/cardano-scaling/hydra/wiki/Coding-Standards), which include guidelines on Haskell code style, Git commit messages, and various processes. (TODO: clarify separation or unify with these guidelines). To propose new standards or suggest changes to existing ones, please file an issue.
 
 ### Creating a pull request
 
-Thank you for contributing your changes by opening a pull requests!
+Thank you for contributing your changes by opening a pull request!
 
-On top of the aforementioned _Coding standards_, to get something merged would usually require:
-+ Description of the changes - if your commit messages are great, this is less important
-+ Quality of changes is ensured - through new or updated automated tests
-+ Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
-+ Well-scoped - we prefer multiple PRs, rather than a big one
-+ Correctness - a PR should pass all the build and test steps in the CI
+In addition to adhering to the _coding standards_, the following criteria are generally required to get a pull request merged:
 
-Merging a PR requires approval from a majority of reviewers from the
-core _Hydra engineering_ team. This implies that:
-+ Contributions from outside this core team would need 3 approvals,
-+ Contributions from a single core team member would need a single approval,
-+ PRs developed in pair would need a single approval,
-+ and of course PRs developed in ensembles would not need any approval.
++ **Description of the changes**: providing a clear summary of the changes is beneficial
++ **Quality of changes**: ensure that new or updated automated tests validate your changes
++ **Issue or feature relevance**: the change should be related to an existing issue, feature idea, or bug report, ideally discussed beforehand
++ **Scope**: we prefer multiple pull requests that are well-scoped rather than a single large one
++ **Correctness**: the pull request should pass all build and test steps in the continuous integration (CI) pipeline.
 
-The reason behind this policy is to increase the [bus
-factor](https://en.wikipedia.org/wiki/Bus_factor) on the project,
-disseminating information about contributions and changes in order to
-prevent creation of a bottleneck.
+Merging a pull request requires approval from a majority of reviewers from the core _Hydra engineering_ team. This means:
+
++ Contributions from outside the core team need *three* approvals
++ Contributions from a single core team member need *one* approval
++ Pull requests developed in pairs need *one* approval
++ Pull requests developed in ensembles do not require additional approvals.
+
+This policy aims to increase the [bus factor](https://en.wikipedia.org/wiki/Bus_factor) of the project by distributing knowledge about contributions and changes, thereby preventing the creation of bottlenecks.
 
 ### Technical writing
 
-Please follow our [technical writing style
+Please follow this [technical writing style
 guide](./docs/standalone/writing-style-guide.md) when
 contributing changes to documentation.
 
@@ -156,78 +131,58 @@ contributing changes to documentation.
 
 #### From Hackage
 
-Updating package dependencies from Hackage should work like normal in a Haskell
-project. The most important thing to note is that we pin the `index-state` of
-the Hackage package index in `cabal.project`. This means that cabal will always
-see Hackage “as if” it was that time, ensuring reproducibility. But it also
-means that if you need a package version that was released *after* that time,
-you need to bump the `index-state` (and to run ``cabal update`` locally).
+Updating package dependencies from Hackage should work like normal in a Haskell project. It’s important to note that we pin the `index-state` of the Hackage package index in `cabal.project`. This ensures that Cabal always sees Hackage 'as if' it were at that specific time, providing reproducibility. However, if you need a package version released *after* that time, you must update the `index-state` and run `cabal update` locally.
 
-Because of how we use Nix to manage our Haskell build, whenever you do this you
-will also need to pull in the Nix equivalent of the newer `index-state`. You can
-do this by doing a `nix flake lock --update-input haskellNix/hackage`.
+Since we use Nix to manage our Haskell build, you will also need to update the Nix equivalent of the newer `index-state`. You can do this by running `nix flake lock --update-input haskellNix/hackage`.
 
-#### From Cardano Haskell Packages (CHaP)
+#### From Cardano Haskell packages (CHaP)
 
-Many Cardano packages are not on Hackage and are instead in the [Cardano Haskell
-Packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages)
-see the README for (lots) more information. Getting new packages from there
-works much like getting them from Hackage. The differences are that it has an
-independent `index-state`, and that there is the `CHaP` flake input which you
-need to bump with `nix flake lock --update-input CHaP`.
+Many Cardano packages are not available on Hackage but are instead hosted in the [Cardano Haskell packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages). For more information, refer to the README there. Adding new packages from CHaP is similar to adding them from Hackage. However, there are a few differences: CHaP has its own independent `index-state`, and you will need to update the `CHaP` flake input using `nix flake lock --update-input CHaP`.
 
 #### Using unreleased versions of dependencies
 
-Sometimes we need to use an unreleased version of one of our dependencies,
-either to fix an issue in a package that is not under our control, or to
-experiment with a pre-release version of one of our own packages. You can use a
-`source-repository-package` stanza to pull in the unreleased version. Do this
-**only** for a short period of time, and try to get your changes released
-upstream. If that is (really) not possible, we can also release a patched
-version into CHap, see their
-[README](https://github.com/IntersectMBO/cardano-haskell-packages) for
-instructions.
+Sometimes, we need to use an unreleased version of a dependency, either to address an issue in a package not under our control or to experiment with a pre-release version of one of our own packages. You can use a `source-repository-package` stanza to include the unreleased version. **Only** use this approach temporarily and aim to have your changes released upstream. If that is not possible, we can also release a patched version into CHaP. For instructions, refer to their [README](https://github.com/IntersectMBO/cardano-haskell-packages).
 
-### Versioning & Changelog
+### Versioning and changelog
 
-During development
-+ Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
-+ Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
-+ Ensure `unstable` version of docker images is used in demo
-  - `sed -i.bak -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`
-+ All `hydra-` packages are versioned the same, at latest on release their versions are aligned.
-+ Other packages are versioned independently of `hydra-` packages and keep a dedicated changelog.
+During development:
+- Ensure `CHANGELOG.md` is updated with a high-level, technical, yet user-focused list of changes, following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) guidelines.
+- Bump the `UNRELEASED` version in `CHANGELOG.md` according to [Semantic Versioning](https://semver.org/).
+- Use the `unstable` version of Docker images for demos:
+  - Update the Docker image tag using: `sed -i.bak -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`.
+- Ensure all `hydra-` packages are versioned identically and that their versions are aligned with the latest release.
+- Version other packages independently from `hydra-` packages, and maintain a separate changelog for them.
 
 ### Releasing
 
-To perform a release of next `<version>`:
+To perform a release of the next `<version>`:
 
 1. Make sure all tests are passing.
-2. Publish hydra scripts onto `preview`, `preprod`, and `mainnet` using the
-   [smoke test][smoke-test] and put the transaction ids as new `<version>`
+2. Publish Hydra scripts onto `preview`, `preprod`, and `mainnet` using the
+   [smoke test][smoke-test] and put the transaction IDs as new `<version>`
    entries into [networks.json](./networks.json).
 3. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
-4. Run `./release.sh <version>`
+4. Run `./release.sh <version>`.
 5. Check if all the bumped versions are correct. In particular, whether the demo
    and tutorial would still work given the changelog. If everything is fine,
    push the branches `master`, `release` and the `<version>` tag.
-6. Create a github release page containing
+6. Create a GitHub release page containing:
    * The released changes (formatted) and giving credit where credit is due
-   * Built hydra (and cardano-node) binaries to the release using naming scheme:
+   * Built Hydra (and `cardano-node`) binaries to the release using the naming scheme:
      `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux` or
      `aarch64-darwin` (the same for `cardano-node` instead of `hydra`)
-   * The just published `hydra-scripts-tx-id` from step 1
+   * The just published `hydra-scripts-tx-id` from step 1.
 
 [smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml
 
 ## Communication
 
 We have several reporting and communication practices within the Hydra project.
-Becoming one of the core contributors of the project includes participation in
+Becoming one of the core contributors to the project includes participation in
 core communication processes.
 
-### Bi-Weekly update
+### Bi-weekly update
 
 At the end of every two weeks, we provide updates to
 [cardano-updates](https://IntersectMBO.github.io/cardano-updates/tags/hydra),
@@ -235,64 +190,64 @@ which also serve as a basis for our monthly reports.
 
 To write such an update:
 
-1. Use the contributors tactical meeting agenda to collect bullet points on
-   - **What did the team achieve this sprint**: past tense summary of done things
-     (good: "Implemented..", bad: "Started working on.."); use the backlog and
-     calendars to collect
+1. Use the contributors' tactical meeting agenda to collect bullet points on:
+   - **What did the team achieve this sprint?**: past tense summary of done things
+     (good: 'Implemented..', bad: 'Started working on..'); use the backlog and
+     calendars to collect updates.
 
-   - **What are the goals of next sprint**: a short look-out onto the backlog and/or
+   - **What are the goals of the next sprint?**: a short look-out onto the backlog and/or
      roadmap; ask each contributor what they would like to get done next week; always start from scratch and don't carry over things from last week.
 
 2. Enrich the content with useful links and write a high-level summary. This
-   should use a passive or "they"-style of writing. Tip: check out older updates
+   should use a passive or 'they'-style of writing. Tip: check out older updates
    for examples and/or use an AI language model to write it.
 
-3. Create a entry blog and pull request it on
+3. Create an entry blog and raise a pull request on
    [cardano-updates](https://github.com/IntersectMBO/cardano-updates),
    putting other Hydra contributors as reviewers.
 
-   - Don't forget to add yourself as author in the `authors.yml`.
+   - Don't forget to add yourself as an author in the `authors.yml`.
 
-### Monthly review & report
+### Monthly review and report
 
-To keep our users and stakeholders up-to-date regularly, we organize a review meeting and publish a report every month to [the project website](https://cardano-scaling.github.io/website/monthly).
+To keep our users and stakeholders up-to-date regularly, we organize a review meeting and publish a report every month on [the project website](https://cardano-scaling.github.io/website/monthly).
 
 To conduct this meeting and write this report:
 
-1. Monthly meeting slides & report preparation:
+1. Monthly meeting slides and report preparation:
     - Ensure the Google Meet invitation exists for this month and check stakeholder attendance
 
-    - Copy monthly slides, change title and template accordingly to `<Month> <Year>`
-    - Remove old "content" slides and mark the regular slides to be updated
+    - Copy monthly slides, change the title and template accordingly to `<Month> <Year>`
+    - Remove old 'content' slides and mark the regular slides to be updated
 
     - Decide what to demonstrate (this is not optional!), either from the core
       development or an invited demo/showcase from the community
 
-    - Update delivered / current / next features
-    - Expand some of those into interesting "Development" topics
-    - Summarize what happened in the Hydra "Community"
-      + Reach out to individuals from the community whether they want to contribute something to the monthly
+    - Update delivered/current/next features
+    - Expand some of those into interesting 'Development' topics
+    - Summarize what happened in the Hydra 'Community'
+      + Reach out to individuals from the community whether they want to contribute something to the monthly report
 
-    - Update roadmap for this month
-      + Use the grooming/planning session before latest monthly to get an updated [roadmap](https://github.com/orgs/input-output-hk/projects/21)
-      + Store latest roadmap screenshot in slides and on [miro](https://miro.com/app/board/uXjVMA4bSao=/), with and without 💭 **idea** items
+    - Update the roadmap for the current month:
+      + Use the grooming/planning session before the latest monthly report to get an updated [roadmap](https://github.com/orgs/input-output-hk/projects/21)
+      + Store the latest roadmap screenshot in slides and on [Miro](https://miro.com/app/board/uXjVMA4bSao=/), with and without 💭 **idea** items
       + Check milestones and versions are consistent
-      + Mark up and summarize notable changes in the roadmap to last month to support slides
-    - Update repository status in slides using <https://github.com/cardano-scaling/hydra/pulse/monthly>
+      + Mark up and summarize notable changes in the roadmap from the last month to support slides
+    - Update the repository status in slides using <https://github.com/cardano-scaling/hydra/pulse/monthly>
 
-    - Prepare invitation, by creating an event in discord, update the invitation used last month with it.
-    - Send invitation to Hydra and Mithril #announcements channels on our discord server.
+    - Prepare an invitation by creating an event in Discord, and update the invitation used last month with it
+    - Send an invitation to Hydra and Mithril #announcements channels on our Discord server
 
-2. Conduct the meeting
+2. Conduct the meeting:
     - Do not forget to record the meeting!
-    - Ask for sharing rights after the meeting, by requesting sharing in Google Drive with yourself, and/or ask for making it publicly available.
+    - Ask for sharing rights after the meeting by requesting sharing in Google Drive with yourself and/or asking for making it publicly available
 
-3. Write the report in [this repository](https://github.com/cardano-scaling/website)
-  - Copy monthly report from last month, update dates, links to slides and closed issues
-  - Use slides as starting point, to provide a short and sweet written account of what happened
-    + The previous reports should serve as a guideline
-    + Distribute write-up between relevant contributors
-  - Cross-link slides, recording and report
-  - Pull request, review and merge to publish the report
+3. Write the report in [this repository](https://github.com/cardano-scaling/website):
+    - Copy the previous month's report, then update the dates, links to slides, and closed issues
+    - Use the slides as a starting point to provide a concise written account of what happened
+      + Previous reports should serve as a guideline
+      + Distribute the write-up among relevant contributors
+    - Cross-link the slides, recording, and report
+    - Submit a pull request, review it, and merge it to publish the report
 
 NOTE: Drafting the report (step 3) is also a good preparation for presenting the individual sections.
