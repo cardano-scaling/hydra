@@ -828,14 +828,13 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
   IsTx tx =>
-  Environment ->
   OpenState tx ->
   -- | New open state version
   SnapshotVersion ->
   -- | Outputs removed by the decrement
   [TxOutType tx] ->
   Outcome tx
-onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts =
+onOpenChainDecrementTx openState newVersion distributedTxOuts =
   -- Spec: if outputs(txω) = 𝑈ω
   case decommitTx of
     Nothing -> Error $ AssertionFailed "decrement observed but no decommit pending"
@@ -845,28 +844,11 @@ onOpenChainDecrementTx Environment{party} openState newVersion distributedTxOuts
           --       v  ← v
           newState DecommitFinalized{newVersion}
             <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
-            -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-            --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
-            & maybeRequestSnapshot
       | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
-  maybeRequestSnapshot outcome =
-    if seenSn == confirmedSn && isLeader parameters party nextSn
-      then
-        outcome
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> localTxs) Nothing)
-      else outcome
+  OpenState{coordinatedHeadState, headId} = openState
 
-  OpenState{parameters, coordinatedHeadState, headId} = openState
-
-  CoordinatedHeadState{confirmedSnapshot, localTxs, decommitTx, seenSnapshot} = coordinatedHeadState
-
-  seenSn = seenSnapshotNumber seenSnapshot
-
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
-  nextSn = confirmedSn + 1
+  CoordinatedHeadState{decommitTx} = coordinatedHeadState
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
@@ -1119,7 +1101,7 @@ update env ledger st ev = case (st, ev) of
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env openState newVersion distributedOutputs
+        onOpenChainDecrementTx openState newVersion distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
