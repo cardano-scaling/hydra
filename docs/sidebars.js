@@ -32,6 +32,7 @@ module.exports = {
       ],
     },
     "faqs",
+    "get-involved",
     {
       type: "html",
       value: "<small><b>Reference</b></small>",
