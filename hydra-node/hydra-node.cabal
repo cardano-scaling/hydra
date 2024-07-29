@@ -277,9 +277,9 @@ test-suite tests
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
     Hydra.Chain.Direct.Contract.Abort
-    Hydra.Chain.Direct.Contract.Close.CloseCurrent
     Hydra.Chain.Direct.Contract.Close.CloseInitial
-    Hydra.Chain.Direct.Contract.Close.CloseOutdated
+    Hydra.Chain.Direct.Contract.Close.CloseUnused
+    Hydra.Chain.Direct.Contract.Close.CloseUsed
     Hydra.Chain.Direct.Contract.Close.Healthy
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit

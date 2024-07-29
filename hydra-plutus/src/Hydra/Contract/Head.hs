@@ -340,13 +340,13 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseCurrent{signature} ->
+      CloseUnused{signature} ->
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', utxoHash', deltaUTxOHash')
             signature
-      CloseOutdated{signature, alreadyDecommittedUTxOHash} ->
+      CloseUsed{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
           isNothing deltaUTxOHash'
             && verifySnapshotSignature
