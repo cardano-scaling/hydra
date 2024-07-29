@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Cardano.Api.Prelude (serialiseToRawBytes)
@@ -27,12 +27,35 @@ newtype SnapshotNumber
 instance Arbitrary SnapshotNumber where
   arbitrary = UnsafeSnapshotNumber <$> arbitrary
 
+-- NOTE: On-chain scripts ensure snapshot number does not become negative.
+fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
+fromChainSnapshotNumber =
+  UnsafeSnapshotNumber . fromMaybe 0 . integerToNatural
+
+newtype SnapshotVersion
+  = UnsafeSnapshotVersion Natural
+  deriving stock (Eq, Ord, Generic)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+
+instance Arbitrary SnapshotVersion where
+  arbitrary = UnsafeSnapshotVersion <$> arbitrary
+
+-- NOTE: On-chain scripts ensure snapshot version does not become negative.
+fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
+fromChainSnapshotVersion =
+  UnsafeSnapshotVersion . fromMaybe 0 . integerToNatural
+
 data Snapshot tx = Snapshot
   { headId :: HeadId
+  , version :: SnapshotVersion
+  -- ^ Open state version this snapshot is based on.
   , number :: SnapshotNumber
-  , utxo :: UTxOType tx
+  -- ^ Monotonically increasing snapshot number.
   , confirmed :: [TxIdType tx]
+  , utxo :: UTxOType tx
   -- ^ The set of transactions that lead to 'utxo'
+  , utxoToDecommit :: Maybe (UTxOType tx)
+  -- ^ UTxO to be decommitted. Spec: Ûω
   }
   deriving stock (Generic)
 
@@ -40,47 +63,78 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     object
       [ "headId" .= headId
+      , "version" .= version
       , "snapshotNumber" .= number
-      , "utxo" .= utxo
       , "confirmedTransactions" .= confirmed
+      , "utxo" .= utxo
+      , "utxoToDecommit" .= utxoToDecommit
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
     Snapshot
       <$> (obj .: "headId")
+      <*> (obj .: "version")
       <*> (obj .: "snapshotNumber")
-      <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
+      <*> (obj .: "utxo")
+      <*> ( obj .:? "utxoToDecommit" >>= \case
+              Nothing -> pure mempty
+              (Just utxo) -> pure utxo
+          )
 
 instance IsTx tx => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, number, utxo, confirmed} =
-    [ Snapshot headId number utxo' confirmed'
-    | utxo' <- shrink utxo
-    , confirmed' <- shrink confirmed
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoToDecommit'
+    | confirmed' <- shrink confirmed
+    , utxo' <- shrink utxo
+    , utxoToDecommit' <- shrink utxoToDecommit
     ]
 
--- | Binary representation of snapshot signatures
--- TODO: document CDDL format, either here or on in 'Hydra.Contract.Head.verifyPartySignature'
+-- | Binary representation of snapshot signatures. That is, concatenated CBOR for
+-- 'headId', 'version', 'number', 'utxoHash' and 'utxoToDecommitHash' according
+-- to CDDL schemata:
+--
+-- headId = bytes .size 16
+-- version = uint
+-- number = uint
+-- utxoHash = bytes
+-- utxoToDecommitHash = bytes
+--
+-- where hashes are the result of applying 'hashUTxO'.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{number, headId, utxo} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToDecommit} =
     LBS.toStrict $
-      serialise (toData $ toBuiltin $ serialiseToRawBytes headId)
-        <> serialise (toData $ toBuiltin $ toInteger number) -- CBOR(I(integer))
-        <> serialise (toData $ toBuiltin $ hashUTxO @tx utxo) -- CBOR(B(bytestring)
+      serialise (toData . toBuiltin $ serialiseToRawBytes headId)
+        <> serialise (toData . toBuiltin $ toInteger version)
+        <> serialise (toData . toBuiltin $ toInteger number)
+        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
+        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, number, utxo, confirmed} =
-    toCBOR headId <> toCBOR number <> toCBOR utxo <> toCBOR confirmed
+  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
+    toCBOR headId
+      <> toCBOR version
+      <> toCBOR number
+      <> toCBOR confirmed
+      <> toCBOR utxo
+      <> toCBOR utxoToDecommit
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
-  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR =
+    Snapshot
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
 
 -- | A snapshot that can be used to close a head with. Either the initial one,
 -- or when it was signed by all parties, i.e. it is confirmed.
@@ -109,9 +163,11 @@ getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     Snapshot
       { headId
+      , version = 0
       , number = 0
-      , utxo = initialUTxO
       , confirmed = []
+      , utxo = initialUTxO
+      , utxoToDecommit = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot
 
@@ -126,8 +182,9 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
+    utxoToDecommit <- arbitrary
     headId <- arbitrary
-    genConfirmedSnapshot headId 0 utxo ks
+    genConfirmedSnapshot headId 0 0 utxo utxoToDecommit ks
 
   shrink = \case
     InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
@@ -136,15 +193,18 @@ instance IsTx tx => Arbitrary (ConfirmedSnapshot tx) where
 genConfirmedSnapshot ::
   IsTx tx =>
   HeadId ->
+  -- | Exact snapshot version to generate.
+  SnapshotVersion ->
   -- | The lower bound on snapshot number to generate.
   -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
   -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
   -- this lower bound.
   SnapshotNumber ->
   UTxOType tx ->
+  Maybe (UTxOType tx) ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId minSn utxo sks
+genConfirmedSnapshot headId version minSn utxo utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -159,13 +219,6 @@ genConfirmedSnapshot headId minSn utxo sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, number, utxo, confirmed = []}
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
-
-fromChainSnapshot :: Onchain.SnapshotNumber -> SnapshotNumber
-fromChainSnapshot onChainSnapshotNumber =
-  maybe
-    (error "Failed to convert on-chain SnapShotNumber to off-chain one.")
-    UnsafeSnapshotNumber
-    (integerToNatural onChainSnapshotNumber)

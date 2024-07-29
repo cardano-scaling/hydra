@@ -92,6 +92,7 @@ data ChainObserverLog
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
   | HeadCollectComTx {headId :: HeadId}
+  | HeadDecrementTx {headId :: HeadId}
   | HeadCloseTx {headId :: HeadId}
   | HeadFanoutTx {headId :: HeadId}
   | HeadAbortTx {headId :: HeadId}
@@ -205,6 +206,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
     OnInitTx{headId} -> HeadInitTx{headId}
     OnCommitTx{headId} -> HeadCommitTx{headId}
     OnCollectComTx{headId} -> HeadCollectComTx{headId}
+    OnDecrementTx{headId} -> HeadDecrementTx{headId}
     OnCloseTx{headId} -> HeadCloseTx{headId}
     OnFanoutTx{headId} -> HeadFanoutTx{headId}
     OnAbortTx{headId} -> HeadAbortTx{headId}

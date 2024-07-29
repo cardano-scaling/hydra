@@ -43,7 +43,7 @@ pageHeader =
   , "sidebar_position: 3 "
   , "--- "
   , ""
-  , "# Plutus Merkle-Tree Contract"
+  , "# Plutus Merkle tree contract"
   , ""
   ]
 
@@ -52,7 +52,7 @@ costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
  where
   markdownMerkleTreeCost stats =
     unlines $
-      [ "## Cost of on-chain Merkle-Tree"
+      [ "## On-chain Merkle tree costs"
       , ""
       , "| Size | % member max mem | % member max cpu | % builder max mem | % builder max cpu |"
       , "| :--- | ---------------: | ---------------: | ----------------: | ----------------: |"
@@ -88,7 +88,7 @@ computeMerkleTreeCost =
         (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
     pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
 
-  -- NOTE: assume size of a UTXO is around  60 bytes
+  -- NOTE: assume the size of a UTXO is around  60 bytes
   genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
 
 executionCostForMember :: [Plutus.BuiltinByteString] -> Either Text (Natural, Natural)

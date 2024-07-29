@@ -1,23 +1,24 @@
-# Lightning Network Payments
+# Lightning network payments
 
 
 We are in the process of restructuring the payments category to create a more user-focused roadmap for various application scenarios.
 
-In this particular scenario, we aim to leverage the trust built within a large Staking Pool Operator (SPO) and its extensive user base. We propose the formation of a Multihead Hydra Network consisting of 6-8 nodes. This network will facilitate Lightning Network-style direct payment transactions, each secured by Hash Time Locked Contracts (HTLCs) to ensure successful user fund refunds in case of routing failures.
+In this specific scenario, we plan to utilize the trust established within a large stake pool operator (SPO) and its extensive user base. Our proposal involves the creation of a multi-head Hydra network consisting of six to eight nodes. This network will facilitate Lightning Network-style direct payment transactions, each secured by Hash Time Locked Contracts (HTLCs) to ensure successful fund refunds in the event of routing failures.
 
-Furthermore, this cluster can connect to different Base Network Clusters on the edge nodes, creating a Directed Acyclic Graph (DAG). This foundation will serve as the basis for a Lightning-like network, offering improved efficiency compared to existing payment channel solutions. Users staking with the involved SPO will have access to direct payments through this foundation network.
+Furthermore, this cluster can connect to different base network clusters on the edge nodes, creating a Directed Acyclic Graph (DAG). This structure will lay the groundwork for a Lightning-like network, aimed at enhancing efficiency beyond current payment channel solutions. Users staking with the involved SPO will gain access to direct payments through this foundational network.
 
-To manage routing within this network, Oracle nodes will play a crucial role. They will explore the formed DAG and the pool of incoming payment requests (referred to as "Invoices" in the context of the Lightning Network, although this naming may be confusing). These Oracle nodes will compete to find the shortest paths within the DAG to process the payments efficiently.
+Oracle nodes will play a crucial role in managing routing within this network. They will analyze the DAG and the pool of incoming payment requests (known as 'invoices' in the Lightning Network context, though this terminology may change). These oracle nodes will compete to identify the shortest paths within the DAG to process payments efficiently.
 
-From a technical perspective, the network's base layer will resemble the network in the [Delegated Head Network scenario](https://hydra.family/head-protocol/topologies/delegated-head/).
+From a technical perspective, this network's base layer will mirror that described in the [delegated head network scenario](https://hydra.family/head-protocol/topologies/delegated-head/).
 
 **Pros:**
-- Faster transaction speeds
+- Faster transaction speed
 - Lower transaction costs
-- Reduced load on Layer 1 (L1) blockchain
+- Reduced load on the layer 1 blockchain.
 
 **Cons:**
-- Lack of trust and consensus on the L1
-- Possibility of transaction reversal (if no available route is found)
+- Limited trust and consensus on layer 1
+- Potential for transaction reversals if no viable routing path is found.
+
 
 

@@ -25,6 +25,7 @@ spec =
                     Just (Init{}) -> transition === Transition.Init
                     Just (Commit{}) -> transition === Transition.Commit
                     Just (CollectCom{}) -> transition === Transition.Collect
+                    Just (Decrement{}) -> transition === Transition.Decrement
                     Just (Abort{}) -> transition === Transition.Abort
                     Just (Close{}) -> transition === Transition.Close
                     Just (Contest{}) -> transition === Transition.Contest

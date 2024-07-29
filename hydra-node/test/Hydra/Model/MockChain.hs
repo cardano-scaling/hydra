@@ -31,7 +31,18 @@ import GHC.IO.Exception (userError)
 import Hydra.API.Server (Server (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (Chain (..), CommitBlueprintTx (..), PostChainTx (CloseTx, confirmedSnapshot, headId, headParameters), initHistory)
+import Hydra.Chain (
+  Chain (..),
+  CommitBlueprintTx (..),
+  PostChainTx (
+    CloseTx,
+    closingSnapshot,
+    headId,
+    headParameters,
+    openVersion
+  ),
+  initHistory,
+ )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
@@ -209,6 +220,7 @@ mockChainAndNetwork tr seedKeys commits = do
             Left e -> throwIO e
             Right tx -> submitTx tx
 
+  -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
@@ -222,10 +234,13 @@ mockChainAndNetwork tr seedKeys commits = do
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do
-              let initialSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
-
-              let closeTx = CloseTx{headId = openHeadId, headParameters, confirmedSnapshot = initialSnapshot}
-              postTx closeTx
+              postTx
+                CloseTx
+                  { headId = openHeadId
+                  , headParameters
+                  , openVersion = 0
+                  , closingSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+                  }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =

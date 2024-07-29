@@ -3,6 +3,7 @@ module Hydra.Generator where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
+import Cardano.Api.Ledger (PParams)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (mkGenesisTx)
 import Control.Monad (foldM)
@@ -72,8 +73,8 @@ data ClientDataset = ClientDataset
   deriving stock (Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-defaultProtocolParameters :: ProtocolParameters
-defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
+defaultProtocolParameters :: PParams LedgerEra
+defaultProtocolParameters = def
 
 -- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
 -- The sequence of transactions generated consist only of simple payments from

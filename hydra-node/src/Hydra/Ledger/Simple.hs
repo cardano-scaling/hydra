@@ -45,13 +45,17 @@ data SimpleTx = SimpleTx
 type SimpleId = Integer
 
 instance IsTx SimpleTx where
-  type UTxOType SimpleTx = Set SimpleTxIn
   type TxIdType SimpleTx = SimpleId
+  type TxOutType SimpleTx = SimpleTxOut
+  type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
 
   txId (SimpleTx tid _ _) = tid
   balance = Set.size
-  hashUTxO = toStrict . foldMap (serialise . unSimpleTxIn)
+  hashUTxO = toStrict . foldMap (serialise . unSimpleTxOut)
+  utxoFromTx = txOutputs
+  outputsOfUTxO = toList
+  withoutUTxO = Set.difference
 
   txSpendingUTxO utxo =
     SimpleTx
@@ -108,20 +112,20 @@ instance IsChainState SimpleTx where
 -- MockTxIn
 --
 
--- | An identifier for a single output of a 'SimpleTx'.
-newtype SimpleTxIn = SimpleTxIn {unSimpleTxIn :: Integer}
+-- | A single output of a 'SimpleTx' having an integer identity and sole value.
+newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
-instance Arbitrary SimpleTxIn where
+instance Arbitrary SimpleTxOut where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-instance ToCBOR SimpleTxIn where
-  toCBOR (SimpleTxIn inId) = toCBOR inId
+instance ToCBOR SimpleTxOut where
+  toCBOR (SimpleTxOut inId) = toCBOR inId
 
-instance FromCBOR SimpleTxIn where
-  fromCBOR = SimpleTxIn <$> fromCBOR
+instance FromCBOR SimpleTxOut where
+  fromCBOR = SimpleTxOut <$> fromCBOR
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
@@ -139,10 +143,10 @@ simpleLedger =
 --
 
 utxoRef :: Integer -> UTxOType SimpleTx
-utxoRef = Set.singleton . SimpleTxIn
+utxoRef = Set.singleton . SimpleTxOut
 
 utxoRefs :: [Integer] -> UTxOType SimpleTx
-utxoRefs = Set.fromList . fmap SimpleTxIn
+utxoRefs = Set.fromList . fmap SimpleTxOut
 
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
@@ -153,12 +157,12 @@ aValidTx n = SimpleTx n mempty (utxoRef n)
 
 listOfCommittedUTxOs :: Integer -> Gen [UTxOType SimpleTx]
 listOfCommittedUTxOs numCommits =
-  pure $ Set.singleton . SimpleTxIn <$> [1 .. numCommits]
+  pure $ Set.singleton . SimpleTxOut <$> [1 .. numCommits]
 
 genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
 genSequenceOfValidTransactions initialUTxO = do
   n <- fromIntegral <$> getSize
-  let maxId = if Set.null initialUTxO then 0 else unSimpleTxIn (maximum initialUTxO)
+  let maxId = if Set.null initialUTxO then 0 else unSimpleTxOut (maximum initialUTxO)
   numTxs <- choose (1, n)
   foldlM newTx (maxId, initialUTxO, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
@@ -170,9 +174,9 @@ genSequenceOfValidTransactions initialUTxO = do
     (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
     pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
 
-  genInputsAndOutputs :: Integer -> Set SimpleTxIn -> Gen (Integer, Set SimpleTxIn, Set SimpleTxIn)
+  genInputsAndOutputs :: Integer -> Set SimpleTxOut -> Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
   genInputsAndOutputs maxId utxo = do
     ins <- sublistOf (Set.toList utxo)
     numOuts <- choose (1, 10)
     let outs = fmap (+ maxId) [1 .. numOuts]
-    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap SimpleTxIn outs)
+    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap SimpleTxOut outs)

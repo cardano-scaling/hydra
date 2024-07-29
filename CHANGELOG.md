@@ -12,12 +12,17 @@ changes.
 
 - **DO NOT RELEASE** as the tested `cardano-node` version is not intended to be used on `mainnet` yet.
 
-- Tested with `cardano-node 8.11.0` and `cardano-cli 8.23.1.0`.
+- Tested with `cardano-node 9.1.0` and `cardano-cli 9.2.1.0`.
 
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
-  
+
+- Add capability to move UTxO out of an open Head to the Cardano main chain:
+  - Submitting a decommit transaction to `POST /decommit` or as `Decommit` command through websocket, requests removal of this transactions' outputs from the head.
+  - When successful, `DecommitApproved` and `DecommitFinalized` indicate that all outputs are made available on the layer one.
+  - Invalid transactions are explained through a `DecommitInvalid` server output.
+
 - Change `--start-chain-from` to always use the newer point when also a head state is known.
 
 - Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.

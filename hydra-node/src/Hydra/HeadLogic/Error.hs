@@ -11,11 +11,12 @@ import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (IsTx (TxIdType), ValidationError)
 import Hydra.Party (Party)
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Snapshot (SnapshotNumber, SnapshotVersion)
 
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}
   | RequireFailed {requirementFailure :: RequirementFailure tx}
+  | AssertionFailed {message :: Text}
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
@@ -32,6 +33,7 @@ deriving anyclass instance (FromJSON (HeadState tx), FromJSON (Input tx), FromJS
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
+  | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}

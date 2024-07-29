@@ -80,10 +80,9 @@ confirmed. As a consequence, a participant can safely delete (if wished) all
 transactions that have been processed into it as the snapshot's multi-signature
 is now evidence that this state once existed during the head evolution.
 
-\red{Besides processing ``normal'' transactions, participants can also request
-  to take some UTxO they can spend out of the Head and make it available on main
-  chain using a \mtxDecrement{} transaction - the whole process is called
-  decommit.}
+Besides processing normal transactions, participants can also request to take
+UTxO they can spend out of the Head and make it available on the main chain
+using a \mtxDecrement{} transaction --- the whole process is called decommit.
 
 \subsection{Closing the head}
 
@@ -117,7 +116,7 @@ differences to the original Head protocol in~\cite{hydrahead20} are:
 	\item No hanging transactions due to `coordination'.
 	\item No acknowledgement nor confirmation of transactions.
 	\item No confirmation message for snapshots (two-round local confirmation).
-    \red{\item Allow for incremental decommits while head is open.}
+  \item Allow for incremental decommits while head is open.
 \end{itemize}
 
 %%% Local Variables:

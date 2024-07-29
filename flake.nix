@@ -1,9 +1,11 @@
 {
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs";
+    nixpkgsLatest.url = "github:NixOS/nixpkgs/nixos-24.05";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     lint-utils = {
       url = "github:homotopic/lint-utils";
       inputs.nixpkgs.follows = "haskellNix/nixpkgs";
@@ -12,14 +14,12 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
-    # Use a patched 2.6.0.0 as we are also affected by
-    # https://github.com/haskell/haskell-language-server/issues/4046
     hls = {
-      url = "github:cardano-scaling/haskell-language-server?ref=2.6-patched";
+      url = "github:haskell/haskell-language-server";
       flake = false;
     };
-    cardano-node.url = "github:intersectmbo/cardano-node/8.11.0-pre";
-    mithril.url = "github:input-output-hk/mithril/2418.1";
+    cardano-node.url = "github:intersectmbo/cardano-node/9.1.0";
+    mithril.url = "github:input-output-hk/mithril/2428.0";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
   };
 
@@ -27,10 +27,15 @@
     { self
     , flake-parts
     , nixpkgs
+      # TODO remove when haskellNix updated to newer nixpkgs
+    , nixpkgsLatest
     , cardano-node
     , ...
     } @ inputs:
     flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [
+        inputs.process-compose-flake.flakeModule
+      ];
       systems = [
         "x86_64-linux"
         "x86_64-darwin"
@@ -39,10 +44,13 @@
       ];
       perSystem = { pkgs, config, lib, system, ... }:
         let
-          compiler = "ghc965";
+          compiler = "ghc966";
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
+          pkgsLatest = import nixpkgsLatest {
+            inherit system;
+          };
           pkgs = import nixpkgs {
             inherit system;
             overlays = [
@@ -116,13 +124,23 @@
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
         in
-        rec {
+        {
           legacyPackages = hsPkgs;
 
           packages =
             hydraPackages //
-            (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) //
-            { spec = import ./spec { inherit pkgs; }; };
+            (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
+              spec = import ./spec {
+                inherit pkgs;
+              };
+            };
+          process-compose."demo" = import ./nix/hydra/demo.nix {
+            inherit system pkgs inputs self;
+            demoDir = ./demo;
+            inherit (pkgsLatest) process-compose;
+            inherit (pkgs) cardano-node cardano-cli;
+            inherit (hydraPackages) hydra-node;
+          };
 
           checks = let lu = inputs.lint-utils.linters.${system}; in {
             hlint = lu.hlint { src = self; hlint = pkgs.hlint; };
@@ -136,7 +154,6 @@
               treefmt = pkgs.treefmt;
             };
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
-            "cardano-api-classy"
             "hydra-cardano-api"
             "hydra-chain-observer"
             "hydra-cluster"

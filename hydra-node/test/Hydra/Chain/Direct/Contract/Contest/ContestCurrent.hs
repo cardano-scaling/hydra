@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Chain.Direct.Contract.Contest where
+module Hydra.Chain.Direct.Contract.Contest.ContestCurrent where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
@@ -19,15 +19,18 @@ import Hydra.Chain.Direct.Contract.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceDeltaUTxOHash,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
-  replaceUtxoHash,
+  replaceSnapshotVersion,
+  replaceUTxOHash,
  )
 import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.State (splitUTxO)
 import Hydra.Chain.Direct.Tx (ClosedThreadOutput (..), contestTx, mkHeadId, mkHeadOutput)
 import Hydra.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Contract.Error (toErrorCode)
@@ -45,11 +48,11 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hydra.Fixture (aliceSk, bobSk, carolSk, genForParty)
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 
@@ -71,12 +74,13 @@ healthyContestTx =
     contestTx
       scriptRegistry
       healthyContesterVerificationKey
+      (mkHeadId testPolicyId)
+      healthyContestationPeriod
+      healthyCloseSnapshotVersion
       healthyContestSnapshot
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
-      (mkHeadId testPolicyId)
-      healthyContestationPeriod
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -89,6 +93,74 @@ healthyContestTx =
       , closedContesters = []
       }
 
+healthyContestSnapshotNumber :: SnapshotNumber
+healthyContestSnapshotNumber = 4
+
+healthyCloseSnapshotVersion :: SnapshotVersion
+healthyCloseSnapshotVersion = 4
+
+healthyClosedUTxO :: UTxO
+healthyClosedUTxO =
+  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
+
+healthyContestUTxO :: UTxO
+healthyContestUTxO =
+  (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
+    `generateWith` 42
+
+splittedContestUTxO :: (UTxO, UTxO)
+splittedContestUTxO = splitUTxO healthyContestUTxO
+
+splitUTxOInHead :: UTxO
+splitUTxOInHead = fst splittedContestUTxO
+
+splitUTxOToDecommit :: UTxO
+splitUTxOToDecommit = snd splittedContestUTxO
+
+healthyContestSnapshot :: Snapshot Tx
+healthyContestSnapshot =
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , number = healthyContestSnapshotNumber
+    , utxo = splitUTxOInHead
+    , confirmed = []
+    , utxoToDecommit = Just splitUTxOToDecommit
+    , version = healthyCloseSnapshotVersion
+    }
+
+healthyClosedState :: Head.State
+healthyClosedState =
+  Head.Closed
+    Head.ClosedDatum
+      { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
+      , utxoHash = healthyClosedUTxOHash
+      , deltaUTxOHash = mempty
+      , parties = healthyOnChainParties
+      , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+      , contestationPeriod = healthyOnChainContestationPeriod
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , contesters = []
+      , version = toInteger healthyCloseSnapshotVersion
+      }
+
+healthyContestUTxOHash :: BuiltinByteString
+healthyContestUTxOHash =
+  toBuiltin $ hashUTxO @Tx splitUTxOInHead
+
+healthyContestUTxOToDecommitHash :: BuiltinByteString
+healthyContestUTxOToDecommitHash =
+  toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
+
+healthyClosedUTxOHash :: BuiltinByteString
+healthyClosedUTxOHash =
+  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
+
+healthyClosedSnapshotNumber :: SnapshotNumber
+healthyClosedSnapshotNumber = 3
+
+healthySlotNo :: SlotNo
+healthySlotNo = arbitrary `generateWith` 42
+
 healthyClosedHeadTxIn :: TxIn
 healthyClosedHeadTxIn = generateWith arbitrary 42
 
@@ -99,48 +171,6 @@ healthyClosedHeadTxOut =
  where
   headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
 
-healthyContestSnapshot :: Snapshot Tx
-healthyContestSnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , number = healthyContestSnapshotNumber
-    , utxo = healthyContestUTxO
-    , confirmed = []
-    }
-
-healthyContestSnapshotNumber :: SnapshotNumber
-healthyContestSnapshotNumber = 4
-
-healthyContestUTxO :: UTxO
-healthyContestUTxO =
-  (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
-    `generateWith` 42
-
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyContestUTxO
-
-healthyClosedState :: Head.State
-healthyClosedState =
-  Head.Closed
-    { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-    , utxoHash = healthyClosedUTxOHash
-    , parties = healthyOnChainParties
-    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = healthyOnChainContestationPeriod
-    , headId = toPlutusCurrencySymbol testPolicyId
-    , contesters = []
-    }
-
-healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
-
-healthyContestationDeadline :: UTCTime
-healthyContestationDeadline =
-  addUTCTime
-    (fromInteger healthyContestationPeriodSeconds)
-    (slotNoToUTCTime systemStart slotLength healthySlotNo)
-
 healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
 healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
 
@@ -149,17 +179,6 @@ healthyContestationPeriod = fromChain healthyOnChainContestationPeriod
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10
-
-healthyClosedSnapshotNumber :: SnapshotNumber
-healthyClosedSnapshotNumber = 3
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
-
-healthyClosedUTxO :: UTxO
-healthyClosedUTxO =
-  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
 
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParticipants =
@@ -184,6 +203,12 @@ healthySignature number =
  where
   snapshot = healthyContestSnapshot{number}
 
+healthyContestationDeadline :: UTCTime
+healthyContestationDeadline =
+  addUTCTime
+    (fromInteger healthyContestationPeriodSeconds)
+    (slotNoToUTCTime systemStart slotLength healthySlotNo)
+
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -199,6 +224,8 @@ data ContestMutation
     --
     -- Ensures the snapshot signature is aligned with snapshot number.
     MutateSnapshotNumberButNotSignature
+  | -- | Check the snapshot version is preserved from last open state.
+    MutateSnapshotVersion
   | -- | Invalidates the tx by changing the contest snapshot number too old.
     --
     -- This is achieved by updating the head input datum to be older, so the
@@ -271,11 +298,16 @@ genContestMutation (tx, _utxo) =
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            { signature = toPlutusSignatures mutatedSignature
-            }
+            Head.ContestCurrent
+              { signature = toPlutusSignatures mutatedSignature
+              }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
+    , -- Last known open state version stays recorded in closed state
+      SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode TooOldSnapshot) MutateToNonNewerSnapshot <$> do
         mutatedSnapshotNumber <- choose (toInteger healthyContestSnapshotNumber, toInteger healthyContestSnapshotNumber + 1)
         pure $
@@ -284,10 +316,11 @@ genContestMutation (tx, _utxo) =
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  { signature =
-                      toPlutusSignatures $
-                        healthySignature (fromInteger mutatedSnapshotNumber)
-                  }
+                  Head.ContestCurrent
+                    { signature =
+                        toPlutusSignatures $
+                          healthySignature (fromInteger mutatedSnapshotNumber)
+                    }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
@@ -302,7 +335,13 @@ genContestMutation (tx, _utxo) =
         mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
         pure $
           modifyInlineDatum
-            (replaceUtxoHash (toBuiltin mutatedUTxOHash))
+            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
+            headTxOut
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
+        mutatedUTxOHash <- arbitrary `suchThat` (/= Just healthyContestUTxOToDecommitHash)
+        pure $
+          modifyInlineDatum
+            (replaceDeltaUTxOHash mutatedUTxOHash)
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
@@ -312,7 +351,7 @@ genContestMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
         pure (lb, ub)
-    , -- XXX: This is a bit confusing and not giving much value. Maybe we can remove this.
+    , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
@@ -325,10 +364,11 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          { signature =
-                              toPlutusSignatures $
-                                healthySignature healthyContestSnapshotNumber
-                          }
+                          Head.ContestCurrent
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyContestSnapshotNumber
+                            }
                       )
                 )
             ]
@@ -336,19 +376,13 @@ genContestMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (pure $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do
         let contester = toPlutusKeyHash (verificationKeyHash healthyContesterVerificationKey)
-            contesterAndSomeOthers = do
-              contesters <- listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
-              pure (contester : contesters)
-        mutatedContesters <-
-          oneof
-            [ pure [contester]
-            , contesterAndSomeOthers
-            ]
+        mutatedContesters <- do
+          contesters <- resize (length healthyParticipants - 1) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
+          pure (contester : contesters)
         pure $
           healthyClosedState & replaceContesters mutatedContesters
     , SomeMutation (pure $ toErrorCode ContesterNotIncluded) MutateContesters . ChangeOutput 0 <$> do
-        hashes <- listOf genHash
-        let mutatedContesters = Plutus.PubKeyHash . toBuiltin <$> hashes
+        mutatedContesters <- resize (length healthyParticipants) . listOf $ Plutus.PubKeyHash . toBuiltin <$> genHash
         pure $ modifyInlineDatum (replaceContesters mutatedContesters) headTxOut
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue

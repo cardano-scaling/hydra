@@ -26,6 +26,7 @@ import Cardano.Ledger.Alonzo.TxWits (
   txscripts,
  )
 import Cardano.Ledger.Api (
+  BabbageEra,
   TransactionScriptFailure,
   bodyTxL,
   collateralInputsTxBodyL,
@@ -420,12 +421,12 @@ estimateScriptsCost ::
   Babbage.AlonzoTx LedgerEra ->
   Either ErrCoverFee (Map (PlutusPurpose AsIx LedgerEra) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
-  case result of
-    Left translationError ->
-      Left $ ErrTranslationError translationError
-    Right units ->
-      Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) units
+  Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) result
  where
+  result ::
+    Map
+      (AlonzoPlutusPurpose AsIx LedgerEra)
+      (Either (TransactionScriptFailure (BabbageEra StandardCrypto)) ExUnits)
   result =
     evalTxExUnits
       pparams

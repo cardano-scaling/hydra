@@ -99,7 +99,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel)
-              (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP))
+              (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP) callback)
       )
       ( do
           waitForServerRunning

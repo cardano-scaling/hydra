@@ -50,19 +50,19 @@ markdownReport now summaries =
     , "sidebar_position: 4 "
     , "--- "
     , ""
-    , "# End-To-End Benchmark Results "
+    , "# End-to-end benchmark results "
     , ""
-    , "This page is intended to collect the latest end-to-end benchmarks \
-      \ results produced by Hydra's Continuous Integration system from \
+    , "This page is intended to collect the latest end-to-end benchmark \
+      \ results produced by Hydra's continuous integration (CI) system from \
       \ the latest `master` code."
     , ""
     , ":::caution"
     , ""
-    , "Please take those results with a grain of \
-      \ salt as they are currently produced from very limited cloud VMs and not controlled \
-      \ hardware. Instead of focusing on the _absolute_ results, the emphasis \
-      \ should be on relative results, eg. how the timings for a scenario \
-      \ evolve as the code changes."
+    , "Please note that these results are approximate \
+      \ as they are currently produced from limited cloud VMs and not controlled hardware. \
+      \ Rather than focusing on the absolute results, \
+      \  the emphasis should be on relative results, \
+      \ such as how the timings for a scenario evolve as the code changes."
     , ""
     , ":::"
     , ""

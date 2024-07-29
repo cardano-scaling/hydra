@@ -12,11 +12,10 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2024-05-19T19:07:04Z
-  , cardano-haskell-packages 2024-05-19T19:04:02Z
+  , hackage.haskell.org 2024-07-19T19:07:04Z
+  , cardano-haskell-packages 2024-07-19T19:04:02Z
 
 packages:
-  cardano-api-classy
   hydra-prelude
   hydra-cardano-api
   hydra-test-utils
@@ -41,6 +40,3 @@ benchmarks: True
 
 -- Always show detailed output for tests
 test-show-details: direct
-
-constraints:
-  io-classes-mtl == 0.1.1.0

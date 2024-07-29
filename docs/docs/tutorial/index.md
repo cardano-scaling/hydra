@@ -23,7 +23,6 @@ This tutorial assumes the following tools are available on your system:
 - [ ] `tar`
 - [ ] [`jq`](https://jqlang.github.io/jq/).
 - [ ] [`websocat`](https://github.com/vi/websocat)
-- [ ] [`jq`](https://jqlang.github.io/jq/).
 
 After ensuring the tools above are available, begin by downloading pre-built binaries of the involved Cardano software components and placing them in a `bin/` directory:
 
@@ -33,11 +32,14 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 ```shell
 mkdir -p bin
 version=0.17.0
+mithril_version=2423.0
+node_version=9.0.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
 unzip -d bin hydra-x86_64-linux-${version}.zip
-curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-linux.tar.gz \
-  | tar xz ./bin/cardano-node ./bin/cardano-cli
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-linux-x64.tar.gz \
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-linux.tar.gz
+tar xf cardano-node-${node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
+tar xf cardano-node-${node_version}-linux.tar.gz ./share/preprod --strip-components=3
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
 chmod +x bin/*
 ```
@@ -48,11 +50,14 @@ chmod +x bin/*
 ```shell
 mkdir -p bin
 version=0.17.0
+mithril_version=2423.0
+node_version=9.0.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
 unzip -d bin hydra-aarch64-darwin-${version}.zip
-curl -L -o - https://github.com/IntersectMBO/cardano-node/releases/download/8.11.0/cardano-node-8.11.0-macos.tar.gz \
-  | tar xz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/2412.0/mithril-2412.0-macos-x64.tar.gz \
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-macos.tar.gz
+tar xf cardano-node-${node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
+tar xf cardano-node-${node_version}-macos.tar.gz ./share/preprod --strip-components=3
+curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-macos-x64.tar.gz \
   | tar xz -C bin
 chmod +x bin/*
 ```
@@ -126,16 +131,9 @@ mithril CI, PRs are welcome!
 
 </details>
 
-Next, run a `cardano-node` after downloading the necessary configuration files:
+Next, run a `cardano-node`:
 
 ```shell
-curl -O https://book.world.dev.cardano.org/environments/preprod/config.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/topology.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/byron-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/shelley-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/alonzo-genesis.json
-curl -O https://book.world.dev.cardano.org/environments/preprod/conway-genesis.json
-
 cardano-node run \
   --config config.json \
   --topology topology.json \
@@ -143,7 +141,9 @@ cardano-node run \
   --database-path db
 ```
 
-To monitor the synchronization status, use `cardano-cli` in a separate terminal window while the node runs:
+Once all the blocks have been replayed, you can monitor the synchronization
+status using `cardano-cli` in a separate terminal window while the node
+runs:
 
 ```shell
 cardano-cli query tip
@@ -263,6 +263,31 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 In case you don't have test ada on `preprod`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
+Something like the following (if you used the faucet to give funds only to `alice-funds.addr`):
+
+```
+# Get alices UTxO state
+cardano-cli query utxo \
+    --address $(cat credentials/alice-funds.addr) \
+    --out-file alice-funds-utxo.json
+
+# Build a Tx to send funds from `alice-funds` to the others who need them: bob
+# funds and nodes.
+cardano-cli transaction build \
+    $(cat alice-funds-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
+    --change-address $(cat credentials/alice-funds.addr) \
+    --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
+    --tx-out $(cat credentials/bob-node.addr)+1000000000 \
+    --tx-out $(cat credentials/alice-node.addr)+1000000000 \
+    --out-file tx.json
+
+cardano-cli transaction sign \
+  --tx-file tx.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file tx-signed.json
+
+cardano-cli transaction submit --tx-file tx-signed.json
+```
 :::
 
 You can check the balance of your addresses via:
@@ -441,6 +466,16 @@ This opens a duplex connection and you should see messages indicating successful
 }
 ```
 
+:::tip
+You can use the `hydra-tui` to view the state of the node and perform actions
+as well. For example, to run the TUI for alice:
+
+```
+hydra-tui -k credentials/alice-funds.sk
+```
+:::
+
+
 ## Step 4. Open a Hydra head
 
 
@@ -502,7 +537,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx-signed.json
 </Tabs>
 
 <details>
-<summary>Alternative: Not commit anything</summary>
+<summary>Alternative: Don't commit anything</summary>
 
 If you don't want to commit any funds and only want to receive on layer two, you can request an empty commit transaction as shown below (example for `bob`):
 
@@ -512,7 +547,7 @@ cardano-cli transaction submit --tx-file bob-commit-tx.json
 ```
 </details>
 
-After you've prepared your transactions, the `hydra-node` will find all UTxO associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network. 
+After you've prepared your transactions, the `hydra-node` will find all UTxOs associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
 
 Once the `hydra-node` sees this transaction, you should see a `Committed` status displayed on your WebSocket connection.
 

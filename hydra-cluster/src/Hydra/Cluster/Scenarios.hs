@@ -14,6 +14,7 @@ import CardanoClient (
   queryTip,
   queryUTxOFor,
   submitTx,
+  waitForUTxO,
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
@@ -24,9 +25,36 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
+import Data.List qualified as List
 import Data.Set qualified as Set
-import Hydra.API.HTTPServer (DraftCommitTxResponse (..), TransactionSubmitted (..))
-import Hydra.Cardano.Api (Coin (..), File (File), Key (SigningKey), PaymentKey, Tx, TxId, UTxO, getVerificationKey, isVkTxOut, lovelaceToValue, makeSignedTransaction, mkVkAddress, selectLovelace, signTx, txOutAddress, txOutValue, writeFileTextEnvelope, pattern ReferenceScriptNone, pattern TxOut, pattern TxOutDatumNone)
+import Hydra.API.HTTPServer (
+  DraftCommitTxResponse (..),
+  TransactionSubmitted (..),
+ )
+import Hydra.Cardano.Api (
+  Coin (..),
+  File (File),
+  Key (SigningKey),
+  PaymentKey,
+  Tx,
+  TxId,
+  UTxO,
+  getTxBody,
+  getVerificationKey,
+  isVkTxOut,
+  lovelaceToValue,
+  makeSignedTransaction,
+  mkVkAddress,
+  selectLovelace,
+  signTx,
+  txOutAddress,
+  txOutValue,
+  utxoFromTx,
+  writeFileTextEnvelope,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
+ )
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -39,7 +67,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Ledger (IsTx (balance), txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (networkId, startChainFrom)
+import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Party (Party)
 import HydraNode (
   HydraClient (..),
@@ -47,6 +75,7 @@ import HydraNode (
   getSnapshotUTxO,
   input,
   output,
+  postDecommit,
   requestCommitTx,
   send,
   waitFor,
@@ -72,7 +101,7 @@ import Network.HTTP.Req (
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
-import Test.QuickCheck (choose, generate)
+import Test.QuickCheck (choose, elements, generate)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -565,6 +594,99 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Open a a single participant head with some UTxO and incrementally decommit it.
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canDecommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 30_000_000
+    let contestationPeriod = UnsafeContestationPeriod 1
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (walletVk, walletSk) <- generate genKeyPair
+      let headAmount = 8_000_000
+      let commitAmount = 5_000_000
+      headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+
+      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
+
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+
+      -- Decommit the single commitUTxO by creating a fully "respending" decommit transaction
+      let walletAddress = mkVkAddress networkId walletVk
+      decommitTx <- do
+        let (i, o) = List.head $ UTxO.pairs commitUTxO
+        either (failure . show) pure $
+          mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
+
+      expectFailureOnUnsignedDecommitTx n1 headId decommitTx
+      expectSuccessOnSignedDecommitTx n1 headId decommitTx
+
+      -- After decommit Head UTxO should not contain decommitted outputs and wallet owns the funds on L1
+      getSnapshotUTxO n1 `shouldReturn` headUTxO
+      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+        `shouldReturn` lovelaceToValue commitAmount
+
+      -- Close and Fanout whatever is left in the Head back to L1
+      send n1 $ input "Close" []
+      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        v ^? key "contestationDeadline" . _JSON
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitMatch (10 * blockTime) n1 $ \v ->
+        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+      -- Assert final wallet balance
+      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+        `shouldReturn` lovelaceToValue (headAmount + commitAmount)
+ where
+  expectSuccessOnSignedDecommitTx n headId decommitTx = do
+    let decommitUTxO = utxoFromTx decommitTx
+        decommitTxId = txId decommitTx
+    -- Sometimes use websocket, sometimes use HTTP
+    join . generate $
+      elements
+        [ send n $ input "Decommit" ["decommitTx" .= decommitTx]
+        , postDecommit n decommitTx
+        ]
+    waitFor hydraTracer 10 [n] $
+      output "DecommitRequested" ["headId" .= headId, "decommitTx" .= decommitTx, "utxoToDecommit" .= decommitUTxO]
+    waitFor hydraTracer 10 [n] $
+      output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
+    failAfter 10 $ waitForUTxO node decommitUTxO
+    waitFor hydraTracer 10 [n] $
+      output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= decommitTxId]
+
+  expectFailureOnUnsignedDecommitTx n headId decommitTx = do
+    let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx
+    join . generate $
+      elements
+        [ send n $ input "Decommit" ["decommitTx" .= unsignedDecommitTx]
+        , postDecommit n unsignedDecommitTx
+        ]
+
+    validationError <- waitMatch 10 n $ \v -> do
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      guard $ v ^? key "tag" == Just (Aeson.String "DecommitInvalid")
+      guard $ v ^? key "decommitTx" == Just (toJSON unsignedDecommitTx)
+      v ^? key "decommitInvalidReason" . key "validationError" . key "reason" . _JSON
+
+    validationError `shouldContain` "MissingVKeyWitnessesUTXOW"
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- * L2 scenarios
 

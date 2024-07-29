@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (ServerOutput)
+import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
 import Hydra.Crypto (MultiSignature, Signature)
 import Hydra.Environment (Environment (..))
@@ -15,7 +15,7 @@ import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 import Test.QuickCheck (oneof)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emited to
@@ -54,10 +54,12 @@ data StateChanged tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | TransactionReceived {tx :: tx}
   | TransactionAppliedToLocalUTxO
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
+  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
@@ -68,7 +70,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | TransactionReceived {tx :: tx}
+  | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
@@ -94,12 +96,14 @@ genStateChanged env =
     , CommittedUTxO party <$> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary
     , pure HeadIsReadyToFanout
@@ -156,6 +160,7 @@ data WaitReason tx
   | WaitOnSeenSnapshot
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
+  | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

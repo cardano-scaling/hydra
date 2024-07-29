@@ -3,7 +3,7 @@
 # Seed a "devnet" by distributing Ada to hydra nodes
 set -eo pipefail
 
-SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
+SCRIPT_DIR=${SCRIPT_DIR:-$(realpath $(dirname $(realpath $0)))}
 NETWORK_ID=42
 
 CCLI_CMD=
@@ -23,10 +23,12 @@ if [[ -n ${2} ]]; then
 fi
 
 DOCKER_COMPOSE_CMD=
-if docker compose --version > /dev/null 2>&1; then
-  DOCKER_COMPOSE_CMD="docker compose"
-else
-  DOCKER_COMPOSE_CMD="docker-compose"
+if [[ ! -x ${CCLI_CMD} ]]; then
+  if docker compose --version > /dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker compose"
+  else
+    DOCKER_COMPOSE_CMD="docker-compose"
+  fi
 fi
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
@@ -97,12 +99,11 @@ function publishReferenceScripts() {
 
 function queryPParams() {
   echo >&2 "Query Protocol parameters"
-  if [ "$( docker container inspect -f '{{.State.Running}}' demo-cardano-node-1 )" == "true" ];
-   then
-     docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket --out-file /dev/stdout \
+  if [[ -x ${CCLI_CMD} ]]; then
+     ccli query protocol-parameters --socket-path ${DEVNET_DIR}/node.socket  --out-file /dev/stdout \
       | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
    else
-     cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket  --out-file /dev/stdout \
+     docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket --out-file /dev/stdout \
       | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
   fi
   echo >&2 "Saved in protocol-parameters.json"

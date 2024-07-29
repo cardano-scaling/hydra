@@ -54,7 +54,7 @@ import Hydra.Chain.Direct (
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
 import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
-import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Direct.State (initialChainState, splitUTxO)
 import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (
   FaucetLog,
@@ -293,7 +293,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \node@RunningNode{nodeSocket} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
@@ -314,20 +314,19 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
-
+            let (inHead, toDecommit) = splitUTxO someUTxO
+            let v = 0
             let snapshot =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
+                    , utxoToDecommit = Just toDecommit
+                    , version = v
                     }
 
-            postTx . CloseTx headId headParameters $
-              ConfirmedSnapshot
-                { snapshot
-                , signatures = aggregate [sign aliceSk snapshot]
-                }
+            postTx $ CloseTx headId headParameters v (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
 
             deadline <-
               waitMatch aliceChain $ \case
@@ -345,13 +344,14 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             postTx $
               FanoutTx
-                { utxo = someUTxO
+                { utxo = inHead
+                , utxoToDecommit = Just toDecommit
                 , headSeed
                 , contestationDeadline = deadline
                 }
             aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
-              waitForUTxO networkId nodeSocket someUTxO
+              waitForUTxO node (inHead <> toDecommit)
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -442,24 +442,32 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             aliceChain `observesInTime` OnCollectComTx headId
 
             -- Alice close with the initial snapshot U0
-            postTx $ CloseTx headId headParameters InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headId headParameters 0 InitialSnapshot{headId, initialUTxO = someUTxO}
             deadline <- waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                 | snapshotNumber == 0 -> Just contestationDeadline
               _ -> Nothing
-
+            let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
             let snapshot1 =
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
+                    , utxoToDecommit = Just toDecommit
+                    , version = 0
                     }
-            postTx . ContestTx headId headParameters $
-              ConfirmedSnapshot
-                { snapshot = snapshot1
-                , signatures = aggregate [sign aliceSk snapshot1]
+            postTx $
+              ContestTx
+                { headId
+                , headParameters
+                , openVersion = 0
+                , contestingSnapshot =
+                    ConfirmedSnapshot
+                      { snapshot = snapshot1
+                      , signatures = aggregate [sign aliceSk snapshot1]
+                      }
                 }
             aliceChain `observesInTime` OnContestTx{headId, snapshotNumber = 1, contestationDeadline = deadline}
 
@@ -468,14 +476,22 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                   Snapshot
                     { headId
                     , number = 2
-                    , utxo = someUTxO
+                    , utxo = inHead
                     , confirmed = []
+                    , utxoToDecommit = Just toDecommit
+                    , version = 1
                     }
             let contestAgain =
-                  postTx . ContestTx headId headParameters $
-                    ConfirmedSnapshot
-                      { snapshot = snapshot2
-                      , signatures = aggregate [sign aliceSk snapshot2]
+                  postTx $
+                    ContestTx
+                      { headId
+                      , headParameters
+                      , openVersion = 1
+                      , contestingSnapshot =
+                          ConfirmedSnapshot
+                            { snapshot = snapshot2
+                            , signatures = aggregate [sign aliceSk snapshot2]
+                            }
                       }
             -- NOTE: We deliberately expect the transaction creation and
             -- submission code of the Chain.Direct module to fail here because

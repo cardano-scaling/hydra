@@ -1,22 +1,22 @@
 # Haskell packages
 
-The Hydra project is divided into several Haskell packages fulfilling different parts of the protocol. While some packages are internal and specific to the Hydra project, some are quite generic and may be useful to other projects facing similar issues. Regardless, we expose [Haddock](https://www.haskell.org/haddock/) documentation for all of them.
+The Hydra project consists of several Haskell packages, each serving distinct parts of the protocol. While some packages are internal and tailored specifically to Hydra, others offer more generic functionalities that could benefit other projects tackling similar challenges. Comprehensive [Haddock](https://www.haskell.org/haddock/) documentation is provided for all packages.
 
-## Public Packages
+## Public packages
 
 | Package                                                                                        | Description                                                                         |
 | ---                                                                                            | ---                                                                                 |
-| [plutus-merkle-tree](pathname:///haddock/plutus-merkle-tree/index.html) | Implementation of Merkle Trees, compatible with on-chain Plutus validators.         |
-| [plutus-cbor](pathname:///haddock/plutus-cbor/index.html)               | Implementation of CBOR encoders, compatible with on-chain Plutus validators.        |
-| [hydra-prelude](pathname:///haddock/hydra-prelude/index.html)           | Custom Hydra Prelude used across other Hydra packages.                              |
-| [hydra-cardano-api](pathname:///haddock/hydra-cardano-api/index.html)   | A wrapper around the `cardano-api`, with era-specialized types and extra utilities. |
+| [plutus-merkle-tree](pathname:///haddock/plutus-merkle-tree/index.html) | Implementation of Merkle trees, compatible with on-chain Plutus validators         |
+| [plutus-cbor](pathname:///haddock/plutus-cbor/index.html)               | Implementation of CBOR encoders, compatible with on-chain Plutus validators        |
+| [hydra-prelude](pathname:///haddock/hydra-prelude/index.html)           | Custom Hydra prelude used across other Hydra packages                              |
+| [hydra-cardano-api](pathname:///haddock/hydra-cardano-api/index.html)   | A wrapper around the `cardano-api`, with era-specialized types and extra utilities |
 
-## Internal Packages
+## Internal packages
 
 | Package                                                                                    | Description                                                             |
 | ---                                                                                        | ---                                                                     |
-| [hydra-node](pathname:///haddock/hydra-node/index.html)             | The Hydra node.                                                         |
-| [hydra-node tests](pathname:///haddock/hydra-node/tests/index.html) | The Hydra node test code.                                               |
+| [hydra-node](pathname:///haddock/hydra-node/index.html)             | The Hydra node                                                         |
+| [hydra-node tests](pathname:///haddock/hydra-node/tests/index.html) | The Hydra node test code                                               |
 | [hydra-tui](pathname:///haddock/hydra-tui/index.html)               | Terminal User Interface (TUI) for managing a Hydra node                 |
-| [hydra-plutus](pathname:///haddock/hydra-plutus/index.html)         | Hydra Plutus Contracts                                                  |
-| [hydra-cluster](pathname:///haddock/hydra-cluster/index.html)       | Integration test suite using a local cluster of Cardano and hydra nodes |
+| [hydra-plutus](pathname:///haddock/hydra-plutus/index.html)         | Hydra Plutus contracts                                                  |
+| [hydra-cluster](pathname:///haddock/hydra-cluster/index.html)       | Integration test suite using a local cluster of Cardano and Hydra nodes |

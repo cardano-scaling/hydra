@@ -10,7 +10,7 @@ import PlutusLedgerApi.V2 qualified as Plutus
 -- NOTE: The script is treated as a 'PlutusScriptV2'
 mkScriptRef :: Plutus.SerialisedScript -> ReferenceScript Era
 mkScriptRef =
-  ReferenceScript babbageEraOnwards
+  ReferenceScript babbageBasedEra
     . toScriptInAnyLang
     . PlutusScript PlutusScriptV2
     . fromPlutusScript

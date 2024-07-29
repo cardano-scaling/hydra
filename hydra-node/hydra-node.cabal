@@ -75,7 +75,6 @@ library
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
-    Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
     Hydra.Ledger
     Hydra.Ledger.Cardano
@@ -151,9 +150,9 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , ouroboros-network-api                                     ^>=0.7.1
+    , ouroboros-network-api                                     >=0.7.1
     , ouroboros-network-framework
-    , ouroboros-network-protocols                               ^>=0.8
+    , ouroboros-network-protocols                               >=0.8
     , plutus-core                                               >=1.21
     , plutus-ledger-api                                         >=1.21
     , prometheus
@@ -278,10 +277,14 @@ test-suite tests
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
     Hydra.Chain.Direct.Contract.Abort
-    Hydra.Chain.Direct.Contract.Close
+    Hydra.Chain.Direct.Contract.Close.CloseCurrent
+    Hydra.Chain.Direct.Contract.Close.CloseInitial
+    Hydra.Chain.Direct.Contract.Close.CloseOutdated
+    Hydra.Chain.Direct.Contract.Close.Healthy
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit
-    Hydra.Chain.Direct.Contract.Contest
+    Hydra.Chain.Direct.Contract.Contest.ContestCurrent
+    Hydra.Chain.Direct.Contract.Decrement
     Hydra.Chain.Direct.Contract.FanOut
     Hydra.Chain.Direct.Contract.Gen
     Hydra.Chain.Direct.Contract.Init
@@ -366,7 +369,6 @@ test-suite tests
     , lens-aeson
     , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}  >=1.1.1.0
     , plutus-tx
-    , pretty-simple
     , QuickCheck
     , quickcheck-dynamic                                                >=3.4     && <3.5
     , quickcheck-instances

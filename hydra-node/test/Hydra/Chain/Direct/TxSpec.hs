@@ -1,6 +1,3 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
 module Hydra.Chain.Direct.TxSpec where
@@ -73,20 +70,7 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano (
-  adaOnly,
-  addInputs,
-  addReferenceInputs,
-  addVkInputs,
-  emptyTxBody,
-  genOneUTxOFor,
-  genTxOutWithReferenceScript,
-  genUTxO1,
-  genUTxOAdaOnlyOfSize,
-  genValue,
-  genVerificationKey,
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
 import Hydra.Party (Party)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
@@ -147,6 +131,7 @@ spec =
                       Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
                       CollectCom{} -> transition === Transition.Collect
+                      Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       Fanout{} -> transition === Transition.Fanout
@@ -315,7 +300,7 @@ genBlueprintTxWithUTxO =
                 ( \_ ->
                     BuildTxWith $
                       ScriptWitness ScriptWitnessForSpending $
-                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn datum) redeemer
+                        mkScriptWitness alwaysSucceedingScript (ScriptDatumForTxIn $ Just datum) redeemer
                 )
                   <$> utxoToSpend
             )
@@ -506,6 +491,9 @@ genAbortableOutputs parties =
 assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
 assetNameFromVerificationKey =
   onChainIdToAssetName . verificationKeyToOnChainId
+
+fst4 :: (a, b, c, d) -> a
+fst4 (a, _, _, _) = a
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a
