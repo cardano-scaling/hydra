@@ -20,6 +20,12 @@ Documentation and a user manual are available on [this website](https://hydra.fa
 
 Each page has an 'Edit this page' button that takes you to the source file containing the markup. If you want to extend the documentation or find errors, please file an issue pointing to the mistake or, even better, create a pull request with the changes directly.
 
+#### Technical writing
+
+Please follow this [technical writing style
+guide](./docs/standalone/writing-style-guide.md) when
+contributing changes to documentation.
+
 ### Bug reports
 
 [Submit an issue](https://github.com/cardano-scaling/hydra/issues/new/choose)
@@ -120,12 +126,6 @@ Merging a pull request requires approval from a majority of reviewers from the c
 + Pull requests developed in ensembles do not require additional approvals.
 
 This policy aims to increase the [bus factor](https://en.wikipedia.org/wiki/Bus_factor) of the project by distributing knowledge about contributions and changes, thereby preventing the creation of bottlenecks.
-
-### Technical writing
-
-Please follow this [technical writing style
-guide](./docs/standalone/writing-style-guide.md) when
-contributing changes to documentation.
 
 ### Updating dependencies
 
