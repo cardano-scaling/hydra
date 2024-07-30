@@ -20,11 +20,7 @@ Documentation and a user manual are available on [this website](https://hydra.fa
 
 Each page has an 'Edit this page' button that takes you to the source file containing the markup. If you want to extend the documentation or find errors, please file an issue pointing to the mistake or, even better, create a pull request with the changes directly.
 
-#### Technical writing
-
-Please follow this [technical writing style
-guide](./docs/standalone/writing-style-guide.md) when
-contributing changes to documentation.
+Please follow this [technical writing style guide](./docs/standalone/writing-style-guide.md) when contributing changes to documentation.
 
 ### Bug reports
 
