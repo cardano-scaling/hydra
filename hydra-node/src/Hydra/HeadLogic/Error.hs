@@ -35,6 +35,7 @@ data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
+  | ReqSnDecommitNotSettled
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}

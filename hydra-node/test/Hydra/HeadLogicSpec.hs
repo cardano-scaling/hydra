@@ -43,7 +43,6 @@ import Hydra.HeadLogic (
   OpenState (..),
   Outcome (..),
   RequirementFailure (..),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   TTL,
   WaitReason (..),
   aggregateState,
@@ -51,7 +50,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
-import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -471,6 +470,35 @@ spec =
           getState
 
         update bobEnv ledger s3 secondReqSn `shouldSatisfy` \case
+          Error RequireFailed{} -> True
+          _ -> False
+
+      it "rejects same version snapshot requests with differring decommit txs" $ do
+        let decommitTx = SimpleTx 2 (utxoRef 2) (utxoRef 4)
+            activeUTxO = utxoRefs [2]
+            snapshot =
+              Snapshot
+                { headId = testHeadId
+                , version = 0
+                , number = 1
+                , confirmed = []
+                , utxo = activeUTxO
+                , utxoToDecommit = Just $ utxoRefs [3]
+                }
+            -- NOTE: Signatures are not relevant here
+            s0 =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
+                  , seenSnapshot = LastSeenSnapshot 1
+                  , localUTxO = activeUTxO
+                  , decommitTx = Just $ SimpleTx 1 (utxoRef 1) (utxoRef 3)
+                  }
+            reqSn = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx)
+
+        outcome <- runHeadLogic bobEnv ledger s0 $ do
+          step reqSn
+        outcome `shouldSatisfy` \case
           Error RequireFailed{} -> True
           _ -> False
 
