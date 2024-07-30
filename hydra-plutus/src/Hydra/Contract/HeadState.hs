@@ -82,12 +82,12 @@ data CloseRedeemer
   = -- | Intial snapshot is used to close.
     CloseInitial
   | -- | Closing snapshot refers to the current state version
-    CloseCurrent
+    CloseUnused
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       }
   | -- | Closing snapshot refers to the previous state version
-    CloseOutdated
+    CloseUsed
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash

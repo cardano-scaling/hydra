@@ -546,10 +546,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       InitialSnapshot{} -> Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
         | version == openVersion ->
-            Head.CloseCurrent{signature = toPlutusSignatures signatures}
+            Head.CloseUnused{signature = toPlutusSignatures signatures}
         | otherwise ->
             -- NOTE: This will only work for version == openVersion - 1
-            Head.CloseOutdated
+            Head.CloseUsed
               { signature = toPlutusSignatures signatures
               , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
               }
@@ -567,7 +567,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
           , deltaUTxOHash =
               case closeRedeemer of
-                Head.CloseCurrent{} ->
+                Head.CloseUnused{} ->
                   Just . toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> Nothing
           , parties = openParties

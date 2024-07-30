@@ -21,9 +21,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import Hydra.Chain.Direct.Contract.Close.CloseCurrent (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Chain.Direct.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
-import Hydra.Chain.Direct.Contract.Close.CloseOutdated (genCloseOutdatedMutation, healthyCloseOutdatedTx)
+import Hydra.Chain.Direct.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
+import Hydra.Chain.Direct.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.Contest.ContestCurrent (genContestMutation, healthyContestTx)
@@ -115,12 +115,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseCurrent" $ do
+  describe "CloseUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseOutdated" $ do
+  describe "CloseUsed" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
