@@ -40,6 +40,6 @@ nix build .#haddocks -o docs/static/haddock
 (cd hydra-cluster; nix develop .#hydra-cluster-bench --command bench-e2e --scaling-factor 1 --output-directory $(pwd)/../docs/benchmarks)
 ```
 
-# Translating
+# Style guide
 
-While we supported and encouraged contributing translations in the past, we turned off internationalization features as translations inevitably became out-of-date and on-demand translation of website became significantly better with AI language models. Nontheless, if you feel like we should offer translated pages and want to contribute that, please don't hesitate to file an [issue](https://github.com/input-output-hk/hydra/issues/new/choose).
+Please follow this [technical writing style guide](./standalone/writing-style-guide.md) when contributing changes to documentation.
