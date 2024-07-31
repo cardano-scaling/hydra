@@ -1,0 +1,764 @@
+% ==== Hydra Macros ====
+
+% NOTE: New macro file; please copy and keep organized macros from
+% macros_old.tex as needed.  Hopefully, this will result in tidier
+% macros file.
+%
+% Index:
+% - Misc
+% - General
+% - Theorem Environments
+% - Multisignatures
+% - Transactions
+% - State Machines
+% - Head Protocol
+% - On-Chain Verification
+% - Algorithms
+% - Merkle-Patricia Trees
+
+% === engineering ===
+\newcommand{\undefined}{\mathrm{undef}}
+
+
+% === Misc ===
+
+\newcommand{\algoskip}{\vspace{4pt}}
+
+\newcommand{\ignore}[1]{}
+
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+
+\newcommand{\TODO}[1]{
+	\if\relax\detokenize{#1}\relax
+		\textcolor{red}{TODO}
+	\else
+		\textcolor{red}{ {#1}}
+	\fi
+}
+
+\newcommand{\fail}{\mbox{fail}}
+
+% from https://www.overleaf.com/latex/examples/simple-stylish-box-design/stzmmcshxdng
+\definecolor{main}{HTML}{5989cf}    % setting main color to be used
+\definecolor{sub}{HTML}{cde4ff}     % setting sub color to be used
+\newtcolorbox{boxM}{
+	fontupper = \color{white},
+	rounded corners,
+	arc = 6pt,
+	colback = main!80,
+	colframe = main,
+	boxrule = 0pt,
+	bottomrule = 4.5pt,
+	enhanced,
+	fuzzy shadow = {0pt}{-3pt}{-0.5pt}{0.5pt}{black!35}
+}
+
+% In figures, this makes algorithms work with option [H] despite
+% double-column format
+% https://tex.stackexchange.com/questions/82271/multiple-algorithm2e-algorithms-in-two-column-documents
+\makeatletter
+\newcommand{\removelatexerror}{\let\@latex@error\@gobble}
+\makeatother
+
+\newcommand{\md}{\textsf{-}}
+
+\newcommand{\fst}[1]{#1^{\text{st}}}
+\newcommand{\snd}[1]{#1^{\text{nd}}}
+\newcommand{\trd}[1]{#1^{\text{rd}}}
+\newcommand{\ith}[1]{#1^{\text{th}}}
+
+\newcommand{\eps}{\varepsilon}
+\newcommand{\mc}{\mathcal}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+
+% === General ===
+\newcommand{\ol}[1]{\overline{#1}}
+
+\newcommand{\true}{\mathtt{true}}
+\newcommand{\false}{\mathtt{false}}
+
+\newcommand{\spara}{k}
+
+\newcommand{\nop}{n}
+\newcommand{\party}{\mathsf p}
+\newcommand{\parties}{\mathcal{P}}
+
+\newcommand{\adv}{\ensuremath{\mathcal{A}}}
+\newcommand{\att}{\adv}
+\newcommand{\advLive}{\ensuremath{\mathcal{A}}_{\mathsf L}}
+
+\newcommand{\propName}{\textsc}
+
+\newcommand{\hout}[1]{h_{\mathsf{out},#1}}
+\newcommand{\hrest}{h_{\mathsf{rest}}}
+
+\newcommand{\es}{\eps}
+
+
+% === Theorem Environments ===
+
+\newtheoremstyle{putaneffinperiod}% name of the style to be used
+{\topsep}% measure of space to leave above the theorem. E.g.: 3pt
+{\topsep}% measure of space to leave below the theorem. E.g.: 3pt
+{\itshape}% name of font to use in the body of the theorem
+{0pt}% measure of space to indent
+{\bfseries}% name of head font
+{.}% punctuation between head and body
+{1em}% space after theorem head; " " = normal interword space
+{\thmname{#1}\thmnumber{ #2}\thmnote{ (#3)}}
+\theoremstyle{putaneffinperiod}
+
+\newtheorem{theorem}{Theorem}
+% \numberwithin{theorem}{chapter}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{claim}[theorem]{Claim}
+\newtheorem{definition}{Definition}
+% \numberwithin{definition}{chapter}
+\newtheorem{invariant}{Invariant}
+\newtheorem{axiom}[theorem]{Axiom}
+\newtheorem{postulate}{Postulate}
+\theoremstyle{definition}
+\newtheorem{example}{Example}
+\newtheorem{construction}{Construction}
+
+
+% === Transactions ===
+
+\newcommand{\tyBool}{\mathbb{B}}
+\newcommand{\tyNatural}{\mathbb{N}}
+\newcommand{\tyInteger}{\mathbb{Z}}
+\newcommand{\tyData}{\mathsf{Data}}
+\newcommand{\tyBytes}{\mathbb{H}}
+
+\newcommand{\datum}{\delta} % a datum
+\newcommand{\redeemer}{\rho} % a redeemer
+
+\newcommand{\txContext}{\gamma} % validation context
+\newcommand{\tyContext}{\Gamma} % type of contexts
+
+\newcommand{\val}{\mathsf{val}} % a value
+\newcommand{\tyValue}{\mathsf{Val}} % type of values
+
+\newcommand{\tx}{\mathrm{tx}}
+\newcommand{\txA}{\mathrm{txA}}
+\newcommand{\txB}{\mathrm{txB}}
+\newcommand{\validTx}{\mathsf{valid\md{}tx}}
+\newcommand{\applytx}{\circ}
+\newcommand{\Reach}{\mathsf{Reach}}
+
+\newcommand{\txTx}{\mathit{tx}}			% transaction value
+\newcommand{\txTxTy}{\mathit{Tx}}		% transaction type
+\newcommand{\txCIdTy}{\mathit{CId}}		% currency identifier type
+\newcommand{\txTokenTy}{\mathit{Token}}	        % currency token type
+\newcommand{\txKeys}{\kappa} % (public) keys signing the tx
+\newcommand{\tyKeys}{\mathcal{K}^*} % type of keys
+\newcommand{\txOutRef}{\phi} % output reference
+\newcommand{\tyOutRef}{\Phi} % type of output references
+\newcommand{\txInputs}{\mathcal{I}} % set of inputs
+\newcommand{\tyInputs}{\mathcal{I}^*} % type of input sets
+\newcommand{\txOutputs}{\mathcal{O}} % list of outputs
+\newcommand{\tyOutputs}{\mathcal{O}^*} % type of output lists
+\newcommand{\txMint}{\mathsf{mint}} % minted value
+\newcommand{\ID}{\mathsf{ID}}
+\newcommand{\txIdx}{\mathit{txIdx}}
+\newcommand{\txValidityMin}{t_{\mathsf{min}}}
+\newcommand{\txValidityMax}{t_{\mathsf{max}}}
+\newcommand{\tyValidity}{\mathcal{S}^{\leftrightarrow}} % type of validity intervals
+
+% other times and periods
+\newcommand{\cPer}{T}
+\newcommand{\Tfinal}{t_{\mathsf{final}}}
+
+\newcommand{\txIpend}{i_{\mathsf{pend}}}
+\newcommand{\txIpendSet}{I_{\mathsf{pend}}}
+
+\newcommand{\Tset}{T}
+\newcommand{\Uset}{U}
+\newcommand{\Uinit}{\Uset_{0}}
+\newcommand{\Ufinal}{\Uset_{\mathsf{final}}}
+
+\newcommand{\recordUTxO}{\mathsf{recordUTxO}}
+
+% === Multisignatures ===
+
+\newcommand{\ms}{\mathsf{MS}}
+
+\newcommand{\msSetup}{\mathsf{MS\md{}Setup}}
+\newcommand{\msKeyGen}{\mathsf{MS\md{}KG}}
+\newcommand{\msSign}{\mathsf{MS\md{}Sign}}
+\newcommand{\msVfy}{\mathsf{MS\md{}Verify}}
+\newcommand{\msComb}{\mathsf{MS\md{}ASig}}
+\newcommand{\msCombVK}{\mathsf{MS\md{}AVK}}
+\newcommand{\msCombVfy}{\mathsf{MS\md{}AVerify}}
+
+\newcommand{\msParams}{\Pi}
+\newcommand{\msSig}{\sigma}
+\newcommand{\msSigL}{\overline{\sigma}}
+\newcommand{\msCSig}{\tilde\sigma}
+\newcommand{\msVK}{k^{ver}}
+\newcommand{\msCVK}{\tilde{k}}
+\newcommand{\msVKL}{\overline{k}}
+\newcommand{\msSK}{k^{sig}}
+\newcommand{\msMsg}{m}
+
+\newcommand{\initial}[1]{\dot{#1}}
+%\newcommand{\chain}[1]{\dot{#1}}
+\newcommand{\sVK}{k_{\pu}}
+\newcommand{\sVKI}[1]{k_{#1,\pu}}
+\newcommand{\sVKII}[1]{\initial{k}_{#1,\pu}}
+\newcommand{\sSK}{k_{\pr}}
+\newcommand{\sSKI}[1]{k_{#1,\pr}}
+\newcommand{\sSKII}[1]{\initial{k}_{#1,\pr}}
+
+% === State Machines ===
+
+\newcommand{\cemS}{S_{\textsc{cem}}}
+\newcommand{\cemI}{I_{\textsc{cem}}}
+\newcommand{\cemIn}{i_{\textsc{cem}}}
+\newcommand{\cemOut}{o_{\textsc{cem}}}
+\newcommand{\cemValidator}{\nu_{\textsc{cem}}}
+\newcommand{\cemDatum}{\datum_{\textsc{cem}}}
+\newcommand{\cemRedeemer}{\redeemer_{\textsc{cem}}}
+\newcommand{\cemFinal}{\mathit{final}_{\textsc{cem}}}
+\newcommand{\cemStep}{\mathit{step}_{\textsc{cem}}}
+\newcommand{\cemStepRel}[4]{{#1}\overset{#2}\longrightarrow(#3, #4)}
+\newcommand{\cemTxCon}{\tx^\equiv}
+
+\newcommand{\cid}{\mathsf{cid}} % head id / currency id
+
+\newcommand{\st}{\mathsf{ST}}
+\newcommand{\pt}{\mathsf{PT}}
+
+% == Transactions ==
+
+\newcommand{\mtxInit}{\textit{init}}
+\newcommand{\mtxCom}{\textit{commit}}
+\newcommand{\mtxCommit}{\textit{commit}}
+\newcommand{\mtxCCom}{\textit{collectCom}}
+\newcommand{\mtxCollect}{\textit{collectCom}}
+\newcommand{\mtxDecrement}{\textit{decrement}}
+\newcommand{\mtxAbort}{\textit{abort}}
+\newcommand{\mtxClose}{\textit{close}}
+\newcommand{\mtxContest}{\textit{contest}}
+\newcommand{\mtxFinalize}{\textit{finalize}}
+\newcommand{\mtxFanout}{\textit{fanout}}
+\newcommand{\mtxSplit}{\textit{split}}
+\newcommand{\mtxCSN}{\textit{collectSN}}
+\newcommand{\mtxCHT}{\textit{collectHT}}
+\newcommand{\mtxSN}{\textit{SN}}
+\newcommand{\mtxHT}{\textit{HT}}
+
+% == States ==
+
+\newcommand{\stInitial}{\mathsf{initial}}
+\newcommand{\stOpen}{\mathsf{open}}
+\newcommand{\stClosed}{\mathsf{closed}}
+\newcommand{\stSnap}{\mathsf{newestSN}}
+\newcommand{\stFinal}{\mathsf{final}}
+
+\newcommand{\seed}{\txOutRef_{\mathsf{seed}}}
+\newcommand{\hMT}{h_{\mathsf{MT}}}
+\newcommand{\piMT}{\pi_{\mathsf{MT}}}
+\newcommand{\contesters}{\mathcal{C}}
+
+
+% == Inputs ==
+
+\newcommand{\stCollect}{\mathsf{collect}}
+\newcommand{\stClose}{\mathsf{close}}
+\newcommand{\stContest}{\mathsf{contest}}
+\newcommand{\stFanout}{\mathsf{fanout}}
+\newcommand{\stAbort}{\mathsf{abort}}
+
+
+% == Validators,values,datums,redeemers ==
+
+\newcommand{\muHead}{\mu_\mathsf{head}}
+\newcommand{\nuHead}{\nu_\mathsf{head}}
+\newcommand{\valHead}{\val_{\mathsf{head}}}
+\newcommand{\datumHead}{\datum_{\mathsf{head}}}
+\newcommand{\redeemerHead}{\redeemer_{\mathsf{head}}}
+
+\newcommand{\nuInitial}{\nu_{\mathsf{initial}}}
+\newcommand{\valInitial}[1]{\val_{\mathsf{initial}_{#1}}}
+\newcommand{\datumInitial}[1]{\datum_{\mathsf{initial}_{#1}}}
+\newcommand{\redeemerInitial}[1]{\redeemer_{\mathsf{initial}_{#1}}}
+
+\newcommand{\nuCommit}{\nu_{\mathsf{commit}}}
+\newcommand{\valCommit}[1]{\val_{\mathsf{commit}_{#1}}}
+\newcommand{\datumCommit}[1]{\datum_{\mathsf{commit}_{#1}}}
+\newcommand{\redeemerCommit}[1]{\redeemer_{\mathsf{commit}_{#1}}}
+
+\newcommand{\nuSnap}{\nu_\mathsf{SN}}
+\newcommand{\nuNewname}{\nu_\mathsf{newestSN}}
+\newcommand{\nuHang}{\nu_\mathsf{HT}}
+\newcommand{\nuFinal}{\nu_\mathsf{final}}
+
+
+% === Head Protocol ===
+
+% == Algorithms ==
+
+\newcommand{\HP}{\mathsf{HP}}
+\newcommand{\hpSetup}{\mathsf{Setup}}
+\newcommand{\hpKG}{\mathsf{KeyGen}}
+\newcommand{\hpAgg}{\mathsf{Agg}}
+\newcommand{\hpProt}{\mathsf{Prot}}
+
+
+% == Protocol ==
+
+\newcommand{\hpInit}{\mathtt{init}}
+\newcommand{\hpNew}{\mathtt{newTx}}
+\newcommand{\hpSeen}{\mathtt{seen}}
+\newcommand{\hpConf}{\mathtt{conf}}
+\newcommand{\hpSnap}{\mathtt{snap}}
+\newcommand{\hpDecommit}{\mathtt{decommit}}
+\newcommand{\hpClose}{\mathtt{close}}
+\newcommand{\hpCont}{\mathtt{cont}}
+\newcommand{\hpFO}{\mathtt{fanOut}}
+
+\ignore{
+	\newcommand{\obj}{\Omega}
+
+	\newcommand{\certreq}{\ensuremath{\mathtt{sigReq}}}
+	\newcommand{\certack}{\ensuremath{\mathtt{sigAck}}}
+	\newcommand{\certconf}{\ensuremath{\mathtt{sigConf}}}
+
+	\newcommand{\abortreq}{\ensuremath{\mathsf{abortReq}}}
+
+	\newcommand{\init}{\mathbf{Init}}
+	\newcommand{\gencert}{\mathbf{GenCert}}
+
+	\newcommand{\txobj}{\mathsf{txo}}
+	\newcommand{\genobj}{\mathsf{obj}}
+	\newcommand{\genset}{\mathsf{ObjSet}}
+	\newcommand{\gentxobj}{\mathsf{GenTxObj}}
+	\newcommand{\stateobj}{\ensuremath{u}}
+	\newcommand{\ack}{\mathsf{ack}}
+}
+
+% == Variables ==
+\newcommand{\pu}{\mathsf{ver}}
+\newcommand{\pr}{\mathsf{sig}}
+
+
+\newcommand{\hpParams}{\Sigma}
+\newcommand{\hpPu}{K_{\pu}}
+\newcommand{\hpPuv}{\underline{K}_\pu}
+\newcommand{\hpPui}[1]{K_{\pu,#1}}
+\newcommand{\hpPr}{K_{\pr}}
+\newcommand{\hpPri}[1]{K_{\pr,#1}}
+
+\newcommand{\hydraKey}{k_{\mathsf{H}}} % Single hydra verification key
+\newcommand{\hydraKeys}{\underline{k}_{\mathsf{H}}} % List of hydra keys
+\newcommand{\hydraKeysAgg}{\tilde{k}_{\mathsf{H}}} % Aggregated hydra key
+\newcommand{\hydraSigningKey}{\msSK_\mathsf{H}}
+\newcommand{\cardanoKey}{k_\mathsf{C}} % Single cardano verification keys
+\newcommand{\cardanoKeys}{\underline{k}_\mathsf{C}} % List of cardano keys
+\newcommand{\cardanoSigningKey}{\msSK_\mathsf{C}}
+\newcommand{\keyHash}{k^{\#}} % Some verification key hash
+
+\newcommand{\hpPuvInit}{\initial{\underline{K}}_\pu}
+
+\newcommand{\hydraKeysAggchain}{\hydraKeysAgg^{\mathsf{chain}}}
+\newcommand{\hydraKeysAgginit}{\hydraKeysAgg^{\mathsf{setup}}}
+
+%\newcommand{\initial}{\mathsf{init}}
+\newcommand{\daPuII}[1]{\initial{K}_{#1,\pu}}
+\newcommand{\daPrII}[1]{\initial{K}_{#1,\pr}}
+%\newcommand{\sVKI}{\mathsf{vk}^{\initial}}
+%\newcommand{\sSKI}{\mathsf{sk}^{\initial}}
+
+\newcommand{\cardanoKeysinit}{\initial{\underline{k}}_\pu}
+
+
+\newcommand{\hatv}{\hat v}
+\newcommand{\barv}{\bar v}
+\newcommand{\hats}{\hat s}
+\newcommand{\bars}{\bar s}
+\newcommand{\barsigma}{\bar{\sigma}}
+\newcommand{\hatSigma}{\hat{\Sigma}}
+\newcommand{\hatmU}{\hat {\mathcal U}}
+\newcommand{\barmU}{\bar {\mathcal U}}
+\newcommand{\mL}{{\mathcal L}}
+\newcommand{\hatmL}{\hat {\mathcal L}}
+\newcommand{\barmL}{\bar {\mathcal L}}
+\newcommand{\mT}{{\mathcal T}}
+\newcommand{\hatmT}{\hat {\mathcal T}}
+\newcommand{\hatmDT}{\Delta\hat {\mathcal T}}
+\newcommand{\hatmR}{\hat {\mathcal R}}
+\newcommand{\mH}{{\mathcal H}}
+
+\newcommand{\TR}{T_{\mathsf R}}
+\newcommand{\tTR}{\tilde T_{\mathsf R}}
+\newcommand{\tR}{\tilde R}
+
+\newcommand{\hpSigs}{S}
+
+\newcommand{\txo}{\mathsf{tx}}
+
+
+% == Commands ==
+
+\newcommand{\hpRG}{\mathtt{req}}
+\newcommand{\hpAG}{\mathtt{ack}}
+\newcommand{\hpCG}{\mathtt{conf}}
+
+\newcommand{\hpRT}{\mathtt{reqTx}}
+\newcommand{\hpAT}{\mathtt{ackTx}}
+\newcommand{\hpCT}{\mathtt{confTx}}
+
+\newcommand{\hpNS}{\mathtt{newSn}}
+\newcommand{\hpRS}{\mathtt{reqSn}}
+\newcommand{\hpRD}{\mathtt{reqDec}}
+\newcommand{\hpAS}{\mathtt{ackSn}}
+\newcommand{\hpCS}{\mathtt{confSn}}
+
+
+% == Functions ==
+
+\newcommand{\hash}{\mathsf{hash}}
+\newcommand{\bytes}{\mathsf{bytes}}
+\newcommand{\concat}{\mathsf{concat}}
+\newcommand{\sortOn}{\mathsf{sortOn}}
+\newcommand{\combine}{\mathsf{combine}}
+
+\newcommand{\Txo}{\mathsf{txObj}}
+\newcommand{\Sno}{\mathsf{snObj}}
+\newcommand{\ApplyMax}{\mathsf{uApplyMax}}
+
+\newcommand{\hpLdr}{\mathsf{leader}}
+\newcommand{\hpMT}{\mathsf{maxTxos}}
+
+\newcommand{\conf}{\mathsf{conflict}}
+\newcommand{\confTx}{\mathsf{conflict\md{}tx}}
+
+
+% == Projectors ==
+
+\newcommand{\hpProj}{_{\downarrow (\tx,\msCSig)}}
+\newcommand{\hpProjT}{_{\downarrow (\tx)}}
+\newcommand{\hpProjH}{_{\downarrow (\hash)}}
+\newcommand{\hpProjSig}{_{\downarrow (\msCSig)}}
+\newcommand{\hpProjHs}{_{\downarrow (\hash,\msCSig)}}
+\newcommand{\hpProjSo}{_{\downarrow (s,\outputset)}}
+\newcommand{\hpProjSos}{_{\downarrow (s,\outputset,\msCSig)}}
+
+\renewcommand{\hpProj}{^{\downarrow (\tx,\msCSig)}}
+\renewcommand{\hpProjT}{^{\downarrow (\tx)}}
+\renewcommand{\hpProjH}{^{\downarrow (\hash)}}
+\renewcommand{\hpProjSig}{^{\downarrow (\msCSig)}}
+\renewcommand{\hpProjHs}{^{\downarrow (\hash,\msCSig)}}
+\renewcommand{\hpProjSo}{^{\downarrow (s,\outputset)}}
+\renewcommand{\hpProjSos}{^{\downarrow (s,\outputset,\msCSig)}}
+
+
+% == Security ==
+
+\newcommand{\Ttilde}{\tilde{T}}
+\newcommand{\That}{\hat{T}}
+\newcommand{\Tbar}{\bar{T}}
+\renewcommand{\Ttilde}{\tilde{S}}
+\renewcommand{\That}{\hat{S}}
+\renewcommand{\Tbar}{\bar{C}}
+\newcommand{\Snapbar}{\bar{\Sigma}}
+
+\newcommand{\TxNewAll}{{\cal N}}
+
+\newcommand{\Hcont}{H_{\mathsf{cont}}}
+\newcommand{\honest}{\mathcal H}
+\newcommand{\contSet}{\mathcal C}
+\newcommand{\Cchain}{C_{\mathsf{chain}}}
+\newcommand{\USN}[1]{\mathrm{SN}_{#1}}
+\newcommand{\setSN}[1]{\tilde T_{#1}}
+\newcommand{\curSN}[1]{\mathrm{SN}_{\mathsf{cur},#1}}
+
+\newcommand{\INV}[1]{\mathsf{INV}_{#1}}
+
+\newcommand{\atti}[1]{^{(#1)}}
+
+% === Mediator Protocol ===
+\newcommand{\gcClientNewHead}{\mathtt{clientNewHead}}
+\newcommand{\gcClientTx}{\mathtt{clientTx}}
+\newcommand{\gcClientClose}{\mathtt{closeTx}}
+\newcommand{\gcChainInitial}{\mathtt{initialTx}}
+\newcommand{\gcChainCollectCom}{\mathtt{collectComTx}}
+\newcommand{\gcChainClose}{\mathtt{closeTx}}
+\newcommand{\gcChainContest}{\mathtt{contestTx}}
+\newcommand{\gcChainFanout}{\mathtt{fanoutTx}}
+\newcommand{\gcChainAbort}{\mathtt{abortTx}}
+\newcommand{\gcChainCommit}{\mathtt{commitTx}}
+\newcommand{\gcChainInitialTO}{\mathtt{chainInitialTimeOut}}
+\newcommand{\gcChainClosedTO}{\mathtt{chainClosedTimeOut}}
+
+\newcommand{\gcChainRef}{\mathsf{chain}}
+\newcommand{\gcClientRef}{\mathsf{client}}
+\newcommand{\gcHeadRef}{\mathsf{head}}
+\newcommand{\gcChainPost}{\mathsf{postTx}}
+\newcommand{\gcUTXOset}{\mathsf{UTxOs}}
+\SetKw{Call}{call}
+
+
+% === On-Chain Verification ===
+
+% == Algorithms and Oracles ==
+
+\newcommand{\ocvInitial}{\mathsf{Initial}}
+\newcommand{\ocvFinalize}{\mathsf{Finalize}}
+\newcommand{\ocvClose}{\mathsf{Close}}
+\newcommand{\ocvContest}{\mathsf{Contest}}
+\newcommand{\ocvFinal}{\mathsf{Final}}
+
+\newcommand{\ocvIncrement}{\mathsf{Increment}}
+\newcommand{\ocvDecrement}{\mathsf{Decrement}}
+
+\newcommand{\ocvSnapshot}{\mathsf{Snapshot}}
+\newcommand{\ocvValidSnap}{\mathsf{ValidSN}}
+\newcommand{\ocvValidHang}{\mathsf{ValidHT}}
+
+\newcommand{\ocvClaim}{\mathsf{Claim}}
+\newcommand{\ocvAllocate}{\mathsf{Allocate}}
+\newcommand{\ocvFanout}{\mathsf{Fanout}}
+
+\SetKwFor{OocvInitial}{$\ocvInitial$}{}{enddo}
+\SetKwFor{OocvFinalize}{$\ocvFinalize$}{}{enddo}
+\SetKwFor{OocvClose}{$\ocvClose$}{}{enddo}
+\SetKwFor{OocvContest}{$\ocvContest$}{}{enddo}
+\SetKwFor{OocvFinal}{$\ocvFinal$}{}{enddo}
+
+\SetKwFor{OocvClaim}{$\ocvClaim$}{}{enddo}
+\SetKwFor{OocvAllocate}{$\ocvAllocate$}{}{enddo}
+\SetKwFor{OocvFanout}{$\ocvFanout$}{}{enddo}
+
+
+% == Variables ==
+
+\newcommand{\hInit}{\hash_{\mathsf{init}}}
+\newcommand{\imax}{i_{\mathsf{max}}}
+\newcommand{\symFinal}{\mathtt{final}}
+
+
+% == Functions ==
+
+\newcommand{\applicable}{\mathsf{applicable}}
+
+
+% === Algorithms ===
+
+% == Misc ==
+
+% \setlength{\algomargin}{0em}
+
+
+% == Boxes ==
+
+\newenvironment{algobox}[1]%
+{
+	\begin{tabularx}{\textwidth}{X c X}
+		\hline
+		\rowcolor{gray!20}
+		 & \textbf{#1} & \\
+		\hline
+	\end{tabularx}
+
+	\vspace{-1.5em}
+
+	\begin{center}
+		}
+		{
+	\end{center}
+
+	\vspace{-1.5em}
+
+	\begin{tabularx}{\textwidth}{X c X}
+		\hline
+	\end{tabularx}
+
+	\vspace{0.5em}
+}
+
+\newenvironment{walgo}[1]%
+{
+	\begin{minipage}{#1\linewidth}
+		\begingroup
+		\removelatexerror% Nullify \@latex@error
+		\begin{algorithm}[H]
+			}
+			{
+		\end{algorithm}
+		\endgroup
+	\end{minipage}
+}
+
+
+% == Keywords ==
+
+\SetKwFor{Check}{check}{}{enddo}
+
+
+% == DA Game ==
+
+%\newcommand{\algoskip}{\vspace{2pt}}
+
+\SetKwIF{If}{ElseIf}{Else}{if}{}{else if}{else}{end if}
+\SetKwFor{For}{for}{}{end for}
+
+\SetKwFor{On}{on}{}{enddo}
+\SetKwFor{Function}{function}{}{enddo}
+\SetKwFor{PFunction}{public function}{}{enddo}
+\SetKw{Out}{output}
+\SetKw{Req}{require}
+\SetKwFor{ForA}{for all}{}{enddo}
+\SetKwFor{While}{while}{}{enddo}
+\SetKwFor{Wait}{wait}{}{enddo}
+\SetKw{KwWait}{wait} % without body
+\SetKw{IfI}{if}
+\SetKw{ThenI}{then}
+\SetKw{ElsI}{else}
+\SetKw{FiI}{fi}
+
+\newcommand{\daPID}{\mathsf{ID}}
+
+\newcommand{\daGlobal}{\Sigma}
+\newcommand{\daPu}{K_{\pu}}
+\newcommand{\daPuV}{\bar K_{\pu}}
+\newcommand{\daPuI}[1]{K_{#1,\pu}}
+\newcommand{\daPr}{K_{\pr}}
+\newcommand{\daPrI}[1]{K_{#1,\pr}}
+
+\newcommand{\daCInit}{\mathtt{init}}
+\newcommand{\daCNew}{\mathtt{new}}
+\newcommand{\daCSeen}{\mathtt{seen}}
+\newcommand{\daCConf}{\mathtt{conf}}
+\newcommand{\daCCert}{\mathtt{cert}}
+\newcommand{\daCComp}{\mathtt{comp}}
+
+\SetKw{New}{new}
+\SetKw{KwOn}{on}
+\SetKw{Send}{send}
+\SetKw{Multi}{multicast}
+\SetKw{PostTx}{postTx}
+\newcommand{\Store}{\mathsf{store}}
+\newcommand{\Sign}{\mathsf{sign}}
+\newcommand{\Combine}{\mathsf{sigCombine}}
+\newcommand{\Verify}{\mathsf{SigVerify}}
+\newcommand{\Complete}{\mathsf{Complete}}
+
+\newcommand{\hyPu}{\msCVK}
+\newcommand{\hyPr}{\msSK}
+
+
+% === Merkle-Patricia Trees ===
+
+% == Misc ==
+
+\newcommand{\MPTalph}{A}
+
+% == Algorithms ==
+
+\newcommand{\MPTInit}{\mathsf{MPT\md{}Init}}
+\newcommand{\MPTHash}{\mathsf{MPT\md{}Hash}}
+\newcommand{\MPTMemb}{\mathsf{MPT\md{}Memb}}
+
+\newcommand{\MPTBuild}{\mathsf{MPT\md{}Build}}
+\newcommand{\MPTPath}{\mathsf{MPT\md{}Path}}
+
+
+% == Hash Computations ==
+
+\newcommand{\MPTverMemb}{\mathsf{MPT\md{}VfyMemb}}
+\newcommand{\MPTcompRA}{\mathsf{MPT\md{}CompRA}}
+\newcommand{\MPTcompSpl}{\mathsf{MPT\md{}CompSpl}}
+
+
+% == Helpers ==
+
+\newcommand{\CP}{\mathsf{CP}}
+\newcommand{\RP}{\mathsf{RP}}
+\newcommand{\Proj}{\mathsf{Proj}}
+\newcommand{\Sum}{\mathsf{Sum}}
+\newcommand{\Size}{\mathsf{Size}}
+\newcommand{\First}{\mathsf{First}}
+
+
+% == Oracles ==
+
+\SetKwFor{MPTAInit}{\sf MPT-Init}{}{enddo}
+
+\SetKwBlock{MPTAHash}{\sf MPT-Hash}{enddo}
+\SetKwFor{MPTAMemb}{\sf MPT-Memb}{}{enddo}
+
+\SetKwFor{MPTABuild}{\sf MPT-Build}{}{enddo}
+\SetKwFor{MPTAPath}{\sf MPT-Path}{}{enddo}
+
+
+% == Variables ==
+
+\newcommand{\MPTroot}{h_{\mathsf{root}}}
+\newcommand{\MPTnodes}{N}
+\newcommand{\MPTpre}{\mathsf{pre}}
+\newcommand{\MPTnode}{\mathsf{node}}
+\newcommand{\MPTleaf}{\mathsf{leaf}}
+\newcommand{\MPTkey}{k}
+\newcommand{\MPTvalue}{v}
+\newcommand{\MPTaux}{\mathsf{aux}}
+\newcommand{\MPTsplit}{\mathsf{split}}
+
+
+
+
+% == MF ==
+\newcommand{\mf}[1]{{\color{red} {#1}}}
+% \newcommand{\mfold}[1]{{\color{red}\sout{#1}}}
+% \newcommand{\mfreplace}[2]{{\color{red}\sout{#1} {#2}}}
+\newcommand{\symdif}{\stackrel{\cdot}{\cup}}
+\newcommand{\defeq}{\stackrel{\triangle}{=}}
+\newcommand{\sigmaterial}{\Phi}
+
+\newcommand{\dparagraph}[1]{\smallskip\noindent\textbf{#1}}
+
+\newcommand{\pvspace}{\vspace{8pt}}
+
+
+
+% == Affiliations ==
+
+\newcommand*\sameaffil[1][\value{footnote}]{\footnotemark[#1]}
+
+
+% == Narrow Itemize ==
+\newenvironment{sitemize}[1] %
+{\itemize\setlength\itemsep{0em}} %
+{\enditemize}
+
+\newenvironment{senumerate} %
+{\enumerate\setlength\itemsep{0em}} %
+{\endenumerate}
+
+\newenvironment{sdescription} %
+{\description\setlength\itemsep{0em}} %
+{\enddescription}
+
+\newenvironment{mitemize} %
+{\itemize\setlength\itemsep{0.25em}} %
+{\enditemize}
+
+\newenvironment{menumerate} %
+{\enumerate\setlength\itemsep{0.25em}} %
+{\endenumerate}
+
+\newenvironment{mdescription} %
+{\description\setlength\itemsep{0.25em}} %
+{\enddescription}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End:

@@ -21,7 +21,6 @@
     cardano-node.url = "github:intersectmbo/cardano-node/9.1.0";
     mithril.url = "github:input-output-hk/mithril/2428.0";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
   };
 
   outputs =
@@ -131,7 +130,9 @@
           packages =
             hydraPackages //
             (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
-              spec = inputs.hydra-spec.packages.${system}.default;
+              spec = import ./spec {
+                inherit pkgs;
+              };
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
