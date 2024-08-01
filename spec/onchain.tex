@@ -330,8 +330,8 @@ add a UTxO to an already open head and consists of:
 \end{itemize}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{increment}, \xi, \txOutRef_{\mathsf{increment}})$, where $\xi$ is a multi-signature of
-the increment snapshot which authorizes addition of some UTxO $U_\alpha$ and $\txOutRef_{\mathsf{increment}}$ are the output references we need to spend. The
+$\redeemerHead = (\mathsf{increment}, \xi, $s$, \txOutRef_{\mathsf{increment}})$, where $\xi$ is a multi-signature of
+the increment snapshot which authorizes addition of some UTxO $U_\alpha$, $s$ is the snapshot number and $\txOutRef_{\mathsf{increment}}$ are the output references we need to spend. The
 validator checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
@@ -350,7 +350,7 @@ validator checks:
 	\]
   where snapshot number $s$ is provided through the redeemer, $\eta_\alpha$ is the digest of all added UTxO.
 	\[
-		\eta_\alpha = \hash(\bigoplus_{j=1}^m \bytes(i_{j}))
+    \eta_\alpha = \hash(\bigoplus_{j=1}^m \bytes(o_{\mathsf{increment}_j}))
 	\]
 	\item The value in the head output is increased accordingly
 	\todo{Redundant to above? Only check $\valHead' > \valHead$?}
@@ -470,9 +470,9 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 			\eta' = \eta
 		\]
     \red{
-		  \item $\mathsf{UnusedInc}$: Closing snapshot refers to current state version $v$ and any UTxO to increment must be $\bot$ in the closed state.
+		  \item $\mathsf{UnusedInc}$: Closing snapshot refers to current state version $v$ and any UTxO to increment must not be recorded in the closed state.
 		  \[
-		  	\eta_\alpha = \eta_\Delta' = \bot
+		  	\eta_\alpha = \eta_\Delta'
 		  \]
 		  \[
 		  	\eta_\omega = \bot
@@ -494,11 +494,9 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 		\[
       \msVfy(\hydraKeys,(\cid || v || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
 		\]
-    which implies $\eta_\Delta' = \eta_\omega$.
-		% TODO: put more into the redeemer to simplify?
 		\todo{this is hard to understand}
     \red{
-		  \item $\mathsf{UsedInc}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to increment of the closing snapshot must be recorded in the closed state.
+		  \item $\mathsf{UsedInc}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to increment must be recorded in the closed state.
 		  \[
 		  	\eta_\alpha = \eta_\Delta' \neq \bot
 		  \]
@@ -508,9 +506,8 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 		  \[
 		  	\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_\alpha || \eta_\omega ),\xi) = \true
 		  \]
-      which implies $\eta_\Delta' = \eta_\alpha$.
     }
-		\item $\mathsf{UsedDec}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decrement of the closing snapshot must not be recorded in the closed state.
+		\item $\mathsf{UsedDec}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decrement must not be recorded in the closed state.
 		\[
 	 		\eta_\omega = \eta_\Delta' = \bot
 		\]
@@ -609,21 +606,21 @@ $\mathsf{ContestType}$ is a hint how to verify the snapshot and checks:
 		\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_\alpha || \eta_\omega),\xi) = \true
 		\]
 		where $\eta_\alpha$ is provided by the redeemer \footnote{$\eta_\alpha$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.}
+
 		\item $\mathsf{UnusedDec}$: Contesting snapshot refers to current state version $v$ and any UTxO to decrement need to be present in the closed state too.
 		\[
 			\eta_\omega = \eta_\Delta' \neq \bot
 		\]
-	\red{
-		\[
-		\eta_\alpha = \bot
-		\]
-	}
+    \red{
+		  \[
+		  	\eta_\alpha = \bot
+		  \]
+    }
 		\[
       \msVfy(\hydraKeys,(\cid || v || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
 		\]
-    which implies $\eta_\Delta' = \eta_\omega$.
     \red{
-		  \item $\mathsf{UsedInc}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to increment of the closing snapshot must be recorded in the closed state.
+		  \item $\mathsf{UsedInc}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to increment must be recorded in the closed state.
 		  \[
 		  	\eta_\alpha = \eta_\Delta' \neq \bot
 		  \]
@@ -633,9 +630,9 @@ $\mathsf{ContestType}$ is a hint how to verify the snapshot and checks:
 		  \[
 		  	\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_\alpha || \eta_\omega ),\xi) = \true
 		  \]
-      which implies $\eta_\Delta' = \eta_\alpha$.
     }
-		\item $\mathsf{UsedDec}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decrement of the closing snapshot must not be recorded in the closed state.
+
+		\item $\mathsf{UsedDec}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decrement must not be recorded in the closed state.
 		\[
 	 		\eta_\omega = \eta_\Delta' = \bot
 		\]

@@ -74,7 +74,7 @@
 								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
-									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT,\tx_\omega\red{,\tx_\alpha})$ \;
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT \red{,\tx_\alpha}, \tx_\omega)$ \;
 								}
 							}
 						}
@@ -82,7 +82,7 @@
 						\vspace{12pt}
 
 						%%% REQ SN
-						\On{$(\hpRS,v,s,\mT_{\mathsf{req}}, \tx_\omega \red{, \tx_\alpha})$ from $\party_j$}{
+						\On{$(\hpRS,v,s,\mT_{\mathsf{req}} \red{, \tx_\alpha} , \tx_\omega)$ from $\party_j$}{
 							\red{\Req{$\tx_\omega = \bot ~ \lor ~ \tx_\alpha = \bot$}} \;
 							\Req{$v = \hatv ~ \land ~ s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\hats = \bar{\mc S}.s$}{
@@ -127,7 +127,7 @@
 								$\tx_\omega \gets \tx$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
-									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT,\tx_\omega\red{,\tx_\alpha})$ \;
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT \red{,\tx_\alpha},\tx_\omega)$ \;
 								}
 							}
 						}
@@ -202,8 +202,6 @@
 
 								\red{$\eta_\alpha \gets \mathsf{combine}(\mathsf{inputs}(\tx_\alpha))$ \;}
 								$\eta_\omega \gets \mathsf{combine}(\mathsf{outputs}(\tx_\omega))$ \;
-								% FIXME: The ReqSn does not resolve any conflicting views of seen tx_\omega and tx_\alpha
-
 								% NOTE: Implementation differs here and
 								% below as it stores seen version in seen
 								% snapshot and uses that to verify
@@ -235,8 +233,8 @@
 					% CLOSE from client
 					\On{$(\hpClose)$ from client}{
 						$\eta \gets \combine(\bar{\mc S}.U)$ \;
-						$\eta_\omega \gets \red{\bar{\mc S}.U_\omega}$ \;
-						\red{$\eta_\alpha \gets \bar{\mc S}.U_\alpha$ \;}
+						$\eta_\omega \gets \combine(\bar{\mc S}.U_\omega)$ \;
+						\red{$\eta_\alpha \gets \combine(\bar{\mc S}.U_\alpha$) \;}
 						$\xi \gets \bar{\mc S}.\sigma$ \;
 						% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
 						$\PostTx{}~(\mtxClose, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta \red{, \eta_\alpha}, \eta_\omega, \xi)$ \;
@@ -245,8 +243,8 @@
 					\On{$(\gcChainClose, \eta) \lor (\gcChainContest, s_{c}, \eta)$ from chain}{
 						\If{$\bar{\mc S}.s > s_{c}$}{
 							$\eta \gets \combine(\bar{\mc S}.U)$ \;
-							$\eta_\omega \gets \red{\bar{\mc S}.U_\omega}$ \;
-							\red{$\eta_\alpha \gets \bar{\mc S}.U_\alpha$ \;}
+							$\eta_\omega \gets \combine({\bar{\mc S}.U_\omega})$ \;
+							\red{$\eta_\alpha \gets \combine(\bar{\mc S}.U_\alpha$) \;}
 							$\xi \gets \bar{\mc S}.\sigma$ \;
 							% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
 							$\PostTx{}~(\mtxContest, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta \red{, \eta_\alpha}, \eta_\omega , \xi)$ \;

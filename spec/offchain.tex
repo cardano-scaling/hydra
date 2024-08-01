@@ -131,7 +131,7 @@ party's local state consists of the following variables:
 				$\bar{\mc S}.\sigma$    & multisignature \\ \hline
 			\end{tabular}
 		\end{center}
-    The function $\Sno(v,n,U,T,\red{\mathsf{inputs}(tx_\alpha)}, \mathsf{outputs}(tx_\omega))$ initializes a snapshot object with no multi-signature set.
+    The function $\Sno(v,n,U,T,\red{U_\alpha}, U_\omega)$ initializes a snapshot object with no multi-signature set.
 	 \todo{handwavy; types?}
 
 \end{itemize}
@@ -168,7 +168,8 @@ transaction, the parties compute $\Uinit \gets \bigcup_{j=1}^{n} C_j$ using prev
 observed $C_j$ and initialize $\hatmL = \Uinit$. The seen transaction set is
 initialized empty $\hatmT = \emptyset$, seen head state version $\hatv = 0$, as
 well as snapshot number $\hats = 0$. No \red{increment/}decrement UTxO is pending
-($U_\alpha = \mathsf{inputs}(\tx_\alpha) = \bot \land U_\omega = \mathsf{outputs}(\tx_\omega) = \bot$) and the initial snapshot object is defined accordingly
+($U_\alpha = \mathsf{inputs}(\tx_\alpha) = \bot \land U_\omega = \mathsf{outputs}(\tx_\omega) = \bot$)
+and the initial snapshot object is defined accordingly
 $\bar{\mc S} \gets \blue{\Sno(0, 0, \Uinit, \emptyset, \red{U_\alpha}, U_\omega)}$.
 
 \subsubsection{Processing transactions off-chain}
@@ -189,17 +190,16 @@ applying and if there is no current snapshot in flight ($\hats = \bar{\mc S}.s$)
 receiving party $\party_{i}$ is the next snapshot
 leader, a message to request snapshot signatures $\hpRS$ is sent. \\
 
-\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx_\omega)$, \red{if
-  another decrement (or increment) is pending to be settled the transaction is
-  rejected. Otherwise} the transaction is checked against the \emph{local}
-  ledger state and if it is not applicable yet or another decommit is still, the protocol does $\KwWait$ to
-  retry later or eventually marks the decommit as invalid. \red{After applying $\tx$, it's inputs
-  are removed from \emph{local} ledger state so that they are not available any
-  more and the outputs are kept in the local state ($U_\omega$) to be posted
-  on-chain in the next snapshot.} Finally, if there is no current snapshot in flight
-  ($\hats = \bar{\mc S}.s$) and the receiving party $\party_{i}$ is the next
-  snapshot leader, a message to request snapshot signatures $\hpRS$ containing
-  the decrement transaction $\tx_\omega$ is sent. \\
+\dparagraph{$\hpRD$.}\quad Upon receiving request $(\hpRD,\tx_\omega)$, the transaction is
+checked against the \emph{local} ledger state and if it is not applicable yet or another
+commit or decommit is pending still, the protocol does $\KwWait$ to retry later or
+eventually marks the decommit as invalid. \red{After applying $\tx$, it's inputs
+are removed from \emph{local} ledger state so that they are not available any
+more and the outputs are kept in the local state ($U_\omega$) to be posted
+on-chain in the next snapshot.} Finally, if there is no current snapshot in flight
+($\hats = \bar{\mc S}.s$) and the receiving party $\party_{i}$ is the next
+snapshot leader, a message to request snapshot signatures $\hpRS$ containing
+the decrement transaction $\tx_\omega$ is sent. \\
 
 \dparagraph{$\mathtt{decrementTx}$.}\quad Upon observing the \mtxDecrement{}
 transaction, which removed outputs $U$ from the head, the corresponding
@@ -208,9 +208,9 @@ snapshots by setting $\hatv \gets v$.  Note that the version of the open head st
 is incremented on each \mtxDecrement{} transaction as described in Section~\ref{sec:decrement-tx}
 \todo{missing to mention the multicast of $\hpRS$} \\
 
-\red{\dparagraph{$\hpRI$.}\quad Upon receiving request $(\hpRI,\tx)$, if
-  another decrement (or increment) is pending to be settled the transaction is
-  rejected. Otherwise the transaction inputs are kept in the local state ($U_\alpha$) to be included
+\red{\dparagraph{$\hpRI$.}\quad Upon receiving request $(\hpRI,\tx)$, if another commit or decommit
+  is pending, the protocol does wait to retry later or eventually marks the decommit as invalid.
+  Otherwise the transaction inputs are kept in the local state ($U_\alpha$) to be included
   in the \emph{local} ledger state upon observing the relevant transaction on-chain.
   Finally, if there is no current snapshot in flight ($\hats = \bar{\mc S}.s$) and the
   receiving party $\party_{i}$ is the next snapshot leader, a message to request
@@ -234,15 +234,7 @@ $\party_j$, the receiving $\party_i$ $\Req$s that $v$ refers to the current
 open state version, $s$ is the next snapshot number
 and that party $\party_j$ is responsible for leading its creation.\todo{define
 	$\hpLdr$} Party $\party_i$ may has to $\KwWait$ until the previous snapshot is
-  confirmed ($\bar{\mc S}.s = \hats$). Then either:
-\begin{itemize}
-  \item
-    there is a pending decrement and we check that $\tx_\omega$ transaction is applicable to the last confirmed
-	  UTxO set $\bar{\mc S}.U$ and it's outputs are removed, yielding the still active UTxO set $U_{\mathsf{active}}$
-\red{\item
-    there is a pending increment $\tx_\alpha$ which inputs will be made available in the active UTxO set
-	$U_{\mathsf{active}}$}
-\end{itemize}
+  confirmed ($\bar{\mc S}.s = \hats$).
   Then, all requested transactions $\mT_{\mathsf{req}}$ are $\Req$d to be applicable
   to $U_{\mathsf{active}}$,
   otherwise the snapshot is rejected as invalid. Only then, $\party_i$ increments
