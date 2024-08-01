@@ -47,10 +47,11 @@
 							$\Uinit \gets \bigcup_{j=1}^{n} U_j$ \;
 							% $\Out~(\hpSnap,(0,U_0))$ \;
 							$\hatmL \gets \Uinit$ \;
-							$\bar{\mc S} \gets \blue{\Sno(0, 0, \Uinit, \emptyset, \bot)}$ \;
+							$\bar{\mc S} \gets \blue{\Sno(0, 0, \Uinit, \emptyset, \bot \red{, \bot})}$ \;
 							$\hatv, \hats \gets 0$ \;
 							$\hatmT \gets \emptyset$ \;
-							$\tx_{\omega} \gets \bot$ \;
+							$\tx_\omega \gets \bot$ \;
+							\red{$\tx_\alpha \gets \bot$ \;}
 						}
 
 					\end{walgo}
@@ -73,7 +74,7 @@
 								$\hatmT \gets \hatmT \cup \{\tx\}$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
-									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1, \hatmT, \tx_{\omega})$ \;
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT \red{,\tx_\alpha}, \tx_\omega)$ \;
 								}
 							}
 						}
@@ -81,21 +82,24 @@
 						\vspace{12pt}
 
 						%%% REQ SN
-						\On{$(\hpRS,v,s,\mT_{\mathsf{req}}, \tx_{\omega})$ from $\party_j$}{
+						\On{$(\hpRS,v,s,\mT_{\mathsf{req}} \red{, \tx_\alpha} , \tx_\omega)$ from $\party_j$}{
+							\red{\Req{$\tx_\omega = \bot ~ \lor ~ \tx_\alpha = \bot$}} \;
 							\Req{$v = \hatv ~ \land ~ s = \hats + 1 ~ \land ~ \hpLdr(s) = j$} \;
 							\Wait{$\hats = \bar{\mc S}.s$}{
-								\Req{$\bar{\mc S}.U \applytx \tx_{\omega} \not= \bot$} \;
-								$U_{\mathsf{active}} \gets \bar{\mc S}.U \applytx \tx_{\omega} \setminus \mathsf{outputs(\tx_{\omega})}$ \;
+								\blue{
+									\Req{$\bar{\mc S}.U \applytx \tx_\omega \not= \bot$} \;
+									$U_{\mathsf{active}} \gets \bar{\mc S}.U \applytx \tx_\omega \setminus \mathsf{outputs(\tx_\omega)}$ \;
+								}
 								\Req{$U_{\mathsf{active}} \applytx \mT_{\mathsf{req}} \not= \bot$} \;
 								$U \gets U_{\mathsf{active}} \applytx \mT_{\mathsf{req}}$ \;
 								$\hats \gets s$ \;
 								% TODO: DRY message creation
 								$\eta \gets \combine(U)$ \;
-								% TODO: handwavy combine/outputs here
-								$\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))$ \;
+								\red{$\eta_\alpha \gets \mathsf{combine}(\mathsf{inputs}(\tx_\alpha))$ \;}
+								$\eta_\omega \gets \mathsf{combine}(\mathsf{outputs}(\tx_\omega))$ \;
 								% NOTE: WE could make included transactions auditable by adding
 								% a merkle tree root to the (signed) snapshot data \eta
-								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || v || \hats || \eta || \eta_{\omega}))$ \;
+								$\msSig_i \gets \msSign(\hydraSigningKey, (\cid || v || \hats || \eta \red{ || \eta_\alpha} || \eta_\omega))$ \;
 								$\hatSigma \gets \emptyset$ \;
 								$\Multi{}~(\hpAS,\hats,\msSig_i)$ \;
 								$\forall \tx \in \mT_{\mathsf{req}}: \Out~(\hpSeen,\tx)$ \;
@@ -116,13 +120,14 @@
 				\adjustbox{valign=t,scale=\sfact}{
 					\begin{walgo}{0.7}
 						%%% REC DEC
+						% \delta \in \tx_\omega
 						\On{$(\mathtt{reqDec},\tx)$ from $\party_j$}{
-							\Wait{$\tx_\omega = \bot ~ \land ~ \hatmL \applytx \tx \not= \bot$}{
+							\Wait{$\tx_\omega \red{= \tx_{\alpha}} = \bot ~ \land ~ \hatmL \applytx \tx_ \not= \bot$}{
 								$\hatmL \gets \hatmL \applytx \tx \setminus \mathsf{outputs}(\tx)$ \;
 								$\tx_\omega \gets \tx$ \;
 								% issue snapshot if we are leader
 								\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
-									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT, \tx_{\omega})$ \;
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT \red{,\tx_\alpha},\tx_\omega)$ \;
 								}
 							}
 						}
@@ -139,83 +144,116 @@
 
 						\vspace{12pt}
 
-						%%% ACK SN
-						\On{$(\hpAS,s,\msSig_j)$ from $\party_j$}{
-							\Req{} $s \in \{\hats,\hats+1\}$ \;
-							\Wait{$\hats=s$}{
-								\Req{} $(j, \cdot) \notin \hatSigma$ \;
-								$\hatSigma[j] \gets \sigma_{j}$ \;
-								\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{
-									% TODO: MS-ASig used different than in the preliminaries
-									$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \;
-
-									% TODO: DRY message creation
-									$\eta \gets \combine(\hatmU)$ \;
-									$\eta_{\omega} \gets \combine(\mathsf{outputs}(\tx_{\omega}))$ \;
-
-									% NOTE: Implementation differs here and
-									% below as it stores seen version in seen
-									% snapshot and uses that to verify
-									\Req{} $\msVfy(\hydraKeysAgg, (\cid || \blue{\hatv ||} \hats || \eta || \eta_{\omega}), \msCSig)$ \;
-									% create confirmed snapshot for later reference
-									\blue{$\bar{\mc S} \gets \Sno(\hatv, \hats, \hatmU, \hatmT , \tx_{\omega})$ \;}
-									$\bar{\mc S}.\sigma \gets \msCSig$ \;
-
-									%$\Out~(\hpSnap,(\bar{\mc S}.s,\bar{\mc S}.U))$ \;
-									$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
-									\If{${\bar S}.\tx_{\omega} \ne \bot$}{
-										$\PostTx{}~(\mtxDecrement, \hatv, \hats, \eta, \eta_{\omega})$ \;
-										% NOTE: Needed for security?
-										\blue{$\Out (\hpConf,\tx_{\omega})$ \;}
-									}
+						%%% REC INC
+						\red{
+							\On{$(\mathtt{reqInc}, \tx)$ from $\party_j$}{
+								\Wait{$\tx_\alpha = \tx_{\omega} = \bot$}{
+									$\tx_\alpha \gets \tx$\;
 									% issue snapshot if we are leader
-									\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
-										\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1, \hatmT, \tx_{\omega})$ \;
+									\If{$\hats = \bar{\mc S}.s \land \hpLdr(\bar{\mc S}.s + 1) = i$}{
+                    \Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1,\hatmT, \red{\tx_\alpha} , \tx_\omega)$ \;
 									}
 								}
 							}
 						}
-					\end{walgo}
-				}
-			\end{tabular}
 
-			\\
-			\multicolumn{1}{l}{\line(1,0){490}}
-			\\
+						\vspace{12pt}
 
-			%%% Closing the head
-			\begin{tabular}{c c}
-				\adjustbox{valign=t,scale=\sfact}{
-					\begin{walgo}{0.6}
-						% CLOSE from client
-						\On{$(\hpClose)$ from client}{
-							$\eta \gets \combine(\bar{\mc S}.U)$ \;
-							$\eta_\omega \gets \combine(\mathsf{outputs}(\bar{\mc S}.\tx_\omega))$ \;
-							$\xi \gets \bar{\mc S}.\sigma$ \;
-							% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
-							$\PostTx{}~(\mtxClose, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta, \eta_{\omega}, \xi)$ \;
-						}
-					\end{walgo}
-				}
-				 &
-				\adjustbox{valign=t,scale=\sfact}{
-					\begin{walgo}{0.6}
-						\On{$(\gcChainClose, \eta) \lor (\gcChainContest, s_{c}, \eta)$ from chain}{
-							\If{$\bar{\mc S}.s > s_{c}$}{
-								$\eta \gets \combine(\bar{\mc S}.U)$ \;
-								$\eta_\omega \gets \combine(\mathsf{outputs}(\bar{\mc S}.\tx_\omega))$ \;
-								$\xi \gets \bar{\mc S}.\sigma$ \;
-								% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
-								$\PostTx{}~(\mtxContest, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta, \eta_{\omega}, \xi)$ \;
+						%%% INCREMENT
+						\red{\On{$(\mathtt{incrementTx}, U, v)$ from chain}{
+								\If{$\mathsf{inputs}(\tx_\alpha) = U$}{
+									$\hatmL \gets \hatmL \cup U$ \;
+									$\tx_\alpha \gets \bot$\;
+									$\hatv \gets v$ \;
+								}
 							}
 						}
+
 					\end{walgo}
 				}
 			\end{tabular}
 		\end{tabular}
-		\bigskip
 	\end{algobox}
 
+\end{figure*}
+\clearpage
+\begin{figure*}[t!]
+
+	\def\sfact{0.8}
+	\begin{tabular}{c}
+		\\
+		\multicolumn{1}{l}{\line(1,0){490}}
+		\\
+		\begin{tabular}{c c}
+			\adjustbox{valign=t,scale=\sfact}{
+				\begin{walgo}{0.6}
+					%%% ACK SN
+					\On{$(\hpAS,s,\msSig_j)$ from $\party_j$}{
+						\Req{} $s \in \{\hats,\hats+1\}$ \;
+						\Wait{$\hats=s$}{
+							\Req{} $(j, \cdot) \notin \hatSigma$ \;
+							$\hatSigma[j] \gets \sigma_{j}$ \;
+							\If{$\forall k \in [1..n]: (k,\cdot) \in \hatSigma$}{
+								% TODO: MS-ASig used different than in the preliminaries
+								$\msCSig \gets \msComb(\hydraKeys^{setup}, \hatSigma)$ \;
+
+								% TODO: DRY message creation
+								$\eta \gets \combine(\hatmU)$ \;
+
+								\red{$\eta_\alpha \gets \mathsf{combine}(\mathsf{inputs}(\tx_\alpha))$ \;}
+								$\eta_\omega \gets \mathsf{combine}(\mathsf{outputs}(\tx_\omega))$ \;
+								% NOTE: Implementation differs here and
+								% below as it stores seen version in seen
+								% snapshot and uses that to verify
+								\Req{} $\msVfy(\hydraKeysAgg, (\cid || \blue{\hatv ||} \hats || \eta \red{|| \eta_\alpha} || \eta_\omega), \msCSig)$ \;
+								% create confirmed snapshot for later reference
+								\blue{$\bar{\mc S} \gets \Sno(\hatv, \hats, \hatmU, \hatmT, U_\alpha, U_\omega)$ \;}
+								$\bar{\mc S}.\sigma \gets \msCSig$ \;
+								%$\Out~(\hpSnap,(\bar{\mc S}.s,\bar{\mc S}.U))$ \;
+								$\forall \tx \in \mT_{\mathsf{req}} : \Out (\hpConf,\tx)$ \;
+
+								\If{${\bar S}.\tx_\omega \ne \bot$}{
+                  $\PostTx{}~(\mathtt{decrementTx}, \hatv, \hats, \eta, \red{\eta_\alpha}, \eta_\omega)$ \;
+									% NOTE: Needed for security?
+									\blue{$\Out (\hpConf,\tx_\omega)$ \;}
+								}
+
+								% issue snapshot if we are leader
+								\If{$\hpLdr(s+1) = i \land \hatmT \neq \emptyset$}{
+									\Multi{} $(\hpRS,\hatv,\bar{\mc S}.s+1, \hatmT \red{, \tx_\alpha}, \tx_\omega)$ \;
+								}
+							}
+						}
+					}
+				\end{walgo}
+			}
+			%%% Closing the head
+			\adjustbox{valign=t,scale=\sfact}{
+				\begin{walgo}{0.6}
+					% CLOSE from client
+					\On{$(\hpClose)$ from client}{
+						$\eta \gets \combine(\bar{\mc S}.U)$ \;
+						$\eta_\omega \gets \combine(\bar{\mc S}.U_\omega)$ \;
+						\red{$\eta_\alpha \gets \combine(\bar{\mc S}.U_\alpha$) \;}
+						$\xi \gets \bar{\mc S}.\sigma$ \;
+						% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
+						$\PostTx{}~(\mtxClose, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta \red{, \eta_\alpha}, \eta_\omega, \xi)$ \;
+					}
+					\vspace{12pt}
+					\On{$(\gcChainClose, \eta) \lor (\gcChainContest, s_{c}, \eta)$ from chain}{
+						\If{$\bar{\mc S}.s > s_{c}$}{
+							$\eta \gets \combine(\bar{\mc S}.U)$ \;
+							$\eta_\omega \gets \combine({\bar{\mc S}.U_\omega})$ \;
+							\red{$\eta_\alpha \gets \combine(\bar{\mc S}.U_\alpha$) \;}
+							$\xi \gets \bar{\mc S}.\sigma$ \;
+							% XXX: \hatv needed to distinguish between CloseType redeemer, explain how exactly?
+							$\PostTx{}~(\mtxContest, \hatv, \bar{\mc S}.v, \bar{\mc S}.s, \eta \red{, \eta_\alpha}, \eta_\omega , \xi)$ \;
+						}
+					}
+				\end{walgo}
+			}
+		\end{tabular}
+	\end{tabular}
 	\caption{Head-protocol machine for the \emph{coordinated head} from the perspective of party $\party_i$.}\label{fig:off-chain-prot}
 
 

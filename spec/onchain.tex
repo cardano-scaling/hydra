@@ -315,9 +315,65 @@ $\redeemerHead = \mathsf{collect}$ and checks:
 		$\stOpen$ head output.}\label{fig:collectComTx}
 \end{figure}
 
+\subsection{\red{Increment Transaction}}\label{sec:increment-tx}
+
+\noindent The \mtxIncrement{} transaction (Figure~\ref{fig:incrementTx}) allows a party to
+add a UTxO to an already open head and consists of:
+
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item zero or more inputs with reference $\txOutRef_{\mathsf{increment}_{j}}$
+	      spending output $o_{\mathsf{increment}_{j}}$ with
+	      $\val_{\mathsf{increment}_{j}}$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+		  datum $\datumHead'$,
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{increment}, \xi, $s$, \txOutRef_{\mathsf{increment}})$, where $\xi$ is a multi-signature of
+the increment snapshot which authorizes addition of some UTxO $U_\alpha$, $s$ is the snapshot number and $\txOutRef_{\mathsf{increment}}$ are the output references we need to spend. The
+validator checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\cPer$
+	stay unchanged and the new state is governed again by $\nuHead$:
+	\[
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v,\eta) \xrightarrow[\xi, \txOutRef_{\mathsf{increment}}]{\mathsf{increment}} (\stOpen,\cid,\hydraKeysAgg,\nop,\cPer,v',\eta')
+	\]
+	\item New version $v'$ is incremented correctly
+	\[
+		v' = v + 1
+	\]
+\item $\xi$ is a valid multi-signature of the new snapshot state (currency id $\cid$, the current state version $v$, the new state $\eta'$, UTxO to deposit $\eta_\alpha$)
+	\[
+    \msVfy(\hydraKeys,(\cid || v || s || \eta' || \eta_\alpha || \bot),\xi) = \true
+	\]
+  where snapshot number $s$ is provided through the redeemer, $\eta_\alpha$ is the digest of all added UTxO.
+	\[
+    \eta_\alpha = \hash(\bigoplus_{j=1}^m \bytes(o_{\mathsf{increment}_j}))
+	\]
+	\item The value in the head output is increased accordingly
+	\todo{Redundant to above? Only check $\valHead' > \valHead$?}
+	\[
+		\valHead \cup (\bigcup_{j=1}^m \val_{i_{j}}) = \valHead'
+	\]
+	\item Transaction is signed by a participant
+	\todo{Allow anyone to do increments?}
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+\end{menumerate}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\textwidth]{figures/incrementTx.pdf}
+	\caption{\mtxIncrement{} transaction spending an open head output,
+		producing a new head output which includes the new UTxO.}\label{fig:incrementTx}
+\end{figure}
+
 \subsection{Decrement Transaction}\label{sec:decrement-tx}
 
-\noindent The \mtxDecrement{} transaction (Figure~\ref{fig:DecrementTx}) allows
+\noindent The \mtxDecrement{} transaction (Figure~\ref{fig:decrementTx}) allows
 a party to remove a UTxO from an already open head and consists of:
 
 \begin{itemize}
@@ -343,13 +399,13 @@ validator checks:
 	\[
 		v' = v + 1
 	\]
-	\item $\xi$ is a valid multi-signature of the currency id $\cid$, the current state version $v$, and the new state $\eta'$
+	\item $\xi$ is a valid multi-signature of the new snapshot state (currency id $\cid$, the current state version $v$, the new state $\eta'$ \red{, UTxO to deposit $\eta_\alpha$} and UTxO to withdraw $\eta_\omega$)
 	\[
-		\msVfy(\hydraKeys,(\cid || v || s || \eta' || \eta_{\omega}),\xi) = \true
+		\msVfy(\hydraKeys,(\cid || v || s || \eta' || \red{\bot} || \eta_\omega),\xi) = \true
 	\]
-	where snapshot number $s$ is provided through the redeemer and $\eta_{\omega}$ must be the digest of all removed UTxO
+    where snapshot number $s$ is provided through the redeemer and $\eta_\omega$ must be the digest of all removed UTxO.
 	\[
-		\eta_{\omega} = U^{\#}_{\omega}  = \hash(\bigoplus_{j=2}^{m+1} \bytes(o_{j}))
+		\red{\eta_\omega} = \hash(\bigoplus_{j=2}^{m+1} \bytes(o_{j}))
 	\]
 	\item The value in the head output is decreased accordingly
 	\todo{Redundant to above? Only check $\valHead' < \valHead$?}
@@ -394,15 +450,14 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeys,\cPer$
 	stay unchanged and the new state is governed again by $\nuHead$
 	\[
-		(\stOpen,\cid,\hydraKeys,\cPer,v,\eta) \xrightarrow[\mathsf{CloseType}]{\stClose} (\stClosed,\cid,\hydraKeys,\cPer,v',s',\eta',\eta_{\Delta}',\contesters,\Tfinal)
+    (\stOpen,\cid,\hydraKeys,\cPer,v,\eta) \xrightarrow[\mathsf{CloseType}]{\stClose} (\stClosed,\cid,\hydraKeys,\cPer,v',s',\eta', \eta_\Delta', \contesters,\Tfinal)
 	\]
-
 	\item Last known open state version is recorded in closed state
 	\[
 		v' = v
 	\]
 
-	\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Unused}, \xi) \cup (\mathsf{Used}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the closing snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, three cases are distinguished:
+\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \red{\cup (\mathsf{UnusedInc}, \xi, \eta_\alpha)} \cup (\mathsf{UnusedDec}, \xi) \red{\cup (\mathsf{UsedInc}, \xi)}  \cup (\mathsf{UsedDec}, \xi, \eta_\omega) $, where $\xi$ is a multi-signature of the closing snapshot \red{and $\eta_\alpha$} and $\eta_\omega$ are the digests of the UTxO to \red{increment or} decrement respectively, \red{five} cases are distinguished:
 	\begin{menumerate}
 		\item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
 		\[
@@ -414,19 +469,57 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 		\[
 			\eta' = \eta
 		\]
-		\item $\mathsf{Unused}$: Closing snapshot refers to current state version $v$ and any UTxO to decommit need to be present in the closed state too.
+    \red{
+		  \item $\mathsf{UnusedInc}$: Closing snapshot refers to current state version $v$ and any UTxO to increment must not be recorded in the closed state.
+		  \[
+		  	\eta_\Delta' = \bot
+		  \]
+		  \[
+		  	\eta_\omega = \bot
+		  \]
+		  \[
+		  \msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_\alpha || \eta_\omega),\xi) = \true
+		  \]
+      where $\eta_\alpha$ is provided by the redeemer \footnote{$\eta_\alpha$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
+    }
+		\item $\mathsf{UnusedDec}$: Closing snapshot refers to current state version $v$ and any UTxO to decrement need to be present in the closed state too.
 		\[
-			\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
+			\eta_\omega = \eta_\Delta' \neq \bot
 		\]
-		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
-		\item $\mathsf{Used}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decommit of the closing snapshot must not be recorded in the closed state.
+    \red{
+		  \[
+		  	\eta_\alpha = \bot
+		  \]
+    }
 		\[
-			\eta_{\Delta}' = \bot
+      \msVfy(\hydraKeys,(\cid || v || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
 		\]
+		\todo{this is hard to understand}
+    \red{
+		  \item $\mathsf{UsedInc}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to increment must be recorded in the closed state.
+		  \[
+		  	\eta_\alpha = \eta_\Delta' \neq \bot
+		  \]
+		  \[
+		  	\eta_\omega = \bot
+		  \]
+		  \[
+		  	\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_\alpha || \eta_\omega ),\xi) = \true
+		  \]
+    }
+		\item $\mathsf{UsedDec}$: Closing snapshot refers the previous state $v - 1$ and any UTxO to decrement must not be recorded in the closed state.
 		\[
-			\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+	 		\eta_\omega = \eta_\Delta' = \bot
 		\]
-		where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
+    \red{
+		  \[
+		  	\eta_\alpha = \bot
+		  \]
+    }
+		\[
+      \msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
+		\]
+		where $\eta_\omega$ is provided by the redeemer\footnote{$\eta_\omega$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
 	\end{menumerate}
 	% TODO: detailed CDDL definition of msg
 
@@ -498,22 +591,60 @@ $\mathsf{ContestType}$ is a hint how to verify the snapshot and checks:
 	\[
 		s' > s
 	\]
+\item $\mathsf{ContestType} = \red{(\mathsf{UnusedInc}, \xi, \eta_\alpha)} \cup (\mathsf{UnusedDec}, \xi) \red{\cup (\mathsf{UsedInc}, \xi)}  \cup (\mathsf{UsedDec}, \xi, \eta_\omega)$, where $\xi$ is a multi-signature of the contesting snapshot \red{and $\eta_\alpha$} and $\eta_\omega$ are the digests of the UTxO to \red{increment or} decrement respectively, \red{four} cases are distinguished:
 
-	\item Based on the redeemer $\mathsf{ContestType} = (\mathsf{Unused}, \xi) \cup (\mathsf{Used}, \xi,  \eta_{\omega})$, where $\xi$ is a multi-signature of the contesting snapshot and $\eta_{\omega}$ is a digest of the UTxO to decommit, two cases are distinguished:
 	\begin{menumerate}
-		\item $\mathsf{Unused}$: Contesting snapshot refers to the current state version $v$ and any UTxO to decommit need to be present in the closed state too.
+		%% FIXME: \red{\item ...} does not work
+		\item \red{$\mathsf{UnusedInc}$: Contesting snapshot refers to current state version $v$ and any UTxO to increment must be $\bot$ in the closed state.
 		\[
-			\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_{\Delta}'),\xi) = \true
-		\]
-		which implies $\eta_{\Delta}' = \eta_{\omega}$ while $\eta_{\omega}$ does not need to be provided.
-		\item $\mathsf{Used}$: Contesting snapshot refers the previous state version $v - 1$ and any UTxO to decommit must not be recorded in the closed state.
-		\[
-			\eta_{\Delta}' = \bot
+			\eta_\alpha = \eta_\Delta' = \bot
 		\]
 		\[
-			\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_{\omega}),\xi) = \true
+			\eta_\omega = \bot
 		\]
-		where $\eta_{\omega}$ is provided by the redeemer\footnote{$\eta_{\omega}$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
+		\[
+		\msVfy(\hydraKeys,(\cid || v || s' || \eta' || \eta_\alpha || \eta_\omega),\xi) = \true
+		\]
+		where $\eta_\alpha$ is provided by the redeemer \footnote{$\eta_\alpha$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.}
+
+		\item $\mathsf{UnusedDec}$: Contesting snapshot refers to current state version $v$ and any UTxO to decrement need to be present in the closed state too.
+		\[
+			\eta_\omega = \eta_\Delta' \neq \bot
+		\]
+    \red{
+		  \[
+		  	\eta_\alpha = \bot
+		  \]
+    }
+		\[
+      \msVfy(\hydraKeys,(\cid || v || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
+		\]
+    \red{
+		  \item $\mathsf{UsedInc}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to increment must be recorded in the closed state.
+		  \[
+		  	\eta_\alpha = \eta_\Delta' \neq \bot
+		  \]
+		  \[
+		  	\eta_\omega = \bot
+		  \]
+		  \[
+		  	\msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' || \eta_\alpha || \eta_\omega ),\xi) = \true
+		  \]
+    }
+
+		\item $\mathsf{UsedDec}$: Contesting snapshot refers the previous state $v - 1$ and any UTxO to decrement must not be recorded in the closed state.
+		\[
+	 		\eta_\omega = \eta_\Delta' = \bot
+		\]
+    \red{
+		  \[
+		  	\eta_\alpha = \bot
+		  \]
+    }
+		\[
+      \msVfy(\hydraKeys,(\cid || v - 1 || s' || \eta' \red{|| \eta_\alpha} || \eta_\omega),\xi) = \true
+		\]
+		where $\eta_\omega$ is provided by the redeemer\footnote{$\eta_\omega$ needs to be provided to verify the signature, but is otherwise not relevant for the closed state}.
 	\end{menumerate}
 	% TODO: detailed CDDL definition of msg
 
