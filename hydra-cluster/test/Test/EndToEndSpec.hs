@@ -10,10 +10,12 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
+  queryCurrentEraExpr,
   queryEpochNo,
   queryGenesisParameters,
   queryTip,
   queryTipSlotNo,
+  runQueryExpr,
   submitTx,
   waitForUTxO,
  )
@@ -553,7 +555,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
-            \node@RunningNode{nodeSocket} -> do
+            \node@RunningNode{nodeSocket, networkId} -> do
               let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
@@ -574,7 +576,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
+                guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
+
                 waitUntilEpoch tmpDir args node 10
+
+                guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
 
                 send n1 $ input "Close" []
                 waitMatch 3 n1 $ \v -> do
@@ -589,7 +595,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
           forkIntoConwayInEpoch tmpDir args 10
           withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
-            \node@RunningNode{nodeSocket} -> do
+            \node@RunningNode{nodeSocket, networkId} -> do
               let lovelaceBalanceValue = 100_000_000
               -- Funds to be used as fuel by Hydra protocol transactions
               (aliceCardanoVk, _) <- keysFor Alice
@@ -600,6 +606,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+
+              guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
 
               let hydraTracer = contramap FromHydraNode tracer
               headId <- withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
@@ -614,6 +622,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               waitUntilEpoch tmpDir args node 10
 
+              guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
+
               withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
                 send n1 $ input "Close" []
                 waitMatch 3 n1 $ \v -> do
@@ -621,6 +631,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
+
+-- | Query the current era at the tip, and guard that it is equal to the
+-- provided one.
+guardEra :: NetworkId -> SocketPath -> AnyCardanoEra -> IO ()
+guardEra networkId nodeSocket era = do
+  runQueryExpr networkId nodeSocket QueryTip queryCurrentEraExpr >>= guard . (== era)
 
 -- | Wait until given number of epoch. This uses the epoch and slot lengths from
 -- the 'ShelleyGenesisFile' of the node args passed in.
