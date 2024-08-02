@@ -4,6 +4,10 @@
  * work well for content-centric websites.
  */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* You can override the default Infima variables here. */
 :root {
   --ifm-color-primary: #6874e8;
@@ -13,6 +17,10 @@
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
   --ifm-color-primary: #4e5de4;
+}
+
+html {
+  @apply text-black;
 }
 
 .docusaurus-highlight-code-line {
@@ -34,6 +42,46 @@
 /* Ensure footer is drawn over api reference side bar. */
 .footer {
   z-index: 20;
+}
+
+.pageContainer {
+  max-width: 1440px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+@media (min-width: 768px) {
+  .pageContainer {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+}
+
+.component {
+  padding-top: 72px;
+  padding-bottom: 72px;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.homepageText {
+  font-size: 40px;
+  text-align: center;
+  letter-spacing: -0.4px;
+  line-height: 48px;
+  color: #12506c;
 }
 
 .loader,

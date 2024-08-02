@@ -31,9 +31,10 @@
     "@mdx-js/react": "^1.6.22",
     "asyncapi-validator": "4.0.0",
     "clsx": "^1.1.1",
+    "framer-motion": "^11.3.19",
     "prism-react-renderer": "^1.2.1",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1"
+    "react":"^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "resolutions": {
     "@asyncapi/specs": "4.2.1"
@@ -51,8 +52,11 @@
     ]
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.19",
     "glob": "^8.0.3",
     "moment": "^2.29.4",
-    "prettier": "2.7.1"
+    "postcss": "^8.4.40",
+    "prettier": "2.7.1",
+    "tailwindcss": "^3.4.7"
   }
 }
