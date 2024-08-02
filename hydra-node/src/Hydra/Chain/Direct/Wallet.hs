@@ -312,7 +312,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
-          & bodyTxL . feeTxBodyL .~ Coin 10_000_000
       -- We add one additional witness for the fee input
       additionalWitnesses = 1 + length (partialTx ^. bodyTxL . reqSignerHashesTxBodyL)
 

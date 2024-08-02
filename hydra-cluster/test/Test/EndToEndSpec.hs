@@ -549,7 +549,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               errorOutputs `shouldContain` "Connected to cardano-node in unsupported era"
               errorOutputs `shouldContain` "upgrade your hydra-node"
 
-      it "support new era" $ \tracer -> do
+      it "support new era without restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           args <- setupCardanoDevnet tmpDir
 
