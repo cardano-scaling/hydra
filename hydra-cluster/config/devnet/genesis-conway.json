@@ -36,6 +36,6 @@
     },
     "threshold": 0
   },
-  "minFeeRefScriptCostPerByte": 0,
+  "minFeeRefScriptCostPerByte": 15,
   "plutusV3CostModel":[]
 }
