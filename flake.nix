@@ -3,6 +3,7 @@
     nixpkgs.follows = "haskellNix/nixpkgs";
     nixpkgsLatest.url = "github:NixOS/nixpkgs/nixos-24.05";
     haskellNix.url = "github:input-output-hk/haskell.nix";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     flake-parts.url = "github:hercules-ci/flake-parts";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
@@ -130,9 +131,7 @@
           packages =
             hydraPackages //
             (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
-              spec = import ./spec {
-                inherit pkgs;
-              };
+              spec = inputs.hydra-spec.packages.${system}.default;
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
