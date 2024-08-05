@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useRef } from "react";
 import Layout from "@theme/Layout";
 import { translate } from "@docusaurus/Translate";
 import Features from "../components/homepage/Features";
-import Description from "../components/homepage/Description";
+import AnimatedText from "../components/homepage/AnimatedText";
 import HowItWorks from "../components/homepage/HowItWorks";
 import Carousel from "../components/homepage/Carousel/Coursel";
 import FeaturesFAQ from "../components/homepage/FeaturesFAQ";
@@ -26,7 +26,7 @@ export default function Home() {
       <main>
         <Features />
         <div className="pageContainer">
-          <Description />
+          <AnimatedText />
           <HowItWorks />
         </div>
         {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}

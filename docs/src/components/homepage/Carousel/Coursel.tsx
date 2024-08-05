@@ -5,6 +5,7 @@ import Square from "../../icons/Square";
 import Triangle from "../../icons/Triangle";
 import Arrow from "../../icons/Arrow";
 import Dot from "../../icons/Dot";
+import { motion } from "framer-motion";
 
 export const CarouselContent = [
   {
@@ -52,10 +53,9 @@ export const CarouselContent = [
 type Props = {
   src: string;
   description: string;
-  children: any;
 };
 
-const CarouselEntry: FC<Props> = ({ src, description, children }) => {
+const CarouselEntry: FC<Props> = ({ src, description }) => {
   return (
     <div className="flex gap-6 h-full min-h-[340px]">
       <div className="basis-5/12">
@@ -74,7 +74,6 @@ const CarouselEntry: FC<Props> = ({ src, description, children }) => {
             Passengers <span className="font-bold">(Participants)</span>
           </span>
         </div>
-        {children}
       </div>
     </div>
   );
@@ -87,7 +86,7 @@ type ControlProps = {
 
 const Controls: FC<ControlProps> = ({ showing, changeShowing }) => {
   return (
-    <div className="inline-flex mt-auto gap-4">
+    <div className="inline-flex gap-4 z-50 self-center">
       <button onClick={() => changeShowing(showing - 1)} disabled={showing < 1}>
         <Arrow
           className={clsx(
@@ -125,14 +124,23 @@ const Carousel: FC = () => {
   const [showing, setShowing] = useState(0);
   return (
     <section className="bg-[#F4F5F5]">
-      <div className="component relative pageContainer">
-        {CarouselContent.filter(
-          (panel, index) => index === showing && panel
-        ).map((props, idx) => (
-          <CarouselEntry key={idx} {...props}>
-            <Controls showing={showing} changeShowing={setShowing} />
-          </CarouselEntry>
-        ))}
+      <div className="component relative pageContainer flex flex-col">
+        <div className="grid">
+          {CarouselContent.map((props, idx) => (
+            <motion.div
+              className="col-start-1 row-start-1"
+              animate={idx === showing ? "visible" : "hidden"}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              variants={{
+                visible: { opacity: 1, x: 0 },
+                hidden: { opacity: 0, x: -1000 },
+              }}
+            >
+              <CarouselEntry key={idx} {...props}></CarouselEntry>
+            </motion.div>
+          ))}
+        </div>
+        <Controls showing={showing} changeShowing={setShowing} />
       </div>
     </section>
   );

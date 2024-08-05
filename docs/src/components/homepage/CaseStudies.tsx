@@ -1,28 +1,29 @@
 import React, { FC } from "react";
-import { translate } from "@docusaurus/Translate";
 import Link from "@docusaurus/Link";
 import Arrow from "../icons/Arrow";
 import useMediaQuery from "../../hooks/useMediaQuery";
-import { forTablet } from "../../../helpers/media-queries";
-
-const FeaturedCaseStudy = {
-  content: translate({
-    id: "homepage.caseStudy.content",
-    message:
-      "From enabling micropayments with near-zero feesand instant processing to boosting the performanceof decentralized finance (DeFi) applications and enhancing real-time gaming experiences, Hydra can enhance user engagement across various sectors. Discover how Hydra’s cost-efficient, scalable, andlow-latency transactions can address real-world problems and support innovative solutions on the Cardano platform. ",
-  }),
-  src: require("@site/static/img/case-studies.png").default,
-  mobileSrc: require("@site/static/img/case-studies-mobile.png").default,
-};
+import { forLaptop } from "../../../helpers/media-queries";
+import { motion } from "framer-motion";
+import { FeaturedCaseStudy } from "../../../docs/homepage/case-studies";
 
 const CaseStudies: FC = () => {
-  const isTabletUp = useMediaQuery(forTablet);
+  const isLaptopUp = useMediaQuery(forLaptop);
   return (
     <section className="bg-[#E7EEF0]">
-      <div className="component pageContainer">
+      <motion.div
+        className="component pageContainer"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        transition={{ duration: 0.35, delay: 0.25 }}
+        variants={{
+          visible: { opacity: 1, y: 0 },
+          hidden: { opacity: 0, y: 100 },
+        }}
+      >
         <h4 className="text-base text-teal pb-14">/ CASE STUDIES</h4>
-        <div className="bg-white flex tablet:flex-row flex-col rounded-2xl laptop:mb-10 tablet:p-8justify-between gap-8">
-          <div className="flex flex-col laptop:pt-24 gap-8 laptop:max-w-md px-4 py-8 tablet:p-0 tablet:basis-2/5">
+        <div className="bg-white flex tablet:flex-row flex-col rounded-2xl laptop:mb-10 tablet:p-8 justify-between gap-8">
+          <div className="flex flex-col laptop:pt-20 gap-8 laptop:max-w-md px-4 py-8 tablet:p-0 tablet:basis-2/5">
             <h4 className="text-2xl text-teal font-medium">Case Studies</h4>
             <p>{FeaturedCaseStudy.content}</p>
             <Link
@@ -33,16 +34,27 @@ const CaseStudies: FC = () => {
               <Arrow className="mt-1 rounded-full group-hover:bg-teal/15" />
             </Link>
           </div>
-          <div className="tablet:basis-3/5 self-center w-full">
+          <motion.div
+            className="tablet:basis-3/5 self-center w-full flex justify-end"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.8, ease: "easeInOut" }}
+            variants={{
+              visible: { opacity: 1 },
+              hidden: { opacity: 0 },
+            }}
+          >
             <img
-              width={"100%"}
+              width={!isLaptopUp ? "100%" : "auto"}
               src={
-                isTabletUp ? FeaturedCaseStudy.src : FeaturedCaseStudy.mobileSrc
+                isLaptopUp ? FeaturedCaseStudy.src : FeaturedCaseStudy.mobileSrc
               }
+              className="tablet:rounded-2xl rounded-none"
             />
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 };

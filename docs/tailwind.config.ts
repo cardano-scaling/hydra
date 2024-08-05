@@ -17,6 +17,28 @@ const config: Config = {
       desktop: "1280px",
       // => @media (min-width: 1280px) { ... }
     },
+    fontFamily: {
+      display: [
+        "Bw Gradual",
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        '"Apple Color Emoji"',
+        '"Segoe UI Emoji"',
+        '"Segoe UI Symbol"',
+        '"Noto Color Emoji"',
+      ],
+      body: [
+        "var(--font-lexend)",
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        '"Apple Color Emoji"',
+        '"Segoe UI Emoji"',
+        '"Segoe UI Symbol"',
+        '"Noto Color Emoji"',
+      ],
+    },
     colors: {
       transparent: "transparent",
       current: "currentColor",

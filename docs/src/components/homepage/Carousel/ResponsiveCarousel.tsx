@@ -143,11 +143,9 @@ const ResponsiveCarousel: FC = () => {
           >
             {isTabletUp
               ? CarouselContent.map((props, idx) => (
-                  // <CarouselEntry key={idx} {...props} />
                   <img src={props.src} className="tablet:ml-4 ml-1" key={idx} />
                 ))
               : CarouselContent.map((props, idx) => (
-                  // <CarouselEntry key={idx} {...props} />
                   <img
                     src={props.mobileSrc}
                     className="tablet:ml-4 ml-1"

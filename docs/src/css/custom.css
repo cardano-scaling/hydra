@@ -84,6 +84,10 @@ html {
   color: #12506c;
 }
 
+.image {
+  height: inherit;
+}
+
 .loader,
 .loader:before,
 .loader:after {

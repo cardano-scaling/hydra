@@ -16,7 +16,7 @@ function ColumnLinkItem({ item }) {
 }
 function Column({ column }) {
   return (
-    <div className="tablet:col">
+    <div className="tablet:col basis-1/4">
       <div className="footer__title laptop:pb-8 pb-2">{column.title}</div>
       <ul className="footer__items clean-list">
         {column.items.map((item, i) => (
@@ -28,7 +28,7 @@ function Column({ column }) {
 }
 export default function FooterLinksMultiColumn({ columns }) {
   return (
-    <div className="laptop:flex laptop:gap-8 grid tablet:grid-cols-2 tablet:gap-y-14 gap-10 pb-14 laptop:pb-0 max-w-md">
+    <div className="laptop:flex grid tablet:grid-cols-2 tablet:gap-y-14 gap-10 pb-14 laptop:pb-0 max-w-md laptop:max-w-full basis-5/6">
       {columns.map((column, i) => (
         <Column key={i} column={column} />
       ))}

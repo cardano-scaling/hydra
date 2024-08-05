@@ -1,8 +1,9 @@
 import React, { FC } from "react";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import Translate from "@docusaurus/Translate";
 import { forTablet } from "../../../helpers/media-queries";
+import { motion } from "framer-motion";
+import { HomepageHeroContent } from "../../../docs/homepage/homepage-hero";
 
 const HomepageHero: FC = () => {
   const { siteConfig } = useDocusaurusContext();
@@ -35,28 +36,35 @@ const HomepageHero: FC = () => {
       <div className="pageContainer">
         <div className="component my-6">
           <div className="pb-8 tablet:max-w-md max-w-72">
-            <h1 className="tablet:text-[56px] text-4xl leading-[48px] text-teal font-medium pb-4">
+            <motion.h1
+              className="tablet:text-[56px] text-4xl leading-[48px] text-teal font-medium pb-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ ease: "easeInOut", duration: 0.75, delay: 0.4 }}
+            >
               {siteConfig.title}
-            </h1>
-            <p>
-              <Translate
-                id="homepage.tagline"
-                description="Homepage tagline, below title."
-              >
-                Hydra Head protocol is a layer 2 scaling solution for Cardano
-                rooted in peer-reviewed research that increases transaction
-                throughput and ensures cost efficiency while maintaining
-                rigorous security.
-              </Translate>
-            </p>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ ease: "easeInOut", duration: 0.75, delay: 1 }}
+            >
+              {HomepageHeroContent.content}
+            </motion.p>
           </div>
-          <Link
-            className="px-4 py-3 justify-center border border-solid border-teal font-bold text-teal rounded-lg no-underline hover:bg-teal/15 hover:no-underline hover:text-teal
-      "
-            to="/docs/getting-started"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ease: "easeInOut", duration: 0.75, delay: 1.2 }}
           >
-            Learn More
-          </Link>
+            <Link
+              className="px-4 py-3 justify-center border border-solid border-teal font-bold text-teal rounded-lg no-underline hover:bg-teal/15 hover:no-underline hover:text-teal
+      "
+              to="/docs/getting-started"
+            >
+              Learn More
+            </Link>
+          </motion.div>
         </div>
       </div>
     </div>

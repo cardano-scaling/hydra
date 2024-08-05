@@ -10,8 +10,8 @@ export default function FooterLayout({ style, links, logo, copyright }) {
         "footer--dark": style === "dark",
       })}
     >
-      <div className="flex justify-between pageContainer flex-col-reverse laptop:flex-row">
-        <div>
+      <div className="flex justify-between pageContainer flex-col-reverse laptop:flex-row laptop:justify-normal laptop:gap-20">
+        <div className="basis-1/6">
           <div className="flex flex-col gap-4 border border-solid border-teal-light p-6 rounded-lg laptop:max-w-[240px] tablet:max-w-80 mb-[70px]">
             <div className="inline-flex text-teal-light">
               <Github className="self-center" />
