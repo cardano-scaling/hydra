@@ -160,6 +160,7 @@ test-suite tests
     , base                              >=4.7 && <5
     , bytestring
     , cardano-ledger-api
+    , cardano-ledger-conway
     , containers
     , directory
     , filepath

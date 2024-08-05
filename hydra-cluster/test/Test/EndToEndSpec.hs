@@ -7,12 +7,15 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (PParams, emptyPParams)
+import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
   queryCurrentEraExpr,
   queryEpochNo,
   queryGenesisParameters,
+  queryProtocolParameters,
   queryTip,
   queryTipSlotNo,
   runQueryExpr,
@@ -577,10 +580,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
+                print =<< queryProtocolParameters @BabbageEra networkId nodeSocket QueryTip
 
                 waitUntilEpoch tmpDir args node 10
 
                 guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
+                pp <- queryProtocolParameters @ConwayEra networkId nodeSocket QueryTip
+                pp ^? ppMinFeeRefScriptCostPerByteL `shouldNotBe` Nothing
+                print pp
 
                 send n1 $ input "Close" []
                 waitMatch 3 n1 $ \v -> do
