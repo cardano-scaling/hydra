@@ -2,6 +2,8 @@ module Bench.Options where
 
 import Hydra.Prelude
 
+import Hydra.Cardano.Api (SocketPath)
+import Hydra.Options (nodeSocketParser)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -41,6 +43,13 @@ data Options
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       }
+  | DemoOptions
+      { outputDirectory :: Maybe FilePath
+      , scalingFactor :: Int
+      , timeoutSeconds :: NominalDiffTime
+      , startingNodeId :: Int
+      , nodeSocket :: Maybe SocketPath
+      }
 
 benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
@@ -48,6 +57,7 @@ benchOptionsParser =
     ( hsubparser
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
+            <> command "demo" demoOptionsInfo
         )
         <**> helper
     )
@@ -155,6 +165,23 @@ startingNodeIdParser =
           \ it's useful to change if local processes on the machine running the \
           \ benchmark conflicts with default ports allocation scheme (default: 0)"
     )
+
+demoOptionsInfo :: ParserInfo Options
+demoOptionsInfo =
+  info
+    demoOptionsParser
+    ( progDesc
+        "Run scenarios from local runnign demo."
+    )
+
+demoOptionsParser :: Parser Options
+demoOptionsParser =
+  DemoOptions
+    <$> optional outputDirectoryParser
+    <*> scalingFactorParser
+    <*> timeoutParser
+    <*> startingNodeIdParser
+    <*> optional nodeSocketParser
 
 datasetOptionsInfo :: ParserInfo Options
 datasetOptionsInfo =

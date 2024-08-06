@@ -33,6 +33,8 @@ main =
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       run outputDirectory timeoutSeconds startingNodeId datasetFiles
+    DemoOptions{} -> do
+      pure ()
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
