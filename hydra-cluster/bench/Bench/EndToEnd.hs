@@ -40,9 +40,10 @@ import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, withTracerOutputTo)
-import Hydra.Party (deriveParty)
+import Hydra.Party (Party, deriveParty)
 import HydraNode (
   HydraClient,
+  HydraNodeLog,
   hydraNodeId,
   input,
   output,
@@ -77,7 +78,7 @@ data Event = Event
   deriving anyclass (ToJSON)
 
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO Summary
-bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, title, description} = do
+bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -86,7 +87,6 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
         let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         let parties = Set.fromList (deriveParty <$> hydraKeys)
-        let clusterSize = fromIntegral $ length clientDatasets
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
@@ -95,57 +95,70 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets, titl
             let contestationPeriod = UnsafeContestationPeriod 10
             putStrLn $ "Starting hydra cluster in " <> workDir
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
-              let clients = leader : followers
-              waitForNodesConnected hydraTracer 20 clients
+              scenario hydraTracer node workDir dataset parties leader followers
 
-              putTextLn "Initializing Head"
-              send leader $ input "Init" []
-              headId <-
-                waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-                  headIsInitializingWith parties
+scenario ::
+  Tracer IO HydraNodeLog ->
+  RunningNode ->
+  FilePath ->
+  Dataset ->
+  Set Party ->
+  HydraClient ->
+  [HydraClient] ->
+  IO Summary
+scenario hydraTracer node workDir dataset@Dataset{clientDatasets, title, description} parties leader followers = do
+  let clusterSize = fromIntegral $ length clientDatasets
+  let clients = leader : followers
+  waitForNodesConnected hydraTracer 20 clients
 
-              putTextLn "Comitting initialUTxO from dataset"
-              expectedUTxO <- commitUTxO node clients dataset
+  putTextLn "Initializing Head"
+  send leader $ input "Init" []
+  headId <-
+    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
+      headIsInitializingWith parties
 
-              waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
-                output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
+  putTextLn "Comitting initialUTxO from dataset"
+  expectedUTxO <- commitUTxO node clients dataset
 
-              putTextLn "HeadIsOpen"
-              processedTransactions <- processTransactions clients dataset
+  waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
+    output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
 
-              putTextLn "Closing the Head"
-              send leader $ input "Close" []
+  putTextLn "HeadIsOpen"
+  processedTransactions <- processTransactions clients dataset
 
-              deadline <- waitMatch 300 leader $ \v -> do
-                guard $ v ^? key "tag" == Just "HeadIsClosed"
-                guard $ v ^? key "headId" == Just (toJSON headId)
-                v ^? key "contestationDeadline" . _JSON
+  putTextLn "Closing the Head"
+  send leader $ input "Close" []
 
-              -- Expect to see ReadyToFanout within 3 seconds after deadline
-              remainingTime <- diffUTCTime deadline <$> getCurrentTime
-              waitFor hydraTracer (remainingTime + 3) [leader] $
-                output "ReadyToFanout" ["headId" .= headId]
+  deadline <- waitMatch 300 leader $ \v -> do
+    guard $ v ^? key "tag" == Just "HeadIsClosed"
+    guard $ v ^? key "headId" == Just (toJSON headId)
+    v ^? key "contestationDeadline" . _JSON
 
-              putTextLn "Finalizing the Head"
-              send leader $ input "Fanout" []
-              waitMatch 100 leader $ \v -> do
-                guard (v ^? key "tag" == Just "HeadIsFinalized")
-                guard $ v ^? key "headId" == Just (toJSON headId)
+  -- Expect to see ReadyToFanout within 3 seconds after deadline
+  remainingTime <- diffUTCTime deadline <$> getCurrentTime
+  waitFor hydraTracer (remainingTime + 3) [leader] $
+    output "ReadyToFanout" ["headId" .= headId]
 
-              let res = mapMaybe analyze . Map.toList $ processedTransactions
-                  aggregates = movingAverage res
+  putTextLn "Finalizing the Head"
+  send leader $ input "Fanout" []
+  waitMatch 100 leader $ \v -> do
+    guard (v ^? key "tag" == Just "HeadIsFinalized")
+    guard $ v ^? key "headId" == Just (toJSON headId)
 
-              writeResultsCsv (workDir </> "results.csv") aggregates
+  let res = mapMaybe analyze . Map.toList $ processedTransactions
+      aggregates = movingAverage res
 
-              let confTimes = map (\(_, _, a) -> a) res
-                  numberOfTxs = length confTimes
-                  numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
-                  averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
-                  quantiles = makeQuantiles confTimes
-                  summaryTitle = fromMaybe "Baseline Scenario" title
-                  summaryDescription = fromMaybe defaultDescription description
+  writeResultsCsv (workDir </> "results.csv") aggregates
 
-              pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
+  let confTimes = map (\(_, _, a) -> a) res
+      numberOfTxs = length confTimes
+      numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
+      averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
+      quantiles = makeQuantiles confTimes
+      summaryTitle = fromMaybe "Baseline Scenario" title
+      summaryDescription = fromMaybe defaultDescription description
+
+  pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
 
 defaultDescription :: Text
 defaultDescription = ""
