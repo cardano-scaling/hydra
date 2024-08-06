@@ -38,14 +38,14 @@ spec = parallel $ do
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
-  forAll arbitrary $ \(Positive n) -> do
+  forAll arbitrary $ \(Positive n, clientKeys) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
       let ledgerEnv = newLedgerEnv defaultPParams
       -- XXX: non-exhaustive pattern match
       pure $
-        forAll (genDatasetConstantUTxO faucetSk 1 n) $
+        forAll (genDatasetConstantUTxO faucetSk clientKeys n) $
           \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
                 finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence

@@ -32,8 +32,10 @@ data Dataset = Dataset
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
-    sk <- genSigningKey
-    genDatasetConstantUTxO sk (n `div` 10) n
+    faucetSk <- genSigningKey
+    let nClients = n `div` 10
+    let clientKeys = replicate nClients (generateWith arbitrary 42)
+    genDatasetConstantUTxO faucetSk clientKeys n
 
 data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
@@ -87,22 +89,23 @@ generateConstantUTxODataset ::
   IO Dataset
 generateConstantUTxODataset nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
-  generate $ genDatasetConstantUTxO faucetSk nClients nTxs
+  let clientKeys = replicate nClients (generateWith arbitrary 42)
+  generate $ genDatasetConstantUTxO faucetSk clientKeys nTxs
 
 genDatasetConstantUTxO ::
   -- | The faucet signing key
   SigningKey PaymentKey ->
-  -- | Number of clients
-  Int ->
+  -- | Clients
+  [ClientKeys] ->
   -- | Number of transactions
   Int ->
   Gen Dataset
-genDatasetConstantUTxO faucetSk nClients nTxs = do
-  clientKeys <- replicateM nClients arbitrary
+genDatasetConstantUTxO faucetSk allClientKeys nTxs = do
+  let nClients = length allClientKeys
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+  clientFunds <- forM allClientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
     pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
@@ -111,7 +114,7 @@ genDatasetConstantUTxO faucetSk nClients nTxs = do
           faucetSk
           (Coin availableInitialFunds)
           clientFunds
-  clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
+  clientDatasets <- forM allClientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
