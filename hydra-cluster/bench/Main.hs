@@ -5,11 +5,13 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench)
+import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
+import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Generator (ClientKeys (..), Dataset (..), genDatasetConstantUTxO, generateConstantUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
@@ -32,24 +34,49 @@ main =
       workDir <- createSystemTempDirectory "bench"
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
-      run outputDirectory timeoutSeconds startingNodeId datasetFiles
-    DemoOptions{} -> do
-      pure ()
+      let action = bench startingNodeId timeoutSeconds
+      run outputDirectory datasetFiles action
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket} -> do
+      workDir <- createSystemTempDirectory "demo-bench"
+      (_, faucetSk) <- keysFor Faucet
+      clientKeys <- do
+        aliceSk <- snd <$> keysFor Alice
+        aliceFundsSk <- snd <$> keysFor AliceFunds
+        bobSk <- snd <$> keysFor Bob
+        bobFundsSk <- snd <$> keysFor BobFunds
+        carolSk <- snd <$> keysFor Carol
+        carolFundsSk <- snd <$> keysFor CarolFunds
+        let alice = ClientKeys aliceSk aliceFundsSk
+            bob = ClientKeys bobSk bobFundsSk
+            carol = ClientKeys carolSk carolFundsSk
+        pure [alice, bob, carol]
+      playDemo outputDirectory timeoutSeconds scalingFactor faucetSk clientKeys workDir networkId nodeSocket
  where
+  playDemo outputDirectory timeoutSeconds scalingFactor faucetSk clientKeys workDir networkId nodeSocket = do
+    putStrLn $ "Generating single dataset in work directory: " <> workDir
+    numberOfTxs <- generate $ scale (* scalingFactor) getSize
+    dataset <- generate $ genDatasetConstantUTxO faucetSk clientKeys numberOfTxs
+    let datasetPath = workDir </> "dataset.json"
+    saveDataset datasetPath dataset
+    let action = benchDemo networkId nodeSocket timeoutSeconds
+    run outputDirectory [datasetPath] action
+
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     dataset <- generateConstantUTxODataset (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
-    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
+    let action = bench startingNodeId timeoutSeconds
+    run outputDirectory [datasetPath] action
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
     let datasetPath = benchDir </> "dataset.json"
     putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
-    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
+    let action = bench startingNodeId timeoutSeconds
+    run outputDirectory [datasetPath] action
 
-  run outputDirectory timeoutSeconds startingNodeId datasetFiles = do
+  run outputDirectory datasetFiles action = do
     results <- forM datasetFiles $ \datasetPath -> do
       putTextLn $ "Running benchmark with dataset " <> show datasetPath
       dataset <- loadDataset datasetPath
@@ -57,7 +84,7 @@ main =
         withArgs [] $ do
           -- XXX: Wait between each bench run to give the OS time to cleanup resources??
           threadDelay 10
-          try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
+          try @_ @HUnitFailure (action dir dataset) >>= \case
             Left exc -> pure $ Left (dataset, dir, TestFailed exc)
             Right summary@Summary{numberOfInvalidTxs}
               | numberOfInvalidTxs == 0 -> pure $ Right summary

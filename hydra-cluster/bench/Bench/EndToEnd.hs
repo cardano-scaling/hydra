@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), makeQuantiles)
 import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
-import CardanoNode (withCardanoNodeDevnet)
+import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Scenarios (
@@ -53,6 +53,7 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
+  withConnectionToNode,
   withHydraCluster,
  )
 import System.Directory (findExecutable)
@@ -96,6 +97,37 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             putStrLn $ "Starting hydra cluster in " <> workDir
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               scenario hydraTracer node workDir dataset parties leader followers
+
+benchDemo ::
+  NetworkId ->
+  SocketPath ->
+  NominalDiffTime ->
+  FilePath ->
+  Dataset ->
+  IO Summary
+benchDemo networkId nodeSocket timeoutSeconds workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+  putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
+  withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
+    withTracerOutputTo hdl "Test" $ \tracer ->
+      failAfter timeoutSeconds $ do
+        putTextLn "Starting benchmark"
+        findRunningCardanoNode' (contramap FromCardanoNode tracer) networkId nodeSocket >>= \case
+          Nothing ->
+            error ("Not found running node at socket: " <> show nodeSocket <> ", and network: " <> show networkId)
+          Just node -> do
+            putTextLn "Seeding network"
+            fundClients networkId nodeSocket fundingTransaction
+            forM_ clientDatasets (fuelWith100Ada (contramap FromFaucet tracer) node)
+            putStrLn $ "Connecting to hydra cluster in " <> workDir
+            let hydraTracer = contramap FromHydraNode tracer
+            let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
+            let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
+            let parties = Set.fromList (deriveParty <$> hydraKeys)
+            withConnectionToNode hydraTracer 1 $ \leader ->
+              withConnectionToNode hydraTracer 2 $ \node2 ->
+                withConnectionToNode hydraTracer 3 $ \node3 -> do
+                  let followers = [node2, node3]
+                  scenario hydraTracer node workDir dataset parties leader followers
 
 scenario ::
   Tracer IO HydraNodeLog ->
@@ -251,20 +283,22 @@ movingAverage confirmations =
 -- transaction is returned.
 seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
 seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
-  fundClients
-  forM_ clientDatasets fuelWith100Ada
+  fundClients networkId nodeSocket fundingTransaction
+  forM_ clientDatasets (fuelWith100Ada tracer node)
   putTextLn "Publishing hydra scripts"
   publishHydraScriptsAs node Faucet
- where
-  fundClients = do
-    putTextLn "Fund scenario from faucet"
-    submitTransaction networkId nodeSocket fundingTransaction
-    void $ awaitTransaction networkId nodeSocket fundingTransaction
 
-  fuelWith100Ada ClientDataset{clientKeys = ClientKeys{signingKey}} = do
-    let vk = getVerificationKey signingKey
-    putTextLn $ "Seed client " <> show vk
-    seedFromFaucet node vk 100_000_000 tracer
+fundClients :: NetworkId -> SocketPath -> Tx -> IO ()
+fundClients networkId nodeSocket fundingTransaction = do
+  putTextLn "Fund scenario from faucet"
+  submitTransaction networkId nodeSocket fundingTransaction
+  void $ awaitTransaction networkId nodeSocket fundingTransaction
+
+fuelWith100Ada :: Tracer IO FaucetLog -> RunningNode -> ClientDataset -> IO UTxO
+fuelWith100Ada tracer node ClientDataset{clientKeys = ClientKeys{signingKey}} = do
+  let vk = getVerificationKey signingKey
+  putTextLn $ "Seed client " <> show vk
+  seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
