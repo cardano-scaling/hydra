@@ -27,7 +27,7 @@ export default function NavbarLayout({ children }) {
     ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 1)"]
   );
   const {
-    navbar: { hideOnScroll, style },
+    navbar: { hideOnScroll },
   } = useThemeConfig();
   const mobileSidebar = useNavbarMobileSidebar();
   const { navbarRef, isNavbarVisible } = useHideableNavbar(hideOnScroll);
@@ -43,15 +43,13 @@ export default function NavbarLayout({ children }) {
         description: "The ARIA label for the main navigation",
       })}
       className={clsx(
-        "py-6",
+        "flex navbar py-6 px-0 shadow-none",
         "navbar--fixed-top",
         hideOnScroll && [
           styles.navbarHideable,
           !isNavbarVisible && styles.navbarHidden,
         ],
         {
-          "navbar--dark": style === "dark",
-          "navbar--primary": style === "primary",
           "navbar-sidebar--show": mobileSidebar.shown,
         }
       )}

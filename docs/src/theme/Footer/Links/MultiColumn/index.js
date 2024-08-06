@@ -9,7 +9,10 @@ function ColumnLinkItem({ item }) {
       dangerouslySetInnerHTML={{ __html: item.html }}
     />
   ) : (
-    <li key={item.href ?? item.to} className="footer__item whitespace-nowrap">
+    <li
+      key={item.href ?? item.to}
+      className="footer__item whitespace-nowrap text-sm"
+    >
       <LinkItem item={item} />
     </li>
   );

@@ -21,7 +21,7 @@ const CaseStudies: FC = () => {
           hidden: { opacity: 0, y: 100 },
         }}
       >
-        <h4 className="text-base text-teal pb-14">/ CASE STUDIES</h4>
+        <h5 className="text-base text-teal pb-14">/ CASE STUDIES</h5>
         <div className="bg-white flex tablet:flex-row flex-col rounded-2xl laptop:mb-10 tablet:p-8 justify-between gap-8">
           <div className="flex flex-col laptop:pt-20 gap-8 laptop:max-w-md px-4 py-8 tablet:p-0 tablet:basis-2/5">
             <h4 className="text-2xl text-teal font-medium">Case Studies</h4>

@@ -8,7 +8,7 @@ import { HomepageHeroContent } from "../../../docs/homepage/homepage-hero";
 const HomepageHero: FC = () => {
   const { siteConfig } = useDocusaurusContext();
   return (
-    <div>
+    <div className="relative bg-[url('../../static/desktop-video-still.jpg')] bg-cover z-20 -mt-[92px] pt-[92px]">
       <video
         autoPlay
         muted
@@ -35,9 +35,9 @@ const HomepageHero: FC = () => {
       </video>
       <div className="pageContainer">
         <div className="component my-6">
-          <div className="pb-8 tablet:max-w-md max-w-72">
+          <div className="pb-8 tablet:max-w-md">
             <motion.h1
-              className="tablet:text-[56px] text-4xl leading-[48px] text-teal font-medium pb-4"
+              className="tablet:text-[56px] tablet:leading-[67px] text-4xl leading-[48px] text-teal font-medium pb-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ ease: "easeInOut", duration: 0.75, delay: 0.4 }}

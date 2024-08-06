@@ -45,7 +45,7 @@ const FeaturesFAQ: FC = () => {
       }}
     >
       <div className="component pageContainer flex flex-col">
-        <h4 className="text-base text-white">/ FEATURES</h4>
+        <h5 className="text-base text-white">/ FEATURES</h5>
         <div className="flex flex-col laptop:flex-row justify-between">
           <div className="pt-14 laptop:pr-14 flex flex-col gap-8">
             {FeaturesContent.map((props, idx) => (

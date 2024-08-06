@@ -23,19 +23,25 @@ const HowItWorks: FC = () => {
         hidden: { opacity: 0, y: 100 },
       }}
     >
-      <h4 className="text-base text-teal pb-14">/ HOW IT WORKS</h4>
+      <h5 className="text-base text-teal pb-14">/ HOW IT WORKS</h5>
       <motion.div
-        className="laptop:flex laptop:flex-row grid"
-        initial={isLaptopUp && "hidden"}
-        animate={expanded && isLaptopUp ? "visible" : "hidden"}
+        className="laptop:flex laptop:flex-row grid z-10"
+        initial={"hidden"}
+        animate={expanded ? "visible" : "hidden"}
         transition={{ duration: 0.15 }}
         variants={
           isLaptopUp
             ? {
                 visible: { height: "100%", overflow: "visible" },
-                hidden: { height: 320, overflow: "hidden" },
+                hidden: { height: 280, overflow: "hidden" },
               }
-            : {}
+            : {
+                visible: { height: "100%", overflow: "visible" },
+                hidden: {
+                  height: isTabletUp ? 450 : 200,
+                  overflow: "hidden",
+                },
+              }
         }
       >
         <div className="flex flex-col gap-4 laptop:w-[472px] basis-[32%] laptop:pt-0 pt-4 order-2 laptop:-order-1">
@@ -68,40 +74,47 @@ const HowItWorks: FC = () => {
           >
             {HowItWorksContent.descriptionParagraphThree}
           </motion.p>
-
-          <div className="w-full z-20">
-            <button
-              className="bg-none text-teal self-start inline-flex gap-3 group"
-              onClick={() => setExpanded(!expanded)}
-            >
-              {`Read ${expanded ? "less" : "more"}`}{" "}
-              <Arrow
-                className={clsx(
-                  "mt-1 rounded-full group-hover:bg-teal/15",
-                  expanded ? "-rotate-90" : "rotate-90"
-                )}
-              />
-            </button>
-          </div>
         </div>
         {isTabletUp && (
           <motion.div
-            className="basis-[60%] image border-b border-solid border-teal inline-block -order-1 laptop:order-2 transition-all duration-200 ease-in-out"
+            className="basis-[60%] image border-b border-solid border-teal inline-block -order-1 laptop:order-2 laptop:relative"
             initial="hidden"
             animate={expanded ? "visible" : "hidden"}
             transition={{ duration: 0.15 }}
             variants={{
-              visible: { height: "100%", overflow: "visible" },
-              hidden: { height: 320, overflow: "hidden" },
+              visible: {
+                height: isLaptopUp ? 400 : "100%",
+                overflow: "visible",
+              },
+              hidden: { height: 280, overflow: "hidden" },
             }}
           >
             <img
               src="hydra-docs-landing-graphic.png"
-              className="-z-10 overflow-visible"
+              className="-z-10 overflow-hidden laptop:absolute laptop:h-[390px]"
             />
           </motion.div>
         )}
       </motion.div>
+      <div
+        className={clsx(
+          "w-full z-30 relative",
+          expanded ? "mt-4 laptop:mt-2" : "laptop:-mt-4"
+        )}
+      >
+        <button
+          className="bg-none text-teal self-start inline-flex gap-3 group"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {`Read ${expanded ? "less" : "more"}`}{" "}
+          <Arrow
+            className={clsx(
+              "mt-1 rounded-full group-hover:bg-teal/15",
+              expanded ? "-rotate-90" : "rotate-90"
+            )}
+          />
+        </button>
+      </div>
     </motion.section>
   );
 };

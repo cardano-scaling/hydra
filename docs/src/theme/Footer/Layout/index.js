@@ -12,10 +12,10 @@ export default function FooterLayout({ style, links, logo, copyright }) {
     >
       <div className="flex justify-between pageContainer flex-col-reverse laptop:flex-row laptop:justify-normal laptop:gap-20">
         <div className="basis-1/6">
-          <div className="flex flex-col gap-4 border border-solid border-teal-light p-6 rounded-lg laptop:max-w-[240px] tablet:max-w-80 mb-[70px]">
+          <div className="flex flex-col gap-4 border border-solid border-teal-light p-6 rounded-lg laptop:max-w-[227px] tablet:max-w-80 mb-[70px]">
             <div className="inline-flex text-teal-light">
               <Github className="self-center" />
-              <span className="border-l pl-4 ml-4 text-xl">
+              <span className="border-l pl-4 ml-4 text-xl leading-[27px]">
                 Join the conversation
               </span>
             </div>

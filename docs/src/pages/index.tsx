@@ -15,24 +15,20 @@ import HomepageHero from "../components/homepage/HomepageHero";
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
-    <Layout
-      title={""}
-      description={`${translate({
-        id: "homepage.tagline",
-        message: "User manual, core concepts, API reference",
-      })}`}
-    >
-      <HomepageHero />
-      <main>
-        <Features />
-        <div className="pageContainer">
-          <AnimatedText />
-          <HowItWorks />
-        </div>
-        {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
-        <FeaturesFAQ />
-        <CaseStudies />
-      </main>
-    </Layout>
+    <div className="z-index:1000">
+      <Layout>
+        <HomepageHero />
+        <main>
+          <Features />
+          <div className="pageContainer">
+            <AnimatedText />
+            <HowItWorks />
+          </div>
+          {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
+          <FeaturesFAQ />
+          <CaseStudies />
+        </main>
+      </Layout>
+    </div>
   );
 }

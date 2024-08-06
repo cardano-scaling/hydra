@@ -8,10 +8,28 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Lexend";
+  font-weight: 400;
+  src: url("/fonts/Lexend-Regular.ttf");
+  font-display: swap;
+}
+
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #6874e8;
+  --ifm-color-primary: #12506c;
   --ifm-code-font-size: 95%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Lexend";
+}
+
+h4 {
+  line-height: 30px !important;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -45,7 +63,7 @@ html {
 }
 
 .pageContainer {
-  max-width: 1440px;
+  max-width: 1184px;
   width: 100%;
   margin-left: auto;
   margin-right: auto;
@@ -77,11 +95,18 @@ html {
 }
 
 .homepageText {
-  font-size: 40px;
-  text-align: center;
+  font-size: 32px;
+  text-align: left;
   letter-spacing: -0.4px;
   line-height: 48px;
   color: #12506c;
+}
+
+@media (min-width: 768px) {
+  .homepageText {
+    font-size: 40px;
+    text-align: center;
+  }
 }
 
 .image {
@@ -151,4 +176,88 @@ html {
 svg.architecture {
   width: 100% !important;
   height: 100% !important;
+}
+
+.navbar__title {
+  font-size: 24px;
+  font-weight: 400;
+  font-family: "Lexend";
+  letter-spacing: -0.18px;
+}
+.navbar__item {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.navbar__items--right {
+  display: flex !important;
+}
+
+.navbar__item:nth-of-type(3) {
+  order: 2;
+}
+
+.navbar__itemt:nth-of-type(5) {
+  order: 1;
+}
+
+.navbar__item:nth-of-type(4) {
+  order: 3;
+}
+
+@media (max-width: 996px) {
+  .searchBox_src-theme-Navbar-Search-styles-module {
+    position: relative !important;
+    right: 0 !important;
+  }
+}
+
+.DocSearch-Button .DocSearch-Search-Icon {
+  color: black !important;
+  height: 24px !important;
+  width: 24px;
+}
+
+.DocSearch-Button {
+  padding: 0 !important;
+}
+
+.searchBox_src-theme-Navbar-Search-styles-module {
+  padding: 4px 12px !important;
+  /* padding-left: 0px !important; */
+}
+
+.DocSearch-Button:hover {
+  box-shadow: none !important;
+}
+
+.DocSearch-Button {
+  background: none !important;
+  height: 24px !important;
+  width: 24px !important;
+}
+
+.DocSearch-Button:hover .DocSearch-Search-Icon {
+  color: #7196a7 !important;
+}
+
+.DocSearch-Button-Keys {
+  display: none !important;
+}
+
+.DocSearch-Button-Placeholder {
+  display: none;
+}
+
+.navbar {
+  padding-bottom: 60px !important;
+}
+
+.navbar__toggle {
+  margin-right: 0 !important;
+  margin-left: 32px;
+}
+
+.mobile-side-menu > .menu__list-item > .menu__link {
+  color: #283032 !important;
 }
