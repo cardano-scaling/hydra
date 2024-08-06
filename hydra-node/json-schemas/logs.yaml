@@ -2229,7 +2229,7 @@ definitions:
           tag:
             type: string
             enum: ["WaitOnSnapshotVersion"]
-          waitingForNumber:
+          waitingForVersion:
             "$ref": "api.yaml#/components/schemas/SnapshotVersion"
             description: >-
               The expected number.

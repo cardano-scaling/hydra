@@ -418,13 +418,13 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
                 let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n2 (Decommit{decommitTx = decommitTx1})
+                send n1 (Decommit{decommitTx = decommitTx1})
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
 
                 let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
-                send n1 (Decommit{decommitTx = decommitTx2})
-                waitUntil [n1] $
+                send n2 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n2] $
                   DecommitInvalid
                     { headId = testHeadId
                     , decommitTx = decommitTx2
@@ -433,7 +433,7 @@ spec = parallel $ do
 
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
 
-                send n1 (Decommit{decommitTx = decommitTx2})
+                send n2 (Decommit{decommitTx = decommitTx2})
                 waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
 
@@ -471,7 +471,12 @@ spec = parallel $ do
               send n1 Close
               waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
               send n1 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+              waitMatch n2 $ \case
+                HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
+                _ -> Nothing
+
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
     it "fanout utxo is correct after a decommit" $
       shouldRunInSim $ do
@@ -856,9 +861,8 @@ toOnChainTx now = \case
   FanoutTx{} ->
     OnFanoutTx{headId = testHeadId}
 
--- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
-testContestationPeriod = UnsafeContestationPeriod 3600
+testContestationPeriod = UnsafeContestationPeriod 10
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
