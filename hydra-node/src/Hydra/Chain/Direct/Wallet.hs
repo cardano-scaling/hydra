@@ -67,7 +67,6 @@ import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
-import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
@@ -242,7 +241,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {scriptFailure :: Text} -- FIXME: try to avoid Text
+  | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text} -- FIXME: try to avoid Text
   | ErrTranslationError (ContextError LedgerEra)
   deriving stock (Show)
 
@@ -428,13 +427,22 @@ estimateScriptsCost ::
   Tx era ->
   Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
-  Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . show) $
+  Map.traverseWithKey convertResult $
     evalTxExUnits
       pparams
       tx
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
+ where
+  convertResult ptr = \case
+    Right exUnits -> Right exUnits
+    Left failure ->
+      Left $
+        ErrScriptExecutionFailed
+          { redeemerPointer = show ptr
+          , scriptFailure = show failure
+          }
 
 --
 -- Logs
