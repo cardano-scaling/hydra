@@ -15,7 +15,7 @@ import CardanoClient (
   queryCurrentEraExpr,
   queryEpochNo,
   queryGenesisParameters,
-  queryProtocolParameters,
+  queryProtocolParameters',
   queryTip,
   queryTipSlotNo,
   runQueryExpr,
@@ -580,12 +580,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
-                print =<< queryProtocolParameters @BabbageEra networkId nodeSocket QueryTip
+                print =<< queryProtocolParameters' @BabbageEra networkId nodeSocket QueryTip
 
                 waitUntilEpoch tmpDir args node 10
 
                 guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
-                pp <- queryProtocolParameters @ConwayEra networkId nodeSocket QueryTip
+                pp <- queryProtocolParameters' @ConwayEra networkId nodeSocket QueryTip
                 pp ^? ppMinFeeRefScriptCostPerByteL `shouldNotBe` Nothing
                 print pp
 

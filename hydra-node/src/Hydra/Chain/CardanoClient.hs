@@ -262,11 +262,45 @@ queryEpochNo networkId socket queryPoint = do
     (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
     queryInShelleyBasedEraExpr sbe QueryEpoch
 
+-- | Query the protocol parameters at given point and convert them to Babbage
+-- era protocol parameters.
+--
+-- Throws at least 'QueryException' if query fails.
+queryProtocolParameters ::
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  QueryPoint ->
+  IO (PParams LedgerEra)
+queryProtocolParameters networkId socket queryPoint =
+  runQueryExpr networkId socket queryPoint $ do
+    (AnyCardanoEra era) <- queryCurrentEraExpr
+    sbe <- liftIO $ assumeShelleyBasedEraOrThrow era
+    eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
+    liftIO $ coercePParamsToLedgerEra era eraPParams
+ where
+  encodeToEra eraToEncode pparams =
+    case eitherDecode' (encode pparams) of
+      Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (anyCardanoEra eraToEncode) (Text.pack e)
+      Right (ok :: PParams LedgerEra) -> pure ok
+
+  coercePParamsToLedgerEra :: CardanoEra era -> PParams (ShelleyLedgerEra era) -> IO (PParams LedgerEra)
+  coercePParamsToLedgerEra era pparams =
+    case era of
+      ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (anyCardanoEra ByronEra)
+      ShelleyEra -> encodeToEra ShelleyEra pparams
+      AllegraEra -> encodeToEra AllegraEra pparams
+      MaryEra -> encodeToEra MaryEra pparams
+      AlonzoEra -> encodeToEra AlonzoEra pparams
+      BabbageEra -> pure pparams
+      ConwayEra -> encodeToEra ConwayEra pparams
+
 -- | Query the protocol parameters at given point. NOTE: If the era is not
 -- matching this fails with an era mismatch.
 --
 -- Throws at least 'QueryException' if query fails.
-queryProtocolParameters ::
+queryProtocolParameters' ::
   IsShelleyBasedEra era =>
   -- | Current network discriminant
   NetworkId ->
@@ -274,7 +308,7 @@ queryProtocolParameters ::
   SocketPath ->
   QueryPoint ->
   IO (PParams (ShelleyLedgerEra era))
-queryProtocolParameters networkId socket queryPoint =
+queryProtocolParameters' networkId socket queryPoint =
   runQueryExpr networkId socket queryPoint $
     queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
 
