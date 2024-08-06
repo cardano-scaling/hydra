@@ -26,7 +26,9 @@ import Cardano.Ledger.Alonzo.TxWits (
   txscripts,
  )
 import Cardano.Ledger.Api (
-  BabbageEra,
+  Babbage,
+  Conway,
+  PParams,
   TransactionScriptFailure,
   bodyTxL,
   collateralInputsTxBodyL,
@@ -49,7 +51,7 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (isNativeScript)
+import Cardano.Ledger.Core (isNativeScript, upgradeTx)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
@@ -247,6 +249,10 @@ data ErrCoverFee
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving stock (Show)
 
+data SomePParams
+  = BabbagePParams (PParams Babbage)
+  | ConwayPParams (PParams Conway)
+
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
 -- cover for the transaction cost and get the change back.
@@ -308,7 +314,15 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an aditional witness (we will sign this tx later)
-  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0 0
+  let fee = case pparams of
+        (pp :: Ledger.PParams Babbage) -> estimateMinFeeTx pp costingTx additionalWitnesses 0 0
+        (conwayPParams :: Ledger.PParams Conway) ->
+          let newTx = case upgradeTx costingTx of
+                -- TODO: Proper error
+                Left e -> error $ show e
+                Right tx -> tx
+           in estimateMinFeeTx conwayPParams newTx additionalWitnesses 0 0
+
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -426,7 +440,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   result ::
     Map
       (AlonzoPlutusPurpose AsIx LedgerEra)
-      (Either (TransactionScriptFailure (BabbageEra StandardCrypto)) ExUnits)
+      (Either (TransactionScriptFailure Babbage) ExUnits)
   result =
     evalTxExUnits
       pparams
