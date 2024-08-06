@@ -2087,6 +2087,13 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
+      example: |
+        {
+          "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+          "value": {
+              "lovelace": 7620669
+          }
+        }
 
     HydraNodeVersion:
       type: string
@@ -2116,9 +2123,11 @@ components:
       type: object
       propertyNames:
         pattern: "^[0-9a-f]{64}#[0-9]+$"
-      items: # REVIEW: does this work? use additionalProperties here?
+      additionalProperties:
         $ref: "api.yaml#/components/schemas/TxOut"
-      example:
+      description: |
+        A set of unspent transaction outputs. Object keys are 'TxIn' and values are 'TxOut'.
+      example: |
         {
             "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
                 "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
@@ -2141,7 +2150,7 @@ components:
         - blueprintTx
         - utxo
       properties:
-        blueptintTx:
+        blueprintTx:
           $ref: "api.yaml#/components/schemas/Transaction"
         utxo:
           $ref: "api.yaml#/components/schemas/UTxO"

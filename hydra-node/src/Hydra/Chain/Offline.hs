@@ -27,16 +27,17 @@ import Hydra.HeadId (HeadId (..), HeadSeed (..))
 import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Network (NodeId (nodeId))
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Party (Party)
 
--- | Hard-coded 'HeadId' for all offline head instances.
-offlineHeadId :: HeadId
-offlineHeadId = UnsafeHeadId "offline"
+-- | Derived 'HeadId' of offline head.
+offlineHeadId :: NodeId -> HeadId
+offlineHeadId = UnsafeHeadId . ("offline-" <>) . encodeUtf8 . nodeId
 
--- | Hard-coded 'HeadSeed' for all offline head instances.
-offlineHeadSeed :: HeadSeed
-offlineHeadSeed = UnsafeHeadSeed "offline"
+-- | Derived 'HeadSeed' of offline head.
+offlineHeadSeed :: NodeId -> HeadSeed
+offlineHeadSeed = UnsafeHeadSeed . ("offline-" <>) . encodeUtf8 . nodeId
 
 newtype InitialUTxOParseException = InitialUTxOParseException String
   deriving stock (Show)
@@ -66,18 +67,21 @@ loadGenesisFile ledgerGenesisFile =
           Left e -> throwIO $ InitialUTxOParseException e
 
 withOfflineChain ::
+  NodeId ->
   OfflineChainConfig ->
   Party ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party chainStateHistory callback action = do
-  initializeOfflineHead chainStateHistory initialUTxOFile party callback
+withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party chainStateHistory callback action = do
+  initializeOfflineHead
   genesis <- loadGenesisFile ledgerGenesisFile
   withAsync (tickForever genesis callback) $ \tickThread -> do
     link tickThread
     action chainHandle
  where
+  headId = offlineHeadId nodeId
+
   chainHandle =
     Chain
       { submitTx = const $ pure ()
@@ -85,50 +89,44 @@ withOfflineChain OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party ch
       , postTx = const $ pure ()
       }
 
-initializeOfflineHead ::
-  ChainStateHistory Tx ->
-  FilePath ->
-  Party ->
-  (ChainEvent Tx -> IO ()) ->
-  IO ()
-initializeOfflineHead chainStateHistory initialUTxOFile ownParty callback = do
-  let emptyChainStateHistory = initHistory initialChainState
+  initializeOfflineHead = do
+    let emptyChainStateHistory = initHistory initialChainState
 
-  -- if we don't have a chainStateHistory to restore from disk from, start a new one
-  when (chainStateHistory == emptyChainStateHistory) $ do
-    initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
+    -- if we don't have a chainStateHistory to restore from disk from, start a new one
+    when (chainStateHistory == emptyChainStateHistory) $ do
+      initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
 
-    callback $
-      Observation
-        { newChainState = initialChainState
-        , observedTx =
-            OnInitTx
-              { headId = offlineHeadId
-              , headSeed = offlineHeadSeed
-              , headParameters =
-                  HeadParameters
-                    { parties = [ownParty]
-                    , -- NOTE: This is irrelevant in offline mode.
-                      contestationPeriod = defaultContestationPeriod
-                    }
-              , participants = []
-              }
-        }
-    callback $
-      Observation
-        { newChainState = initialChainState
-        , observedTx =
-            OnCommitTx
-              { party = ownParty
-              , committed = initialUTxO
-              , headId = offlineHeadId
-              }
-        }
-    callback $
-      Observation
-        { newChainState = initialChainState
-        , observedTx = OnCollectComTx{headId = offlineHeadId}
-        }
+      callback $
+        Observation
+          { newChainState = initialChainState
+          , observedTx =
+              OnInitTx
+                { headId
+                , headSeed = offlineHeadSeed nodeId
+                , headParameters =
+                    HeadParameters
+                      { parties = [party]
+                      , -- NOTE: This is irrelevant in offline mode.
+                        contestationPeriod = defaultContestationPeriod
+                      }
+                , participants = []
+                }
+          }
+      callback $
+        Observation
+          { newChainState = initialChainState
+          , observedTx =
+              OnCommitTx
+                { party
+                , committed = initialUTxO
+                , headId
+                }
+          }
+      callback $
+        Observation
+          { newChainState = initialChainState
+          , observedTx = OnCollectComTx{headId}
+          }
 
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 tickForever genesis callback = do

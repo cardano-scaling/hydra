@@ -10,7 +10,7 @@ import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (UTxO)
-import Hydra.Chain (ChainCallback, ChainEvent (..), initHistory)
+import Hydra.Chain (ChainCallback, ChainEvent (..), OnChainTx (..), initHistory)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
@@ -20,6 +20,30 @@ import System.FilePath ((</>))
 
 spec :: Spec
 spec = do
+  it "does derive head id from node id" $ do
+    withTempDir "hydra-cluster" $ \tmpDir -> do
+      Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
+      let offlineConfig =
+            OfflineChainConfig
+              { initialUTxOFile = tmpDir </> "utxo.json"
+              , ledgerGenesisFile = Nothing
+              }
+      -- XXX: this is weird
+      let chainStateHistory = initHistory initialChainState
+
+      (callback, waitNext) <- monitorCallbacks
+      headId1 <- withOfflineChain "test1" offlineConfig alice chainStateHistory callback $ \_chain ->
+        waitMatch waitNext 2 $ \case
+          Observation{observedTx = OnInitTx{headId}} -> pure headId
+          _ -> Nothing
+
+      headId2 <- withOfflineChain "test2" offlineConfig alice chainStateHistory callback $ \_chain ->
+        waitMatch waitNext 2 $ \case
+          Observation{observedTx = OnInitTx{headId}} -> pure headId
+          _ -> Nothing
+
+      headId1 `shouldNotBe` headId2
+
   it "does start on slot 0 with no genesis" $ do
     withTempDir "hydra-cluster" $ \tmpDir -> do
       Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
@@ -32,11 +56,11 @@ spec = do
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain offlineConfig alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain "test" offlineConfig alice chainStateHistory callback $ \_chain -> do
         -- Expect to see a tick of slot 1 within 2 seconds
         waitMatch waitNext 2 $ \case
-          Tick{chainSlot} -> chainSlot > 0
-          _ -> False
+          Tick{chainSlot} -> guard $ chainSlot > 0
+          _ -> Nothing
 
   it "does not start on slot 0 with real genesis file" $ do
     withTempDir "hydra-cluster" $ \tmpDir -> do
@@ -52,11 +76,11 @@ spec = do
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain offlineConfig alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain "test" offlineConfig alice chainStateHistory callback $ \_chain -> do
         -- Should not start at 0
         waitMatch waitNext 1 $ \case
-          Tick{chainSlot} -> chainSlot > 1000
-          _ -> False
+          Tick{chainSlot} -> guard $ chainSlot > 1000
+          _ -> Nothing
         -- Should produce ticks on each slot, which is defined by genesis.json
         Just slotLength <- readFileBS (tmpDir </> "genesis.json") >>= \bs -> pure $ bs ^? key "slotLength" . _Number
         slotTime <-
@@ -79,7 +103,7 @@ monitorCallbacks = do
   pure (callback, waitNext)
 
 -- XXX: Dry with the other waitMatch utilities
-waitMatch :: (HasCallStack, ToJSON a) => IO a -> DiffTime -> (a -> Bool) -> IO ()
+waitMatch :: (HasCallStack, ToJSON a) => IO a -> DiffTime -> (a -> Maybe b) -> IO b
 waitMatch waitNext seconds match = do
   seen <- newTVarIO []
   timeout seconds (go seen) >>= \case
@@ -97,5 +121,6 @@ waitMatch waitNext seconds match = do
   go seen = do
     a <- waitNext
     atomically (modifyTVar' seen (a :))
-    unless (match a) $
-      go seen
+    case match a of
+      Just b -> pure b
+      Nothing -> go seen
