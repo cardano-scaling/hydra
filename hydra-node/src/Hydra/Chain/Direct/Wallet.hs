@@ -47,6 +47,7 @@ import Cardano.Ledger.Api (
   reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   scriptTxWitsL,
+  upgradeTxOut,
   witsTxL,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
@@ -56,7 +57,7 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (isNativeScript)
+import Cardano.Ledger.Core (TxUpgradeError, isNativeScript, upgradeTx) -- TODO: request re-xport of upgradeTx
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
@@ -67,6 +68,7 @@ import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
+import Control.Arrow (left)
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
@@ -86,6 +88,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  convertConwayTx,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
@@ -176,14 +179,20 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
-          -- XXX: We should query pparams here. If not, we likely will have
+          let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
+          -- FIXME: We should query pparams here. If not, we likely will have
           -- wrong fee estimation should they change in between.
           epochInfo <- queryEpochInfo
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $
-            fromLedgerTx
-              <$> case pparams of
-                (BabbagePParams pp) -> coverFee_ pp systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
+            case pparams of
+              BabbagePParams pp ->
+                coverFee_ pp systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
+                  <&> fromLedgerTx
+              ConwayPParams pp -> do
+                conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
+                coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
+                  <&> convertConwayTx . fromLedgerTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -249,6 +258,7 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text} -- FIXME: try to avoid Text
   | ErrTranslationError (ContextError LedgerEra)
+  | ErrConwayUpgradeError (TxUpgradeError Conway)
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -266,7 +276,6 @@ coverFee_ ::
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
   , BabbageEraTxBody era
-  , PlutusPurpose AsIx era ~ AlonzoPlutusPurpose AsIx era -- FIXME this is a problem as conway has different purposes
   ) =>
   PParams era ->
   SystemStart ->
@@ -291,11 +300,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let utxo = lookupUTxO <> walletUTxO
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
-        adjustRedeemers
-          (body ^. inputsTxBodyL)
-          newInputs
-          estimatedScriptCosts
-          (wits ^. rdmrsTxWitsL)
+        -- FIXME: put execution budgets
+        -- adjustRedeemers
+        --   (body ^. inputsTxBodyL)
+        --   newInputs
+        --   estimatedScriptCosts
+        (wits ^. rdmrsTxWitsL)
 
   -- Compute script integrity hash from adjusted redeemers
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
