@@ -69,7 +69,7 @@ import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
-import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (check, newTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -139,6 +139,7 @@ data TinyWallet m = TinyWallet
 data SomePParams
   = BabbagePParams (PParams Babbage)
   | ConwayPParams (PParams Conway)
+  deriving (Show)
 
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
@@ -180,10 +181,14 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
-          -- FIXME: We should query pparams here. If not, we likely will have
-          -- wrong fee estimation should they change in between.
+          -- We query pparams here again as it's possible that a hardfork occurred
+          -- and the pparams changed.
+          -- FIXME: Only query the pparams again, not the entire wallet info
+          currentWalletInfo@WalletInfoOnChain{walletUTxO, pparams, systemStart} <- queryWalletInfo QueryTip address
           epochInfo <- queryEpochInfo
-          WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
+          atomically $ writeTVar walletInfoVar currentWalletInfo
+
+          putStrLn $ "Current PParams: " <> show pparams
           pure $
             case pparams of
               BabbagePParams pp ->
