@@ -24,13 +24,11 @@ import Cardano.Ledger.Alonzo.TxWits (
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
-  AlonzoEraTxBody,
   Babbage,
   BabbageEraTxBody,
   Conway,
   Data,
   EraCrypto,
-  EraTx,
   PParams,
   Tx,
   bodyTxL,
@@ -59,14 +57,14 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (TxUpgradeError, isNativeScript, upgradeTx)
+import Cardano.Ledger.Core (TxUpgradeError, upgradeTx)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import Cardano.Ledger.Language (Language (PlutusV2))
+import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.SafeHash qualified as SafeHash
-import Cardano.Ledger.Shelley.API (StrictMaybe (..), unUTxO)
+import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -97,6 +95,7 @@ import Hydra.Cardano.Api (
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
+  recomputeIntegrityHash,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
@@ -190,8 +189,6 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           currentWalletInfo@WalletInfoOnChain{walletUTxO, pparams, systemStart} <- queryWalletInfo QueryTip address
           epochInfo <- queryEpochInfo
           atomically $ writeTVar walletInfoVar currentWalletInfo
-
-          putStrLn $ "Current PParams: " <> show pparams
           pure $
             case pparams of
               BabbagePParams pp ->
@@ -200,19 +197,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
               ConwayPParams pp -> do
                 -- TODO: request re-export of upgradeTx in cardano-ledger-api
                 conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
-                tx <-
-                  coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
-                    <&> toLedgerTx . convertConwayTx . fromLedgerTx
-
-                -- FIXME: The problem is somewhere above
-                let integrityHash =
-                      hashScriptIntegrity
-                        (Set.singleton $ getLanguageView pp PlutusV2)
-                        (tx ^. witsTxL . rdmrsTxWitsL)
-                        (tx ^. witsTxL . datsTxWitsL)
-                pure $
-                  fromLedgerTx $
-                    tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
+                coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
+                  <&> fromLedgerTx . recomputeIntegrityHash pp [PlutusV2] . convertConwayTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -330,8 +316,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
       langs =
         [ getLanguageView pparams l
-        | (_hash, script) <- Map.toList $ Map.union (wits ^. scriptTxWitsL) referenceScripts
-        , (not . isNativeScript) script
+        | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
         , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
         ]
       scriptIntegrityHash =
@@ -339,7 +324,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
           (Set.fromList langs)
           adjustedRedeemers
           (wits ^. datsTxWitsL)
-
   let
     unbalancedBody =
       body
