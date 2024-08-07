@@ -13,6 +13,7 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Tx, Value)
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Lens (view, (.~), (<>~), (^.))
@@ -95,14 +96,14 @@ spec = parallel $ do
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) (pure Fixture.epochInfo)
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
     prop "re-queries UTxO from the tip, even on reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn (pure Fixture.epochInfo)
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn mockQueryEpochInfo mockQueryPParams
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip
@@ -121,9 +122,7 @@ setupQuery vk = do
     pure $
       WalletInfoOnChain
         { walletUTxO
-        , pparams = BabbagePParams Fixture.pparams
         , systemStart = Fixture.systemStart
-        , epochInfo = Fixture.epochInfo
         , tip
         }
 
@@ -139,11 +138,15 @@ mockChainQuery vk _point addr = do
   pure $
     WalletInfoOnChain
       { walletUTxO
-      , pparams = BabbagePParams Fixture.pparams
       , systemStart = Fixture.systemStart
-      , epochInfo = Fixture.epochInfo
       , tip
       }
+
+mockQueryEpochInfo :: IO (EpochInfo (Either Text))
+mockQueryEpochInfo = pure Fixture.epochInfo
+
+mockQueryPParams :: IO SomePParams
+mockQueryPParams = pure $ BabbagePParams Fixture.pparams
 
 --
 -- Generators

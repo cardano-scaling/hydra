@@ -58,6 +58,7 @@ import Hydra.Chain (
   currentState,
  )
 import Hydra.Chain.CardanoClient (
+  QueryException (..),
   QueryPoint (..),
   queryCurrentEraExpr,
   queryEraHistory,
@@ -94,6 +95,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..))
 import Hydra.Party (Party)
+import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -140,28 +142,27 @@ mkTinyWallet ::
   IO (TinyWallet IO)
 mkTinyWallet tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
-  newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo
+  newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
   DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} = config
 
   queryEpochInfo = toEpochInfo <$> queryEraHistory networkId nodeSocket QueryTip
+
+  querySomePParams =
+    runQueryExpr networkId nodeSocket QueryTip $ do
+      AnyCardanoEra era <- queryCurrentEraExpr
+      case era of
+        BabbageEra{} -> BabbagePParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+        ConwayEra{} -> ConwayPParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+        _ -> liftIO . throwIO $ QueryEraMismatchException EraMismatch{ledgerEraName = show era, otherEraName = "Babbage or Conway"}
 
   queryWalletInfo queryPoint address = do
     point <- case queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-
-    pparams <- runQueryExpr networkId nodeSocket QueryTip $ do
-      AnyCardanoEra era <- queryCurrentEraExpr
-      case era of
-        BabbageEra{} -> BabbagePParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        ConwayEra{} -> ConwayPParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-        _ -> error $ "Unsupported era: " <> show era
-
     systemStart <- querySystemStart networkId nodeSocket QueryTip
-    epochInfo <- queryEpochInfo
-    pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}
+    pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)
   toEpochInfo (EraHistory interpreter) =

@@ -70,7 +70,7 @@ import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
-import Control.Concurrent.Class.MonadSTM (check, newTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -145,10 +145,7 @@ data SomePParams
 
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
-  , pparams :: SomePParams
-  -- ^ The wallet can support Babbage or Conway; you have to pick.
   , systemStart :: SystemStart
-  , epochInfo :: EpochInfo (Either Text)
   , tip :: ChainPoint
   -- ^ Latest point on chain the wallet knows of.
   }
@@ -172,8 +169,10 @@ newTinyWallet ::
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (EpochInfo (Either Text)) ->
+  -- | A means to query some pparams.
+  IO SomePParams ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
+newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
@@ -183,12 +182,11 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
-          -- We query pparams here again as it's possible that a hardfork occurred
-          -- and the pparams changed.
-          -- FIXME: Only query the pparams again, not the entire wallet info
-          currentWalletInfo@WalletInfoOnChain{walletUTxO, pparams, systemStart} <- queryWalletInfo QueryTip address
+          WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
           epochInfo <- queryEpochInfo
-          atomically $ writeTVar walletInfoVar currentWalletInfo
+          -- We query pparams here again as it's possible that a hardfork
+          -- occurred and the pparams changed.
+          pparams <- querySomePParams
           pure $
             case pparams of
               BabbagePParams pp ->
@@ -262,7 +260,7 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text} -- FIXME: try to avoid Text
+  | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
   | ErrConwayUpgradeError (TxUpgradeError Conway)
   deriving stock (Show)

@@ -56,8 +56,8 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.Scripts (PlutusScript (..))
 import Cardano.Ledger.Conway.Scripts qualified as Conway
 import Cardano.Ledger.Conway.TxBody qualified as Ledger
-import Cardano.Ledger.Language qualified as Ledger
 import Cardano.Ledger.Plutus.Data (upgradeData)
+import Cardano.Ledger.Plutus.Language qualified as Ledger
 import Control.Lens ((&), (.~), (^.))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
