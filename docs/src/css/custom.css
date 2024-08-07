@@ -138,6 +138,11 @@ html {
   padding-bottom: 63px;
 }
 
+.component-xs {
+  padding-top: 56px;
+  padding-bottom: 56px;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
