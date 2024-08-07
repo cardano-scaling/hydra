@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (EraTx (getMinFeeTx), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -15,7 +15,7 @@ import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Control.Lens (set, view, (.~), (<>~), (^.))
+import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
@@ -47,6 +47,7 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
+  SomePParams (BabbagePParams),
   TinyWallet (..),
   TxIn,
   TxOut,
@@ -120,7 +121,7 @@ setupQuery vk = do
     pure $
       WalletInfoOnChain
         { walletUTxO
-        , pparams = Fixture.pparams
+        , pparams = BabbagePParams Fixture.pparams
         , systemStart = Fixture.systemStart
         , epochInfo = Fixture.epochInfo
         , tip
@@ -138,7 +139,7 @@ mockChainQuery vk _point addr = do
   pure $
     WalletInfoOnChain
       { walletUTxO
-      , pparams = Fixture.pparams
+      , pparams = BabbagePParams Fixture.pparams
       , systemStart = Fixture.systemStart
       , epochInfo = Fixture.epochInfo
       , tip
@@ -241,6 +242,9 @@ prop_balanceTransaction =
           & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
           & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
           & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+          -- XXX: This is not exercising any script cost estimation because
+          -- genLedgerTx does not generate txs spending from scripts seemingly.
+          & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
 
 hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
 hasLowFees pparams tx =
@@ -370,8 +374,7 @@ genOutputsForInputs AlonzoTx{body} = do
 genLedgerTx :: Gen (Tx LedgerEra)
 genLedgerTx = do
   tx <- arbitrary
-  body <- (\x -> x & set feeTxBodyL (Coin 0)) <$> arbitrary
-  pure $ tx{body, wits = mempty}
+  pure $ tx & bodyTxL . feeTxBodyL .~ Coin 0
 
 --
 -- Helpers
