@@ -1055,6 +1055,16 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           leader:
             $ref: "api.yaml#/components/schemas/Party"
+      - title: "ReqSnDecommitNotSettled"
+        description: >-
+          Received a ReqSn message with specified new decommit but the previous one was not settled.
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSnDecommitNotSettled"]
       - title: "InvalidMultisignature"
         description: >-
           Multisignature computed for a snapshot from individual parties signature is invalid.
@@ -2215,8 +2225,6 @@ definitions:
             enum: ["WaitOnSnapshotNumber"]
           waitingForNumber:
             "$ref": "api.yaml#/components/schemas/SnapshotNumber"
-            description: >-
-              The expected number.
       - title: WaitOnSnapshotVersion
         description: >-
           Requested snapshot version is not up to date, waiting for the next version number.
@@ -2231,8 +2239,6 @@ definitions:
             enum: ["WaitOnSnapshotVersion"]
           waitingForVersion:
             "$ref": "api.yaml#/components/schemas/SnapshotVersion"
-            description: >-
-              The expected number.
       - title: WaitOnSeenSnapshot
         description: >-
           No current snapshot is available, waiting for some snapshot to start.

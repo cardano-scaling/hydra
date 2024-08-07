@@ -474,8 +474,9 @@ spec =
           _ -> False
 
       it "rejects same version snapshot requests with differring decommit txs" $ do
-        let decommitTx = SimpleTx 2 (utxoRef 2) (utxoRef 4)
-            activeUTxO = utxoRefs [2]
+        let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+            decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 4)
+            activeUTxO = utxoRefs [1, 2]
             snapshot =
               Snapshot
                 { headId = testHeadId
@@ -485,21 +486,22 @@ spec =
                 , utxo = activeUTxO
                 , utxoToDecommit = Just $ utxoRefs [3]
                 }
-            -- NOTE: Signatures are not relevant here
             s0 =
-              inOpenState' threeParties $
+              inOpenState'
+                threeParties
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
                   , seenSnapshot = LastSeenSnapshot 1
                   , localUTxO = activeUTxO
-                  , decommitTx = Just $ SimpleTx 1 (utxoRef 1) (utxoRef 3)
                   }
-            reqSn = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx)
+            reqSn0 = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx1)
+            reqSn1 = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx2)
 
         outcome <- runHeadLogic bobEnv ledger s0 $ do
-          step reqSn
+          step reqSn0
+          step reqSn1
         outcome `shouldSatisfy` \case
-          Error RequireFailed{} -> True
+          Error RequireFailed{requirementFailure} | requirementFailure == ReqSnDecommitNotSettled -> True
           _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do

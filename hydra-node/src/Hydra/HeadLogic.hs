@@ -405,15 +405,12 @@ onOpenNetworkReqSn ::
   Maybe tx ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
-  -- Spec: require v = v ∧ s = ŝ + 1 ∧ leader(s) = j
+  -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
-        -- Spec: require ̅S.𝑈 ◦ txω ≠ ⊥
-        --       ηω ← combine(outputs(txω))
-        --       𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
         requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
           -- Resolve transactions by-id
           waitResolvableTxs $ \requestedTxs -> do
@@ -482,37 +479,28 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
   requireApplicableDecommitTx cont =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
-      Just decommitTx
-        -- Spec: if v = S̄.v
-        | sv == confVersion ->
-            case confUTxOToDecommit of
-              Nothing ->
-                -- Spec: require ̅S.𝑈 ◦ txω /= ⊥
-                case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
-                  Left (_, err) ->
-                    Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
-                  Right newConfirmedUTxO -> do
-                    -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
-                    let utxoToDecommit = utxoFromTx decommitTx
-                    let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
-                    cont (activeUTxO, Just utxoToDecommit)
-              Just pendingUtxOToDecommit
-                -- Spec: S̄.txω ̸= ⊥
-                -- Spec: require S̄.txω = txω
-                | pendingUtxOToDecommit /= utxoFromTx decommitTx ->
-                    Error $ RequireFailed ReqSnDecommitNotSettled
-                | otherwise ->
-                    cont (confirmedUTxO, Just $ utxoFromTx decommitTx)
-        | otherwise ->
-            -- Spec: require ̅S.𝑈 ◦ txω /= ⊥
-            case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
-              Left (_, err) ->
-                Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
-              Right newConfirmedUTxO -> do
-                -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
-                let utxoToDecommit = utxoFromTx decommitTx
-                let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
-                cont (activeUTxO, Just utxoToDecommit)
+      Just decommitTx ->
+        -- Spec:
+        -- if v = S̄.v ∧ S̄.txω ̸= ⊥
+        --   require S̄.txω = txω
+        --   Uactive ← S̄.U
+        --   Uω ← S̄.Uω
+        -- else
+        --   require S̄.U ◦ txω ̸= ⊥
+        --   Uactive ← S̄.U ◦ txω \ outputs(txω )
+        --   Uω ← outputs(txω )
+        if sv == confVersion && isJust confUTxOToDecommit
+          then
+            if confUTxOToDecommit == Just (utxoFromTx decommitTx)
+              then cont (confirmedUTxO, confUTxOToDecommit)
+              else Error $ RequireFailed ReqSnDecommitNotSettled
+          else case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+            Left (_, err) ->
+              Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
+            Right newConfirmedUTxO -> do
+              let utxoToDecommit = utxoFromTx decommitTx
+              let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
+              cont (activeUTxO, Just utxoToDecommit)
 
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
   -- are part of the localTxs. The snapshot can contain less transactions than the ones

@@ -439,7 +439,6 @@ spec = parallel $ do
 
       it "can process transactions while decommit pending" $
         shouldRunInSim $ do
-          -- NOTE: The simulated network has a block time of 20 (simulated) seconds.
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
@@ -690,6 +689,7 @@ dummySimulatedChainNetwork =
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
 -- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
 -- initial chain state to play back to our test nodes.
+-- NOTE: The simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m) =>
   (SimulatedChainNetwork SimpleTx m -> m ()) ->
