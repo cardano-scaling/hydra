@@ -24,11 +24,13 @@ import Cardano.Ledger.Alonzo.TxWits (
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
+  AlonzoEraTxBody,
   Babbage,
   BabbageEraTxBody,
   Conway,
   Data,
   EraCrypto,
+  EraTx,
   PParams,
   Tx,
   bodyTxL,
@@ -62,8 +64,9 @@ import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
+import Cardano.Ledger.Language (Language (PlutusV2))
 import Cardano.Ledger.SafeHash qualified as SafeHash
-import Cardano.Ledger.Shelley.API (unUTxO)
+import Cardano.Ledger.Shelley.API (StrictMaybe (..), unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -197,8 +200,19 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
               ConwayPParams pp -> do
                 -- TODO: request re-export of upgradeTx in cardano-ledger-api
                 conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
-                coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
-                  <&> convertConwayTx . fromLedgerTx
+                tx <-
+                  coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
+                    <&> toLedgerTx . convertConwayTx . fromLedgerTx
+
+                -- FIXME: The problem is somewhere above
+                let integrityHash =
+                      hashScriptIntegrity
+                        (Set.singleton $ getLanguageView pp PlutusV2)
+                        (tx ^. witsTxL . rdmrsTxWitsL)
+                        (tx ^. witsTxL . datsTxWitsL)
+                pure $
+                  fromLedgerTx $
+                    tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
