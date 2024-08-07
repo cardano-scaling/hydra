@@ -23,6 +23,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Exception (IOException)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
+  AnyCardanoEra (..),
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint,
@@ -35,6 +36,7 @@ import Hydra.Cardano.Api (
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
+  QueryInShelleyBasedEra (..),
   SocketPath,
   Tx,
   TxInMode (..),
@@ -55,11 +57,13 @@ import Hydra.Chain (
  )
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
+  queryCurrentEraExpr,
   queryEraHistory,
-  queryProtocolParameters,
+  queryInShelleyBasedEraExpr,
   querySystemStart,
   queryTip,
   queryUTxO,
+  runQueryExpr,
  )
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler,
@@ -80,6 +84,7 @@ import Hydra.Chain.Direct.Util (
   readKeyPair,
  )
 import Hydra.Chain.Direct.Wallet (
+  SomePParams (..),
   TinyWallet (..),
   WalletInfoOnChain (..),
   newTinyWallet,
@@ -144,7 +149,14 @@ mkTinyWallet tracer config = do
       QueryAt point -> pure point
       QueryTip -> queryTip networkId nodeSocket
     walletUTxO <- Ledger.unUTxO . toLedgerUTxO <$> queryUTxO networkId nodeSocket QueryTip [address]
-    pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+
+    pparams <- runQueryExpr networkId nodeSocket QueryTip $ do
+      AnyCardanoEra era <- queryCurrentEraExpr
+      case era of
+        BabbageEra{} -> BabbagePParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+        ConwayEra{} -> ConwayPParams <$> queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
+        _ -> error $ "Unsupported era: " <> show era
+
     systemStart <- querySystemStart networkId nodeSocket QueryTip
     epochInfo <- queryEpochInfo
     pure $ WalletInfoOnChain{walletUTxO, pparams, systemStart, epochInfo, tip = point}

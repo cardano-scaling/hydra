@@ -133,9 +133,14 @@ data TinyWallet m = TinyWallet
   -- wallet is still initializing.
   }
 
+data SomePParams
+  = BabbagePParams (PParams Babbage)
+  | ConwayPParams (PParams Conway)
+
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
-  , pparams :: Core.PParams LedgerEra
+  , pparams :: SomePParams
+  -- ^ The wallet can support Babbage or Conway; you have to pick.
   , systemStart :: SystemStart
   , epochInfo :: EpochInfo (Either Text)
   , tip :: ChainPoint
@@ -177,7 +182,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
           WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
           pure $
             fromLedgerTx
-              <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
+              <$> case pparams of
+                (BabbagePParams pp) -> coverFee_ pp systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -247,10 +253,6 @@ data ErrCoverFee
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving stock (Show)
-
-data SomePParams
-  = BabbagePParams (PParams Babbage)
-  | ConwayPParams (PParams Conway)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
 -- necessary fees and augments inputs / outputs / collateral accordingly to
