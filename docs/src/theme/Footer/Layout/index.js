@@ -45,8 +45,7 @@ export default function FooterLayout({ style, links, logo, copyright }) {
               Lorem Ipsum is simply dummy text of the printing{" "}
             </span>
             <Link
-              className="px-4 py-3 justify-center text-center border text-sm border-solid bg-teal-lightest border-teal font-bold text-teal rounded-lg no-underline hover:bg-teal-light hover:no-underline hover:text-teal
-      "
+              className="px-4 py-3 justify-center text-center border text-sm border-solid bg-teal-lightest border-teal font-bold text-teal rounded-lg no-underline hover:bg-teal-light hover:no-underline hover:text-teal"
               target="_blank"
               to={"https://github.com/cardano-scaling/hydra"}
             >

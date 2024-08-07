@@ -41,8 +41,8 @@ const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
               <Square className="mt-1" />
               Passengers <span className="font-bold">(Participants)</span>
             </span>
-            <span className="inline-flex">
-              <Triangle className="mt-[3px] gap-[5px]" />
+            <span className="inline-flex gap-[5px]">
+              <Triangle className="mt-[3px]" />
               Passengers <span className="font-bold">(Participants)</span>
             </span>
           </div>

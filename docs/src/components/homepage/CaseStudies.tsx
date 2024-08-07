@@ -9,7 +9,7 @@ import { FeaturedCaseStudy } from "../../../docs/homepage/case-studies";
 const CaseStudies: FC = () => {
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
-    <section className="bg-[#E7EEF0]">
+    <section className="bg-teal-extralight">
       <motion.div
         className="component pageContainer"
         initial="hidden"

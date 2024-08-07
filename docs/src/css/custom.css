@@ -11,7 +11,21 @@
 @font-face {
   font-family: "Lexend";
   font-weight: 400;
-  src: url("/fonts/Lexend-Regular.ttf");
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 500;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 600;
+  src: url("/fonts/Lexend-VariableFont.ttf");
   font-display: swap;
 }
 
@@ -27,6 +41,13 @@
   font-weight: 400;
   font-style: italic;
   src: url("/fonts/Inter-Italic-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 700;
+  src: url("/fonts/Inter-VariableFont.ttf");
   font-display: swap;
 }
 
@@ -92,7 +113,7 @@ html {
 }
 
 .pageContainer {
-  max-width: 1184px;
+  max-width: 1280px;
   width: 100%;
   margin-left: auto;
   margin-right: auto;
@@ -110,6 +131,11 @@ html {
 .component {
   padding-top: 72px;
   padding-bottom: 72px;
+}
+
+.component-sm {
+  padding-top: 63px;
+  padding-bottom: 63px;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

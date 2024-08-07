@@ -9,7 +9,7 @@ export default function NavbarMobileSidebarLayout({
 }) {
   const { shown: secondaryMenuShown } = useNavbarSecondaryMenu();
   return (
-    <div className="navbar-sidebar bg-[#E7EEF0] w-full transition-transform -translate-y-full">
+    <div className="navbar-sidebar bg-teal-extralight w-full transition-transform -translate-y-full">
       {header}
       <div
         className={clsx("navbar-sidebar__items", {

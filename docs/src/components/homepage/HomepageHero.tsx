@@ -34,8 +34,8 @@ const HomepageHero: FC = () => {
         />
       </video>
       <div className="pageContainer">
-        <div className="component my-6">
-          <div className="pb-8 tablet:max-w-md">
+        <div className="component-sm">
+          <div className="pb-9 tablet:max-w-[485px]">
             <motion.h1
               className="tablet:text-[56px] tablet:leading-[67px] text-4xl leading-[48px] text-teal font-medium pb-4"
               initial={{ opacity: 0 }}
@@ -58,11 +58,10 @@ const HomepageHero: FC = () => {
             transition={{ ease: "easeInOut", duration: 0.75, delay: 1.2 }}
           >
             <Link
-              className="px-4 py-3 justify-center border border-solid border-teal font-bold text-teal rounded-lg no-underline hover:bg-teal/15 hover:no-underline hover:text-teal
-      "
+              className="inline-block px-4 py-3 border border-solid border-teal font-bold text-sm text-teal rounded-lg no-underline bg-white hover:bg-teal-extralight hover:no-underline hover:text-teal"
               to="/docs/getting-started"
             >
-              Learn More
+              Learn more
             </Link>
           </motion.div>
         </div>

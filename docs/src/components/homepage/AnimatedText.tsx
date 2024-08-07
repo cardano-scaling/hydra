@@ -43,7 +43,7 @@ const processText = (children: React.ReactNode): React.ReactNode =>
 const AnimatedText: FC = () => {
   const [popTextClass, setPopTextClass] = useState("");
   return (
-    <section className="component tablet:px-[72px]">
+    <section className="component max-w-[1040px] mx-auto">
       <motion.div
         className="homepageText"
         variants={{

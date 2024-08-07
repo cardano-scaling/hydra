@@ -27,7 +27,7 @@ const Feature: FC<Props> = ({ icon, title, description, tagLine }) => {
         {icon}
         <h6 className="text-2xl">{title}</h6>
       </div>
-      <p className="tablet:max-w-80">{description}</p>
+      <p>{description}</p>
       <span
         className={clsx(
           "p-2 w-fit text-sm",
@@ -59,7 +59,7 @@ const Features: FC = () => {
         >
           / FEATURES
         </motion.h5>
-        <motion.div className="grid laptop:grid-cols-3 laptop:grid-rows-2 laptop:grid-flow-row tablet:grid-rows-3 tablet:grid-flow-col gap-x-[52px] tablet:gap-y-6 laptop:gap-y-14 gap-y-14">
+        <motion.div className="grid laptop:grid-cols-3 laptop:grid-rows-2 laptop:grid-flow-row tablet:grid-rows-3 tablet:grid-flow-col gap-x-6 tablet:gap-y-6 laptop:gap-y-14 gap-y-14">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
