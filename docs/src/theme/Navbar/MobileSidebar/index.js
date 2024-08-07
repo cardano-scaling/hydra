@@ -6,9 +6,10 @@ import {
 import NavbarMobileSidebarLayout from "@theme/Navbar/MobileSidebar/Layout";
 import NavbarMobileSidebarHeader from "@theme/Navbar/MobileSidebar/Header";
 import NavbarMobileSidebarPrimaryMenu from "@theme/Navbar/MobileSidebar/PrimaryMenu";
-// import NavbarMobileSidebarSecondaryMenu from "@theme/Navbar/MobileSidebar/SecondaryMenu";
+import NavbarMobileSidebarSecondaryMenu from "@theme/Navbar/MobileSidebar/SecondaryMenu";
 export default function NavbarMobileSidebar() {
   const mobileSidebar = useNavbarMobileSidebar();
+  console.log(mobileSidebar);
   useLockBodyScroll(mobileSidebar.shown);
   if (!mobileSidebar.shouldRender) {
     return null;
@@ -17,7 +18,7 @@ export default function NavbarMobileSidebar() {
     <NavbarMobileSidebarLayout
       header={<NavbarMobileSidebarHeader />}
       primaryMenu={<NavbarMobileSidebarPrimaryMenu />}
-      // secondaryMenu={<NavbarMobileSidebarSecondaryMenu />}
+      secondaryMenu={<NavbarMobileSidebarSecondaryMenu />}
     />
   );
 }

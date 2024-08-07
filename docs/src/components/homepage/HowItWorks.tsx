@@ -99,7 +99,7 @@ const HowItWorks: FC = () => {
       <div
         className={clsx(
           "w-full z-30 relative",
-          expanded ? "mt-4 laptop:mt-2" : "laptop:-mt-4"
+          expanded ? "mt-4 laptop:mt-2" : "laptop:-mt-4 mt-4"
         )}
       >
         <button

@@ -28,7 +28,7 @@ const CaseStudies: FC = () => {
             <p>{FeaturedCaseStudy.content}</p>
             <Link
               className="bg-none text-teal self-start inline-flex gap-3 group hover:no-underline hover:text-teal"
-              href="/"
+              href="/use-cases"
             >
               {"View case studies "}
               <Arrow className="mt-1 rounded-full group-hover:bg-teal/15" />

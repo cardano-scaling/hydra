@@ -15,10 +15,34 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  src: url("/fonts/Inter-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/Inter-Italic-VariableFont.ttf");
+  font-display: swap;
+}
+
 /* You can override the default Infima variables here. */
 :root {
   --ifm-color-primary: #12506c;
   --ifm-code-font-size: 95%;
+  --ifm-navbar-height: 56px;
+  font-family: "Inter";
+  --ifm-color-emphasis-600: #283032;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ifm-navbar-height: 96px;
+  }
 }
 
 h1,
@@ -26,6 +50,11 @@ h2,
 h3,
 h4 {
   font-family: "Lexend";
+}
+
+h5,
+h6 {
+  font-family: "Inter";
 }
 
 h4 {
@@ -179,11 +208,21 @@ svg.architecture {
 }
 
 .navbar__title {
-  font-size: 24px;
+  font-size: 19px;
+  letter-spacing: -0.142px;
+  line-height: normal;
   font-weight: 400;
   font-family: "Lexend";
-  letter-spacing: -0.18px;
 }
+
+@media (min-width: 1024px) {
+  .navbar__title {
+    font-size: 24px;
+    line-height: normal;
+    letter-spacing: -0.18px;
+  }
+}
+
 .navbar__item {
   font-size: 14px;
   font-weight: 600;
@@ -191,25 +230,19 @@ svg.architecture {
 
 .navbar__items--right {
   display: flex !important;
+  font-family: "Lexend";
 }
 
-.navbar__item:nth-of-type(3) {
+.navbar__item:nth-of-type(6) {
   order: 2;
 }
 
-.navbar__itemt:nth-of-type(5) {
+.navbar__itemt:nth-of-type(8) {
   order: 1;
 }
 
-.navbar__item:nth-of-type(4) {
+.navbar__item:nth-of-type(7) {
   order: 3;
-}
-
-@media (max-width: 996px) {
-  .searchBox_src-theme-Navbar-Search-styles-module {
-    position: relative !important;
-    right: 0 !important;
-  }
 }
 
 .DocSearch-Button .DocSearch-Search-Icon {
@@ -249,10 +282,6 @@ svg.architecture {
   display: none;
 }
 
-.navbar {
-  padding-bottom: 60px !important;
-}
-
 .navbar__toggle {
   margin-right: 0 !important;
   margin-left: 32px;
@@ -260,4 +289,74 @@ svg.architecture {
 
 .mobile-side-menu > .menu__list-item > .menu__link {
   color: #283032 !important;
+}
+
+.breadcrumbHomeIcon_src-theme-DocBreadcrumbs-Items-Home-styles-module {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.breadcrumbs__link {
+  margin-bottom: -12px !important;
+}
+
+.menu {
+  padding: 24px !important;
+}
+
+.menu__link--active {
+  background-color: #e7eef0 !important;
+  font-weight: 700;
+}
+
+.breadcrumbs__item--active > span {
+  background-color: #e7eef0 !important;
+}
+
+.container {
+  padding: 24px !important;
+}
+
+@media (min-width: 768px) {
+  .markdown {
+    padding: 32px 0 16px 0px !important;
+  }
+  .container {
+    padding: 24px 32px 56px 32px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .markdown {
+    padding: 56px !important;
+    padding-right: 0 !important;
+  }
+  .container {
+    padding: 24px 16px 24px 16px !important;
+  }
+}
+
+.theme-edit-this-page {
+  display: inline-flex;
+}
+
+.col--3 {
+  padding-right: 56px !important;
+  padding-top: 86px !important;
+}
+
+.collapseSidebarButton {
+  display: block;
+}
+
+.container {
+  border-bottom: solid 1px #eaeaea;
+}
+
+.navbar-sidebar__item {
+  width: 100vw !important;
+}
+
+.navbar-sidebar__items--show-secondary {
+  margin-left: -15%;
 }

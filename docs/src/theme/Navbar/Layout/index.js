@@ -8,6 +8,8 @@ import {
 import { translate } from "@docusaurus/Translate";
 import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
 import styles from "./styles.module.css";
+
+import { useLocation } from "@docusaurus/router";
 import { useScroll, motion, useTransform } from "framer-motion";
 
 function NavbarBackdrop(props) {
@@ -26,6 +28,7 @@ export default function NavbarLayout({ children }) {
     [0, 70],
     ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 1)"]
   );
+  const location = useLocation();
   const {
     navbar: { hideOnScroll },
   } = useThemeConfig();
@@ -33,9 +36,12 @@ export default function NavbarLayout({ children }) {
   const { navbarRef, isNavbarVisible } = useHideableNavbar(hideOnScroll);
   return (
     <motion.header
-      style={{
-        backgroundColor: y,
-      }}
+      style={
+        (location.pathname === "/" ||
+          location.pathname === "/head-protocol/") && {
+          backgroundColor: y,
+        }
+      }
       ref={navbarRef}
       aria-label={translate({
         id: "theme.NavBar.navAriaLabel",
@@ -43,10 +49,13 @@ export default function NavbarLayout({ children }) {
         description: "The ARIA label for the main navigation",
       })}
       className={clsx(
-        "flex navbar py-6 px-0 shadow-none",
+        "flex navbar tablet:py-[30px] px-0 shadow-none z-50",
+        location.pathname === "/" || location.pathname === "/head-protocol/"
+          ? "border-none pt-3"
+          : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
         "navbar--fixed-top",
         hideOnScroll && [
-          styles.navbarHideable,
+          // styles.navbarHideable,
           !isNavbarVisible && styles.navbarHidden,
         ],
         {
@@ -54,7 +63,15 @@ export default function NavbarLayout({ children }) {
         }
       )}
     >
-      <div className="pageContainer">{children}</div>
+      <div
+        className={clsx(
+          location.pathname === "/" || location.pathname === "/head-protocol/"
+            ? "pageContainer"
+            : "w-full px-6"
+        )}
+      >
+        {children}
+      </div>
       <NavbarBackdrop onClick={mobileSidebar.toggle} />
       <NavbarMobileSidebar />
     </motion.header>

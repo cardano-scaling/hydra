@@ -1,14 +1,14 @@
-import React from 'react';
+import React from "react";
 import {
   useVersions,
   useActiveDocContext,
-} from '@docusaurus/plugin-content-docs/client';
-import {useDocsPreferredVersion} from '@docusaurus/theme-common';
-import {useDocsVersionCandidates} from '@docusaurus/theme-common/internal';
-import {translate} from '@docusaurus/Translate';
-import {useLocation} from '@docusaurus/router';
-import DefaultNavbarItem from '@theme/NavbarItem/DefaultNavbarItem';
-import DropdownNavbarItem from '@theme/NavbarItem/DropdownNavbarItem';
+} from "@docusaurus/plugin-content-docs/client";
+import { useDocsPreferredVersion } from "@docusaurus/theme-common";
+import { useDocsVersionCandidates } from "@docusaurus/theme-common/internal";
+import { translate } from "@docusaurus/Translate";
+import { useLocation } from "@docusaurus/router";
+import DefaultNavbarItem from "@theme/NavbarItem/DefaultNavbarItem";
+import DropdownNavbarItem from "@theme/NavbarItem/DropdownNavbarItem";
 const getVersionMainDoc = (version) =>
   version.docs.find((doc) => doc.id === version.mainDocId);
 export default function DocsVersionDropdownNavbarItem({
@@ -19,10 +19,10 @@ export default function DocsVersionDropdownNavbarItem({
   dropdownItemsAfter,
   ...props
 }) {
-  const {search, hash} = useLocation();
+  const { search, hash } = useLocation();
   const activeDocContext = useActiveDocContext(docsPluginId);
   const versions = useVersions(docsPluginId);
-  const {savePreferredVersionName} = useDocsPreferredVersion(docsPluginId);
+  const { savePreferredVersionName } = useDocsPreferredVersion(docsPluginId);
   const versionLinks = versions.map((version) => {
     // We try to link to the same doc, in another version
     // When not possible, fallback to the "main doc" of the version
@@ -47,10 +47,10 @@ export default function DocsVersionDropdownNavbarItem({
   const dropdownLabel =
     mobile && items.length > 1
       ? translate({
-          id: 'theme.navbar.mobileVersionsDropdown.label',
-          message: 'Versions',
+          id: "theme.navbar.mobileVersionsDropdown.label",
+          message: "Versions",
           description:
-            'The label for the navbar versions dropdown on mobile view',
+            "The label for the navbar versions dropdown on mobile view",
         })
       : dropdownVersion.label;
   const dropdownTo =

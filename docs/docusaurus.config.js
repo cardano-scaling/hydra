@@ -167,6 +167,27 @@ const config = {
             position: "right",
           },
           {
+            to: "/docs/dev",
+            label: "Developer Documentation",
+            position: "right",
+          },
+          //commenting out for the time being
+          // {
+          //   to: "/core-concepts",
+          //   label: "Core Concepts",
+          //   position: "right",
+          // },
+          {
+            to: "/topologies",
+            label: "Topologies",
+            position: "right",
+          },
+          {
+            to: "/use-cases",
+            label: "Use cases",
+            position: "right",
+          },
+          {
             to: "/docs/faqs",
             label: "FAQ",
             position: "right",
