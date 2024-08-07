@@ -10,9 +10,9 @@ changes.
 
 ## [0.18.0] - Unreleased
 
-- **DO NOT RELEASE** as the tested `cardano-node` version is not intended to be used on `mainnet` yet.
-
 - Tested with `cardano-node 9.1.0` and `cardano-cli 9.2.1.0`.
+
+- Fixed fee calculation of the internal wallet when the network switches to `Conway`. This allows heads to be opened in `Babbage` and closed/finalized in `Conway`.
 
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
