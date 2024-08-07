@@ -12,7 +12,6 @@ import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
-  AlonzoPlutusPurpose (AlonzoSpending),
   AsIx (..),
   ExUnits (ExUnits),
   plutusScriptLanguage,
@@ -49,6 +48,7 @@ import Cardano.Ledger.Api (
   scriptTxWitsL,
   upgradeTxOut,
   witsTxL,
+  pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
 import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity)
@@ -57,7 +57,7 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (TxUpgradeError, isNativeScript, upgradeTx) -- TODO: request re-xport of upgradeTx
+import Cardano.Ledger.Core (TxUpgradeError, isNativeScript, upgradeTx)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
@@ -190,6 +190,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
                 coverFee_ pp systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
                   <&> fromLedgerTx
               ConwayPParams pp -> do
+                -- TODO: request re-export of upgradeTx in cardano-ledger-api
                 conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
                 coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
                   <&> convertConwayTx . fromLedgerTx
@@ -300,12 +301,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let utxo = lookupUTxO <> walletUTxO
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
-        -- FIXME: put execution budgets
-        -- adjustRedeemers
-        --   (body ^. inputsTxBodyL)
-        --   newInputs
-        --   estimatedScriptCosts
-        (wits ^. rdmrsTxWitsL)
+        adjustRedeemers
+          (body ^. inputsTxBodyL)
+          newInputs
+          estimatedScriptCosts
+          (wits ^. rdmrsTxWitsL)
 
   -- Compute script integrity hash from adjusted redeemers
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
@@ -384,7 +384,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
 
   adjustRedeemers ::
     forall era.
-    (AlonzoEraScript era, PlutusPurpose AsIx era ~ AlonzoPlutusPurpose AsIx era) =>
+    AlonzoEraScript era =>
     Set TxIn ->
     Set TxIn ->
     Map (PlutusPurpose AsIx era) ExUnits ->
@@ -400,9 +400,9 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
     adjustOne (ptr, (d, _exUnits)) =
       case ptr of
-        AlonzoSpending idx
+        SpendingPurpose idx
           | fromIntegral (unAsIx idx) `elem` differences ->
-              (AlonzoSpending (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
+              (SpendingPurpose (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 

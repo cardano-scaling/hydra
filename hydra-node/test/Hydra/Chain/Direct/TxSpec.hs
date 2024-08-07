@@ -162,6 +162,7 @@ spec =
                               case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
                                 Left err ->
                                   True
+                                    -- FIXME: This is failing 100% of the time
                                     & label
                                       ( case err of
                                           ErrNoFuelUTxOFound{} -> "No fuel UTxO found"
