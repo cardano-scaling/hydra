@@ -68,15 +68,14 @@ const AnimatedText: FC = () => {
             <span
               className={clsx("transition-colors duration-500", popTextClass)}
             >
-              scalable
-            </span>
-            ,{" "}
+              scalable,
+            </span>{" "}
             <span
               className={clsx("transition-colors duration-500", popTextClass)}
             >
-              secure
+              secure,
             </span>
-            , and{" "}
+            and{" "}
             <span
               className={clsx("transition-colors duration-500", popTextClass)}
             >
