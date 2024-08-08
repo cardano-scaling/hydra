@@ -52,7 +52,7 @@ type ControlProps = {
 const Controls: FC<ControlProps> = ({ showing, onClickBullet, ...props }) => {
   return (
     <div
-      className="inline-flex mt-auto gap-4 tablet:pt-0 pt-14 self-center tablet:order-2 order-1"
+      className="inline-flex mt-auto gap-4 pt-14 self-center order-1 tablet:order-2 tablet:pt-3"
       {...props}
     >
       {HowItWorksCarouselContent.map((_, index) => (
@@ -73,6 +73,7 @@ const ResponsiveCarousel: FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const isTabletUp = useMediaQuery(forTablet);
   const sliderRef = useRef<any>(null);
+
   const updateIndex = useCallback(
     () => setCurrentSlide(sliderRef.current?.swiper.realIndex),
     []
@@ -95,7 +96,7 @@ const ResponsiveCarousel: FC = () => {
         swiperInstance.off("slideChange", updateIndex);
       }
     };
-  }, [updateIndex]);
+  }, [updateIndex, isTabletUp]);
 
   return (
     <section className="bg-[#F4F5F5]">
@@ -103,6 +104,7 @@ const ResponsiveCarousel: FC = () => {
         <h4 className="text-2xl text-teal font-medium pb-14">How it works</h4>
         <div className="flex self-center flex-col justify-center">
           <Swiper
+            key={isTabletUp ? "tablet" : "mobile"}
             slidesPerView={"auto"}
             centeredSlides={isTabletUp}
             spaceBetween={10}

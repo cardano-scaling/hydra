@@ -27,12 +27,7 @@ const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
         "
         />
       </div>
-      <div
-        className={clsx(
-          "flex flex-col gap-4 max-w-md",
-          idx !== 3 ? "pt-11" : "pt-0"
-        )}
-      >
+      <div className="flex flex-col gap-4 max-w-md justify-center">
         <h4 className="text-2xl text-teal font-medium">How it works</h4>
         <p>{description}</p>
         {idx === 0 && (
@@ -141,8 +136,7 @@ const Carousel: FC = () => {
               <CarouselEntry idx={idx} {...props} />
             </SwiperSlide>
           ))}
-          <div className="flex w-full gap-6 pt-4">
-            <span className="basis-[45%]" />
+          <div className="flex justify-center w-full gap-6 pt-8">
             <Controls
               showing={currentSlide}
               handlePrev={handlePrev}
