@@ -1,10 +1,9 @@
-import React, { useRef } from "react";
+import React from "react";
 import Layout from "@theme/Layout";
-import { translate } from "@docusaurus/Translate";
 import Features from "../components/homepage/Features";
 import AnimatedText from "../components/homepage/AnimatedText";
 import HowItWorks from "../components/homepage/HowItWorks";
-import Carousel from "../components/homepage/Carousel/Coursel";
+import Carousel from "../components/homepage/Carousel/Carousel";
 import FeaturesFAQ from "../components/homepage/FeaturesFAQ";
 import CaseStudies from "../components/homepage/CaseStudies";
 import { forLaptop } from "../../helpers/media-queries";
