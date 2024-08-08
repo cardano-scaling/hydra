@@ -156,7 +156,8 @@ causes = Continue []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
-  | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
+  | WaitOnSnapshotNumber {waitingForNumber :: SnapshotNumber}
+  | WaitOnSnapshotVersion {waitingForVersion :: SnapshotVersion}
   | WaitOnSeenSnapshot
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline

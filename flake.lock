@@ -1413,11 +1413,11 @@
         "nixpkgs": "nixpkgs_9"
       },
       "locked": {
-        "lastModified": 1722860219,
-        "narHash": "sha256-ZsEI1H+4tzFktuAPPw2E3LFsmrL/u9g7rOOe9/SFJEg=",
+        "lastModified": 1723044854,
+        "narHash": "sha256-drzeiMBle5pI1V4ZRwJqS5lU2Ngazeab2pvk10Ara8g=",
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "607b3830f91d78feeafdbb3e35909c1963b4017c",
+        "rev": "56f025e99b93b9d2f988970337148b0e3fbdc6fd",
         "type": "github"
       },
       "original": {

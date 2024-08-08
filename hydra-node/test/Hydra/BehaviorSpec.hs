@@ -418,13 +418,13 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
                 let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n2 (Decommit{decommitTx = decommitTx1})
+                send n1 (Decommit{decommitTx = decommitTx1})
                 waitUntil [n1, n2] $
                   DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
 
                 let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
-                send n1 (Decommit{decommitTx = decommitTx2})
-                waitUntil [n1] $
+                send n2 (Decommit{decommitTx = decommitTx2})
+                waitUntil [n2] $
                   DecommitInvalid
                     { headId = testHeadId
                     , decommitTx = decommitTx2
@@ -433,9 +433,31 @@ spec = parallel $ do
 
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
 
-                send n1 (Decommit{decommitTx = decommitTx2})
+                send n2 (Decommit{decommitTx = decommitTx2})
                 waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
+
+      it "can process transactions while decommit pending" $
+        shouldRunInSim $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead chain n1 n2
+
+                let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                send n2 (Decommit{decommitTx})
+                waitUntil [n1, n2] $
+                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                waitUntil [n1, n2] $
+                  DecommitApproved{headId = testHeadId, decommitTxId = 1, utxoToDecommit = utxoRefs [42]}
+
+                let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+                send n2 (NewTx normalTx)
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> 2 `elem` confirmed
+                  _ -> False
+
+                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
 
     it "can close with decommit in flight" $
       shouldRunInSim $ do
@@ -448,7 +470,12 @@ spec = parallel $ do
               send n1 Close
               waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
               send n1 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+              waitMatch n2 $ \case
+                HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
+                _ -> Nothing
+
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
     it "fanout utxo is correct after a decommit" $
       shouldRunInSim $ do
@@ -535,12 +562,11 @@ spec = parallel $ do
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
                 waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-                simulateCommit chain (alice, utxoRef 1)
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice 1 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice 1 0]
+      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      logs `shouldContain` [EndEffect alice 2 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -600,7 +626,7 @@ waitUntilMatch nodes predicate = do
       failure $
         toString $
           unlines
-            [ "waitUntilMatch did not match a message within " <> show oneMonth
+            [ "waitUntilMatch did not match a message within " <> show oneMonth <> ", seen messages:"
             , unlines (show <$> msgs)
             ]
  where
@@ -663,6 +689,7 @@ dummySimulatedChainNetwork =
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
 -- the 'tickThread'. Also, this will fix tx to 'SimpleTx' so that it can pick an
 -- initial chain state to play back to our test nodes.
+-- NOTE: The simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m) =>
   (SimulatedChainNetwork SimpleTx m -> m ()) ->
@@ -710,7 +737,10 @@ simulatedChainAndNetwork initialChainState = do
                 Chain
                   { postTx = \tx -> do
                       now <- getCurrentTime
-                      createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
+                      -- Only observe "after one block"
+                      void . async $ do
+                        threadDelay blockTime
+                        createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
@@ -811,7 +841,7 @@ toOnChainTx now = \case
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId
-      , newVersion = version
+      , newVersion = version + 1
       , distributedOutputs = maybe mempty outputsOfUTxO utxoToDecommit
       }
    where
@@ -831,9 +861,8 @@ toOnChainTx now = \case
   FanoutTx{} ->
     OnFanoutTx{headId = testHeadId}
 
--- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: ContestationPeriod
-testContestationPeriod = UnsafeContestationPeriod 3600
+testContestationPeriod = UnsafeContestationPeriod 10
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>

@@ -405,50 +405,49 @@ onOpenNetworkReqSn ::
   Maybe tx ->
   Outcome tx
 onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
-  -- Spec: require v = v ∧ s = ŝ + 1 ∧ leader(s) = j
+  -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- Spec: require ̅S.𝑈 ◦ txω ≠ ⊥
-      --       ηω ← combine(outputs(txω))
-      --       𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
-      requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-        -- Resolve transactions by-id
-        waitResolvableTxs $ \requestedTxs -> do
-          -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
-          --       𝑈 ← 𝑈_active ◦ Treq
-          requireApplyTxs activeUTxO requestedTxs $ \u -> do
-            -- Spec: ŝ ← ̅S.s + 1
-            -- NOTE: confSn == seenSn == sn here
-            let nextSnapshot =
-                  Snapshot
-                    { headId
-                    , version = version
-                    , number = sn
-                    , confirmed = requestedTxIds
-                    , utxo = u
-                    , utxoToDecommit = mUtxoToDecommit
+      -- Spec: wait v = v̂
+      waitOnSnapshotVersion $
+        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
+          -- Resolve transactions by-id
+          waitResolvableTxs $ \requestedTxs -> do
+            -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+            --       𝑈 ← 𝑈_active ◦ Treq
+            requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              -- Spec: ŝ ← ̅S.s + 1
+              -- NOTE: confSn == seenSn == sn here
+              let nextSnapshot =
+                    Snapshot
+                      { headId
+                      , version = version
+                      , number = sn
+                      , confirmed = requestedTxIds
+                      , utxo = u
+                      , utxoToDecommit = mUtxoToDecommit
+                      }
+              -- Spec: η ← combine(𝑈)
+              --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
+              let snapshotSignature = sign signingKey nextSnapshot
+              -- Spec: multicast (ackSn, ŝ, σᵢ)
+              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+                -- Spec: ̂Σ ← ∅
+                --       L̂ ← 𝑈
+                --       𝑋 ← T
+                --       T̂ ← ∅
+                --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                --         T̂ ← T̂ ⋃ {tx}
+                --         L̂ ← L̂ ◦ tx
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
                     }
-            -- Spec: η ← combine(𝑈)
-            --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
-            let snapshotSignature = sign signingKey nextSnapshot
-            -- Spec: multicast (ackSn, ŝ, σᵢ)
-            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-              -- Spec: ̂Σ ← ∅
-              --       L̂ ← 𝑈
-              --       𝑋 ← T
-              --       T̂ ← ∅
-              --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-              --         T̂ ← T̂ ⋃ {tx}
-              --         L̂ ← L̂ ◦ tx
-              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-              newState
-                SnapshotRequested
-                  { snapshot = nextSnapshot
-                  , requestedTxIds
-                  , newLocalUTxO
-                  , newLocalTxs
-                  }
  where
   requireReqSn continue
     | sv /= version =
@@ -466,6 +465,12 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     | otherwise =
         wait $ WaitOnSnapshotNumber seenSn
 
+  waitOnSnapshotVersion continue
+    | version == sv =
+        continue
+    | otherwise =
+        wait $ WaitOnSnapshotVersion sv
+
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
       [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
@@ -475,15 +480,27 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
-        -- Spec: require ̅S.𝑈 ◦ txω /= ⊥
-        case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
-          Left (_, err) ->
-            Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
-          Right newConfirmedUTxO -> do
-            -- Spec: 𝑈_active ← ̅S.𝑈 ◦ txω \ outputs(txω)
-            let utxoToDecommit = utxoFromTx decommitTx
-            let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
-            cont (activeUTxO, Just utxoToDecommit)
+        -- Spec:
+        -- if v = S̄.v ∧ S̄.txω ̸= ⊥
+        --   require S̄.txω = txω
+        --   Uactive ← S̄.U
+        --   Uω ← S̄.Uω
+        -- else
+        --   require S̄.U ◦ txω ̸= ⊥
+        --   Uactive ← S̄.U ◦ txω \ outputs(txω )
+        --   Uω ← outputs(txω )
+        if sv == confVersion && isJust confUTxOToDecommit
+          then
+            if confUTxOToDecommit == Just (utxoFromTx decommitTx)
+              then cont (confirmedUTxO, confUTxOToDecommit)
+              else Error $ RequireFailed ReqSnDecommitNotSettled
+          else case applyTransactions ledger currentSlot confirmedUTxO [decommitTx] of
+            Left (_, err) ->
+              Error $ RequireFailed $ SnapshotDoesNotApply sn (txId decommitTx) err
+            Right newConfirmedUTxO -> do
+              let utxoToDecommit = utxoFromTx decommitTx
+              let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
+              cont (activeUTxO, Just utxoToDecommit)
 
   -- NOTE: at this point we know those transactions apply on the localUTxO because they
   -- are part of the localTxs. The snapshot can contain less transactions than the ones
@@ -511,6 +528,12 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  Snapshot{version = confVersion} = getSnapshot confirmedSnapshot
+
+  confUTxOToDecommit = case confirmedSnapshot of
+    InitialSnapshot{} -> Nothing
+    ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit}} -> utxoToDecommit
 
   seenSn = seenSnapshotNumber seenSnapshot
 

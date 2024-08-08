@@ -1055,6 +1055,16 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           leader:
             $ref: "api.yaml#/components/schemas/Party"
+      - title: "ReqSnDecommitNotSettled"
+        description: >-
+          Received a ReqSn message with specified new decommit but the previous one was not settled.
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSnDecommitNotSettled"]
       - title: "InvalidMultisignature"
         description: >-
           Multisignature computed for a snapshot from individual parties signature is invalid.
@@ -2202,21 +2212,33 @@ definitions:
               Description of the cause of the validation failure.
       - title: WaitOnSnapshotNumber
         description: >-
-          Current observed snapshot is not the right one, waiting for some other
+          Current observed snapshot number is not the right one, waiting for some other
           number.
         type: object
         additionalProperties: false
         required:
           - tag
-          - waitingFor
+          - waitingForNumber
         properties:
           tag:
             type: string
             enum: ["WaitOnSnapshotNumber"]
-          waitingFor:
+          waitingForNumber:
             "$ref": "api.yaml#/components/schemas/SnapshotNumber"
-            description: >-
-              The expected number.
+      - title: WaitOnSnapshotVersion
+        description: >-
+          Requested snapshot version is not up to date, waiting for the next version number.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - waitingForVersion
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnSnapshotVersion"]
+          waitingForVersion:
+            "$ref": "api.yaml#/components/schemas/SnapshotVersion"
       - title: WaitOnSeenSnapshot
         description: >-
           No current snapshot is available, waiting for some snapshot to start.
