@@ -17,7 +17,7 @@ const config = {
   title: "Hydra Head protocol documentation",
   url: "https://input-output-hk.github.io",
   baseUrl: "/head-protocol/",
-  onBrokenLinks: "warn",
+  onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/hydra.png",
   organizationName: "Input Output",
