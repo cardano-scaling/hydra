@@ -1,0 +1,161 @@
+{
+    "samples": [
+        {
+            "eventId": 10620774,
+            "stateChanged": {
+                "tag": "TransactionReceived",
+                "tx": {
+                    "id": 2,
+                    "inputs": [
+                        -27,
+                        -26,
+                        -25,
+                        -22,
+                        -20,
+                        -19,
+                        -16,
+                        -13,
+                        -11,
+                        -10,
+                        -4,
+                        -2,
+                        3,
+                        6,
+                        11,
+                        14,
+                        16,
+                        17,
+                        19,
+                        23,
+                        24
+                    ],
+                    "outputs": [
+                        -22
+                    ]
+                }
+            }
+        },
+        {
+            "eventId": 7928307,
+            "stateChanged": {
+                "party": {
+                    "vkey": "bc920b1b158b59ca155741e8f0a62f2daec6fc407f6b60ebf8f0b6ca59a7eef5"
+                },
+                "signature": "6afeec9c7b01af68bef1245f30da60a71960c6cfdb2b209b6035625eda61a795c52b984da9692dec0f411735e6f61a2de42175c8fa87e52a0999dd93faf41002",
+                "snapshot": {
+                    "confirmedTransactions": [
+                        -19,
+                        -8,
+                        -15,
+                        3,
+                        -9,
+                        10,
+                        30,
+                        8,
+                        -22,
+                        19,
+                        2,
+                        -3,
+                        -10,
+                        -20,
+                        29,
+                        -25,
+                        26,
+                        0,
+                        -23,
+                        27,
+                        24,
+                        13
+                    ],
+                    "headId": "d4bd07cf31a8958126ea830bf09e331e",
+                    "snapshotNumber": 18,
+                    "utxo": [
+                        -30,
+                        -26,
+                        -24,
+                        -23,
+                        -21,
+                        -18,
+                        -2,
+                        0,
+                        3,
+                        7,
+                        9,
+                        11,
+                        13,
+                        14,
+                        15,
+                        25,
+                        26,
+                        27,
+                        29
+                    ],
+                    "utxoToDecommit": null,
+                    "version": 11
+                },
+                "tag": "PartySignedSnapshot"
+            }
+        },
+        {
+            "eventId": 12273361,
+            "stateChanged": {
+                "chainState": {
+                    "slot": 9
+                },
+                "committedUTxO": [
+                    -17,
+                    -16,
+                    -13,
+                    -3,
+                    -2,
+                    1,
+                    11,
+                    15,
+                    23,
+                    28,
+                    29
+                ],
+                "party": {
+                    "vkey": "9f92f52643ea1c5bfb866ceaa287193bbe3fcd3fbb8c1bbbf95520945313af7b"
+                },
+                "tag": "CommittedUTxO"
+            }
+        },
+        {
+            "eventId": 5099449,
+            "stateChanged": {
+                "chainSlot": 19,
+                "tag": "TickObserved"
+            }
+        },
+        {
+            "eventId": 3272956,
+            "stateChanged": {
+                "chainState": {
+                    "slot": 17
+                },
+                "headId": "285f79a456911bd7615d717fbbf3439f",
+                "headSeed": "70cf6737a8e62ad7a8f51ddda3fe718c",
+                "parameters": {
+                    "contestationPeriod": 31536000,
+                    "parties": [
+                        {
+                            "vkey": "3ad3666244f0300f9edd4d47a7431d69c9b405f15092f3d6818fcee18930d04c"
+                        },
+                        {
+                            "vkey": "3da3a2f0572fc8a6158765e7e0d9741a3c5d0d8f529ad2a0c7928bbb19737917"
+                        },
+                        {
+                            "vkey": "7b7b8a2f82daded745a967b124426df2784bb68f2ff5e902d92cbdb95896e7d6"
+                        },
+                        {
+                            "vkey": "9f06144c813dc458af903e2be67e131550414fab383d13ec2345b747577b42e4"
+                        }
+                    ]
+                },
+                "tag": "HeadInitialized"
+            }
+        }
+    ],
+    "seed": 1095591296
+}

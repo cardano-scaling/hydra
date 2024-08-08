@@ -8,11 +8,16 @@ import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvent
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
 
 spec :: Spec
 spec = do
+  describe "persisted event format" $
+    -- NOTE: Whenever this trips, make sure to record a **BREAKING** change of the persisted 'state'.
+    roundtripAndGoldenSpecs (Proxy @(StateEvent SimpleTx))
+
   describe "eventPairFromPersistenceIncremental" $ do
     prop "can handle continuous events" $
       forAllShrink genContinuousEvents shrink $ \events ->
