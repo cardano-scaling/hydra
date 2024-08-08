@@ -27,6 +27,8 @@ changes.
 
 - Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.
 
+- Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`.
+
 ## [0.17.0] - 2024-05-20
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/cardano-scaling/hydra/pull/1380):

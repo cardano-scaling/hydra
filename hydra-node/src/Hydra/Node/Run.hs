@@ -102,7 +102,7 @@ run opts = do
 
   prepareChainComponent tracer Environment{party} = \case
     Offline cfg ->
-      pure $ withOfflineChain cfg party
+      pure $ withOfflineChain nodeId cfg party
     Direct cfg -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
