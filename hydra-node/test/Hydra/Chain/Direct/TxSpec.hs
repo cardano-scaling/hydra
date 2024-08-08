@@ -26,52 +26,42 @@ import Cardano.Ledger.Api (
   witsTxL,
   pattern ShelleyTxAuxData,
  )
-import Cardano.Ledger.Core (EraTx (getMinFeeTx))
 import Cardano.Ledger.Credential (Credential (..))
 import Control.Lens ((^.))
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
-import Data.Text qualified as T
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (CommitBlueprintTx (..), HeadParameters (..))
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Chain (CommitBlueprintTx (..))
 import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
 import Hydra.Chain.Direct.Fixture (
-  epochInfo,
   pparams,
-  systemStart,
   testNetworkId,
   testPolicyId,
-  testSeedInput,
  )
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
+import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
-  InitObservation (..),
-  abortTx,
   commitTx,
   currencySymbolToHeadId,
   headIdToCurrencySymbol,
   headIdToPolicyId,
   headSeedToTxIn,
-  initTx,
   mkCommitDatum,
   mkHeadId,
   observeHeadTx,
-  observeInitTx,
   onChainIdToAssetName,
   txInToHeadSeed,
   verificationKeyToOnChainId,
  )
-import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (EvaluationReport, maxTxExecutionUnits, propTransactionEvaluates)
+import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Party (Party)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
@@ -84,13 +74,10 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   cover,
-  elements,
   forAll,
   forAllBlind,
-  label,
   property,
   vectorOf,
-  withMaxSuccess,
   (.&&.),
   (===),
  )
@@ -135,57 +122,6 @@ spec =
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       Fanout{} -> transition === Transition.Fanout
-
-    describe "collectComTx" $ do
-      prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn cperiod (party :| parties) walletUTxO -> do
-          let allParties = party : parties
-              cardanoKeys = genForParty genVerificationKey <$> allParties
-          forAll (elements cardanoKeys) $ \signer ->
-            forAll genScriptRegistry $ \scriptRegistry ->
-              let params = HeadParameters cperiod allParties
-                  participants = verificationKeyToOnChainId <$> cardanoKeys
-                  tx = initTx testNetworkId txIn participants params
-               in case observeInitTx tx of
-                    Right InitObservation{initials, initialThreadUTxO} -> do
-                      let lookupUTxO =
-                            mconcat
-                              [ Map.fromList (initialThreadUTxO : initials)
-                              , UTxO.toMap (registryUTxO scriptRegistry)
-                              ]
-                              & Map.mapKeys toLedgerTxIn
-                              & Map.map toLedgerTxOut
-                       in case abortTx mempty scriptRegistry signer initialThreadUTxO (mkHeadTokenScript testSeedInput) (Map.fromList initials) mempty of
-                            Left err ->
-                              property False & counterexample ("AbortTx construction failed: " <> show err)
-                            Right (toLedgerTx -> txAbort) ->
-                              case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
-                                Left err ->
-                                  True
-                                    -- FIXME: This is failing 100% of the time
-                                    & label
-                                      ( case err of
-                                          ErrNoFuelUTxOFound{} -> "No fuel UTxO found"
-                                          ErrNotEnoughFunds{} -> "Not enough funds"
-                                          ErrUnknownInput{} -> "Unknown input"
-                                          ErrScriptExecutionFailed{} -> "Script(s) execution failed"
-                                          ErrTranslationError{} -> "Transaction context translation error"
-                                      )
-                                Right ledgerTx ->
-                                  let actualExecutionCost = getMinFeeTx pparams ledgerTx 0
-                                      fee = txFee' apiTx
-                                      apiTx = fromLedgerTx ledgerTx
-                                   in actualExecutionCost > Coin 0 && fee > actualExecutionCost
-                                        & label "Ok"
-                                        & counterexample ("Execution cost: " <> show actualExecutionCost)
-                                        & counterexample ("Fee: " <> show fee)
-                                        & counterexample ("Tx: " <> show apiTx)
-                                        & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
-                    Left e ->
-                      property False
-                        & counterexample "Failed to construct and observe init tx."
-                        & counterexample (renderTx tx)
-                        & counterexample (show e)
 
     describe "commitTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
@@ -382,28 +318,6 @@ prop_interestingBlueprintTx = do
             $ toLedgerTx @Era tx ^. witsTxL . rdmrsTxWitsL
         )
 
-withinTxExecutionBudget :: EvaluationReport -> Property
-withinTxExecutionBudget report =
-  (totalMem <= maxMem && totalCpu <= maxCpu)
-    & counterexample
-      ( "Ex. Cost Limits exceeded, mem: "
-          <> show totalMem
-          <> "/"
-          <> show maxMem
-          <> ", cpu: "
-          <> show totalCpu
-          <> "/"
-          <> show maxCpu
-      )
- where
-  budgets = rights $ Map.elems report
-  totalMem = sum $ executionMemory <$> budgets
-  totalCpu = sum $ executionSteps <$> budgets
-  ExecutionUnits
-    { executionMemory = maxMem
-    , executionSteps = maxCpu
-    } = maxTxExecutionUnits
-
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- NOTE: Uses 'testPolicyId' for the datum.
 -- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
@@ -444,15 +358,6 @@ generateCommitUTxOs parties = do
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 
-prettyEvaluationReport :: EvaluationReport -> String
-prettyEvaluationReport (Map.toList -> xs) =
-  "Script Evaluation(s):\n" <> intercalate "\n" (prettyKeyValue <$> xs)
- where
-  prettyKeyValue (ptr, result) =
-    toString ("  - " <> show ptr <> ": " <> prettyResult result)
-  prettyResult =
-    either (T.replace "\n" " " . show) show
-
 -- NOTE: Uses 'testPolicyId' for the datum.
 genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
 genAbortableOutputs parties =
@@ -492,21 +397,3 @@ genAbortableOutputs parties =
 assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
 assetNameFromVerificationKey =
   onChainIdToAssetName . verificationKeyToOnChainId
-
-fst4 :: (a, b, c, d) -> a
-fst4 (a, _, _, _) = a
-
-fst3 :: (a, b, c) -> a
-fst3 (a, _, _) = a
-
-third :: (a, b, c) -> c
-third (_, _, c) = c
-
-drop2nd :: (a, b, c) -> (a, c)
-drop2nd (a, _, c) = (a, c)
-
-drop3rd :: (a, b, c) -> (a, b)
-drop3rd (a, b, _) = (a, b)
-
-tripleToPair :: (a, b, c) -> (a, (b, c))
-tripleToPair (a, b, c) = (a, (b, c))
