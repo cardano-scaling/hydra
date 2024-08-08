@@ -7,7 +7,7 @@ export const HowItWorksContent = {
   }),
   descriptionParagraphOne: translate({
     id: "homepage.featureList.lowLatency.description.paragraphOne",
-    message: `Traditional blockchain systems face scalability limitationsdue to
+    message: `Traditional blockchain systems face scalability limitations due to
       the trade-off between decentralization, security, and scalability
       (the blockchain trilemma). Cardano's consensus algorithm, while
       efficient, still requires massive global replication of state
