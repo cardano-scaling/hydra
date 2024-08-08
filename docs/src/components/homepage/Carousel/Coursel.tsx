@@ -71,6 +71,7 @@ const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
       </button>
       {HowItWorksCarouselContent.map((_, index) => (
         <Dot
+          key={`dot-${index}`}
           className={clsx(
             "self-center",
             index === showing ? "text-teal" : "text-teal-lightest"
@@ -136,8 +137,8 @@ const Carousel: FC = () => {
           ref={sliderRef}
         >
           {HowItWorksCarouselContent.map((props, idx) => (
-            <SwiperSlide>
-              <CarouselEntry key={idx} idx={idx} {...props} />
+            <SwiperSlide key={idx}>
+              <CarouselEntry idx={idx} {...props} />
             </SwiperSlide>
           ))}
           <div className="flex w-full gap-6 pt-4">

@@ -56,7 +56,7 @@ const Controls: FC<ControlProps> = ({ showing, onClickBullet, ...props }) => {
       {...props}
     >
       {HowItWorksCarouselContent.map((_, index) => (
-        <button onClick={() => onClickBullet(index)}>
+        <button key={`dot-${index}`} onClick={() => onClickBullet(index)}>
           <Dot
             className={clsx(
               "self-center",
@@ -110,17 +110,13 @@ const ResponsiveCarousel: FC = () => {
           >
             {isTabletUp
               ? HowItWorksCarouselContent.map((props, idx) => (
-                  <SwiperSlide style={{ width: "fit-content" }}>
-                    <img src={props.src} key={idx} />
+                  <SwiperSlide key={idx} style={{ width: "fit-content" }}>
+                    <img src={props.src} />
                   </SwiperSlide>
                 ))
               : HowItWorksCarouselContent.map((props, idx) => (
-                  <SwiperSlide style={{ width: "fit-content" }}>
-                    <img
-                      src={props.mobileSrc}
-                      className="tablet:ml-4 ml-1"
-                      key={idx}
-                    />
+                  <SwiperSlide key={idx} style={{ width: "fit-content" }}>
+                    <img src={props.mobileSrc} className="tablet:ml-4 ml-1" />
                   </SwiperSlide>
                 ))}
           </Swiper>
