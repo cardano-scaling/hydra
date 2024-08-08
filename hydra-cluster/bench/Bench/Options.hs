@@ -3,6 +3,7 @@ module Bench.Options where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId, SocketPath)
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Options (networkIdParser, nodeSocketParser)
 import Options.Applicative (
   Parser,
@@ -49,6 +50,7 @@ data Options
       , timeoutSeconds :: NominalDiffTime
       , networkId :: NetworkId
       , nodeSocket :: SocketPath
+      , hydraSigningKeys :: [FilePath]
       }
 
 benchOptionsParser :: ParserInfo Options
@@ -182,6 +184,21 @@ demoOptionsParser =
     <*> timeoutParser
     <*> networkIdParser
     <*> nodeSocketParser
+    <*> many hydraSigningKeyFileParser
+
+hydraSigningKeyFileParser :: Parser FilePath
+hydraSigningKeyFileParser =
+  option
+    str
+    ( long "hydra-sk"
+        <> metavar "FILE"
+        <> help
+          ( "Hydra signing key of a party in the Head. Can be \
+            \provided multiple times, once for each participant (current maximum limit is "
+              <> show maximumNumberOfParties
+              <> " )."
+          )
+    )
 
 datasetOptionsInfo :: ParserInfo Options
 datasetOptionsInfo =

@@ -36,7 +36,7 @@ import Hydra.Cluster.Scenarios (
   headIsInitializingWith,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (generateSigningKey)
+import Hydra.Crypto (HydraKey, SigningKey, generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, withTracerOutputTo)
@@ -102,10 +102,11 @@ benchDemo ::
   NetworkId ->
   SocketPath ->
   NominalDiffTime ->
+  [SigningKey HydraKey] ->
   FilePath ->
   Dataset ->
   IO Summary
-benchDemo networkId nodeSocket timeoutSeconds workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraKeys workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -120,8 +121,6 @@ benchDemo networkId nodeSocket timeoutSeconds workDir dataset@Dataset{clientData
             forM_ clientDatasets (fuelWith100Ada (contramap FromFaucet tracer) node)
             putStrLn $ "Connecting to hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
-            let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
-            let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
             let parties = Set.fromList (deriveParty <$> hydraKeys)
             withConnectionToNode hydraTracer 1 $ \leader ->
               withConnectionToNode hydraTracer 2 $ \node2 ->

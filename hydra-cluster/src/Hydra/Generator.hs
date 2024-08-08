@@ -105,9 +105,6 @@ genDatasetConstantUTxO ::
   Tx ->
   Gen Dataset
 genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
-  -- Prepare funding transaction which will give every client's
-  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
-  -- funded in the beginning of the benchmark run.
   clientDatasets <- forM allClientKeys generateClientDataset
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
@@ -128,12 +125,12 @@ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
 
   thrd (_, _, c) = c
 
+-- Prepare funding transaction which will give every client's
+-- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
+-- funded in the beginning of the benchmark run.
 makeGenesisFundingTx :: SigningKey PaymentKey -> [ClientKeys] -> Gen Tx
 makeGenesisFundingTx faucetSk clientKeys = do
   let nClients = length clientKeys
-  -- Prepare funding transaction which will give every client's
-  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
-  -- funded in the beginning of the benchmark run.
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
     pure (getVerificationKey externalSigningKey, amount)

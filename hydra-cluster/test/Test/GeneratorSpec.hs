@@ -24,13 +24,7 @@ import Hydra.Ledger.Cardano.Configuration (
   newLedgerEnv,
  )
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.QuickCheck (
-  Positive (Positive),
-  Property,
-  counterexample,
-  forAll,
-  idempotentIOProperty,
- )
+import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
 
 spec :: Spec
 spec = parallel $ do
@@ -39,11 +33,16 @@ spec = parallel $ do
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
-  forAll arbitrary $ \(Positive n, clientKeys) -> do
+  forAll arbitrary $ \(Positive n) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
       let ledgerEnv = newLedgerEnv defaultPParams
+
+      let clientKey = generateWith arbitrary 42
+      -- REVIEW: should not we generate a dataset given multiple keys?
+      let clientKeys = [clientKey]
+
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (makeGenesisFundingTx faucetSk clientKeys) $ \fundingTransaction -> do
