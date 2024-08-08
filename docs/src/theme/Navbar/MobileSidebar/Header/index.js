@@ -1,4 +1,6 @@
 import React from "react";
+import clsx from "clsx";
+import { useLocation } from "@docusaurus/router";
 import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
 import { translate } from "@docusaurus/Translate";
 import NavbarColorModeToggle from "@theme/Navbar/ColorModeToggle";
@@ -22,8 +24,16 @@ function CloseButton() {
   );
 }
 export default function NavbarMobileSidebarHeader() {
+  const location = useLocation();
+  const isLandingPage =
+    location.pathname === "/" || location.pathname === "/head-protocol/";
   return (
-    <div className="navbar-sidebar__brand pageContainer tablet:pt-[40px] tablet:py-[40px] shadow-none">
+    <div
+      className={clsx(
+        "navbar-sidebar__brand pageContainer tablet:pt-[36px] tablet:pb-[40px] shadow-none",
+        !isLandingPage && "tablet:px-[32px]"
+      )}
+    >
       <NavbarLogo />
       <NavbarColorModeToggle className="margin-right--md" />
       <CloseButton />

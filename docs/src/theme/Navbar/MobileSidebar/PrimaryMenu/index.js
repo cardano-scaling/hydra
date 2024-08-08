@@ -18,7 +18,7 @@ export default function NavbarMobilePrimaryMenu() {
   const items = useNavbarItems();
   const searchBarItem = items.find((item) => item.type === "search");
   return (
-    <ul className="mobile-side-menu flex flex-col gap-6 px-[13px] tablet:px-[36px] pt-[76px] text-xl leading-[27px]">
+    <ul className="mobile-side-menu flex flex-col gap-2 px-0 pt-[50px] text-xl leading-[27px] tablet:px-[23px] tablet:pt-[10px]">
       {items.map((item, i) => (
         <NavbarItem
           mobile
