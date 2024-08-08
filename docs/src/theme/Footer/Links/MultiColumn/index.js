@@ -11,10 +11,7 @@ function ColumnLinkItem({ item }) {
       dangerouslySetInnerHTML={{ __html: item.html }}
     />
   ) : (
-    <li
-      key={item.href ?? item.to}
-      className="footer__item whitespace-nowrap text-sm"
-    >
+    <li key={item.href ?? item.to} className="footer__item">
       <LinkItem item={item} />
     </li>
   );
@@ -26,7 +23,7 @@ function Column({ column }) {
   return (
     <div
       className={
-        isLandingPage ? "w-full max-w-[175px]" : "tablet:col basis-1/4"
+        isLandingPage ? "w-full tablet:max-w-[175px]" : "tablet:col basis-1/4"
       }
     >
       <div
@@ -37,7 +34,7 @@ function Column({ column }) {
       >
         {column.title}
       </div>
-      <ul className="footer__items clean-list space-y-1">
+      <ul className="footer__items clean-list space-y-2">
         {column.items.map((item, i) => (
           <ColumnLinkItem key={i} item={item} />
         ))}

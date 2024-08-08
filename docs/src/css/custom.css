@@ -113,6 +113,11 @@ html {
   z-index: 20;
 }
 
+.footer__link-item {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
 .pageContainer {
   max-width: 1280px;
   width: 100%;

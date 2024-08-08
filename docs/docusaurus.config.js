@@ -205,7 +205,7 @@ const config = {
                 to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
               },
               {
-                label: "Architectural Decision",
+                label: "Architectural Decision Records",
                 to: "/adr",
               },
               {
