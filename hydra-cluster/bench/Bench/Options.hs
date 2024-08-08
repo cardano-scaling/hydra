@@ -171,7 +171,7 @@ demoOptionsInfo =
   info
     demoOptionsParser
     ( progDesc
-        "Run scenarios from local runnign demo."
+        "Run scenarios from local running demo."
     )
 
 demoOptionsParser :: Parser Options

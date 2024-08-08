@@ -14,6 +14,7 @@ import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
   genDatasetConstantUTxO,
+  makeGenesisFundingTx,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger)
@@ -45,14 +46,16 @@ prop_keepsUTxOConstant =
       let ledgerEnv = newLedgerEnv defaultPParams
       -- XXX: non-exhaustive pattern match
       pure $
-        forAll (genDatasetConstantUTxO faucetSk clientKeys n) $
-          \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
-            let initialUTxO = utxoFromTx fundingTransaction
-                finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
-             in length finalUTxO == length initialUTxO
-                  & counterexample ("transactions: " <> prettyJSONString txSequence)
-                  & counterexample ("utxo: " <> prettyJSONString initialUTxO)
-                  & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
+        forAll (makeGenesisFundingTx faucetSk clientKeys) $ \fundingTransaction -> do
+          dataset <- genDatasetConstantUTxO clientKeys n fundingTransaction
+          let Dataset{clientDatasets = [ClientDataset{txSequence}]} = dataset
+              initialUTxO = utxoFromTx fundingTransaction
+              finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
+          pure $
+            length finalUTxO == length initialUTxO
+              & counterexample ("transactions: " <> prettyJSONString txSequence)
+              & counterexample ("utxo: " <> prettyJSONString initialUTxO)
+              & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =

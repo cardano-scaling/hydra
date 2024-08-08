@@ -11,7 +11,7 @@ import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (ClientKeys (..), Dataset (..), genDatasetConstantUTxO, generateConstantUTxODataset)
+import Hydra.Generator (ClientKeys (..), Dataset (..), genDatasetConstantUTxODemo, generateConstantUTxODataset, getFaucetInitialFunds)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
@@ -38,7 +38,7 @@ main =
       run outputDirectory datasetFiles action
     DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket} -> do
       workDir <- createSystemTempDirectory "demo-bench"
-      (_, faucetSk) <- keysFor Faucet
+      (faucetVk, faucetSk) <- keysFor Faucet
       clientKeys <- do
         aliceSk <- snd <$> keysFor Alice
         aliceFundsSk <- snd <$> keysFor AliceFunds
@@ -50,14 +50,17 @@ main =
             bob = ClientKeys bobSk bobFundsSk
             carol = ClientKeys carolSk carolFundsSk
         pure [alice, bob, carol]
-      playDemo outputDirectory timeoutSeconds scalingFactor faucetSk clientKeys workDir networkId nodeSocket
+      playDemo outputDirectory timeoutSeconds scalingFactor (faucetVk, faucetSk) clientKeys workDir networkId nodeSocket
  where
-  playDemo outputDirectory timeoutSeconds scalingFactor faucetSk clientKeys workDir networkId nodeSocket = do
+  playDemo outputDirectory timeoutSeconds scalingFactor (faucetVk, faucetSk) clientKeys workDir networkId nodeSocket = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- generate $ genDatasetConstantUTxO faucetSk clientKeys numberOfTxs
+    initialFunds <- getFaucetInitialFunds faucetVk nodeSocket
+    dataset <- generate $ genDatasetConstantUTxODemo faucetSk clientKeys numberOfTxs initialFunds
+    -- TODO! remove as only needed for dbg
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
+    --
     let action = benchDemo networkId nodeSocket timeoutSeconds
     run outputDirectory [datasetPath] action
 

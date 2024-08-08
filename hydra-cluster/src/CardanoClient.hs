@@ -111,7 +111,7 @@ waitForUTxO node utxo =
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 
-mkGenesisTx ::
+mkInitialTx ::
   NetworkId ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
@@ -119,17 +119,14 @@ mkGenesisTx ::
   Coin ->
   -- | Recipients and amounts to pay in this transaction.
   [(VerificationKey PaymentKey, Coin)] ->
+  TxIn ->
+  -- | Initial input from which to spend
   Tx
-mkGenesisTx networkId signingKey initialAmount recipients =
+mkInitialTx networkId signingKey initialAmount recipients initialInput =
   case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) of
     Left err -> error $ "Fail to build genesis transations: " <> show err
     Right tx -> sign signingKey tx
  where
-  initialInput =
-    genesisUTxOPseudoTxIn
-      networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-
   totalSent = foldMap snd recipients
 
   changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
@@ -147,6 +144,23 @@ mkGenesisTx networkId signingKey initialAmount recipients =
         (lovelaceToValue ll)
         TxOutDatumNone
         ReferenceScriptNone
+
+mkGenesisTx ::
+  NetworkId ->
+  -- | Owner of the 'initialFund'.
+  SigningKey PaymentKey ->
+  -- | Amount of initialFunds
+  Coin ->
+  -- | Recipients and amounts to pay in this transaction.
+  [(VerificationKey PaymentKey, Coin)] ->
+  Tx
+mkGenesisTx networkId signingKey initialAmount recipients =
+  mkInitialTx networkId signingKey initialAmount recipients initialInput
+ where
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
 
 data RunningNode = RunningNode
   { nodeSocket :: SocketPath
