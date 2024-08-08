@@ -5,7 +5,7 @@ import { forLaptop, forTablet } from "../../../helpers/media-queries";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { motion } from "framer-motion";
 import { HowItWorksContent } from "../../../docs/homepage/how-it-works";
-import { useWindowSize } from "../../hooks/useWindowResize";
+import { useWindowSize } from "../../hooks/useWindowSize";
 
 const HowItWorks: FC = () => {
   const windowSize = useWindowSize(300);
