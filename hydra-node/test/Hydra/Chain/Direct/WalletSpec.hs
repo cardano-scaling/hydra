@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (EraTx (getMinFeeTx), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxBody (..), BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -13,9 +13,10 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Tx, Value)
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Control.Lens (set, view, (.~), (<>~), (^.))
+import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
@@ -47,6 +48,7 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
+  SomePParams (BabbagePParams),
   TinyWallet (..),
   TxIn,
   TxOut,
@@ -94,14 +96,14 @@ spec = parallel $ do
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) (pure Fixture.epochInfo)
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
     prop "re-queries UTxO from the tip, even on reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn (pure Fixture.epochInfo)
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn mockQueryEpochInfo mockQueryPParams
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip
@@ -120,9 +122,7 @@ setupQuery vk = do
     pure $
       WalletInfoOnChain
         { walletUTxO
-        , pparams = Fixture.pparams
         , systemStart = Fixture.systemStart
-        , epochInfo = Fixture.epochInfo
         , tip
         }
 
@@ -138,11 +138,15 @@ mockChainQuery vk _point addr = do
   pure $
     WalletInfoOnChain
       { walletUTxO
-      , pparams = Fixture.pparams
       , systemStart = Fixture.systemStart
-      , epochInfo = Fixture.epochInfo
       , tip
       }
+
+mockQueryEpochInfo :: IO (EpochInfo (Either Text))
+mockQueryEpochInfo = pure Fixture.epochInfo
+
+mockQueryPParams :: IO SomePParams
+mockQueryPParams = pure $ BabbagePParams Fixture.pparams
 
 --
 -- Generators
@@ -241,6 +245,9 @@ prop_balanceTransaction =
           & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
           & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
           & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+          -- XXX: This is not exercising any script cost estimation because
+          -- genLedgerTx does not generate txs spending from scripts seemingly.
+          & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
 
 hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
 hasLowFees pparams tx =
@@ -370,8 +377,7 @@ genOutputsForInputs AlonzoTx{body} = do
 genLedgerTx :: Gen (Tx LedgerEra)
 genLedgerTx = do
   tx <- arbitrary
-  body <- (\x -> x & set feeTxBodyL (Coin 0)) <$> arbitrary
-  pure $ tx{body, wits = mempty}
+  pure $ tx & bodyTxL . feeTxBodyL .~ Coin 0
 
 --
 -- Helpers

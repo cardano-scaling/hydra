@@ -577,9 +577,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 guardEra networkId nodeSocket (AnyCardanoEra BabbageEra)
-
                 waitUntilEpoch tmpDir args node 10
-
                 guardEra networkId nodeSocket (AnyCardanoEra ConwayEra)
 
                 send n1 $ input "Close" []
@@ -588,6 +586,18 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   snapshotNumber <- v ^? key "snapshotNumber"
                   guard $ snapshotNumber == Aeson.Number 0
+
+      it "can start in conway era" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          args <- setupCardanoDevnet tmpDir
+          forkIntoConwayInEpoch tmpDir args 1
+          withCardanoNode (contramap FromCardanoNode tracer) tmpDir args $
+            \node@RunningNode{nodeSocket} -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
+              waitUntilEpoch tmpDir args node 1
+              let hydraTracer = contramap FromHydraNode tracer
+              withHydraNode hydraTracer chainConfig tmpDir 1 aliceSk [] [1] $ const $ pure ()
 
       it "support new era on restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do

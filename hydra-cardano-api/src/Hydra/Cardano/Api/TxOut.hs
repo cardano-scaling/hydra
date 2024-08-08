@@ -144,12 +144,12 @@ isScriptTxOut script txOut =
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'TxOut' into a cardano-api 'TxOut'
-fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
+fromLedgerTxOut :: IsShelleyBasedEra era => Ledger.TxOut (ShelleyLedgerEra era) -> TxOut ctx era
 fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
 
 -- | Convert a cardano-api 'TxOut' into a cardano-ledger 'TxOut'
-toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
+toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
 toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 

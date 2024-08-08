@@ -48,7 +48,8 @@ instance Exception QueryException where
   displayException = \case
     QueryAcquireException failure -> show failure
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
-      printf "Connected to cardano-node in unsupported era %s. Please upgrade your hydra-node to era %s." otherEraName ledgerEraName
+      -- NOTE: The "ledger" here is the the one in the cardano-node and "otherEra" is the one we picked for the query.
+      printf "Connected to cardano-node in unsupported era %s, while we requested %s. Please upgrade your hydra-node." ledgerEraName otherEraName
     QueryProtocolParamsConversionException err -> show err
     QueryProtocolParamsEraNotSupported unsupportedEraName ->
       printf "Error while querying protocol params using era %s." (show unsupportedEraName :: Text)
@@ -261,7 +262,8 @@ queryEpochNo networkId socket queryPoint = do
     (sbe :: ShelleyBasedEra e) <- liftIO $ assumeShelleyBasedEraOrThrow era
     queryInShelleyBasedEraExpr sbe QueryEpoch
 
--- | Query the protocol parameters at given point.
+-- | Query the protocol parameters at given point and convert them to Babbage
+-- era protocol parameters.
 --
 -- Throws at least 'QueryException' if query fails.
 queryProtocolParameters ::
@@ -293,6 +295,22 @@ queryProtocolParameters networkId socket queryPoint =
       AlonzoEra -> encodeToEra AlonzoEra pparams
       BabbageEra -> pure pparams
       ConwayEra -> encodeToEra ConwayEra pparams
+
+-- | Query the protocol parameters at given point. NOTE: If the era is not
+-- matching this fails with an era mismatch.
+--
+-- Throws at least 'QueryException' if query fails.
+queryProtocolParameters' ::
+  IsShelleyBasedEra era =>
+  -- | Current network discriminant
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  QueryPoint ->
+  IO (PParams (ShelleyLedgerEra era))
+queryProtocolParameters' networkId socket queryPoint =
+  runQueryExpr networkId socket queryPoint $
+    queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
 
 -- | Query 'GenesisParameters' at a given point.
 --

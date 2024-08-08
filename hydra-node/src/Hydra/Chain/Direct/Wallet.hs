@@ -7,31 +7,35 @@ module Hydra.Chain.Direct.Wallet where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
-import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.Alonzo.Plutus.Context (ContextError)
+import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
-  AlonzoPlutusPurpose (AlonzoSpending),
   AsIx (..),
   ExUnits (ExUnits),
   plutusScriptLanguage,
   unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
-  AlonzoTxWits (..),
   Redeemers (..),
-  txdats,
-  txscripts,
+  datsTxWitsL,
  )
+import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
-  BabbageEra,
-  TransactionScriptFailure,
+  AlonzoEraTx,
+  Babbage,
+  BabbageEraTxBody,
+  Conway,
+  Data,
+  EraCrypto,
+  PParams,
+  Tx,
   bodyTxL,
+  calcMinFeeTx,
+  coinTxOutL,
   collateralInputsTxBodyL,
   ensureMinCoinTxOut,
-  estimateMinFeeTx,
   evalTxExUnits,
   feeTxBodyL,
   inputsTxBodyL,
@@ -41,23 +45,28 @@ import Cardano.Ledger.Api (
   referenceInputsTxBodyL,
   reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
+  scriptTxWitsL,
+  upgradeTxOut,
   witsTxL,
+  pattern SpendingPurpose,
  )
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity, wits)
+import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
+import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (isNativeScript)
+import Cardano.Ledger.Core (TxUpgradeError, upgradeTx)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
+import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Val (Val (..), invert)
+import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Arrow (left)
@@ -66,7 +75,6 @@ import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
-import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Ratio ((%))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
@@ -81,18 +89,16 @@ import Hydra.Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
+  convertConwayTx,
   fromLedgerTx,
   fromLedgerTxIn,
-  fromLedgerTxOut,
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
-  selectLovelace,
+  recomputeIntegrityHash,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
-  toLedgerTxIn,
-  toLedgerTxOut,
   toLedgerUTxO,
   verificationKeyHash,
  )
@@ -132,11 +138,14 @@ data TinyWallet m = TinyWallet
   -- wallet is still initializing.
   }
 
+data SomePParams
+  = BabbagePParams (PParams Babbage)
+  | ConwayPParams (PParams Conway)
+  deriving (Show)
+
 data WalletInfoOnChain = WalletInfoOnChain
   { walletUTxO :: Map TxIn TxOut
-  , pparams :: Core.PParams LedgerEra
   , systemStart :: SystemStart
-  , epochInfo :: EpochInfo (Either Text)
   , tip :: ChainPoint
   -- ^ Latest point on chain the wallet knows of.
   }
@@ -160,8 +169,10 @@ newTinyWallet ::
   -- node. Initially and on demand later.
   ChainQuery IO ->
   IO (EpochInfo (Either Text)) ->
+  -- | A means to query some pparams.
+  IO SomePParams ->
   IO (TinyWallet IO)
-newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
+newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySomePParams = do
   walletInfoVar <- newTVarIO =<< initialize
   let getUTxO = readTVar walletInfoVar <&> walletUTxO
   pure
@@ -170,13 +181,22 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo = do
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
-          -- XXX: We should query pparams here. If not, we likely will have
-          -- wrong fee estimation should they change in between.
+          let ledgerLookupUTxO = unUTxO $ toLedgerUTxO lookupUTxO
+          WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
           epochInfo <- queryEpochInfo
-          WalletInfoOnChain{walletUTxO, pparams, systemStart} <- readTVarIO walletInfoVar
+          -- We query pparams here again as it's possible that a hardfork
+          -- occurred and the pparams changed.
+          pparams <- querySomePParams
           pure $
-            fromLedgerTx
-              <$> coverFee_ pparams systemStart epochInfo (unUTxO $ toLedgerUTxO lookupUTxO) walletUTxO (toLedgerTx partialTx)
+            case pparams of
+              BabbagePParams pp ->
+                coverFee_ pp systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
+                  <&> fromLedgerTx
+              ConwayPParams pp -> do
+                -- TODO: request re-export of upgradeTx in cardano-ledger-api
+                conwayTx <- left ErrConwayUpgradeError $ upgradeTx (toLedgerTx partialTx)
+                coverFee_ pp systemStart epochInfo (upgradeTxOut <$> ledgerLookupUTxO) (upgradeTxOut <$> walletUTxO) conwayTx
+                  <&> fromLedgerTx . recomputeIntegrityHash pp [PlutusV2] . convertConwayTx
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -240,8 +260,9 @@ data ErrCoverFee
   = ErrNotEnoughFunds ChangeError
   | ErrNoFuelUTxOFound
   | ErrUnknownInput {input :: TxIn}
-  | ErrScriptExecutionFailed {scriptFailure :: (PlutusPurpose AsIx LedgerEra, TransactionScriptFailure LedgerEra)}
+  | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
+  | ErrConwayUpgradeError (TxUpgradeError Conway)
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -253,17 +274,26 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 --
 -- XXX: All call sites of this function use cardano-api types
 coverFee_ ::
-  Core.PParams LedgerEra ->
+  ( EraCrypto era ~ StandardCrypto
+  , EraPlutusContext era
+  , AlonzoEraTx era
+  , ScriptsNeeded era ~ AlonzoScriptsNeeded era
+  , EraUTxO era
+  , BabbageEraTxBody era
+  ) =>
+  PParams era ->
   SystemStart ->
   EpochInfo (Either Text) ->
-  Map TxIn TxOut ->
-  Map TxIn TxOut ->
-  Babbage.AlonzoTx LedgerEra ->
-  Either ErrCoverFee (Babbage.AlonzoTx LedgerEra)
-coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.AlonzoTx{body, wits} = do
+  Map TxIn (Ledger.TxOut era) ->
+  Map TxIn (Ledger.TxOut era) ->
+  Tx era ->
+  Either ErrCoverFee (Tx era)
+coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
+  let body = partialTx ^. bodyTxL
+  let wits = partialTx ^. witsTxL
   (feeTxIn, feeTxOut) <- findUTxOToPayFees walletUTxO
 
-  let newInputs = view inputsTxBodyL body <> Set.singleton feeTxIn
+  let newInputs = body ^. inputsTxBodyL <> Set.singleton feeTxIn
   resolvedInputs <- traverse resolveInput (toList newInputs)
 
   -- Ensure we have at least the minimum amount of ada. NOTE: setMinCoinTxOut
@@ -275,25 +305,23 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
   let adjustedRedeemers =
         adjustRedeemers
-          (view inputsTxBodyL body)
+          (body ^. inputsTxBodyL)
           newInputs
           estimatedScriptCosts
-          (txrdmrs wits)
+          (wits ^. rdmrsTxWitsL)
 
   -- Compute script integrity hash from adjusted redeemers
-  let referenceScripts = getReferenceScripts @LedgerEra (Ledger.UTxO utxo) (view referenceInputsTxBodyL body)
+  let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
       langs =
         [ getLanguageView pparams l
-        | (_hash, script) <- Map.toList $ Map.union (txscripts wits) referenceScripts
-        , (not . isNativeScript @LedgerEra) script
+        | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
         , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
         ]
       scriptIntegrityHash =
         hashScriptIntegrity
           (Set.fromList langs)
           adjustedRedeemers
-          (txdats wits)
-
+          (wits ^. datsTxWitsL)
   let
     unbalancedBody =
       body
@@ -308,7 +336,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an aditional witness (we will sign this tx later)
-  let fee = estimateMinFeeTx pparams costingTx additionalWitnesses 0 0
+  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -335,23 +363,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
     Just (i, o) ->
       Right (i, o)
 
-  getAdaValue :: TxOut -> Coin
-  getAdaValue (Babbage.BabbageTxOut _ value _ _) =
-    coin value
-
-  resolveInput :: TxIn -> Either ErrCoverFee TxOut
   resolveInput i = do
     case Map.lookup i (lookupUTxO <> walletUTxO) of
       Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 
-  mkChange ::
-    TxOut ->
-    [TxOut] ->
-    [TxOut] ->
-    Coin ->
-    Either ChangeError TxOut
-  mkChange (Babbage.BabbageTxOut addr _ datum _) resolvedInputs otherOutputs fee
+  mkChange feeTxOut resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
         Left $
@@ -360,14 +377,20 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
             , outputBalance = totalOut
             }
     | otherwise =
-        Right $ Babbage.BabbageTxOut addr (Ledger.inject changeOut) datum refScript
+        Right $ feeTxOut & coinTxOutL .~ changeOut
    where
-    totalOut = foldMap getAdaValue otherOutputs <> fee
-    totalIn = foldMap getAdaValue resolvedInputs
+    totalOut = foldMap (view coinTxOutL) otherOutputs <> fee
+    totalIn = foldMap (view coinTxOutL) resolvedInputs
     changeOut = totalIn <> invert totalOut
-    refScript = SNothing
 
-  adjustRedeemers :: Set TxIn -> Set TxIn -> Map (PlutusPurpose AsIx LedgerEra) ExUnits -> Redeemers LedgerEra -> Redeemers LedgerEra
+  adjustRedeemers ::
+    forall era.
+    AlonzoEraScript era =>
+    Set TxIn ->
+    Set TxIn ->
+    Map (PlutusPurpose AsIx era) ExUnits ->
+    Redeemers era ->
+    Redeemers era
   adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
     Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
    where
@@ -375,15 +398,16 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
     sortedFinalInputs = sort $ toList finalInputs
     differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
 
+    adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
     adjustOne (ptr, (d, _exUnits)) =
       case ptr of
-        AlonzoSpending idx
+        SpendingPurpose idx
           | fromIntegral (unAsIx idx) `elem` differences ->
-              (AlonzoSpending (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
+              (SpendingPurpose (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
         _ ->
           (ptr, (d, executionUnitsFor ptr))
 
-    executionUnitsFor :: PlutusPurpose AsIx LedgerEra -> ExUnits
+    executionUnitsFor :: PlutusPurpose AsIx era -> ExUnits
     executionUnitsFor ptr =
       let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
           ExUnits totalMem totalCpu = foldMap identity estimatedCosts
@@ -392,48 +416,46 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Babbage.
             (floor (maxMem * approxMem % totalMem))
             (floor (maxCpu * approxCpu % totalCpu))
 
-findLargestUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
+findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =
-  maxLovelaceUTxO apiUtxo
- where
-  apiUtxo = UTxO.fromPairs $ bimap fromLedgerTxIn fromLedgerTxOut <$> Map.toList utxo
-
-  maxLovelaceUTxO =
-    fmap (bimap toLedgerTxIn toLedgerTxOut)
-      . listToMaybe
-      . List.sortOn (Down . selectLovelace . Api.txOutValue . snd)
-      . UTxO.pairs
+  listToMaybe
+    . List.sortOn (Down . view coinTxOutL . snd)
+    $ Map.toList utxo
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new
 -- elements to it like change outputs or script integrity hash may increase that
 -- cost a little.
 estimateScriptsCost ::
+  (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraCrypto era ~ StandardCrypto, EraUTxO era) =>
   -- | Protocol parameters
-  Core.PParams LedgerEra ->
+  Core.PParams era ->
   -- | Start of the blockchain, for converting slots to UTC times
   SystemStart ->
   -- | Information about epoch sizes, for converting slots to UTC times
   EpochInfo (Either Text) ->
   -- | A UTXO needed to resolve inputs
-  Map TxIn TxOut ->
+  Map TxIn (Ledger.TxOut era) ->
   -- | The pre-constructed transaction
-  Babbage.AlonzoTx LedgerEra ->
-  Either ErrCoverFee (Map (PlutusPurpose AsIx LedgerEra) ExUnits)
+  Tx era ->
+  Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
-  Map.traverseWithKey (\ptr -> left $ ErrScriptExecutionFailed . (ptr,)) result
- where
-  result ::
-    Map
-      (AlonzoPlutusPurpose AsIx LedgerEra)
-      (Either (TransactionScriptFailure (BabbageEra StandardCrypto)) ExUnits)
-  result =
+  Map.traverseWithKey convertResult $
     evalTxExUnits
       pparams
       tx
       (Ledger.UTxO utxo)
       epochInfo
       systemStart
+ where
+  convertResult ptr = \case
+    Right exUnits -> Right exUnits
+    Left failure ->
+      Left $
+        ErrScriptExecutionFailed
+          { redeemerPointer = show ptr
+          , scriptFailure = show failure
+          }
 
 --
 -- Logs
