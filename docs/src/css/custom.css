@@ -421,27 +421,27 @@ svg.architecture {
  * Applying custom markdown styles here because Tailwind's reset is overriding Docusaurus styles, 
  * preventing the use of CSS variables defined in :root for a few settings
  */
-.theme-doc-markdown h1 {
+.theme-doc-markdown > h1 {
   font-size: 2rem;
 }
 
-.theme-doc-markdown h2 {
+.theme-doc-markdown > h2 {
   font-size: 1.8rem;
 }
 
-.theme-doc-markdown h3 {
+.theme-doc-markdown > h3 {
   font-size: 1.5rem;
 }
 
-.theme-doc-markdown h4 {
+.theme-doc-markdown > h4 {
   font-size: 1rem;
 }
 
-.theme-doc-markdown h5 {
+.theme-doc-markdown > h5 {
   font-size: 0.875rem;
 }
 
-.theme-doc-markdown h6 {
+.theme-doc-markdown > h6 {
   font-size: 0.75rem;
 }
 
