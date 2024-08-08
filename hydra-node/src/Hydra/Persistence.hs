@@ -5,6 +5,7 @@ module Hydra.Persistence where
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
+import Control.Lens.Combinators (iforM)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -90,7 +91,8 @@ createPersistenceIncremental fp = do
               -- NOTE: We require the whole file to be loadable. It might
               -- happen that the data written by 'append' is only there
               -- partially and then this will fail (which we accept now).
-              case forM (C8.lines bs) Aeson.eitherDecodeStrict' of
-                Left e -> throwIO $ PersistenceException e
-                Right decoded -> pure decoded
+              iforM (C8.lines bs) $ \i o ->
+                case Aeson.eitherDecodeStrict' o of
+                  Left e -> throwIO $ PersistenceException ("Error at line: " <> show (i + 1) <> " in file " <> fp <> " - " <> e)
+                  Right decoded -> pure decoded
       }
