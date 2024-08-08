@@ -5,16 +5,17 @@ import Hydra.Prelude hiding (size)
 
 import Cardano.Api.Ledger (PParams)
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (mkGenesisTx, mkInitialTx)
+import CardanoClient (buildTransaction, mkGenesisTx, sign)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
+import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
+import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (genSigningKey, generateOneTransfer)
 import Test.QuickCheck (choose, generate, sized)
-import Prelude qualified
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
@@ -144,36 +145,39 @@ makeGenesisFundingTx faucetSk clientKeys = do
           clientFunds
   pure fundingTransaction
 
-getFaucetInitialFunds :: VerificationKey PaymentKey -> SocketPath -> IO (TxIn, Coin)
-getFaucetInitialFunds faucetVk nodeSocket = do
-  utxo <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-  let (initialInput, TxOut{txOutValue}) = Prelude.head (UTxO.pairs utxo)
-  let initialOutputValue = selectLovelace txOutValue
-  pure (initialInput, initialOutputValue)
-
 genDatasetConstantUTxODemo ::
-  -- | The faucet signing key
-  SigningKey PaymentKey ->
+  -- | The faucet keys
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | Clients
   [ClientKeys] ->
   -- | Number of transactions
   Int ->
-  -- | Funds available in faucet
-  (TxIn, Coin) ->
-  Gen Dataset
-genDatasetConstantUTxODemo faucetSk allClientKeys nTxs (initialInput, coins@(Coin fundsAvailable)) = do
+  NetworkId ->
+  SocketPath ->
+  IO Dataset
+genDatasetConstantUTxODemo (faucetVk, faucetSk) allClientKeys nTxs networkId' nodeSocket = do
   let nClients = length allClientKeys
+  faucetUTxO <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+  let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
   clientFunds <- forM allClientKeys $ \ClientKeys{externalSigningKey} -> do
-    amount <- Coin <$> choose (1, fundsAvailable `div` fromIntegral nClients)
+    amount <- Coin <$> generate (choose (1, fundsAvailable `div` fromIntegral nClients))
     pure (getVerificationKey externalSigningKey, amount)
-  let fundingTransaction =
-        mkInitialTx
-          networkId
-          faucetSk
-          coins
-          clientFunds
-          initialInput
-  genDatasetConstantUTxO allClientKeys nTxs fundingTransaction
+
+  let recipientOutputs =
+        flip map clientFunds $ \(vk, ll) ->
+          TxOut
+            (mkVkAddress networkId' vk)
+            (lovelaceToValue ll)
+            TxOutDatumNone
+            ReferenceScriptNone
+  let changeAddress = mkVkAddress networkId' faucetVk
+  fundingTransaction <-
+    buildTransaction networkId' nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
+      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+      Right body -> do
+        let signedTx = sign faucetSk body
+        pure signedTx
+  generate $ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction
