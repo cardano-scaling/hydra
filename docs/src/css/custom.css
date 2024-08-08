@@ -58,6 +58,7 @@
   --ifm-navbar-height: 56px;
   font-family: "Inter";
   --ifm-color-emphasis-600: #283032;
+  --doc-sidebar-hidden-width: 100px !important;
 }
 
 @media (min-width: 768px) {
@@ -390,4 +391,56 @@ svg.architecture {
 
 .navbar-sidebar__items--show-secondary {
   margin-left: -15%;
+}
+
+/* Collapsible button */
+.theme-doc-toc-mobile {
+  @apply !bg-transparent;
+}
+
+.theme-doc-toc-mobile > button {
+  @apply font-semibold text-true-black rounded p-4 mt-12 bg-teal-extralight;
+}
+
+.theme-doc-toc-mobile > div > ul {
+  @apply border-none;
+}
+
+.theme-doc-toc-mobile > button::after {
+  @apply bg-cover;
+}
+
+/**
+ * Theme Doc Markdown
+ *
+ * Applying custom markdown styles here because Tailwind's reset is overriding Docusaurus styles, 
+ * preventing the use of CSS variables defined in :root for a few settings
+ */
+.theme-doc-markdown h1 {
+  font-size: 2rem;
+}
+
+.theme-doc-markdown h2 {
+  font-size: 1.8rem;
+}
+
+.theme-doc-markdown h3 {
+  font-size: 1.5rem;
+}
+
+.theme-doc-markdown h4 {
+  font-size: 1rem;
+}
+
+.theme-doc-markdown h5 {
+  font-size: 0.875rem;
+}
+
+.theme-doc-markdown h6 {
+  font-size: 0.75rem;
+}
+
+.theme-doc-markdown a {
+  color: #128189;
+  text-decoration-color: #128189;
 }
