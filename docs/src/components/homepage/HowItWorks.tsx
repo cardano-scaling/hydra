@@ -1,20 +1,13 @@
 import React, { FC, useState } from "react";
 import clsx from "clsx";
 import Arrow from "../icons/Arrow";
-import { forLaptop, forTablet } from "../../../helpers/media-queries";
+import { forTablet } from "../../../helpers/media-queries";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { motion } from "framer-motion";
 import { HowItWorksContent } from "../../../docs/homepage/how-it-works";
-import { useWindowSize } from "../../hooks/useWindowSize";
 
 const HowItWorks: FC = () => {
-  const windowSize = useWindowSize(300);
   const [expanded, setExpanded] = useState(false);
-  const isTabletUp = useMediaQuery(forTablet);
-  const isLaptopUp = useMediaQuery(forLaptop);
-
-  // Reset inline height set by framer motion
-  const key = `${windowSize.width}-${windowSize.height}`;
 
   return (
     <motion.section
@@ -29,17 +22,7 @@ const HowItWorks: FC = () => {
       }}
     >
       <h5 className="text-base text-teal pb-14">/ HOW IT WORKS</h5>
-      <motion.div
-        key={key}
-        className="grid laptop:flex laptop:flex-row laptop:gap-6"
-        initial={"hidden"}
-        animate={expanded ? "visible" : "hidden"}
-        transition={{ duration: 0.15 }}
-        variants={{
-          visible: { height: "auto", overflow: "visible" },
-          hidden: { overflow: "hidden" },
-        }}
-      >
+      <div className="grid laptop:flex laptop:flex-row laptop:gap-6">
         <div className="flex flex-col basis-[41%] pt-4 order-2 laptop:-order-1 laptop:w-[472px] laptop:pt-0">
           <h4 className="text-2xl color-darkRed font-medium text-darkRed pb-4">
             {HowItWorksContent.title}
@@ -73,28 +56,13 @@ const HowItWorks: FC = () => {
             </button>
           </div>
         </div>
-        {isTabletUp && (
-          <motion.div
-            className="basis-[59%] relative border-b border-solid border-teal -order-1 laptop:order-2"
-            initial="hidden"
-            animate={expanded ? "visible" : "hidden"}
-            transition={{ duration: 0.15 }}
-            variants={{
-              visible: isLaptopUp
-                ? { overflow: "visible" }
-                : { overflow: "visible", height: "auto" },
-              hidden: isLaptopUp
-                ? { overflow: "hidden" }
-                : { overflow: "hidden", height: 280 },
-            }}
-          >
-            <img
-              src="hydra-docs-landing-graphic.png"
-              className="w-full laptop:absolute"
-            />
-          </motion.div>
-        )}
-      </motion.div>
+        <div className="hidden basis-[59%] -order-1 laptop:order-2 tablet:block">
+          <img
+            src="hydra-docs-landing-graphic.png"
+            className="border-b border-solid border-teal laptop:border-none"
+          />
+        </div>
+      </div>
     </motion.section>
   );
 };
