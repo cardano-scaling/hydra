@@ -109,16 +109,20 @@ const ResponsiveCarousel: FC = () => {
             centeredSlides={isTabletUp}
             spaceBetween={10}
             ref={sliderRef}
+            loop
           >
             {isTabletUp
               ? HowItWorksCarouselContent.map((props, idx) => (
                   <SwiperSlide key={idx} style={{ width: "fit-content" }}>
-                    <img src={props.src} />
+                    <img src={props.src} className="max-h-[294px] rounded-lg" />
                   </SwiperSlide>
                 ))
               : HowItWorksCarouselContent.map((props, idx) => (
                   <SwiperSlide key={idx} style={{ width: "fit-content" }}>
-                    <img src={props.mobileSrc} className="tablet:ml-4 ml-1" />
+                    <img
+                      src={props.mobileSrc}
+                      className="tablet:ml-4 ml-1 max-h-[255px] tablet:max-h-[294px] rounded-lg"
+                    />
                   </SwiperSlide>
                 ))}
           </Swiper>

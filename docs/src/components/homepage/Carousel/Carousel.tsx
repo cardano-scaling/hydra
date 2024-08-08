@@ -19,13 +19,9 @@ type Props = {
 
 const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
   return (
-    <div className="flex gap-6 h-full">
-      <div className="basis-[45%]">
-        <img
-          src={src}
-          className="w-full h-full max-h-[294px]
-        "
-        />
+    <div className="flex items-center gap-6 h-full">
+      <div className="basis-[40%]">
+        <img src={src} className="w-full rounded-lg object-cover" />
       </div>
       <div className="flex flex-col gap-4 max-w-md justify-center">
         <h4 className="text-2xl text-teal font-medium">How it works</h4>
