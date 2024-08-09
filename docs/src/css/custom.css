@@ -373,13 +373,17 @@ svg.architecture {
   }
 }
 
+#__blog-post-container.markdown {
+  padding: 0 !important;
+}
+
 .theme-edit-this-page {
   display: inline-flex;
 }
 
 .col--3 {
   padding-right: 56px !important;
-  padding-top: 86px !important;
+  padding-top: 0;
 }
 
 .collapseSidebarButton {
@@ -448,4 +452,19 @@ svg.architecture {
 .theme-doc-markdown a {
   color: #128189;
   text-decoration-color: #128189;
+}
+
+.theme-doc-markdown a.card {
+  color: inherit;
+}
+
+.theme-doc-markdown a.card h2 {
+  padding-bottom: 0.5em;
+}
+
+.theme-admonition p {
+  margin-bottom: 0.5em;
+}
+.theme-admonition p:last-child {
+  margin-bottom: 0;
 }
