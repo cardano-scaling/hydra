@@ -8,26 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.18.0] - Unreleased
+## [0.18.0] - 2024-08-08
 
 - Tested with `cardano-node 9.1.0` and `cardano-cli 9.2.1.0`.
 
-- Fixed fee calculation of the internal wallet when the network switches to `Conway`. This allows heads to be opened in `Babbage` and closed/finalized in `Conway`.
+- Fixed fee calculation of the internal wallet when the network switches to `Conway`. This allows heads to be opened in `Babbage` and closed/finalized in `Conway`. [1553](https://github.com/cardano-scaling/hydra/pull/1553)
 
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
 
-- Add capability to move UTxO out of an open Head to the Cardano main chain:
+- Add capability to move UTxO out of an open Head to the Cardano main chain: [1344](https://github.com/cardano-scaling/hydra/pull/1344)
   - Submitting a decommit transaction to `POST /decommit` or as `Decommit` command through websocket, requests removal of this transactions' outputs from the head.
   - When successful, `DecommitApproved` and `DecommitFinalized` indicate that all outputs are made available on the layer one.
   - Invalid transactions are explained through a `DecommitInvalid` server output.
 
-- Change `--start-chain-from` to always use the newer point when also a head state is known.
+- Change `--start-chain-from` to always use the newer point when also a head state is known. [1471](https://github.com/cardano-scaling/hydra/pull/1471)
 
-- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey.
+- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey. [1486](https://github.com/cardano-scaling/hydra/pull/1486)
 
-- Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`.
+- Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [1551](https://github.com/cardano-scaling/hydra/pull/1551)
 
 ## [0.17.0] - 2024-05-20
 

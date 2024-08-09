@@ -17,7 +17,7 @@ services:
     restart: always
 
   hydra-explorer:
-    image: ghcr.io/cardano-scaling/hydra-explorer:0.17.0
+    image: ghcr.io/cardano-scaling/hydra-explorer:0.18.0
     volumes:
     - /srv/var/cardano/state-preview:/data
     ports:
