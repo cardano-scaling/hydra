@@ -48,7 +48,7 @@ export default function NavbarLayout({ children }) {
         description: "The ARIA label for the main navigation",
       })}
       className={clsx(
-        "flex navbar tablet:py-[30px] px-0 shadow-none z-50",
+        "flex navbar tablet:py-[30px] !px-0 shadow-none z-50",
         isLandingPage
           ? "border-none pt-3"
           : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
