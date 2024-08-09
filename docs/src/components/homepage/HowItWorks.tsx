@@ -1,8 +1,6 @@
 import React, { FC, useState } from "react";
 import clsx from "clsx";
 import Arrow from "../icons/Arrow";
-import { forTablet } from "../../../helpers/media-queries";
-import useMediaQuery from "../../hooks/useMediaQuery";
 import { motion } from "framer-motion";
 import { HowItWorksContent } from "../../../docs/homepage/how-it-works";
 

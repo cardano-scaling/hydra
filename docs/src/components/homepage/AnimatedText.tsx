@@ -6,7 +6,7 @@ const processText = (children: React.ReactNode): React.ReactNode =>
   React.Children.map(children, (child) => {
     if (typeof child === "string") {
       return child.split(" ").map((word, index) => (
-        <span key={index} className="whitespace-nowrap">
+        <span key={index} className="inline-block">
           {word.split("").map((char, charIndex) => (
             <motion.span
               key={charIndex}
@@ -86,7 +86,6 @@ const AnimatedText: FC = () => {
           </h2>
         )}
       </motion.div>
-      {/* )} */}
     </section>
   );
 };
