@@ -420,90 +420,98 @@ svg.architecture {
 }
 
 /**
- * Theme Doc Markdown
+ * Markdown area
  *
  * Applying custom markdown styles here because Tailwind's reset is overriding Docusaurus styles, 
  * preventing the use of CSS variables defined in :root for a few settings
  */
-.theme-doc-markdown {
+.markdown {
   line-height: 1.65;
 }
 
-.theme-doc-markdown > h1 {
+.markdown > h1 {
   font-size: 2rem;
 }
 
-.theme-doc-markdown > h2 {
+.markdown > h2 {
   font-size: 1.8rem;
 }
 
-.theme-doc-markdown > h3 {
+.markdown > h3 {
   font-size: 1.5rem;
 }
 
-.theme-doc-markdown > h4 {
+.markdown > h4 {
   font-size: 1rem;
 }
 
-.theme-doc-markdown > h5 {
+.markdown > h5 {
   font-size: 0.875rem;
 }
 
-.theme-doc-markdown > h6 {
+.markdown > h6 {
   font-size: 0.75rem;
 }
 
-.theme-doc-markdown a {
+.markdown a {
   color: #128189;
   text-decoration-color: #128189;
 }
 
-.theme-doc-markdown a.card {
+.markdown a.card {
   color: inherit;
 }
 
-.theme-doc-markdown a.card h2 {
+.markdown a.card h2 {
   padding-bottom: 0.5em;
 }
 
-.theme-doc-markdown ol,
-.theme-doc-markdown ul {
+.markdown ol,
+.markdown ul {
   list-style: inherit;
   margin: 0 0 var(--ifm-list-margin);
   padding-left: var(--ifm-list-left-padding);
 }
 
-.theme-doc-markdown > ul {
+.markdown > ul {
   margin-bottom: var(--ifm-leading);
 }
 
-.theme-doc-markdown ul ul {
+.markdown ul ul {
   list-style: circle;
   margin: 0;
 }
 
-.theme-doc-markdown ol {
+.markdown ul ul ul {
+  list-style: square;
+}
+
+.markdown ul ol {
+  list-style: lower-roman;
+}
+
+.markdown ol {
   list-style: decimal;
 }
 
-.theme-doc-markdown ol ul {
+.markdown ol ul {
   list-style: circle;
 }
 
-.theme-doc-markdown li + li {
+.markdown li + li {
   margin-top: var(--ifm-list-item-margin);
 }
 
-.theme-doc-markdown .contains-task-list {
+.markdown .contains-task-list {
   list-style: none;
 }
 
-.theme-doc-markdown .tabs {
+.markdown .tabs {
   margin-bottom: 0;
   padding-left: 0;
 }
 
-.theme-doc-markdown blockquote {
+.markdown blockquote {
   margin: 0 0 var(--ifm-spacing-vertical);
 }
 
