@@ -8,7 +8,7 @@ import { HomepageHeroContent } from "../../../docs/homepage/homepage-hero";
 const HomepageHero: FC = () => {
   const { siteConfig } = useDocusaurusContext();
   return (
-    <div className="relative bg-[url('../../static/desktop-video-still.jpg')] bg-cover z-20 -mt-[92px] pt-[92px]">
+    <div className="relative bg-[url('../../static/desktop-video-still.jpg')] bg-cover z-20 -mt-[var(--ifm-navbar-height)] pt-[var(--ifm-navbar-height)]">
       <video
         autoPlay
         muted

@@ -22,9 +22,9 @@ const FAQ: FC<Props> = ({ title, description }) => {
         hidden: { opacity: 0, y: 100 },
       }}
     >
-      <span className="text-2xl min-w-40 tablet:self-center font-bold">
+      <h4 className="text-2xl min-w-[170px] tablet:self-center font-medium">
         {title}
-      </span>
+      </h4>
       <p className="tablet:border-l tablet:border-t-0 border-t border-solid border-white/25 tablet:pl-12 tablet:ml-12 mt-3 pt-3 tablet:pt-0 tablet:mt-0 max-w-xl">
         {description}
       </p>
