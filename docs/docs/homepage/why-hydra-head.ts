@@ -1,8 +1,8 @@
 import { translate } from "@docusaurus/Translate";
 
-export const HowItWorksContent = {
+export const WhyHydraHeadContent = {
   title: translate({
-    id: "homepage.howItWorks.title",
+    id: "homepage.whyHydraHead.title",
     message: "Why Hydra Head?",
   }),
   descriptionParagraphOne: translate({

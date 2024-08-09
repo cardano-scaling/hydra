@@ -2,7 +2,7 @@ import React from "react";
 import Layout from "@theme/Layout";
 import Features from "../components/homepage/Features";
 import AnimatedText from "../components/homepage/AnimatedText";
-import HowItWorks from "../components/homepage/HowItWorks";
+import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import Carousel from "../components/homepage/Carousel/Carousel";
 import FeaturesFAQ from "../components/homepage/FeaturesFAQ";
 import CaseStudies from "../components/homepage/CaseStudies";
@@ -23,7 +23,7 @@ export default function Home() {
             <Features />
             <div className="pageContainer">
               <AnimatedText />
-              <HowItWorks />
+              <WhyHydraHead />
             </div>
             {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
             <FeaturesFAQ />

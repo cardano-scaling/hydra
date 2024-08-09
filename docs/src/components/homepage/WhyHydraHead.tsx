@@ -2,9 +2,9 @@ import React, { FC, useState } from "react";
 import clsx from "clsx";
 import Arrow from "../icons/Arrow";
 import { motion } from "framer-motion";
-import { HowItWorksContent } from "../../../docs/homepage/how-it-works";
+import { WhyHydraHeadContent } from "../../../docs/homepage/why-hydra-head";
 
-const HowItWorks: FC = () => {
+const WhyHydraHead: FC = () => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -23,9 +23,9 @@ const HowItWorks: FC = () => {
       <div className="grid laptop:flex laptop:flex-row laptop:gap-6">
         <div className="flex flex-col basis-[41%] pt-4 order-2 laptop:-order-1 laptop:w-[472px] laptop:pt-0">
           <h4 className="text-2xl color-darkRed font-medium text-darkRed pb-4">
-            {HowItWorksContent.title}
+            {WhyHydraHeadContent.title}
           </h4>
-          <p>{HowItWorksContent.descriptionParagraphOne}</p>
+          <p>{WhyHydraHeadContent.descriptionParagraphOne}</p>
 
           <motion.div
             initial="hidden"
@@ -36,8 +36,10 @@ const HowItWorks: FC = () => {
               hidden: { opacity: 0, height: 0 },
             }}
           >
-            <p className="py-4">{HowItWorksContent.descriptionParagraphTwo}</p>
-            <p>{HowItWorksContent.descriptionParagraphThree}</p>
+            <p className="py-4">
+              {WhyHydraHeadContent.descriptionParagraphTwo}
+            </p>
+            <p>{WhyHydraHeadContent.descriptionParagraphThree}</p>
           </motion.div>
           <div className="w-full relative mt-4">
             <button
@@ -65,4 +67,4 @@ const HowItWorks: FC = () => {
   );
 };
 
-export default HowItWorks;
+export default WhyHydraHead;
