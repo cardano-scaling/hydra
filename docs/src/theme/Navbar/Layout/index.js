@@ -9,8 +9,8 @@ import { translate } from "@docusaurus/Translate";
 import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
 import styles from "./styles.module.css";
 
-import { useLocation } from "@docusaurus/router";
 import { useScroll, motion, useTransform } from "framer-motion";
+import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
 
 function NavbarBackdrop(props) {
   return (
@@ -28,7 +28,7 @@ export default function NavbarLayout({ children }) {
     [0, 70],
     ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 1)"]
   );
-  const location = useLocation();
+  const isLandingPage = useIsLandingPage();
   const {
     navbar: { hideOnScroll },
   } = useThemeConfig();
@@ -37,8 +37,7 @@ export default function NavbarLayout({ children }) {
   return (
     <motion.header
       style={
-        (location.pathname === "/" ||
-          location.pathname === "/head-protocol/") && {
+        isLandingPage && {
           backgroundColor: y,
         }
       }
@@ -50,7 +49,7 @@ export default function NavbarLayout({ children }) {
       })}
       className={clsx(
         "flex navbar tablet:py-[30px] px-0 shadow-none z-50",
-        location.pathname === "/" || location.pathname === "/head-protocol/"
+        isLandingPage
           ? "border-none pt-3"
           : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
         "navbar--fixed-top",
@@ -63,13 +62,7 @@ export default function NavbarLayout({ children }) {
         }
       )}
     >
-      <div
-        className={clsx(
-          location.pathname === "/" || location.pathname === "/head-protocol/"
-            ? "pageContainer"
-            : "w-full px-6"
-        )}
-      >
+      <div className={clsx(isLandingPage ? "pageContainer" : "w-full px-6")}>
         {children}
       </div>
       <NavbarBackdrop onClick={mobileSidebar.toggle} />

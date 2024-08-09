@@ -10,24 +10,27 @@ import { forLaptop } from "../../helpers/media-queries";
 import useMediaQuery from "../hooks/useMediaQuery";
 import ResponsiveCarousel from "../components/homepage/Carousel/ResponsiveCarousel";
 import HomepageHero from "../components/homepage/HomepageHero";
+import { PageContext, PageType } from "../context/PageContext";
 
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
-    <div className="z-index:1000">
-      <Layout>
-        <HomepageHero />
-        <main>
-          <Features />
-          <div className="pageContainer">
-            <AnimatedText />
-            <HowItWorks />
-          </div>
-          {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
-          <FeaturesFAQ />
-          <CaseStudies />
-        </main>
-      </Layout>
-    </div>
+    <PageContext.Provider value={{ page: PageType.Landing }}>
+      <div className="z-index:1000">
+        <Layout>
+          <HomepageHero />
+          <main>
+            <Features />
+            <div className="pageContainer">
+              <AnimatedText />
+              <HowItWorks />
+            </div>
+            {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
+            <FeaturesFAQ />
+            <CaseStudies />
+          </main>
+        </Layout>
+      </div>
+    </PageContext.Provider>
   );
 }

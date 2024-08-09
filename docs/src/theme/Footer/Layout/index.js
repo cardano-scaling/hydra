@@ -2,12 +2,10 @@ import React from "react";
 import clsx from "clsx";
 import Github from "../../../components/icons/Github";
 import Link from "@docusaurus/Link";
-import { useLocation } from "@docusaurus/router";
+import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
 
 export default function FooterLayout({ style, links, logo, copyright }) {
-  const location = useLocation();
-  const isLandingPage =
-    location.pathname === "/" || location.pathname === "/head-protocol/";
+  const isLandingPage = useIsLandingPage();
   return (
     <footer
       className={clsx(
@@ -42,17 +40,6 @@ export default function FooterLayout({ style, links, logo, copyright }) {
                 Join the conversation
               </span>
             </div>
-            {/* <span
-              className={clsx(
-                "text-sm",
-                location.pathname === "/" ||
-                  location.pathname === "/head-protocol/"
-                  ? "text-white"
-                  : "text-black"
-              )}
-            >
-              Lorem Ipsum is simply dummy text of the printing{" "}
-            </span> */}
             <Link
               className="px-4 py-3 justify-center text-center border text-sm border-solid bg-teal-lightest border-teal font-bold text-teal rounded-lg no-underline hover:bg-white hover:no-underline hover:text-teal"
               target="_blank"
@@ -65,11 +52,6 @@ export default function FooterLayout({ style, links, logo, copyright }) {
         </div>
         {links}
       </div>
-      {/* {(logo || copyright) && (
-        <div className="footer__bottom text--center">
-          {logo && <div className="margin-bottom--sm">{logo}</div>}
-        </div>
-      )} */}
     </footer>
   );
 }

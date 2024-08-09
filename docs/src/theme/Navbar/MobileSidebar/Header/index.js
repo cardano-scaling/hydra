@@ -1,11 +1,11 @@
 import React from "react";
 import clsx from "clsx";
-import { useLocation } from "@docusaurus/router";
 import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
 import { translate } from "@docusaurus/Translate";
 import NavbarColorModeToggle from "@theme/Navbar/ColorModeToggle";
 import IconClose from "@theme/Icon/Close";
 import NavbarLogo from "@theme/Navbar/Logo";
+import { useIsLandingPage } from "../../../../hooks/useIsLandingPage";
 function CloseButton() {
   const mobileSidebar = useNavbarMobileSidebar();
   return (
@@ -24,9 +24,7 @@ function CloseButton() {
   );
 }
 export default function NavbarMobileSidebarHeader() {
-  const location = useLocation();
-  const isLandingPage =
-    location.pathname === "/" || location.pathname === "/head-protocol/";
+  const isLandingPage = useIsLandingPage();
   return (
     <div
       className={clsx(

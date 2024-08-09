@@ -1,7 +1,7 @@
 import React from "react";
 import LinkItem from "@theme/Footer/LinkItem";
-import { useLocation } from "@docusaurus/router";
 import clsx from "clsx";
+import { useIsLandingPage } from "../../../../hooks/useIsLandingPage";
 function ColumnLinkItem({ item }) {
   return item.html ? (
     <li
@@ -17,9 +17,7 @@ function ColumnLinkItem({ item }) {
   );
 }
 function Column({ column }) {
-  const location = useLocation();
-  const isLandingPage =
-    location.pathname === "/" || location.pathname === "/head-protocol/";
+  const isLandingPage = useIsLandingPage();
   return (
     <div
       className={
@@ -43,8 +41,7 @@ function Column({ column }) {
   );
 }
 export default function FooterLinksMultiColumn({ columns }) {
-  const isLandingPage =
-    location.pathname === "/" || location.pathname === "/head-protocol/";
+  const isLandingPage = useIsLandingPage();
   return (
     <div
       className={clsx(
