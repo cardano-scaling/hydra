@@ -425,6 +425,10 @@ svg.architecture {
  * Applying custom markdown styles here because Tailwind's reset is overriding Docusaurus styles, 
  * preventing the use of CSS variables defined in :root for a few settings
  */
+.theme-doc-markdown {
+  line-height: 1.65;
+}
+
 .theme-doc-markdown > h1 {
   font-size: 2rem;
 }
@@ -460,6 +464,47 @@ svg.architecture {
 
 .theme-doc-markdown a.card h2 {
   padding-bottom: 0.5em;
+}
+
+.theme-doc-markdown ol,
+.theme-doc-markdown ul {
+  list-style: inherit;
+  margin: 0 0 var(--ifm-list-margin);
+  padding-left: var(--ifm-list-left-padding);
+}
+
+.theme-doc-markdown > ul {
+  margin-bottom: var(--ifm-leading);
+}
+
+.theme-doc-markdown ul ul {
+  list-style: circle;
+  margin: 0;
+}
+
+.theme-doc-markdown ol {
+  list-style: decimal;
+}
+
+.theme-doc-markdown ol ul {
+  list-style: circle;
+}
+
+.theme-doc-markdown li + li {
+  margin-top: var(--ifm-list-item-margin);
+}
+
+.theme-doc-markdown .contains-task-list {
+  list-style: none;
+}
+
+.theme-doc-markdown .tabs {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.theme-doc-markdown blockquote {
+  margin: 0 0 var(--ifm-spacing-vertical);
 }
 
 .theme-admonition p {
