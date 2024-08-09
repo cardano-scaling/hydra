@@ -32,11 +32,9 @@ export default function FooterLayout({ style, links, logo, copyright }) {
               !isLandingPage && "laptop:max-w-[227px] tablet:max-w-[277px]"
             )}
           >
-            <div className="inline-flex text-teal-light">
-              <Github className="self-center" />
-              <span
-                className={clsx("border-l pl-4 ml-4 text-xl leading-[27px]")}
-              >
+            <div className="inline-flex items-center text-teal-light">
+              <Github className="shrink-0" width={24} height={24} />
+              <span className="border-l pl-4 ml-4 text-xl leading-[27px]">
                 Join the conversation
               </span>
             </div>
