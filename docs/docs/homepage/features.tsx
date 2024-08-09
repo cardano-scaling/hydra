@@ -19,10 +19,6 @@ export const FeatureList = [
       message:
         "Transaction finality is only bounded by Head network latency, resulting in near-instant settlement",
     }),
-    tagLine: translate({
-      id: "homepage.featureList.lowLatency.perk",
-      message: "Fast and cheap transactions",
-    }),
   },
   {
     title: translate({
@@ -34,10 +30,6 @@ export const FeatureList = [
       id: "homepage.featureList.highThroughput.description",
       message:
         "Transactions are replicated only among protocol participants, reducing data processing and increasing throughput",
-    }),
-    tagLine: translate({
-      id: "homepage.featureList.highThroughput.perk",
-      message: "Fast and cheap transactions",
     }),
   },
   {
@@ -51,10 +43,6 @@ export const FeatureList = [
       message:
         "Low processing needs by protocol participants and configurable protocol parameters enable even zero-fee use cases",
     }),
-    tagLine: translate({
-      id: "homepage.featureList.lowFees.perk",
-      message: "Fast and cheap transactions",
-    }),
   },
   {
     title: translate({
@@ -66,10 +54,6 @@ export const FeatureList = [
       id: "homepage.featureList.isomorphicStateChannels.description",
       message:
         "Cardano transactions are processed off-chain using the exact same battle-tested Cardano ledger",
-    }),
-    tagLine: translate({
-      id: "homepage.featureList.isomorphicStateChannels.perk",
-      message: "Native security",
     }),
   },
   {
@@ -83,10 +67,6 @@ export const FeatureList = [
       message:
         "Participants of a Hydra head cannot lose any funds that they have not explicitly authorized",
     }),
-    tagLine: translate({
-      id: "homepage.featureList.censorshipResistance.perk",
-      message: "Native security",
-    }),
   },
   {
     title: translate({
@@ -98,10 +78,6 @@ export const FeatureList = [
       id: "homepage.featureList.basedOnThoroughResearch.description",
       message:
         "The Hydra protocols have been peer-reviewed and implementations are heavily tested resulting in high-security standards",
-    }),
-    tagLine: translate({
-      id: "homepage.featureList.basedOnThoroughResearch.perk",
-      message: "Native security",
     }),
   },
 ];

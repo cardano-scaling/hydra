@@ -1,5 +1,4 @@
 import React, { FC } from "react";
-import clsx from "clsx";
 import { motion } from "framer-motion";
 import { FeatureList } from "../../../docs/homepage/features";
 import useMediaQuery from "../../hooks/useMediaQuery";
@@ -9,11 +8,10 @@ type Props = {
   icon: React.JSX.Element;
   title: string;
   description: string;
-  tagLine: string;
   index: number;
 };
 
-const Feature: FC<Props> = ({ icon, title, description, tagLine, index }) => {
+const Feature: FC<Props> = ({ icon, title, description, index }) => {
   const isTabletUp = useMediaQuery(forTablet);
   return (
     <motion.div
@@ -32,16 +30,6 @@ const Feature: FC<Props> = ({ icon, title, description, tagLine, index }) => {
         <h6 className="text-2xl">{title}</h6>
       </div>
       <p>{description}</p>
-      <span
-        className={clsx(
-          "p-2 w-fit text-sm",
-          tagLine === "Fast and cheap transactions"
-            ? "text-teal bg-[#F3F6F8]"
-            : "text-darkRed bg-[#F8F4F6]"
-        )}
-      >
-        {tagLine}
-      </span>
     </motion.div>
   );
 };
