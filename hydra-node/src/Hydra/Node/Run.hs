@@ -2,7 +2,7 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Hydra.API.Server (withAPIServer)
+import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
  )
@@ -47,7 +47,8 @@ import Hydra.Options (
 import Hydra.Persistence (createPersistenceIncremental)
 
 data ConfigurationException
-  = ConfigurationException ProtocolParametersConversionError
+  = -- XXX: this is not used
+    ConfigurationException ProtocolParametersConversionError
   | InvalidOptionException InvalidOptions
   deriving stock (Show)
 
@@ -88,7 +89,8 @@ run opts = do
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-          withAPIServer apiHost apiPort party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
+          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
+          withAPIServer apiServerConfig party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
@@ -120,6 +122,8 @@ run opts = do
     , nodeId
     , apiHost
     , apiPort
+    , tlsCertPath
+    , tlsKeyPath
     } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals

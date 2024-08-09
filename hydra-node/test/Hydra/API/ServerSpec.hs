@@ -24,7 +24,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.API.Server (RunServerException (..), Server (Server, sendOutput), withAPIServer)
+import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server (Server, sendOutput), withAPIServer)
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
@@ -40,6 +40,8 @@ import Hydra.Options qualified as Options
 import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Snapshot (Snapshot (Snapshot, utxo))
+import Network.Simple.WSS qualified as WSS
+import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.Fixture (alice, testHeadId)
@@ -306,6 +308,24 @@ spec =
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
+    describe "TLS support" $ do
+      it "accepts TLS connections when configured" $ do
+        showLogsOnFailure "ServerSpec" $ \tracer ->
+          withFreePort $ \port -> do
+            let config =
+                  APIServerConfig
+                    { host = "127.0.0.1"
+                    , port
+                    , tlsCertPath = Just "test/tls/certificate.pem"
+                    , tlsKeyPath = Just "test/tls/key.pem"
+                    }
+            withAPIServer @SimpleTx config alice mockPersistence tracer dummyChainHandle defaultPParams noop $ \_ -> do
+              let clientParams = defaultParamsClient "127.0.0.1" ""
+                  allowAnyParams =
+                    clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
+              WSS.connect allowAnyParams "127.0.0.1" (show port) "/" [] $ \(conn, _) -> do
+                waitMatch 5 conn $ guard . matchGreetings
+
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -366,7 +386,9 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx "127.0.0.1" port actor persistence tracer dummyChainHandle defaultPParams noop action
+  withAPIServer @SimpleTx config actor persistence tracer dummyChainHandle defaultPParams noop action
+ where
+  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.
