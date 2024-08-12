@@ -46,7 +46,7 @@ markdownReport now summaries =
   pageHeader :: [Text]
   pageHeader =
     [ "--- "
-    , "sidebar_label: 'End-to-End Benchmarks' "
+    , "sidebar_label: 'End-to-end benchmarks' "
     , "sidebar_position: 4 "
     , "--- "
     , ""
