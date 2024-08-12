@@ -5,7 +5,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { useThemeConfig } from "@docusaurus/theme-common";
 import ThemedImage from "@theme/ThemedImage";
 import useMediaQuery from "../../hooks/useMediaQuery";
-import { forPhablet, forTablet } from "../../../helpers/media-queries";
+import { forPhablet } from "../../../helpers/media-queries";
 function LogoThemedImage({ logo, alt, imageClassName }) {
   const sources = {
     light: useBaseUrl(logo.src),

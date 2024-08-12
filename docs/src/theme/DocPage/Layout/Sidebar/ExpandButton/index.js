@@ -2,7 +2,6 @@ import React from "react";
 import { translate } from "@docusaurus/Translate";
 import styles from "./styles.module.css";
 import ToggleMenu from "../../../../../components/icons/ToggleMenu";
-import clsx from "clsx";
 export default function DocPageLayoutSidebarExpandButton({ toggleSidebar }) {
   return (
     <div
