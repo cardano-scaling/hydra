@@ -9,13 +9,14 @@ import CardanoClient (buildTransaction, mkGenesisTx, sign)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (genSigningKey, generateOneTransfer)
-import Test.QuickCheck (choose, generate, sized)
+import Test.QuickCheck (choose, generate, sized, vectorOf)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
@@ -36,8 +37,8 @@ data Dataset = Dataset
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
     faucetSk <- genSigningKey
-    let nClients = n `div` 10
-    let clientKeys = replicate nClients (generateWith arbitrary 42)
+    let nClients = max 1 (min maximumNumberOfParties (n `div` 10))
+    clientKeys <- vectorOf nClients arbitrary
     fundingTransaction <- makeGenesisFundingTx faucetSk clientKeys
     genDatasetConstantUTxO clientKeys n fundingTransaction
 
