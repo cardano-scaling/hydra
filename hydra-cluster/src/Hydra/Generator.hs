@@ -133,6 +133,8 @@ makeGenesisFundingTx faucetSk clientKeys = do
   let nClients = length clientKeys
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
+    -- NOTE: It seems if this becomes choose (1,1) we get funny signingKeys;
+    -- i.e. like "0001010100010001000000010100000001010001000101000000010101010001".
     pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
         mkGenesisTx
