@@ -514,9 +514,10 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
       Right u -> cont u
 
   pruneTransactions utxo = do
-    foldr go ([], utxo) localTxs
+    -- NOTE: Using foldl' is important to apply transacations in the right order.
+    foldl' go ([], utxo) localTxs
    where
-    go tx (txs, u) =
+    go (txs, u) tx =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
