@@ -24,7 +24,7 @@ import Hydra.Ledger.Cardano.Configuration (
   newLedgerEnv,
  )
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
+import Test.QuickCheck (NonEmptyList (NonEmpty), Positive (Positive), Property, conjoin, counterexample, forAll, idempotentIOProperty)
 
 spec :: Spec
 spec = parallel $ do
@@ -33,28 +33,25 @@ spec = parallel $ do
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
-  forAll arbitrary $ \(Positive n) -> do
+  forAll arbitrary $ \(Positive n, NonEmpty clientKeys) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
       let ledgerEnv = newLedgerEnv defaultPParams
 
-      let clientKey = generateWith arbitrary 42
-      -- REVIEW: should not we generate a dataset given multiple keys?
-      let clientKeys = [clientKey]
-
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (makeGenesisFundingTx faucetSk clientKeys) $ \fundingTransaction -> do
-          dataset <- genDatasetConstantUTxO clientKeys n fundingTransaction
-          let Dataset{clientDatasets = [ClientDataset{txSequence}]} = dataset
-              initialUTxO = utxoFromTx fundingTransaction
-              finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
-          pure $
-            length finalUTxO == length initialUTxO
-              & counterexample ("transactions: " <> prettyJSONString txSequence)
-              & counterexample ("utxo: " <> prettyJSONString initialUTxO)
-              & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
+          Dataset{clientDatasets} <- genDatasetConstantUTxO clientKeys n fundingTransaction
+          allProperties <- forM clientDatasets $ \ClientDataset{txSequence} -> do
+            let initialUTxO = utxoFromTx fundingTransaction
+                finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
+            pure $
+              length finalUTxO == length initialUTxO
+                & counterexample ("transactions: " <> prettyJSONString txSequence)
+                & counterexample ("utxo: " <> prettyJSONString initialUTxO)
+                & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
+          pure $ conjoin allProperties
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =
