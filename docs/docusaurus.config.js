@@ -14,7 +14,7 @@ const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Hydra: Head Protocol",
+  title: "Hydra Head protocol documentation",
   url: "https://input-output-hk.github.io",
   baseUrl: "/head-protocol/",
   onBrokenLinks: "throw",
@@ -63,6 +63,17 @@ const config = {
   ],
 
   plugins: [
+    async function myPlugin(context, options) {
+      return {
+        name: "docusaurus-tailwindcss",
+        configurePostCss(postcssOptions) {
+          // Appends TailwindCSS and AutoPrefixer.
+          postcssOptions.plugins.push(require("tailwindcss"));
+          postcssOptions.plugins.push(require("autoprefixer"));
+          return postcssOptions;
+        },
+      };
+    },
     [
       "content-docs",
       /** @type {import('@docusaurus/plugin-content-docs').Options} */
@@ -136,24 +147,36 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      colorMode: {
+        defaultMode: "light",
+        disableSwitch: true,
+        respectPrefersColorScheme: false,
+      },
       navbar: {
-        title: "Hydra: Head Protocol",
+        title: "Hydra Head Protocol",
         logo: {
-          alt: "Hydra: Head Protocol",
+          alt: "Hydra Head Protocol",
           src: "img/hydra.png",
+          style: { height: 27, marginTop: 2.5 },
           srcDark: "img/hydra-white.png",
         },
         items: [
           {
             to: "/docs",
-            label: "User Manual",
-            position: "left",
+            label: "User manual",
+            position: "right",
           },
           {
             to: "/docs/dev",
             label: "Developer Documentation",
-            position: "left",
+            position: "right",
           },
+          //commenting out for the time being
+          // {
+          //   to: "/core-concepts",
+          //   label: "Core Concepts",
+          //   position: "right",
+          // },
           {
             to: "/topologies",
             label: "Topologies",
@@ -161,12 +184,12 @@ const config = {
           },
           {
             to: "/use-cases",
-            label: "Use Cases",
+            label: "Use cases",
             position: "right",
           },
           {
-            href: "https://github.com/cardano-scaling/hydra",
-            label: "GitHub",
+            to: "/docs/faqs",
+            label: "FAQ",
             position: "right",
           },
         ],
@@ -195,11 +218,11 @@ const config = {
             title: "Community",
             items: [
               {
-                label: "Discord (#ask-hydra)",
+                label: "Discord",
                 href: "https://discord.gg/Qq5vNTg9PT",
               },
               {
-                label: "Github Discussions",
+                label: "Github",
                 href: "https://github.com/cardano-scaling/hydra/discussions",
               },
               {
@@ -243,11 +266,7 @@ const config = {
             ],
           },
         ],
-        copyright: `
-          <small>
-          Built with Docusaurus on ${docsMetadataJson.site.lastUpdatedAt}
-          </small>
-          `,
+        copyright: `© 2024`,
       },
       prism: {
         theme: lightCodeTheme,

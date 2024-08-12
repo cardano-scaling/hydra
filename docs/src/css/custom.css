@@ -4,15 +4,92 @@
  * work well for content-centric websites.
  */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 400;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 500;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 600;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  src: url("/fonts/Inter-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/Inter-Italic-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 700;
+  src: url("/fonts/Inter-VariableFont.ttf");
+  font-display: swap;
+}
+
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #6874e8;
+  --ifm-color-primary: #12506c;
   --ifm-code-font-size: 95%;
+  --ifm-navbar-height: 56px;
+  font-family: "Inter";
+  --ifm-color-emphasis-600: #283032;
+  --doc-sidebar-hidden-width: 100px !important;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ifm-navbar-height: 96px;
+  }
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Lexend";
+}
+
+h5,
+h6 {
+  font-family: "Inter";
+}
+
+h4 {
+  line-height: 30px !important;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
   --ifm-color-primary: #4e5de4;
+}
+
+html {
+  @apply text-black;
 }
 
 .docusaurus-highlight-code-line {
@@ -34,6 +111,72 @@
 /* Ensure footer is drawn over api reference side bar. */
 .footer {
   z-index: 20;
+}
+
+.footer__link-item {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.pageContainer {
+  max-width: 1280px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+@media (min-width: 768px) {
+  .pageContainer {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+}
+
+.component {
+  padding-top: 72px;
+  padding-bottom: 72px;
+}
+
+.component-sm {
+  padding-top: 63px;
+  padding-bottom: 63px;
+}
+
+.component-xs {
+  padding-top: 56px;
+  padding-bottom: 56px;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.homepageText {
+  font-size: 32px;
+  text-align: left;
+  letter-spacing: -0.4px;
+  line-height: 48px;
+  color: #12506c;
+}
+
+@media (min-width: 768px) {
+  .homepageText {
+    font-size: 40px;
+    text-align: center;
+  }
+}
+
+.image {
+  height: inherit;
 }
 
 .loader,
@@ -99,4 +242,282 @@
 svg.architecture {
   width: 100% !important;
   height: 100% !important;
+}
+
+.navbar__title {
+  font-size: 19px;
+  letter-spacing: -0.142px;
+  line-height: normal;
+  font-weight: 400;
+  font-family: "Lexend";
+}
+
+@media (min-width: 1024px) {
+  .navbar__title {
+    font-size: 24px;
+    line-height: normal;
+    letter-spacing: -0.18px;
+  }
+}
+
+.navbar__item {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.navbar__items--right {
+  display: flex !important;
+  font-family: "Lexend";
+}
+
+.navbar__item:nth-of-type(6) {
+  order: 2;
+}
+
+.navbar__itemt:nth-of-type(8) {
+  order: 1;
+}
+
+.navbar__item:nth-of-type(7) {
+  order: 3;
+}
+
+.DocSearch-Button .DocSearch-Search-Icon {
+  color: black !important;
+  height: 24px !important;
+  width: 24px;
+}
+
+.DocSearch-Button {
+  padding: 0 !important;
+}
+
+.searchBox_src-theme-Navbar-Search-styles-module {
+  padding: 4px 12px !important;
+  /* padding-left: 0px !important; */
+}
+
+.DocSearch-Button:hover {
+  box-shadow: none !important;
+}
+
+.DocSearch-Button {
+  background: none !important;
+  height: 24px !important;
+  width: 24px !important;
+}
+
+.DocSearch-Button:hover .DocSearch-Search-Icon {
+  color: #7196a7 !important;
+}
+
+.DocSearch-Button-Keys {
+  display: none !important;
+}
+
+.DocSearch-Button-Placeholder {
+  display: none;
+}
+
+.navbar__toggle {
+  margin-right: 0 !important;
+  margin-left: 32px;
+}
+
+.mobile-side-menu > .menu__list-item > .menu__link {
+  color: #283032 !important;
+}
+
+.breadcrumbHomeIcon_src-theme-DocBreadcrumbs-Items-Home-styles-module {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.breadcrumbs__link {
+  margin-bottom: -8px !important;
+}
+
+.menu {
+  padding: 24px !important;
+}
+
+.menu__link--active {
+  background-color: #e7eef0 !important;
+  font-weight: 700;
+}
+
+.breadcrumbs__item--active > span {
+  background-color: #e7eef0 !important;
+}
+
+.container {
+  padding: 24px !important;
+}
+
+@media (min-width: 768px) {
+  .markdown {
+    padding: 32px 0 16px 0px !important;
+  }
+  .container {
+    padding: 24px 32px 56px 32px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .markdown {
+    padding: 56px !important;
+    padding-right: 0 !important;
+  }
+  .container {
+    padding: 24px 16px 24px 16px !important;
+  }
+}
+
+#__blog-post-container.markdown {
+  padding: 0 !important;
+}
+
+.theme-edit-this-page {
+  display: inline-flex;
+}
+
+.col--3 {
+  padding-right: 56px !important;
+  padding-top: 0;
+}
+
+.collapseSidebarButton {
+  display: block;
+}
+
+.container {
+  border-bottom: solid 1px #eaeaea;
+}
+
+.navbar-sidebar__item {
+  width: 100vw !important;
+}
+
+.navbar-sidebar__items--show-secondary {
+  margin-left: -15%;
+}
+
+/* Collapsible button */
+.theme-doc-toc-mobile {
+  @apply !bg-transparent;
+}
+
+.theme-doc-toc-mobile > button {
+  @apply font-semibold text-true-black rounded p-4 mt-12 bg-teal-extralight;
+}
+
+.theme-doc-toc-mobile > div > ul {
+  @apply border-none;
+}
+
+.theme-doc-toc-mobile > button::after {
+  @apply bg-cover;
+}
+
+/**
+ * Markdown area
+ *
+ * Applying custom markdown styles here because Tailwind's reset is overriding Docusaurus styles, 
+ * preventing the use of CSS variables defined in :root for a few settings
+ */
+.markdown {
+  line-height: 1.65;
+}
+
+.markdown > h1 {
+  font-size: 2rem;
+}
+
+.markdown > h2 {
+  font-size: 1.8rem;
+}
+
+.markdown > h3 {
+  font-size: 1.5rem;
+}
+
+.markdown > h4 {
+  font-size: 1rem;
+}
+
+.markdown > h5 {
+  font-size: 0.875rem;
+}
+
+.markdown > h6 {
+  font-size: 0.75rem;
+}
+
+.markdown a {
+  color: #128189;
+  text-decoration-color: #128189;
+}
+
+.markdown a.card {
+  color: inherit;
+}
+
+.markdown a.card h2 {
+  padding-bottom: 0.5em;
+}
+
+.markdown ol,
+.markdown ul {
+  list-style: inherit;
+  margin: 0 0 var(--ifm-list-margin);
+  padding-left: var(--ifm-list-left-padding);
+}
+
+.markdown > ul {
+  margin-bottom: var(--ifm-leading);
+}
+
+.markdown ul ul {
+  list-style: circle;
+  margin: 0;
+}
+
+.markdown ul ul ul {
+  list-style: square;
+}
+
+.markdown ul ol {
+  list-style: lower-roman;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown ol ul {
+  list-style: circle;
+}
+
+.markdown li + li {
+  margin-top: var(--ifm-list-item-margin);
+}
+
+.markdown .contains-task-list {
+  list-style: none;
+}
+
+.markdown .tabs {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.markdown blockquote {
+  margin: 0 0 var(--ifm-spacing-vertical);
+}
+
+.theme-admonition p {
+  margin-bottom: 0.5em;
+}
+.theme-admonition p:last-child {
+  margin-bottom: 0;
 }
