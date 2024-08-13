@@ -28,13 +28,13 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hasST)
-import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), ownCurrencySymbol, scriptOutputsAt)
+import Hydra.Contract.Util (hasST, scriptOutputsAt)
 import PlutusCore.Core (plcVersion110)
 import PlutusLedgerApi.V3 (
   Datum (getDatum),
   FromData (fromBuiltinData),
   OutputDatum (..),
+  ScriptContext (..),
   ScriptHash,
   SerialisedScript,
   TxInInfo (..),
@@ -42,8 +42,10 @@ import PlutusLedgerApi.V3 (
   Value (getValue),
   getRedeemer,
   serialiseCompiledCode,
+  txInfoInputs,
   unsafeFromBuiltinData,
  )
+import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol, txInfoMint)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap

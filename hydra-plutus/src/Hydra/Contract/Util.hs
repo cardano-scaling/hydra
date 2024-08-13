@@ -9,11 +9,17 @@ import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V3 (
+  Address (..),
+  Credential (..),
   CurrencySymbol,
+  OutputDatum,
+  ScriptHash,
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),
+  TxOut (..),
   Value (getValue),
   toBuiltinData,
+  txInfoOutputs,
  )
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
@@ -63,6 +69,15 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
     isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}
+
+-- | Get the list of 'TxOut' outputs of the pending transaction at
+-- a given script address.
+scriptOutputsAt :: ScriptHash -> TxInfo -> [(OutputDatum, Value)]
+scriptOutputsAt h p =
+  let flt TxOut{txOutDatum = d, txOutAddress = Address (ScriptCredential s) _, txOutValue} | s == h = Just (d, txOutValue)
+      flt _ = Nothing
+   in mapMaybe flt (txInfoOutputs p)
+{-# INLINEABLE scriptOutputsAt #-}
 
 infix 4 ===
 
