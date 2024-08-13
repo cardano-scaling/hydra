@@ -13,7 +13,7 @@
   # httpServer.enable = true;
   package = process-compose;
   settings = {
-    log_location = "./logs/all.log";
+    log_location = "./devnet/logs/all.log";
     log_level = "debug";
     environment = {
       BASEDIR = "./";
@@ -63,7 +63,8 @@
           --cardano-verification-key devnet/credentials/carol.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
-          --node-socket devnet/node.socket
+          --node-socket devnet/node.socket \
+          --persistence-dir devnet
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
@@ -87,7 +88,8 @@
           --cardano-verification-key devnet/credentials/carol.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
-          --node-socket devnet/node.socket
+          --node-socket devnet/node.socket \
+          --persistence-dir devnet
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
@@ -111,7 +113,8 @@
           --cardano-verification-key devnet/credentials/bob.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
-          --node-socket devnet/node.socket
+          --node-socket devnet/node.socket \
+          --persistence-dir devnet
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";

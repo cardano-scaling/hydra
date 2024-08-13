@@ -37,7 +37,3 @@ hspec-results.md
 # demo
 /devnet
 .env
-logs
-acks
-server-output
-state
