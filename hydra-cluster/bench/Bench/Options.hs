@@ -2,9 +2,9 @@ module Bench.Options where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId, SocketPath)
+import Hydra.Cardano.Api (SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Options (networkIdParser, nodeSocketParser)
+import Hydra.Options (nodeSocketParser)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -48,7 +48,6 @@ data Options
       { outputDirectory :: Maybe FilePath
       , scalingFactor :: Int
       , timeoutSeconds :: NominalDiffTime
-      , networkId :: NetworkId
       , nodeSocket :: SocketPath
       , hydraSigningKeys :: [FilePath]
       }
@@ -173,7 +172,10 @@ demoOptionsInfo =
   info
     demoOptionsParser
     ( progDesc
-        "Run scenarios from local running demo."
+        "Run bench scenario over local demo. \
+        \ This requires having in the background: \
+        \   * cardano node running on specified node-socket. \
+        \   * three hydra nodes listening on ports 4001, 4002 and 4003."
     )
 
 demoOptionsParser :: Parser Options
@@ -182,7 +184,6 @@ demoOptionsParser =
     <$> optional outputDirectoryParser
     <*> scalingFactorParser
     <*> timeoutParser
-    <*> networkIdParser
     <*> nodeSocketParser
     <*> many hydraSigningKeyFileParser
 

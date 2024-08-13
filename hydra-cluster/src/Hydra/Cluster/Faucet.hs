@@ -107,19 +107,19 @@ returnFundsToFaucet ::
   Actor ->
   IO ()
 returnFundsToFaucet tracer node sender = do
-  (faucetVk, _) <- keysFor Faucet
   senderKeys <- keysFor sender
-  returnAmount <- returnFundsToFaucet' tracer node faucetVk senderKeys
+  returnAmount <- returnFundsToFaucet' tracer node (snd senderKeys)
   traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount}
 
 returnFundsToFaucet' ::
   Tracer IO FaucetLog ->
   RunningNode ->
-  VerificationKey PaymentKey ->
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  SigningKey PaymentKey ->
   IO Coin
-returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} faucetVk (senderVk, senderSk) = do
+returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
+  (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
+  let senderVk = getVerificationKey senderSk
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
   if null utxo
     then pure 0

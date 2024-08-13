@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, PaymentKey, SocketPath, Tx, TxId, UTxO, VerificationKey, getVerificationKey, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (
@@ -102,12 +102,11 @@ benchDemo ::
   NetworkId ->
   SocketPath ->
   NominalDiffTime ->
-  VerificationKey PaymentKey ->
   [SigningKey HydraKey] ->
   FilePath ->
   Dataset ->
   IO Summary
-benchDemo networkId nodeSocket timeoutSeconds faucetVk hydraKeys workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraKeys workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -135,11 +134,10 @@ benchDemo networkId nodeSocket timeoutSeconds faucetVk hydraKeys workDir dataset
   returnFaucetFunds tracer node cKeys = do
     putTextLn "Returning funds to faucet"
     let faucetTracer = contramap FromFaucet tracer
-    let toSenders (ClientKeys sk esk) = [(getVerificationKey sk, sk), (getVerificationKey esk, esk)]
-    let senders = concatMap @[] toSenders cKeys
+    let senders = concatMap @[] (\(ClientKeys sk esk) -> [sk, esk]) cKeys
     mapM_
       ( \sender -> do
-          returnAmount <- returnFundsToFaucet' faucetTracer node faucetVk sender
+          returnAmount <- returnFundsToFaucet' faucetTracer node sender
           traceWith faucetTracer $ ReturnedFunds{actor = show sender, returnAmount}
       )
       senders

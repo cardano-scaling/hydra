@@ -140,6 +140,8 @@ findRunningCardanoNode tracer workDir knownNetwork = do
 
   CardanoNodeArgs{nodeSocket} = defaultCardanoNodeArgs
 
+-- | Tries to find an communicate with an existing cardano-node running in given
+-- network id and socket path.
 findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe RunningNode)
 findRunningCardanoNode' tracer networkId nodeSocket = do
   try (queryGenesisParameters networkId nodeSocket QueryTip) >>= \case

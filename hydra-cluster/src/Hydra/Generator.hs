@@ -5,7 +5,7 @@ import Hydra.Prelude hiding (size)
 
 import Cardano.Api.Ledger (PParams)
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (buildTransaction, mkGenesisTx, sign)
+import CardanoClient (buildRawTransaction, buildTransaction, sign)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
@@ -138,16 +138,20 @@ makeGenesisFundingTx faucetSk clientKeys = do
     -- i.e. like "0001010100010001000000010100000001010001000101000000010101010001".
     pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
-        mkGenesisTx
+        buildRawTransaction
           networkId
+          initialInput
           faucetSk
           (Coin availableInitialFunds)
           clientFunds
   pure fundingTransaction
+ where
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
 
 genDatasetConstantUTxODemo ::
-  -- | The faucet keys
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | Clients
   [ClientKeys] ->
   -- | Number of transactions
@@ -155,7 +159,8 @@ genDatasetConstantUTxODemo ::
   NetworkId ->
   SocketPath ->
   IO Dataset
-genDatasetConstantUTxODemo (faucetVk, faucetSk) allClientKeys nTxs networkId' nodeSocket = do
+genDatasetConstantUTxODemo allClientKeys nTxs networkId' nodeSocket = do
+  (faucetVk, faucetSk) <- keysFor Faucet
   let nClients = length allClientKeys
   faucetUTxO <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
   let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)

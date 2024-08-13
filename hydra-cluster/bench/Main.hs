@@ -11,7 +11,7 @@ import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cardano.Api (AsType (..))
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Fixture (Actor (..), defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Crypto (AsType (..))
 import Hydra.Generator (ClientKeys (..), Dataset (..), genDatasetConstantUTxODemo, generateConstantUTxODataset)
@@ -39,7 +39,7 @@ main =
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
       run outputDirectory datasetFiles action
-    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraSigningKeys} -> do
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, nodeSocket, hydraSigningKeys} -> do
       workDir <- createSystemTempDirectory "demo-bench"
       clientKeys <- do
         let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
@@ -49,16 +49,15 @@ main =
               pure $ ClientKeys sk fundsSk
         forM actors toClientKeys
       hydraKeys <- mapM (readFileTextEnvelopeThrow (AsSigningKey AsHydraKey)) hydraSigningKeys
-      playDemo outputDirectory timeoutSeconds scalingFactor clientKeys workDir networkId nodeSocket hydraKeys
+      playDemo outputDirectory timeoutSeconds scalingFactor clientKeys workDir nodeSocket hydraKeys
  where
-  playDemo outputDirectory timeoutSeconds scalingFactor clientKeys workDir networkId nodeSocket hydraKeys = do
-    (faucetVk, faucetSk) <- keysFor Faucet
+  playDemo outputDirectory timeoutSeconds scalingFactor clientKeys workDir nodeSocket hydraKeys = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- genDatasetConstantUTxODemo (faucetVk, faucetSk) clientKeys numberOfTxs networkId nodeSocket
+    dataset <- genDatasetConstantUTxODemo clientKeys numberOfTxs defaultNetworkId nodeSocket
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
-    let action = benchDemo networkId nodeSocket timeoutSeconds faucetVk hydraKeys
+    let action = benchDemo defaultNetworkId nodeSocket timeoutSeconds hydraKeys
     run outputDirectory [datasetPath] action
 
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
