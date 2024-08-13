@@ -656,7 +656,7 @@ tlsKeyPathParser =
     ( long "tls-key"
         <> metavar "FILE"
         <> help
-          "Path to the TLS key. If this and --tls-chain are \
+          "Path to the TLS key. If this and --tls-cert are \
           \set, the API server will expect TLS connections (WSS/HTTPS)."
     )
 
