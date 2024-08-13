@@ -42,16 +42,12 @@ main =
     DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraSigningKeys} -> do
       workDir <- createSystemTempDirectory "demo-bench"
       clientKeys <- do
-        aliceSk <- snd <$> keysFor Alice
-        aliceFundsSk <- snd <$> keysFor AliceFunds
-        bobSk <- snd <$> keysFor Bob
-        bobFundsSk <- snd <$> keysFor BobFunds
-        carolSk <- snd <$> keysFor Carol
-        carolFundsSk <- snd <$> keysFor CarolFunds
-        let alice = ClientKeys aliceSk aliceFundsSk
-            bob = ClientKeys bobSk bobFundsSk
-            carol = ClientKeys carolSk carolFundsSk
-        pure [alice, bob, carol]
+        let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
+        let toClientKeys (actor, actorFunds) = do
+              sk <- snd <$> keysFor actor
+              fundsSk <- snd <$> keysFor actorFunds
+              pure $ ClientKeys sk fundsSk
+        forM actors toClientKeys
       hydraKeys <- mapM (readFileTextEnvelopeThrow (AsSigningKey AsHydraKey)) hydraSigningKeys
       playDemo outputDirectory timeoutSeconds scalingFactor clientKeys workDir networkId nodeSocket hydraKeys
  where
@@ -62,7 +58,7 @@ main =
     dataset <- genDatasetConstantUTxODemo (faucetVk, faucetSk) clientKeys numberOfTxs networkId nodeSocket
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
-    let action = benchDemo networkId nodeSocket timeoutSeconds hydraKeys
+    let action = benchDemo networkId nodeSocket timeoutSeconds faucetVk hydraKeys
     run outputDirectory [datasetPath] action
 
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
