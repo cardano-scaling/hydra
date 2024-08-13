@@ -153,9 +153,9 @@ const config = {
         respectPrefersColorScheme: false,
       },
       navbar: {
-        title: "Hydra Head Protocol",
+        title: "Hydra Head protocol",
         logo: {
-          alt: "Hydra Head Protocol",
+          alt: "Hydra Head protocol",
           src: "img/hydra.png",
           style: { height: 27, marginTop: 2.5 },
           srcDark: "img/hydra-white.png",
