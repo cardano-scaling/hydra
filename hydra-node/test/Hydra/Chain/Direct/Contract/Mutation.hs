@@ -531,7 +531,7 @@ instance Arbitrary Head.State where
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
  where
-  headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
+  headAddress = mkScriptAddress @PlutusScriptV3 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.

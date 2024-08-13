@@ -13,7 +13,7 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId (Mainnet),
-  PlutusScriptV2,
+  PlutusScriptV3,
   Tx,
   TxIn,
   TxOut,
@@ -381,7 +381,7 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+      UTxO.find (isScriptTxOut @PlutusScriptV3 initialScript) resolvedInputs
 
   resolvedInputs =
     UTxO.fromPairs $
@@ -393,7 +393,7 @@ genCommitTxMutation utxo tx =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  fakeScriptAddress = mkScriptAddress @PlutusScriptV2 testNetworkId fakeScript
+  fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 
   fakeScript = fromPlutusScript $ Plutus.alwaysSucceedingNAryFunction 3
 

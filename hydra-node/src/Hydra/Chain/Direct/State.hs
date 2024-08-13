@@ -21,7 +21,7 @@ import Hydra.Cardano.Api (
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  PlutusScriptV2,
+  PlutusScriptV3,
   PolicyId,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -424,11 +424,11 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 Commit.validatorScript
 
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
-  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 Initial.validatorScript
 
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -460,9 +460,9 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
   pure $
     collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
  where
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 Commit.validatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
@@ -498,7 +498,7 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
     _ ->
       Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   Snapshot{utxoToDecommit} = sn
 
@@ -548,7 +548,7 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
           }
   pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput
  where
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -608,7 +608,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
@@ -638,7 +638,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlotNo = do
 
   ChainContext{scriptRegistry} = ctx
 
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-

@@ -11,7 +11,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
+import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
@@ -696,7 +696,7 @@ validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
+validatorHash = scriptValidatorHash PlutusScriptV3 validatorScript
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =

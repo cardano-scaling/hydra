@@ -169,7 +169,7 @@ healthyCommitOutput participant party committed =
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
-    mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
+    mkScriptAddress @PlutusScriptV3 testNetworkId commitScript
   commitValue =
     foldMap txOutValue committed
       <> valueFromList

@@ -338,7 +338,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
+          (mkScriptAddress @PlutusScriptV3 testNetworkId commitScript)
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
@@ -385,7 +385,7 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
+        (mkScriptAddress @PlutusScriptV3 testNetworkId initialScript)
         (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
