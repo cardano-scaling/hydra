@@ -2,11 +2,12 @@ import React, { FC } from "react";
 import Link from "@docusaurus/Link";
 import Arrow from "../icons/Arrow";
 import useMediaQuery from "../../hooks/useMediaQuery";
-import { forLaptop } from "../../../helpers/media-queries";
+import { forLaptop, forTabletOnly } from "../../../helpers/media-queries";
 import { motion } from "framer-motion";
 import { FeaturedCaseStudy } from "../../../docs/homepage/case-studies";
 
 const CaseStudies: FC = () => {
+  const isTabletOnly = useMediaQuery(forTabletOnly);
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
     <section className="bg-teal-extralight">
@@ -24,14 +25,14 @@ const CaseStudies: FC = () => {
         <h5 className="text-base text-teal pb-14">/ CASE STUDIES</h5>
         <div className="bg-white flex tablet:flex-row flex-col rounded-2xl overflow-hidden laptop:mb-10 tablet:p-8 justify-between gap-8">
           <div className="flex flex-col laptop:pt-20 gap-8 laptop:max-w-md px-4 py-8 tablet:p-0 tablet:basis-2/5">
-            <h4 className="text-2xl text-teal font-medium">Case Studies</h4>
+            <h4 className="text-2xl text-teal font-medium">Case studies</h4>
             <p>{FeaturedCaseStudy.content}</p>
             <Link
               className="bg-none text-teal self-start inline-flex gap-3 group hover:no-underline hover:text-teal"
               href="/use-cases"
             >
               {"View case studies "}
-              <Arrow className="mt-1 rounded-full group-hover:bg-teal/15" />
+              <Arrow className="mt-[3px] rounded-full group-hover:bg-teal/15" />
             </Link>
           </div>
           <motion.div
@@ -48,7 +49,9 @@ const CaseStudies: FC = () => {
             <img
               width={!isLaptopUp ? "100%" : "auto"}
               src={
-                isLaptopUp ? FeaturedCaseStudy.src : FeaturedCaseStudy.mobileSrc
+                isTabletOnly
+                  ? FeaturedCaseStudy.tabletSrc
+                  : FeaturedCaseStudy.src
               }
               className="tablet:rounded-2xl rounded-none"
             />

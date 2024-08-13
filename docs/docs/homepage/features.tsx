@@ -11,13 +11,13 @@ export const FeatureList = [
   {
     title: translate({
       id: "homepage.featureList.lowLatency.title",
-      message: "Low Latency",
+      message: "Low latency",
     }),
     icon: <LowLatency />,
     description: translate({
       id: "homepage.featureList.lowLatency.description",
       message:
-        "Transaction finality is only bounded by Head network latency, resulting in near-instant settlement",
+        "Transaction finality is only bounded by head network latency, resulting in near-instant settlement",
     }),
   },
   {

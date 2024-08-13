@@ -168,7 +168,7 @@ const config = {
           },
           {
             to: "/docs/dev",
-            label: "Developer Documentation",
+            label: "Developer documentation",
             position: "right",
           },
           //commenting out for the time being
