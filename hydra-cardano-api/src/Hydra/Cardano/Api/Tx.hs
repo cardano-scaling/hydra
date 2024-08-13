@@ -203,6 +203,7 @@ convertConwayTx tx =
     Ledger.PlutusScript ps -> case ps of
       ConwayPlutusV1 p1 -> Just . Ledger.PlutusScript $ BabbagePlutusV1 p1
       ConwayPlutusV2 p2 -> Just . Ledger.PlutusScript $ BabbagePlutusV2 p2
+      -- FIXME: PlutusV3 support
       ConwayPlutusV3{} -> Nothing
 
   translateRdmrs ::

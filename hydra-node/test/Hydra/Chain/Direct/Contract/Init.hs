@@ -123,8 +123,8 @@ genInitMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
-  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
-  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
+  alwaysSucceeds = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceeds
 
   changeInitialOutputToFakeId ix out =
     ChangeOutput ix $

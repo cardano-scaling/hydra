@@ -63,7 +63,7 @@ import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
+import Cardano.Ledger.Plutus.Language (Language (..))
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -190,7 +190,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
                 -- TODO: request re-export of upgradeTx in cardano-ledger-api
                 let conwayTx = toLedgerTx partialTx
                 coverFee_ pp systemStart epochInfo ledgerLookupUTxO walletUTxO conwayTx
-                  <&> fromLedgerTx . recomputeIntegrityHash pp [PlutusV2]
+                  <&> fromLedgerTx . recomputeIntegrityHash pp [PlutusV3]
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header

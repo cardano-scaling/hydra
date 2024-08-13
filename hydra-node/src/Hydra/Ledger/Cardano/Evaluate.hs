@@ -243,6 +243,7 @@ prepareTxScripts tx utxo = do
     let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
         args =
           case isLanguage @l of
+            -- FIXME: PlutusV3 support
             SPlutusV2 -> case unPlutusV2Args arguments of
               LegacyPlutusArgs2 redeemer scriptContext -> [redeemer, toData scriptContext]
               _ -> error "unexpeted args"
