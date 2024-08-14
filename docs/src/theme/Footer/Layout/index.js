@@ -1,8 +1,8 @@
 import React from "react";
 import clsx from "clsx";
-import Github from "../../../components/icons/Github";
 import Link from "@docusaurus/Link";
 import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
+import HydraLogo from "../../../components/icons/HydraLogo";
 
 export default function FooterLayout({ style, links, logo, copyright }) {
   const isLandingPage = useIsLandingPage();
@@ -33,17 +33,16 @@ export default function FooterLayout({ style, links, logo, copyright }) {
             )}
           >
             <div className="inline-flex items-center text-teal-light">
-              <Github className="shrink-0" width={24} height={24} />
+              <HydraLogo className="shrink-0" width={24} height={24} />
               <span className="border-l pl-4 ml-4 text-xl leading-[27px]">
-                Join the conversation
+                Join the family
               </span>
             </div>
             <Link
               className="px-4 py-3 justify-center text-center border text-sm border-solid bg-teal-lightest border-teal font-bold text-teal rounded-lg no-underline hover:bg-white hover:no-underline hover:text-teal"
-              target="_blank"
-              to={"https://github.com/cardano-scaling/hydra"}
+              to={"/docs/get-involved"}
             >
-              Go Github
+              Get involved
             </Link>
           </div>
           {copyright}

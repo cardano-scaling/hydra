@@ -109,7 +109,7 @@ const ResponsiveCarousel: FC = () => {
             centeredSlides={isTabletUp}
             spaceBetween={10}
             ref={sliderRef}
-            loop={!isTabletUp}
+            loop={false}
           >
             {isTabletUp
               ? HowItWorksCarouselContent.map((props, idx) => (

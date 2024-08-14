@@ -34,7 +34,7 @@ const HomepageHero: FC = () => {
         />
       </video>
       <div className="pageContainer">
-        <div className="component-sm">
+        <div className="component-lg tablet:py-[72px]">
           <div className="pb-9 tablet:max-w-[485px]">
             <motion.h1
               className="tablet:text-[56px] tablet:leading-[67px] text-4xl leading-[48px] text-teal font-medium pb-4"
@@ -59,7 +59,7 @@ const HomepageHero: FC = () => {
           >
             <Link
               className="inline-block px-4 py-3 border border-solid border-teal font-bold text-sm text-teal rounded-lg no-underline bg-white hover:bg-teal-extralight hover:no-underline hover:text-teal"
-              to="/docs/getting-started"
+              to="/docs/protocol-overview"
             >
               Learn more
             </Link>

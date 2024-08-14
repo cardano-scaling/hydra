@@ -49,7 +49,7 @@ const WhyHydraHead: FC = () => {
               {`Read ${expanded ? "less" : "more"}`}{" "}
               <Arrow
                 className={clsx(
-                  "mt-1 rounded-full group-hover:bg-teal/15",
+                  "mt-[3px] rounded-full group-hover:bg-teal/15",
                   expanded ? "-rotate-90" : "rotate-90"
                 )}
               />

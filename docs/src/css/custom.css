@@ -149,6 +149,11 @@ html {
   padding-bottom: 56px;
 }
 
+.component-lg {
+  padding-top: 96px;
+  padding-bottom: 96px;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -258,6 +263,10 @@ svg.architecture {
     line-height: normal;
     letter-spacing: -0.18px;
   }
+}
+
+.navbar__brand:hover {
+  color: #283032;
 }
 
 .navbar__item {

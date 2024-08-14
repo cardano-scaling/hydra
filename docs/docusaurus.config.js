@@ -153,9 +153,9 @@ const config = {
         respectPrefersColorScheme: false,
       },
       navbar: {
-        title: "Hydra Head Protocol",
+        title: "Hydra Head protocol",
         logo: {
-          alt: "Hydra Head Protocol",
+          alt: "Hydra Head protocol",
           src: "img/hydra.png",
           style: { height: 27, marginTop: 2.5 },
           srcDark: "img/hydra-white.png",
@@ -168,7 +168,7 @@ const config = {
           },
           {
             to: "/docs/dev",
-            label: "Developer Documentation",
+            label: "Developer documentation",
             position: "right",
           },
           //commenting out for the time being
@@ -189,7 +189,7 @@ const config = {
           },
           {
             to: "/docs/faqs",
-            label: "FAQ",
+            label: "FAQs",
             position: "right",
           },
         ],
@@ -201,15 +201,15 @@ const config = {
             title: "Contributing",
             items: [
               {
-                label: "Coding Standards",
+                label: "Coding standards",
                 to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
               },
               {
-                label: "Architectural Decision Records",
+                label: "Architectural decision records",
                 to: "/adr",
               },
               {
-                label: "Testing Strategy",
+                label: "Testing strategy",
                 to: "https://github.com/cardano-scaling/hydra/wiki/Testing-Strategy",
               },
             ],
@@ -222,7 +222,7 @@ const config = {
                 href: "https://discord.gg/Qq5vNTg9PT",
               },
               {
-                label: "Github",
+                label: "GitHub",
                 href: "https://github.com/cardano-scaling/hydra/discussions",
               },
               {
@@ -235,7 +235,7 @@ const config = {
             title: "More",
             items: [
               {
-                label: "Haskell Packages",
+                label: "Haskell packages",
                 to: "/docs/dev/haskell-packages",
               },
               {
@@ -252,11 +252,11 @@ const config = {
             title: "Legal",
             items: [
               {
-                label: "Terms & Conditions",
+                label: "Terms and conditions",
                 to: "https://static.iohk.io/terms/iohktermsandconditions.pdf",
               },
               {
-                label: "Privacy Policy",
+                label: "Privacy policy",
                 to: "https://static.iohk.io/terms/iog-privacy-policy.pdf",
               },
               {
