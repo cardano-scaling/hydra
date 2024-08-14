@@ -78,7 +78,7 @@ export default function NavbarContent() {
             <GithubSmall />
           </a>
           <a
-            href="https://github.com/cardano-scaling/hydra"
+            href="https://discord.com/invite/Qq5vNTg9PT"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-teal-light mx-3 py-1"

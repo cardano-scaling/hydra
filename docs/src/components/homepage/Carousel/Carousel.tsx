@@ -19,7 +19,7 @@ type Props = {
 
 const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
   return (
-    <div className="flex items-center gap-6 h-full">
+    <div className="flex items-center gap-6 h-full justify-center">
       <div className="basis-[40%]">
         <img src={src} className="w-full rounded-lg object-cover" />
       </div>
