@@ -27,19 +27,7 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    # Use tmate to get a shell onto the runner to do some temporary hacking
-    #
-    # <https://github.com/mxschmitt/action-tmate>
-    #
-    # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
-    #
-    # - uses: actions/checkout@v4
-    # - name: Setup tmate session
-    #   uses: mxschmitt/action-tmate@v3
-    #   with:
-    #     limit-access-to-actor: true
-
-    - name: Docker-based load test
+    - name: Setup containers for network testing
       run: |
         cd demo
         ./prepare-devnet.sh
@@ -48,10 +36,22 @@ jobs:
         docker compose up -d hydra-node-{1,2,3}
         sleep 10
         docker ps
-
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
 
+    # Use tmate to get a shell onto the runner to do some temporary hacking
+    #
+    # <https://github.com/mxschmitt/action-tmate>
+    #
+    # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
+    #
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
+
+    - name: Run the benchmarks
+      run: |
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
