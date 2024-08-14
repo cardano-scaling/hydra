@@ -53,7 +53,8 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #12506c;
+  --ifm-color-primary: hsl(184, 75%, 30%);
+  --ifm-color-primary-dark: hsl(184, 75%, 20%);
   --ifm-code-font-size: 95%;
   --ifm-navbar-height: 56px;
   font-family: "Inter";
@@ -85,7 +86,7 @@ h4 {
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
-  --ifm-color-primary: #4e5de4;
+  --ifm-color-primary: hsl(184, 35%, 60%);
 }
 
 html {
@@ -170,7 +171,7 @@ html {
   text-align: left;
   letter-spacing: -0.4px;
   line-height: 48px;
-  color: #12506c;
+  color: var(--ifm-color-primary);
 }
 
 @media (min-width: 768px) {
