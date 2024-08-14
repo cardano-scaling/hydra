@@ -4,7 +4,7 @@ import Features from "../components/homepage/Features";
 import AnimatedText from "../components/homepage/AnimatedText";
 import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import Carousel from "../components/homepage/Carousel/Carousel";
-import FeaturesFAQ from "../components/homepage/FeaturesFAQ";
+import Properties from "../components/homepage/Properties";
 import CaseStudies from "../components/homepage/CaseStudies";
 import { forLaptop } from "../../helpers/media-queries";
 import useMediaQuery from "../hooks/useMediaQuery";
@@ -26,7 +26,7 @@ export default function Home() {
               <WhyHydraHead />
             </div>
             {isLaptopUp ? <Carousel /> : <ResponsiveCarousel />}
-            <FeaturesFAQ />
+            <Properties />
             <CaseStudies />
           </main>
         </Layout>

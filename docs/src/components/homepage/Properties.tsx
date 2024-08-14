@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { forLaptop } from "../../../helpers/media-queries";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { motion } from "framer-motion";
-import { FeaturesContent } from "../../../docs/homepage/features-faq";
+import { PropertiesContent } from "../../../docs/homepage/properties-content";
 
 type Props = {
   title: string;
@@ -32,7 +32,7 @@ const FAQ: FC<Props> = ({ title, description }) => {
   );
 };
 
-const FeaturesFAQ: FC = () => {
+const Properties: FC = () => {
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
     <motion.section
@@ -47,10 +47,10 @@ const FeaturesFAQ: FC = () => {
       }}
     >
       <div className="component pageContainer flex flex-col">
-        <h5 className="text-base text-white">/ FEATURES</h5>
+        <h5 className="text-base text-white">/ PROPERTIES</h5>
         <div className="flex flex-col laptop:flex-row justify-between">
           <div className="pt-14 laptop:pr-14 flex flex-col gap-8">
-            {FeaturesContent.map((props, idx) => (
+            {PropertiesContent.map((props, idx) => (
               <FAQ key={idx} {...props} />
             ))}
           </div>
@@ -78,4 +78,4 @@ const FeaturesFAQ: FC = () => {
   );
 };
 
-export default FeaturesFAQ;
+export default Properties;

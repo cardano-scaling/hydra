@@ -1,6 +1,6 @@
 import { translate } from "@docusaurus/Translate";
 
-export const FeaturesContent = [
+export const PropertiesContent = [
   {
     title: translate({
       id: "homepage.featureFAQ.openSource.title",
