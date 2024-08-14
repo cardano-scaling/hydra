@@ -49,7 +49,10 @@ const HomepageHero: FC = () => {
               animate={{ opacity: 1 }}
               transition={{ ease: "easeInOut", duration: 0.75, delay: 1 }}
             >
-              {HomepageHeroContent.content}
+              The Hydra Head protocol is a layer 2 scaling solution for Cardano
+              rooted in peer-reviewed research that increases transaction
+              throughput and ensures cost efficiency while maintaining rigorous
+              security.
             </motion.p>
           </div>
           <motion.div

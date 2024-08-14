@@ -35,7 +35,7 @@ const CarouselEntryDescription: FC<Props> = ({ description, idx }) => {
             </span>
             <span className="inline-flex gap-[5px]">
               <Triangle className="mt-[3px]" />
-              Luggage <span className="font-bold">(Tokens)</span>
+              Supplies <span className="font-bold">(Tokens)</span>
             </span>
           </div>
         )}
