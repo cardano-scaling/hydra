@@ -75,9 +75,10 @@ jobs:
           --scaling-factor=100 \
           --timeout=1000s \
           --node-socket=devnet/node.socket \
-          --hydra-sk=./alice.sk \
-          --hydra-sk=./bob.sk \
-          --hydra-sk=./carol.sk
+          --hydra-client=localhost:4001 \
+          --hydra-client=localhost:4002 \
+          --hydra-client=localhost:4003
+
 
           # TODO: this is maybe rather what we want as this can likely re-use much more code underneath
           # datasets datasets/3-nodes.json --timeout 1000s \
