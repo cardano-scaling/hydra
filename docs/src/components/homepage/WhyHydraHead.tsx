@@ -19,7 +19,6 @@ const WhyHydraHead: FC = () => {
         hidden: { opacity: 0, y: 100 },
       }}
     >
-      <h5 className="text-base text-teal pb-14">/ HOW IT WORKS</h5>
       <div className="grid laptop:flex laptop:flex-row laptop:gap-6">
         <div className="flex flex-col basis-[41%] pt-4 order-2 laptop:-order-1 laptop:w-[472px] laptop:pt-0">
           <h4 className="text-2xl color-darkRed font-medium text-darkRed pb-4">
