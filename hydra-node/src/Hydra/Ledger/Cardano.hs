@@ -298,8 +298,7 @@ generateOneTransfer ::
   (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
   Int ->
   Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
-generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
-  recipient <- genKeyPair
+generateOneTransfer networkId (utxo, recipient@(_, sender), txs) _ = do
   -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
   -- this function to be ever used in production, and crash will be caught in tests
   case UTxO.pairs utxo of

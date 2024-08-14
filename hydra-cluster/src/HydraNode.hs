@@ -309,7 +309,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
-          (withConnectionToNode tracer hydraNodeId action)
+          (withConnectionToNode tracer hydraNodeId True action)
           <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
@@ -401,8 +401,8 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
     , i /= hydraNodeId
     ]
 
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
-withConnectionToNode tracer hydraNodeId action = do
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Bool -> (HydraClient -> IO a) -> IO a
+withConnectionToNode tracer hydraNodeId showHistory action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -420,7 +420,8 @@ withConnectionToNode tracer hydraNodeId action = do
                     , Handler $ retryOrThrow (Proxy @HandshakeException)
                     ]
 
-  doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
+  historyMode = if showHistory then "/" else "/?history=no"
+  doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) historyMode $ \connection -> do
     atomicWriteIORef connectedOnce True
     traceWith tracer (NodeStarted hydraNodeId)
     res <- action $ HydraClient{hydraNodeId, connection, tracer}

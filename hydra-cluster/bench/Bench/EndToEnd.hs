@@ -96,6 +96,8 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             let contestationPeriod = UnsafeContestationPeriod 10
             putStrLn $ "Starting hydra cluster in " <> workDir
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
+              let clients = leader : followers
+              waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset parties leader followers
 
 benchDemo ::
@@ -125,9 +127,9 @@ benchDemo networkId nodeSocket timeoutSeconds hydraKeys workDir dataset@Dataset{
               putStrLn $ "Connecting to hydra cluster in " <> workDir
               let hydraTracer = contramap FromHydraNode tracer
               let parties = Set.fromList (deriveParty <$> hydraKeys)
-              withConnectionToNode hydraTracer 1 $ \leader ->
-                withConnectionToNode hydraTracer 2 $ \node2 ->
-                  withConnectionToNode hydraTracer 3 $ \node3 -> do
+              withConnectionToNode hydraTracer 1 False $ \leader ->
+                withConnectionToNode hydraTracer 2 False $ \node2 ->
+                  withConnectionToNode hydraTracer 3 False $ \node3 -> do
                     let followers = [node2, node3]
                     scenario hydraTracer node workDir dataset parties leader followers
  where
@@ -154,7 +156,6 @@ scenario ::
 scenario hydraTracer node workDir dataset@Dataset{clientDatasets, title, description} parties leader followers = do
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
-  waitForNodesConnected hydraTracer 20 clients
 
   putTextLn "Initializing Head"
   send leader $ input "Init" []
