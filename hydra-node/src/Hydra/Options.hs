@@ -163,6 +163,8 @@ data RunOptions = RunOptions
   , peers :: [Host]
   , apiHost :: IP
   , apiPort :: PortNumber
+  , tlsCertPath :: Maybe FilePath
+  , tlsKeyPath :: Maybe FilePath
   , monitoringPort :: Maybe PortNumber
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
@@ -187,6 +189,8 @@ instance Arbitrary RunOptions where
     peers <- reasonablySized arbitrary
     apiHost <- arbitrary
     apiPort <- arbitrary
+    tlsCertPath <- oneof [pure Nothing, Just <$> genFilePath "pem"]
+    tlsKeyPath <- oneof [pure Nothing, Just <$> genFilePath "key"]
     monitoringPort <- arbitrary
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
@@ -202,6 +206,8 @@ instance Arbitrary RunOptions where
         , peers
         , apiHost
         , apiPort
+        , tlsCertPath
+        , tlsKeyPath
         , monitoringPort
         , hydraSigningKey
         , hydraVerificationKeys
@@ -223,6 +229,8 @@ defaultRunOptions =
     , peers = []
     , apiHost = localhost
     , apiPort = 4001
+    , tlsCertPath = Nothing
+    , tlsKeyPath = Nothing
     , monitoringPort = Nothing
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
@@ -244,6 +252,8 @@ runOptionsParser =
     <*> many peerParser
     <*> apiHostParser
     <*> apiPortParser
+    <*> optional tlsCertPathParser
+    <*> optional tlsKeyPathParser
     <*> optional monitoringPortParser
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
@@ -628,6 +638,28 @@ apiPortParser =
         <> help "Listen port for incoming client API connections."
     )
 
+tlsCertPathParser :: Parser FilePath
+tlsCertPathParser =
+  option
+    str
+    ( long "tls-cert"
+        <> metavar "FILE"
+        <> help
+          "Path to the TLS certificate (chain). If this and --tls-key are \
+          \set, the API server will expect TLS connections (WSS/HTTPS)."
+    )
+
+tlsKeyPathParser :: Parser FilePath
+tlsKeyPathParser =
+  option
+    str
+    ( long "tls-key"
+        <> metavar "FILE"
+        <> help
+          "Path to the TLS key. If this and --tls-cert are \
+          \set, the API server will expect TLS connections (WSS/HTTPS)."
+    )
+
 monitoringPortParser :: Parser PortNumber
 monitoringPortParser =
   option
@@ -793,6 +825,8 @@ toArgs
     , peers
     , apiHost
     , apiPort
+    , tlsCertPath
+    , tlsKeyPath
     , monitoringPort
     , hydraSigningKey
     , hydraVerificationKeys
@@ -806,6 +840,8 @@ toArgs
       <> ["--port", show port]
       <> ["--api-host", show apiHost]
       <> toArgApiPort apiPort
+      <> maybe [] (\cert -> ["--tls-cert", cert]) tlsCertPath
+      <> maybe [] (\key -> ["--tls-key", key]) tlsKeyPath
       <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers

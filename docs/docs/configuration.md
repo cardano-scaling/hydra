@@ -134,7 +134,7 @@ Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-nod
 
 For more details, refer to this [how to](./how-to/commit-blueprint) guide on committing to a head using a blueprint transaction.
 
-## Connect to Cardano
+### Connect to Cardano
 
 The `hydra-node` must be connected to the Cardano network, unless running in [offline mode](./configuration.md#offline-mode).
 
@@ -169,7 +169,7 @@ To synchronize from the genesis block, use `--start-chain-from 0`.
 If the `hydra-node` already tracks a head in its `state` and `--start-chain-from` is given, the **newer** point is used.
 :::
 
-## Offline mode
+### Offline mode
 
 Hydra supports an offline mode, which allows for disabling the layer 1 interface (that is, the underlying Cardano blockchain which Hydra heads acquire funds and ultimately funds are withdrawn to). Disabling layer 1 interactions allows use cases that would otherwise require running and configuring an entire layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTxO, without having to spin up an entire layer 1 Cardano node.
 
@@ -196,3 +196,16 @@ hydra-node offline \
 ```
 
 As the node is not connected to a real network, genesis parameters that normally influence things like time-based transaction validation cannot be fetched and are set to defaults. To configure block times, set `--ledger-genesis` to a Shelley genesis file similar to the [shelley-genesis.json](https://book.world.dev.cardano.org/environments/mainnet/shelley-genesis.json).
+
+### API server
+
+The `hydra-node` exposes an [API](/api-reference) for clients to interact with the hydra node, submit transactions to an open, but also initialize / close Hydra heads!
+
+As the API is not authenticated by default, the node is only binding to `localhost`/`127.0.0.1` interfaces and listens on port `4001`. This can be configured using `--api-host` and `--api-port`.
+
+:::warning
+The API is not authenticated and if exposed, an open head can be easily closed through the API!
+:::
+
+The API server also supports `TLS` connections (`https://` and `wss://`) when a certificate and key are configured with `--tls-cert` and `--tls-key` respectively.
+

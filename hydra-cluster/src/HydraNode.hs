@@ -365,6 +365,8 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
                 , peers
                 , apiHost = "0.0.0.0"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId
+                , tlsCertPath = Nothing
+                , tlsKeyPath = Nothing
                 , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
                 , hydraSigningKey
                 , hydraVerificationKeys

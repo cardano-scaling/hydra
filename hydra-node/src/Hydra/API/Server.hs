@@ -40,6 +40,7 @@ import Network.Wai.Handler.Warp (
   setOnExceptionResponse,
   setPort,
  )
+import Network.Wai.Handler.WarpTLS (runTLS, tlsSettings)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
@@ -58,18 +59,24 @@ type ServerCallback tx m = ClientInput tx -> m ()
 -- | A type tying both receiving input and sending output into a /Component/.
 type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
 
+data APIServerConfig = APIServerConfig
+  { host :: IP
+  , port :: PortNumber
+  , tlsCertPath :: Maybe FilePath
+  , tlsKeyPath :: Maybe FilePath
+  }
+
 withAPIServer ::
   forall tx.
   IsChainState tx =>
-  IP ->
-  PortNumber ->
+  APIServerConfig ->
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerComponent tx IO ()
-withAPIServer host port party PersistenceIncremental{loadAll, append} tracer chain pparams callback action =
+withAPIServer config party persistence tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     timedOutputEvents <- loadAll
@@ -94,7 +101,7 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
     race_
       ( do
           traceWith tracer (APIServerStarted port)
-          runSettings serverSettings
+          startServer serverSettings
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
@@ -115,6 +122,22 @@ withAPIServer host port party PersistenceIncremental{loadAll, append} tracer cha
               }
       )
  where
+  APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
+
+  PersistenceIncremental{loadAll, append} = persistence
+
+  startServer settings app =
+    case (tlsCertPath, tlsKeyPath) of
+      (Just cert, Just key) ->
+        runTLS (tlsSettings cert key) settings app
+      -- TODO: better error handling
+      (Just _, Nothing) ->
+        die "TLS certificate provided without key"
+      (Nothing, Just _) ->
+        die "TLS key provided without certificate"
+      _ ->
+        runSettings settings app
+
   appendToHistory history output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do

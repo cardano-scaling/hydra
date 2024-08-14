@@ -29,6 +29,8 @@ changes.
 
 - Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [1551](https://github.com/cardano-scaling/hydra/pull/1551)
 
+- Add TLS support for the API server via `--tls-cert` and `--tls-key` command line options.
+
 ## [0.17.0] - 2024-05-20
 
 - **BREAKING** Change `hydra-node` API `/commit` endpoint for committing from scripts [#1380](https://github.com/cardano-scaling/hydra/pull/1380):
