@@ -39,21 +39,21 @@ jobs:
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
 
+    - name: Build required nix derivations
+      run: |
+        nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
+        nix build github:noonio/pumba/noon/add-flake
+
     # Use tmate to get a shell onto the runner to do some temporary hacking
     #
     # <https://github.com/mxschmitt/action-tmate>
     #
     # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
     #
-    # - name: Setup tmate session
-    #   uses: mxschmitt/action-tmate@v3
-    #   with:
-    #     limit-access-to-actor: true
-
-    - name: Build required nix derivations
-      run: |
-        nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
-        nix build github:noonio/pumba/noon/add-flake
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
 
     - name: Run pumba and the benchmarks
       run: |
