@@ -48,7 +48,7 @@ function hnode() {
   if [[ -n ${HYDRA_NODE_CMD} ]]; then
       ${HYDRA_NODE_CMD} ${@}
   else
-      docker run --rm -it \
+      docker run --rm \
         --pull always \
         -v ${SCRIPT_DIR}/devnet:/devnet \
         ghcr.io/cardano-scaling/hydra-node:0.18.1 -- ${@}
