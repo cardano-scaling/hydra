@@ -47,10 +47,10 @@ const config = {
         blog: {
           path: "adr",
           routeBasePath: "/adr",
-          blogTitle: "Architectural Decision Records",
+          blogTitle: "Architecture Decision Records",
           blogDescription:
             "Lightweight technical documentation for the Hydra node software.",
-          blogSidebarTitle: "Architectural Decision Records",
+          blogSidebarTitle: "Architecture Decision Records",
           blogSidebarCount: "ALL",
           sortPosts: "ascending",
           authorsMapPath: "../authors.yaml",
@@ -205,7 +205,7 @@ const config = {
                 to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
               },
               {
-                label: "Architectural decision records",
+                label: "Architecture Decision Records",
                 to: "/adr",
               },
               {
