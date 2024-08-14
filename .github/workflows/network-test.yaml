@@ -45,13 +45,27 @@ jobs:
     #
     # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
     #
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-      with:
-        limit-access-to-actor: true
+    # - name: Setup tmate session
+    #   uses: mxschmitt/action-tmate@v3
+    #   with:
+    #     limit-access-to-actor: true
 
-    - name: Run the benchmarks
+    - name: Build required nix derivations
       run: |
+        nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
+        nix build github:noonio/pumba/noon/add-flake
+
+    - name: Run pumba and the benchmarks
+      run: |
+        nix run github:noonio/pumba/noon/add-flake -- \
+          -l info \
+          --random \
+          netem \
+            --duration 1m \
+            --tc-image gaiadocker/iproute2 \
+            loss "re2:hydra" &
+
+        cd demo
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
@@ -69,9 +83,7 @@ jobs:
           # --hydra-client=localhost:4001 \
           # --hydra-client=localhost:4002 \
           # --hydra-client=localhost:4003
-          #
 
-        # TODO: call a fault injection program
 
     - name: Acquire logs
       if: always()
