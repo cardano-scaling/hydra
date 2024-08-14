@@ -20,7 +20,8 @@ import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 main :: IO ()
-main =
+main = do
+  hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
     StandaloneOptions{workDirectory = Just workDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
       -- XXX: This option is a bit weird as it allows to re-run a test by

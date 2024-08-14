@@ -58,12 +58,14 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         nix run github:noonio/pumba/noon/add-flake -- \
-          -l info \
+          -l debug \
           --random \
           netem \
-            --duration 1m \
+            --duration 2m \
             --tc-image gaiadocker/iproute2 \
-            loss "re2:hydra" &
+            loss \
+              --percent 100 \
+              "re2:hydra" &
 
         cd demo
         # TODO: make this a flake output / easier accesible
