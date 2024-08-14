@@ -33,13 +33,15 @@ import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsT
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
+  aHeadIsInitializingWith,
   headIsInitializingWith,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (HydraKey, SigningKey, generateSigningKey)
+import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Network (Host)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
   HydraClient,
@@ -53,7 +55,7 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
-  withConnectionToNode,
+  withConnectionToNodeHost,
   withHydraCluster,
  )
 import System.Directory (findExecutable)
@@ -104,11 +106,11 @@ benchDemo ::
   NetworkId ->
   SocketPath ->
   NominalDiffTime ->
-  [SigningKey HydraKey] ->
+  [Host] ->
   FilePath ->
   Dataset ->
   IO Summary
-benchDemo networkId nodeSocket timeoutSeconds hydraKeys workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -126,13 +128,18 @@ benchDemo networkId nodeSocket timeoutSeconds hydraKeys workDir dataset@Dataset{
               forM_ clientSks (fuelWith100Ada (contramap FromFaucet tracer) node)
               putStrLn $ "Connecting to hydra cluster in " <> workDir
               let hydraTracer = contramap FromHydraNode tracer
-              let parties = Set.fromList (deriveParty <$> hydraKeys)
-              withConnectionToNode hydraTracer 1 False $ \leader ->
-                withConnectionToNode hydraTracer 2 False $ \node2 ->
-                  withConnectionToNode hydraTracer 3 False $ \node3 -> do
-                    let followers = [node2, node3]
-                    scenario hydraTracer node workDir dataset parties leader followers
+              withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
+                [] -> error "no hydra clients provided"
+                (leader : followers) ->
+                  scenario hydraTracer node workDir dataset mempty leader followers
  where
+  withHydraClientConnections tracer peers connections action = do
+    case peers of
+      [] -> action connections
+      ((peer, peerId) : rest) -> do
+        withConnectionToNodeHost tracer peerId peer False $ \con -> do
+          withHydraClientConnections tracer rest (con : connections) action
+
   returnFaucetFunds tracer node cKeys = do
     putTextLn "Returning funds to faucet"
     let faucetTracer = contramap FromFaucet tracer
@@ -161,7 +168,9 @@ scenario hydraTracer node workDir dataset@Dataset{clientDatasets, title, descrip
   send leader $ input "Init" []
   headId <-
     waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-      headIsInitializingWith parties
+      if null parties
+        then aHeadIsInitializingWith (length clients)
+        else headIsInitializingWith parties
 
   putTextLn "Comitting initialUTxO from dataset"
   expectedUTxO <- commitUTxO node clients dataset

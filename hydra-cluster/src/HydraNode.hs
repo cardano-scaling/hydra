@@ -402,7 +402,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
     ]
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Bool -> (HydraClient -> IO a) -> IO a
-withConnectionToNode tracer hydraNodeId showHistory action = do
+withConnectionToNode tracer hydraNodeId =
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port}
+ where
+  hostname = "127.0.0.1"
+  port = fromInteger $ 4_000 + toInteger hydraNodeId
+
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Bool -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} showHistory action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -421,7 +428,8 @@ withConnectionToNode tracer hydraNodeId showHistory action = do
                     ]
 
   historyMode = if showHistory then "/" else "/?history=no"
-  doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) historyMode $ \connection -> do
+
+  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $ \connection -> do
     atomicWriteIORef connectedOnce True
     traceWith tracer (NodeStarted hydraNodeId)
     res <- action $ HydraClient{hydraNodeId, connection, tracer}

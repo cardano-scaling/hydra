@@ -4,28 +4,9 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Network (Host, readHost)
 import Hydra.Options (nodeSocketParser)
-import Options.Applicative (
-  Parser,
-  ParserInfo,
-  auto,
-  command,
-  fullDesc,
-  header,
-  help,
-  helpDoc,
-  helper,
-  hsubparser,
-  info,
-  long,
-  metavar,
-  option,
-  progDesc,
-  short,
-  str,
-  strOption,
-  value,
- )
+import Options.Applicative (Parser, ParserInfo, auto, command, fullDesc, header, help, helpDoc, helper, hsubparser, info, long, maybeReader, metavar, option, progDesc, short, str, strOption, value)
 import Options.Applicative.Builder (argument)
 import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
 
@@ -49,7 +30,7 @@ data Options
       , scalingFactor :: Int
       , timeoutSeconds :: NominalDiffTime
       , nodeSocket :: SocketPath
-      , hydraSigningKeys :: [FilePath]
+      , hydraClients :: [Host]
       }
 
 benchOptionsParser :: ParserInfo Options
@@ -185,21 +166,19 @@ demoOptionsParser =
     <*> scalingFactorParser
     <*> timeoutParser
     <*> nodeSocketParser
-    <*> many hydraSigningKeyFileParser
+    <*> many hydraClientsParser
 
-hydraSigningKeyFileParser :: Parser FilePath
-hydraSigningKeyFileParser =
-  option
-    str
-    ( long "hydra-sk"
-        <> metavar "FILE"
-        <> help
-          ( "Hydra signing key of a party in the Head. Can be \
-            \provided multiple times, once for each participant (current maximum limit is "
-              <> show maximumNumberOfParties
-              <> " )."
-          )
-    )
+hydraClientsParser :: Parser Host
+hydraClientsParser =
+  option (maybeReader readHost) $
+    long "hydra-client"
+      <> help
+        ( "A hydra node api address to connect to. This is using the form <host>:<port>, \
+          \where <host> can be an IP address, or a host name. Can be \
+          \provided multiple times, once for each participant (current maximum limit is "
+            <> show maximumNumberOfParties
+            <> " )."
+        )
 
 datasetOptionsInfo :: ParserInfo Options
 datasetOptionsInfo =
