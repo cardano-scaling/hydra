@@ -180,9 +180,9 @@ validateTokensBurning context =
       Just tokenMap -> AssocMap.all (< 0) tokenMap
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
-unappliedMintingPolicy :: CompiledCode (TxOutRef -> ScriptContext -> BuiltinUnit)
+unappliedMintingPolicy :: CompiledCode (TxOutRef -> BuiltinData -> BuiltinUnit)
 unappliedMintingPolicy =
-  $$(PlutusTx.compile [||\vInitial vHead ref ctx -> check $ validate vInitial vHead ref ctx||])
+  $$(PlutusTx.compile [||\vInitial vHead ref ctx -> check $ validate vInitial vHead ref (unsafeFromBuiltinData ctx)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 Initial.validatorHash
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 Head.validatorHash
 
