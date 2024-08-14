@@ -37,7 +37,7 @@ jobs:
         sleep 10
         docker ps
 
-        la -lah devnet/node.socket
+        ls -lah devnet/node.socket
 
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
