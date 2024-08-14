@@ -27,6 +27,14 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+
+    # TMate hacking
+    - uses: actions/checkout@v4
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
+
     - name: Docker-based load test
       run: |
         cd demo
@@ -36,8 +44,6 @@ jobs:
         docker compose up -d hydra-node-{1,2,3}
         sleep 10
         docker ps
-
-        ls -lah devnet/node.socket
 
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
