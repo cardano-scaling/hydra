@@ -30,4 +30,11 @@ jobs:
     - name: Docker-based load test
       run: |
         cd demo
-        ./run-docker.sh
+        ./prepare-devnet.sh
+        docker compose up -d cardano-node
+        ./seed-devnet.sh
+        cat .env # TODO remove
+        docker compose up -d hydra-node-{1,2,3}
+        sleep 10
+        docker ps
+        curl 0.0.0.0:4001/snapshot/utxo -v
