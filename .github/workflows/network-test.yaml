@@ -1,0 +1,33 @@
+name: "Network fault tolerance"
+
+# TODO: make this a pull_request trigger or so
+on:
+  push:
+    branches:
+    - network-testing
+
+jobs:
+  network-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@V27
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: ❄ Cachix cache of nix derivations
+      uses: cachix/cachix-action@v15
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: Docker-based load test
+      run: |
+        cd demo
+        ./run-docker.sh
