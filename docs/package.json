@@ -5,6 +5,8 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "prepare": "yarn enrich-document-metadata && yarn regenerate-plantuml",
+    "preview-build": "docusaurus build",
+    "preview-install": "docusaurus install",
     "build": "yarn prepare && docusaurus build",
     "build-dev": "yarn prepare && docusaurus build --no-minify -l en",
     "start": "yarn dummy-spec && docusaurus start",

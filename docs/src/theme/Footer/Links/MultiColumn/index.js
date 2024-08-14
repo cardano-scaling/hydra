@@ -46,7 +46,7 @@ export default function FooterLinksMultiColumn({ columns }) {
     <div
       className={clsx(
         "grid gap-10 pb-10 max-w-md",
-        "laptop:flex laptop:pb-0 laptop:gap-7",
+        "tablet:flex tablet:max-w-full laptop:pb-0 laptop:gap-7",
         isLandingPage
           ? "w-full laptop:max-w-[750px]"
           : "basis-5/6 laptop:max-w-full"

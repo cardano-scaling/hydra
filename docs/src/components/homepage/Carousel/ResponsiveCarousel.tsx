@@ -24,11 +24,11 @@ type Props = {
 
 const CarouselEntryDescription: FC<Props> = ({ description, idx }) => {
   return (
-    <div className="flex flex-col tablet:max-w-[478px] max-w-80 tablet:pt-6 pt-14 tablet:min-h-64 min-h-[350px] tablet:order-1 order-2 self-center">
+    <div className="flex flex-col tablet:max-w-[478px] max-w-80 tablet:pt-6 pt-14 tablet:order-1 order-2 self-center">
       <div className="flex flex-col tablet:gap-4 max-w-md gap-8">
         <p>{description}</p>
         {idx === 0 && (
-          <div className="flex gap-4 tablet:flex-row flex-col">
+          <div className="flex gap-4 tablet:flex-row flex-col justify-between">
             <span className="inline-flex gap-[5px]">
               <Square className="mt-1" />
               Passengers <span className="font-bold">(Participants)</span>
@@ -52,7 +52,7 @@ type ControlProps = {
 const Controls: FC<ControlProps> = ({ showing, onClickBullet, ...props }) => {
   return (
     <div
-      className="inline-flex mt-auto gap-4 pt-14 self-center order-1 tablet:order-2 tablet:pt-3"
+      className="inline-flex mt-auto gap-4 pt-14 self-center order-1 tablet:order-2"
       {...props}
     >
       {HowItWorksCarouselContent.map((_, index) => (
