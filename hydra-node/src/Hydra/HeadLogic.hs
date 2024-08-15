@@ -374,6 +374,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
 
+  -- NOTE: Order of transactions is important here. See also
+  -- 'pruneTransactions'.
   localTxs' = localTxs <> [tx]
 
 -- | Process a snapshot request ('ReqSn') from party.
@@ -514,9 +516,13 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
       Right u -> cont u
 
   pruneTransactions utxo = do
-    foldr go ([], utxo) localTxs
+    -- NOTE: Using foldl' is important to apply transacations in the correct
+    -- order. That is, left-associative as new transactions are first validated
+    -- and then appended to `localTxs` (when aggregating
+    -- 'TransactionAppliedToLocalUTxO').
+    foldl' go ([], utxo) localTxs
    where
-    go tx (txs, u) =
+    go (txs, u) tx =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
@@ -1208,7 +1214,9 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , localTxs = localTxs <> [tx]
+                  , -- NOTE: Order of transactions is important here. See also
+                    -- 'pruneTransactions'.
+                    localTxs = localTxs <> [tx]
                   }
             }
        where

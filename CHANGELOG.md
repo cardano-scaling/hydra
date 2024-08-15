@@ -12,6 +12,10 @@ changes.
 
 - New landing page and updated documentation style. [#1560](https://github.com/cardano-scaling/hydra/pull/1560)
 
+- Fixed pruning of transactions when a snapshot is requested:
+  - Before, the `hydra-node` would re-apply transactions in the wrong order which made already "seen" transactions (indicated by `TxValid`) disappear from the local ledger state and also not get snapshotted.
+  - Details in [#1559](https://github.com/cardano-scaling/hydra/pull/1559)
+
 - Add TLS support for the API server via `--tls-cert` and `--tls-key` command line options. [#1555](https://github.com/cardano-scaling/hydra/pull/1555)
 
 ## [0.18.0] - 2024-08-08
