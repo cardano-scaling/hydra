@@ -29,7 +29,7 @@ import PlutusLedgerApi.V3 (
   ScriptHash (..),
   TokenName (..),
   TxOut (..),
-  Value (..),
+  Value (..), OutputDatum,
  )
 
 import Hydra.Plutus.Extras (wrapValidator)
@@ -122,7 +122,7 @@ encodeTxOutsValidator = \case
         )
 
 encodeTxOut :: TxOut -> Encoding
-encodeTxOut (TxOut addr value (Just datum) _) =
+encodeTxOut (TxOut addr value datum _) =
   encodeListLen 3
     <> encodeAddress addr
     <> encodeValue value
@@ -152,7 +152,7 @@ encodeValue =
   encodeTokenName (TokenName token) = encodeByteString token
 {-# INLINEABLE encodeValue #-}
 
-encodeDatum :: Maybe DatumHash -> Encoding
-encodeDatum =
-  encodeMaybe (\(DatumHash h) -> encodeByteString h)
+encodeDatum :: OutputDatum -> Encoding
+encodeDatum o =
+  encodeByteString ""
 {-# INLINEABLE encodeDatum #-}
