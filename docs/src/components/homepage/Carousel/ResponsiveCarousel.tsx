@@ -60,7 +60,7 @@ const Controls: FC<ControlProps> = ({ showing, onClickBullet, ...props }) => {
           <Dot
             className={clsx(
               "self-center",
-              index === showing ? "text-teal" : "text-teal-lightest"
+              index === showing ? "text-primary" : "text-primary-lightest"
             )}
           />
         </button>
@@ -101,7 +101,7 @@ const ResponsiveCarousel: FC = () => {
   return (
     <section className="bg-[#F4F5F5]">
       <div className="component relative pageContainer flex flex-col">
-        <h4 className="text-2xl text-teal font-medium pb-14">How it works</h4>
+        <h4 className="text-2xl text-primary font-medium pb-14">How it works</h4>
         <div className="flex self-center flex-col justify-center">
           <Swiper
             key={isTabletUp ? "tablet" : "mobile"}

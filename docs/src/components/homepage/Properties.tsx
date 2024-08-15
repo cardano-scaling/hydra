@@ -36,7 +36,7 @@ const Properties: FC = () => {
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
     <motion.section
-      className="bg-teal"
+      className="bg-primary"
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true }}

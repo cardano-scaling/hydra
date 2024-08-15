@@ -39,7 +39,7 @@ const Features: FC = () => {
     <section className="component bg-white">
       <div className="pageContainer">
         <motion.h5
-          className="text-base text-teal pb-14"
+          className="text-base text-primary pb-14"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}

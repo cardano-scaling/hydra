@@ -63,7 +63,7 @@ const AnimatedText: FC = () => {
         onAnimationComplete={() => setPopTextClass("text-[#696E70]")}
       >
         {processText(
-          <h2 className="homepageText text-teal">
+          <h2 className="homepageText text-primary">
             Provides a{" "}
             <span
               className={clsx("transition-colors duration-500", popTextClass)}

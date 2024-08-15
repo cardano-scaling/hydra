@@ -3,7 +3,7 @@ import HydraLogo from "../../../components/icons/HydraLogo";
 export default function FooterCopyright({ copyright }) {
   return (
     <div
-      className="text-teal-light inline-flex gap-4 text-center"
+      className="text-primary-light inline-flex gap-4 text-center"
       // Developer provided the HTML, so assume it's safe.
       // eslint-disable-next-line react/no-danger
     >
