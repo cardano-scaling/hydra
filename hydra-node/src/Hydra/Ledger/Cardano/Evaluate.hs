@@ -288,7 +288,7 @@ pparams =
     & ppCostModelsL .~ mkCostModels (Map.fromList [(PlutusV3, plutusV3CostModel)])
 
 maxTxSize :: Natural
-maxTxSize = 16384
+maxTxSize = 32768
 
 -- | Max transaction execution unit budget of the current 'pparams'.
 maxTxExecutionUnits :: ExecutionUnits
