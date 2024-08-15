@@ -37,7 +37,7 @@ const HomepageHero: FC = () => {
         <div className="component-lg tablet:py-[72px]">
           <div className="pb-9 tablet:max-w-[485px]">
             <motion.h1
-              className="tablet:text-[56px] tablet:leading-[67px] text-4xl leading-[48px] text-teal font-medium pb-4"
+              className="tablet:text-[56px] tablet:leading-[67px] text-4xl leading-[48px] text-primary font-medium pb-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ ease: "easeInOut", duration: 0.75, delay: 0.4 }}
@@ -61,7 +61,7 @@ const HomepageHero: FC = () => {
             transition={{ ease: "easeInOut", duration: 0.75, delay: 1.2 }}
           >
             <Link
-              className="inline-block px-4 py-3 border border-solid border-teal font-bold text-sm text-teal rounded-lg no-underline bg-white hover:bg-teal-extralight hover:no-underline hover:text-teal"
+              className="inline-block px-4 py-3 border border-solid border-primary font-bold text-sm text-primary rounded-lg no-underline bg-white hover:bg-primary-extralight hover:no-underline hover:text-primary"
               to="/docs/protocol-overview"
             >
               Learn more

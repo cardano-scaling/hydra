@@ -24,7 +24,7 @@ const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
         <img src={src} className="w-full rounded-lg object-cover" />
       </div>
       <div className="flex flex-col gap-4 max-w-md justify-center">
-        <h4 className="text-2xl text-teal font-medium">How it works</h4>
+        <h4 className="text-2xl text-primary font-medium">How it works</h4>
         <p>{description}</p>
         {idx === 0 && (
           <div className="flex gap-4">
@@ -56,7 +56,7 @@ const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
         <Arrow
           className={clsx(
             "rotate-180 rounded-full",
-            showing < 1 ? "text-teal-lightest" : "text-teal hover:bg-teal/15"
+            showing < 1 ? "text-primary-lightest" : "text-primary hover:bg-primary/15"
           )}
         />
       </button>
@@ -65,7 +65,7 @@ const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
           key={`dot-${index}`}
           className={clsx(
             "self-center",
-            index === showing ? "text-teal" : "text-teal-lightest"
+            index === showing ? "text-primary" : "text-primary-lightest"
           )}
         />
       ))}
@@ -77,8 +77,8 @@ const Controls: FC<ControlProps> = ({ showing, handlePrev, handleNext }) => {
           className={clsx(
             "rounded-full",
             showing > HowItWorksCarouselContent.length - 2
-              ? "text-teal-lightest"
-              : "text-teal hover:bg-teal/15"
+              ? "text-primary-lightest"
+              : "text-primary hover:bg-primary/15"
           )}
         />
       </button>

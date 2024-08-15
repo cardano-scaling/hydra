@@ -21,7 +21,7 @@ const WhyHydraHead: FC = () => {
     >
       <div className="grid laptop:flex laptop:flex-row laptop:gap-6">
         <div className="flex flex-col basis-[41%] pt-4 order-2 laptop:-order-1 laptop:w-[472px] laptop:pt-0">
-          <h4 className="text-2xl color-darkRed font-medium text-darkRed pb-4">
+          <h4 className="text-2xl text-primary font-medium pb-4">
             {WhyHydraHeadContent.title}
           </h4>
           <p>{WhyHydraHeadContent.descriptionParagraphOne}</p>
@@ -42,13 +42,13 @@ const WhyHydraHead: FC = () => {
           </motion.div>
           <div className="w-full relative mt-4">
             <button
-              className="bg-none text-teal self-start inline-flex gap-3 group"
+              className="bg-none text-primary self-start inline-flex gap-3 group"
               onClick={() => setExpanded(!expanded)}
             >
               {`Read ${expanded ? "less" : "more"}`}{" "}
               <Arrow
                 className={clsx(
-                  "mt-[3px] rounded-full group-hover:bg-teal/15",
+                  "mt-[3px] rounded-full group-hover:bg-primary/15",
                   expanded ? "-rotate-90" : "rotate-90"
                 )}
               />
@@ -58,7 +58,7 @@ const WhyHydraHead: FC = () => {
         <div className="hidden basis-[59%] -order-1 laptop:order-2 tablet:block">
           <img
             src="hydra-docs-landing-graphic.png"
-            className="border-b border-solid border-teal laptop:border-none"
+            className="border-b border-solid border-primary laptop:border-none"
           />
         </div>
       </div>

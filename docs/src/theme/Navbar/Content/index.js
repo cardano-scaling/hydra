@@ -73,7 +73,7 @@ export default function NavbarContent() {
             href="https://github.com/cardano-scaling/hydra"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-teal-light mx-3 py-1"
+            className="hover:text-primary-light mx-3 py-1"
           >
             <GithubSmall />
           </a>
@@ -81,7 +81,7 @@ export default function NavbarContent() {
             href="https://discord.com/invite/Qq5vNTg9PT"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-teal-light mx-3 py-1"
+            className="hover:text-primary-light mx-3 py-1"
           >
             <Discord />
           </a>

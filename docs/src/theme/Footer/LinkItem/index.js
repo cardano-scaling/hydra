@@ -11,7 +11,7 @@ export default function FooterLinkItem({ item }) {
   return (
     <Link
       className={clsx(
-        "footer__link-item inline-flex hover:text-teal-light",
+        "footer__link-item inline-flex hover:text-primary-light",
         isLandingPage ? "text-[#F3F4F4]" : "text-black"
       )}
       {...(href

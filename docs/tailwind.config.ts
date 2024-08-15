@@ -42,23 +42,16 @@ const config: Config = {
     colors: {
       transparent: "transparent",
       current: "currentColor",
-      red: "#F00000",
-      darkRed: "#721F41",
-      yellow: "#FFF500",
-      violet: "#00006D",
-      teal: {
+      primary: {
         DEFAULT: "hsl(184, 75%, 30%)",
         dark: "hsl(184, 75%, 20%)",
         light: "hsl(184, 25%, 60%)",
         lightest: "hsl(184, 55%, 93%)",
         extralight: "hsl(184, 12%, 93%)",
       },
-      blue: {},
+      secondary: "#721F41",
       black: "#283032",
-      "true-black": "#000000",
-      gray: {
-        DEFAULT: "#D4D6D6",
-      },
+      gray: "#D4D6D6",
       white: "#FFFFFF",
     },
   },

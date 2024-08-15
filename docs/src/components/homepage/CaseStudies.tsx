@@ -10,7 +10,7 @@ const CaseStudies: FC = () => {
   const isTabletOnly = useMediaQuery(forTabletOnly);
   const isLaptopUp = useMediaQuery(forLaptop);
   return (
-    <section className="bg-teal-extralight">
+    <section className="bg-primary-extralight">
       <motion.div
         className="component pageContainer"
         initial="hidden"
@@ -22,17 +22,17 @@ const CaseStudies: FC = () => {
           hidden: { opacity: 0, y: 100 },
         }}
       >
-        <h5 className="text-base text-teal pb-14">/ CASE STUDIES</h5>
+        <h5 className="text-base text-primary pb-14">/ CASE STUDIES</h5>
         <div className="bg-white flex tablet:flex-row flex-col rounded-2xl overflow-hidden laptop:mb-10 tablet:p-8 justify-between gap-8">
           <div className="flex flex-col laptop:pt-20 gap-8 laptop:max-w-md px-4 py-8 tablet:p-0 tablet:basis-2/5">
-            <h4 className="text-2xl text-teal font-medium">Case studies</h4>
+            <h4 className="text-2xl text-primary font-medium">Case studies</h4>
             <p>{FeaturedCaseStudy.content}</p>
             <Link
-              className="bg-none text-teal self-start inline-flex gap-3 group hover:no-underline hover:text-teal"
+              className="bg-none text-primary self-start inline-flex gap-3 group hover:no-underline hover:text-primary"
               href="/use-cases"
             >
               {"View case studies "}
-              <Arrow className="mt-[3px] rounded-full group-hover:bg-teal/15" />
+              <Arrow className="mt-[3px] rounded-full group-hover:bg-primary/15" />
             </Link>
           </div>
           <motion.div

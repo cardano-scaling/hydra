@@ -9,7 +9,7 @@ function DefaultNavbarItemDesktop({
   const element = (
     <NavbarNavLink
       className={clsx(
-        "hover:text-teal-light",
+        "hover:text-primary-light",
         isDropdownItem ? "dropdown__link" : "navbar__item navbar__link",
         className
       )}

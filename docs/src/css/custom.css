@@ -417,7 +417,7 @@ svg.architecture {
 }
 
 .theme-doc-toc-mobile > button {
-  @apply font-semibold text-true-black rounded p-4 mt-12 bg-teal-extralight;
+  @apply font-semibold text-black rounded p-4 mt-12 bg-primary-extralight;
 }
 
 .theme-doc-toc-mobile > div > ul {

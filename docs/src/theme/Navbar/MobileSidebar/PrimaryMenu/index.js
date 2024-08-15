@@ -36,7 +36,7 @@ export default function NavbarMobilePrimaryMenu() {
         href="https://github.com/cardano-scaling/hydra"
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:text-teal-light mx-3 py-1 inline-flex gap-3"
+        className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
       >
         <GithubSmall /> Github
       </a>
@@ -44,7 +44,7 @@ export default function NavbarMobilePrimaryMenu() {
         href="https://github.com/cardano-scaling/hydra"
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:text-teal-light mx-3 py-1 inline-flex gap-3"
+        className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
       >
         <Discord className="mt-1" /> Discord
       </a>
