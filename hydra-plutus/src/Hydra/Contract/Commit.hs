@@ -20,8 +20,8 @@ import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
 import PlutusLedgerApi.V3 (
+  ScriptContext (..), TxInfo (..),
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),

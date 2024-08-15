@@ -19,7 +19,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeMaybe,
   encodingToBuiltinByteString,
  )
-import PlutusLedgerApi.V1 (
+import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol (..),
@@ -122,7 +122,7 @@ encodeTxOutsValidator = \case
         )
 
 encodeTxOut :: TxOut -> Encoding
-encodeTxOut (TxOut addr value datum) =
+encodeTxOut (TxOut addr value (Just datum) _) =
   encodeListLen 3
     <> encodeAddress addr
     <> encodeValue value

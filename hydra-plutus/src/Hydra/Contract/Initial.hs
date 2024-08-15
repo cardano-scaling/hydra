@@ -19,8 +19,6 @@ import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (
-  ScriptContext (..),
-  TxInfo (txInfoMint, txInfoSignatories),
   findOwnInput,
   findTxInByTxOutRef,
   scriptOutputsAt,
@@ -30,6 +28,8 @@ import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (geq, isZero)
 import PlutusLedgerApi.V3 (
+  TxInfo (txInfoMint, txInfoSignatories),
+  ScriptContext (..),
   CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),
