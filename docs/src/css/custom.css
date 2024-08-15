@@ -53,28 +53,30 @@
 
 /* You can override the default Infima variables here. */
 :root {
+  /* Teal from the style guide */
+  --ifm-color-primary: #12506c;
   /* Created using https://colordesigner.io/color-scheme-builder */
-  --ifm-color-primary: #3c9ec8;
   /* 6 steps to white, first 4 after main */
-  --ifm-color-primary-light: #6eadc8;
-  --ifm-color-primary-lighter: #9bbecd;
-  --ifm-color-primary-lightest: #c2d1d8;
-  --ifm-color-primary-extralight: #e3e7e9;
+  --ifm-color-primary-light: #2b79a1;
+  --ifm-color-primary-lighter: #5b9dbe;
+  --ifm-color-primary-lightest: #9dbac9;
+  --ifm-color-primary-extralight: #d3dbde;
   /* 6 steps to black, first 3 after main */
-  --ifm-color-primary-dark: #397b97;
-  --ifm-color-primary-darker: #345868;
-  --ifm-color-primary-darkest: #283940;
+  --ifm-color-primary-dark: #163d51;
+  --ifm-color-primary-darker: #162c37;
+  --ifm-color-primary-darkest: #121c21;
 
-  /* Red variant of the triad */
-  --ifm-color-secondary: #db68e8;
+  /* Plum from the style guide */
+  --ifm-color-secondary: #721f41;
+  /* Created using https://colordesigner.io/color-scheme-builder */
   /* 6 steps to white, first 3 after main */
-  --ifm-color-secondary-light: #c86ead;
-  --ifm-color-secondary-lighter: #cd9bbe;
-  --ifm-color-secondary-lightest: #d8c2d1;
+  --ifm-color-secondary-light: #9d3b64;
+  --ifm-color-secondary-lighter: #b66b8b;
+  --ifm-color-secondary-lightest: #c6a5b3;
   /* 6 steps to black, first 3 after main */
-  --ifm-color-secondary-dark: #97397b;
-  --ifm-color-secondary-darker: #683458;
-  --ifm-color-secondary-darkest: #402839;
+  --ifm-color-secondary-dark: #531f35;
+  --ifm-color-secondary-darker: #391c29;
+  --ifm-color-secondary-darkest: #23161c;
 
   --ifm-code-font-size: 95%;
   --ifm-navbar-height: 56px;
@@ -85,7 +87,7 @@
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
-  --ifm-color-primary: var(--ifm-color-primary-light);
+  --ifm-color-primary: var(--ifm-color-primary-lighter);
 }
 
 @media (min-width: 768px) {
