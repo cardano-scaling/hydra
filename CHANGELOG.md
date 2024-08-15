@@ -8,28 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.18.1] - UNRELEASED
+
+- New landing page and updated documentation style. [#1560](https://github.com/cardano-scaling/hydra/pull/1560)
+
+- Add TLS support for the API server via `--tls-cert` and `--tls-key` command line options. [#1555](https://github.com/cardano-scaling/hydra/pull/1555)
+
 ## [0.18.0] - 2024-08-08
 
 - Tested with `cardano-node 9.1.0` and `cardano-cli 9.2.1.0`.
 
-- Fixed fee calculation of the internal wallet when the network switches to `Conway`. This allows heads to be opened in `Babbage` and closed/finalized in `Conway`. [1553](https://github.com/cardano-scaling/hydra/pull/1553)
+- Fixed fee calculation of the internal wallet when the network switches to `Conway`. This allows heads to be opened in `Babbage` and closed/finalized in `Conway`. [#1553](https://github.com/cardano-scaling/hydra/pull/1553)
 
 - **BREAKING** Changes to the `hydra-node` API `/commit` endpoint [#1463](https://github.com/cardano-scaling/hydra/pull/1463):
   - Removed the check that prevented committing UTxOs from an internal `hydra-node` wallet.
   - `SpendingNodeUtxoForbidden` error was removed.
 
-- Add capability to move UTxO out of an open Head to the Cardano main chain: [1344](https://github.com/cardano-scaling/hydra/pull/1344)
+- **BREAKING** Add capability to move UTxO out of an open Head to the Cardano main chain: [#1344](https://github.com/cardano-scaling/hydra/pull/1344)
   - Submitting a decommit transaction to `POST /decommit` or as `Decommit` command through websocket, requests removal of this transactions' outputs from the head.
   - When successful, `DecommitApproved` and `DecommitFinalized` indicate that all outputs are made available on the layer one.
   - Invalid transactions are explained through a `DecommitInvalid` server output.
 
-- Change `--start-chain-from` to always use the newer point when also a head state is known. [1471](https://github.com/cardano-scaling/hydra/pull/1471)
+- Change `--start-chain-from` to always use the newer point when also a head state is known. [#1471](https://github.com/cardano-scaling/hydra/pull/1471)
 
-- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey. [1486](https://github.com/cardano-scaling/hydra/pull/1486)
+- Moved several pages from "core concepts" into the user manual and developer docs to futher improve user journey. [#1486](https://github.com/cardano-scaling/hydra/pull/1486)
 
-- Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [1551](https://github.com/cardano-scaling/hydra/pull/1551)
-
-- Add TLS support for the API server via `--tls-cert` and `--tls-key` command line options.
+- Offline mode of `hydra-node` uses `--node-id` to derive an artificial offline `headId`. [#1551](https://github.com/cardano-scaling/hydra/pull/1551)
 
 ## [0.17.0] - 2024-05-20
 
@@ -272,21 +276,6 @@ changes.
 
 ## [0.11.0] - 2023-06-30
 
-This release contains breaking changes of the persistence and on-chain scripts
-and you'll need to apply the following procedure to upgrade _all the nodes_
-running a head:
-
-1. Close the head
-2. Stop `hydra-node`
-3. Remove persistent files stored in `--persistence-dir`, in particular
-   `server-output` and `state`
-4. Upgrade `hydra-node` version
-5. Start new `hydra-node` version with new `--hydra-scriptx-tx-id` and updated
-   command line options.
-6. Open a new head
-
----
-
 - **BREAKING** Allow to commit multiple `UTxO` [#774](774)
     - This changes `hydra-plutus` scripts to allow commit transactions which
       spend multiple UTxOs into a Hydra head.
@@ -355,21 +344,6 @@ running a head:
 [#849]: https://github.com/cardano-scaling/hydra/pull/859
 
 ## [0.10.0] - 2023-05-11
-
-This release contains several breaking changes and you'll need to apply the
-following procedure to upgrade all the nodes running a head:
-
-1. Close the head
-2. Stop `hydra-node`
-3. Remove persistent files stored in `--persistence-dir`, in particular
-   `server-output` and `state`
-4. Upgrade `hydra-node` version
-5. Start new `hydra-node` version
-
-Only when this procedure has been applied to all Hydra nodes can you open a new
-head again.
-
----
 
 - Make `hydra-node` compatible to mainnet [#713](713)
 
@@ -501,19 +475,6 @@ head again.
 ## [0.9.0] - 2023-03-02
 
 :dragon_face: Renamed the repository from `hydra-poc` to [`hydra`](https://github.com/cardano-scaling/hydra)!
-
-:warning: Delete your persistence directory!
-
-This release contains several breaking changes and you'll need to apply the
-following procedure to upgrade all the nodes running a head:
-
-1. Close the head
-2. Stop `hydra-node`
-3. Remove persistent files stored in `--persistence-dir`, in particular `server-output` and `state`
-4. Upgrade `hydra-node` version
-5. Start new `hydra-node` version
-
-Only when this procedure has been applied to all Hydra nodes can you open a new head again.
 
 ### Changes to `hydra-node`
 
