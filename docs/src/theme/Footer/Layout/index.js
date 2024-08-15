@@ -29,7 +29,7 @@ export default function FooterLayout({ style, links, logo, copyright }) {
           <div
             className={clsx(
               "flex flex-col gap-4 border border-solid border-teal-light p-6 rounded-lg mb-14 laptop:mb-[70px]",
-              !isLandingPage && "laptop:max-w-[227px] tablet:max-w-[277px]"
+              !isLandingPage && "w-[250px]"
             )}
           >
             <div className="inline-flex items-center text-teal-light">

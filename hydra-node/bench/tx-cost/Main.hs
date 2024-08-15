@@ -104,7 +104,7 @@ writeTransactionCostMarkdown hdl = do
 pageHeader :: [Text]
 pageHeader =
   [ "--- "
-  , "sidebar_label: 'Transactions Costs' "
+  , "sidebar_label: 'Transaction costs' "
   , "sidebar_position: 3 "
   , "--- "
   , ""

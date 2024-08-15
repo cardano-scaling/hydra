@@ -39,7 +39,7 @@ getOutputDirectory = listToMaybe
 pageHeader :: [Text]
 pageHeader =
   [ "--- "
-  , "sidebar_label: 'Plutus Merkle-Tree Benchmarks' "
+  , "sidebar_label: 'Plutus Merkle tree benchmarks' "
   , "sidebar_position: 3 "
   , "--- "
   , ""

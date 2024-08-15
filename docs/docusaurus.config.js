@@ -47,10 +47,10 @@ const config = {
         blog: {
           path: "adr",
           routeBasePath: "/adr",
-          blogTitle: "Architectural Decision Records",
+          blogTitle: "Architecture Decision Records",
           blogDescription:
             "Lightweight technical documentation for the Hydra node software.",
-          blogSidebarTitle: "Architectural Decision Records",
+          blogSidebarTitle: "Architecture Decision Records",
           blogSidebarCount: "ALL",
           sortPosts: "ascending",
           authorsMapPath: "../authors.yaml",
@@ -164,12 +164,12 @@ const config = {
           {
             to: "/docs",
             label: "User manual",
-            position: "right",
+            position: "left",
           },
           {
             to: "/docs/dev",
             label: "Developer documentation",
-            position: "right",
+            position: "left",
           },
           //commenting out for the time being
           // {
@@ -205,7 +205,7 @@ const config = {
                 to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
               },
               {
-                label: "Architectural decision records",
+                label: "Architecture Decision Records",
                 to: "/adr",
               },
               {
@@ -222,7 +222,7 @@ const config = {
                 href: "https://discord.gg/Qq5vNTg9PT",
               },
               {
-                label: "GitHub",
+                label: "GitHub discussions",
                 href: "https://github.com/cardano-scaling/hydra/discussions",
               },
               {

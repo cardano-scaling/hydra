@@ -123,7 +123,7 @@ combinedHspecFormatter ::
 combinedHspecFormatter suiteName config = do
   junit <- junitFormat junitConfig config
   docSpec <- formatterToFormat specdoc config
-  mdSpec <- markdownFormatter ("Test Results for " <> toString suiteName) "hspec-results.md" config
+  mdSpec <- markdownFormatter ("Test results for " <> toString suiteName) "hspec-results.md" config
   pure $ \e -> junit e >> docSpec e >> mdSpec e
  where
   junitConfig =
