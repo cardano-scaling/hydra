@@ -54,22 +54,27 @@
 /* You can override the default Infima variables here. */
 :root {
   /* Created using https://colordesigner.io/color-scheme-builder */
-  --ifm-color-primary: #6875e8;
-  --ifm-color-primary-dark: #3847c4;
-  --ifm-color-primary-darker: #353b73;
-  --ifm-color-primary-darkest: #222432;
-  --ifm-color-primary-light: #9099e2;
-  --ifm-color-primary-lighter: #b4b8e2;
-  --ifm-color-primary-lightest: #d2d4e6;
-  --ifm-color-primary-extralight: #ebecf0;
+  --ifm-color-primary: #3c9ec8;
+  /* 6 steps to white, first 4 after main */
+  --ifm-color-primary-light: #6eadc8;
+  --ifm-color-primary-lighter: #9bbecd;
+  --ifm-color-primary-lightest: #c2d1d8;
+  --ifm-color-primary-extralight: #e3e7e9;
+  /* 6 steps to black, first 3 after main */
+  --ifm-color-primary-dark: #397b97;
+  --ifm-color-primary-darker: #345868;
+  --ifm-color-primary-darkest: #283940;
 
+  /* Red variant of the triad */
   --ifm-color-secondary: #db68e8;
-  --ifm-color-secondary-dark: #c03fcd;
-  --ifm-color-secondary-darker: #893891;
-  --ifm-color-secondary-darkest: #532f57;
-  --ifm-color-secondary-light: #db90e2;
-  --ifm-color-secondary-lighter: #deb4e2;
-  --ifm-color-secondary-lightest: #e5d2e6;
+  /* 6 steps to white, first 3 after main */
+  --ifm-color-secondary-light: #c86ead;
+  --ifm-color-secondary-lighter: #cd9bbe;
+  --ifm-color-secondary-lightest: #d8c2d1;
+  /* 6 steps to black, first 3 after main */
+  --ifm-color-secondary-dark: #97397b;
+  --ifm-color-secondary-darker: #683458;
+  --ifm-color-secondary-darkest: #402839;
 
   --ifm-code-font-size: 95%;
   --ifm-navbar-height: 56px;
