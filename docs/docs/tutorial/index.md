@@ -31,14 +31,14 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 
 ```shell
 mkdir -p bin
-version=0.18.0
+hydra_version=0.18.0
 mithril_version=2428.0
-node_version=9.1.0
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-x86_64-linux-${version}.zip
-unzip -d bin hydra-x86_64-linux-${version}.zip
-curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-linux.tar.gz
-tar xf cardano-node-${node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
-tar xf cardano-node-${node_version}-linux.tar.gz ./share/preprod --strip-components=3
+cardano_node_version=9.1.0
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
+unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
+tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
+tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-linux-x64.tar.gz \
   | tar xz -C bin mithril-client
 chmod +x bin/*
@@ -49,14 +49,14 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
-version=0.18.0
+hydra_version=0.18.0
 mithril_version=2428.0
-node_version=9.1.0
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${version}/hydra-aarch64-darwin-${version}.zip
-unzip -d bin hydra-aarch64-darwin-${version}.zip
-curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${node_version}/cardano-node-${node_version}-macos.tar.gz
-tar xf cardano-node-${node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-tar xf cardano-node-${node_version}-macos.tar.gz ./share/preprod --strip-components=3
+cardano_node_version=9.1.0
+curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
+unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
+tar xf cardano-node-${cardano_node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
+tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./share/preprod --strip-components=3
 curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-macos-x64.tar.gz \
   | tar xz -C bin
 chmod +x bin/*
@@ -381,13 +381,13 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-version=0.18.0
+hydra_version=0.18.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
   --cardano-signing-key credentials/alice-node.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
@@ -404,13 +404,13 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-version=0.18.0
+hydra_version=0.18.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
   --cardano-signing-key credentials/bob-node.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${version}\"") \
+  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \

@@ -72,7 +72,7 @@ prepare_release() {
   git tag -as "$version" -F <(changelog "$version")
 
   # Make branch release point to tag so that the website is published
-  git checkout --track origin/release
+  git checkout release
   git merge "${version}" --ff-only
 
   git checkout master
@@ -181,7 +181,7 @@ update_api_version() {
 update_tutorial_version() {
   local version="$1"
   local tutorial_file=docs/docs/tutorial/index.md
-  sed -i"" -e "s,\(version=\).*,\1$version," $tutorial_file
+  sed -i"" -e "s,\(hydra_version=\).*,\1$version," $tutorial_file
 }
 
 update_demo_version() {
