@@ -11,7 +11,7 @@ export default function FooterLayout({ style, links, logo, copyright }) {
       className={clsx(
         "laptop:footer",
         isLandingPage
-          ? "bg-primary-dark component laptop:component-xs"
+          ? "bg-primary-darker component laptop:component-xs"
           : "bg-white py-[56px]"
       )}
     >

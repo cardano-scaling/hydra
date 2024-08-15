@@ -53,13 +53,34 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: hsl(184, 75%, 30%);
-  --ifm-color-primary-dark: hsl(184, 75%, 20%);
+  /* Created using https://colordesigner.io/color-scheme-builder */
+  --ifm-color-primary: #6875e8;
+  --ifm-color-primary-dark: #3847c4;
+  --ifm-color-primary-darker: #353b73;
+  --ifm-color-primary-darkest: #222432;
+  --ifm-color-primary-light: #9099e2;
+  --ifm-color-primary-lighter: #b4b8e2;
+  --ifm-color-primary-lightest: #d2d4e6;
+  --ifm-color-primary-extralight: #ebecf0;
+
+  --ifm-color-secondary: #db68e8;
+  --ifm-color-secondary-dark: #c03fcd;
+  --ifm-color-secondary-darker: #893891;
+  --ifm-color-secondary-darkest: #532f57;
+  --ifm-color-secondary-light: #db90e2;
+  --ifm-color-secondary-lighter: #deb4e2;
+  --ifm-color-secondary-lightest: #e5d2e6;
+
   --ifm-code-font-size: 95%;
   --ifm-navbar-height: 56px;
   font-family: "Inter";
   --ifm-color-emphasis-600: #283032;
   --doc-sidebar-hidden-width: 100px !important;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme="dark"] {
+  --ifm-color-primary: var(--ifm-color-primary-light);
 }
 
 @media (min-width: 768px) {
@@ -82,11 +103,6 @@ h6 {
 
 h4 {
   line-height: 30px !important;
-}
-
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
-  --ifm-color-primary: hsl(184, 35%, 60%);
 }
 
 html {
@@ -463,8 +479,8 @@ svg.architecture {
 }
 
 .markdown a {
-  color: #128189;
-  text-decoration-color: #128189;
+  color: var(--ifm-color-primary);
+  text-decoration-color: var(--ifm-color-primary);
 }
 
 .markdown a.card {
