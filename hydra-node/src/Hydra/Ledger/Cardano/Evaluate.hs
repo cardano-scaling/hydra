@@ -294,7 +294,7 @@ maxTxSize = 16384
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
   ExecutionUnits
-    { executionMemory = 15_000_000
+    { executionMemory = 20_000_000
     , executionSteps = 10_000_000_000
     }
 
