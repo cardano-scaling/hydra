@@ -548,6 +548,11 @@ svg.architecture {
   margin: 0 0 var(--ifm-spacing-vertical);
 }
 
+.markdown code,
+.markdown pre {
+  font-size: var(--ifm-code-font-size);
+}
+
 .theme-admonition p {
   margin-bottom: 0.5em;
 }
