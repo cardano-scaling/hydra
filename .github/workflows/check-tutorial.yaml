@@ -31,16 +31,14 @@ jobs:
         import re
         with open("docs/docs/tutorial/index.md", "r") as tutorial:
             body = tutorial.read()
-            usedCardanoNodeVersions = re.findall(r"cardano-node-([0-9]+\.[0-9]+\.[0-9]+)-.*\.tar\.gz", body)
+            usedCardanoNodeVersions = re.findall(r"cardano_node_version=([0-9]+\.[0-9]+\.[0-9]+)", body)
 
         with open("hydra-cluster/test/Test/CardanoNodeSpec.hs", "r") as cardanoNodeSpecFile:
             body = cardanoNodeSpecFile.read()
             expectedCardanoNodeVersion = re.findall(r"supportedCardanoNodeVersion.*([0-9]+\.[0-9]+\.[0-9]+)", body)[0]
 
-        print("Checking used cardano-node version")
-        print(usedCardanoNodeVersions)
-        print(expectedCardanoNodeVersion)
-        if all(v == expectedCardanoNodeVersion for v in usedCardanoNodeVersions):
+        print("Checking used cardano-node versions")
+        if len(usedCardanoNodeVersions) > 0 and all(v == expectedCardanoNodeVersion for v in usedCardanoNodeVersions):
             print("  PASS ✓")
         else:
             print("  FAIL ❌")
@@ -65,9 +63,7 @@ jobs:
         knownMithrilEndpoints = re.findall(r"Aggregator endpoint.*\((http[^\)]*)", preprodSection)
 
         print("Checking mithril aggregator endpoints")
-        print(usedMithrilEndpoints)
-        print(knownMithrilEndpoints)
-        if all(v in set(knownMithrilEndpoints) for v in usedMithrilEndpoints):
+        if len(usedMithrilEndpoints) > 0 and all(v in set(knownMithrilEndpoints) for v in usedMithrilEndpoints):
             print("  PASS ✓")
         else:
             print("  FAIL ❌")
