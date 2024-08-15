@@ -21,7 +21,7 @@ services:
 
   hydra-node-1:
    # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-node:0.18.1
     build:
       context: ../
       target: hydra-node
@@ -56,7 +56,7 @@ services:
 
   hydra-node-2:
     # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-node:0.18.1
     build:
       context: ../
       target: hydra-node
@@ -91,7 +91,7 @@ services:
 
   hydra-node-3:
     # NOTE: Make sure to use the same image in ./seed-devnet.sh
-    image: ghcr.io/cardano-scaling/hydra-node:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-node:0.18.1
     build:
       context: ../
       target: hydra-node
@@ -125,7 +125,7 @@ services:
     restart: always
 
   hydra-tui-1:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-tui:0.18.1
     build:
        context: ../
        target: hydra-tui
@@ -142,7 +142,7 @@ services:
         ipv4_address: 172.16.238.11
 
   hydra-tui-2:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-tui:0.18.1
     build:
        context: ../
        target: hydra-tui
@@ -159,7 +159,7 @@ services:
         ipv4_address: 172.16.238.21
 
   hydra-tui-3:
-    image: ghcr.io/cardano-scaling/hydra-tui:0.18.0
+    image: ghcr.io/cardano-scaling/hydra-tui:0.18.1
     build:
        context: ../
        target: hydra-tui

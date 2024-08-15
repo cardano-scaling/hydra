@@ -31,7 +31,7 @@ After ensuring the tools above are available, begin by downloading pre-built bin
 
 ```shell
 mkdir -p bin
-hydra_version=0.18.0
+hydra_version=0.18.1
 mithril_version=2428.0
 cardano_node_version=9.1.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
@@ -49,7 +49,7 @@ chmod +x bin/*
 
 ```shell
 mkdir -p bin
-hydra_version=0.18.0
+hydra_version=0.18.1
 mithril_version=2428.0
 cardano_node_version=9.1.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
@@ -381,7 +381,7 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra_version=0.18.0
+hydra_version=0.18.1
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
@@ -404,7 +404,7 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra_version=0.18.0
+hydra_version=0.18.1
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
