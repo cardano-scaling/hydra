@@ -53,13 +53,42 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: hsl(184, 75%, 30%);
-  --ifm-color-primary-dark: hsl(184, 75%, 20%);
+  /* The original violet accent we use */
+  --ifm-color-primary: #6875e8;
+  /* Created using https://colordesigner.io/color-scheme-builder */
+  /* 6 steps to white, first 4 after main */
+  --ifm-color-primary-light: #9099e2;
+  --ifm-color-primary-lighter: #b4b8e2;
+  --ifm-color-primary-lightest: #d2d4e6;
+  --ifm-color-primary-extralight: #ebecf0;
+  /* 6 steps to black, first 3 after main */
+  --ifm-color-primary-dark: #3847c4;
+  --ifm-color-primary-darker: #353b73;
+  --ifm-color-primary-darkest: #222432;
+
+  /* Another blue color we like */
+  --ifm-color-secondary: #3c9ec8;
+  /* Created using https://colordesigner.io/color-scheme-builder */
+  /* 6 steps to white, first 4 after main */
+  --ifm-color-secondary-light: #6eadc8;
+  --ifm-color-secondary-lighter: #9bbecd;
+  --ifm-color-secondary-lightest: #c2d1d8;
+  --ifm-color-secondary-extralight: #e3e7e9;
+  /* 6 steps to black, first 3 after main */
+  --ifm-color-secondary-dark: #397b97;
+  --ifm-color-secondary-darker: #345868;
+  --ifm-color-secondary-darkest: #283940;
+
   --ifm-code-font-size: 95%;
   --ifm-navbar-height: 56px;
   font-family: "Inter";
   --ifm-color-emphasis-600: #283032;
   --doc-sidebar-hidden-width: 100px !important;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme="dark"] {
+  --ifm-color-primary: var(--ifm-color-primary-light);
 }
 
 @media (min-width: 768px) {
@@ -82,11 +111,6 @@ h6 {
 
 h4 {
   line-height: 30px !important;
-}
-
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
-  --ifm-color-primary: hsl(184, 35%, 60%);
 }
 
 html {
@@ -463,8 +487,8 @@ svg.architecture {
 }
 
 .markdown a {
-  color: #128189;
-  text-decoration-color: #128189;
+  color: var(--ifm-color-primary);
+  text-decoration-color: var(--ifm-color-primary);
 }
 
 .markdown a.card {
