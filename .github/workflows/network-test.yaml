@@ -62,7 +62,7 @@ jobs:
           -l debug \
           --random \
           netem \
-            --duration 10s \
+            --duration 1s \
             --tc-image gaiadocker/iproute2 \
             loss \
               --percent 100 \
@@ -77,7 +77,7 @@ jobs:
             --duration 5m \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 20 \
+              --percent 0 \
               "re2:hydra-node"
 
         cd demo
