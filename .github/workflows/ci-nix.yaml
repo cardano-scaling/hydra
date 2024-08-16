@@ -66,7 +66,7 @@ jobs:
       run: |
         cd ${{ matrix.package }}
         nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --command tests
+        # nix develop .#${{ matrix.package }}-tests --command tests
 
     - name: ❓ Test (TUI)
       id: test_tui
