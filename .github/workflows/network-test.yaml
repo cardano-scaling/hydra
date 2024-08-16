@@ -2,6 +2,13 @@ name: "Network fault tolerance"
 
 # TODO: make this a pull_request trigger or so
 on:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
   push:
     branches:
     - network-testing
@@ -50,10 +57,11 @@ jobs:
     #
     # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
     #
-    # - name: Setup tmate session
-    #   uses: mxschmitt/action-tmate@v3
-    #   with:
-    #     limit-access-to-actor: true
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+      with:
+        limit-access-to-actor: true
 
     - name: Run pumba and the benchmarks
       run: |
