@@ -94,7 +94,8 @@ jobs:
           --random \
           netem \
             --duration 20m \
-            --target 172.16.238.30/24,172.16.238.20/24 \
+            --target 172.16.238.30 \
+            --target 172.16.238.20 \
             --tc-image gaiadocker/iproute2 \
             loss \
               --percent 100 "re2:hydra-node-1" &
