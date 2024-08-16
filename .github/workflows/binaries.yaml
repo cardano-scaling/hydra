@@ -22,7 +22,6 @@ jobs:
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0
-        fetch-tags: true
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@V27
@@ -67,7 +66,6 @@ jobs:
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0
-        fetch-tags: true
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@V27
