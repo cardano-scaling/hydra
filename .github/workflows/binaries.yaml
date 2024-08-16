@@ -51,7 +51,7 @@ jobs:
   # system dependencies, but all third-party libraries are statically linked.
   build-executables-macos:
     name: "Build aarch64-darwin dynamic executables"
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: macos-latest
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
