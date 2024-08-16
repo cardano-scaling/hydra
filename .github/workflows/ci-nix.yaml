@@ -42,8 +42,7 @@ jobs:
     #   uses: cachix/install-nix-action@V27
       with:
         extra-conf: |
-          allow-import-from-derivation = true
-          # accept-flake-config = true
+          accept-flake-config = true
           log-lines = 1000
 
     # - name: ❄ Setup nix cache
