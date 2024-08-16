@@ -84,6 +84,11 @@ jobs:
             loss \
               --percent 100 "re2:hydra-node"
 
+        # TODO: Could check that pumba is in action here by knowing which peer
+        # it is targetting and then looking at another peers `server-output`
+        # (via docker compose cp hydra-node-1:/server-output .) and checking
+        # for `PeerDisconnected` event.
+
         nix run github:noonio/pumba/noon/add-flake \
           -- -l debug \
           --random \
