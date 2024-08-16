@@ -67,6 +67,23 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         sleep 5
+
+        # TODO: a lot of these parameters could come from workflow arguments!
+        # Maybe we have good defaults, but then allow people to play around.
+        #  - percent
+        #  - scaling-factor
+        #  - ...
+        #
+        # HACK: Running it twice :(
+        nix run github:noonio/pumba/noon/add-flake \
+          -- -l debug \
+          --random \
+          netem \
+            --duration 10s \
+            --tc-image gaiadocker/iproute2 \
+            loss \
+              --percent 100 "re2:hydra-node"
+
         nix run github:noonio/pumba/noon/add-flake \
           -- -l debug \
           --random \
