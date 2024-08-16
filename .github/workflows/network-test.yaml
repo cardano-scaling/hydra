@@ -49,6 +49,7 @@ jobs:
     - name: Build required nix derivations
       run: |
         nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
+        nix build github:noonio/pumba/noon/add-flake
         docker pull gaiadocker/iproute2
 
     # Use tmate to get a shell onto the runner to do some temporary hacking
@@ -59,35 +60,20 @@ jobs:
     #
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
-      # if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
       with:
         limit-access-to-actor: true
 
     - name: Run pumba and the benchmarks
       run: |
-        docker run --rm  \
-         -v /var/run/docker.sock:/var/run/docker.sock \
-          gaiaadm/pumba \
-          -l debug \
+        nix run github:noonio/pumba/noon/add-flake \
+          -- -l debug \
           --random \
           netem \
-            --duration 5s \
+            --duration 20m \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 100 \
-              "re2:hydra-node"
-
-        docker run -d --rm  \
-         -v /var/run/docker.sock:/var/run/docker.sock \
-          gaiaadm/pumba \
-          -l debug \
-          --random \
-          netem \
-            --duration 5m \
-            --tc-image gaiadocker/iproute2 \
-            loss \
-              --percent 5 \
-              "re2:hydra-node"
+              --percent 100 "re2:hydra-node" &
 
         cd demo
         # TODO: make this a flake output / easier accesible
