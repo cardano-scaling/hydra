@@ -10,8 +10,6 @@ import Hydra.Prelude hiding (Map)
 
 import Hydra.Plutus.Extras.Time
 
-import PlutusTx.Prelude (traceIfFalse)
-import PlutusLedgerApi.V1.Value (isZero)
 import Cardano.Api (
   PlutusScriptVersion,
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -20,32 +18,16 @@ import Cardano.Api (
  )
 import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
-import PlutusLedgerApi.V3
-    ( ScriptHash(..),
-      ScriptInfo(..),
-      getRedeemer,
-      Datum(..),
-      Address(..),
-      Credential(..),
-      CurrencySymbol,
-      Datum,
-      Map,
-      OutputDatum,
-      PubKeyHash,
-      Redeemer,
-      DatumHash,
-      OutputDatum,
-      ScriptHash,
-      TxOut(..),
-      TxInInfo,
-      TxOutRef,
-      Value )
-import PlutusTx
-    ( BuiltinData, UnsafeFromData(..), makeIsDataIndexed )
-import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
-import PlutusTx.AssocMap (lookup)
+import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V2 (POSIXTimeRange)
-import PlutusLedgerApi.V3 (Interval)
+import PlutusLedgerApi.V3 (Address (..), Credential (..), CurrencySymbol, Datum (..), DatumHash, Interval, Map, OutputDatum, PubKeyHash, Redeemer, ScriptHash (..), ScriptInfo (..), TxInInfo, TxOut (..), TxOutRef, Value, getRedeemer)
+import PlutusTx (
+  BuiltinData,
+  UnsafeFromData (..),
+  makeIsDataIndexed,
+ )
+import PlutusTx.AssocMap (lookup)
+import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin, traceIfFalse)
 
 -- * Tx info
 
@@ -106,14 +88,16 @@ wrapValidator ::
   (UnsafeFromData datum, UnsafeFromData redeemer) =>
   (datum -> redeemer -> ScriptContext -> Bool) ->
   ValidatorType
-wrapValidator f c = let
-  context = unsafeFromBuiltinData c
-  in check $ case scriptContextScriptInfo context of
-       SpendingScript _ (Just d) ->
-         let datum = unsafeFromBuiltinData $ getDatum d
-             redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
+wrapValidator f c =
+  let
+    context = unsafeFromBuiltinData c
+   in
+    check $ case scriptContextScriptInfo context of
+      SpendingScript _ (Just d) ->
+        let datum = unsafeFromBuiltinData $ getDatum d
+            redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
          in f datum redeemer context
-       _ -> False
+      _ -> False
 {-# INLINEABLE wrapValidator #-}
 
 -- | Signature of an untyped minting policy script.
@@ -122,16 +106,18 @@ type MintingPolicyType = BuiltinData -> BuiltinUnit
 -- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.
 wrapMintingPolicy ::
-  (UnsafeFromData redeemer) =>
+  UnsafeFromData redeemer =>
   (redeemer -> ScriptContext -> Bool) ->
   MintingPolicyType
-wrapMintingPolicy f c = let
-  context = unsafeFromBuiltinData c
-  in check $ case scriptContextScriptInfo context of
-     MintingScript _ ->
-       let redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
-       in f redeemer context
-     _ -> False
+wrapMintingPolicy f c =
+  let
+    context = unsafeFromBuiltinData c
+   in
+    check $ case scriptContextScriptInfo context of
+      MintingScript _ ->
+        let redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
+         in f redeemer context
+      _ -> False
 {-# INLINEABLE wrapMintingPolicy #-}
 
 -- * Similar utilities as plutus-ledger
@@ -149,6 +135,6 @@ scriptValidatorHash version =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-    traceIfFalse "U01" $
-      isZero txInfoMint
+  traceIfFalse "U01" $
+    isZero txInfoMint
 {-# INLINEABLE mustNotMintOrBurn #-}

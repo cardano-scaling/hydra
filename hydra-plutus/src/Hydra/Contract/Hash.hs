@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 import Hydra.Prelude qualified as Haskell
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator, ScriptContext)
+import Hydra.Plutus.Extras (ScriptContext, ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V3 (
   Datum (Datum),

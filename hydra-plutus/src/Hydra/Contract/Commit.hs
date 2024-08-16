@@ -19,7 +19,7 @@ import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ScriptContext (..), TxInfo (..), ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
@@ -30,7 +30,6 @@ import PlutusLedgerApi.V3 (
   serialiseCompiledCode,
   txOutValue,
  )
-import Hydra.Plutus.Extras ( ScriptContext(..), TxInfo(..))
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import PlutusTx qualified
 import Prelude qualified as Haskell

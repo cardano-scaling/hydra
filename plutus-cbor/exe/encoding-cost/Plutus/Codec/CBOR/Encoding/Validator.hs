@@ -24,15 +24,15 @@ import PlutusLedgerApi.V3 (
   Credential (..),
   CurrencySymbol (..),
   DatumHash (..),
+  OutputDatum,
   PubKeyHash (..),
   ScriptHash (..),
   TokenName (..),
   TxOut (..),
-  Value (..), OutputDatum,
+  Value (..),
  )
 
-
-import Hydra.Plutus.Extras (wrapValidator, ScriptContext)
+import Hydra.Plutus.Extras (ScriptContext, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusTx qualified as Plutus
 

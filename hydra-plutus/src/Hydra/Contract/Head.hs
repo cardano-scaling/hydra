@@ -1,5 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
@@ -9,51 +9,80 @@
 
 module Hydra.Contract.Head where
 
-import           PlutusTx.Prelude
+import PlutusTx.Prelude
 
-import           Hydra.Cardano.Api             (PlutusScriptVersion (PlutusScriptV3))
-import           Hydra.Contract.Commit         (Commit (..))
-import qualified Hydra.Contract.Commit         as Commit
-import           Hydra.Contract.HeadError      (HeadError (..), errorCode)
-import           Hydra.Contract.HeadState      (CloseRedeemer (..),
-                                                ClosedDatum (..),
-                                                ContestRedeemer (..),
-                                                DecrementRedeemer (..), Hash,
-                                                Input (..), OpenDatum (..),
-                                                Signature, SnapshotNumber,
-                                                SnapshotVersion, State (..))
-import           Hydra.Contract.Util           (hasST, mustBurnAllHeadTokens,
-                                                mustNotMintOrBurn, (===))
-import           Hydra.Data.ContestationPeriod (ContestationPeriod,
-                                                addContestationPeriod,
-                                                milliseconds)
-import           Hydra.Data.Party              (Party (vkey))
-import           Hydra.Plutus.Extras           (ValidatorType,
-                                                scriptValidatorHash)
-import           PlutusLedgerApi.Common        (SerialisedScript,
-                                                serialiseCompiledCode, UnsafeFromData(..))
-import           PlutusLedgerApi.V1.Time       (fromMilliSeconds)
-import           PlutusLedgerApi.V1.Value      (lovelaceValue, valueOf)
-import           PlutusLedgerApi.V3            (Address, CurrencySymbol,
-                                                Datum (..), Extended (Finite),
-                                                FromData (fromBuiltinData),
-                                                getRedeemer,
-                                                Interval (..),
-                                                LowerBound (LowerBound),
-                                                OutputDatum (..), POSIXTime,
-                                                PubKeyHash (getPubKeyHash),
-                                                ScriptContext (..), ScriptHash,
-                                                ToData (toBuiltinData),
-                                                TokenName (..), TxInInfo (..),
-                                                TxInfo (..), TxOut (..),
-                                                TxOutRef (..), UpperBound (..),
-                                                Value (Value), adaSymbol,
-                                                adaToken, getLovelace, ScriptInfo (..))
-import           PlutusLedgerApi.V3.Contexts   (findOwnInput)
-import           PlutusTx                      (CompiledCode)
-import qualified PlutusTx
-import qualified PlutusTx.AssocMap             as AssocMap
-import qualified PlutusTx.Builtins             as Builtins
+import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
+import Hydra.Contract.Commit (Commit (..))
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Contract.HeadState (
+  CloseRedeemer (..),
+  ClosedDatum (..),
+  ContestRedeemer (..),
+  DecrementRedeemer (..),
+  Hash,
+  Input (..),
+  OpenDatum (..),
+  Signature,
+  SnapshotNumber,
+  SnapshotVersion,
+  State (..),
+ )
+import Hydra.Contract.Util (
+  hasST,
+  mustBurnAllHeadTokens,
+  mustNotMintOrBurn,
+  (===),
+ )
+import Hydra.Data.ContestationPeriod (
+  ContestationPeriod,
+  addContestationPeriod,
+  milliseconds,
+ )
+import Hydra.Data.Party (Party (vkey))
+import Hydra.Plutus.Extras (
+  ValidatorType,
+  scriptValidatorHash,
+ )
+import PlutusLedgerApi.Common (
+  SerialisedScript,
+  UnsafeFromData (..),
+  serialiseCompiledCode,
+ )
+import PlutusLedgerApi.V1.Time (fromMilliSeconds)
+import PlutusLedgerApi.V1.Value (lovelaceValue, valueOf)
+import PlutusLedgerApi.V3 (
+  Address,
+  CurrencySymbol,
+  Datum (..),
+  Extended (Finite),
+  FromData (fromBuiltinData),
+  Interval (..),
+  LowerBound (LowerBound),
+  OutputDatum (..),
+  POSIXTime,
+  PubKeyHash (getPubKeyHash),
+  ScriptContext (..),
+  ScriptHash,
+  ScriptInfo (..),
+  ToData (toBuiltinData),
+  TokenName (..),
+  TxInInfo (..),
+  TxInfo (..),
+  TxOut (..),
+  TxOutRef (..),
+  UpperBound (..),
+  Value (Value),
+  adaSymbol,
+  adaToken,
+  getLovelace,
+  getRedeemer,
+ )
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
+import PlutusTx (CompiledCode)
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Builtins qualified as Builtins
 
 type DatumType = State
 type RedeemerType = Input
@@ -191,7 +220,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
     case txInfoOutputs txInfo of
       -- NOTE: First output must be head output
       (_ : rest) -> foldMap txOutValue rest
-      _          -> mempty
+      _ -> mempty
 
   -- NOTE: We do keep track of the value we do not want to collect as this is
   -- typically less, ideally only a single other input with only ADA in it.
@@ -364,11 +393,11 @@ checkClose ctx openBefore redeemer =
 
   tMax = case ivTo $ txInfoValidRange txInfo of
     UpperBound (Finite t) _ -> t
-    _InfiniteBound          -> traceError $(errorCode InfiniteUpperBound)
+    _InfiniteBound -> traceError $(errorCode InfiniteUpperBound)
 
   tMin = case ivFrom $ txInfoValidRange txInfo of
     LowerBound (Finite t) _ -> t
-    _InfiniteBound          -> traceError $(errorCode InfiniteLowerBound)
+    _InfiniteBound -> traceError $(errorCode InfiniteLowerBound)
 
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
@@ -477,7 +506,7 @@ checkContest ctx closedDatum redeemer =
   contester =
     case txInfoSignatories txInfo of
       [signer] -> signer
-      _        -> traceError $(errorCode WrongNumberOfSigners)
+      _ -> traceError $(errorCode WrongNumberOfSigners)
 
   checkSignedParticipantContestOnlyOnce =
     traceIfFalse $(errorCode SignerAlreadyContested) $
@@ -509,7 +538,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
   hasSameUTxOToDecommitHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       case deltaUTxOHash of
-        Nothing   -> numberOfDecommitOutputs == 0
+        Nothing -> numberOfDecommitOutputs == 0
         Just hash -> hash == decommitUtxoHash
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
@@ -554,7 +583,7 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
 getHeadInput :: ScriptContext -> TxInInfo
 getHeadInput ctx = case findOwnInput ctx of
   Nothing -> traceError $(errorCode ScriptNotSpendingAHeadInput)
-  Just x  -> x
+  Just x -> x
 {-# INLINEABLE getHeadInput #-}
 
 getHeadAddress :: ScriptContext -> Address
@@ -619,9 +648,9 @@ headOutputDatum ctx =
 getTxOutDatum :: TxOut -> Datum
 getTxOutDatum o =
   case txOutDatum o of
-    NoOutputDatum       -> traceError $(errorCode NoOutputDatumError)
+    NoOutputDatum -> traceError $(errorCode NoOutputDatumError)
     OutputDatumHash _dh -> traceError $(errorCode UnexpectedNonInlineDatum)
-    OutputDatum d       -> d
+    OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
@@ -683,7 +712,7 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToD
 compareRef :: TxOutRef -> TxOutRef -> Ordering
 TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
   case compare txOutRefId id' of
-    EQ  -> compare txOutRefIdx idx'
+    EQ -> compare txOutRefIdx idx'
     ord -> ord
 {-# INLINEABLE compareRef #-}
 
@@ -693,14 +722,16 @@ wrapValidator ::
   (UnsafeFromData datum, UnsafeFromData redeemer) =>
   (datum -> redeemer -> ScriptContext -> Bool) ->
   ValidatorType
-wrapValidator f c = let
-  context = unsafeFromBuiltinData c
-  in check $ case scriptContextScriptInfo context of
-       SpendingScript _ (Just d) ->
-         let datum = unsafeFromBuiltinData $ getDatum d
-             redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
+wrapValidator f c =
+  let
+    context = unsafeFromBuiltinData c
+   in
+    check $ case scriptContextScriptInfo context of
+      SpendingScript _ (Just d) ->
+        let datum = unsafeFromBuiltinData $ getDatum d
+            redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
          in f datum redeemer context
-       _ -> False
+      _ -> False
 {-# INLINEABLE wrapValidator #-}
 
 compiledValidator :: CompiledCode ValidatorType
@@ -720,7 +751,7 @@ decodeHeadOutputClosedDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
     Just (Closed closedDatum) -> closedDatum
-    _                         -> traceError $(errorCode WrongStateInOutputDatum)
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputClosedDatum #-}
 
 decodeHeadOutputOpenDatum :: ScriptContext -> OpenDatum
@@ -728,5 +759,5 @@ decodeHeadOutputOpenDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
   case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
     Just (Open openDatum) -> openDatum
-    _                     -> traceError $(errorCode WrongStateInOutputDatum)
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
