@@ -37,16 +37,18 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - name: 🕵 Determine version
+      run: |
+        # NOTE: For some reason the fetched tags on checkout are not effective
+        # and we need to refetch with --force for git describe.
+        git fetch --tags --force
+        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+
     - name: ❄ Build static executables
       run: |
         nix build .#release-static
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
         unzip result/*.zip -d out
-        # FIXME: this does not correctly git describe
-        git describe --always ${{ github.ref }}
-        git fetch --tags --force
-        git describe --always ${{ github.ref }}
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v4
@@ -80,13 +82,18 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - name: 🕵 Determine version
+      run: |
+        # NOTE: For some reason the fetched tags on checkout are not effective
+        # and we need to refetch with --force for git describe.
+        git fetch --tags --force
+        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+
     - name: ❄ Build executables
       run: |
         nix build .#release
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
         unzip result/*.zip -d out
-        # FIXME: this does not correctly git describe
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
 
     - name: 💾 Upload executables
       uses: actions/upload-artifact@v4
