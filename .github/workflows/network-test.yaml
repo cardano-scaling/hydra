@@ -66,6 +66,7 @@ jobs:
 
     - name: Run pumba and the benchmarks
       run: |
+        sleep 5
         nix run github:noonio/pumba/noon/add-flake \
           -- -l debug \
           --random \
