@@ -36,18 +36,26 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+    # - name: ❄ Install nix
+    - uses: DeterminateSystems/nix-installer-action@main
+    #   uses: cachix/install-nix-action@V27
+    #   with:
+    #     extra_nix_config: |
+    #       accept-flake-config = true
+    #       log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
+    # - name: ❄ Setup nix cache
+    - uses: DeterminateSystems/magic-nix-cache-action@main
       with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        diagnostic-endpoint: ""
+        diff-store: true
+        # upstream-cache: "https://cardano-scaling.cachix.org"
+
+    # TODO: ensure results are pushed into cachix
+    #   uses: cachix/cachix-action@v15
+    #   with:
+    #     name: cardano-scaling
+    #     authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -87,258 +95,258 @@ jobs:
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
 
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v4
-      with:
-       pattern: test-results-*
-       merge-multiple: true
+  # publish-test-results:
+  #   name: Publish test results
+  #   needs: [build-test]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Download test results
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #      pattern: test-results-*
+  #      merge-multiple: true
 
-    - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      with:
-        junit_files: ./**/test-results.xml
+  #   - name: ✏ Publish test results to PR
+  #     uses: EnricoMi/publish-unit-test-result-action@v2
+  #     with:
+  #       junit_files: ./**/test-results.xml
 
-  haddock:
-    name: "Build haddock using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+  # haddock:
+  #   name: "Build haddock using nix"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+  #   - name: ❄ Prepare nix
+  #     uses: cachix/install-nix-action@V27
+  #     with:
+  #       extra_nix_config: |
+  #         accept-flake-config = true
+  #         log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+  #   - name: ❄ Cachix cache of nix derivations
+  #     uses: cachix/cachix-action@v15
+  #     with:
+  #       name: cardano-scaling
+  #       authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 📚 Documentation (Haddock)
-      run: |
-        nix build .#haddocks
-        mkdir -p haddocks
-        cp -aL result/* haddocks/
+  #   - name: 📚 Documentation (Haddock)
+  #     run: |
+  #       nix build .#haddocks
+  #       mkdir -p haddocks
+  #       cp -aL result/* haddocks/
 
-    - name: 💾 Upload haddock artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: haddocks
-        path: haddocks
+  #   - name: 💾 Upload haddock artifact
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: haddocks
+  #       path: haddocks
 
-  benchmarks:
-    name: "Benchmarks"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: hydra-node
-            bench: tx-cost
-            options: '--output-directory $(pwd)/../benchmarks'
-          - package: hydra-node
-            bench: micro
-            options: '-o $(pwd)/../benchmarks/ledger-bench.html'
-          - package: hydra-cluster
-            bench: bench-e2e
-            options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
-          - package: plutus-merkle-tree
-            bench: on-chain-cost
-            options: '$(pwd)/../benchmarks'
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+  # benchmarks:
+  #   name: "Benchmarks"
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - package: hydra-node
+  #           bench: tx-cost
+  #           options: '--output-directory $(pwd)/../benchmarks'
+  #         - package: hydra-node
+  #           bench: micro
+  #           options: '-o $(pwd)/../benchmarks/ledger-bench.html'
+  #         - package: hydra-cluster
+  #           bench: bench-e2e
+  #           options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
+  #         - package: plutus-merkle-tree
+  #           bench: on-chain-cost
+  #           options: '$(pwd)/../benchmarks'
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+  #   - name: ❄ Prepare nix
+  #     uses: cachix/install-nix-action@V27
+  #     with:
+  #       extra_nix_config: |
+  #         accept-flake-config = true
+  #         log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+  #   - name: ❄ Cachix cache of nix derivations
+  #     uses: cachix/cachix-action@v15
+  #     with:
+  #       name: cardano-scaling
+  #       authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 📈 Benchmark
-      run: |
-        mkdir -p benchmarks
-        cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-bench
-        nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
+  #   - name: 📈 Benchmark
+  #     run: |
+  #       mkdir -p benchmarks
+  #       cd ${{ matrix.package }}
+  #       nix build .#${{ matrix.package }}-bench
+  #       nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
-    - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmarks-${{matrix.package}}-${{matrix.bench}}
-        path: benchmarks
+  #   - name: 💾 Upload build & test artifacts
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: benchmarks-${{matrix.package}}-${{matrix.bench}}
+  #       path: benchmarks
 
-    # NOTE: This depends on the path used in hydra-cluster bench
-    - name: 💾 Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-cluster-bench-logs
-        path: /tmp/nix-shell.*/bench-*/**/*.log
-        if-no-files-found: ignore
+  #   # NOTE: This depends on the path used in hydra-cluster bench
+  #   - name: 💾 Upload logs
+  #     if: always()
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: hydra-cluster-bench-logs
+  #       path: /tmp/nix-shell.*/bench-*/**/*.log
+  #       if-no-files-found: ignore
 
-  publish-benchmark-results:
-    name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    # TODO: this is actually only requires the tx-cost benchmark results
-    needs: [benchmarks]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v4
-      with:
-        path: artifact
-        pattern: benchmarks-*
-        merge-multiple: true
+  # publish-benchmark-results:
+  #   name: Publish benchmark results
+  #   if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+  #   # TODO: this is actually only requires the tx-cost benchmark results
+  #   needs: [benchmarks]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Download generated documentation
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       path: artifact
+  #       pattern: benchmarks-*
+  #       merge-multiple: true
 
-    - name: ⚙ Prepare comment body
-      id: comment-body
-      run: |
-        # Drop first 5 header lines and demote headlines one level
-        cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
+  #   - name: ⚙ Prepare comment body
+  #     id: comment-body
+  #     run: |
+  #       # Drop first 5 header lines and demote headlines one level
+  #       cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
 
-    - name: 🔎 Find Comment
-      uses: peter-evans/find-comment@v3
-      id: find-comment
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: Transaction costs
+  #   - name: 🔎 Find Comment
+  #     uses: peter-evans/find-comment@v3
+  #     id: find-comment
+  #     with:
+  #       issue-number: ${{ github.event.pull_request.number }}
+  #       comment-author: 'github-actions[bot]'
+  #       body-includes: Transaction costs
 
-    - name: ✏ Create or update comment
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        comment-id: ${{ steps.find-comment.outputs.comment-id }}
-        edit-mode: replace
-        issue-number: ${{ github.event.pull_request.number }}
-        body-file: comment-body.md
-        reactions: rocket
+  #   - name: ✏ Create or update comment
+  #     uses: peter-evans/create-or-update-comment@v4
+  #     with:
+  #       comment-id: ${{ steps.find-comment.outputs.comment-id }}
+  #       edit-mode: replace
+  #       issue-number: ${{ github.event.pull_request.number }}
+  #       body-file: comment-body.md
+  #       reactions: rocket
 
-  nix-flake-check:
-    name: "nix flake check"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+  # nix-flake-check:
+  #   name: "nix flake check"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+  #   - name: ❄ Prepare nix
+  #     uses: cachix/install-nix-action@V27
+  #     with:
+  #       extra_nix_config: |
+  #         accept-flake-config = true
+  #         log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+  #   - name: ❄ Cachix cache of nix derivations
+  #     uses: cachix/cachix-action@v15
+  #     with:
+  #       name: cardano-scaling
+  #       authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: ❄ Nix Flake Check
-      run: |
-        nix flake check -L
+  #   - name: ❄ Nix Flake Check
+  #     run: |
+  #       nix flake check -L
 
 
-  build-specification:
-    name: "Build specification using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+  # build-specification:
+  #   name: "Build specification using nix"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+  #   - name: ❄ Prepare nix
+  #     uses: cachix/install-nix-action@V27
+  #     with:
+  #       extra_nix_config: |
+  #         accept-flake-config = true
+  #         log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+  #   - name: ❄ Cachix cache of nix derivations
+  #     uses: cachix/cachix-action@v15
+  #     with:
+  #       name: cardano-scaling
+  #       authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: ❄ Build specification PDF
-      run: |
-        nix build .#spec && cp result/*.pdf .
+  #   - name: ❄ Build specification PDF
+  #     run: |
+  #       nix build .#spec && cp result/*.pdf .
 
-    - name: 💾 Upload specification
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-spec
-        path: |
-          ./*.pdf
+  #   - name: 💾 Upload specification
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: hydra-spec
+  #       path: |
+  #         ./*.pdf
 
-  documentation:
-    name: Documentation
-    needs: [haddock,benchmarks,build-test,build-specification]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-      with:
-        # For the cardanonical json schemas
-        submodules: true
-        # Ensure we have all history with all commits
-        fetch-depth: 0
+  # documentation:
+  #   name: Documentation
+  #   needs: [haddock,benchmarks,build-test,build-specification]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: 📥 Checkout repository
+  #     uses: actions/checkout@v4
+  #     with:
+  #       # For the cardanonical json schemas
+  #       submodules: true
+  #       # Ensure we have all history with all commits
+  #       fetch-depth: 0
 
-    - name: 🚧 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 16
-        cache: 'yarn'
-        cache-dependency-path: docs/yarn.lock
+  #   - name: 🚧 Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: 16
+  #       cache: 'yarn'
+  #       cache-dependency-path: docs/yarn.lock
 
-    - name: ❓ Test API reference
-      working-directory: docs
-      run: |
-        yarn
-        yarn validate
+  #   - name: ❓ Test API reference
+  #     working-directory: docs
+  #     run: |
+  #       yarn
+  #       yarn validate
 
-    - name: 📥 Download benchmark results
-      uses: actions/download-artifact@v4
-      with:
-        path: docs/benchmarks
-        pattern: benchmarks-*
-        merge-multiple: true
+  #   - name: 📥 Download benchmark results
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       path: docs/benchmarks
+  #       pattern: benchmarks-*
+  #       merge-multiple: true
 
-    - name: 📥 Download haddock documentation
-      uses: actions/download-artifact@v4
-      with:
-        name: haddocks
-        path: docs/static/haddock
+  #   - name: 📥 Download haddock documentation
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: haddocks
+  #       path: docs/static/haddock
 
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v4
-      with:
-        pattern: test-results-*
-        merge-multiple: true
-        path: docs/benchmarks/tests
+  #   - name: 📥 Download test results
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       pattern: test-results-*
+  #       merge-multiple: true
+  #       path: docs/benchmarks/tests
 
-    - name: 📥 Download specification PDF
-      uses: actions/download-artifact@v4
-      with:
-        name: hydra-spec
-        path: docs/static/
+  #   - name: 📥 Download specification PDF
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: hydra-spec
+  #       path: docs/static/
 
-    - name: 📚 Documentation sanity check
-      working-directory: docs
-      run: |
-        yarn
-        yarn build-dev
+  #   - name: 📚 Documentation sanity check
+  #     working-directory: docs
+  #     run: |
+  #       yarn
+  #       yarn build-dev
