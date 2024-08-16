@@ -4,9 +4,11 @@ name: Binaries
 on:
   push:
     branches:
-    - "**"
+    - main
+    - release
     tags:
     - "*.*.*"
+  pull_request:
 
 jobs:
   # Produces static ELF binary for using MuslC which includes all needed
@@ -34,11 +36,17 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - name: 🕵 Determine version
+      run: |
+        # NOTE: For some reason the fetched tags on checkout are not effective
+        # and we need to refetch with --force for git describe.
+        git fetch --tags --force
+        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+
     - name: ❄ Build static executables
       run: |
         nix build .#release-static
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
@@ -72,11 +80,17 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    - name: 🕵 Determine version
+      run: |
+        # NOTE: For some reason the fetched tags on checkout are not effective
+        # and we need to refetch with --force for git describe.
+        git fetch --tags --force
+        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+
     - name: ❄ Build executables
       run: |
         nix build .#release
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
