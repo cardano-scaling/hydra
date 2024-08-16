@@ -39,27 +39,26 @@ jobs:
 
     # - name: ❄ Install nix
     - uses: DeterminateSystems/nix-installer-action@main
-    #   uses: cachix/install-nix-action@V27
+    # - uses: cachix/install-nix-action@V27
       with:
         extra-conf: |
           accept-flake-config = true
           log-lines = 1000
 
     # - name: ❄ Setup nix cache
-    - uses: DeterminateSystems/magic-nix-cache-action@main
-      with:
-        diagnostic-endpoint: ""
-        diff-store: true
+    # - uses: DeterminateSystems/magic-nix-cache-action@main
+    #   with:
+    #     diagnostic-endpoint: ""
+    #     diff-store: true
         # upstream-cache: "https://cardano-scaling.cachix.org"
+
+    - uses: cachix/cachix-action@v15
+      with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - run: |
         cat ~/.config/nix/nix.conf
-
-    # TODO: ensure results are pushed into cachix
-    #   uses: cachix/cachix-action@v15
-    #   with:
-    #     name: cardano-scaling
-    #     authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
