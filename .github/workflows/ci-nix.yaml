@@ -52,6 +52,9 @@ jobs:
         diff-store: true
         # upstream-cache: "https://cardano-scaling.cachix.org"
 
+    - run: |
+        cat ~/.config/nix/nix.conf
+
     # TODO: ensure results are pushed into cachix
     #   uses: cachix/cachix-action@v15
     #   with:
