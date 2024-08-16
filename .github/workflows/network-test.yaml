@@ -98,7 +98,7 @@ jobs:
             --target 172.16.238.20 \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 3 "re2:hydra-node-1" &
+              --percent 4 "re2:hydra-node-1" &
 
         cd demo
         # TODO: make this a flake output / easier accesible
