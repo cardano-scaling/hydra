@@ -30,5 +30,5 @@ while true; do
         break
     fi
 
-    sleep 1
+    sleep 5
 done

@@ -77,26 +77,24 @@ jobs:
           --random \
           netem \
             --duration 20m \
-            --target 172.16.238.30 \
             --target 172.16.238.20 \
+            --target 172.16.238.30 \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 4 "re2:hydra-node-1" &
+              --percent 75 "re2:hydra-node-1" &
 
         .github/workflows/network/watch_logs.sh
 
-        cd demo
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=$(pwd)/benchmarks \
-          --scaling-factor=100 \
+          --scaling-factor=1 \
           --timeout=1000s \
-          --node-socket=devnet/node.socket \
+          --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \
           --hydra-client=localhost:4002 \
           --hydra-client=localhost:4003
-
 
           # TODO: this is maybe rather what we want as this can likely re-use much more code underneath
           # datasets datasets/3-nodes.json --timeout 1000s \
@@ -104,7 +102,6 @@ jobs:
           # --hydra-client=localhost:4001 \
           # --hydra-client=localhost:4002 \
           # --hydra-client=localhost:4003
-
 
     - name: Acquire logs
       if: always()

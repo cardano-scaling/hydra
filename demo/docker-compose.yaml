@@ -48,6 +48,7 @@ services:
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
+      , "--persistence-dir", "/devnet/persistence/alice"
       ]
     networks:
       hydra_net:
@@ -83,6 +84,7 @@ services:
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
+      , "--persistence-dir", "/devnet/persistence/bob"
       ]
     networks:
       hydra_net:
@@ -118,6 +120,7 @@ services:
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
+      , "--persistence-dir", "/devnet/persistence/carol"
       ]
     networks:
       hydra_net:
@@ -187,7 +190,6 @@ services:
     networks:
       hydra_net:
         ipv4_address: 172.16.238.5
-
 
 networks:
   hydra_net:
