@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.18.2
+version:       0.18.1
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
