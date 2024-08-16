@@ -16,14 +16,12 @@ import Plutus.Codec.CBOR.Encoding (
   encodeList,
   encodeListLen,
   encodeMap,
-  encodeMaybe,
   encodingToBuiltinByteString,
  )
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol (..),
-  DatumHash (..),
   OutputDatum,
   PubKeyHash (..),
   ScriptHash (..),
@@ -153,6 +151,6 @@ encodeValue =
 {-# INLINEABLE encodeValue #-}
 
 encodeDatum :: OutputDatum -> Encoding
-encodeDatum o =
+encodeDatum _ =
   encodeByteString ""
 {-# INLINEABLE encodeDatum #-}

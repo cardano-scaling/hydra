@@ -20,13 +20,12 @@ import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V2 (POSIXTimeRange)
-import PlutusLedgerApi.V3 (Address (..), Credential (..), CurrencySymbol, Datum (..), DatumHash, Interval, Map, OutputDatum, PubKeyHash, Redeemer, ScriptHash (..), ScriptInfo (..), TxInInfo, TxOut (..), TxOutRef, Value, getRedeemer)
+import PlutusLedgerApi.V3 (Datum (..), DatumHash, Interval, Map, PubKeyHash, Redeemer, ScriptHash (..), ScriptInfo (..), TxInInfo, TxOut (..), Value, getRedeemer)
 import PlutusTx (
   BuiltinData,
   UnsafeFromData (..),
   makeIsDataIndexed,
  )
-import PlutusTx.AssocMap (lookup)
 import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin, traceIfFalse)
 
 -- * Tx info
