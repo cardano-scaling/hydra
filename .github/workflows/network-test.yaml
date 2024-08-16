@@ -80,9 +80,10 @@ jobs:
           --random \
           netem \
             --duration 10s \
+            --target 172.16.238.30,172.16.238.20 \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 100 "re2:hydra-node"
+              --percent 100 "re2:hydra-node-1"
 
         # TODO: Could check that pumba is in action here by knowing which peer
         # it is targetting and then looking at another peers `server-output`
@@ -94,9 +95,10 @@ jobs:
           --random \
           netem \
             --duration 20m \
+            --target 172.16.238.30,172.16.238.20 \
             --tc-image gaiadocker/iproute2 \
             loss \
-              --percent 100 "re2:hydra-node" &
+              --percent 100 "re2:hydra-node-1" &
 
         cd demo
         # TODO: make this a flake output / easier accesible
