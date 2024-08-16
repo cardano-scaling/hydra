@@ -66,29 +66,12 @@ jobs:
 
     - name: Run pumba and the benchmarks
       run: |
-        sleep 5
-
         # TODO: a lot of these parameters could come from workflow arguments!
         # Maybe we have good defaults, but then allow people to play around.
         #  - percent
         #  - scaling-factor
         #  - ...
         #
-        # HACK: Running it twice :(
-        nix run github:noonio/pumba/noon/add-flake \
-          -- -l debug \
-          --random \
-          netem \
-            --duration 10s \
-            --tc-image gaiadocker/iproute2 \
-            loss \
-              --percent 100 "re2:hydra-node-1"
-
-        # TODO: Could check that pumba is in action here by knowing which peer
-        # it is targetting and then looking at another peers `server-output`
-        # (via docker compose cp hydra-node-1:/server-output .) and checking
-        # for `PeerDisconnected` event.
-
         nix run github:noonio/pumba/noon/add-flake \
           -- -l debug \
           --random \
@@ -99,6 +82,8 @@ jobs:
             --tc-image gaiadocker/iproute2 \
             loss \
               --percent 4 "re2:hydra-node-1" &
+
+        .github/workflows/network/watch_logs.sh
 
         cd demo
         # TODO: make this a flake output / easier accesible
