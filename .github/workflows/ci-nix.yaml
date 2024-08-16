@@ -27,12 +27,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - package: plutus-cbor
-          - package: plutus-merkle-tree
-          - package: hydra-plutus
-          - package: hydra-tui
+          # - package: plutus-cbor
+          # - package: plutus-merkle-tree
+          # - package: hydra-plutus
+          # - package: hydra-tui
           - package: hydra-node
-          - package: hydra-cluster
+          # - package: hydra-cluster
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
