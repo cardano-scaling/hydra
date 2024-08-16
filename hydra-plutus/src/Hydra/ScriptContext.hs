@@ -14,6 +14,7 @@ import PlutusLedgerApi.V3.Contexts hiding (
   scriptContextTxInfo,
  )
 import PlutusTx.Prelude
+import Hydra.Plutus.Extras (ScriptContext (..), TxInfo(..))
 
 import PlutusLedgerApi.V3 (
   Address (..),
@@ -24,8 +25,6 @@ import PlutusLedgerApi.V3 (
   OutputDatum,
   ScriptHash,
   TxOut (..),
-  TxInfo (..),
-  ScriptContext (..),
   TxOutRef,
   Value,
  )

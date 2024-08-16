@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Plutus.Extras (
@@ -5,10 +6,12 @@ module Hydra.Plutus.Extras (
   module Hydra.Plutus.Extras.Time,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (Map)
 
 import Hydra.Plutus.Extras.Time
 
+import PlutusTx.Prelude (traceIfFalse)
+import PlutusLedgerApi.V1.Value (isZero)
 import Cardano.Api (
   PlutusScriptVersion,
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -17,9 +20,79 @@ import Cardano.Api (
  )
 import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
-import PlutusLedgerApi.V3 (ScriptHash (..), ScriptInfo (..), ScriptContext (..), getRedeemer, Datum (..))
-import PlutusTx (BuiltinData, UnsafeFromData (..))
+import PlutusLedgerApi.V3
+    ( ScriptHash(..),
+      ScriptInfo(..),
+      getRedeemer,
+      Datum(..),
+      Address(..),
+      Credential(..),
+      CurrencySymbol,
+      Datum,
+      Map,
+      OutputDatum,
+      PubKeyHash,
+      Redeemer,
+      DatumHash,
+      OutputDatum,
+      ScriptHash,
+      TxOut(..),
+      TxInInfo,
+      TxOutRef,
+      Value )
+import PlutusTx
+    ( BuiltinData, UnsafeFromData(..), makeIsDataIndexed )
 import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
+import PlutusTx.AssocMap (lookup)
+import PlutusLedgerApi.V2 (POSIXTimeRange)
+import PlutusLedgerApi.V3 (Interval)
+
+-- * Tx info
+
+data TxInfo = TxInfo
+  { txInfoInputs :: [TxInInfo]
+  -- ^ Transaction inputs; cannot be an empty list
+  , txInfoReferenceInputs :: BuiltinData
+  -- ^ Transaction reference inputs
+  , txInfoOutputs :: [TxOut]
+  -- ^ Transaction outputs
+  , txInfoFee :: Value
+  -- ^ The fee paid by this transaction.
+  , txInfoMint :: Value
+  -- ^ The 'Value' minted by this transaction.
+  , txInfoDCert :: BuiltinData
+  -- ^ Digests of certificates included in this transaction
+  , txInfoWdrl :: BuiltinData
+  -- ^ Withdrawals
+  , -- XXX: using POSIXTimeRange adds ~300 bytes, needed for Head
+    txInfoValidRange :: Interval POSIXTimeRange
+  -- ^ The valid range for the transaction.
+  , txInfoSignatories :: [PubKeyHash]
+  -- ^ Signatures provided with the transaction, attested that they all signed the tx
+  , txInfoRedeemers :: BuiltinData
+  -- ^ A table of redeemers attached to the transaction
+  , txInfoData :: Map DatumHash Datum
+  -- ^ The lookup table of datums attached to the transaction
+  , txInfoId :: BuiltinData
+  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses)
+  }
+
+makeIsDataIndexed ''TxInfo [('TxInfo, 0)]
+
+-- * Script context
+
+-- | The context that the currently-executing script can access.
+data ScriptContext = ScriptContext
+  { scriptContextTxInfo :: TxInfo
+  -- ^ information about the transaction the currently-executing script is included in
+  , scriptContextRedeemer :: Redeemer
+  -- ^ Redeemer for the currently-executing script
+  , scriptContextScriptInfo :: ScriptInfo
+  -- ^ the purpose of the currently-executing script, along with information associated
+  -- with the purpose
+  }
+
+makeIsDataIndexed ''ScriptContext [('ScriptContext, 0)]
 
 -- * Vendored from plutus-ledger
 
@@ -73,3 +146,9 @@ scriptValidatorHash version =
     . hashScript
     . PlutusScript version
     . PlutusScriptSerialised
+
+mustNotMintOrBurn :: TxInfo -> Bool
+mustNotMintOrBurn TxInfo{txInfoMint} =
+    traceIfFalse "U01" $
+      isZero txInfoMint
+{-# INLINEABLE mustNotMintOrBurn #-}

@@ -27,9 +27,11 @@ import Hydra.ScriptContext (
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (geq, isZero)
-import PlutusLedgerApi.V3 (
+import Hydra.Plutus.Extras (
   TxInfo (txInfoMint, txInfoSignatories),
-  ScriptContext (..),
+  ScriptContext (..)
+ )
+import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   FromData (fromBuiltinData),

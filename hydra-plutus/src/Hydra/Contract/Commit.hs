@@ -21,7 +21,6 @@ import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V3 (
-  ScriptContext (..), TxInfo (..),
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
@@ -31,6 +30,7 @@ import PlutusLedgerApi.V3 (
   serialiseCompiledCode,
   txOutValue,
  )
+import Hydra.Plutus.Extras ( ScriptContext(..), TxInfo(..))
 import PlutusTx (CompiledCode, fromData, toBuiltinData, toData)
 import PlutusTx qualified
 import Prelude qualified as Haskell
