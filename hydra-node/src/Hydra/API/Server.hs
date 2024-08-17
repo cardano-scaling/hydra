@@ -89,6 +89,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
 
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
+    -- FIXME: always growing
     history <- newTVarIO (reverse timedOutputEvents)
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
