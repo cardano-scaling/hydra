@@ -227,6 +227,7 @@ withReliability ::
   NetworkComponent m (Authenticated (Heartbeat inbound)) (Heartbeat outbound) a
 withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
   acksCache <- loadAcks >>= newTVarIO
+  -- FIXME: always growing
   sentMessages <- loadMessages >>= newTVarIO . Seq.fromList
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
