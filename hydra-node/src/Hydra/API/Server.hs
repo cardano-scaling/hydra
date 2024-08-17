@@ -7,7 +7,7 @@ import Hydra.Prelude hiding (TVar, readTVar, seq)
 import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
+import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -21,7 +21,7 @@ import Hydra.API.ServerOutput (
   projectInitializingHeadId,
   projectSnapshotUtxo,
  )
-import Hydra.API.WSServer (nextSequenceNumber, wsApp)
+import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
@@ -80,17 +80,19 @@ withAPIServer ::
 withAPIServer config party persistence tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
+    -- Intialize our read models from stored events
+    -- NOTE: we do not keep the stored events around in memory
     timedOutputEvents <- loadAll
-
-    -- Intialize our read model from stored events
     headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
     headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
 
-    -- NOTE: we need to reverse the list because we store history in a reversed
-    -- list in memory but in order on disk
-    -- FIXME: always growing
-    history <- newTVarIO (reverse timedOutputEvents)
+    nextSeqVar <- newTVarIO 0
+    let nextSeq = do
+          seq <- readTVar nextSeqVar
+          modifyTVar' nextSeqVar (+ 1)
+          pure seq
+
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -107,7 +109,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel)
+              (wsApp party tracer nextSeq callback headStatusP headIdP snapshotUtxoP responseChannel)
               (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP) callback)
       )
       ( do
@@ -115,7 +117,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
           action $
             Server
               { sendOutput = \output -> do
-                  timedOutput <- appendToHistory history output
+                  timedOutput <- persistOutput nextSeq output
                   atomically $ do
                     update headStatusP output
                     update snapshotUtxoP output
@@ -140,13 +142,11 @@ withAPIServer config party persistence tracer chain pparams callback action =
       _ ->
         runSettings settings app
 
-  appendToHistory history output = do
+  persistOutput nextSeq output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
+      seq <- nextSeq
+      pure TimedServerOutput{output, time, seq}
     append timedOutput
     pure timedOutput
 

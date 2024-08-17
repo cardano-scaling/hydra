@@ -49,7 +49,8 @@ wsApp ::
   IsChainState tx =>
   Party ->
   Tracer IO APIServerLog ->
-  TVar [TimedServerOutput tx] ->
+  -- | Get next sequence number.
+  STM IO Natural ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -60,18 +61,19 @@ wsApp ::
   TChan (TimedServerOutput tx) ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel pending = do
+wsApp party tracer nextSeq callback headStatusP headIdP snapshotUtxoP responseChannel pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
+  -- FIXME: No support of history forwarding anymore (disabled because of memory growing too much)
   -- api client can decide if they want to see the past history of server outputs
-  unless (shouldNotServeHistory queryParams) $
-    forwardHistory con
+  -- unless (shouldNotServeHistory queryParams) $
+  --   forwardHistory con
 
-  forwardGreetingOnly con
+  sendGreetings con
 
   let outConfig = mkServerOutputConfig queryParams
 
@@ -81,8 +83,8 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   -- NOTE: We will add a 'Greetings' message on each API server start. This is
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
-  forwardGreetingOnly con = do
-    seq <- atomically $ nextSequenceNumber history
+  sendGreetings con = do
+    seq <- atomically nextSeq
     headStatus <- atomically getLatestHeadStatus
     hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
@@ -119,11 +121,11 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         queryP = QueryParam k v
      in if queryP `elem` qp then WithoutUTxO else WithUTxO
 
-  shouldNotServeHistory qp =
-    flip any qp $ \case
-      (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|no|]
-      _other -> False
+  -- shouldNotServeHistory qp =
+  --   flip any qp $ \case
+  --     (QueryParam key val)
+  --       | key == [queryKey|history|] -> val == [queryValue|no|]
+  --     _other -> False
 
   sendOutputs chan con outConfig = forever $ do
     response <- STM.atomically $ readTChan chan
@@ -144,18 +146,12 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
         time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber history
+        seq <- atomically nextSeq
         let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
-  forwardHistory con = do
-    hist <- STM.atomically (readTVar history)
-    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
-    sendTextDatas con $ foldl' encodeAndReverse [] hist
-
-nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
-nextSequenceNumber historyList =
-  STM.readTVar historyList >>= \case
-    [] -> pure 0
-    (TimedServerOutput{seq} : _) -> pure (seq + 1)
+  -- forwardHistory con = do
+  --   hist <- STM.atomically (readTVar history)
+  --   let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
+  --   sendTextDatas con $ foldl' encodeAndReverse [] hist
