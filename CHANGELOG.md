@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## HACK HACK HACK
+
+- **HACK** Disable API server history and break network reliability to avoid growing memory too much.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
