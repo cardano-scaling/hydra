@@ -86,7 +86,6 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTQueue, writeTQueue),
-  modifyTVar',
   newTQueueIO,
   newTVarIO,
   readTVarIO,
@@ -94,7 +93,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Tracer (Tracer)
 import Data.IntMap qualified as IMap
-import Data.Sequence.Strict ((|>))
 import Data.Sequence.Strict qualified as Seq
 import Data.Vector (
   Vector,
@@ -225,9 +223,8 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat inbound))) (ReliableMsg (Heartbeat outbound)) a ->
   NetworkComponent m (Authenticated (Heartbeat inbound)) (Heartbeat outbound) a
-withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
+withReliability tracer MessagePersistence{saveAcks, loadAcks, loadMessages} me otherParties withRawNetwork callback action = do
   acksCache <- loadAcks >>= newTVarIO
-  -- FIXME: always growing
   sentMessages <- loadMessages >>= newTVarIO . Seq.fromList
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
@@ -237,15 +234,19 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
       reliableBroadcast sentMessages ourIndex acksCache network
  where
   allParties = fromList $ sort $ me : otherParties
-  reliableBroadcast sentMessages ourIndex acksCache Network{broadcast} =
+
+  reliableBroadcast _sentMessages ourIndex acksCache Network{broadcast} =
     action $
       Network
         { broadcast = \msg ->
             case msg of
               Data{} -> do
-                localCounter <- atomically $ cacheMessage msg >> incrementAckCounter
-                saveAcks localCounter
-                appendMessage msg
+                -- FIXME: No outbound message cache and persistence, resending will be broken
+                localCounter <- atomically $ do
+                  -- cacheMessage msg
+                  incrementAckCounter
+                -- saveAcks localCounter
+                -- appendMessage msg
                 traceWith tracer BroadcastCounter{ourIndex, localCounter}
                 broadcast $ ReliableMsg localCounter msg
               Ping{} -> do
@@ -261,8 +262,8 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
       writeTVar acksCache newAcks
       pure newAcks
 
-    cacheMessage msg =
-      modifyTVar' sentMessages (|> msg)
+  -- cacheMessage msg =
+  --   modifyTVar' sentMessages (|> msg)
 
   reliableCallback acksCache sentMessages resend ourIndex (Authenticated (ReliableMsg acknowledged payload) party) = do
     if length acknowledged /= length allParties
