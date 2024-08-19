@@ -34,23 +34,30 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+
+    - name: Build docker images for netem specifically
+      run: |
+        nix build .#docker-hydra-node-for-netem
+        ./result | docker load
+
     - name: Setup containers for network testing
       run: |
         cd demo
         ./prepare-devnet.sh
         docker compose up -d cardano-node
         ./seed-devnet.sh
-        docker compose up -d hydra-node-{1,2,3}
+        # Specify two docker compose yamls; the second one overrides the
+        # images to use the netem ones specifically
+        docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
         sleep 10
         docker ps
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
 
-    - name: Build required nix derivations
+    - name: Build required nix and docker derivations
       run: |
         nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
         nix build github:noonio/pumba/noon/add-flake
-        docker pull gaiadocker/iproute2
 
     # Use tmate to get a shell onto the runner to do some temporary hacking
     #
@@ -79,7 +86,6 @@ jobs:
             --duration 20m \
             --target 172.16.238.20 \
             --target 172.16.238.30 \
-            --tc-image gaiadocker/iproute2 \
             loss \
               --percent 75 "re2:hydra-node-1" &
 
