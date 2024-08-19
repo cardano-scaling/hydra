@@ -140,3 +140,14 @@ The benchmark can be run in two modes corresponding to two different commands:
 * `datasets`: Runs one or more preexisting _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
 
 Check out `cabal bench --benchmark-options --help` for more details.
+
+# Network Testing
+
+The benchmark can be also run over the running `demo` hydra-cluster, using `cabal bench` and produces a
+`results.csv` file in a work directory. Same as for benchmarks results, you can use the `bench/plot.sh` script to plot the transaction confirmation times.
+
+To run the benchmark in this mode, the command is:
+* `demo`: Runs one or more generated _datasets_ in sequence and collect their results in a single markdown formatted file. The purpose of this setup is to facilitate a variaty of network-resiliance scenarios, such as packet loss or node failures. This is useful to prove the robustness and performance of the hydra-node's network over time and produce a human-readable summary.
+
+For instance, we make use of this in our [CI](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) to keep track for scenarios that we care about.
+
