@@ -140,6 +140,12 @@ rec {
       pkgs.check-jsonschema
     ];
   };
+  hydra-tx-tests = pkgs.mkShellNoCC {
+    name = "hydratx-tests";
+    buildInputs = [
+      nativePkgs.hydra-tx.components.tests.tests
+    ];
+  };
   hydra-cluster-tests = pkgs.mkShellNoCC {
     name = "hydra-cluster-tests";
     buildInputs =
@@ -195,6 +201,8 @@ rec {
         hsPkgs.hydra-cardano-api.components.library.doc
         hsPkgs.hydra-plutus.components.library.doc
         hsPkgs.hydra-node.components.library.doc
+        hsPkgs.hydra-tx.components.library.doc
+        hsPkgs.hydra-tx.components.tests.tests.doc
         hsPkgs.hydra-node.components.tests.tests.doc
         hsPkgs.hydra-cluster.components.library.doc
         hsPkgs.hydra-tui.components.library.doc

@@ -85,7 +85,7 @@ library
   build-depends:
     , aeson
     , async
-    , base                  >=4.7 && <5
+    , base                          >=4.7 && <5
     , bytestring
     , cardano-api
     , cardano-slotting
@@ -99,6 +99,7 @@ library
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx:{hydra-tx, testlib}
     , io-classes
     , iohk-monitoring
     , lens
@@ -173,6 +174,7 @@ test-suite tests
     , hydra-node:{hydra-node, testlib}
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx:{hydra-tx, testlib}
     , io-classes
     , lens
     , lens-aeson
@@ -212,6 +214,7 @@ benchmark bench-e2e
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , io-classes
     , lens
     , lens-aeson

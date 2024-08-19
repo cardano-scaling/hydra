@@ -3,12 +3,12 @@ module Hydra.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (HeadObservation (..))
 import Hydra.ChainObserver (observeAll, observeTx)
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
 

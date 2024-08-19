@@ -36,15 +36,31 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsInitializingWith,
  )
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
-import Hydra.HeadId (HeadId)
-import Hydra.Ledger (txId)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Logging (
+  Tracer,
+  traceWith,
+  withTracerOutputTo,
+ )
 import Hydra.Network (Host)
-import Hydra.Party (Party, deriveParty)
-import HydraNode (HydraClient, HydraNodeLog, hydraNodeId, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withConnectionToNodeHost, withHydraCluster)
+import Hydra.Tx (HeadId, Party, deriveParty, txId)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.Crypto (generateSigningKey)
+import HydraNode (
+  HydraClient,
+  HydraNodeLog,
+  hydraNodeId,
+  input,
+  output,
+  requestCommitTx,
+  send,
+  waitFor,
+  waitForAllMatch,
+  waitForNodesConnected,
+  waitMatch,
+  withConnectionToNodeHost,
+  withHydraCluster,
+ )
 import System.Directory (findExecutable)
 import System.FilePath ((</>))
 import System.IO (hGetLine, hPutStrLn)

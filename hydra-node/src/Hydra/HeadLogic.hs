@@ -32,25 +32,13 @@ import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
-  ChainStateType,
-  HeadParameters (..),
-  IsChainState (chainStateSlot),
   OnChainTx (..),
   PostChainTx (..),
   initHistory,
-  mkHeadParameters,
   pushNewState,
   rollbackHistory,
  )
-import Hydra.Crypto (
-  Signature,
-  Verified (..),
-  aggregateInOrder,
-  sign,
-  verifyMultiSignature,
- )
-import Hydra.Environment (Environment (..))
-import Hydra.HeadId (HeadId, HeadSeed)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
@@ -80,22 +68,35 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger (
-  ChainSlot,
-  IsTx (..),
+import Hydra.Ledger.Ledger (
   Ledger (..),
-  TxIdType,
-  UTxOType,
   applyTransactions,
   outputsOfTx,
+ )
+import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
+import Hydra.Tx (
+  HeadId,
+  HeadSeed,
+  IsTx (..),
+  TxIdType,
+  UTxOType,
+  mkHeadParameters,
   txId,
   utxoFromTx,
   withoutUTxO,
  )
-import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party (vkey))
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.Tx.Crypto (
+  Signature,
+  Verified (..),
+  aggregateInOrder,
+  sign,
+  verifyMultiSignature,
+ )
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Party (Party (vkey))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
 defaultTTL :: TTL
 defaultTTL = 5

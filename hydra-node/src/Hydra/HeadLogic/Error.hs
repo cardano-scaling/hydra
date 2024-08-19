@@ -5,13 +5,17 @@ module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
-import Hydra.Crypto (HydraKey, VerificationKey)
-import Hydra.HeadId (HeadId)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx (TxIdType), ValidationError)
-import Hydra.Party (Party)
-import Hydra.Snapshot (SnapshotNumber, SnapshotVersion)
+import Hydra.Ledger.Ledger (ValidationError)
+import Hydra.Tx (
+  HeadId,
+  IsTx (TxIdType),
+  Party,
+  SnapshotNumber,
+  SnapshotVersion,
+ )
+import Hydra.Tx.Crypto (HydraKey, VerificationKey)
 
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}

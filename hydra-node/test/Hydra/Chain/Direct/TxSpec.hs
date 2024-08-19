@@ -32,41 +32,48 @@ import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (CommitBlueprintTx (..))
-import Hydra.Chain.Direct.Contract.Commit (commitSigningKey, healthyInitialTxIn, healthyInitialTxOut)
-import Hydra.Chain.Direct.Fixture (
-  pparams,
-  testNetworkId,
-  testPolicyId,
- )
-import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
-  commitTx,
   currencySymbolToHeadId,
-  headIdToCurrencySymbol,
   headIdToPolicyId,
   headSeedToTxIn,
-  mkCommitDatum,
-  mkHeadId,
   observeHeadTx,
-  onChainIdToAssetName,
   txInToHeadSeed,
-  verificationKeyToOnChainId,
  )
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano (adaOnly, addInputs, addReferenceInputs, addVkInputs, emptyTxBody, genOneUTxOFor, genTxOutWithReferenceScript, genUTxO1, genUTxOAdaOnlyOfSize, genValue, genVerificationKey, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (addInputs, addReferenceInputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
-import Hydra.Party (Party)
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.Commit (commitTx, mkCommitDatum)
+import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Init (mkInitialOutput)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
-import Test.Hydra.Fixture (genForParty)
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Fixture (
+  pparams,
+  testNetworkId,
+  testPolicyId,
+ )
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen (
+  assetNameFromVerificationKey,
+  genForParty,
+  genOneUTxOFor,
+  genSigningKey,
+  genTxOutWithReferenceScript,
+  genUTxO1,
+  genUTxOAdaOnlyOfSize,
+  genValue,
+  genVerificationKey,
+ )
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -128,6 +135,13 @@ spec =
 
       prop "Validate blueprint and commit transactions" $ do
         forAllBlind arbitrary $ \chainContext -> do
+          let commitSigningKey = genSigningKey `generateWith` 42
+          let commitVerificationKey = getVerificationKey commitSigningKey
+          let healthyInitialTxOut =
+                setMinUTxOValue Fixture.pparams . toUTxOContext $
+                  mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
+                    verificationKeyToOnChainId commitVerificationKey
+          let healthyInitialTxIn = generateWith arbitrary 42
           let ChainContext{networkId, ownVerificationKey, ownParty, scriptRegistry} =
                 chainContext{ownVerificationKey = getVerificationKey commitSigningKey, networkId = testNetworkId}
           forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
@@ -393,7 +407,3 @@ genAbortableOutputs parties =
   initialScript = fromPlutusScript Initial.validatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
-
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-assetNameFromVerificationKey =
-  onChainIdToAssetName . verificationKeyToOnChainId

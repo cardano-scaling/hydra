@@ -6,16 +6,28 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
-import Hydra.Chain (ChainStateType, HeadParameters, IsChainState, PostChainTx, mkHeadParameters)
-import Hydra.Crypto (MultiSignature, Signature)
-import Hydra.Environment (Environment (..))
-import Hydra.HeadId (HeadId, HeadSeed)
+import Hydra.Chain (PostChainTx)
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (ChainSlot, IsTx, TxIdType, UTxOType, ValidationError)
+import Hydra.Ledger.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
-import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Tx (
+  HeadId,
+  HeadParameters,
+  HeadSeed,
+  IsTx,
+  Party,
+  Snapshot,
+  SnapshotNumber,
+  SnapshotVersion,
+  TxIdType,
+  UTxOType,
+  mkHeadParameters,
+ )
+import Hydra.Tx.Crypto (MultiSignature, Signature)
+import Hydra.Tx.Environment (Environment (..))
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -36,7 +48,7 @@ deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
-instance IsChainState tx => Arbitrary (Effect tx) where
+instance (IsChainState tx, Test.Hydra.Tx.Gen.ArbitraryIsTx tx) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 -- | Head state changed event. These events represent all the internal state
@@ -87,12 +99,12 @@ deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx))
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
-instance IsChainState tx => Arbitrary (StateChanged tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
-instance IsChainState tx => ToADTArbitrary (StateChanged tx)
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
-genStateChanged :: IsChainState tx => Environment -> Gen (StateChanged tx)
+genStateChanged :: ArbitraryIsTx tx => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
@@ -138,7 +150,7 @@ deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
 deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
-instance IsChainState tx => Arbitrary (Outcome tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
@@ -172,5 +184,5 @@ deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
 deriving anyclass instance IsTx tx => FromJSON (WaitReason tx)
 
-instance IsTx tx => Arbitrary (WaitReason tx) where
+instance ArbitraryIsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary

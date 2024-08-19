@@ -6,11 +6,18 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
-import Hydra.Crypto (Signature)
-import Hydra.Ledger (IsTx (TxIdType), UTxOType)
 import Hydra.Network (Host, NodeId)
-import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Tx (
+  IsTx (TxIdType),
+  Party,
+  Snapshot,
+  SnapshotNumber,
+  SnapshotVersion,
+  UTxOType,
+ )
+import Hydra.Tx.Crypto (Signature)
+import Test.Hydra.Tx ()
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 data NetworkEvent msg
   = ConnectivityEvent Connectivity
@@ -85,7 +92,7 @@ deriving stock instance IsTx tx => Show (Message tx)
 deriving anyclass instance IsTx tx => ToJSON (Message tx)
 deriving anyclass instance IsTx tx => FromJSON (Message tx)
 
-instance IsTx tx => Arbitrary (Message tx) where
+instance (ArbitraryIsTx tx, IsTx tx) => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where

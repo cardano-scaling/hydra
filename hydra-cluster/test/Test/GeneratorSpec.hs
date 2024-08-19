@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
-import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultPParams)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (
@@ -15,14 +15,15 @@ import Hydra.Generator (
   Dataset (..),
   generateConstantUTxODataset,
  )
-import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
   newLedgerEnv,
  )
+import Hydra.Ledger.Ledger (applyTransactions)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
+import Test.Hydra.Tx.Fixture (defaultGlobals, defaultPParams)
 import Test.QuickCheck (
   Positive (Positive),
   Property,

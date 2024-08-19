@@ -22,13 +22,13 @@ import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.CardanoClient (queryProtocolParameters)
-import Hydra.Chain.Direct.ScriptRegistry (
+import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
+import Hydra.Tx (balance)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}

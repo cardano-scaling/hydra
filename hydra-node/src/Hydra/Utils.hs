@@ -3,9 +3,9 @@ module Hydra.Utils where
 import Crypto.Random (getRandomBytes)
 import GHC.IO.Exception (userError)
 import Hydra.Cardano.Api (File (..), FileError (FileIOError), Key (SigningKey), getVerificationKey, writeFileTextEnvelope)
-import Hydra.Crypto (HydraKey, generateSigningKey)
 import Hydra.Options (GenerateKeyPair (..))
 import Hydra.Prelude
+import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import System.Directory (doesFileExist)
 import System.FilePath ((<.>))
 

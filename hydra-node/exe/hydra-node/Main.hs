@@ -7,8 +7,8 @@ import Hydra.Prelude hiding (fromList)
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
  )
-import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
+import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Options (

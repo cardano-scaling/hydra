@@ -26,7 +26,9 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Natural (naturalFromInteger, naturalToInteger)
 import Hydra.Cardano.Api (
+  PaymentKey,
   SlotNo (..),
+  VerificationKey,
   lovelaceToValue,
   mkTxOutDatumInline,
   modifyTxOutValue,
@@ -36,31 +38,44 @@ import Hydra.Cardano.Api (
   txOutValue,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.Contract.Mutation (addParticipationTokens)
-import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry, genScriptRegistry, registryUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), DecrementTxError, close, contest, decrement, fanout)
-import Hydra.Chain.Direct.Tx (
+import Hydra.Chain.Direct.State (
+  ChainContext (..),
   CloseTxError,
   ContestTxError,
+  DecrementTxError,
   FanoutTxError,
+  close,
+  contest,
+  decrement,
+  fanout,
+ )
+import Hydra.Chain.Direct.Tx (
   HeadObservation (NoHeadTx),
-  headIdToCurrencySymbol,
-  mkHeadId,
-  mkHeadOutput,
   observeHeadTx,
  )
 import Hydra.Chain.Direct.Tx qualified as Tx
-import Hydra.ContestationPeriod qualified as CP
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Crypto (MultiSignature, aggregate, sign)
-import Hydra.Ledger (hashUTxO, utxoFromTx)
-import Hydra.Ledger.Cardano (Tx, adjustUTxO, genTxOut, genUTxO1)
+import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (partyToChain)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
+import Hydra.Tx.ContestationPeriod qualified as CP
+import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
+import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
+import Hydra.Tx.Party (partyToChain)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Fixture qualified as Fixture
+import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen (
+  genForParty,
+  genScriptRegistry,
+  genTxOut,
+  genUTxO1,
+  genVerificationKey,
+ )
+import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (Property, Smart (..), choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
@@ -692,7 +707,7 @@ openHeadUTxO =
 
   openHeadTxOut =
     mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
-      & addParticipationTokens [Fixture.alicePVk, Fixture.bobPVk, Fixture.carolPVk]
+      & addParticipationTokens [alicePVk, bobPVk, carolPVk]
       & modifyTxOutValue (<> foldMap txOutValue inHeadUTxO)
 
   openHeadDatum =
@@ -779,21 +794,27 @@ newFanoutTx actor utxo deltaUTxO = do
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
   deadline = SlotNo $ fromIntegral contestationPeriod * fromIntegral (length allActors)
 
+-- | Cardano payment keys for 'alice', 'bob', and 'carol'.
+alicePVk, bobPVk, carolPVk :: VerificationKey PaymentKey
+alicePVk = genVerificationKey `genForParty` alice
+bobPVk = genVerificationKey `genForParty` bob
+carolPVk = genVerificationKey `genForParty` carol
+
 -- | Fixture for the chain context of a model 'Actor' on 'testNetworkId'. Uses a generated 'ScriptRegistry'.
 actorChainContext :: Actor -> ChainContext
 actorChainContext actor =
   ChainContext
-    { networkId = Fixture.testNetworkId
+    { networkId = testNetworkId
     , ownVerificationKey =
         case actor of
-          Alice -> Fixture.alicePVk
-          Bob -> Fixture.bobPVk
-          Carol -> Fixture.carolPVk
+          Alice -> alicePVk
+          Bob -> bobPVk
+          Carol -> carolPVk
     , ownParty =
         case actor of
-          Alice -> Fixture.alice
-          Bob -> Fixture.bob
-          Carol -> Fixture.carol
+          Alice -> alice
+          Bob -> bob
+          Carol -> carol
     , scriptRegistry = testScriptRegistry
     }
 

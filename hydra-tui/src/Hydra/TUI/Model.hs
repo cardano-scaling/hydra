@@ -11,10 +11,9 @@ import Hydra.Cardano.Api
 import Brick.Forms (Form)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
-import Hydra.HeadId (HeadId)
 import Hydra.Network (Host (..), NodeId)
-import Hydra.Party (Party (..))
 import Hydra.TUI.Logging.Types (LogState)
+import Hydra.Tx (HeadId, Party (..))
 import Lens.Micro.TH (makeLensesFor)
 
 data RootState = RootState

@@ -9,17 +9,25 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Chain (ChainStateType, IsChainState, PostChainTx (..), PostTxError)
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Crypto (MultiSignature)
-import Hydra.HeadId (HeadId)
+import Hydra.Chain (PostChainTx, PostTxError)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
+import Hydra.Ledger.Ledger (ValidationError)
 import Hydra.Network (Host, NodeId)
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party)
 import Hydra.Prelude hiding (seq)
-import Hydra.Snapshot (Snapshot (utxo), SnapshotNumber)
+import Hydra.Tx (
+  HeadId,
+  Party,
+  Snapshot,
+  SnapshotNumber,
+  TxIdType,
+  UTxOType,
+ )
+import Hydra.Tx qualified as Tx
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Crypto (MultiSignature)
+import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -62,7 +70,7 @@ instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalid
 instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
 
-instance IsTx tx => Arbitrary (DecommitInvalidReason tx) where
+instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
   arbitrary = genericArbitrary
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
@@ -144,9 +152,7 @@ instance IsChainState tx => FromJSON (ServerOutput tx) where
         }
 
 instance
-  ( IsTx tx
-  , Arbitrary (ChainStateType tx)
-  ) =>
+  ArbitraryIsTx tx =>
   Arbitrary (ServerOutput tx)
   where
   arbitrary = genericArbitrary
@@ -281,6 +287,6 @@ projectHeadStatus headStatus = \case
 -- | Projection of latest confirmed snapshot UTxO.
 projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
-  SnapshotConfirmed _ snapshot _ -> Just $ Hydra.Snapshot.utxo snapshot
+  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo

@@ -19,12 +19,12 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
+import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
 
 -- | Lookup a config file similar reading a file from disk.

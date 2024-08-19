@@ -4,10 +4,12 @@ import Cardano.Api.UTxO (pairs)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON, renderUTxO)
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (txId), Ledger (applyTransactions))
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Hydra.Ledger.Ledger (Ledger (applyTransactions))
 import Hydra.Model.MockChain (scriptLedger)
 import Hydra.Prelude
+import Hydra.Tx.IsTx (IsTx (txId))
 import Test.Hydra.Prelude
 import Test.QuickCheck (Property, Testable (property), counterexample, forAllBlind, (===))
 

@@ -24,14 +24,13 @@ import Hydra.API.ServerOutput (
   prepareServerOutput,
   snapshotUtxo,
  )
-import Hydra.Chain (
+import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
-import Hydra.Ledger (UTxOType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
-import Hydra.Party (Party)
+import Hydra.Tx (Party, UTxOType)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),

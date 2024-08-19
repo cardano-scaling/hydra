@@ -48,7 +48,7 @@ The `collectCom` transaction utilizes the `vCommit` and `vHead` validator script
 ## Acquiring an executable script
 
 You can achieve this using
-[`prepareTxScripts`](/haddock/hydra-node/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
+[`prepareTxScripts`](/haddock/hydra-tx/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
 To acquire and save the fully applied scripts from the transaction onto disk, run:
 
 ```haskell

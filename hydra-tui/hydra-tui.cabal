@@ -63,6 +63,7 @@ library
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , hydra-tx
     , io-classes
     , microlens
     , microlens-mtl
@@ -107,6 +108,7 @@ test-suite tests
     , hydra-prelude
     , hydra-test-utils
     , hydra-tui
+    , hydra-tx
     , io-classes
     , optparse-applicative
     , regex-tdfa

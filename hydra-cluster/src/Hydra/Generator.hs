@@ -12,8 +12,14 @@ import Data.Default (def)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
+import Hydra.Ledger.Cardano (
+  generateOneRandomTransfer,
+  generateOneSelfTransfer,
+ )
+import Hydra.Tx (balance)
+import Test.Hydra.Tx.Gen (
+  genSigningKey,
+ )
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId

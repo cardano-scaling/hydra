@@ -49,6 +49,7 @@ library
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
+    , hydra-tx
     , io-classes
     , optparse-applicative
     , servant
@@ -88,6 +89,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , lens
     , openapi3
     , QuickCheck

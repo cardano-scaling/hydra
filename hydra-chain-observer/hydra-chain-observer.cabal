@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name:          hydra-chain-observer
 version:       0.18.1
 synopsis:      Hydra Chain Observer
@@ -69,6 +69,7 @@ library
     , hydra-node
     , hydra-plutus
     , hydra-prelude
+    , hydra-tx
     , optparse-applicative
     , ouroboros-network-protocols
 
@@ -96,6 +97,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx:testlib
     , QuickCheck
 
   other-modules:

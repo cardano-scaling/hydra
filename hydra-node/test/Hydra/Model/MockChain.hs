@@ -33,7 +33,6 @@ import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
-  CommitBlueprintTx (..),
   PostChainTx (
     CloseTx,
     closingSnapshot,
@@ -43,7 +42,7 @@ import Hydra.Chain (
   ),
   initHistory,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   DirectChainLog,
@@ -55,13 +54,9 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.ScriptRegistry (genScriptRegistry, registryUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
-import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Crypto (HydraKey)
-import Hydra.Environment (Environment (Environment, participants, party))
 import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
@@ -71,17 +66,24 @@ import Hydra.HeadLogic (
   OpenState (..),
   defaultTTL,
  )
-import Hydra.Ledger (ChainSlot (..), Ledger (..), ValidationError (..), collectTransactions)
-import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot, genTxOutAdaOnly)
+import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
+import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Party (Party (..), deriveParty, getParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Environment (Environment (Environment, participants, party))
+import Hydra.Tx.Party (Party (..), deriveParty, getParty)
+import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and

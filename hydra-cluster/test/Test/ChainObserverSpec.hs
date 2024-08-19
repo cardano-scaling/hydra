@@ -21,14 +21,16 @@ import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
-import Hydra.Cluster.Fixture (Actor (..), aliceSk, cperiod)
+import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Tx.IsTx (txId)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
+import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
+import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
 spec :: Spec

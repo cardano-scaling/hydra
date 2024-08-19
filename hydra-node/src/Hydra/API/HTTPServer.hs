@@ -16,11 +16,11 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
  )
-import Hydra.Chain (Chain (..), CommitBlueprintTx (..), IsChainState, PostTxError (..), draftCommitTx)
+import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadId (HeadId)
-import Hydra.Ledger (IsTx (..))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, IsTx (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,

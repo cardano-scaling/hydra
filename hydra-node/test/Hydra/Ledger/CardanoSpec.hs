@@ -17,22 +17,19 @@ import Data.Aeson.Lens (key)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions, txId)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
-  genOneUTxOFor,
-  genOutput,
   genSequenceOfSimplePaymentTransactions,
   genTxOut,
-  genUTxOAdaOnlyOfSize,
-  genUTxOAlonzo,
-  genUTxOFor,
-  genValue,
  )
+import Hydra.Ledger.Ledger (applyTransactions)
+import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Hydra.Tx.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
+import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genUTxOAdaOnlyOfSize, genUTxOAlonzo, genUTxOFor, genValue)
 import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
 import Test.Util (propCollisionResistant)
 

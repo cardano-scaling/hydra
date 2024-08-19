@@ -72,8 +72,6 @@ module Hydra.Node.Network (
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
-import Hydra.Crypto (HydraKey, SigningKey)
-import Hydra.Ledger (IsTx)
 import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
@@ -90,8 +88,9 @@ import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, 
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
+import Hydra.Tx (IsTx, Party, deriveParty)
+import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import System.FilePath ((</>))
 
 -- | An alias for logging messages output by network component.

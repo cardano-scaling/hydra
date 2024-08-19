@@ -12,9 +12,10 @@ import Hydra.Cardano.Api (
   UTxO,
   serialiseToCBOR,
  )
-import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
-import Hydra.Ledger (ChainSlot (ChainSlot), Ledger (applyTransactions), ValidationError)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (Tx, cardanoLedger, genFixedSizeSequenceOfSimplePaymentTransactions)
+import Hydra.Ledger.Ledger (Ledger (applyTransactions), ValidationError)
+import Test.Hydra.Tx.Fixture (defaultGlobals, defaultLedgerEnv)
 import Test.QuickCheck (generate)
 
 main :: IO ()

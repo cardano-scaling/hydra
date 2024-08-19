@@ -3,7 +3,7 @@
 module Hydra.CryptoSpec where
 
 -- Unit under test
-import Hydra.Crypto
+import Hydra.Tx.Crypto
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
@@ -13,7 +13,7 @@ import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as Char8
 import Data.Map qualified as Map
-import Hydra.Party (Party (vkey), deriveParty)
+import Hydra.Tx.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (
   classify,

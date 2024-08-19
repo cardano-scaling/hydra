@@ -22,12 +22,11 @@ import Hydra.HeadLogic (
   Effect (ClientEffect),
   Input (NetworkInput),
  )
-import Hydra.Ledger (IsTx (TxIdType), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput, EndInput, input))
-import Hydra.Snapshot (Snapshot (confirmed))
+import Hydra.Tx (IsTx (TxIdType), Snapshot (confirmed), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
 import System.Metrics.Prometheus.Metric.Counter (add, inc)

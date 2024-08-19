@@ -125,7 +125,6 @@ import GHC.IO (unsafePerformIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),
@@ -144,8 +143,9 @@ import Hydra.Model (
  )
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
-import Hydra.Party (Party (..), deriveParty)
+import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,

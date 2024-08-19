@@ -3,8 +3,10 @@ module Hydra.Ledger.SimpleSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import Hydra.Ledger.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
+import Test.Hydra.Tx.Gen (genSequenceOfValidTransactions)
 import Test.QuickCheck (Property, forAllShrink, shrinkList)
 
 spec :: Spec

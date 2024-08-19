@@ -158,6 +158,7 @@
             "hydra-cluster"
             "hydra-explorer"
             "hydra-node"
+            "hydra-tx"
             "hydra-plutus"
             "hydra-plutus-extras"
             "hydra-test-utils"

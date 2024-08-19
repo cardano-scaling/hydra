@@ -77,7 +77,6 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
@@ -92,9 +91,10 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
+import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..))
-import Hydra.Party (Party)
+import Hydra.Tx (Party)
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Network.Magic (NetworkMagic (..))

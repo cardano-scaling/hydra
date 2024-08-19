@@ -3,9 +3,9 @@ module Hydra.PartySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Party (Party (..))
+import Hydra.Tx.Party (Party (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Fixture (alice, bob, carol)
+import Test.Hydra.Tx.Fixture (alice, bob, carol)
 import Test.QuickCheck ((==>))
 
 spec :: Spec

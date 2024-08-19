@@ -10,7 +10,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct (NetworkMagic (..))
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
@@ -33,6 +32,7 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
