@@ -9,7 +9,7 @@ let
   pkgs = import nixpkgs { inherit system; };
 in
 {
-  hydra-node = pkgs.dockerTools.buildImage {
+  hydra-node = pkgs.dockerTools.streamLayeredImage {
     name = "hydra-node";
     tag = "latest";
     created = "now";
@@ -18,7 +18,7 @@ in
     };
   };
 
-  hydra-tui = pkgs.dockerTools.buildImage {
+  hydra-tui = pkgs.dockerTools.streamLayeredImage {
     name = "hydra-tui";
     tag = "latest";
     created = "now";
@@ -27,7 +27,7 @@ in
     };
   };
 
-  hydra-explorer = pkgs.dockerTools.buildImage {
+  hydra-explorer = pkgs.dockerTools.streamLayeredImage {
     name = "hydra-explorer";
     tag = "latest";
     created = "now";
@@ -36,7 +36,7 @@ in
       WorkingDir = "/";
     };
     # Copy the static files to the /static in the docker image
-    copyToRoot = [
+    contents = [
       (pkgs.runCommand "hydra-explorer-static-files" { } ''
         mkdir $out
         ln -s ${hydraPackages.hydra-explorer-web} $out/static
@@ -44,7 +44,7 @@ in
     ];
   };
 
-  hydraw = pkgs.dockerTools.buildImage {
+  hydraw = pkgs.dockerTools.streamLayeredImage {
     name = "hydraw";
     tag = "latest";
     created = "now";
@@ -52,7 +52,7 @@ in
       Entrypoint = [ "${hydraPackages.hydraw-static}/bin/hydraw" ];
       WorkingDir = "/static";
     };
-    copyToRoot = [
+    contents = [
       (pkgs.runCommand "hydraw-static-files" { } ''
         mkdir $out
         ln -s ${../../hydraw/static} $out/static
