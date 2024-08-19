@@ -52,7 +52,8 @@ jobs:
       run: |
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-        nix build .#docker-${{ matrix.target }} && docker load < ./result
+        nix build .#docker-${{ matrix.target }}
+        ./result | docker load
         # Determine whether we are building a tag and if yes, set a VERSION_NAME
         BUILDING_TAG=${{github.ref_type == 'tag'}}
         [[ ${BUILDING_TAG} = true ]] && \
