@@ -13,7 +13,14 @@ import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
-import Hydra.Contract.DepositError (DepositError (DepositDeadlineSurpassed, DepositNoUpperBoundDefined))
+import Hydra.Contract.DepositError (
+  DepositError (
+    DepositDeadlineNotReached,
+    DepositDeadlineSurpassed,
+    DepositNoLowerBoundDefined,
+    DepositNoUpperBoundDefined
+  ),
+ )
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.Util (depositTokenV1, hasST)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -21,6 +28,8 @@ import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (Datum),
   Extended (Finite),
+  Interval (ivFrom),
+  LowerBound (LowerBound),
   POSIXTime,
   Redeemer (Redeemer),
   ScriptContext (..),
@@ -45,8 +54,8 @@ import Prelude qualified as Haskell
 data DepositRedeemer
   = -- | Claims already deposited funds.
     Claim
-  | -- | Cancels deposit.
-    Cancel
+  | -- | Recovers deposited funds.
+    Recover
 
 PlutusTx.unstableMakeIsData ''DepositRedeemer
 
@@ -68,13 +77,14 @@ instance Eq Deposit where
 type DepositDatum = (CurrencySymbol, POSIXTime, [Deposit])
 
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
-validator (headId, dl, _deposit) r ctx =
+validator (headId, dl, deposits) r ctx =
   case r of
     Claim ->
       beforeDeadline
         && mustBurnDT
         && hasHeadST
-    Cancel -> True
+    Recover ->
+      afterDeadline
  where
   hasHeadST =
     traceIfFalse
@@ -103,6 +113,13 @@ validator (headId, dl, _deposit) r ctx =
         traceIfFalse $(errorCode DepositDeadlineSurpassed) $
           t < dl
       _ -> traceError $(errorCode DepositNoUpperBoundDefined)
+
+  afterDeadline =
+    case ivFrom (txInfoValidRange txInfo) of
+      LowerBound (Finite t) _ ->
+        traceIfFalse $(errorCode DepositDeadlineNotReached) $
+          t > dl
+      _ -> traceError $(errorCode DepositNoLowerBoundDefined)
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 

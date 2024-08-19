@@ -9,9 +9,13 @@ import Text.Show (Show)
 data DepositError
   = DepositDeadlineSurpassed
   | DepositNoUpperBoundDefined
+  | DepositNoLowerBoundDefined
+  | DepositDeadlineNotReached
   deriving stock (Show)
 
 instance ToErrorCode DepositError where
   toErrorCode = \case
     DepositDeadlineSurpassed -> "D01"
     DepositNoUpperBoundDefined -> "D02"
+    DepositNoLowerBoundDefined -> "D03"
+    DepositDeadlineNotReached -> "D04"
