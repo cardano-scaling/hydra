@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
  )
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -42,6 +43,8 @@ spec = do
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
+  it "Deposit validator script" $
+    goldenScript "vDeposit" Deposit.validatorScript
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.

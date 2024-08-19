@@ -7,7 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
-import PlutusLedgerApi.V2 (fromBuiltin, getPubKeyHash)
+import PlutusLedgerApi.V2 (FromData, fromBuiltin, getPubKeyHash)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 
 hydraHeadV1AssetName :: AssetName
@@ -63,3 +63,12 @@ adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
+
+-- | Extract the inline datum from a given 'TxOut'.
+extractInlineDatumFromTxOut :: FromData a => TxOut CtxUTxO -> Maybe a
+extractInlineDatumFromTxOut txout =
+  let TxOut _ _ dat _ = txout
+   in case dat of
+        TxOutDatumInline d ->
+          fromScriptData d
+        _ -> Nothing

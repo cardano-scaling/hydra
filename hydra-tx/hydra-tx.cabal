@@ -56,6 +56,7 @@ library
     Hydra.Tx.ContestationPeriod
     Hydra.Tx.Crypto
     Hydra.Tx.Decrement
+    Hydra.Tx.Deposit
     Hydra.Tx.Environment
     Hydra.Tx.Fanout
     Hydra.Tx.HeadId
@@ -64,6 +65,7 @@ library
     Hydra.Tx.IsTx
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
+    Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
     Hydra.Tx.Snapshot
     Hydra.Tx.Utils
@@ -160,8 +162,11 @@ test-suite tests
     Hydra.Tx.Contract.Contest.ContestCurrent
     Hydra.Tx.Contract.ContractSpec
     Hydra.Tx.Contract.Decrement
+    Hydra.Tx.Contract.Deposit
     Hydra.Tx.Contract.FanOut
     Hydra.Tx.Contract.Init
+    Hydra.Tx.Contract.Recover
+    Spec
 
   type:               exitcode-stdio-1.0
   build-depends:
@@ -173,6 +178,7 @@ test-suite tests
     , cardano-ledger-babbage
     , cardano-ledger-core
     , containers
+    , hspec
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
@@ -184,6 +190,26 @@ test-suite tests
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
+    , time
 
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
+
+executable hydra-tx
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        Main.hs
+  other-modules:  Options
+  build-depends:
+    , aeson
+    , attoparsec
+    , base
+    , bytestring
+    , hydra-cardano-api
+    , hydra-plutus
+    , hydra-prelude
+    , hydra-tx
+    , optparse-applicative
+    , time
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4

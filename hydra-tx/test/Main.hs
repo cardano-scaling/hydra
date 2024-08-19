@@ -1,6 +1,9 @@
 module Main where
 
-import Prelude
+import Hydra.Prelude
+import Spec qualified
+import Test.Hspec.Runner
+import Test.Hydra.Prelude (combinedHspecFormatter)
 
 main :: IO ()
-main = putStrLn "not yet implemented"
+main = hspecWith defaultConfig{configFormat = Just (combinedHspecFormatter "hydra-tx")} Spec.spec

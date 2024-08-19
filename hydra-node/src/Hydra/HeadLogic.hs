@@ -325,6 +325,9 @@ onOpenNetworkReqTx env ledger st ttl tx =
       (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
+
+        -- Spec: T̂ ← T̂ ⋃ {tx}
+        --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
           -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
           --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
@@ -412,6 +415,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
+      -- Spec: wait v = v̂
+
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
         requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->

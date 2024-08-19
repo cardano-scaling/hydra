@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
  )
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
@@ -30,6 +31,8 @@ data ScriptInfo = ScriptInfo
   , commitScriptSize :: Int64
   , headScriptHash :: ScriptHash
   , headScriptSize :: Int64
+  , depositScriptHash :: ScriptHash
+  , depositScriptSize :: Int64
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -47,6 +50,8 @@ scriptInfo =
     , commitScriptSize = scriptSize Commit.validatorScript
     , headScriptHash = plutusScriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript
+    , depositScriptHash = plutusScriptHash Deposit.validatorScript
+    , depositScriptSize = scriptSize Deposit.validatorScript
     }
  where
   plutusScriptHash =
