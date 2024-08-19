@@ -80,7 +80,7 @@ Then `nix build` will ask you about using our caches and download or build the
 
 - Build the `hydra-node` using Nix: `nix build .#hydra-node`
 - Build a statically linked `hydra-node` using Nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` Docker image: `nix build .#docker-hydra-node`
+- Build the `hydra-node` Docker image `nix build .#docker-hydra-node` and load it with `./result | docker load`
 - Build the specification as a PDF: `nix build .#spec`.
 
 For development, a call to `nix develop` will set up the environment so you can:
