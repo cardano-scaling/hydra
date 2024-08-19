@@ -43,6 +43,7 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
+    Hydra.Contract.Deposit
     Hydra.Contract.CommitError
     Hydra.Contract.Error
     Hydra.Contract.Hash
