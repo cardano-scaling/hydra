@@ -383,7 +383,7 @@ type TxBodyContent buidl = Cardano.Api.TxBodyContent buidl Era
 pattern TxBodyContent ::
   TxIns buidl ->
   TxInsCollateral ->
-  TxInsReference buidl ->
+  TxInsReference ->
   [TxOut CtxTx] ->
   TxTotalCollateral Era ->
   TxReturnCollateral CtxTx Era ->
@@ -401,7 +401,7 @@ pattern TxBodyContent ::
   TxScriptValidity ->
   Maybe (Featured ConwayEraOnwards Era (TxProposalProcedures buidl Era)) ->
   Maybe (Featured ConwayEraOnwards Era (TxVotingProcedures buidl Era)) ->
-  Maybe (Featured ConwayEraOnwards Era Coin) ->
+  Maybe (Featured ConwayEraOnwards Era (Maybe Coin)) ->
   Maybe (Featured ConwayEraOnwards Era Coin) ->
   TxBodyContent buidl
 pattern TxBodyContent
@@ -512,17 +512,17 @@ type TxIns buidl = [(TxIn, BuildTxWith buidl (Cardano.Api.Witness WitCtxTxIn Era
 
 -- ** TxInsReference
 
-type TxInsReference buidl = Cardano.Api.TxInsReference buidl Era
+type TxInsReference = Cardano.Api.TxInsReference Era
 {-# COMPLETE TxInsReferenceNone, TxInsReference #-}
 
-pattern TxInsReferenceNone :: TxInsReference buidl
+pattern TxInsReferenceNone :: TxInsReference
 pattern TxInsReferenceNone <-
   Cardano.Api.TxInsReferenceNone
   where
     TxInsReferenceNone =
       Cardano.Api.TxInsReferenceNone
 
-pattern TxInsReference :: [TxIn] -> TxInsReference buidl
+pattern TxInsReference :: [TxIn] -> TxInsReference
 pattern TxInsReference{txInsReference'} <-
   Cardano.Api.TxInsReference _ txInsReference'
   where
