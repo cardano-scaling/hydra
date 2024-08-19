@@ -1388,7 +1388,7 @@ components:
         - utxoCostPerByte # Babbage onwards
       properties:
         protocolVersion:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/ProtocolVersion"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/ProtocolVersion"
         maxBlockBodySize:
           # XXX: NumberOfBytes in cardanonical
           type: integer
@@ -1402,29 +1402,29 @@ components:
           type: integer
           minimum: 0
         txFeeFixed:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
         txFeePerByte:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/UInt64"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/UInt64"
         stakeAddressDeposit:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
         stakePoolDeposit:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
         minPoolCost:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
         poolRetireMaxEpoch:
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/UInt64"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/UInt64"
         stakePoolTargetNum:
           # XXX: UInt64 in cardanonical, but Natural in cardano-api
           type: integer
           minimum: 0
         poolPledgeInfluence:
-          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
           type: number
         monetaryExpansion:
-          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
           type: number
         treasuryCut:
-          # XXX: would be better "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Ratio"
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
           type: number
         costModels:
           type: object
@@ -1437,7 +1437,7 @@ components:
               - "PlutusV2"
               - "PlutusV3"
           additionalProperties:
-            "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/CostModel"
+            "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/CostModel"
         executionUnitPrices:
           # XXX: Object fields different in cardanonical and using Ratio
           priceMemory:
@@ -1474,7 +1474,7 @@ components:
           minimum: 0
         utxoCostPerByte:
           # XXX: Coefficient in cardanonical is UInt64, but should be lovelace
-          "$ref": "https://raw.githubusercontent.com/CardanoSolutions/cardanonical/main/cardano.json#/definitions/Lovelace"
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
 
     NodeId:
       type: string
