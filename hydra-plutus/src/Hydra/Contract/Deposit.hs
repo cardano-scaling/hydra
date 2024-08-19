@@ -12,17 +12,23 @@ module Hydra.Contract.Deposit where
 import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
+import Hydra.Contract.DepositError (DepositError (DepositDeadlineSurpassed, DepositNoUpperBoundDefined))
+import Hydra.Contract.Error (errorCode)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (Datum),
-  POSIXTimeRange,
+  Extended (Finite),
+  POSIXTime,
   Redeemer (Redeemer),
-  ScriptContext,
+  ScriptContext (..),
   ScriptHash,
   SerialisedScript,
   TxOutRef,
+  UpperBound (UpperBound),
+  ivTo,
   serialiseCompiledCode,
+  txInfoValidRange,
  )
 import PlutusTx (CompiledCode, toBuiltinData)
 import PlutusTx qualified
@@ -51,13 +57,23 @@ instance Eq Deposit where
   (Deposit i o) == (Deposit i' o') =
     i == i' && o == o'
 
-type DepositDatum = (CurrencySymbol, POSIXTimeRange, [Deposit])
+type DepositDatum = (CurrencySymbol, POSIXTime, [Deposit])
 
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
-validator (_headId, _dl, _deposit) r _ctx =
+validator (_headId, dl, _deposit) r ctx =
   case r of
-    Claim -> True
+    Claim ->
+      beforeDeadline
     Cancel -> True
+ where
+  beforeDeadline =
+    case ivTo (txInfoValidRange txInfo) of
+      UpperBound (Finite t) _ ->
+        traceIfFalse $(errorCode DepositDeadlineSurpassed) $
+          t < dl
+      _ -> traceError $(errorCode DepositNoUpperBoundDefined)
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
