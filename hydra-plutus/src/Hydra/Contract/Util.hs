@@ -22,6 +22,9 @@ import PlutusTx.Prelude
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
 
+depositTokenV1 :: BuiltinByteString
+depositTokenV1 = "HydraDepositV1"
+
 -- | Checks that the output contains the state token (ST) with the head
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
 hasST :: CurrencySymbol -> Value -> Bool

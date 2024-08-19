@@ -24,15 +24,20 @@ import PlutusLedgerApi.V2 (
   ScriptContext (..),
   ScriptHash,
   SerialisedScript,
+  TokenName (TokenName),
+  TxInfo (txInfoMint),
   TxOutRef,
   UpperBound (UpperBound),
+  Value (getValue),
   ivTo,
   serialiseCompiledCode,
   txInfoValidRange,
  )
 import PlutusTx (CompiledCode, toBuiltinData)
 import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AssocMap
 import Prelude qualified as Haskell
+import Hydra.Contract.Util (depositTokenV1)
 
 data DepositRedeemer
   = -- | Claims already deposited funds.
@@ -60,12 +65,22 @@ instance Eq Deposit where
 type DepositDatum = (CurrencySymbol, POSIXTime, [Deposit])
 
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
-validator (_headId, dl, _deposit) r ctx =
+validator (dtCurrencySymbol, dl, _deposit) r ctx =
   case r of
     Claim ->
       beforeDeadline
+        && mustBurnDT
     Cancel -> True
  where
+  tokenVal = txInfoMint $ scriptContextTxInfo ctx
+  mustBurnDT =
+    case AssocMap.lookup dtCurrencySymbol (getValue tokenVal) of
+      Nothing -> False
+      Just tokenMap ->
+        case AssocMap.lookup (TokenName depositTokenV1) tokenMap of
+          Nothing -> False
+          Just v -> v == negate 1
+
   beforeDeadline =
     case ivTo (txInfoValidRange txInfo) of
       UpperBound (Finite t) _ ->
