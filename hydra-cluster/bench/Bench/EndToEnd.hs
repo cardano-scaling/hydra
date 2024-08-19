@@ -124,9 +124,13 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
             let clientSks = clientKeys <$> clientDatasets
             (`finally` returnFaucetFunds tracer node clientSks) $ do
               putTextLn "Seeding network"
-              fundClients networkId nodeSocket fundingTransaction
-              forM_ clientSks (fuelWith100Ada (contramap FromFaucet tracer) node)
-              putStrLn $ "Connecting to hydra cluster in " <> workDir
+              submitTransaction networkId nodeSocket fundingTransaction
+              void $ awaitTransaction networkId nodeSocket fundingTransaction
+              forM_ clientSks $ \ClientKeys{signingKey} -> do
+                let vk = getVerificationKey signingKey
+                putTextLn $ "Seed client " <> show vk
+                seedFromFaucet node vk 100_000_000 (contramap FromFaucet tracer)
+              putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
@@ -306,22 +310,20 @@ movingAverage confirmations =
 -- transaction is returned.
 seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
 seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
-  fundClients networkId nodeSocket fundingTransaction
-  forM_ (clientKeys <$> clientDatasets) (fuelWith100Ada tracer node)
+  fundClients
+  forM_ (clientKeys <$> clientDatasets) fuelWith100Ada
   putTextLn "Publishing hydra scripts"
   publishHydraScriptsAs node Faucet
+ where
+  fundClients = do
+    putTextLn "Fund scenario from faucet"
+    submitTransaction networkId nodeSocket fundingTransaction
+    void $ awaitTransaction networkId nodeSocket fundingTransaction
 
-fundClients :: NetworkId -> SocketPath -> Tx -> IO ()
-fundClients networkId nodeSocket fundingTransaction = do
-  putTextLn "Fund scenario from faucet"
-  submitTransaction networkId nodeSocket fundingTransaction
-  void $ awaitTransaction networkId nodeSocket fundingTransaction
-
-fuelWith100Ada :: Tracer IO FaucetLog -> RunningNode -> ClientKeys -> IO UTxO
-fuelWith100Ada tracer node ClientKeys{signingKey} = do
-  let vk = getVerificationKey signingKey
-  putTextLn $ "Seed client " <> show vk
-  seedFromFaucet node vk 100_000_000 tracer
+  fuelWith100Ada ClientKeys{signingKey} = do
+    let vk = getVerificationKey signingKey
+    putTextLn $ "Seed client " <> show vk
+    seedFromFaucet node vk 100_000_000 tracer
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
