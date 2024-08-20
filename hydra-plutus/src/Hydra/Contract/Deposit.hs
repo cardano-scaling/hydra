@@ -11,11 +11,9 @@ module Hydra.Contract.Deposit where
 
 import PlutusTx.Prelude
 
-import Codec.Serialise (serialise)
-import Data.ByteString.Lazy (toStrict)
 import Data.ByteString.Short (fromShort)
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
-import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Commit (Commit, input)
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.DepositError (
   DepositError (
@@ -28,7 +26,7 @@ import Hydra.Contract.DepositError (
  )
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.Head (compareRef, hashPreSerializedCommits, hashTxOuts)
-import Hydra.Contract.Util (depositTokenV1, hasST)
+import Hydra.Contract.Util (hasST)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import Hydra.ScriptContext (ownCurrencySymbol)
 import Hydra.ScriptContext qualified as Hydra
@@ -52,13 +50,13 @@ import PlutusLedgerApi.V2 (
   Value (getValue),
   ivTo,
   serialiseCompiledCode,
-  toData,
   txInfoOutputs,
   txInfoValidRange,
  )
 import PlutusTx (CompiledCode, toBuiltinData)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Builtins (serialiseData)
 
 data DepositRedeemer
   = -- | Claims already deposited funds.
@@ -119,11 +117,13 @@ validator (headId, dl, deposits) r ctx =
 
   dtCurrencySymbol = CurrencySymbol . toBuiltin $ fromShort depositMintValidatorScript
 
+  depositToken = TokenName $ hashTxOutRefs (input <$> deposits)
+
   mustBurnDT =
     case AssocMap.lookup dtCurrencySymbol (getValue tokenVal) of
       Nothing -> False
       Just tokenMap ->
-        case AssocMap.lookup (TokenName depositTokenV1) tokenMap of
+        case AssocMap.lookup depositToken tokenMap of
           Nothing -> False
           Just v -> v == negate 1
 
@@ -176,10 +176,11 @@ depositMintValidator _depositValidatorHash _ r ctx =
   case AssocMap.lookup depositCurrencySymbol (getValue tokenVal) of
     Nothing -> False
     Just tokenMap ->
-      case AssocMap.lookup (TokenName $ hashTxOutRefs depositRefs) tokenMap of
+      case AssocMap.lookup dtTokenName tokenMap of
         Nothing -> False
         Just v -> v == 1
  where
+  dtTokenName = TokenName $ hashTxOutRefs depositRefs
   tokenVal = Hydra.txInfoMint hydraTxInfo
 
   depositCurrencySymbol = ownCurrencySymbol ctx
@@ -192,7 +193,7 @@ depositMintValidator _depositValidatorHash _ r ctx =
 hashTxOutRefs :: [TxOutRef] -> BuiltinByteString
 hashTxOutRefs outRefs =
   sha2_256
-    . foldMap (toBuiltin . toStrict . serialise . toData)
+    . foldMap (serialiseData . toBuiltinData)
     $ sortBy compareRef outRefs
 {-# INLINEABLE hashTxOutRefs #-}
 
