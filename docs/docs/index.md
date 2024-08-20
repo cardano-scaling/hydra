@@ -2,7 +2,7 @@
 
 This section is a manual for users interested in running a Hydra node.
 
-Hydra node is an implementation of the Hydra Head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
+Hydra node is an implementation of the Hydra head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
 
 Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra Heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency. 
 
