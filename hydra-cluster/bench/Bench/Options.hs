@@ -26,8 +26,8 @@ data Options
       , startingNodeId :: Int
       }
   | DemoOptions
-      { outputDirectory :: Maybe FilePath
-      , scalingFactor :: Int
+      { datasetFiles :: [FilePath]
+      , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
@@ -162,8 +162,8 @@ demoOptionsInfo =
 demoOptionsParser :: Parser Options
 demoOptionsParser =
   DemoOptions
-    <$> optional outputDirectoryParser
-    <*> scalingFactorParser
+    <$> many filepathParser
+    <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> nodeSocketParser
     <*> many hydraClientsParser

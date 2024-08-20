@@ -29,7 +29,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
-import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
+import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
@@ -40,7 +40,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Logging (Tracer, withTracerOutputTo)
 import Hydra.Network (Host)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
@@ -110,7 +110,7 @@ benchDemo ::
   FilePath ->
   Dataset ->
   IO Summary
-benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -121,21 +121,12 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
           Nothing ->
             error ("Not found running node at socket: " <> show nodeSocket <> ", and network: " <> show networkId)
           Just node -> do
-            let clientSks = clientKeys <$> clientDatasets
-            (`finally` returnFaucetFunds tracer node clientSks) $ do
-              putTextLn "Seeding network"
-              submitTransaction networkId nodeSocket fundingTransaction
-              void $ awaitTransaction networkId nodeSocket fundingTransaction
-              forM_ clientSks $ \ClientKeys{signingKey} -> do
-                let vk = getVerificationKey signingKey
-                putTextLn $ "Seed client " <> show vk
-                seedFromFaucet node vk 100_000_000 (contramap FromFaucet tracer)
-              putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
-              let hydraTracer = contramap FromHydraNode tracer
-              withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
-                [] -> error "no hydra clients provided"
-                (leader : followers) ->
-                  scenario hydraTracer node workDir dataset mempty leader followers
+            putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
+            let hydraTracer = contramap FromHydraNode tracer
+            withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
+              [] -> error "no hydra clients provided"
+              (leader : followers) ->
+                scenario hydraTracer node workDir dataset mempty leader followers
  where
   withHydraClientConnections tracer peers connections action = do
     case peers of
@@ -143,17 +134,6 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
       ((peer, peerId) : rest) -> do
         withConnectionToNodeHost tracer peerId peer False $ \con -> do
           withHydraClientConnections tracer rest (con : connections) action
-
-  returnFaucetFunds tracer node cKeys = do
-    putTextLn "Returning funds to faucet"
-    let faucetTracer = contramap FromFaucet tracer
-    let senders = concatMap @[] (\(ClientKeys sk esk) -> [sk, esk]) cKeys
-    mapM_
-      ( \sender -> do
-          returnAmount <- returnFundsToFaucet' faucetTracer node sender
-          traceWith faucetTracer $ ReturnedFunds{actor = show sender, returnAmount}
-      )
-      senders
 
 scenario ::
   Tracer IO HydraNodeLog ->

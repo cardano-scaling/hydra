@@ -5,18 +5,14 @@ import Hydra.Prelude hiding (size)
 
 import Cardano.Api.Ledger (PParams)
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (buildRawTransaction, buildTransaction, sign)
+import CardanoClient (buildRawTransaction)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
-import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.CardanoClient (QueryPoint (..), queryUTxOFor)
-import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
-import Test.QuickCheck (choose, generate, sized, vectorOf)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer)
+import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
@@ -36,11 +32,8 @@ data Dataset = Dataset
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
-    faucetSk <- genSigningKey
-    let nClients = max 1 (min maximumNumberOfParties (n `div` 10))
-    clientKeys <- vectorOf nClients arbitrary
-    fundingTransaction <- makeGenesisFundingTx faucetSk clientKeys
-    genDatasetConstantUTxO clientKeys n fundingTransaction generateOneSelfTransfer
+    sk <- genSigningKey
+    genDatasetConstantUTxO sk (n `div` 10) n
 
 data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
@@ -94,23 +87,40 @@ generateConstantUTxODataset ::
   IO Dataset
 generateConstantUTxODataset nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
-  clientKeys <- generate $ replicateM nClients arbitrary
-  fundingTransaction <- generate $ makeGenesisFundingTx faucetSk clientKeys
-  generate $ genDatasetConstantUTxO clientKeys nTxs fundingTransaction generateOneRandomTransfer
+  generate $ genDatasetConstantUTxO faucetSk nClients nTxs
 
 genDatasetConstantUTxO ::
-  -- | Clients
-  [ClientKeys] ->
+  -- | The faucet signing key
+  SigningKey PaymentKey ->
+  -- | Number of clients
+  Int ->
   -- | Number of transactions
   Int ->
-  Tx ->
-  (NetworkId -> (UTxO, SigningKey PaymentKey, [Tx]) -> Int -> Gen (UTxO, SigningKey PaymentKey, [Tx])) ->
   Gen Dataset
-genDatasetConstantUTxO allClientKeys nTxs fundingTransaction tfr = do
-  clientDatasets <- forM allClientKeys generateClientDataset
+genDatasetConstantUTxO faucetSk nClients nTxs = do
+  clientKeys <- replicateM nClients arbitrary
+  -- Prepare funding transaction which will give every client's
+  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
+  -- funded in the beginning of the benchmark run.
+  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+    amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
+    pure (getVerificationKey externalSigningKey, amount)
+  let fundingTransaction =
+        buildRawTransaction
+          networkId
+          initialInput
+          faucetSk
+          (Coin availableInitialFunds)
+          clientFunds
+  clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
-  generateClientDataset clientKeys@ClientKeys{externalSigningKey} = do
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
+
+  generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let vk = getVerificationKey externalSigningKey
         -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
         -- that everything owned by the externalSigningKey will get committed
@@ -121,68 +131,7 @@ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction tfr = do
     txSequence <-
       reverse
         . thrd
-        <$> foldM (tfr networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
+        <$> foldM (generateOneRandomTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
   thrd (_, _, c) = c
-
--- Prepare funding transaction which will give every client's
--- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
--- funded in the beginning of the benchmark run.
-makeGenesisFundingTx :: SigningKey PaymentKey -> [ClientKeys] -> Gen Tx
-makeGenesisFundingTx faucetSk clientKeys = do
-  let nClients = length clientKeys
-  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
-    amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
-    -- NOTE: It seems if this becomes choose (1,1) we get funny signingKeys;
-    -- i.e. like "0001010100010001000000010100000001010001000101000000010101010001".
-    pure (getVerificationKey externalSigningKey, amount)
-  let fundingTransaction =
-        buildRawTransaction
-          networkId
-          initialInput
-          faucetSk
-          (Coin availableInitialFunds)
-          clientFunds
-  pure fundingTransaction
- where
-  initialInput =
-    genesisUTxOPseudoTxIn
-      networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
-
-genDatasetConstantUTxODemo ::
-  -- | Clients
-  [ClientKeys] ->
-  -- | Number of transactions
-  Int ->
-  NetworkId ->
-  SocketPath ->
-  IO Dataset
-genDatasetConstantUTxODemo allClientKeys nTxs networkId' nodeSocket = do
-  (faucetVk, faucetSk) <- keysFor Faucet
-  let nClients = length allClientKeys
-  faucetUTxO <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
-  let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
-  -- Prepare funding transaction which will give every client's
-  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
-  -- funded in the beginning of the benchmark run.
-  clientFunds <- forM allClientKeys $ \ClientKeys{externalSigningKey} -> do
-    amount <- Coin <$> generate (choose (1, fundsAvailable `div` fromIntegral nClients))
-    pure (getVerificationKey externalSigningKey, amount)
-
-  let recipientOutputs =
-        flip map clientFunds $ \(vk, ll) ->
-          TxOut
-            (mkVkAddress networkId' vk)
-            (lovelaceToValue ll)
-            TxOutDatumNone
-            ReferenceScriptNone
-  let changeAddress = mkVkAddress networkId' faucetVk
-  fundingTransaction <-
-    buildTransaction networkId' nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
-      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        let signedTx = sign faucetSk body
-        pure signedTx
-  generate $ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction generateOneSelfTransfer
