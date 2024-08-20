@@ -7,7 +7,6 @@ import Test.Hydra.Prelude
 
 import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
-import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultPParams)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
@@ -34,8 +33,7 @@ spec = parallel $ do
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
-  -- FIXME: Breaks with values > 33. Why?
-  forAll (inputs maximumNumberOfParties) $ \(Positive n, clientKeys) -> do
+  forAll arbitrary $ \(Positive n, clientKeys) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
 
@@ -54,11 +52,6 @@ prop_keepsUTxOConstant =
                 & counterexample ("utxo: " <> prettyJSONString initialUTxO)
                 & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
           pure $ conjoin allProperties
- where
-  inputs nClients = do
-    n <- arbitrary
-    clientKeys <- replicateM nClients arbitrary
-    pure (n, clientKeys)
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =
