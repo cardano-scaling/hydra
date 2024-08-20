@@ -15,7 +15,7 @@ import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneTransfer)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneSelfTransfer)
 import Test.QuickCheck (choose, generate, sized, vectorOf)
 
 networkId :: NetworkId
@@ -111,7 +111,6 @@ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
  where
   generateClientDataset clientKeys@ClientKeys{externalSigningKey} = do
     let vk = getVerificationKey externalSigningKey
-        keyPair = (vk, externalSigningKey)
         -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
         -- that everything owned by the externalSigningKey will get committed
         -- into the head.
@@ -121,7 +120,7 @@ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
     txSequence <-
       reverse
         . thrd
-        <$> foldM (generateOneTransfer networkId) (initialUTxO, keyPair, []) [1 .. nTxs]
+        <$> foldM (generateOneSelfTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
   thrd (_, _, c) = c
