@@ -91,13 +91,17 @@ jobs:
 
         .github/workflows/network/watch_logs.sh
 
-        # FIXME! generate dataset
-        touch datasets/3-nodes-demo.json
+        # TODO: make this a flake output / easier accesible
+        mkdir $(pwd)/datasets && nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
+          demo-datasets \
+          --output-directory=$(pwd)/datasets \
+          --scaling-factor=10 \
+          --node-socket=demo/devnet/node.socket
 
         # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
-          datasets/3-nodes-demo.json \
+          $(pwd)/datasets/demo-dataset.json \
           --output-directory=$(pwd)/benchmarks \
           --timeout=1000s \
           --node-socket=demo/devnet/node.socket \

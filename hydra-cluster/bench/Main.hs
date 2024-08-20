@@ -10,7 +10,7 @@ import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (defaultNetworkId)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
@@ -39,6 +39,13 @@ main = do
     DemoOptions{datasetFiles, outputDirectory, timeoutSeconds, nodeSocket, hydraClients} -> do
       let action = benchDemo defaultNetworkId nodeSocket timeoutSeconds hydraClients
       run outputDirectory datasetFiles action
+    DemoDatasetOptions{outputDirectory, scalingFactor, nodeSocket} -> do
+      workDir <- createSystemTempDirectory "demo-bench"
+      putStrLn $ "Generating single dataset in work directory: " <> workDir
+      numberOfTxs <- generate $ scale (* scalingFactor) getSize
+      dataset <- generateDemoUTxODataset numberOfTxs nodeSocket
+      let datasetPath = fromMaybe workDir outputDirectory </> "demo-dataset.json"
+      saveDataset datasetPath dataset
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir

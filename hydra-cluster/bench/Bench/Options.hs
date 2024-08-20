@@ -32,6 +32,11 @@ data Options
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
       }
+  | DemoDatasetOptions
+      { outputDirectory :: Maybe FilePath
+      , scalingFactor :: Int
+      , nodeSocket :: SocketPath
+      }
 
 benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
@@ -40,6 +45,7 @@ benchOptionsParser =
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
             <> command "demo" demoOptionsInfo
+            <> command "demo-datasets" demoDatasetOptionsInfo
         )
         <**> helper
     )
@@ -159,6 +165,16 @@ demoOptionsInfo =
         \   * three hydra nodes listening on ports 4001, 4002 and 4003."
     )
 
+demoDatasetOptionsInfo :: ParserInfo Options
+demoDatasetOptionsInfo =
+  info
+    demoDatasetOptionsParser
+    ( progDesc
+        "Generate demo bench dataset. \
+        \ This requires having cardano node running in the background \
+        \ on specified node-socket."
+    )
+
 demoOptionsParser :: Parser Options
 demoOptionsParser =
   DemoOptions
@@ -167,6 +183,13 @@ demoOptionsParser =
     <*> timeoutParser
     <*> nodeSocketParser
     <*> many hydraClientsParser
+
+demoDatasetOptionsParser :: Parser Options
+demoDatasetOptionsParser =
+  DemoDatasetOptions
+    <$> optional outputDirectoryParser
+    <*> scalingFactorParser
+    <*> nodeSocketParser
 
 hydraClientsParser :: Parser Host
 hydraClientsParser =
