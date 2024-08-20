@@ -11,7 +11,7 @@ on:
         default: false
   push:
     branches:
-    - network-testing
+    - demo-bench
 
 jobs:
   network-test:
@@ -45,7 +45,7 @@ jobs:
         cd demo
         ./prepare-devnet.sh
         docker compose up -d cardano-node
-        ./seed-devnet.sh
+        ./publish-script-devnet.sh
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
