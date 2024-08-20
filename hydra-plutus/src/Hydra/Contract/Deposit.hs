@@ -12,16 +12,19 @@ module Hydra.Contract.Deposit where
 import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
+import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.DepositError (
   DepositError (
     DepositDeadlineNotReached,
     DepositDeadlineSurpassed,
     DepositNoLowerBoundDefined,
-    DepositNoUpperBoundDefined
+    DepositNoUpperBoundDefined,
+    IncorrectDepositHash
   ),
  )
 import Hydra.Contract.Error (errorCode)
+import Hydra.Contract.Head (hashPreSerializedCommits, hashTxOuts)
 import Hydra.Contract.Util (depositTokenV1, hasST)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V2 (
@@ -38,7 +41,6 @@ import PlutusLedgerApi.V2 (
   TokenName (TokenName),
   TxInfo (txInfoMint),
   TxOut (txOutValue),
-  TxOutRef,
   UpperBound (UpperBound),
   Value (getValue),
   ivTo,
@@ -59,22 +61,7 @@ data DepositRedeemer
 
 PlutusTx.unstableMakeIsData ''DepositRedeemer
 
--- | A data type representing deposited outputs on-chain. Besides recording the
--- original 'TxOutRef', it also stores a binary representation compatible
--- between on-chain and off-chain code to be hashed in the validators.
-data Deposit = Deposit
-  { input :: TxOutRef
-  , preSerializedOutput :: BuiltinByteString
-  }
-  deriving stock (Haskell.Eq, Haskell.Show, Haskell.Ord)
-
-PlutusTx.unstableMakeIsData ''Deposit
-
-instance Eq Deposit where
-  (Deposit i o) == (Deposit i' o') =
-    i == i' && o == o'
-
-type DepositDatum = (CurrencySymbol, POSIXTime, [Deposit])
+type DepositDatum = (CurrencySymbol, POSIXTime, [Commit])
 
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
 validator (headId, dl, deposits) r ctx =
@@ -85,7 +72,15 @@ validator (headId, dl, deposits) r ctx =
         && hasHeadST
     Recover ->
       afterDeadline
+        && recoverOutputs
  where
+  recoverOutputs =
+    traceIfFalse $(errorCode IncorrectDepositHash) $
+      hashOfOutputs == hashPreSerializedCommits deposits
+
+  hashOfOutputs =
+    hashTxOuts $ take (length deposits) (tail $ txInfoOutputs txInfo)
+
   hasHeadST =
     traceIfFalse
       $(errorCode STIsMissingInTheOutput)
