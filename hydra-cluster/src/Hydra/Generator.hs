@@ -15,7 +15,7 @@ import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (Faucet), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneSelfTransfer)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
 import Test.QuickCheck (choose, generate, sized, vectorOf)
 
 networkId :: NetworkId
@@ -40,7 +40,7 @@ instance Arbitrary Dataset where
     let nClients = max 1 (min maximumNumberOfParties (n `div` 10))
     clientKeys <- vectorOf nClients arbitrary
     fundingTransaction <- makeGenesisFundingTx faucetSk clientKeys
-    genDatasetConstantUTxO clientKeys n fundingTransaction
+    genDatasetConstantUTxO clientKeys n fundingTransaction generateOneSelfTransfer
 
 data ClientKeys = ClientKeys
   { signingKey :: SigningKey PaymentKey
@@ -96,7 +96,7 @@ generateConstantUTxODataset nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
   clientKeys <- generate $ replicateM nClients arbitrary
   fundingTransaction <- generate $ makeGenesisFundingTx faucetSk clientKeys
-  generate $ genDatasetConstantUTxO clientKeys nTxs fundingTransaction
+  generate $ genDatasetConstantUTxO clientKeys nTxs fundingTransaction generateOneRandomTransfer
 
 genDatasetConstantUTxO ::
   -- | Clients
@@ -104,8 +104,9 @@ genDatasetConstantUTxO ::
   -- | Number of transactions
   Int ->
   Tx ->
+  (NetworkId -> (UTxO, SigningKey PaymentKey, [Tx]) -> Int -> Gen (UTxO, SigningKey PaymentKey, [Tx])) ->
   Gen Dataset
-genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
+genDatasetConstantUTxO allClientKeys nTxs fundingTransaction tfr = do
   clientDatasets <- forM allClientKeys generateClientDataset
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
@@ -120,7 +121,7 @@ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction = do
     txSequence <-
       reverse
         . thrd
-        <$> foldM (generateOneSelfTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
+        <$> foldM (tfr networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
   thrd (_, _, c) = c
@@ -184,4 +185,4 @@ genDatasetConstantUTxODemo allClientKeys nTxs networkId' nodeSocket = do
       Right body -> do
         let signedTx = sign faucetSk body
         pure signedTx
-  generate $ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction
+  generate $ genDatasetConstantUTxO allClientKeys nTxs fundingTransaction generateOneSelfTransfer

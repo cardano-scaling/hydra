@@ -17,7 +17,7 @@ import Hydra.Generator (
   makeGenesisFundingTx,
  )
 import Hydra.Ledger (ChainSlot (ChainSlot), applyTransactions)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger, generateOneSelfTransfer)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
@@ -42,7 +42,7 @@ prop_keepsUTxOConstant =
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (makeGenesisFundingTx faucetSk clientKeys) $ \fundingTransaction -> do
-          Dataset{clientDatasets} <- genDatasetConstantUTxO clientKeys n fundingTransaction
+          Dataset{clientDatasets} <- genDatasetConstantUTxO clientKeys n fundingTransaction generateOneSelfTransfer
           allProperties <- forM clientDatasets $ \ClientDataset{txSequence} -> do
             let initialUTxO = utxoFromTx fundingTransaction
                 finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
