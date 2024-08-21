@@ -9,6 +9,7 @@ import CardanoClient (QueryPoint (QueryTip), buildRawTransaction, buildTransacti
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
+import Data.List qualified as List
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds, defaultNetworkId)
@@ -145,7 +146,7 @@ generateDemoUTxODataset nTxs nodeSocket = do
           pure $ ClientKeys sk fundsSk
     forM actors toClientKeys
 
-  pparams <- queryProtocolParameters defaultNetworkId nodeSocket QueryTip
+  -- pparams <- queryProtocolParameters defaultNetworkId nodeSocket QueryTip
   clientFundingTxs <- forM clientKeys $ \clientKey@ClientKeys{signingKey} -> do
     let clientVk = getVerificationKey signingKey
     let address = mkVkAddress @Era defaultNetworkId clientVk
@@ -154,21 +155,29 @@ generateDemoUTxODataset nTxs nodeSocket = do
     putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
     let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
     putStrLn $ "client funds available: " <> show fundsAvailable
-    let collateralTxIns = mempty
-    let changeAddress = address
-    let recipientOutputs =
-          mkTxOutAutoBalance
-            pparams
-            address
-            (lovelaceToValue fundsAvailable)
-            TxOutDatumNone
-            ReferenceScriptNone
-    fundingTransaction <-
-      buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [recipientOutputs] >>= \case
-        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-        Right body -> do
-          let signedTx = sign signingKey body
-          pure signedTx
+    -- let collateralTxIns = mempty
+    -- let changeAddress = address
+    -- let recipientOutputs =
+    --       mkTxOutAutoBalance
+    --         pparams
+    --         address
+    --         (lovelaceToValue fundsAvailable)
+    --         TxOutDatumNone
+    --         ReferenceScriptNone
+    -- putStrLn $ "txOutAutoBalance: " <> show recipientOutputs
+    let fundingTransaction =
+          buildRawTransaction
+            defaultNetworkId
+            (fst . List.head . UTxO.pairs $ clientUTxO)
+            signingKey
+            fundsAvailable
+            [(clientVk, fundsAvailable)]
+
+      -- buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [] >>= \case
+      --   Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+      --   Right body -> pure $ sign signingKey body
+          -- let signedTx = sign signingKey body
+          -- pure signedTx
     putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
     pure (clientKey, fundingTransaction)
 

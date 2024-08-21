@@ -106,30 +106,19 @@ returnFundsToFaucet ::
   RunningNode ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer node sender = do
-  senderKeys <- keysFor sender
-  returnAmount <- returnFundsToFaucet' tracer node (snd senderKeys)
-  traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount}
-
-returnFundsToFaucet' ::
-  Tracer IO FaucetLog ->
-  RunningNode ->
-  SigningKey PaymentKey ->
-  IO Coin
-returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
+returnFundsToFaucet tracer RunningNode{networkId, nodeSocket} sender = do
   (faucetVk, _) <- keysFor Faucet
   let faucetAddress = mkVkAddress networkId faucetVk
-  let senderVk = getVerificationKey senderSk
+
+  (senderVk, senderSk) <- keysFor sender
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  if null utxo
-    then pure 0
-    else retryOnExceptions tracer $ do
-      let utxoValue = balance @Tx utxo
-      let allLovelace = selectLovelace utxoValue
-      tx <- sign senderSk <$> buildTxBody utxo faucetAddress
-      submitTransaction networkId nodeSocket tx
-      void $ awaitTransaction networkId nodeSocket tx
-      pure allLovelace
+  unless (null utxo) . retryOnExceptions tracer $ do
+    let utxoValue = balance @Tx utxo
+    let allLovelace = selectLovelace utxoValue
+    tx <- sign senderSk <$> buildTxBody utxo faucetAddress
+    submitTransaction networkId nodeSocket tx
+    void $ awaitTransaction networkId nodeSocket tx
+    traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount = allLovelace}
  where
   buildTxBody utxo faucetAddress =
     -- Here we specify no outputs in the transaction so that a change output with the
