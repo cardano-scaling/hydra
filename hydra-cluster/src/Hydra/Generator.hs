@@ -9,6 +9,7 @@ import CardanoClient (QueryPoint (QueryTip), buildRawTransaction, buildTransacti
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds, defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
@@ -147,13 +148,19 @@ generateDemoUTxODataset nTxs nodeSocket = do
   let nClients = length clientKeys
 
   faucetUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip faucetVk
+  putStrLn $ "faucetUTxO: " <> renderUTxO faucetUTxO
   let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
+  putStrLn $ "fundsAvailable: " <> show fundsAvailable
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the demo benchmark run.
   clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Coin <$> generate (choose (1, fundsAvailable `div` fromIntegral nClients))
     pure (getVerificationKey externalSigningKey, amount)
+
+  let clientFundsDbg = bimap (mkVkAddress @Era defaultNetworkId) lovelaceToValue <$> clientFunds
+  putStrLn $ "clientFunds: " <> show clientFundsDbg
+
   let recipientOutputs =
         flip map clientFunds $ \(vk, ll) ->
           TxOut
@@ -168,7 +175,7 @@ generateDemoUTxODataset nTxs nodeSocket = do
       Right body -> do
         let signedTx = sign faucetSk body
         pure signedTx
-
+  putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
   generate $ do
     clientDatasets <- forM clientKeys (generateClientDemoDataset fundingTransaction)
     pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
