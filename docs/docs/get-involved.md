@@ -4,7 +4,7 @@ title: Get involved
 
 # Get involved
 
-The Hydra Head protocol implementation is an open-source project built on the principles of transparency, collaboration, and community-driven development. As part of the broader Cardano ecosystem, Hydra welcomes [contributions](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md) from developers, researchers, and enthusiasts who are committed to advancing decentralized technologies. By participating in the Hydra project, you join a global community dedicated to enhancing Cardano’s scalability, security, and efficiency. 
+The Hydra head protocol implementation is an open-source project built on the principles of transparency, collaboration, and community-driven development. As part of the broader Cardano ecosystem, Hydra welcomes [contributions](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md) from developers, researchers, and enthusiasts who are committed to advancing decentralized technologies. By participating in the Hydra project, you join a global community dedicated to enhancing Cardano’s scalability, security, and efficiency. 
 
 Your involvement, whether through code contributions, issue reporting, or community discussions, helps drive the innovation and continuous improvement of Hydra protocols. 
 

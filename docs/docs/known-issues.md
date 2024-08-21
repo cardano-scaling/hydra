@@ -6,7 +6,7 @@ Before running a Hydra node on the Cardano mainnet, it is important to be aware 
 
 Due to the limitations on transaction sizes and execution budgets on Cardano, the Hydra protocol has the following constraints:
 
-- The protocol can only handle a maximum number of participants in a head see [the cost of CollectCom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
+- The protocol can only handle a maximum number of participants in a head (see [the cost of CollectCom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost/#cost-of-collectcom-transaction)). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
 
 Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:
 
@@ -19,7 +19,7 @@ See these resources for additional information about reducing the risk of lockin
 * [Directly open heads](https://github.com/cardano-scaling/hydra/issues/1329)
 * [Always abortable head](https://github.com/cardano-scaling/hydra/issues/699)
 * [Limit size/complexity of UTXOs in the head](https://github.com/cardano-scaling/hydra/issues/698)
-* [Only sign closable snapshots](https://github.com/cardano-scaling/hydra/issues/370)
+* [Only sign closable snapshots](https://github.com/cardano-scaling/hydra/issues/370).
 
 ### Training wheels
 

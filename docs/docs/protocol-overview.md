@@ -1,17 +1,17 @@
 # Protocol overview
 
-Hydra is the layer 2 scalability solution for Cardano, designed to increase transaction speed through low latency and high throughput while minimizing transaction costs. [Hydra Head](https://eprint.iacr.org/2020/299.pdf) is the first protocol of the Hydra family that lays the foundation for more advanced deployment scenarios using isomorphic, multi-party state channels. For an introduction to the protocol, refer to these two blog posts: 
+Hydra is the layer 2 scalability solution for Cardano, designed to increase transaction speed through low latency and high throughput while minimizing transaction costs. [Hydra head](https://eprint.iacr.org/2020/299.pdf) is the first protocol of the Hydra family that lays the foundation for more advanced deployment scenarios using isomorphic, multi-party state channels. For an introduction to the protocol, refer to these two blog posts: 
 
 * [Hydra – Cardano’s solution for ultimate layer 2 scalability](https://iohk.io/en/blog/posts/2021/09/17/hydra-cardano-s-solution-for-ultimate-scalability/)
-* [Implementing Hydra Heads: the first step towards the full Hydra vision](https://iohk.io/en/blog/posts/2022/02/03/implementing-hydra-heads-the-first-step-towards-the-full-hydra-vision/).
+* [Implementing Hydra heads: the first step towards the full Hydra vision](https://iohk.io/en/blog/posts/2022/02/03/implementing-hydra-heads-the-first-step-towards-the-full-hydra-vision/).
 
 Hydra simplifies off-chain protocol and smart contract development by directly adopting the layer 1 smart contract system, allowing the same code to be used both on- and off-chain. Leveraging the Extended Unspent Transaction Output (EUTXO) model, Hydra enables fast off-chain protocol evolution with minimal round complexity and allows asynchronous and concurrent state channel processing. This design enhances transaction confirmation time and throughput while keeping storage requirements low.
 
-In Hydra, a set of parties coordinates to commit a set of UTXOs (owned by the parties) into an off-chain protocol called the Head protocol. This UTXO set constitutes the initial head state, which can be evolved by handling smart contracts and transactions among the parties without blockchain interaction, provided all participants behave optimistically. The isomorphic nature of Hydra heads ensures that transaction validation and script execution proceed according to the same rules as on-chain, simplifying engineering and guaranteeing consistency. In case of disputes or termination, the current state of the head is decommitted back to the blockchain, updating the blockchain state to reflect the off-chain protocol evolution. This decommit process is efficient, independent of the number of parties or the size of the head state, and supports incremental commits and decommits, allowing UTXOs to be added or removed from a running head without closing it.
+In Hydra, a set of parties coordinates to commit a set of UTXOs (owned by the parties) into an off-chain protocol called the head protocol. This UTXO set constitutes the initial head state, which can be evolved by handling smart contracts and transactions among the parties without blockchain interaction, provided all participants behave optimistically. The isomorphic nature of Hydra heads ensures that transaction validation and script execution proceed according to the same rules as on-chain, simplifying engineering and guaranteeing consistency. In case of disputes or termination, the current state of the head is decommitted back to the blockchain, updating the blockchain state to reflect the off-chain protocol evolution. This decommit process is efficient, independent of the number of parties or the size of the head state, and supports incremental commits and decommits, allowing UTXOs to be added or removed from a running head without closing it.
 
 ## Hydra head lifecycle 
 
-There are different flavors and extensions of the Hydra Head protocol, but first, let's discuss the full lifecycle of a basic Hydra head and how it allows for isomorphic state transfer between layer 1 and layer 2.
+There are different flavors and extensions of the Hydra head protocol, but first, let's discuss the full lifecycle of a basic Hydra head and how it allows for isomorphic state transfer between layer 1 and layer 2.
 
 ![](./hydra-head-lifecycle.svg)
 

@@ -5,7 +5,7 @@ title: FAQs
 
 <details>
 <summary>What is Hydra?</summary>
-​​Hydra is a family of layer 2 protocols designed to address network scalability capabilities. Hydra Head is the first in this protocol suite, providing the foundation on which to build out further scalability.
+​​Hydra is a family of layer 2 protocols designed to address network scalability capabilities. Hydra head is the first in this protocol suite, providing the foundation on which to build out further scalability.
 </details>
 
 <details>
@@ -19,24 +19,24 @@ Layer 1 solutions provide the foundational infrastructure of a blockchain networ
 </details>
 
 <details>
-<summary>Is Hydra Head secure?</summary>
-Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, and are implemented using test-driven development. The Hydra Head protocol is a true layer 2 and can fall back directly onto the Cardano layer 1 – hence inheriting the security model of the Cardano blockchain.
+<summary>Is Hydra head secure?</summary>
+Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, and are implemented using test-driven development. The Hydra head protocol is a true layer 2 and can fall back directly onto the Cardano layer 1 – hence inheriting the security model of the Cardano blockchain.
 </details>
 
 <details>
 <summary>So what’s this I have heard about ‘1M TPS’?</summary>
-This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
+This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra head uses the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
 </details>
 
 <details>
-<summary>Can anyone use the Hydra Head protocol?</summary>
-Yes, it's designed to be accessible for developers and end users alike, requiring minimal changes to existing applications to integrate with Hydra Head. However, it is important to note that Hydra is not a network upgrade and it's not like flipping a switch on Cardano to make it fast - instead, applications need to adopt and build on Hydra heads to benefit from it.
+<summary>Can anyone use the Hydra head protocol?</summary>
+Yes, it's designed to be accessible for developers and end users alike, requiring minimal changes to existing applications to integrate with Hydra head. However, it is important to note that Hydra is not a network upgrade and it's not like flipping a switch on Cardano to make it fast - instead, applications need to adopt and build on Hydra heads to benefit from it.
 </details>
 
 <details>
-<summary>When is the Hydra Head protocol a good fit?</summary>
+<summary>When is the Hydra head protocol a good fit?</summary>
 
-The Hydra Head protocol is well-suited for situations where a known set of participants know each other well enough to agree on building a network but don’t trust each other enough to manage funds without securing their assets. This security is backed by the possibility of settling disputes on layer 1.
+The Hydra head protocol is well-suited for situations where a known set of participants know each other well enough to agree on building a network but don’t trust each other enough to manage funds without securing their assets. This security is backed by the possibility of settling disputes on layer 1.
 
 </details>
 
@@ -63,7 +63,7 @@ _(\*) It is possible for Hydra nodes to support multiple heads, creating a many-
 </details>
 
 <details>
-<summary>Is the Hydra Head protocol a sidechain?</summary>
+<summary>Is the Hydra head protocol a sidechain?</summary>
 
 No, it isn't. There are two crucial reasons why Hydra heads are not considered sidechains:
 
@@ -76,7 +76,7 @@ No, it isn't. There are two crucial reasons why Hydra heads are not considered s
 <details>
 <summary>If the Hydra Head ledger is configured with a non-zero transaction fee, where do the paid fees go?</summary>
 
-Setting protocol parameters with `fee > 0` ensures that Hydra Head (layer 2) transactions consume more than they produce. On layer 1, the UTXO remains unchanged, and the difference accrues. Currently, when settling an agreed state from layer 2 on layer 1 during fanout, this difference becomes spendable by the head participant who posts the `fanoutTx`.
+Setting protocol parameters with `fee > 0` ensures that Hydra head (layer 2) transactions consume more than they produce. On layer 1, the UTXO remains unchanged, and the difference accrues. Currently, when settling an agreed state from layer 2 on layer 1 during fanout, this difference becomes spendable by the head participant who posts the `fanoutTx`.
 
 </details>
 
