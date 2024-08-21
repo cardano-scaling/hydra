@@ -5,7 +5,7 @@ import Hydra.Prelude hiding (size)
 
 import Cardano.Api.Ledger (PParams)
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), buildRawTransaction, buildTransaction, queryProtocolParameters, queryUTxOFor, sign)
+import CardanoClient (QueryPoint (QueryTip), buildRawTransaction, buildTransaction, queryUTxOFor, sign)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
@@ -145,7 +145,6 @@ generateDemoUTxODataset nTxs nodeSocket = do
           pure $ ClientKeys sk fundsSk
     forM actors toClientKeys
 
-  pparams <- queryProtocolParameters defaultNetworkId nodeSocket QueryTip
   clientFundingTxs <- forM clientKeys $ \clientKey@ClientKeys{signingKey} -> do
     let clientVk = getVerificationKey signingKey
     let address = mkVkAddress @Era defaultNetworkId clientVk
@@ -154,12 +153,16 @@ generateDemoUTxODataset nTxs nodeSocket = do
     putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
     let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
     putStrLn $ "client funds available: " <> show fundsAvailable
-    -- Here we specify no outputs in the transaction so that a change output with the
-    -- entire value is created and paid to the change address.
+    let recipientOutputs =
+          TxOut
+            address
+            (lovelaceToValue fundsAvailable)
+            TxOutDatumNone
+            ReferenceScriptNone
     let collateralTxIns = mempty
     let changeAddress = address
     fundingTransaction <-
-      buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [] >>= \case
+      buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [recipientOutputs] >>= \case
         Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
         Right body -> do
           let signedTx = sign signingKey body
