@@ -153,17 +153,15 @@ generateDemoUTxODataset nTxs nodeSocket = do
     putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
     let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
     putStrLn $ "client funds available: " <> show fundsAvailable
-    let recipientOutputs =
-          TxOut
-            address
-            (lovelaceToValue fundsAvailable)
-            TxOutDatumNone
-            ReferenceScriptNone
+    -- Here we specify no outputs in the transaction so that a change output with the
+    -- entire value is created and paid to the change address.
+    let collateralTxIns = mempty
+    let changeAddress = address
     fundingTransaction <-
-      buildTransaction defaultNetworkId nodeSocket address clientUTxO [] [recipientOutputs] >>= \case
+      buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [] >>= \case
         Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
         Right body -> do
-          let signedTx = sign faucetSk body
+          let signedTx = sign signingKey body
           pure signedTx
     putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
     pure (clientKey, fundingTransaction)
