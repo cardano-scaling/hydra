@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Decommit funds
 
-To take out some `UTxO` present in an open head and send it back to the layer one, you need to do a so-called `decommit`.
+To take out some `UTXO` present in an open head and send it back to the layer one, you need to do a so-called `decommit`.
 
 This how-to assumes that we are in a similar situation as in the [Getting Started](../getting-started) or [Testnet tutorial](../tutorial). Depending on who owns something in your head, you might need to update the instructions of this tutorial. In our example we decommit funds owned by Alice from their address:
 
@@ -13,7 +13,7 @@ export WALLET_SK=credentials/alice-funds.sk
 export WALLET_ADDR=addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z
 ```
 
-First, we need to find out which `UTxO` we can spend using our address:
+First, we need to find out which `UTXO` we can spend using our address:
 
 ```shell
 curl localhost:4001/snapshot/utxo \
@@ -53,7 +53,7 @@ curl localhost:4001/snapshot/utxo \
 
 Now, the `decommit` command requires us to build a transaction that proves we can spend what we want to decommit. The outputs of this transaction will be the outputs that are also going to be made available on the main chain.
 
-For example, to spend the first UTxO queried above in a transaction sending the same value to Alice's key (so she can spend it on the layer one later):
+For example, to spend the first UTXO queried above in a transaction sending the same value to Alice's key (so she can spend it on the layer one later):
 
 ```shell
 LOVELACE=$(jq -r 'to_entries[0].value.value.lovelace' < utxo.json)

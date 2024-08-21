@@ -2,29 +2,29 @@
 
 This section is a manual for users interested in running a Hydra node.
 
-Hydra node is an implementation of the Hydra Head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
+Hydra node is an implementation of the Hydra head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
 
-Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra Heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency. 
+Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency. 
 
-The `hydra-node` interfaces with the Cardano blockchain, connects to other `hydra-nodes` on a dedicated overlay network, runs a simplified (coordinated) Hydra Head protocol, and provides an API for clients.
+The `hydra-node` interfaces with the Cardano blockchain, connects to other `hydra-nodes` on a dedicated overlay network, runs a simplified (coordinated) Hydra head protocol, and provides an API for clients.
 
 :::warning Mainnet availability disclaimer
 
-The Hydra Head protocol version 0.10.0 or newer is compatible with the Cardano
+The Hydra head protocol version 0.10.0 or newer is compatible with the Cardano
 mainnet, which means it is possible to run a `hydra-node` on mainnet using real
 funds.
 
-Before running a `hydra-node` to take part in the Hydra Head protocol,
+Before running a `hydra-node` to take part in the Hydra head protocol,
 developers are strongly encouraged to review the [known issues][known-issues] in
 the documentation in order to understand the current limitations and the
 possible consequences.
 
-By using Hydra Head protocol version 0.10.0 or newer, you understand the
+By using Hydra head protocol version 0.10.0 or newer, you understand the
 protocol is in development and that use of the `hydra-node` on mainnet is
 entirely at your own risk.
 
 You also acknowledge and agree to have an adequate understanding of the risks
-associated with use of the Hydra Head protocol version 0.10.0 or newer and that
+associated with use of the Hydra head protocol version 0.10.0 or newer and that
 all information and materials published, distributed or otherwise made available
 on hydra.family and Hydra GitHub repository is available on an ‘AS IS’ and ‘AS
 AVAILABLE’ basis, without any representations or warranties of any kind. All
