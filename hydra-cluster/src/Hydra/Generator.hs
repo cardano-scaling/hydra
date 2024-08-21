@@ -145,32 +145,30 @@ generateDemoUTxODataset nTxs nodeSocket = do
           fundsSk <- snd <$> keysFor actorFunds
           pure $ ClientKeys sk fundsSk
     forM actors toClientKeys
-  let nClients = length clientKeys
 
-  faucetUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip faucetVk
-  putStrLn $ "faucetUTxO: " <> renderUTxO faucetUTxO
-  let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
-  putStrLn $ "fundsAvailable: " <> show fundsAvailable
-  -- Prepare funding transaction which will give every client's
-  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
-  -- funded in the beginning of the demo benchmark run.
-  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
-    amount <- Coin <$> generate (choose (1, fundsAvailable `div` fromIntegral nClients))
-    pure (getVerificationKey externalSigningKey, amount)
-
-  let clientFundsDbg = bimap (mkVkAddress @Era defaultNetworkId) lovelaceToValue <$> clientFunds
-  putStrLn $ "clientFunds: " <> show clientFundsDbg
+  clientFunds <- forM clientKeys $ \ClientKeys{signingKey} -> do
+    let address = mkVkAddress @Era defaultNetworkId (getVerificationKey signingKey)
+    putStrLn $ "client: " <> show address
+    clientUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip faucetVk
+    putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
+    let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
+    putStrLn $ "client funds available: " <> show fundsAvailable
+    pure (address, fundsAvailable, clientUTxO)
 
   let recipientOutputs =
-        flip map clientFunds $ \(vk, ll) ->
+        flip map clientFunds $ \(addr, ll, _) ->
           TxOut
-            (mkVkAddress defaultNetworkId vk)
+            addr
             (lovelaceToValue ll)
             TxOutDatumNone
             ReferenceScriptNone
+
+  -- REVIEW
   let changeAddress = mkVkAddress defaultNetworkId faucetVk
+
+  let clientsUTxO = foldMap thrd clientFunds
   fundingTransaction <-
-    buildTransaction defaultNetworkId nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
+    buildTransaction defaultNetworkId nodeSocket changeAddress clientsUTxO [] recipientOutputs >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         let signedTx = sign faucetSk body
