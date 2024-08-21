@@ -137,7 +137,6 @@ generateDemoUTxODataset ::
   SocketPath ->
   IO Dataset
 generateDemoUTxODataset nTxs nodeSocket = do
-  (faucetVk, faucetSk) <- keysFor Faucet
   clientKeys <- do
     let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
     let toClientKeys (actor, actorFunds) = do
@@ -148,9 +147,10 @@ generateDemoUTxODataset nTxs nodeSocket = do
 
   pparams <- queryProtocolParameters defaultNetworkId nodeSocket QueryTip
   clientFundingTxs <- forM clientKeys $ \clientKey@ClientKeys{signingKey} -> do
-    let address = mkVkAddress @Era defaultNetworkId (getVerificationKey signingKey)
+    let clientVk = getVerificationKey signingKey
+    let address = mkVkAddress @Era defaultNetworkId clientVk
     putStrLn $ "client: " <> show address
-    clientUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip faucetVk
+    clientUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip clientVk
     putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
     let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
     putStrLn $ "client funds available: " <> show fundsAvailable
