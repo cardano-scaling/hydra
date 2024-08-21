@@ -14,7 +14,7 @@ import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds, defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (emptyTxBody, genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -25,7 +25,7 @@ networkId = Testnet $ NetworkMagic 42
 -- against one or more `HydraNode`s. A dataset can optionally have a `title` and `description`
 -- which will be used to report results.
 data Dataset = Dataset
-  { fundingTransaction :: Tx
+  { fundingTransaction :: Maybe Tx
   , clientDatasets :: [ClientDataset]
   , title :: Maybe Text
   , description :: Maybe Text
@@ -116,7 +116,7 @@ genDatasetConstantUTxO faucetSk nClients nTxs = do
           (Coin availableInitialFunds)
           clientFunds
   clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
-  pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
+  pure Dataset{fundingTransaction = Just fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
   initialInput =
     genesisUTxOPseudoTxIn
@@ -172,8 +172,7 @@ generateDemoUTxODataset nTxs nodeSocket = do
 
   generate $ do
     clientDatasets <- forM clientFundingTxs (\(clientKey, fundingTransaction) -> generateClientDemoDataset fundingTransaction clientKey)
-    let emptyTx = unsafeBuildTransaction emptyTxBody
-    pure Dataset{fundingTransaction = emptyTx, clientDatasets, title = Nothing, description = Nothing}
+    pure Dataset{fundingTransaction = Nothing, clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDemoDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction

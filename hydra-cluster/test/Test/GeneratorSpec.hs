@@ -46,7 +46,7 @@ prop_keepsUTxOConstant =
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (genDatasetConstantUTxO faucetSk 1 n) $
-          \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
+          \Dataset{fundingTransaction = Just fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
                 finalUTxO = foldl' (apply defaultGlobals ledgerEnv) initialUTxO txSequence
              in length finalUTxO == length initialUTxO

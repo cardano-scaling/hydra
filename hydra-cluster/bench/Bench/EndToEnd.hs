@@ -297,8 +297,9 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
  where
   fundClients = do
     putTextLn "Fund scenario from faucet"
-    submitTransaction networkId nodeSocket fundingTransaction
-    void $ awaitTransaction networkId nodeSocket fundingTransaction
+    let fundingTx = fromMaybe (error "missing fundingTransaction") fundingTransaction
+    submitTransaction networkId nodeSocket fundingTx
+    void $ awaitTransaction networkId nodeSocket fundingTx
 
   fuelWith100Ada ClientKeys{signingKey} = do
     let vk = getVerificationKey signingKey
