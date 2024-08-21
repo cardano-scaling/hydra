@@ -14,7 +14,7 @@ import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds, defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
+import Hydra.Ledger.Cardano (emptyTxBody, genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer, unsafeBuildTransaction)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -146,37 +146,32 @@ generateDemoUTxODataset nTxs nodeSocket = do
           pure $ ClientKeys sk fundsSk
     forM actors toClientKeys
 
-  clientFunds <- forM clientKeys $ \ClientKeys{signingKey} -> do
+  clientFundingTxs <- forM clientKeys $ \clientKey@ClientKeys{signingKey} -> do
     let address = mkVkAddress @Era defaultNetworkId (getVerificationKey signingKey)
     putStrLn $ "client: " <> show address
     clientUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip faucetVk
     putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
     let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
     putStrLn $ "client funds available: " <> show fundsAvailable
-    pure (address, fundsAvailable, clientUTxO)
-
-  let recipientOutputs =
-        flip map clientFunds $ \(addr, ll, _) ->
+    let recipientOutputs =
           TxOut
-            addr
-            (lovelaceToValue ll)
+            address
+            (lovelaceToValue fundsAvailable)
             TxOutDatumNone
             ReferenceScriptNone
+    fundingTransaction <-
+      buildTransaction defaultNetworkId nodeSocket address clientUTxO [] [recipientOutputs] >>= \case
+        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+        Right body -> do
+          let signedTx = sign faucetSk body
+          pure signedTx
+    putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
+    pure (clientKey, fundingTransaction)
 
-  -- REVIEW
-  let changeAddress = mkVkAddress defaultNetworkId faucetVk
-
-  let clientsUTxO = foldMap thrd clientFunds
-  fundingTransaction <-
-    buildTransaction defaultNetworkId nodeSocket changeAddress clientsUTxO [] recipientOutputs >>= \case
-      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        let signedTx = sign faucetSk body
-        pure signedTx
-  putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
   generate $ do
-    clientDatasets <- forM clientKeys (generateClientDemoDataset fundingTransaction)
-    pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
+    clientDatasets <- forM clientFundingTxs (\(clientKey, fundingTransaction) -> generateClientDemoDataset fundingTransaction clientKey)
+    let emptyTx = unsafeBuildTransaction emptyTxBody
+    pure Dataset{fundingTransaction = emptyTx, clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDemoDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction
