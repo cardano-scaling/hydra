@@ -15,7 +15,7 @@ import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds, defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer, generateOneSelfTransfer)
+import Hydra.Ledger.Cardano (genSigningKey, generateOneRandomTransfer)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -149,10 +149,8 @@ generateDemoUTxODataset nTxns nodeSocket = do
   pure $ Dataset{fundingTransaction = Nothing, clientDatasets = clientDatasets, title = Nothing, description = Nothing}
  where
   generateClientDataset :: ClientKeys -> IO ClientDataset
-  generateClientDataset clientKeys@ClientKeys{signingKey, externalSigningKey} = do
-    -- TODO: Missing witnesses.
-    -- bench-e2e: SubmitTxValidationError (TxValidationErrorInCardanoMode (ShelleyTxValidationError ShelleyBasedEraBabbage (Appl6ace848155a0e967af64f4d00cf8acee8adc95a6b0d"}])))) :| []))))
-    let clientVk = getVerificationKey signingKey
+  generateClientDataset clientKeys@ClientKeys{externalSigningKey} = do
+    let clientVk = getVerificationKey externalSigningKey
     initialUTxO <- queryUTxOFor networkId nodeSocket QueryTip clientVk
     -- FIXME: Improve error
     when (null initialUTxO) $ do

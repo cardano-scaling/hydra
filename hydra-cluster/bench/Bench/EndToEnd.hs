@@ -144,7 +144,7 @@ scenario ::
   HydraClient ->
   [HydraClient] ->
   IO Summary
-scenario hydraTracer node workDir dataset@Dataset{clientDatasets, title, description} parties leader followers = do
+scenario hydraTracer node workDir Dataset{clientDatasets, title, description} parties leader followers = do
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
 
@@ -157,13 +157,13 @@ scenario hydraTracer node workDir dataset@Dataset{clientDatasets, title, descrip
         else headIsInitializingWith parties
 
   putTextLn "Comitting initialUTxO from dataset"
-  expectedUTxO <- commitUTxO node clients dataset
+  expectedUTxO <- commitUTxO node clients clientDatasets
 
   waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
     output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
 
   putTextLn "HeadIsOpen"
-  processedTransactions <- processTransactions clients dataset
+  processedTransactions <- processTransactions clients clientDatasets
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -308,8 +308,8 @@ seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, 
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.
-commitUTxO :: RunningNode -> [HydraClient] -> Dataset -> IO UTxO
-commitUTxO node clients Dataset{clientDatasets} =
+commitUTxO :: RunningNode -> [HydraClient] -> [ClientDataset] -> IO UTxO
+commitUTxO node clients clientDatasets =
   mconcat <$> forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, clientKeys = ClientKeys{externalSigningKey}}) = do
@@ -318,8 +318,8 @@ commitUTxO node clients Dataset{clientDatasets} =
         >>= submitTx node
     pure initialUTxO
 
-processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)
-processTransactions clients Dataset{clientDatasets} = do
+processTransactions :: [HydraClient] -> [ClientDataset] -> IO (Map.Map TxId Event)
+processTransactions clients clientDatasets = do
   let processors = zip (zip clientDatasets (cycle clients)) [1 ..]
   mconcat <$> mapConcurrently (uncurry clientProcessDataset) processors
  where

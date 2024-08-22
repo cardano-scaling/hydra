@@ -300,24 +300,24 @@ generateOneRandomTransfer ::
   Gen (UTxO, SigningKey PaymentKey, [Tx])
 generateOneRandomTransfer networkId senderUtxO nbrTx = do
   recipient <- genKeyPair
-  generateOneTransfer networkId (snd recipient) senderUtxO nbrTx
+  pure $ mkOneTransfer networkId (snd recipient) senderUtxO nbrTx
 
-generateOneSelfTransfer ::
+mkOneSelfTransfer ::
   NetworkId ->
   (UTxO, SigningKey PaymentKey, [Tx]) ->
   Int ->
-  Gen (UTxO, SigningKey PaymentKey, [Tx])
-generateOneSelfTransfer networkId senderUtxO nbrTx = do
+  (UTxO, SigningKey PaymentKey, [Tx])
+mkOneSelfTransfer networkId senderUtxO nbrTx =
   let (_, recipientSk, _) = senderUtxO
-  generateOneTransfer networkId recipientSk senderUtxO nbrTx
+   in mkOneTransfer networkId recipientSk senderUtxO nbrTx
 
-generateOneTransfer ::
+mkOneTransfer ::
   NetworkId ->
   SigningKey PaymentKey ->
   (UTxO, SigningKey PaymentKey, [Tx]) ->
   Int ->
-  Gen (UTxO, SigningKey PaymentKey, [Tx])
-generateOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
+  (UTxO, SigningKey PaymentKey, [Tx])
+mkOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
   let recipientVk = getVerificationKey recipientSk
   -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
   -- this function to be ever used in production, and crash will be caught in tests
@@ -325,8 +325,7 @@ generateOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
     [txin] ->
       case mkSimpleTx txin (mkVkAddress networkId recipientVk, balance @Tx utxo) sender of
         Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
-        Right tx ->
-          pure (utxoFromTx tx, recipientSk, tx : txs)
+        Right tx -> (utxoFromTx tx, recipientSk, tx : txs)
     _ ->
       error "Couldn't generate transaction sequence: need exactly one UTXO."
 

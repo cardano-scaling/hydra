@@ -45,7 +45,6 @@ main = do
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
       dataset <- generateDemoUTxODataset numberOfTxs nodeSocket
       let datasetPath = fromMaybe workDir outputDirectory </> "demo-dataset.json"
-      createDirectoryIfMissing True workDir
       saveDataset datasetPath dataset
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
