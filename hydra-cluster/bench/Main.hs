@@ -14,7 +14,7 @@ import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoU
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
-import System.FilePath (takeFileName, (</>))
+import System.FilePath (takeDirectory, takeFileName, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
@@ -45,6 +45,7 @@ main = do
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
       dataset <- generateDemoUTxODataset numberOfTxs nodeSocket
       let datasetPath = fromMaybe workDir outputDirectory </> "demo-dataset.json"
+      createDirectoryIfMissing True workDir
       saveDataset datasetPath dataset
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
@@ -52,7 +53,6 @@ main = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     dataset <- generateConstantUTxODataset (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
-    createDirectoryIfMissing True workDir
     saveDataset datasetPath dataset
     let action = bench startingNodeId timeoutSeconds
     run outputDirectory [datasetPath] action
@@ -88,6 +88,7 @@ main = do
 
   saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset f dataset = do
+    createDirectoryIfMissing True (takeDirectory f)
     putStrLn $ "Writing dataset to: " <> f
     encodeFile f dataset
 

@@ -133,65 +133,34 @@ genDatasetConstantUTxO faucetSk nClients nTxs = do
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
 generateDemoUTxODataset ::
-  -- | Number of transactions
   Int ->
   SocketPath ->
   IO Dataset
-generateDemoUTxODataset nTxs nodeSocket = do
+generateDemoUTxODataset nTxns nodeSocket = do
+  -- FIXME: Client keys hard-coded; could read from arguments.
   clientKeys <- do
     let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
-    let toClientKeys (actor, actorFunds) = do
+    let toClientKeys (actor, funds) = do
           sk <- snd <$> keysFor actor
-          fundsSk <- snd <$> keysFor actorFunds
+          fundsSk <- snd <$> keysFor funds
           pure $ ClientKeys sk fundsSk
     forM actors toClientKeys
-
-  -- pparams <- queryProtocolParameters defaultNetworkId nodeSocket QueryTip
-  clientFundingTxs <- forM clientKeys $ \clientKey@ClientKeys{signingKey} -> do
-    let clientVk = getVerificationKey signingKey
-    let address = mkVkAddress @Era defaultNetworkId clientVk
-    putStrLn $ "client: " <> show address
-    clientUTxO <- queryUTxOFor defaultNetworkId nodeSocket QueryTip clientVk
-    putStrLn $ "client UTxO: " <> renderUTxO clientUTxO
-    let fundsAvailable = selectLovelace (balance @Tx clientUTxO)
-    putStrLn $ "client funds available: " <> show fundsAvailable
-    -- let collateralTxIns = mempty
-    -- let changeAddress = address
-    -- let recipientOutputs =
-    --       mkTxOutAutoBalance
-    --         pparams
-    --         address
-    --         (lovelaceToValue fundsAvailable)
-    --         TxOutDatumNone
-    --         ReferenceScriptNone
-    -- putStrLn $ "txOutAutoBalance: " <> show recipientOutputs
-    let fundingTransaction =
-          buildRawTransaction
-            defaultNetworkId
-            (fst . List.head . UTxO.pairs $ clientUTxO)
-            signingKey
-            fundsAvailable
-            [(clientVk, fundsAvailable)]
-
-      -- buildTransaction defaultNetworkId nodeSocket changeAddress clientUTxO collateralTxIns [] >>= \case
-      --   Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      --   Right body -> pure $ sign signingKey body
-          -- let signedTx = sign signingKey body
-          -- pure signedTx
-    putStrLn $ "fundingTransaction: " <> renderTx fundingTransaction
-    pure (clientKey, fundingTransaction)
-
-  generate $ do
-    clientDatasets <- forM clientFundingTxs (\(clientKey, fundingTransaction) -> generateClientDemoDataset fundingTransaction clientKey)
-    pure Dataset{fundingTransaction = Nothing, clientDatasets, title = Nothing, description = Nothing}
+  clientDatasets <- forM clientKeys generateClientDataset
+  pure $ Dataset{fundingTransaction = Nothing, clientDatasets = clientDatasets, title = Nothing, description = Nothing}
  where
-  generateClientDemoDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
-    let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction
-    txSequence <-
-      reverse
-        . thrd
-        <$> foldM (generateOneSelfTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
-    pure ClientDataset{clientKeys, initialUTxO, txSequence}
+  generateClientDataset :: ClientKeys -> IO ClientDataset
+  generateClientDataset clientKeys@ClientKeys{signingKey, externalSigningKey} = do
+    -- TODO: Missing witnesses.
+    -- bench-e2e: SubmitTxValidationError (TxValidationErrorInCardanoMode (ShelleyTxValidationError ShelleyBasedEraBabbage (Appl6ace848155a0e967af64f4d00cf8acee8adc95a6b0d"}])))) :| []))))
+    let clientVk = getVerificationKey signingKey
+    initialUTxO <- queryUTxOFor networkId nodeSocket QueryTip clientVk
+    -- FIXME: Improve error
+    when (null initialUTxO) $ do
+      error "No initial UTxOs. Did you seed your devnet?"
+    generate $ do
+      txSequence <-
+        reverse . thrd <$> foldM (generateOneRandomTransfer networkId) (initialUTxO, externalSigningKey, mempty) [1 .. nTxns]
+      pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
 -- * Helpers
 thrd :: (a, b, c) -> c
