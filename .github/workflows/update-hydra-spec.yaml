@@ -1,0 +1,23 @@
+name: Update hydra spec
+on:
+  workflow_dispatch: # allows manual triggering
+  schedule:
+    - cron: "0 3 * * *" # Everyday at 3:00 AM
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v1
+      - name: Update flake.lock
+        uses: DeterminateSystems/update-flake-lock@vX
+        with:
+          inputs: hydra-spec
+          token: ${{ secrets.GH_TOKEN_FOR_UPDATES }}
+          pr-title: "Update Hydra specification"
+          pr-labels: |
+            documentation
+            automated
