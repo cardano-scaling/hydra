@@ -4,7 +4,7 @@ name: Binaries
 on:
   push:
     branches:
-    - main
+    - master
     - release
     tags:
     - "*.*.*"
