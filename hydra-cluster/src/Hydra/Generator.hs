@@ -93,20 +93,43 @@ generateConstantUTxODataset nClients nTxs = do
   (_, faucetSk) <- keysFor Faucet
   generate $ genDatasetConstantUTxO faucetSk nClients nTxs
 
-genDatasetConstantUTxO ::
+-- TODO: Refactor
+generateDemoUTxODataset ::
+  -- | Number of clients
+  [ClientKeys] ->
+  -- | Number of transactions
+  Int ->
+  IO Dataset
+generateDemoUTxODataset allClientKeys nTxs = do
+  (_, faucetSk) <- keysFor Faucet
+  generate $ genDemoUTxODataset allClientKeys faucetSk nTxs
+
+genDatasetConstantUTxO :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
+genDatasetConstantUTxO faucetSk nClients nTxns = do
+  clientKeys <- replicateM nClients arbitrary
+  genDatasetConstantUTxO' initialInput faucetSk clientKeys nTxns
+  where
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
+
+genDatasetConstantUTxO' ::
+  -- | The initial transaction
+  TxIn ->
   -- | The faucet signing key
   SigningKey PaymentKey ->
-  -- | Number of clients
-  Int ->
+  -- | Clients
+  [ClientKeys] ->
   -- | Number of transactions
   Int ->
   Gen Dataset
-genDatasetConstantUTxO faucetSk nClients nTxs = do
-  clientKeys <- replicateM nClients arbitrary
+genDatasetConstantUTxO' initialInput faucetSk allClientKeys nTxs = do
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+  let nClients = length allClientKeys
+  clientFunds <- forM allClientKeys $ \ClientKeys{externalSigningKey} -> do
     amount <- Coin <$> choose (1, availableInitialFunds `div` fromIntegral nClients)
     pure (getVerificationKey externalSigningKey, amount)
   let fundingTransaction =
@@ -116,14 +139,9 @@ genDatasetConstantUTxO faucetSk nClients nTxs = do
           faucetSk
           (Coin availableInitialFunds)
           clientFunds
-  clientDatasets <- forM clientKeys (generateClientDataset fundingTransaction)
+  clientDatasets <- forM allClientKeys (generateClientDataset fundingTransaction)
   pure Dataset{fundingTransaction = Just fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
  where
-  initialInput =
-    genesisUTxOPseudoTxIn
-      networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
-
   generateClientDataset fundingTransaction clientKeys@ClientKeys{externalSigningKey} = do
     let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction
     txSequence <-
@@ -132,33 +150,42 @@ genDatasetConstantUTxO faucetSk nClients nTxs = do
         <$> foldM (generateOneRandomTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
-generateDemoUTxODataset ::
-  Int ->
-  SocketPath ->
-  IO Dataset
-generateDemoUTxODataset nTxns nodeSocket = do
-  -- FIXME: Client keys hard-coded; could read from arguments.
-  clientKeys <- do
-    let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
-    let toClientKeys (actor, funds) = do
-          sk <- snd <$> keysFor actor
-          fundsSk <- snd <$> keysFor funds
-          pure $ ClientKeys sk fundsSk
-    forM actors toClientKeys
-  clientDatasets <- forM clientKeys generateClientDataset
-  pure $ Dataset{fundingTransaction = Nothing, clientDatasets = clientDatasets, title = Nothing, description = Nothing}
- where
-  generateClientDataset :: ClientKeys -> IO ClientDataset
-  generateClientDataset clientKeys@ClientKeys{externalSigningKey} = do
-    let clientVk = getVerificationKey externalSigningKey
-    initialUTxO <- queryUTxOFor networkId nodeSocket QueryTip clientVk
-    -- FIXME: Improve error
-    when (null initialUTxO) $ do
-      error "No initial UTxOs. Did you seed your devnet?"
-    generate $ do
-      txSequence <-
-        reverse . thrd <$> foldM (generateOneRandomTransfer networkId) (initialUTxO, externalSigningKey, mempty) [1 .. nTxns]
-      pure ClientDataset{clientKeys, initialUTxO, txSequence}
+genDemoUTxODataset :: [ClientKeys] -> SigningKey PaymentKey -> Int -> Gen Dataset
+genDemoUTxODataset allClientKeys faucetSk nTxns = do
+  genDatasetConstantUTxO' initialInput faucetSk allClientKeys nTxns
+  where
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
+
+-- generateDemoUTxODataset ::
+--   Int ->
+--   SocketPath ->
+--   IO Dataset
+-- generateDemoUTxODataset nTxns nodeSocket = do
+--   -- FIXME: Client keys hard-coded; could read from arguments.
+--   clientKeys <- do
+--     let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
+--     let toClientKeys (actor, funds) = do
+--           sk <- snd <$> keysFor actor
+--           fundsSk <- snd <$> keysFor funds
+--           pure $ ClientKeys sk fundsSk
+--     forM actors toClientKeys
+--   clientDatasets <- forM clientKeys generateClientDataset
+--   pure $ Dataset{fundingTransaction = Nothing, clientDatasets = clientDatasets, title = Nothing, description = Nothing}
+--  where
+--   generateClientDataset :: ClientKeys -> IO ClientDataset
+--   generateClientDataset clientKeys@ClientKeys{externalSigningKey} = do
+--     let clientVk = getVerificationKey externalSigningKey
+--     initialUTxO <- queryUTxOFor networkId nodeSocket QueryTip clientVk
+--     -- FIXME: Improve error
+--     when (null initialUTxO) $ do
+--       error "No initial UTxOs. Did you seed your devnet?"
+--     generate $ do
+--       txSequence <-
+--         reverse . thrd <$> foldM (generateOneRandomTransfer networkId) (initialUTxO, externalSigningKey, mempty) [1 .. nTxns]
+--       pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
 -- * Helpers
 thrd :: (a, b, c) -> c

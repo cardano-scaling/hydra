@@ -9,8 +9,9 @@ import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Cluster.Fixture (defaultNetworkId)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Cluster.Fixture (defaultNetworkId, Actor (..))
+import Hydra.Generator (ClientKeys(..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
@@ -36,16 +37,20 @@ main = do
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
       run outputDirectory datasetFiles action
-    DemoOptions{datasetFiles, outputDirectory, timeoutSeconds, nodeSocket, hydraClients} -> do
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, nodeSocket, hydraClients} -> do
       let action = benchDemo defaultNetworkId nodeSocket timeoutSeconds hydraClients
-      run outputDirectory datasetFiles action
-    DemoDatasetOptions{outputDirectory, scalingFactor, nodeSocket} -> do
-      workDir <- createSystemTempDirectory "demo-bench"
-      putStrLn $ "Generating single dataset in work directory: " <> workDir
+      -- TODO: Maybe all this should be moved down somewhere.
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
-      dataset <- generateDemoUTxODataset numberOfTxs nodeSocket
-      let datasetPath = fromMaybe workDir outputDirectory </> "demo-dataset.json"
-      saveDataset datasetPath dataset
+      let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
+      let toClientKeys (actor, funds) = do
+            sk <- snd <$> keysFor actor
+            fundsSk <- snd <$> keysFor funds
+            pure $ ClientKeys sk fundsSk
+      clientKeys <- forM actors toClientKeys
+
+      dataset <- generateDemoUTxODataset clientKeys numberOfTxs
+      withTempDir "bench-demo" $
+        runSingle outputDirectory dataset action
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
     putStrLn $ "Generating single dataset in work directory: " <> workDir
@@ -62,19 +67,31 @@ main = do
     let action = bench startingNodeId timeoutSeconds
     run outputDirectory [datasetPath] action
 
+  -- TODO: Needs a bit of a refactor.
+  runSingle' dataset action dir = do
+      withArgs [] $ do
+        try @_ @HUnitFailure (action dir dataset) >>= \case
+          Left exc -> pure $ Left (dataset, dir, TestFailed exc)
+          Right summary@Summary{numberOfInvalidTxs}
+            | numberOfInvalidTxs == 0 -> pure $ Right summary
+            | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+
+  runSingle outputDirectory dataset action dir = do
+    results <- runSingle' dataset action dir
+    let (failures, summaries) = partitionEithers [results]
+    -- TODO: Duplicated below; needs to be refactored.
+    case failures of
+      [] -> benchmarkSucceeded outputDirectory summaries
+      errs -> mapM_ (\(_, d, exc) -> benchmarkFailedWith d exc) errs >> exitFailure
+
   run outputDirectory datasetFiles action = do
     results <- forM datasetFiles $ \datasetPath -> do
       putTextLn $ "Running benchmark with dataset " <> show datasetPath
       dataset <- loadDataset datasetPath
-      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir ->
-        withArgs [] $ do
-          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-          threadDelay 10
-          try @_ @HUnitFailure (action dir dataset) >>= \case
-            Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-            Right summary@Summary{numberOfInvalidTxs}
-              | numberOfInvalidTxs == 0 -> pure $ Right summary
-              | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir -> do
+        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+        threadDelay 10
+        runSingle' dataset action dir
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> benchmarkSucceeded outputDirectory summaries
