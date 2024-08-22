@@ -45,14 +45,14 @@ jobs:
         cd demo
         ./prepare-devnet.sh
         docker compose up -d cardano-node
+        sleep 5
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
-
-        ./seed-devnet.sh
+        ./publish-script-devnet.sh
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
-        sleep 10
+        sleep 3
         docker ps
 
     - name: Build required nix and docker derivations
@@ -88,22 +88,15 @@ jobs:
             --target 172.16.238.20 \
             --target 172.16.238.30 \
             loss \
-              --percent 75 "re2:hydra-node-1" &
+              --percent 1 "re2:hydra-node-1" &
 
         .github/workflows/network/watch_logs.sh
 
         # TODO: make this a flake output / easier accesible
-        mkdir $(pwd)/datasets && nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
-          demo-datasets \
-          --output-directory=$(pwd)/datasets \
-          --scaling-factor=10 \
-          --node-socket=demo/devnet/node.socket
-
-        # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
-          $(pwd)/datasets/demo-dataset.json \
           --output-directory=$(pwd)/benchmarks \
+          --scaling-factor=10 \
           --timeout=1000s \
           --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \

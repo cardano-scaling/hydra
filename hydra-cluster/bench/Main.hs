@@ -9,9 +9,9 @@ import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Hydra.Cluster.Fixture (Actor (..), defaultNetworkId)
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Cluster.Fixture (defaultNetworkId, Actor (..))
-import Hydra.Generator (ClientKeys(..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
+import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
@@ -48,14 +48,15 @@ main = do
             pure $ ClientKeys sk fundsSk
       clientKeys <- forM actors toClientKeys
 
-      dataset <- generateDemoUTxODataset clientKeys numberOfTxs
+      dataset <- generateDemoUTxODataset nodeSocket clientKeys numberOfTxs
       withTempDir "bench-demo" $
         runSingle outputDirectory dataset action
  where
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
+    (_, faucetSk) <- keysFor Faucet
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- generateConstantUTxODataset (fromIntegral clusterSize) numberOfTxs
+    dataset <- generate $ generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
     let action = bench startingNodeId timeoutSeconds
@@ -69,12 +70,12 @@ main = do
 
   -- TODO: Needs a bit of a refactor.
   runSingle' dataset action dir = do
-      withArgs [] $ do
-        try @_ @HUnitFailure (action dir dataset) >>= \case
-          Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-          Right summary@Summary{numberOfInvalidTxs}
-            | numberOfInvalidTxs == 0 -> pure $ Right summary
-            | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+    withArgs [] $ do
+      try @_ @HUnitFailure (action dir dataset) >>= \case
+        Left exc -> pure $ Left (dataset, dir, TestFailed exc)
+        Right summary@Summary{numberOfInvalidTxs}
+          | numberOfInvalidTxs == 0 -> pure $ Right summary
+          | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
 
   runSingle outputDirectory dataset action dir = do
     results <- runSingle' dataset action dir

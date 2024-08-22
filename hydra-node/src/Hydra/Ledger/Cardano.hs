@@ -302,14 +302,14 @@ generateOneRandomTransfer networkId senderUtxO nbrTx = do
   recipient <- genKeyPair
   pure $ mkOneTransfer networkId (snd recipient) senderUtxO nbrTx
 
-mkOneSelfTransfer ::
+generateOneSelfTransfer ::
   NetworkId ->
   (UTxO, SigningKey PaymentKey, [Tx]) ->
   Int ->
-  (UTxO, SigningKey PaymentKey, [Tx])
-mkOneSelfTransfer networkId senderUtxO nbrTx =
+  Gen (UTxO, SigningKey PaymentKey, [Tx])
+generateOneSelfTransfer networkId senderUtxO nbrTx = do
   let (_, recipientSk, _) = senderUtxO
-   in mkOneTransfer networkId recipientSk senderUtxO nbrTx
+  pure $ mkOneTransfer networkId recipientSk senderUtxO nbrTx
 
 mkOneTransfer ::
   NetworkId ->
