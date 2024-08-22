@@ -52,6 +52,7 @@ main = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     dataset <- generateConstantUTxODataset (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
+    createDirectoryIfMissing True workDir
     saveDataset datasetPath dataset
     let action = bench startingNodeId timeoutSeconds
     run outputDirectory [datasetPath] action
