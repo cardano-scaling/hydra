@@ -346,9 +346,12 @@ processTransactions clients clientDatasets = do
     submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
-    submitTxs client registry submissionQ
-      `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
-      `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
+    ( submitTxs client registry submissionQ
+        `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
+        `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
+      )
+      `catch` \(_ :: SomeException) ->
+        putStrLn "Time exceeded while wait for all confirmations"
     readTVarIO (processedTxs registry)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
