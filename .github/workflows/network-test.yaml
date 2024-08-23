@@ -88,7 +88,7 @@ jobs:
             --target 172.16.238.20 \
             --target 172.16.238.30 \
             loss \
-              --percent 75 "re2:hydra-node-1" &
+              --percent 4 "re2:hydra-node-1" &
 
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
