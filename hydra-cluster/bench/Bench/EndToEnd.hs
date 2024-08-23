@@ -166,6 +166,7 @@ scenario ::
 scenario hydraTracer node workDir Dataset{clientDatasets, title, description} parties leader followers = do
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
+  let totalTxs = sum $ map (length . txSequence) clientDatasets
 
   putTextLn "Initializing Head"
   send leader $ input "Init" []
@@ -216,7 +217,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} pa
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
 
-  pure $ Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
+  pure $ Summary{clusterSize, totalTxs, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
 
 defaultDescription :: Text
 defaultDescription = ""

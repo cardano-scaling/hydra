@@ -221,6 +221,7 @@ benchmark bench-e2e
     , regex-tdfa
     , scientific
     , statistics
+    , text
     , time
     , vector
 
