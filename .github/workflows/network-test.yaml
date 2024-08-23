@@ -48,7 +48,7 @@ jobs:
         sleep 5
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
-        ./publish-script-devnet.sh
+        ./export-tx-id-and-pparams.sh
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
@@ -90,9 +90,6 @@ jobs:
             loss \
               --percent 1 "re2:hydra-node-1" &
 
-        .github/workflows/network/watch_logs.sh
-
-        # TODO: make this a flake output / easier accesible
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=$(pwd)/benchmarks \

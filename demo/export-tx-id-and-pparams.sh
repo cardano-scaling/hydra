@@ -66,7 +66,6 @@ function queryPParams() {
 }
 
 queryPParams
-
 echo "HYDRA_SCRIPTS_TX_ID=$(publishReferenceScripts)" > .env
 echo >&2 "Environment variable stored in '.env'"
 echo >&2 -e "\n\t$(cat .env)\n"
