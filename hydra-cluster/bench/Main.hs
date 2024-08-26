@@ -9,7 +9,7 @@ import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Cluster.Fixture (Actor (..), defaultNetworkId)
+import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
@@ -37,8 +37,8 @@ main = do
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
       run outputDirectory datasetFiles action
-    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, nodeSocket, hydraClients} -> do
-      let action = benchDemo defaultNetworkId nodeSocket timeoutSeconds hydraClients
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+      let action = benchDemo networkId nodeSocket timeoutSeconds hydraClients
       -- TODO: Maybe all this should be moved down somewhere.
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
       let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
@@ -47,8 +47,7 @@ main = do
             fundsSk <- snd <$> keysFor funds
             pure $ ClientKeys sk fundsSk
       clientKeys <- forM actors toClientKeys
-
-      dataset <- generateDemoUTxODataset nodeSocket clientKeys numberOfTxs
+      dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
       withTempDir "bench-demo" $
         runSingle outputDirectory dataset action
  where

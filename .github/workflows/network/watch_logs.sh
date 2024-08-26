@@ -1,32 +1,71 @@
 #!/usr/bin/env bash
 
-set -ex
+target_peer=$1
 
-LOG_FILE_BOB="demo/devnet/persistence/bob/server-output"
-LOG_FILE_CAROL="demo/devnet/persistence/carol/server-output"
-JQ_EXPRESSION='select(.tag == "PeerDisconnected" and .peer == "1")'
+peers_info_json=$2
+
+peers_to_watch_json=$(echo "$peers_info_json" | jq -r --arg selected_peer "$target_peer" '
+  to_entries 
+  | map(select(.key != $selected_peer)) 
+  | map(.key)
+')
+
+logs_file_json=$(echo "$peers_info_json" | jq --arg selected_peer "$target_peer" '
+  to_entries
+  | map(select(.key != $selected_peer))
+  | map({
+    (.key): (.value.info.persistence_dir | sub("^/"; ""))
+  })
+  | add
+')
+
+target_peer_id=$(echo "$peers_info_json" \
+    | jq -r --arg selected_peer "$target_peer" '.[$selected_peer].info.node_id')
 
 check_log() {
-    local log_file=$1
-    jq "$JQ_EXPRESSION" "$log_file" | grep -q .
+    local peer=$1
+    local peer_log_file=$(echo "$logs_file_json" | jq -r --arg peer "$peer" '.[$peer]')
+    if jq --arg target_peer_id $target_peer_id \
+        'select(.tag == "PeerDisconnected" and .peer == $target_peer_id)' \
+        "demo/$peer_log_file/server-output" | grep -q .; then
+        echo "Success for peer: $peer"
+        return 0  # Success: log file has output
+    else
+        echo "Failure for peer: $peer"
+        return 1  # Failure: log file is empty or doesn't exist
+    fi
 }
 
-bob_ready=false
-carol_ready=false
+declare -A peer_ready
+for peer in $(echo "$peers_to_watch_json" | jq -r '.[]'); do
+    peer_ready[$peer]=false
+done
 
 while true; do
-    if ! $bob_ready && check_log "$LOG_FILE_BOB"; then
-        echo "Match found in Bob's log file!"
-        bob_ready=true
-    fi
+    # Assume all are ready until proven otherwise
+    all_ready=true
 
-    if ! $carol_ready && check_log "$LOG_FILE_CAROL"; then
-        echo "Match found in Carol's log file!"
-        carol_ready=true
-    fi
+    for peer in "${!peer_ready[@]}"; do
+        echo "Checking $peer..."
 
-    if $bob_ready && $carol_ready; then
-        echo "Both conditions met!"
+        if [[ "${peer_ready[$peer]}" == false ]]; then
+            check_log "$peer"
+            # Check the exit status of the check_log function
+            if [[ $? -eq 0 ]]; then
+                echo "$peer is now marked as ready."
+                peer_ready[$peer]=true
+            fi
+        fi
+
+        # Check if the current peer is not ready
+        if [[ "${peer_ready[$peer]}" == false ]]; then
+            # If any peer is not ready, set all_ready to false
+            all_ready=false
+        fi
+    done
+
+    if [[ "$all_ready" == true ]]; then
+        echo "All peers are ready!"
         break
     fi
 

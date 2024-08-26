@@ -2,10 +2,10 @@ module Bench.Options where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (SocketPath)
+import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host, readHost)
-import Hydra.Options (nodeSocketParser)
+import Hydra.Options (networkIdParser, nodeSocketParser)
 import Options.Applicative (Parser, ParserInfo, auto, command, fullDesc, header, help, helpDoc, helper, hsubparser, info, long, maybeReader, metavar, option, progDesc, short, str, strOption, value)
 import Options.Applicative.Builder (argument)
 import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
@@ -29,6 +29,7 @@ data Options
       { outputDirectory :: Maybe FilePath
       , scalingFactor :: Int
       , timeoutSeconds :: NominalDiffTime
+      , networkId :: NetworkId
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
       }
@@ -165,6 +166,7 @@ demoOptionsParser =
     <$> optional outputDirectoryParser
     <*> scalingFactorParser
     <*> timeoutParser
+    <*> networkIdParser
     <*> nodeSocketParser
     <*> many hydraClientsParser
 

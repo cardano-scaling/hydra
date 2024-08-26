@@ -1,7 +1,7 @@
 name: "Network fault tolerance"
 
-# TODO: make this a pull_request trigger or so
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       debug_enabled:
@@ -9,9 +9,25 @@ on:
         description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
         required: false
         default: false
-  push:
-    branches:
-    - demo-bench
+      percent:
+        type: number
+        description: 'Percentage for the loss in the netem Pumba command'
+        required: false
+        default: 4
+      scaling_factor:
+        type: number
+        description: 'Scaling factor for the benchmarks'
+        required: false
+        default: 10
+      target_peer:
+        description: 'Select the peer to target with netem package loss'
+        required: true
+        type: choice
+        options:
+          - alice
+          - bob
+          - carol
+        default: alice
 
 jobs:
   network-test:
@@ -33,7 +49,6 @@ jobs:
       with:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
 
     - name: Build docker images for netem specifically
       run: |
@@ -64,37 +79,37 @@ jobs:
     #
     # <https://github.com/mxschmitt/action-tmate>
     #
-    # TODO: Use this https://github.com/mxschmitt/action-tmate?tab=readme-ov-file#manually-triggered-debug
-    #
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+      if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
       with:
         limit-access-to-actor: true
 
+    - name: Install yq
+      run: sudo snap install yq
+
     - name: Run pumba and the benchmarks
       run: |
-        # TODO: a lot of these parameters could come from workflow arguments!
-        # Maybe we have good defaults, but then allow people to play around.
-        #  - percent
-        #  - scaling-factor
-        #  - ...
-        #
-        nix run github:noonio/pumba/noon/add-flake \
-          -- -l debug \
-          --random \
-          netem \
-            --duration 20m \
-            --target 172.16.238.20 \
-            --target 172.16.238.30 \
-            loss \
-              --percent 4 "re2:hydra-node-1" &
+        # Extract inputs with defaults for non-workflow_dispatch events
+        percent="${{ github.event.inputs.percent || '4' }}"
+        scaling_factor="${{ github.event.inputs.scaling_factor || '10' }}"
+        target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 
+        peers_info_json=$(
+          .github/workflows/network/peers_info_json.sh demo/docker-compose.yaml
+        )
+
+        .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
+
+        .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
+
+        # Run benchmark on demo
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=$(pwd)/benchmarks \
-          --scaling-factor=10 \
+          --scaling-factor="$scaling_factor" \
           --timeout=1000s \
+          --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \
           --hydra-client=localhost:4002 \

@@ -122,15 +122,16 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
 
 -- TODO: Refactor
 generateDemoUTxODataset ::
+  NetworkId ->
   SocketPath ->
   -- | Number of clients
   [ClientKeys] ->
   -- | Number of transactions
   Int ->
   IO Dataset
-generateDemoUTxODataset nodeSocket allClientKeys nTxs = do
+generateDemoUTxODataset network nodeSocket allClientKeys nTxs = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  faucetUTxO <- queryUTxOFor networkId nodeSocket QueryTip faucetVk
+  faucetUTxO <- queryUTxOFor network nodeSocket QueryTip faucetVk
   let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
   let nClients = length allClientKeys
   -- Prepare funding transaction which will give every client's
@@ -142,13 +143,13 @@ generateDemoUTxODataset nodeSocket allClientKeys nTxs = do
   let recipientOutputs =
         flip map clientFunds $ \(vk, ll) ->
           TxOut
-            (mkVkAddress networkId vk)
+            (mkVkAddress network vk)
             (lovelaceToValue ll)
             TxOutDatumNone
             ReferenceScriptNone
-  let changeAddress = mkVkAddress networkId faucetVk
+  let changeAddress = mkVkAddress network faucetVk
   fundingTransaction <-
-    buildTransaction networkId nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
+    buildTransaction network nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right body -> do
         let signedTx = sign faucetSk body
@@ -162,7 +163,7 @@ generateDemoUTxODataset nodeSocket allClientKeys nTxs = do
     txSequence <-
       reverse
         . thrd
-        <$> foldM (generateOneSelfTransfer networkId) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
+        <$> foldM (generateOneSelfTransfer network) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
     pure ClientDataset{clientKeys, initialUTxO, txSequence}
 
 -- * Helpers
