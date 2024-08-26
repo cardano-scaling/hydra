@@ -41,7 +41,7 @@ jobs:
         # NOTE: For some reason the fetched tags on checkout are not effective
         # and we need to refetch with --force for git describe.
         git fetch --tags --force
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+        echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
     - name: ❄ Build static executables
       run: |
@@ -85,7 +85,7 @@ jobs:
         # NOTE: For some reason the fetched tags on checkout are not effective
         # and we need to refetch with --force for git describe.
         git fetch --tags --force
-        echo "VERSION=$(git describe --always ${{ github.ref }})" >> "$GITHUB_ENV"
+        echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
     - name: ❄ Build executables
       run: |
