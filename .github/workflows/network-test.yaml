@@ -101,9 +101,6 @@ jobs:
       with:
         limit-access-to-actor: true
 
-    - name: Install yq
-      run: sudo snap install yq
-
     - name: Run pumba and the benchmarks
       continue-on-error: ${{ matrix.expect_failure }}
       run: |
@@ -112,9 +109,7 @@ jobs:
         scaling_factor="${{ matrix.scaling_factor }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 
-        peers_info_json=$(
-          .github/workflows/network/peers_info_json.sh demo/docker-compose.yaml
-        )
+        peers_info_json=$(.github/workflows/network/peers_info_json.sh)
 
         .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
 

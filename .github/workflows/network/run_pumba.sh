@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+if ! command -v jq &> /dev/null
+then
+    echo "jq is required for this script ~ install it."
+    exit 1
+fi
+
 target_peer=$1
 
 percent=$2

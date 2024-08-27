@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 
-if ! command -v yq &> /dev/null || ! command -v jq &> /dev/null
+if ! command -v jq &> /dev/null
 then
-    echo "yq and jq are required for this script ~ install them."
+    echo "jq is required for this script ~ install it."
     exit 1
 fi
-
-compose_file=$1
 
 extract_hydra_node_info_json() {
     local node_name=$1
 
-    local port=$(yq eval ".services.$node_name.ports[0]" $compose_file | awk -F: '{print $1}' | tr -d '"')
+    local container_name="demo-$node_name-1"
 
-    local network=$(yq eval ".services.$node_name.networks.hydra_net.ipv4_address" $compose_file | tr -d '"')
+    local network=$(docker inspect "$container_name" | jq '.[0].NetworkSettings.Networks.demo_hydra_net.IPAMConfig.IPv4Address' | tr -d '"')
 
-    local command_list=$(yq eval ".services.$node_name.command" $compose_file)
+    local command_list=$(docker inspect "$container_name" | jq '.[0].Config.Cmd')
 
     local json=$(
         echo "$command_list" | jq -r '
@@ -41,7 +39,7 @@ extract_hydra_node_info_json() {
                 .key |= gsub("-"; "_")    # Replace - with _
             )'
     )
-    echo "{\"node_name\": \"$node_name\", \"info\": $json, \"port\": \"$port\", \"network\": \"$network\" }"
+    echo "{\"node_name\": \"$node_name\", \"info\": $json, \"network\": \"$network\" }"
 }
 
 peers_info_json() {
