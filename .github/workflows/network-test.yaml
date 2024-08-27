@@ -19,7 +19,7 @@ on:
         description: 'Scaling factor for the benchmarks'
         required: false
         default: 10
-      wait_peer_dc_enabled:
+      wait_peer_disconnected:
         type: boolean
         description: 'Check other peers see the target peer is disconnected before running benchmark.'
         required: false
@@ -106,9 +106,9 @@ jobs:
 
         .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
 
-        wait_peer_dc_enabled="${{ github.event.inputs.wait_peer_dc_enabled || false }}"
+        wait_peer_disconnected="${{ github.event.inputs.wait_peer_disconnected || false }}"
 
-        if [[ "$wait_peer_dc_enabled" == "false" ]]; then
+        if [[ "$wait_peer_disconnected" == "true" ]]; then
           .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
         fi
 
