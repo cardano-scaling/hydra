@@ -137,6 +137,6 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: docker-logs
+        name: "docker-logs-netem-loss=${{ matrix.netem_loss }}"
         path: demo/docker-logs
         if-no-files-found: ignore
