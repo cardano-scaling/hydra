@@ -75,8 +75,8 @@ main = do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, TestFailed exc)
         Right summary@Summary{totalTxs,numberOfTxs,numberOfInvalidTxs}
-          | numberOfInvalidTxs == 0 -> pure $ Right summary
           | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, NotEnoughTransactions numberOfTxs totalTxs)
+          | numberOfInvalidTxs == 0 -> pure $ Right summary
           | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
 
   run outputDirectory datasetFiles action = do
