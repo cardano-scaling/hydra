@@ -37,6 +37,9 @@ on:
 jobs:
   network-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        netem_loss: [0, 1, 2, 3, 4, 5, 10, 20]
     steps:
     - uses: actions/checkout@v4
       with:
@@ -96,7 +99,7 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
-        percent="${{ github.event.inputs.percent || '4' }}"
+        percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ github.event.inputs.scaling_factor || '10' }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 
