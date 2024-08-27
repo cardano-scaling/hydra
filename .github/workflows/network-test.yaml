@@ -9,11 +9,6 @@ on:
         description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
         required: false
         default: false
-      percent:
-        type: number
-        description: 'Percentage for the loss in the netem Pumba command'
-        required: false
-        default: 4
       scaling_factor:
         type: number
         description: 'Scaling factor for the benchmarks'
@@ -39,7 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        netem_loss: [0, 1, 2, 3, 4, 5, 10, 20]
+        netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
+        expect_failure: [false]
+        include:
+          - netem_loss: 10
+            expect_failure: true
+          - netem_loss: 20
+            expect_failure: true
     steps:
     - uses: actions/checkout@v4
       with:
@@ -97,6 +98,7 @@ jobs:
       run: sudo snap install yq
 
     - name: Run pumba and the benchmarks
+      continue-on-error: ${{ matrix.expect_failure }}
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
         percent="${{ matrix.netem_loss }}"
