@@ -91,7 +91,7 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
-        percent="${{ github.event.inputs.percent || '4' }}"
+        percent="${{ github.event.inputs.percent || '40' }}"
         scaling_factor="${{ github.event.inputs.scaling_factor || '10' }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 

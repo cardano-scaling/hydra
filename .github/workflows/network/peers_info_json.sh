@@ -52,4 +52,11 @@ peers_info_json() {
     }"
 }
 
-echo $(peers_info_json) | jq
+json_result=$(echo $(peers_info_json) | jq -c)
+
+if [[ -z "$json_result" ]]; then
+  echo "Error: json_result is empty."
+  exit 1
+fi
+
+echo $json_result
