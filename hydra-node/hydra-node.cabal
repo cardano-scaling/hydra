@@ -157,6 +157,7 @@ library
     , plutus-ledger-api                                         >=1.21
     , prometheus
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , quickcheck-instances
     , serialise
     , sop-extras

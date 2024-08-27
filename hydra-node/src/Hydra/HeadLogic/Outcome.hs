@@ -17,6 +17,7 @@ import Hydra.Network.Message (Message)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 import Test.QuickCheck (oneof)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emited to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -88,6 +89,8 @@ deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainSta
 
 instance IsChainState tx => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
+
+instance IsChainState tx => ToADTArbitrary (StateChanged tx)
 
 genStateChanged :: IsChainState tx => Environment -> Gen (StateChanged tx)
 genStateChanged env =

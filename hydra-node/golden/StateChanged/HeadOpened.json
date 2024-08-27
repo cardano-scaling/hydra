@@ -1,0 +1,1673 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "660881dddd5f13af35089dd5e05cf99bb4712a07c17bca9059bf927dd9e07d73",
+                    "slot": 15997147,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0b13994e71fb1cc2d770c44a84df6d0a701598b70450ac7eba5cbe54afa4e248#4": {
+                        "address": "addr1w90zaqqj2y0dpz89xgm3zmkpxg75t8c07whfqslhkptk5jsr3jfu8",
+                        "datum": null,
+                        "datumhash": "a146ba1bb70b4d9fd9712d2214ba60214a2bc5d4453685c81e5eae2d13242958",
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "83030081820280",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "0e8f40e4f813ab3be9c85e0d262d60a432c874b4a84e736ddf79fb93": {
+                                "0c326b4350e0fe0eb4a35dc00e2e4c176b104ebc3e4e6a3007c2": 1
+                            },
+                            "lovelace": 2
+                        }
+                    },
+                    "1dd3c065384a4e22d8b2b31621e0fffc6f54464a2ad477db4a82195bece6c324#97": {
+                        "address": "2RhQhCGqYPDqHHV7T5Suaa6Uyp1PRH4aaP6k5DXkRxexa5FSERDuxZ8NKqYb1DhHLztcJdVRFB3cYEDyRpMwEy41ccTGbRSTSvQJQaubWAHDME",
+                        "datum": null,
+                        "inlineDatum": {
+                            "list": [
+                                {
+                                    "list": [
+                                        {
+                                            "constructor": 1,
+                                            "fields": [
+                                                {
+                                                    "int": -4
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "int": -1
+                                        },
+                                        {
+                                            "list": []
+                                        },
+                                        {
+                                            "int": 2
+                                        }
+                                    ]
+                                },
+                                {
+                                    "bytes": ""
+                                }
+                            ]
+                        },
+                        "inlineDatumhash": "2790d889adb43a27a8fd10e44f9f8bc04ee21ee3e9ab6e05e02ec6d0d7730f2c",
+                        "referenceScript": null,
+                        "value": {
+                            "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                "bbe35f367067fa56e7177263cc9f41fc9db4ac3b8c12469897ab28baec12": 470085258945140720
+                            },
+                            "b2770c79c1d9916352fd72cfed34eb6567d22e12572001960882ca24": {
+                                "35": 1811317603314680561
+                            },
+                            "lovelace": 2967518418940179825
+                        }
+                    },
+                    "3f7316a33d38582dd7b62ae0b8d901fe84f8cfe1b8b38ccebb77218f0aca7565#75": {
+                        "address": "addr1x9zw6wvkta64tluj92yfsujnaj4vwagl000vh28lusvurkn4vrvvpj5vjksxjhxccfl28z7x7gl46hfg324u7sgalthq4v6nm2",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82041a00b1e5d1",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "98022c6110dabbe7d1eaa0e85583589b6a5471a822d3cf3e6003e667": {
+                                "b562bc04a1a9bac470c18274006932379a9968b2e0e7b769250248b0c2358432": 6974159365182704001
+                            },
+                            "d8a4068a938802f2d4f8f8811ce2b2db7895d1dccc06743f4109f038": {
+                                "76b00c753e33a0d62cd6147edacee36041f085d576": 4238755151942166625
+                            },
+                            "lovelace": 2256673518122805381
+                        }
+                    },
+                    "6264f2f1ab401d5fb5178b0b6a8bcc1eb54a265b7f6f230e932d0524971a5d38#21": {
+                        "address": "addr_test1zzkwu4cyyx8qnae0xzexvluaxs7xjas0hk3nacrcqdqmrg6fus6gchwxys33apnywrf0tupk75fqcssmudddzlfhjwhqhrfynt",
+                        "datum": null,
+                        "datumhash": "45b350cf513b9596084d00009591263b417171daab830c4a58efdaff5f2dd74b",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                "36": 6060660243845611449
+                            },
+                            "87db677b6f03c78d471842235b87493e0e0e99862f95771acec0bd6e": {
+                                "0cd77023cd95c4315ba1cebc1ca6a7be8e5b6cd65c9011cc223ae991": 1
+                            },
+                            "lovelace": 1
+                        }
+                    },
+                    "8902762a91a7667c3bd7181caa7bce6f02622ad78a3388c11ae294a443d31ebb#45": {
+                        "address": "addr1qxqvnm09flyqa2kyleprhhwa9k6x6tzjwpuwkhn3l5qy3xeytpmyaf7pjr32gsmy96kwl4wgtvc6s6l92lez2lvfdcuqfmdstd",
+                        "datum": null,
+                        "datumhash": "ad2bba0224d29351e1024b103b5edf2e95f3f7b90f0c335a0d93f5ed2255375c",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "171a4f7fdc406575574d0bc5ff4eece7b56a08c25ad8ea48d4d956fe": {
+                                "32": 1
+                            },
+                            "22fc533a90f77a7cf00c52c0e40ad3b59fe97ee8579b9a2356ad2c39": {
+                                "414a486b77feb1ad11a133cee9b1af10cc": 5303664121252688800
+                            },
+                            "lovelace": 3063575668855921376
+                        }
+                    },
+                    "9d1ab830c702e5bed23e2a46f6210e71562b5fea080bcafd0e44e8a34f247364#91": {
+                        "address": "addr_test1zzgde435d2zt3dkuf0krg5ypudxacg82tfaflp3ykd8eajzkv8lsws2wahhlyq0t7f5czqz342dt7r7eq5geqzl6vdys8ax0n4",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": -2
+                        },
+                        "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "820280",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                "36": 1591370756163274756
+                            },
+                            "lovelace": 6938744952729015891
+                        }
+                    },
+                    "a2a49b5b7ff62e2751b5207e1134a751b10636f0bc7bae688ef960e1f00a0b7f#21": {
+                        "address": "addr_test1zq89v986cdsc0hjl5pp7rysx27vk0edxh030nzq0z6wxjxqcx695u7etl0p3wduergs4fjzkrs9maqwedpnpx8d4a4aqf5mxjr",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "454771dbb83721dbac43f103063cae348c931d3a8ac157cb87c80993": {
+                                "5d": 2,
+                                "ae7f7d0bab0e626d12bd099609d8e63d2500b4ad3de16fea109f53ae": 307420040552661189
+                            },
+                            "b60b15f1f47a97c114ad404dddb52d7cd56c1e3348810fd1721a73aa": {
+                                "31": 4847323653769788018
+                            },
+                            "lovelace": 171283715670027784
+                        }
+                    },
+                    "ad1f0e1658df1c910c2a651ff647bc81eab06caa4d7fce386a10f266c4e30f5c#24": {
+                        "address": "addr1q9w2pehfuzflazshjaz0qmsmtq7ncxpsj8l7z8h9egq5f3dly2pquww3r88kdh8jlxgp8v7v7zwut5kqlhc9psreax8saez6gc",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": 1
+                        },
+                        "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82041a0031b704",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                "77f61f2d": 1,
+                                "8727e50fb4223673": 5756584097285434249
+                            },
+                            "3091f8e97fc21cca2baeb9662c77e1be72a94fdcdb4c0e4ffdb7d637": {
+                                "658eafca7a71a4b4f5a8e62cbc1b0896d05bcfeef463": 1,
+                                "6da0fe678ef1fc9d9196fc36cdc7eabad2ecfacf743322c15596387a7cd6defa": 2
+                            },
+                            "lovelace": 6952711329551589646
+                        }
+                    },
+                    "c9026a3ec19857af88e8a6bd042be474b5a93642639a13188e89acb7337da16e#5": {
+                        "address": "addr1y9226dk7lm3e5fkx59rcjjdcjsx8xkrucqtmewzpqak73v4djade9kxeew7u9szeg2qk767ke5ug9rdzs0rm5wz4ylpsadpjma",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "820182830300818202848200581c97077a05fd5c38f621b9ddf535537a900fa304652043d9b8280941728200581cdf5b98cd6a736a68d77db60f85d8ba69253fe107b6d045b03a331e938200581cdca250aa73815f9212b2478ad96bb2ab5a57ef4f87a8f270a3a9c15b8200581c6f01772cb0ba3b5230a734ab4748bc70099cdd0f8c16738e31e8d9e7820182830302828200581c602d94c67c3fd72002f35825d6e36a2399c5ac7185b8dbb43ee674ea8200581ceb4a8835b85cbac150af46dc1328713d7acb0063e719351a5e2294f88201828200581ce9c9602da3c0a5b1d4328143dab17f7f38d5325b82ac00b484bc5d5f8200581c693e4e6309938a4e29f5c2f89f9a01d0c7a7b5ae79512806e4b8e606",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "a9977772aed15c83af1eaec07479e4c9bfad67189c558e85e55dffae": {
+                                "34": 1,
+                                "9a1b9d1ac7dd84f7ce9c453a141853f5ba2d84": 6362627374771266812
+                            },
+                            "abf545008ff4d0c81edd9e495840047af2e00c4ed4e77ca94c8c4179": {
+                                "31": 2587709066710765178,
+                                "43517e3729b32c176e87b8dac64cb2738332ef": 3706213653588939761
+                            },
+                            "lovelace": 1
+                        }
+                    },
+                    "ce9d00a5dbbb044f0835df532e0a4cedb5823c3dd239ddf5fad79aa48e38520d#26": {
+                        "address": "addr_test1qzqlxgyygg7q7lmjh2ydgpm9zjz6d42eauemqdu92yleeupxlpge5nu0c2re2l32ez3pq5usewf3rj8rrjs3ud80mleqh8ws35",
+                        "datum": null,
+                        "datumhash": "72da5904b7e1c0026ce48c80cb722479f50e788c6b027e4040b2e712899ed979",
+                        "inlineDatum": null,
+                        "referenceScript": null,
+                        "value": {
+                            "8b596efffa3915464572d5848908d557582771f224985ad2f749b106": {
+                                "32": 2
+                            },
+                            "lovelace": 6418309106933279718
+                        }
+                    },
+                    "e0cba73d0d3ed53381c96f6b9f002300c6c207cf0ecbcadc5a3614a029dc5814#28": {
+                        "address": "addr_test1yzr4kw4cgm4fnp45a0axj32pc80gr4xs7zhmj3vzmahfswklmla2euxyzkcjj2s3hxftjjtjf03c2jzyf9je46pqp3zq5n308e",
+                        "datum": null,
+                        "datumhash": "0ff319df40bcde3303f1da65a0f78f413209b77ff5ed0a527a70115631585ec2",
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82018283030081830300838200581c619864b8be5e78f3c986666bef8dcf2f4e946996c14861e9a27c63358200581ca4c2a2e6a93a85c88dbbfed1f68c97c7419864c33ccf335390c392078200581c1d32a712a79be6c03dd57fa58b228b8368a31607a9b9e27419cffe2783030184830300808202828200581cacc440b8ab35ed4edd5732081195299a36adce8d123cdb56ec95845e8200581ce26a7b2bae863784f61782dfe664f308d3d9aa22ff7da23da898c2108201818200581c2b3a1ec5108a88f21787888c0d1eed1bdf584e8215c9ab305aef2f57820280",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "4439e4d015c0f25cc214074b2f37c4a4d6cdcf05e5f1d31b364b8de5": {
+                                "35": 2
+                            },
+                            "lovelace": 2
+                        }
+                    },
+                    "e7aec80e10b5574489f897e04414989df094bcb2f1ad226d49be29a30aec611f#97": {
+                        "address": "addr_test1wpnaau6ktl9q66mfuhkf7z6w426hq00x2l6w4k06k3z0gvgze7c09",
+                        "datum": null,
+                        "inlineDatum": {
+                            "map": [
+                                {
+                                    "k": {
+                                        "int": 0
+                                    },
+                                    "v": {
+                                        "int": -2
+                                    }
+                                },
+                                {
+                                    "k": {
+                                        "list": [
+                                            {
+                                                "list": [
+                                                    {
+                                                        "int": 1
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "constructor": 3,
+                                                "fields": [
+                                                    {
+                                                        "int": 5
+                                                    },
+                                                    {
+                                                        "int": -4
+                                                    },
+                                                    {
+                                                        "int": -1
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "int": 5
+                                            }
+                                        ]
+                                    },
+                                    "v": {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "map": [
+                                                        {
+                                                            "k": {
+                                                                "int": -1
+                                                            },
+                                                            "v": {
+                                                                "int": 2
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "int": 3
+                                                            },
+                                                            "v": {
+                                                                "bytes": ""
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "bytes": "f4"
+                                                            },
+                                                            "v": {
+                                                                "bytes": "6f6f"
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                "v": {
+                                                    "constructor": 1,
+                                                    "fields": []
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": 1
+                                                },
+                                                "v": {
+                                                    "constructor": 1,
+                                                    "fields": [
+                                                        {
+                                                            "bytes": "1b89"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "list": [
+                                                        {
+                                                            "bytes": "189580f3"
+                                                        },
+                                                        {
+                                                            "bytes": ""
+                                                        },
+                                                        {
+                                                            "int": 5
+                                                        },
+                                                        {
+                                                            "bytes": "509551"
+                                                        },
+                                                        {
+                                                            "int": 3
+                                                        }
+                                                    ]
+                                                },
+                                                "v": {
+                                                    "list": [
+                                                        {
+                                                            "bytes": "4cd8ea"
+                                                        },
+                                                        {
+                                                            "int": 3
+                                                        },
+                                                        {
+                                                            "int": -2
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "k": {
+                                        "constructor": 2,
+                                        "fields": [
+                                            {
+                                                "map": [
+                                                    {
+                                                        "k": {
+                                                            "bytes": ""
+                                                        },
+                                                        "v": {
+                                                            "bytes": "d9fa96f3"
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": ""
+                                                        },
+                                                        "v": {
+                                                            "int": -3
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "v": {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": "ccb8c790"
+                                                },
+                                                "v": {
+                                                    "bytes": "11"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "k": {
+                                        "constructor": 0,
+                                        "fields": [
+                                            {
+                                                "list": [
+                                                    {
+                                                        "bytes": "81"
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    },
+                                                    {
+                                                        "bytes": "3b66d160"
+                                                    },
+                                                    {
+                                                        "int": -4
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "list": [
+                                                    {
+                                                        "bytes": "dc900c"
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    },
+                                                    {
+                                                        "bytes": "41cd"
+                                                    },
+                                                    {
+                                                        "int": 0
+                                                    },
+                                                    {
+                                                        "int": 2
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "list": [
+                                                    {
+                                                        "int": 0
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    },
+                                                    {
+                                                        "bytes": "a8e23b"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "bytes": ""
+                                            }
+                                        ]
+                                    },
+                                    "v": {
+                                        "list": [
+                                            {
+                                                "bytes": "02b0ded0"
+                                            },
+                                            {
+                                                "int": -2
+                                            },
+                                            {
+                                                "bytes": "4f"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "k": {
+                                        "int": -5
+                                    },
+                                    "v": {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": "8a5268cf"
+                                                },
+                                                "v": {
+                                                    "list": [
+                                                        {
+                                                            "bytes": "c2fb2f"
+                                                        },
+                                                        {
+                                                            "int": -3
+                                                        },
+                                                        {
+                                                            "bytes": "0df003f5"
+                                                        },
+                                                        {
+                                                            "int": -4
+                                                        },
+                                                        {
+                                                            "int": -1
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "list": [
+                                                        {
+                                                            "int": -5
+                                                        },
+                                                        {
+                                                            "bytes": "8f87"
+                                                        },
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "int": -5
+                                                        },
+                                                        {
+                                                            "int": 0
+                                                        }
+                                                    ]
+                                                },
+                                                "v": {
+                                                    "constructor": 5,
+                                                    "fields": [
+                                                        {
+                                                            "int": -4
+                                                        },
+                                                        {
+                                                            "int": 4
+                                                        },
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "int": 4
+                                                        },
+                                                        {
+                                                            "bytes": "f9ce244c"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "map": [
+                                                        {
+                                                            "k": {
+                                                                "int": -2
+                                                            },
+                                                            "v": {
+                                                                "int": -5
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "bytes": "f008"
+                                                            },
+                                                            "v": {
+                                                                "bytes": "a795"
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "int": -2
+                                                            },
+                                                            "v": {
+                                                                "bytes": "cb"
+                                                            }
+                                                        },
+                                                        {
+                                                            "k": {
+                                                                "int": 5
+                                                            },
+                                                            "v": {
+                                                                "int": -1
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                "v": {
+                                                    "int": 0
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        },
+                        "inlineDatumhash": "00d8a72d91a833990b7063746ad1c8b6e456b61f08d71040236302b8db3303c8",
+                        "referenceScript": null,
+                        "value": {
+                            "c12cfc5b5b75c49e1b87b198a230c8ba87f73cae0b3910298365ad0d": {
+                                "33": 2674573364856368882
+                            }
+                        }
+                    }
+                }
+            },
+            "initialUTxO": {
+                "2001787fd964ab6edfeb45e4aefd6e3b23b2f7a2ccd6c190040dd10b9a4983ab#82": {
+                    "address": "EqGAuA8vHnNgMoSH7z7WnEtH94zTUa2yCkt3EUBbJ59diLDnhMVXLRTBeqr5Pm3Wbwg2rwKQKk1vZjng8i3fNuNqM9LoC8FWnaN7jDFcCYxNi9b4c4tXC1v",
+                    "datum": null,
+                    "inlineDatum": {
+                        "int": -5
+                    },
+                    "inlineDatumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8202828201828200581c669af1427b8bd75bfca4a089bc08fdadfa881d20e0ff96b5f682a66f8201838200581c1034ef38a1ed6e4d9cd330f39b471273a0cb386147efe7f12cc9141d8200581cc8dfbbe62a393be7249b959c91ffcccab298d43b50fc78d725d6902d8200581cc1b9c5559e985cdd93065d3720dd82df68df7ba62f33564c92d4d4ed8200581cd2e936103cd8480293a1e3737a3203361de85e4614c00b09a0e53250",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "36": 2567793590137309600,
+                            "474c67a8efc11259c5fcfda49bc5ba64961cf62bda7c3a7d8291": 2
+                        },
+                        "lovelace": 2698813082350524
+                    }
+                },
+                "255b3543efe06361de8e7c0f29a12493d6832c2bdf13363bc643756ab395c4ab#69": {
+                    "address": "Ae2tdPwUPEZ5SzP6cQbg2TqS7z9YuhNxbqpvgGnYfoKhSWj5bUCVVxiTA2h",
+                    "datum": null,
+                    "inlineDatum": {
+                        "list": [
+                            {
+                                "map": []
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "dc83b788127cc23e946f7ad03a53439b87ea58fe0f8e998d700b6bebdbd5d835",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002601",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                            "3034d87078fe53e155da38446787ef694ee854a60b9042ca93e8c215d38812": 2
+                        },
+                        "lovelace": 6662079044971915563
+                    }
+                },
+                "37c4b588909cf1b1843848a33a864080fa4dd68bd40b7bb27401565909c71452#90": {
+                    "address": "addr1xywepku43rtsuggcsfg0tdv6xy3s3dymr2r5leapqz3hktnt9jzst6ezukemy49lxn2thwa4chnu00mnvm0ls8p30afsme3sv4",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 1,
+                        "fields": [
+                            {
+                                "bytes": "6de248d7"
+                            },
+                            {
+                                "int": -4
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "d48969bf52fbe1496349b0315ed78b13b93d074a2d821c95f8c8d5baabeeeb75",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82051a001e8a87",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                            "513f2751a72ca255": 1
+                        },
+                        "lovelace": 2
+                    }
+                },
+                "3859cd05e1afdd0ca30713bacdb35b69735a5d6cc821c7361d44e06c99921c70#4": {
+                    "address": "addr1w88fqtd7v5wx8pcpggqsf3em2mevdtmrxsl28k62gshm0gch28lvk",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82041a0064c5b8",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "1a3fc6573c99d14f918060f28c57336cdd8d653e73b4d4a5b89a644a": {
+                            "cbf13ffa4576f1aa31506445d762b015be916dd499": 4704011102214593703
+                        },
+                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                            "30": 4153588413595027034,
+                            "fe142b0e46ec671f1eab6613b65840ea09f4823877081a3c": 1
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "4b1f631b098f301a83056261dd79438386a490e2b37ac3ac8b6c311ab2ef4a1a#79": {
+                    "address": "addr1zxkgku8qkr4thnz434t2uh9wxsrjsvk7rh4znpgg8rejctuyp7jmtwk5qcc3lj9quj5jyqy6sjtuljm2rzarkch44tuslml6we",
+                    "datum": null,
+                    "inlineDatum": {
+                        "map": [
+                            {
+                                "k": {
+                                    "map": [
+                                        {
+                                            "k": {
+                                                "constructor": 0,
+                                                "fields": [
+                                                    {
+                                                        "bytes": ""
+                                                    }
+                                                ]
+                                            },
+                                            "v": {
+                                                "list": [
+                                                    {
+                                                        "int": 4
+                                                    },
+                                                    {
+                                                        "int": -4
+                                                    },
+                                                    {
+                                                        "int": 2
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    },
+                                                    {
+                                                        "bytes": "6d23c984"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "int": 1
+                                            },
+                                            "v": {
+                                                "constructor": 3,
+                                                "fields": [
+                                                    {
+                                                        "int": 4
+                                                    },
+                                                    {
+                                                        "bytes": "962d"
+                                                    },
+                                                    {
+                                                        "bytes": "f80a4778"
+                                                    },
+                                                    {
+                                                        "int": -1
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "bytes": ""
+                                            },
+                                            "v": {
+                                                "int": 3
+                                            }
+                                        }
+                                    ]
+                                },
+                                "v": {
+                                    "list": [
+                                        {
+                                            "bytes": "10"
+                                        },
+                                        {
+                                            "list": []
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "k": {
+                                    "map": [
+                                        {
+                                            "k": {
+                                                "bytes": "e5e629"
+                                            },
+                                            "v": {
+                                                "map": [
+                                                    {
+                                                        "k": {
+                                                            "int": 5
+                                                        },
+                                                        "v": {
+                                                            "int": -5
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "int": 1
+                                                        },
+                                                        "v": {
+                                                            "bytes": ""
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "a5f4"
+                                                        },
+                                                        "v": {
+                                                            "int": 1
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "d53c"
+                                                        },
+                                                        "v": {
+                                                            "int": 3
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "a7"
+                                                        },
+                                                        "v": {
+                                                            "bytes": ""
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "bytes": "713d23aa"
+                                            },
+                                            "v": {
+                                                "int": 2
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "list": []
+                                            },
+                                            "v": {
+                                                "map": [
+                                                    {
+                                                        "k": {
+                                                            "int": -3
+                                                        },
+                                                        "v": {
+                                                            "int": 3
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "446bea"
+                                                        },
+                                                        "v": {
+                                                            "bytes": "7d3a"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                },
+                                "v": {
+                                    "list": [
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": "3ede"
+                                                },
+                                                {
+                                                    "int": 1
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "map": []
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "int": -1
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "k": {
+                                    "bytes": "59320f31"
+                                },
+                                "v": {
+                                    "int": -5
+                                }
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "e6ccf5b69e08e8a5127a1bc5905da5912568f71ca0c47d71aafd6fc9bbc48920",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581ca9fec6e09f980972fb790570bdeeb1410c83ad1080fc489ec77a1579",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                            "21d14439f07a8dcbb6f2c5d75b501e7dda7636cdc3f5": 2,
+                            "6b4b32418cfba252a4159f0eb9aaf585": 5475368142577385791
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "5e1d1af82349c45eadef7c471165b9f14b0735a92c58d107a5eff517cb0a90f5#18": {
+                    "address": "2RhQhCGqYPDqMnp5w3XvdNucsxhhFiBg2ZFUGjWUSMBRE5SRSbtPHovaywHipjMxZiKRF1yF7EdMGym43J4GZg1a4oGJ4MnacN4s4rtaE7zNWA",
+                    "datum": null,
+                    "inlineDatum": {
+                        "list": [
+                            {
+                                "bytes": "a34b8ab7"
+                            },
+                            {
+                                "int": 4
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "96afb8d46270602d5d53562e9861aa96714243376617797951e7a9f0928dd59f",
+                    "referenceScript": null,
+                    "value": {
+                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                            "0c9eed0a09b23b34d0665c3923817ecfde1de145107e53": 3801970401102909877
+                        },
+                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                            "38": 7956981499106775974
+                        },
+                        "lovelace": 8874387944101466344
+                    }
+                },
+                "623eec94aab42061ffca47a8fd8a5da3c640850246caf626c8c437de50649821#33": {
+                    "address": "addr_test1vzrhvxxwl30yx7wtvcjl0wyfshwnfhu7xrk6f0mcl2msdpc9mt8m7",
+                    "datum": null,
+                    "inlineDatum": {
+                        "list": [
+                            {
+                                "constructor": 4,
+                                "fields": []
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "bytes": "bf4ca3"
+                                        },
+                                        "v": {
+                                            "constructor": 5,
+                                            "fields": [
+                                                {
+                                                    "bytes": "5e"
+                                                },
+                                                {
+                                                    "bytes": "5d35"
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "bytes": "74b258"
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": -5
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "502b"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "bf2f2e4e"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": []
+                                        },
+                                        "v": {
+                                            "bytes": "ac6318"
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "constructor": 2,
+                                            "fields": []
+                                        },
+                                        "v": {
+                                            "int": -5
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "map": []
+                                        },
+                                        "v": {
+                                            "int": -1
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "a39178d6f467c9a96f25dcc195ae0224ea93dc5a543667329799148bd8b885b8",
+                    "referenceScript": null,
+                    "value": {
+                        "41eb2075fcd92ef5513e46634e6a62e3132043ceca22c211ff2495ff": {
+                            "15941ada4064c2de401df8b2929e": 5954407828513979445
+                        },
+                        "lovelace": 7775719355253359961
+                    }
+                },
+                "7edef630c0edfc4448874cd9eacb1589e55eb9c007fe4bbdaaa010efcf26cbcb#14": {
+                    "address": "addr1q9u08k3j8pzytqkyfdhuxn4guwjedatap5ztkygugy6kjdkgufgahlvjk2lycj5fkvlnt2n6756ezp64sf4wkpvk7mks303cjd",
+                    "datum": null,
+                    "datumhash": "507b64d8440fb7c04e76476ac32904afffef1cbb5def13ea12c637ccc0dc14dd",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581cda3a52138e8e71baf661461a2cc78b787acb8df317c6a4093697e47c",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "451b755fa352061663fbdcbe9ca8fe68b085360d74c313e28320c6ee": {
+                            "35": 1,
+                            "d2698b3cf4": 759326156978236823
+                        },
+                        "c202c1a653b640ae566962d630c1b7dc32052339245167407c558e4f": {
+                            "6ea614": 1
+                        },
+                        "lovelace": 7311583697834508314
+                    }
+                },
+                "9d83f6dd12335363a1a2b197fc57cfcce76ee2ec4dd03c2ebedbbce95182e330#36": {
+                    "address": "addr_test1qrx6nvhzv8v6zrahk96e73xzru4qk4mejv5ak7vzucn736jzq6dl623d7hq6f4tkru374h2t85z39mfu472mre7q96qsfz5gqz",
+                    "datum": null,
+                    "datumhash": "3e3cde11d3f1743bb0dfdda51d3c248f5682a91f3aaed7a2aafc7f406a33c9aa",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "820182820282830300838200581c93579148aa30597223d4c6972a2d4ba166842b1ad49d1c5df120b1d28200581cb4a2f78f099396027ac73669dcd7d09dc86f5ab84b2179e25402b17c8200581c6914da2f125cfce3d603940be596c69f778f0c327ca814ae3f284ad48200581c48f0e2e809e44f2f8fd3b0e782f678034b7f7d5196db28216a531a7c820182830301848200581c746c962034e0a6630781f343add01a7b2d796e8ce3ab51c245ff6f108200581c0818ecbb9fc0af1c6b934cb6e48cb1647b397aa19fe4720ec13c205c8200581c9e08a2d8f2110f1b39c1bbd58a6f9002c7e2c7c5dea024adaf97689c8200581c2315e60029a07fee89273332b7691ef70fdf92945ef21c72e4f6d573830303848200581c3067406af7fc0f7832e9b4c2351915326715c8ad1ad4e486805f04818200581cf4aa53495aa284f9362064df25e145796d7f0810efe6320aef0771098200581c93611641a1932581493617a1229f74e361675cfe6bf9c74e7de360e18200581c2092825b1318068754f0aad92d1652a8d79419ddc9268148ac68be1c",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                            "33": 1
+                        },
+                        "dee059667988cd3149c4a6da3585d0c0d0bd9c4ac495e4ea190f8b4c": {
+                            "33": 1769729898031972844,
+                            "f1c21d76cf3de1dc8dd78e": 1
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "a7d0aee141a75b2335f185394e0e42b4aefd055c8e9957840804dddc100133f6#71": {
+                    "address": "addr_test1qpu82g8g589fr02umkztfy2z9wgfm3s989zwrgrmr84nf99u3uujhe5m5nhmzma0asy33n3g5d66jkckn9eas0fgy4rq6gz5r0",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 0,
+                        "fields": [
+                            {
+                                "int": 0
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "bytes": "5578ee"
+                                                },
+                                                {
+                                                    "int": 4
+                                                },
+                                                {
+                                                    "bytes": "b36b9a"
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": "18"
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "int": -4
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": [
+                                                {
+                                                    "int": -2
+                                                },
+                                                {
+                                                    "int": -4
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": "c6fd3b93"
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "constructor": 0,
+                                            "fields": [
+                                                {
+                                                    "bytes": "34"
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "bytes": "fad841ee"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "int": 1
+                                        },
+                                        "v": {
+                                            "bytes": "6d19c1"
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "bytes": "b7b6"
+                                        },
+                                        "v": {
+                                            "constructor": 1,
+                                            "fields": []
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": "bbd0"
+                                                },
+                                                {
+                                                    "int": 4
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "list": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "bytes": "75185c"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "8a52a6bcd55b8b46f2e0365da7a40fbfea724756c04dd68cadc4ab6175dffad1",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82051a00a6ddb9",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                            "b15fe57e5a3c39226de0500a4c6a927085": 1
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "ab41eb20290bb52df0f97badd7f13582ba9981bb983297d4eb3cb0fab6a877ed#51": {
+                    "address": "addr_test1zqq7q40xweeec6g52uzn7wksu6yfs4eq2yfjw932ulg6sxulrkffp5agm79pyc5mqdl8dyfasghnj3yas4nuh5unvj4syqyqaf",
+                    "datum": null,
+                    "datumhash": "f5a4f4d9cf320d082d33ff364c7e30993eb26b9fd7839e84d5ad53b477c3f841",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "820184830301818201848200581cfdc38dbb5418e01a9ccb7c56f2c9863c835989c21d291ad1c429a47c8200581c842a1c22598255b09cbbe1a287553eb2c820af5281847bb3f3cb78c38200581ccfb819926fd82201f89c51aba8bfb0c5b1533548a283634cde58882a8200581c12be892fe6d93ead22d4839d7c89e0850d28e55f25a4fb7a8ea6ae25820180830303848200581c9f8bc8c63a37e589a4e776530d5fca01fc59a0efbbc6dcf873d601dc8200581cb65c2d2e75970e3cf4b23cc7598f739e70af39565e6f8b23ea381aea8201818200581cd0a34755b195d40b57655e4a4929b4c03a3f928f9cfe3f9692deb1cb830300848200581ce4a864e504ad50b051ee208fc012d3301d2581c1156a5559176263a88200581c8618509168fd427aaf6d80d4a182dee8b3abde04e8b24386758b8f298200581c33c5ef33309f858cb02c8196db3ccfb05f81c3592c591400ad5a733a8200581c91acc819f916ddf52713a9146bf7f8a9e2652cb6276b37a0d98766b4820280",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                            "79ec276cb5": 3992028903325571255
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "b671d418bfd9af53d70851b9f30c77f387e2b143ac547a86fea5d157d7c03f0c#28": {
+                    "address": "addr_test1xrsg2ad82u4qzzt35d3j6f4m37a72uweaekf0gd4v3lze2uf0w0y6emmchrrt909tta0a6gf3ya529zg80t8sy4agz7sz37n9e",
+                    "datum": null,
+                    "datumhash": "f24d63e4d73706f7222c0725005ad750b2debd75c12dd2006177f7963c15966c",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "4746010000222601",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "6617e6916ad5b4ef38995e447d3c84b59689d83afb2aabc656dab662": {
+                            "34": 2
+                        },
+                        "f31e5a65f9ead6cd86b39e696e45e1cebdb7efcffc9a026308400e25": {
+                            "35": 3
+                        },
+                        "lovelace": 6799418579851046509
+                    }
+                },
+                "c697ac5ed8768157a9fea07bd15f118c46dd5fa56eb93f0a8c1453ab5ccaf20e#52": {
+                    "address": "2RhQhCGqYPDo7G3Cmd5jp5DxBrk3HqRWQPWGYUe9D6J4DNuhrLEgt6fNSHmo3D9SDmtjwWvRo3vvs9hDYCpqbHgM4xstkL5Gsx43tX4ZPsVwAe",
+                    "datum": null,
+                    "inlineDatum": {
+                        "int": 5
+                    },
+                    "inlineDatumhash": "fb3d635c7cb573d1b9e9bff4a64ab4f25190d29b6fd8db94c605a218a23fa9ad",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82051a00f778ab",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "1a50b871be25975786137d8476e5fbfbb1cc2446f6991482a48afe0a": {
+                            "31": 1,
+                            "9c4fb2ebfbb6bf3f67ee5b880cdc3ae27a46e62d03d4cb": 1
+                        }
+                    }
+                },
+                "c9565fa0d5a4c4b2f101aeb5e2e0a96cf48a9343edcda1b1818526a570790d74#10": {
+                    "address": "addr_test1xqrcmmwrm4s6xzksd26ngj5wq6um72dsf8hs6ruhlxzt06889emju8qcjxxd9jq352m6d09leypt5cvkj6wza67yutjqlf4dyn",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 2,
+                        "fields": []
+                    },
+                    "inlineDatumhash": "ff5f5c41a5884f08c6e2055d2c44d4b2548b5fc30b47efaa7d337219190886c5",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "83030080",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "d8081789abe563785c1521624b78188b8db58328c654635571900f8c": {
+                            "31": 1,
+                            "3621458113efc19991eddedfbc00f2139d27c397ad28edb49e": 2
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "c9aff6178b1027644ce6fa9532153551bd26ea5fd1af8c022d63638273e7bab0#45": {
+                    "address": "addr_test1gql2jn95zyxpwlf3jhhuxzwqmxlzfuumk2gej50x4k55xvypke06jekfxuv3jrmy",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 4,
+                        "fields": [
+                            {
+                                "bytes": "5af49f"
+                            },
+                            {
+                                "constructor": 5,
+                                "fields": [
+                                    {
+                                        "bytes": "d3"
+                                    },
+                                    {
+                                        "bytes": ""
+                                    },
+                                    {
+                                        "int": -5
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "int": 2
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -4
+                                                },
+                                                "v": {
+                                                    "int": 5
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "a2a3df"
+                                                },
+                                                "v": {
+                                                    "int": 3
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "425df8"
+                                                },
+                                                "v": {
+                                                    "int": 0
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "int": 0
+                                    }
+                                ]
+                            },
+                            {
+                                "bytes": "0472a3"
+                            },
+                            {
+                                "constructor": 4,
+                                "fields": []
+                            },
+                            {
+                                "int": 1
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "6b4d4dcdeb800c473502eaee3461c30df5f135f7cafd3de8ff95830421a2b9c8",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "484701000022220011",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                            "39": 1
+                        },
+                        "lovelace": 3643209747486892751
+                    }
+                },
+                "cb3947f083e6fdb4f928cebc6bb578b7a62c3625c5d5d7aa98d1d263c496fce4#18": {
+                    "address": "EqGAuA8vHnP2XFLmR1zenWwirb81dhzs12Li91xvZTjBg9uuW9ASUyimw1yp7n7SnsV7WeEHMWWdpVgK8EcSZ74Hi6ebBDwSVdUYXdCi3rQtYzF3E68pyAJ",
+                    "datum": null,
+                    "datumhash": "23bf96c3754f7bcc8a682dabf12d7732c3376562dcc1f04e04fb4d90d34682b7",
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002261",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                            "c3d6374ab7feb3a70b60f3265712f2cebd40415a9b7b2a1c8eed91b1a6863f": 6729902299437966324
+                        },
+                        "lovelace": 2599111229256200213
+                    }
+                },
+                "dd26044c2ac62bc4ea504ab9ea5ed297cdc33af79b8c6bb22990bc838dd0f722#29": {
+                    "address": "2RhQhCGqYPDo7zhLJQsKTSm3Qt2SHoctQHt3immx1Kj3GqgZwifqpRZTi6Psnp6NfW9JGxksCZf2nRTrENf5Fmokn4nMtcMGHRy6cLFNiXNQvY",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 0,
+                        "fields": [
+                            {
+                                "list": [
+                                    {
+                                        "bytes": "26"
+                                    },
+                                    {
+                                        "bytes": "b84d86"
+                                    },
+                                    {
+                                        "list": []
+                                    }
+                                ]
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "constructor": 0,
+                                            "fields": []
+                                        },
+                                        "v": {
+                                            "int": 1
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": 3,
+                                "fields": [
+                                    {
+                                        "constructor": 2,
+                                        "fields": [
+                                            {
+                                                "bytes": "5b560011"
+                                            },
+                                            {
+                                                "bytes": "1ee1c3"
+                                            },
+                                            {
+                                                "int": -5
+                                            },
+                                            {
+                                                "int": -2
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "list": [
+                                            {
+                                                "int": 1
+                                            },
+                                            {
+                                                "bytes": ""
+                                            },
+                                            {
+                                                "int": -3
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "bytes": "298ef9"
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "bytes": ""
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "bytes": "8b24"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -2
+                                                },
+                                                "v": {
+                                                    "int": 2
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "30a7dc91"
+                                                },
+                                                "v": {
+                                                    "bytes": "86690d20"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "constructor": 2,
+                                        "fields": [
+                                            {
+                                                "bytes": "9784"
+                                            },
+                                            {
+                                                "bytes": "53f16990"
+                                            },
+                                            {
+                                                "bytes": ""
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": 1,
+                                "fields": []
+                            }
+                        ]
+                    },
+                    "inlineDatumhash": "d9e5f9e3a5dd55355ecd1724c8b65db8e561e2f32670bc229966d4e5f193444e",
+                    "referenceScript": null,
+                    "value": {
+                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                            "32": 7060260866694155115
+                        },
+                        "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                            "967b3096852d5ce9": 2
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "e4213a67ea61b087be1989c10ce2e4552631312b2beb15e069e1ff76f0ee4b58#8": {
+                    "address": "EqGAuA8vHnPEVnCKCn59q4cv7QpBoUWJuQCAph1Fq9VeLSdVgB5tXf74FPMEjYWGVvpPrqSnizjJoRzCA1hXPEBfTShdB4M2Gm3VJwTEmkksqpHMTfYCWzX",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "83030182830302838200581c58bd6f55c81526327ba0084593f24dca14f51b8f45c1f94849c4096d830300818200581c64ba98c4a0a9d5dbf9bf0754d1926816d68d57817106efd5472f61248200581cc0c26c30c674286d10cc3a499de980d3c027dd6b26a83df4afd7655c8200581c3ee587b1b43fb2744367375b25fbfdd1cd128281563953f181ca9a32",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                            "37": 1
+                        },
+                        "lovelace": 5044041602622297258
+                    }
+                },
+                "f934667781c9c648f84ea48e6701950af1ecd885ae8bb891a1f8877f3f3c7f62#49": {
+                    "address": "addr1zxwylcrmnsg6uhrm3cmapvmcrvq6xxnhvgm4wqjt4r580fks7jpeehpxlvkyv26eaed3lv53lr69ahzjp2mknpk8c3rsx75luw",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002261",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                            "8d3a640d2e1ee1e51f51969881114814f1206a5b0b628ea920ff": 7143029699577700838
+                        },
+                        "lovelace": 837130161781459985
+                    }
+                },
+                "fea4f9ccbb7f07d248042160170c74bf130d98446ca1bc1f26e213afd583bb42#27": {
+                    "address": "EqGAuA8vHnP3HfqfJ8F5BxZ3yDfhX7dE6jAsoZWamwPsHrPHJUx1CHj5DAoms5eaA5GJNZ7sdRhHcsQ99XsZZJsiWnUiERM2qMawvdLteUmiimeUUrd5zMN",
+                    "datum": null,
+                    "inlineDatum": {
+                        "int": -3
+                    },
+                    "inlineDatumhash": "95c3003a78585e0db8c9496f6deef4de0ff000994b8534cd66d4fe96bb21ddd3",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581cd381f40646fe60d19a0d006bf46e391985d4fba7130c55c470e6db14",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "914c2df6a351650de85c2dcc3a00f5a94316d0c7b7c71cade3d08037": {
+                            "938d4eb4d6f21580020a3036af203ec71391115287305ff3b450d2": 4191052905611986108
+                        },
+                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                            "e91532164d1c8061fe62d3cb4ce7a606842351838d0a917f663a3142dc": 7380350959637894496
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "feea19dcfe8772ce1b0d798f236e26517e59d549f8e3f4a01308fd209beed398#91": {
+                    "address": "addr1xxvdkm8zqaphctrhm7ef28yf2srgx7a6fyjfvzp3zjusrazq8z5u6jfqre8xdjvw4aflm6falh04w82vgj8gv2hul52sueqrlq",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "referenceScript": null,
+                    "value": {
+                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                            "af5e987eee073d04": 2
+                        },
+                        "lovelace": 2
+                    }
+                }
+            },
+            "tag": "HeadOpened"
+        }
+    ],
+    "seed": 1064405979
+}
