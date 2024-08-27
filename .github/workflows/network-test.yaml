@@ -122,7 +122,7 @@ jobs:
         # Run benchmark on demo
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
-          --output-directory=$(pwd)/benchmarks \
+          --output-directory=benchmarks \
           --scaling-factor="$scaling_factor" \
           --timeout=1000s \
           --testnet-magic 42 \
@@ -143,4 +143,12 @@ jobs:
       with:
         name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }}"
         path: demo/docker-logs
+        if-no-files-found: ignore
+
+    - name: 💾 Upload build & test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: "benchmarks-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }}"
+        path: benchmarks
         if-no-files-found: ignore
