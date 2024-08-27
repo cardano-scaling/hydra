@@ -143,11 +143,7 @@ import Prelude qualified
 
 spec :: Spec
 spec = parallel $ do
-  describe "ChainState" $
-    roundtripAndGoldenSpecs (Proxy @ChainState)
-
-  describe "Plutus.PubKeyHash" $
-    roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
+  roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
