@@ -9,11 +9,6 @@ on:
         description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
         required: false
         default: false
-      scaling_factor:
-        type: number
-        description: 'Scaling factor for the benchmarks'
-        required: false
-        default: 10
       wait_peer_disconnected:
         type: boolean
         description: 'Check other peers see the target peer is disconnected before running benchmark.'
@@ -34,19 +29,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        scaling_factor: [10]
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
         expect_failure: [false]
         # We know these will fail; so don't try.
         exclude:
-          - netem_loss: 10
+          - scaling_factor: 10
+            netem_loss: 10
             expect_failure: false
-          - netem_loss: 20
+          - scaling_factor: 10
+            netem_loss: 20
             expect_failure: false
         # In fact, allow them to fail.
         include:
-          - netem_loss: 10
+          - scaling_factor: 10
+            netem_loss: 10
             expect_failure: true
-          - netem_loss: 20
+          - scaling_factor: 10
+            netem_loss: 20
             expect_failure: true
     steps:
     - uses: actions/checkout@v4
@@ -109,7 +109,7 @@ jobs:
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
         percent="${{ matrix.netem_loss }}"
-        scaling_factor="${{ github.event.inputs.scaling_factor || '10' }}"
+        scaling_factor="${{ matrix.scaling_factor }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 
         peers_info_json=$(
@@ -146,6 +146,6 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "docker-logs-netem-loss=${{ matrix.netem_loss }}"
+        name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }}"
         path: demo/docker-logs
         if-no-files-found: ignore
