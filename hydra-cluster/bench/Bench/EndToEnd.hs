@@ -218,7 +218,17 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} pa
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
 
-  pure $ Summary{clusterSize, totalTxs, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}
+  pure $
+    Summary
+      { clusterSize
+      , totalTxs
+      , numberOfTxs
+      , averageConfirmationTime
+      , quantiles
+      , summaryTitle
+      , summaryDescription
+      , numberOfInvalidTxs
+      }
 
 defaultDescription :: Text
 defaultDescription = ""

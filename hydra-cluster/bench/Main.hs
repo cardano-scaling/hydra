@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
-import Bench.Summary (Summary (..), markdownReport, textReport)
+import Bench.Summary (Summary (..), errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
@@ -73,11 +73,11 @@ main = do
   runSingle dataset action dir = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
-        Left exc -> pure $ Left (dataset, dir, TestFailed exc)
+        Left exc -> pure $ Left (dataset, dir, errorSummary dataset exc, TestFailed exc)
         Right summary@Summary{totalTxs, numberOfTxs, numberOfInvalidTxs}
-          | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, NotEnoughTransactions numberOfTxs totalTxs)
+          | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, summary, NotEnoughTransactions numberOfTxs totalTxs)
           | numberOfInvalidTxs == 0 -> pure $ Right summary
-          | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+          | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
 
   run outputDirectory datasetFiles action = do
     results <- forM datasetFiles $ \datasetPath -> do
@@ -89,11 +89,19 @@ main = do
         runSingle dataset action dir
     summarizeResults outputDirectory results
 
+  summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) Summary] -> IO ()
   summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
-      [] -> benchmarkSucceeded outputDirectory summaries
-      errs -> mapM_ (\(_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
+      [] -> writeBenchmarkReport Nothing outputDirectory summaries
+      errs ->
+        mapM_
+          ( \((_, dir, summary, exc), errorNbr :: Int) ->
+              writeBenchmarkReport (Just $ "failure-" <> show errorNbr) outputDirectory [summary]
+                >> benchmarkFailedWith dir exc
+          )
+          (errs `zip` [1 ..])
+          >> exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
@@ -129,15 +137,15 @@ benchmarkFailedWith benchDir = \case
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-benchmarkSucceeded :: Maybe FilePath -> [Summary] -> IO ()
-benchmarkSucceeded outputDirectory summaries = do
+writeBenchmarkReport :: Maybe String -> Maybe FilePath -> [Summary] -> IO ()
+writeBenchmarkReport lbl outputDirectory summaries = do
   dumpToStdout
   whenJust outputDirectory writeReport
  where
   dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
   writeReport outputDir = do
-    let reportPath = outputDir </> "end-to-end-benchmarks.md"
+    let reportPath = outputDir </> (maybe "" (<> "-") lbl <> "end-to-end-benchmarks.md")
     putStrLn $ "Writing report to: " <> reportPath
     now <- getCurrentTime
     let report = markdownReport now summaries
