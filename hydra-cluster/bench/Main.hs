@@ -51,7 +51,7 @@ main = do
     clientKeys <- forM actors toClientKeys
     dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
     results <- withTempDir "bench-demo" $ \dir -> do
-      runSingle dataset action dir
+      runSingle dataset action (fromMaybe dir outputDirectory)
     summarizeResults outputDirectory [results]
 
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
@@ -74,7 +74,7 @@ main = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-        Right summary@Summary{totalTxs,numberOfTxs,numberOfInvalidTxs}
+        Right summary@Summary{totalTxs, numberOfTxs, numberOfInvalidTxs}
           | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, NotEnoughTransactions numberOfTxs totalTxs)
           | numberOfInvalidTxs == 0 -> pure $ Right summary
           | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)

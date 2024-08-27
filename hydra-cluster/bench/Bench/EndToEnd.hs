@@ -154,6 +154,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
           traceWith faucetTracer $ ReturnedFunds{actor = show sender, returnAmount}
       )
       senders
+
 scenario ::
   Tracer IO HydraNodeLog ->
   RunningNode ->
