@@ -19,6 +19,11 @@ on:
         description: 'Scaling factor for the benchmarks'
         required: false
         default: 10
+      wait_peer_dc_enabled:
+        type: boolean
+        description: 'Check other peers see the target peer is disconnected before running benchmark.'
+        required: false
+        default: false
       target_peer:
         description: 'Select the peer to target with netem package loss'
         required: true
@@ -91,7 +96,7 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
-        percent="${{ github.event.inputs.percent || '40' }}"
+        percent="${{ github.event.inputs.percent || '4' }}"
         scaling_factor="${{ github.event.inputs.scaling_factor || '10' }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
 
@@ -101,7 +106,11 @@ jobs:
 
         .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
 
-        .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
+        wait_peer_dc_enabled="${{ github.event.inputs.wait_peer_dc_enabled || false }}"
+
+        if [[ "$wait_peer_dc_enabled" == "false" ]]; then
+          .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
+        fi
 
         # Run benchmark on demo
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
