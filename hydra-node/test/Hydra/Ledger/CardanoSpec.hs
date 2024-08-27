@@ -59,7 +59,7 @@ spec =
 
       prop "Roundtrip to and from Api" roundtripFromAndToApi
 
-    describe "PParamss" $
+    describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
 
     describe "Tx" $ do
@@ -103,6 +103,12 @@ spec =
       describe "genValue" $
         it "produces realistic values" $
           forAll genValue propRealisticValue
+
+      describe "genChainPoint" $
+        prop "generates only some genesis points" $
+          checkCoverage $
+            forAll genChainPoint $ \cp ->
+              cover 80 (cp /= ChainPointAtGenesis) "not at genesis" $ property True
 
 shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation
 shouldParseJSONAs bs =

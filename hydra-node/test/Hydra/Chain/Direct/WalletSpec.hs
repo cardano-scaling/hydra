@@ -22,12 +22,9 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  ChainPoint (ChainPoint),
-  Hash (HeaderHash),
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  SlotNo,
   VerificationKey,
   fromLedgerTx,
   fromLedgerTxOut,
@@ -303,16 +300,6 @@ prop_picksLargestUTxOToPayTheFees =
 --
 -- Generators
 --
-
--- | Generate a chain point with a likely invalid block header hash.
-genChainPoint :: Gen ChainPoint
-genChainPoint =
-  arbitrary >>= genChainPointAt
-
--- | Generate a chain point at given slot with a likely invalid block header hash.
-genChainPointAt :: SlotNo -> Gen ChainPoint
-genChainPointAt s =
-  ChainPoint s . HeaderHash <$> arbitrary
 
 -- | Generate an arbitrary list of transactions from a UTXO set such that,
 -- transactions may *sometimes* consume given UTXO and produce new ones. The
