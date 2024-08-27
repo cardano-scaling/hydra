@@ -74,8 +74,9 @@ main = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-        Right summary@Summary{numberOfInvalidTxs}
+        Right summary@Summary{totalTxs,numberOfTxs,numberOfInvalidTxs}
           | numberOfInvalidTxs == 0 -> pure $ Right summary
+          | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, NotEnoughTransactions numberOfTxs totalTxs)
           | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
 
   run outputDirectory datasetFiles action = do
@@ -108,12 +109,15 @@ main = do
 data BenchmarkFailed
   = TestFailed HUnitFailure
   | InvalidTransactions Int
+  | NotEnoughTransactions Int Int
 
 benchmarkFailedWith :: FilePath -> BenchmarkFailed -> IO ()
 benchmarkFailedWith benchDir = \case
   (TestFailed (HUnitFailure sourceLocation reason)) -> do
     putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
     putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
+  (NotEnoughTransactions actual expected) -> do
+    putStrLn $ "Benchmark resulted in " <> show actual <> " transactions; but wanted " <> show expected <> "."
   (InvalidTransactions n) -> do
     putStrLn $ "Benchmark has " <> show n <> " invalid transactions"
     putStrLn $

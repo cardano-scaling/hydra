@@ -36,6 +36,13 @@ jobs:
       matrix:
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
         expect_failure: [false]
+        # We know these will fail; so don't try.
+        exclude:
+          - netem_loss: 10
+            expect_failure: false
+          - netem_loss: 20
+            expect_failure: false
+        # In fact, allow them to fail.
         include:
           - netem_loss: 10
             expect_failure: true
