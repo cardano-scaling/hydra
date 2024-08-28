@@ -9,20 +9,6 @@ on:
         description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
         required: false
         default: false
-      wait_peer_disconnected:
-        type: boolean
-        description: 'Check other peers see the target peer is disconnected before running benchmark.'
-        required: false
-        default: false
-      target_peer:
-        description: 'Select the peer to target with netem package loss'
-        required: true
-        type: choice
-        options:
-          - alice
-          - bob
-          - carol
-        default: alice
 
 jobs:
   network-test:
@@ -32,6 +18,7 @@ jobs:
         # Note: At present we can only run for 3 peers; to configure this for
         # more we need to make the docker-compose spin-up dynamic across
         # however many we would like to configure here.
+        # Currently this is just a label and does not have any functional impact.
         peers:          [3]
         scaling_factor: [10, 50]
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
@@ -100,26 +87,13 @@ jobs:
       continue-on-error: true
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
-        peers="${{ matrix.peers }}"
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
-        target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
+        target_peer="alice"
 
         peers_info_json=$(.github/workflows/network/peers_info_json.sh)
 
         .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
-
-        wait_peer_disconnected="${{ github.event.inputs.wait_peer_disconnected || false }}"
-
-        if [[ "$wait_peer_disconnected" == "true" ]]; then
-          .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
-        fi
-
-        client_args=""
-        for i in $(seq 1 $peers); do
-          port=$((4000 + $i))
-          client_args+=" --hydra-client=localhost:$port"
-        done
 
         # Run benchmark on demo
         mkdir benchmarks
@@ -132,7 +106,9 @@ jobs:
           --timeout=1000s \
           --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
-          $client_args
+          --hydra-client=localhost:4001 \
+          --hydra-client=localhost:4002 \
+          --hydra-client=localhost:4003
 
     - name: Acquire logs
       if: always()
