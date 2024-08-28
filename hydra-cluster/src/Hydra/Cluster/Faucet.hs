@@ -25,7 +25,7 @@ import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.Direct.ScriptRegistry (
   publishHydraScripts,
  )
-import Hydra.Cluster.Fixture (Actor (Faucet), actorName)
+import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano ()
@@ -108,8 +108,7 @@ returnFundsToFaucet ::
   IO ()
 returnFundsToFaucet tracer node sender = do
   senderKeys <- keysFor sender
-  returnAmount <- returnFundsToFaucet' tracer node (snd senderKeys)
-  traceWith tracer $ ReturnedFunds{actor = actorName sender, returnAmount}
+  void $ returnFundsToFaucet' tracer node (snd senderKeys)
 
 returnFundsToFaucet' ::
   Tracer IO FaucetLog ->
@@ -121,15 +120,18 @@ returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
   utxo <- queryUTxOFor networkId nodeSocket QueryTip senderVk
-  if null utxo
-    then pure 0
-    else retryOnExceptions tracer $ do
-      let utxoValue = balance @Tx utxo
-      let allLovelace = selectLovelace utxoValue
-      tx <- sign senderSk <$> buildTxBody utxo faucetAddress
-      submitTransaction networkId nodeSocket tx
-      void $ awaitTransaction networkId nodeSocket tx
-      pure allLovelace
+  returnAmount <-
+    if null utxo
+      then pure 0
+      else retryOnExceptions tracer $ do
+        let utxoValue = balance @Tx utxo
+        let allLovelace = selectLovelace utxoValue
+        tx <- sign senderSk <$> buildTxBody utxo faucetAddress
+        submitTransaction networkId nodeSocket tx
+        void $ awaitTransaction networkId nodeSocket tx
+        pure allLovelace
+  traceWith tracer $ ReturnedFunds{actor = show senderVk, returnAmount}
+  pure returnAmount
  where
   buildTxBody utxo faucetAddress =
     -- Here we specify no outputs in the transaction so that a change output with the
