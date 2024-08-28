@@ -66,6 +66,7 @@ import System.Process (
   proc,
   withCreateProcess,
  )
+import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
 import Prelude (read)
@@ -347,6 +348,8 @@ processTransactions clients clientDatasets = do
   let processors = zip (zip clientDatasets (cycle clients)) [1 ..]
   mconcat <$> mapConcurrently (uncurry clientProcessDataset) processors
  where
+  formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
+
   clientProcessDataset (ClientDataset{txSequence}, client) clientId = do
     let numberOfTxs = length txSequence
     submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
@@ -356,8 +359,10 @@ processTransactions clients clientDatasets = do
         `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
         `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
       )
-      `catch` \(ex :: SomeException) ->
-        putStrLn ("Something went wrong while waiting for all confirmations: " <> show ex)
+      `catch` \(HUnitFailure sourceLocation reason) ->
+        putStrLn ("Something went wrong while waiting for all confirmations: " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason)
+          `catch` \(ex :: SomeException) ->
+            putStrLn ("Something went wrong while waiting for all confirmations: " <> show ex)
     readTVarIO (processedTxs registry)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
