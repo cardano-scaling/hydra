@@ -33,7 +33,7 @@ jobs:
         # more we need to make the docker-compose spin-up dynamic across
         # however many we would like to configure here.
         peers:          [3]
-        scaling_factor: [10]
+        scaling_factor: [10, 50]
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
     steps:
     - uses: actions/checkout@v4
