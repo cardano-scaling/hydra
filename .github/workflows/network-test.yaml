@@ -29,23 +29,31 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # Note: At present we can only run for 3 peers; to configure this for
+        # more we need to make the docker-compose spin-up dynamic across
+        # however many we would like to configure here.
+        peers:          [3]
         scaling_factor: [10]
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
         expect_failure: [false]
         # We know these will fail; so don't try.
         exclude:
-          - scaling_factor: 10
+          - peers: 3
+            scaling_factor: 10
             netem_loss: 10
             expect_failure: false
-          - scaling_factor: 10
+          - peers: 3
+            scaling_factor: 10
             netem_loss: 20
             expect_failure: false
         # In fact, allow them to fail.
         include:
-          - scaling_factor: 10
+          - peers: 3
+            scaling_factor: 10
             netem_loss: 10
             expect_failure: true
-          - scaling_factor: 10
+          - peers: 3
+            scaling_factor: 10
             netem_loss: 20
             expect_failure: true
     steps:
@@ -105,6 +113,7 @@ jobs:
       continue-on-error: ${{ matrix.expect_failure }}
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
+        peers="${{ matrix.peers }}"
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
         target_peer="${{ github.event.inputs.target_peer || 'alice' }}"
@@ -119,9 +128,16 @@ jobs:
           .github/workflows/network/watch_logs.sh $target_peer $peers_info_json
         fi
 
+        client_args=""
+        for i in $(seq 1 $peers); do
+          port=$((4000 + $i))
+          client_args+=" --hydra-client=localhost:$port"
+        done
+
         # Run benchmark on demo
         mkdir benchmarks
         touch benchmarks/test.log
+
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=benchmarks \
@@ -129,9 +145,7 @@ jobs:
           --timeout=1000s \
           --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
-          --hydra-client=localhost:4001 \
-          --hydra-client=localhost:4002 \
-          --hydra-client=localhost:4003
+          $client_args
 
     - name: Acquire logs
       if: always()
@@ -143,7 +157,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }}"
+        name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
         path: demo/docker-logs
         if-no-files-found: ignore
 
@@ -151,6 +165,6 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "benchmarks-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }}"
+        name: "benchmarks-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
         path: benchmarks
         if-no-files-found: ignore
