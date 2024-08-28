@@ -12,7 +12,7 @@ Accepted
 
 ## Context
 
-The simplified Head protocol in the [Hydra
+The simplified head protocol in the [Hydra
 paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/)
 requires _unicast_ and _multicast_ messaging between participants. However, this
 can be simplified to only _multicast_ by also sending `AckTx` messages to all
@@ -37,5 +37,5 @@ scheme is required and _broadcast_ would be a waste of resources.
 * The network layer is responsible for ensuring sent messages effectively
   reaches all nodes in the network. How this is achieved is left as an
   implementation detail, i.e. whether it uses relaying or not.
-* We need to make sure all Head participants are connected to the same network.
+* We need to make sure all head participants are connected to the same network.
 
