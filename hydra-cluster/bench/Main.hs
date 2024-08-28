@@ -93,14 +93,14 @@ main = do
   summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
-      [] -> writeBenchmarkReport Nothing outputDirectory summaries
+      [] -> writeBenchmarkReport outputDirectory summaries
       errs ->
         mapM_
-          ( \((_, dir, summary, exc), errorNbr :: Int) ->
-              writeBenchmarkReport (Just $ "failure-" <> show errorNbr) outputDirectory [summary]
+          ( \(_, dir, summary, exc) ->
+              writeBenchmarkReport outputDirectory [summary]
                 >> benchmarkFailedWith dir exc
           )
-          (errs `zip` [1 ..])
+          errs
           >> exitFailure
 
   loadDataset :: FilePath -> IO Dataset
@@ -137,15 +137,15 @@ benchmarkFailedWith benchDir = \case
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-writeBenchmarkReport :: Maybe String -> Maybe FilePath -> [Summary] -> IO ()
-writeBenchmarkReport lbl outputDirectory summaries = do
+writeBenchmarkReport :: Maybe FilePath -> [Summary] -> IO ()
+writeBenchmarkReport outputDirectory summaries = do
   dumpToStdout
   whenJust outputDirectory writeReport
  where
   dumpToStdout = mapM_ putTextLn (concatMap textReport summaries)
 
   writeReport outputDir = do
-    let reportPath = outputDir </> (maybe "" (<> "-") lbl <> "end-to-end-benchmarks.md")
+    let reportPath = outputDir </> "end-to-end-benchmarks.md"
     putStrLn $ "Writing report to: " <> reportPath
     now <- getCurrentTime
     let report = markdownReport now summaries
