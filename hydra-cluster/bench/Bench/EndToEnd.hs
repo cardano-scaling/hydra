@@ -362,8 +362,8 @@ processTransactions clients clientDatasets = do
         `concurrently_` waitForAllConfirmations client registry (Set.fromList $ map txId txSequence)
         `concurrently_` progressReport (hydraNodeId client) clientId numberOfTxs submissionQ
       )
-      `catch` \(_ :: SomeException) ->
-        putStrLn "Time exceeded while wait for all confirmations"
+      `catch` \(ex :: SomeException) ->
+        putStrLn ("Something went wrong while waiting for all confirmations: " <> show ex)
     readTVarIO (processedTxs registry)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
