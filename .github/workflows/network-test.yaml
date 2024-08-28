@@ -46,6 +46,10 @@ jobs:
             scaling_factor: 10
             netem_loss: 20
             expect_failure: false
+          - peers: 3
+            scaling_factor: 10
+            netem_loss: 5
+            expect_failure: false
         # In fact, allow them to fail.
         include:
           - peers: 3
@@ -55,6 +59,10 @@ jobs:
           - peers: 3
             scaling_factor: 10
             netem_loss: 20
+            expect_failure: true
+          - peers: 3
+            scaling_factor: 10
+            netem_loss: 5
             expect_failure: true
     steps:
     - uses: actions/checkout@v4
