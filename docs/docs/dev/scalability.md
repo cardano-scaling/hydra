@@ -23,13 +23,13 @@ Layer 2 solutions, such as state channels, offer an alternative approach by over
 Read more about layer 2 solutions and their types in the next section. 
 
 
-## State channels and the Hydra Head protocol
+## State channels and the Hydra head protocol
 
-The Hydra Head protocol is a form of state channel and can be classified as a horizontal scaling solution. Multiple instances can be deployed to offload transactions and enhance the overall scalability of the system. It provides a flexible way to determine the level of decentralization for each instance and offers a mostly frictionless method to transfer state between the main chain and individual Hydra heads due to its isomorphic nature. 
+The Hydra head protocol is a form of state channel and can be classified as a horizontal scaling solution. Multiple instances can be deployed to offload transactions and enhance the overall scalability of the system. It provides a flexible way to determine the level of decentralization for each instance and offers a mostly frictionless method to transfer state between the main chain and individual Hydra heads due to its isomorphic nature. 
 
 ![State Channel](./state-channel.png)
 
 State channels allow parts of the state from the layer 1 blockchain to be validated off-chain by the concerned parties. Once the computation is complete, the parties return the final agreed-upon state to the layer 1 blockchain. This construction eliminates the 20-second block time limit, enabling state evolution as quickly as the involved parties approve.
 
-In conclusion, the Hydra Head protocol enables operators to balance the trade-off between decentralization, security, and scalability differently from the underlying blockchain, thereby meeting the specific needs of individual applications.
+In conclusion, the Hydra head protocol enables operators to balance the trade-off between decentralization, security, and scalability differently from the underlying blockchain, thereby meeting the specific needs of individual applications.
 
