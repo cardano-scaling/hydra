@@ -89,11 +89,10 @@ jobs:
         # Extract inputs with defaults for non-workflow_dispatch events
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
-        target_peer="alice"
+        target_peer="hydra-node-1"
+        other_peers="172.16.238.20 172.16.238.30"
 
-        peers_info_json=$(.github/workflows/network/peers_info_json.sh)
-
-        .github/workflows/network/run_pumba.sh $target_peer $percent $peers_info_json
+        .github/workflows/network/run_pumba.sh $target_peer $percent $other_peers
 
         # Run benchmark on demo
         mkdir benchmarks
