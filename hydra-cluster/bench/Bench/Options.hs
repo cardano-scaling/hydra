@@ -157,7 +157,7 @@ demoOptionsInfo =
         "Run bench scenario over local demo. \
         \ This requires having in the background: \
         \   * cardano node running on specified node-socket. \
-        \   * three hydra nodes listening on ports 4001, 4002 and 4003."
+        \   * hydra nodes listening on specified hosts."
     )
 
 demoOptionsParser :: Parser Options
