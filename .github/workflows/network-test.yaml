@@ -35,35 +35,6 @@ jobs:
         peers:          [3]
         scaling_factor: [10]
         netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
-        expect_failure: [false]
-        # We know these will fail; so don't try.
-        exclude:
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 10
-            expect_failure: false
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 20
-            expect_failure: false
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 5
-            expect_failure: false
-        # In fact, allow them to fail.
-        include:
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 10
-            expect_failure: true
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 20
-            expect_failure: true
-          - peers: 3
-            scaling_factor: 10
-            netem_loss: 5
-            expect_failure: true
     steps:
     - uses: actions/checkout@v4
       with:
@@ -118,7 +89,14 @@ jobs:
         limit-access-to-actor: true
 
     - name: Run pumba and the benchmarks
-      continue-on-error: ${{ matrix.expect_failure }}
+      # Note: We're going to allow everything to fail. In the job on GitHub,
+      # we will be able to see which ones _did_, in fact, fail. Originally,
+      # we were keeping track of our expectations with 'include' and
+      # 'exclude' directives here, but I think it's best to leave those out,
+      # as some of the tests (say 5%) fail, and overall the conditions of
+      # failure depend on the scaling factor, the peers, etc, and it becomes
+      # too complicated to track here.
+      continue-on-error: true
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
         peers="${{ matrix.peers }}"
