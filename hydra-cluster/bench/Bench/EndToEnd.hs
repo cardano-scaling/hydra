@@ -45,7 +45,6 @@ import Hydra.Network (Host)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
   HydraClient,
-  HydraNodeLog,
   hydraNodeId,
   input,
   output,
@@ -92,15 +91,15 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
-            putTextLn "Seeding network"
-            let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- seedNetwork node dataset (contramap FromFaucet tracer)
-            let contestationPeriod = UnsafeContestationPeriod 10
+            putTextLn "Publishing hydra scripts"
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             putStrLn $ "Starting hydra cluster in " <> workDir
+            let hydraTracer = contramap FromHydraNode tracer
+            let contestationPeriod = UnsafeContestationPeriod 10
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer node workDir dataset parties leader followers
+              scenario tracer node workDir dataset parties leader followers
 
 benchDemo ::
   NetworkId ->
@@ -110,7 +109,7 @@ benchDemo ::
   FilePath ->
   Dataset ->
   IO Summary
-benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets, fundingTransaction} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
@@ -123,19 +122,12 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
           Just node -> do
             let clientSks = clientKeys <$> clientDatasets
             (`finally` returnFaucetFunds tracer node clientSks) $ do
-              putTextLn "Seeding network"
-              submitTransaction networkId nodeSocket fundingTransaction
-              void $ awaitTransaction networkId nodeSocket fundingTransaction
-              forM_ clientSks $ \ClientKeys{signingKey} -> do
-                let vk = getVerificationKey signingKey
-                putTextLn $ "Seed client " <> show vk
-                seedFromFaucet node vk 100_000_000 (contramap FromFaucet tracer)
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  scenario hydraTracer node workDir dataset mempty leader followers
+                  scenario tracer node workDir dataset mempty leader followers
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -156,7 +148,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
       senders
 
 scenario ::
-  Tracer IO HydraNodeLog ->
+  Tracer IO EndToEndLog ->
   RunningNode ->
   FilePath ->
   Dataset ->
@@ -164,7 +156,12 @@ scenario ::
   HydraClient ->
   [HydraClient] ->
   IO Summary
-scenario hydraTracer node workDir Dataset{clientDatasets, title, description} parties leader followers = do
+scenario tracer node workDir dataset@Dataset{clientDatasets, title, description} parties leader followers = do
+  let hydraTracer = contramap FromHydraNode tracer
+
+  putTextLn "Seeding network"
+  seedNetwork node dataset (contramap FromFaucet tracer)
+
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
   let totalTxs = sum $ map (length . txSequence) clientDatasets
@@ -317,14 +314,11 @@ movingAverage confirmations =
    in map average fiveSeconds
 
 -- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
--- dataset, and also publish the hydra scripts. The 'TxId' of the publishing
--- transaction is returned.
-seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO TxId
+-- dataset.
+seedNetwork :: RunningNode -> Dataset -> Tracer IO FaucetLog -> IO ()
 seedNetwork node@RunningNode{nodeSocket, networkId} Dataset{fundingTransaction, clientDatasets} tracer = do
   fundClients
   forM_ (clientKeys <$> clientDatasets) fuelWith100Ada
-  putTextLn "Publishing hydra scripts"
-  publishHydraScriptsAs node Faucet
  where
   fundClients = do
     putTextLn "Fund scenario from faucet"
