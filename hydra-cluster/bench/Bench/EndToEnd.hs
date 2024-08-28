@@ -137,11 +137,11 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
                 (leader : followers) ->
                   scenario hydraTracer node workDir dataset mempty leader followers
  where
-  withHydraClientConnections tracer peers connections action = do
-    case peers of
+  withHydraClientConnections tracer apiHosts connections action = do
+    case apiHosts of
       [] -> action connections
-      ((peer, peerId) : rest) -> do
-        withConnectionToNodeHost tracer peerId peer False $ \con -> do
+      ((apiHost, peerId) : rest) -> do
+        withConnectionToNodeHost tracer peerId apiHost False $ \con -> do
           withHydraClientConnections tracer rest (con : connections) action
 
   returnFaucetFunds tracer node cKeys = do

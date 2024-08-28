@@ -48,7 +48,7 @@ import Prelude qualified
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
-  , peer :: Host
+  , apiHost :: Host
   , connection :: Connection
   , tracer :: Tracer IO HydraNodeLog
   }
@@ -173,7 +173,7 @@ waitForAll tracer delay nodes expected = do
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo.
 -- Create a commit tx using the hydra-node for later submission.
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
-requestCommitTx HydraClient{peer = Host{hostname, port}} utxos =
+requestCommitTx HydraClient{apiHost = Host{hostname, port}} utxos =
   runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
@@ -186,7 +186,7 @@ requestCommitTx HydraClient{peer = Host{hostname, port}} utxos =
 
 -- | Submit a decommit transaction to the hydra-node.
 postDecommit :: HydraClient -> Tx -> IO ()
-postDecommit HydraClient{peer = Host{hostname, port}} decommitTx = do
+postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
   void $
     parseUrlThrow ("POST http://" <> T.unpack hostname <> ":" <> show port <> "/decommit")
       <&> setRequestBodyJSON decommitTx
@@ -196,7 +196,7 @@ postDecommit HydraClient{peer = Host{hostname, port}} decommitTx = do
 -- avoid parsing responses using the same data types as the system under test,
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
-getSnapshotUTxO HydraClient{peer = Host{hostname, port}} =
+getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
   runReq defaultHttpConfig request <&> responseBody
  where
   request =
@@ -208,7 +208,7 @@ getSnapshotUTxO HydraClient{peer = Host{hostname, port}} =
       (Req.port (fromInteger . toInteger $ port))
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
-getMetrics HydraClient{hydraNodeId, peer = Host{hostname}} = do
+getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
   failAfter 3 $
     try (runReq defaultHttpConfig request) >>= \case
       Left (e :: HttpException) -> failure $ "Request for hydra-node metrics failed: " <> show e
@@ -410,7 +410,7 @@ withConnectionToNode tracer hydraNodeId =
   port = fromInteger $ 4_000 + toInteger hydraNodeId
 
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Bool -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost tracer hydraNodeId peer@Host{hostname, port} showHistory action = do
+withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} showHistory action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -433,7 +433,7 @@ withConnectionToNodeHost tracer hydraNodeId peer@Host{hostname, port} showHistor
   doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $ \connection -> do
     atomicWriteIORef connectedOnce True
     traceWith tracer (NodeStarted hydraNodeId)
-    res <- action $ HydraClient{hydraNodeId, peer, connection, tracer}
+    res <- action $ HydraClient{hydraNodeId, apiHost, connection, tracer}
     sendClose connection ("Bye" :: Text)
     pure res
 
