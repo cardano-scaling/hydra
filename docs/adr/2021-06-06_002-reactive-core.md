@@ -12,9 +12,9 @@ Accepted
 
 ## Context
 
-We are looking for a way of expressing the Hydra Head protocol logic in a Hydra node.
+We are looking for a way of expressing the Hydra head protocol logic in a Hydra node.
 
-The Hydra Head protocol is defined as a _State machine_ in the paper, whose transitions are inputs that come from different sources which can emit outputs to other instances of the state machine or the mainchain. See the [FC2021](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/) paper for details
+The Hydra head protocol is defined as a _State machine_ in the paper, whose transitions are inputs that come from different sources which can emit outputs to other instances of the state machine or the mainchain. See the [FC2021](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/) paper for details
 
 It should also be easy to review / feed-back to researchers.
 
@@ -24,7 +24,7 @@ We have experienced benefits with _Event Sourcing_ in the domain of persistence 
 
 ## Decision
 
-Implements the Hydra Head core logic as a _loop_ that:
+Implements the Hydra head core logic as a _loop_ that:
 1. Consumes _input events_ from an event _queue_,
 2. Applies each _event_ to the current _state_ yielding potentially an _updated state_ and a sequence of _effects_,
 3. Execute all _effects_.
