@@ -310,7 +310,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
-          (withConnectionToNode tracer hydraNodeId True action)
+          (withConnectionToNode tracer hydraNodeId action)
           <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
@@ -402,15 +402,15 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
     , i /= hydraNodeId
     ]
 
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Bool -> (HydraClient -> IO a) -> IO a
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
-  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port}
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} Nothing
  where
   hostname = "127.0.0.1"
   port = fromInteger $ 4_000 + toInteger hydraNodeId
 
-withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Bool -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} showHistory action = do
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryParams action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -428,14 +428,15 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} showHis
                     , Handler $ retryOrThrow (Proxy @HandshakeException)
                     ]
 
-  historyMode = if showHistory then "/" else "/?history=no"
+  historyMode = fromMaybe "/" queryParams
 
-  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $ \connection -> do
-    atomicWriteIORef connectedOnce True
-    traceWith tracer (NodeStarted hydraNodeId)
-    res <- action $ HydraClient{hydraNodeId, apiHost, connection, tracer}
-    sendClose connection ("Bye" :: Text)
-    pure res
+  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $
+    \connection -> do
+      atomicWriteIORef connectedOnce True
+      traceWith tracer (NodeStarted hydraNodeId)
+      res <- action $ HydraClient{hydraNodeId, apiHost, connection, tracer}
+      sendClose connection ("Bye" :: Text)
+      pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs

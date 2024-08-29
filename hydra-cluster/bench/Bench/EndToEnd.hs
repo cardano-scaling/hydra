@@ -135,7 +135,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
     case apiHosts of
       [] -> action connections
       ((apiHost, peerId) : rest) -> do
-        withConnectionToNodeHost tracer peerId apiHost False $ \con -> do
+        withConnectionToNodeHost tracer peerId apiHost (Just "/?history=no") $ \con -> do
           withHydraClientConnections tracer rest (con : connections) action
 
   returnFaucetFunds tracer node cKeys = do
