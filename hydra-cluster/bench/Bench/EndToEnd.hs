@@ -44,20 +44,7 @@ import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Network (Host)
 import Hydra.Party (Party, deriveParty)
-import HydraNode (
-  HydraClient,
-  hydraNodeId,
-  input,
-  output,
-  requestCommitTx,
-  send,
-  waitFor,
-  waitForAllMatch,
-  waitForNodesConnected,
-  waitMatch,
-  withConnectionToNodeHost,
-  withHydraCluster,
- )
+import HydraNode (HydraClient, HydraNodeLog, hydraNodeId, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withConnectionToNodeHost, withHydraCluster)
 import System.Directory (findExecutable)
 import System.FilePath ((</>))
 import System.IO (hGetLine, hPutStrLn)
@@ -93,6 +80,8 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
         let parties = Set.fromList (deriveParty <$> hydraKeys)
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
+            putTextLn "Seeding network"
+            seedNetwork node dataset (contramap FromFaucet tracer)
             putTextLn "Publishing hydra scripts"
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             putStrLn $ "Starting hydra cluster in " <> workDir
@@ -101,7 +90,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
-              scenario tracer node workDir dataset parties leader followers
+              scenario hydraTracer node workDir dataset parties leader followers
 
 benchDemo ::
   NetworkId ->
@@ -122,6 +111,8 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
           Nothing ->
             error ("Not found running node at socket: " <> show nodeSocket <> ", and network: " <> show networkId)
           Just node -> do
+            putTextLn "Seeding network"
+            seedNetwork node dataset (contramap FromFaucet tracer)
             let clientSks = clientKeys <$> clientDatasets
             (`finally` returnFaucetFunds tracer node clientSks) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
@@ -129,7 +120,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  scenario tracer node workDir dataset mempty leader followers
+                  scenario hydraTracer node workDir dataset mempty leader followers
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -150,7 +141,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
       senders
 
 scenario ::
-  Tracer IO EndToEndLog ->
+  Tracer IO HydraNodeLog ->
   RunningNode ->
   FilePath ->
   Dataset ->
@@ -158,12 +149,7 @@ scenario ::
   HydraClient ->
   [HydraClient] ->
   IO Summary
-scenario tracer node workDir dataset@Dataset{clientDatasets, title, description} parties leader followers = do
-  let hydraTracer = contramap FromHydraNode tracer
-
-  putTextLn "Seeding network"
-  seedNetwork node dataset (contramap FromFaucet tracer)
-
+scenario hydraTracer node workDir Dataset{clientDatasets, title, description} parties leader followers = do
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
   let totalTxs = sum $ map (length . txSequence) clientDatasets
