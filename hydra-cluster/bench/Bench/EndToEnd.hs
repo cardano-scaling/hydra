@@ -22,6 +22,7 @@ import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _JSON, _Number, _String)
+import Data.Aeson.Types (parseMaybe)
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Scientific (Scientific)
@@ -33,12 +34,12 @@ import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsT
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
-  aHeadIsInitializingWith,
   headIsInitializingWith,
  )
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Crypto (generateSigningKey)
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
+import Hydra.HeadId (HeadId)
 import Hydra.Ledger (txId)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Network (Host)
@@ -170,10 +171,12 @@ scenario tracer node workDir dataset@Dataset{clientDatasets, title, description}
   putTextLn "Initializing Head"
   send leader $ input "Init" []
   headId <-
-    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $
-      if null parties
-        then aHeadIsInitializingWith (length clients)
-        else headIsInitializingWith parties
+    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $ \v ->
+      headIsInitializingWith parties v
+        <|> do
+          guard $ v ^? key "tag" == Just "HeadIsInitializing"
+          headId <- v ^? key "headId"
+          parseMaybe parseJSON headId :: Maybe HeadId
 
   putTextLn "Comitting initialUTxO from dataset"
   expectedUTxO <- commitUTxO node clients clientDatasets

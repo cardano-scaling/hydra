@@ -758,14 +758,6 @@ headIsInitializingWith expectedParties v = do
   headId <- v ^? key "headId"
   parseMaybe parseJSON headId
 
-aHeadIsInitializingWith :: Int -> Value -> Maybe HeadId
-aHeadIsInitializingWith nbrParties v = do
-  guard $ v ^? key "tag" == Just "HeadIsInitializing"
-  parties :: Set Party <- v ^? key "parties" >>= parseMaybe parseJSON
-  guard $ length parties == nbrParties
-  headId <- v ^? key "headId"
-  parseMaybe parseJSON headId
-
 expectErrorStatus ::
   -- | Expected http status code
   Int ->
