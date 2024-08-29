@@ -18,6 +18,19 @@ in
     };
   };
 
+  hydra-node-for-netem = pkgs.dockerTools.streamLayeredImage {
+    name = "hydra-node-for-netem";
+    tag = "latest";
+    created = "now";
+    contents = [
+      pkgs.iproute2
+      pkgs.busybox
+    ];
+    config = {
+      Entrypoint = [ "${hydraPackages.hydra-node-static}/bin/hydra-node" ];
+    };
+  };
+
   hydra-tui = pkgs.dockerTools.streamLayeredImage {
     name = "hydra-tui";
     tag = "latest";

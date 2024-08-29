@@ -282,32 +282,50 @@ genSequenceOfSimplePaymentTransactions = do
 
 genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
 genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
-  keyPair@(vk, _) <- genKeyPair
+  (vk, sk) <- genKeyPair
   utxo <- genOneUTxOFor vk
   txs <-
     reverse
       . thrd
-      <$> foldM (generateOneTransfer testNetworkId) (utxo, keyPair, []) [1 .. numTxs]
+      <$> foldM (generateOneRandomTransfer testNetworkId) (utxo, sk, []) [1 .. numTxs]
   pure (utxo, txs)
  where
   thrd (_, _, c) = c
   testNetworkId = Testnet $ NetworkMagic 42
 
-generateOneTransfer ::
+generateOneRandomTransfer ::
   NetworkId ->
-  (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
+  (UTxO, SigningKey PaymentKey, [Tx]) ->
   Int ->
-  Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
-generateOneTransfer networkId (utxo, (_, sender), txs) _ = do
+  Gen (UTxO, SigningKey PaymentKey, [Tx])
+generateOneRandomTransfer networkId senderUtxO nbrTx = do
   recipient <- genKeyPair
+  pure $ mkOneTransfer networkId (snd recipient) senderUtxO nbrTx
+
+generateOneSelfTransfer ::
+  NetworkId ->
+  (UTxO, SigningKey PaymentKey, [Tx]) ->
+  Int ->
+  Gen (UTxO, SigningKey PaymentKey, [Tx])
+generateOneSelfTransfer networkId senderUtxO nbrTx = do
+  let (_, recipientSk, _) = senderUtxO
+  pure $ mkOneTransfer networkId recipientSk senderUtxO nbrTx
+
+mkOneTransfer ::
+  NetworkId ->
+  SigningKey PaymentKey ->
+  (UTxO, SigningKey PaymentKey, [Tx]) ->
+  Int ->
+  (UTxO, SigningKey PaymentKey, [Tx])
+mkOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
+  let recipientVk = getVerificationKey recipientSk
   -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
   -- this function to be ever used in production, and crash will be caught in tests
   case UTxO.pairs utxo of
     [txin] ->
-      case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
+      case mkSimpleTx txin (mkVkAddress networkId recipientVk, balance @Tx utxo) sender of
         Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
-        Right tx ->
-          pure (utxoFromTx tx, recipient, tx : txs)
+        Right tx -> (utxoFromTx tx, recipientSk, tx : txs)
     _ ->
       error "Couldn't generate transaction sequence: need exactly one UTXO."
 

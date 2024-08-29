@@ -132,26 +132,32 @@ getCardanoNodeVersion =
 -- by 'defaultCardanoNodeArgs'.
 findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe RunningNode)
 findRunningCardanoNode tracer workDir knownNetwork = do
-  try (queryGenesisParameters knownNetworkId socketPath QueryTip) >>= \case
-    Left (e :: SomeException) ->
-      traceWith tracer MsgQueryGenesisParametersFailed{err = show e} $> Nothing
-    Right GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} ->
-      pure $
-        Just
-          RunningNode
-            { networkId = knownNetworkId
-            , nodeSocket = socketPath
-            , blockTime =
-                computeBlockTime
-                  protocolParamSlotLength
-                  protocolParamActiveSlotsCoefficient
-            }
+  findRunningCardanoNode' tracer knownNetworkId socketPath
  where
   knownNetworkId = toNetworkId knownNetwork
 
   socketPath = File $ workDir </> nodeSocket
 
   CardanoNodeArgs{nodeSocket} = defaultCardanoNodeArgs
+
+-- | Tries to find an communicate with an existing cardano-node running in given
+-- network id and socket path.
+findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe RunningNode)
+findRunningCardanoNode' tracer networkId nodeSocket = do
+  try (queryGenesisParameters networkId nodeSocket QueryTip) >>= \case
+    Left (e :: SomeException) ->
+      traceWith tracer MsgQueryGenesisParametersFailed{err = show e} $> Nothing
+    Right GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} ->
+      pure $
+        Just
+          RunningNode
+            { networkId
+            , nodeSocket
+            , blockTime =
+                computeBlockTime
+                  protocolParamSlotLength
+                  protocolParamActiveSlotsCoefficient
+            }
 
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive

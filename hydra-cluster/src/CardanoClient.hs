@@ -111,8 +111,11 @@ waitForUTxO node utxo =
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 
-mkGenesisTx ::
+-- | Helper used to generate transaction datasets for use in hydra-cluster benchmarks.
+buildRawTransaction ::
   NetworkId ->
+  -- | Initial input from which to spend
+  TxIn ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Amount of initialFunds
@@ -120,16 +123,11 @@ mkGenesisTx ::
   -- | Recipients and amounts to pay in this transaction.
   [(VerificationKey PaymentKey, Coin)] ->
   Tx
-mkGenesisTx networkId signingKey initialAmount recipients =
+buildRawTransaction networkId initialInput signingKey initialAmount recipients =
   case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) of
-    Left err -> error $ "Fail to build genesis transations: " <> show err
+    Left err -> error $ "Fail to build raw transations: " <> show err
     Right tx -> sign signingKey tx
  where
-  initialInput =
-    genesisUTxOPseudoTxIn
-      networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-
   totalSent = foldMap snd recipients
 
   changeAddr = mkVkAddress networkId (getVerificationKey signingKey)

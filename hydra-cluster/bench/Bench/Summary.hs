@@ -6,15 +6,21 @@ module Bench.Summary where
 import Hydra.Prelude
 
 import Data.Fixed (Nano)
+import Data.Text (pack)
 import Data.Time (nominalDiffTimeToSeconds)
 import Data.Vector (Vector, (!))
+import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Statistics.Quantile (def)
 import Statistics.Quantile qualified as Statistics
+import Test.HUnit.Lang (formatFailureReason)
+import Test.Hydra.Prelude (HUnitFailure (..))
+import Text.Printf (printf)
 
 type Percent = Double
 
 data Summary = Summary
   { clusterSize :: Word64
+  , totalTxs :: Int
   , numberOfTxs :: Int
   , numberOfInvalidTxs :: Int
   , averageConfirmationTime :: NominalDiffTime
@@ -25,19 +31,37 @@ data Summary = Summary
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
 
+errorSummary :: Dataset -> HUnitFailure -> Summary
+errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason) =
+  Summary
+    { clusterSize = fromIntegral $ length clientDatasets
+    , totalTxs = length $ foldMap (\ClientDataset{txSequence} -> txSequence) clientDatasets
+    , numberOfTxs = 0
+    , numberOfInvalidTxs = 0
+    , averageConfirmationTime = 0
+    , summaryTitle = maybe "Error Summary" ("Error Summary " <>) title
+    , summaryDescription =
+        pack $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
+    , quantiles = mempty
+    }
+ where
+  formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
+
 makeQuantiles :: [NominalDiffTime] -> Vector Double
 makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 
 textReport :: Summary -> [Text]
-textReport Summary{numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs} =
-  [ "Confirmed txs: " <> show numberOfTxs
-  , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
-  , "P99: " <> show (quantiles ! 99) <> "ms"
-  , "P95: " <> show (quantiles ! 95) <> "ms"
-  , "P50: " <> show (quantiles ! 50) <> "ms"
-  , "Invalid txs: " <> show numberOfInvalidTxs
-  ]
+textReport Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs} =
+  let frac :: Double
+      frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
+   in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
+      , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
+      , "P99: " <> show (quantiles ! 99) <> "ms"
+      , "P95: " <> show (quantiles ! 95) <> "ms"
+      , "P50: " <> show (quantiles ! 50) <> "ms"
+      , "Invalid txs: " <> show numberOfInvalidTxs
+      ]
 
 markdownReport :: UTCTime -> [Summary] -> [Text]
 markdownReport now summaries =

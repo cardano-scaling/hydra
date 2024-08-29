@@ -2,27 +2,11 @@ module Bench.Options where
 
 import Hydra.Prelude
 
-import Options.Applicative (
-  Parser,
-  ParserInfo,
-  auto,
-  command,
-  fullDesc,
-  header,
-  help,
-  helpDoc,
-  helper,
-  hsubparser,
-  info,
-  long,
-  metavar,
-  option,
-  progDesc,
-  short,
-  str,
-  strOption,
-  value,
- )
+import Hydra.Cardano.Api (NetworkId, SocketPath)
+import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Network (Host, readHost)
+import Hydra.Options (networkIdParser, nodeSocketParser)
+import Options.Applicative (Parser, ParserInfo, auto, command, fullDesc, header, help, helpDoc, helper, hsubparser, info, long, maybeReader, metavar, option, progDesc, short, str, strOption, value)
 import Options.Applicative.Builder (argument)
 import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
 
@@ -41,6 +25,14 @@ data Options
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       }
+  | DemoOptions
+      { outputDirectory :: Maybe FilePath
+      , scalingFactor :: Int
+      , timeoutSeconds :: NominalDiffTime
+      , networkId :: NetworkId
+      , nodeSocket :: SocketPath
+      , hydraClients :: [Host]
+      }
 
 benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
@@ -48,6 +40,7 @@ benchOptionsParser =
     ( hsubparser
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
+            <> command "demo" demoOptionsInfo
         )
         <**> helper
     )
@@ -155,6 +148,39 @@ startingNodeIdParser =
           \ it's useful to change if local processes on the machine running the \
           \ benchmark conflicts with default ports allocation scheme (default: 0)"
     )
+
+demoOptionsInfo :: ParserInfo Options
+demoOptionsInfo =
+  info
+    demoOptionsParser
+    ( progDesc
+        "Run bench scenario over local demo. \
+        \ This requires having in the background: \
+        \   * cardano node running on specified node-socket. \
+        \   * hydra nodes listening on specified hosts."
+    )
+
+demoOptionsParser :: Parser Options
+demoOptionsParser =
+  DemoOptions
+    <$> optional outputDirectoryParser
+    <*> scalingFactorParser
+    <*> timeoutParser
+    <*> networkIdParser
+    <*> nodeSocketParser
+    <*> many hydraClientsParser
+
+hydraClientsParser :: Parser Host
+hydraClientsParser =
+  option (maybeReader readHost) $
+    long "hydra-client"
+      <> help
+        ( "A hydra node api address to connect to. This is using the form <host>:<port>, \
+          \where <host> can be an IP address, or a host name. Can be \
+          \provided multiple times, once for each participant (current maximum limit is "
+            <> show maximumNumberOfParties
+            <> " )."
+        )
 
 datasetOptionsInfo :: ParserInfo Options
 datasetOptionsInfo =

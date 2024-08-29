@@ -1,0 +1,9 @@
+services:
+  hydra-node-1:
+    image: hydra-node-for-netem
+
+  hydra-node-2:
+    image: hydra-node-for-netem
+
+  hydra-node-3:
+    image: hydra-node-for-netem

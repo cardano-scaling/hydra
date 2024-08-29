@@ -5,20 +5,23 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench)
+import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
-import Bench.Summary (Summary (..), markdownReport, textReport)
+import Bench.Summary (Summary (..), errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset)
+import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.Environment (withArgs)
-import System.FilePath (takeFileName, (</>))
+import System.FilePath (takeDirectory, takeFileName, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
 main :: IO ()
-main =
+main = do
+  hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
     StandaloneOptions{workDirectory = Just workDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
       -- XXX: This option is a bit weird as it allows to re-run a test by
@@ -32,38 +35,73 @@ main =
       workDir <- createSystemTempDirectory "bench"
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
-      run outputDirectory timeoutSeconds startingNodeId datasetFiles
+      let action = bench startingNodeId timeoutSeconds
+      run outputDirectory datasetFiles action
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+      let action = benchDemo networkId nodeSocket timeoutSeconds hydraClients
+      playDemo outputDirectory scalingFactor networkId nodeSocket action
  where
+  playDemo outputDirectory scalingFactor networkId nodeSocket action = do
+    numberOfTxs <- generate $ scale (* scalingFactor) getSize
+    let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
+    let toClientKeys (actor, funds) = do
+          sk <- snd <$> keysFor actor
+          fundsSk <- snd <$> keysFor funds
+          pure $ ClientKeys sk fundsSk
+    clientKeys <- forM actors toClientKeys
+    dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
+    results <- withTempDir "bench-demo" $ \dir -> do
+      runSingle dataset action (fromMaybe dir outputDirectory)
+    summarizeResults outputDirectory [results]
+
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
+    (_, faucetSk) <- keysFor Faucet
     putStrLn $ "Generating single dataset in work directory: " <> workDir
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- generateConstantUTxODataset (fromIntegral clusterSize) numberOfTxs
+    dataset <- generate $ generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
-    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
+    let action = bench startingNodeId timeoutSeconds
+    run outputDirectory [datasetPath] action
 
   replay outputDirectory timeoutSeconds startingNodeId benchDir = do
     let datasetPath = benchDir </> "dataset.json"
     putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
-    run outputDirectory timeoutSeconds startingNodeId [datasetPath]
+    let action = bench startingNodeId timeoutSeconds
+    run outputDirectory [datasetPath] action
 
-  run outputDirectory timeoutSeconds startingNodeId datasetFiles = do
+  runSingle dataset action dir = do
+    withArgs [] $ do
+      try @_ @HUnitFailure (action dir dataset) >>= \case
+        Left exc -> pure $ Left (dataset, dir, errorSummary dataset exc, TestFailed exc)
+        Right summary@Summary{totalTxs, numberOfTxs, numberOfInvalidTxs}
+          | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, summary, NotEnoughTransactions numberOfTxs totalTxs)
+          | numberOfInvalidTxs == 0 -> pure $ Right summary
+          | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
+
+  run outputDirectory datasetFiles action = do
     results <- forM datasetFiles $ \datasetPath -> do
       putTextLn $ "Running benchmark with dataset " <> show datasetPath
       dataset <- loadDataset datasetPath
-      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir ->
-        withArgs [] $ do
-          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-          threadDelay 10
-          try @_ @HUnitFailure (bench startingNodeId timeoutSeconds dir dataset) >>= \case
-            Left exc -> pure $ Left (dataset, dir, TestFailed exc)
-            Right summary@Summary{numberOfInvalidTxs}
-              | numberOfInvalidTxs == 0 -> pure $ Right summary
-              | otherwise -> pure $ Left (dataset, dir, InvalidTransactions numberOfInvalidTxs)
+      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir -> do
+        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+        threadDelay 10
+        runSingle dataset action dir
+    summarizeResults outputDirectory results
+
+  summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) Summary] -> IO ()
+  summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
-      [] -> benchmarkSucceeded outputDirectory summaries
-      errs -> mapM_ (\(_, dir, exc) -> benchmarkFailedWith dir exc) errs >> exitFailure
+      [] -> writeBenchmarkReport outputDirectory summaries
+      errs ->
+        mapM_
+          ( \(_, dir, summary, exc) ->
+              writeBenchmarkReport outputDirectory [summary]
+                >> benchmarkFailedWith dir exc
+          )
+          errs
+          >> exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
@@ -72,18 +110,22 @@ main =
 
   saveDataset :: FilePath -> Dataset -> IO ()
   saveDataset f dataset = do
+    createDirectoryIfMissing True (takeDirectory f)
     putStrLn $ "Writing dataset to: " <> f
     encodeFile f dataset
 
 data BenchmarkFailed
   = TestFailed HUnitFailure
   | InvalidTransactions Int
+  | NotEnoughTransactions Int Int
 
 benchmarkFailedWith :: FilePath -> BenchmarkFailed -> IO ()
 benchmarkFailedWith benchDir = \case
   (TestFailed (HUnitFailure sourceLocation reason)) -> do
     putStrLn $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
     putStrLn $ "To re-run with same dataset, pass '--work-directory=" <> benchDir <> "' to the executable"
+  (NotEnoughTransactions actual expected) -> do
+    putStrLn $ "Benchmark resulted in " <> show actual <> " transactions; but wanted " <> show expected <> "."
   (InvalidTransactions n) -> do
     putStrLn $ "Benchmark has " <> show n <> " invalid transactions"
     putStrLn $
@@ -95,8 +137,8 @@ benchmarkFailedWith benchDir = \case
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-benchmarkSucceeded :: Maybe FilePath -> [Summary] -> IO ()
-benchmarkSucceeded outputDirectory summaries = do
+writeBenchmarkReport :: Maybe FilePath -> [Summary] -> IO ()
+writeBenchmarkReport outputDirectory summaries = do
   dumpToStdout
   whenJust outputDirectory writeReport
  where

@@ -48,6 +48,7 @@ import Prelude qualified
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
+  , apiHost :: Host
   , connection :: Connection
   , tracer :: Tracer IO HydraNodeLog
   }
@@ -172,22 +173,22 @@ waitForAll tracer delay nodes expected = do
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo.
 -- Create a commit tx using the hydra-node for later submission.
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
-requestCommitTx HydraClient{hydraNodeId} utxos =
+requestCommitTx HydraClient{apiHost = Host{hostname, port}} utxos =
   runReq defaultHttpConfig request <&> commitTx . responseBody
  where
   request =
     Req.req
       POST
-      (Req.http "127.0.0.1" /: "commit")
+      (Req.http hostname /: "commit")
       (ReqBodyJson $ SimpleCommitRequest @Tx utxos)
       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-      (Req.port $ 4_000 + hydraNodeId)
+      (Req.port (fromInteger . toInteger $ port))
 
 -- | Submit a decommit transaction to the hydra-node.
 postDecommit :: HydraClient -> Tx -> IO ()
-postDecommit HydraClient{hydraNodeId} decommitTx = do
+postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
   void $
-    parseUrlThrow ("POST http://127.0.0.1:" <> show (4000 + hydraNodeId) <> "/decommit")
+    parseUrlThrow ("POST http://" <> T.unpack hostname <> ":" <> show port <> "/decommit")
       <&> setRequestBodyJSON decommitTx
         >>= httpLbs
 
@@ -195,19 +196,19 @@ postDecommit HydraClient{hydraNodeId} decommitTx = do
 -- avoid parsing responses using the same data types as the system under test,
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.
 getSnapshotUTxO :: HydraClient -> IO UTxO
-getSnapshotUTxO HydraClient{hydraNodeId} =
+getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
   runReq defaultHttpConfig request <&> responseBody
  where
   request =
     Req.req
       GET
-      (Req.http "127.0.0.1" /: "snapshot" /: "utxo")
+      (Req.http hostname /: "snapshot" /: "utxo")
       NoReqBody
       (Proxy :: Proxy (JsonResponse UTxO))
-      (Req.port $ 4_000 + hydraNodeId)
+      (Req.port (fromInteger . toInteger $ port))
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
-getMetrics HydraClient{hydraNodeId} = do
+getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
   failAfter 3 $
     try (runReq defaultHttpConfig request) >>= \case
       Left (e :: HttpException) -> failure $ "Request for hydra-node metrics failed: " <> show e
@@ -216,7 +217,7 @@ getMetrics HydraClient{hydraNodeId} = do
   request =
     Req.req
       GET
-      (Req.http "127.0.0.1" /: "metrics")
+      (Req.http hostname /: "metrics")
       NoReqBody
       Req.bsResponse
       (Req.port $ 6_000 + hydraNodeId)
@@ -402,7 +403,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
     ]
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
-withConnectionToNode tracer hydraNodeId action = do
+withConnectionToNode tracer hydraNodeId =
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} Nothing
+ where
+  hostname = "127.0.0.1"
+  port = fromInteger $ 4_000 + toInteger hydraNodeId
+
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryParams action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -420,12 +428,15 @@ withConnectionToNode tracer hydraNodeId action = do
                     , Handler $ retryOrThrow (Proxy @HandshakeException)
                     ]
 
-  doConnect connectedOnce = runClient "127.0.0.1" (4_000 + hydraNodeId) "/" $ \connection -> do
-    atomicWriteIORef connectedOnce True
-    traceWith tracer (NodeStarted hydraNodeId)
-    res <- action $ HydraClient{hydraNodeId, connection, tracer}
-    sendClose connection ("Bye" :: Text)
-    pure res
+  historyMode = fromMaybe "/" queryParams
+
+  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $
+    \connection -> do
+      atomicWriteIORef connectedOnce True
+      traceWith tracer (NodeStarted hydraNodeId)
+      res <- action $ HydraClient{hydraNodeId, apiHost, connection, tracer}
+      sendClose connection ("Bye" :: Text)
+      pure res
 
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
