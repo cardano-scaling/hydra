@@ -7,7 +7,9 @@ percent=$2
 rest_node_names=$3
 
 # Build Pumba netem command
-nix_command="nix run github:noonio/pumba/noon/add-flake -- -l debug --random netem --duration 20m"
+# Note: We leave it for 20 minutes; but really it's effectively unlimited. We don't
+# expect any of our tests to run longer than that.
+nix_command="nix run github:noonio/pumba/noon/add-flake -- -l debug netem --duration 20m"
 
 while IFS= read -r network; do
     nix_command+=" --target $network"
