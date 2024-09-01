@@ -1,23 +1,36 @@
 #!/usr/bin/env bash
 
+# Container name
 target_node_name=$1
 
-percent=$2
+# Valid pumba action to be taken.
+action=$2
 
-rest_node_names=$3
+# command args
+args=$3
 
-# Build Pumba netem command
-# Note: We leave it for 20 minutes; but really it's effectively unlimited. We don't
-# expect any of our tests to run longer than that.
-nix_command="nix run github:noonio/pumba/noon/add-flake -- -l debug netem --duration 20m"
+# List of other hosts (space-separated <ip:port>)
+others=$4
 
-while IFS= read -r network; do
-    nix_command+=" --target $network"
-done <<< "$rest_node_names"
+# Start build a Pumba command
+pumba_command="nix run github:noonio/pumba/noon/add-flake -- -l debug $action"
 
-nix_command+=" loss --percent \"$percent\" \"re2:$target_node_name\" &"
+# Add network targets only if the command is related to netem (like 'loss', 'delay')
+if [[ $action == netem* ]]; then
+    # Note: We leave it for 20 minutes; but really it's effectively unlimited. We don't
+    # expect any of our tests to run longer than that.
+    pumba_command+=" --duration 20m"
+    for network in $others; do
+        pumba_command+=" --target $network"
+    done
+fi
 
-echo "$nix_command"
+pumba_command+=" $args"
 
-# Run Pumba netem command
-eval "$nix_command"
+# Select target container
+pumba_command+=" \"re2:$target_node_name\" &"
+
+echo "$pumba_command"
+
+# Run command
+eval "$pumba_command"

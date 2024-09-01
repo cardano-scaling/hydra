@@ -20,9 +20,20 @@ jobs:
         # however many we would like to configure here.
         # Currently this is just a label and does not have any functional impact.
         peers:          [3]
-        scaling_factor: [10, 50]
-        netem_loss:     [0, 1, 2, 3, 4, 5, 10, 20]
-    name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, loss: ${{ matrix.netem_loss }}"
+        scaling_factor: [10]
+        pumba_scenario:
+          - name: "netem_loss_0"
+            command: "netem"
+            args: "loss --percent 0"
+          - name: "netem_loss_20"
+            command: "netem"
+            args: "loss --percent 20"
+          - name: "delay_1000ms"
+            command: "netem"
+            args: "delay --time 1000 --jitter 50 --distribution normal"
+          # - name: "kill_peer"
+          # command: "kill"
+    name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, command: ${{ matrix.pumba_scenario.name }}"
     steps:
     - uses: actions/checkout@v4
       with:
@@ -87,12 +98,13 @@ jobs:
       continue-on-error: true
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
-        percent="${{ matrix.netem_loss }}"
+        command="${{ matrix.pumba_scenario.command }}"
+        args="${{ matrix.pumba_scenario.args }}"
         scaling_factor="${{ matrix.scaling_factor }}"
         target_peer="hydra-node-1"
         other_peers="172.16.238.20 172.16.238.30"
 
-        .github/workflows/network/run_pumba.sh $target_peer $percent $other_peers
+        .github/workflows/network/run_pumba.sh "$target_peer" "$command" "$args" "$other_peers"
 
         # Run benchmark on demo
         mkdir benchmarks
@@ -119,7 +131,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
+        name: "docker-logs-pumba-scenario=${{ matrix.pumba_scenario.name }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
         path: demo/docker-logs
         if-no-files-found: ignore
 
@@ -127,6 +139,6 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "benchmarks-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
+        name: "benchmarks-pumba-scenario=${{ matrix.pumba_scenario.name }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
         path: benchmarks
         if-no-files-found: ignore
