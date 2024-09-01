@@ -189,15 +189,17 @@ mkMessagePersistence ::
   PersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->
   MessagePersistence m msg
-mkMessagePersistence numberOfParties msgPersistence ackPersistence =
+mkMessagePersistence numberOfParties msgPersistence _ =
   MessagePersistence
     { loadAcks = do
-        macks <- load ackPersistence
-        case macks of
-          Nothing -> pure $ replicate numberOfParties 0
-          Just acks -> pure acks
-    , saveAcks = \acks -> do
-        save ackPersistence acks
+        -- macks <- load ackPersistence
+        -- case macks of
+        --   Nothing -> pure $ replicate numberOfParties 0
+        --   Just acks -> pure acks
+        pure $ replicate numberOfParties 0
+    , saveAcks = \_ -> do
+        -- save ackPersistence acks
+        pure ()
     , loadMessages = do
         loadAll msgPersistence
     , appendMessage = \msg -> do
