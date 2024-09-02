@@ -274,8 +274,8 @@ const config = {
         additionalLanguages: ["haskell"],
       },
       algolia: {
-        appId: "YZTAF8IOVB",
-        apiKey: "ad133fe3b0b40974c26853abc9cad2ab",
+        appId: "OF3CR7K89X",
+        apiKey: "09b2fc0200d06fb433a5f4ced7c9d427",
         indexName: "hydra-family",
         searchPagePath: "search",
         contextualSearch: true,
