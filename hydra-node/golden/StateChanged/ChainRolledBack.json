@@ -1,0 +1,40 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "c9174400e1b6079b1bec1c41c72b3d836f0b99b2ea267a0ca0fc61cf25b09cec",
+                    "slot": 15163756,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "70908b6dbaa6339f3146dea168c4288b847b01cfd27bfbfa51ce70e74ce3a469#16": {
+                        "address": "addr1zy5035rmu2x8y0mk55lqnut57w403skwrghmqksc9h306kwkwraz82mr8slc0ve6cttwt8lzzw6h02r25afscl4x8g6sncx5uw",
+                        "datum": null,
+                        "datumhash": "692bc1b4e0281b6c8b99ea8bb89e0ca2e88d30e245071a9d358f7d8791582a43",
+                        "inlineDatum": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "8202818200581ce4bda527f72ce9069741d118dc1e4f752201fbf01fce946f1bcf90a0",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                                "a44828764c960ec2c98203cc2289": 3
+                            },
+                            "a1194dcd1bdce6a3fe339d158ed651087a31815d7d4fb2a662f6fd25": {
+                                "31": 5403283693215787713
+                            },
+                            "lovelace": 6287818330765190713
+                        }
+                    }
+                }
+            },
+            "tag": "ChainRolledBack"
+        }
+    ],
+    "seed": 1614391550
+}

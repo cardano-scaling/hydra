@@ -7,18 +7,7 @@ import Hydra.Cardano.Api.Prelude
 import Data.ByteString qualified as BS
 import Test.QuickCheck (vectorOf)
 
-unsafeBlockHeaderHashFromBytes :: HasCallStack => ByteString -> Hash BlockHeader
-unsafeBlockHeaderHashFromBytes bytes =
-  case deserialiseFromRawBytes (proxyToAsType Proxy) bytes of
-    Left e ->
-      error $
-        "unsafeBlockHeaderHashFromBytes: failed on bytes "
-          <> show bytes
-          <> " with error "
-          <> show e
-    Right h -> h
-
--- * Arbitrary values
+-- * Generators
 
 -- | Fully arbitrary block header with completely random hash.
 genBlockHeader :: Gen BlockHeader
@@ -30,9 +19,26 @@ genBlockHeader = do
 -- certain slot.
 genBlockHeaderAt :: SlotNo -> Gen BlockHeader
 genBlockHeaderAt slotNo = do
-  headerHash <- unsafeBlockHeaderHashFromBytes . BS.pack <$> vectorOf 32 arbitrary
+  headerHash <- genBlockHeaderHash
   blockNo <- BlockNo <$> arbitrary
   pure $ BlockHeader slotNo headerHash blockNo
+
+-- | Generate a random block header hash.
+genBlockHeaderHash :: Gen (Hash BlockHeader)
+genBlockHeaderHash =
+  unsafeBlockHeaderHashFromBytes . BS.pack <$> vectorOf 32 arbitrary
+ where
+  unsafeBlockHeaderHashFromBytes bytes =
+    case deserialiseFromRawBytes (proxyToAsType Proxy) bytes of
+      Left e ->
+        error $
+          "unsafeBlockHeaderHashFromBytes: failed on bytes "
+            <> show bytes
+            <> " with error "
+            <> show e
+      Right h -> h
+
+-- * Orphans
 
 instance Arbitrary BlockHeader where
   arbitrary = genBlockHeader

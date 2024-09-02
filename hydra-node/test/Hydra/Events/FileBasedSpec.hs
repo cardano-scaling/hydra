@@ -4,15 +4,31 @@ module Hydra.Events.FileBasedSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+-- IsChainState tx instance to serialize 'StateEvent Tx'
+import Hydra.Chain.Direct.State ()
+
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
+import Hydra.HeadLogic (StateChanged)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Test.Aeson.GenericSpecs (
+  Settings (..),
+  defaultSettings,
+  roundtripAndGoldenADTSpecsWithSettings,
+  roundtripAndGoldenSpecsWithSettings,
+ )
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
 
 spec :: Spec
 spec = do
+  describe "persisted event format" $ do
+    -- NOTE: Whenever one of these fails, make sure to record a **BREAKING** change of the persisted 'state'.
+    roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 5}) (Proxy @(StateEvent Tx))
+    roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
+
   describe "eventPairFromPersistenceIncremental" $ do
     prop "can handle continuous events" $
       forAllShrink genContinuousEvents shrink $ \events ->
