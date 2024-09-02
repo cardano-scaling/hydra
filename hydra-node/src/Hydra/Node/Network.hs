@@ -132,12 +132,9 @@ withNetwork ::
 withNetwork tracer configuration callback action = do
   let localHost = Host{hostname = show host, port}
       me = deriveParty signingKey
-      numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
-
   let reliability =
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
+          withReliability (contramap Reliability tracer) me otherParties $
             withAuthentication (contramap Authentication tracer) signingKey otherParties $
               withOuroborosNetwork
                 (contramap Network tracer)
@@ -153,7 +150,7 @@ withNetwork tracer configuration callback action = do
   withHeartbeat nodeId reliability (callback . mapHeartbeat) $ \network ->
     action network
  where
-  NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
+  NetworkConfiguration{signingKey, otherParties, host, port, peers, nodeId} = configuration
 
   mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
   mapHeartbeat = \case

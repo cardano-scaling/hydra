@@ -106,6 +106,7 @@ import Data.Vector (
   zipWith,
   (!?),
  )
+import Data.Vector qualified as Vector
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
@@ -216,8 +217,6 @@ withReliability ::
   (MonadThrow (STM m), MonadThrow m, MonadAsync m) =>
   -- | Tracer for logging messages.
   Tracer m ReliabilityLog ->
-  -- | Our persistence handle
-  MessagePersistence m outbound ->
   -- | Our own party identifier.
   Party ->
   -- | Other parties' identifiers.
@@ -225,9 +224,9 @@ withReliability ::
   -- | Underlying network component providing consuming and sending channels.
   NetworkComponent m (Authenticated (ReliableMsg (Heartbeat inbound))) (ReliableMsg (Heartbeat outbound)) a ->
   NetworkComponent m (Authenticated (Heartbeat inbound)) (Heartbeat outbound) a
-withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loadMessages} me otherParties withRawNetwork callback action = do
-  acksCache <- loadAcks >>= newTVarIO
-  sentMessages <- loadMessages >>= newTVarIO . Seq.fromList
+withReliability tracer me otherParties withRawNetwork callback action = do
+  acksCache <- newTVarIO Vector.empty
+  sentMessages <- newTVarIO Seq.empty
   resendQ <- newTQueueIO
   let ourIndex = fromMaybe (error "This cannot happen because we constructed the list with our party inside.") (findPartyIndex me)
   let resend = writeTQueue resendQ
@@ -243,13 +242,10 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
             case msg of
               Data{} -> do
                 localCounter <- atomically $ cacheMessage msg >> incrementAckCounter
-                saveAcks localCounter
-                appendMessage msg
                 traceWith tracer BroadcastCounter{ourIndex, localCounter}
                 broadcast $ ReliableMsg localCounter msg
               Ping{} -> do
                 localCounter <- readTVarIO acksCache
-                saveAcks localCounter
                 traceWith tracer BroadcastPing{ourIndex, localCounter}
                 broadcast $ ReliableMsg localCounter msg
         }
