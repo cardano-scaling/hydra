@@ -25,7 +25,7 @@ import Test.QuickCheck.Gen (listOf)
 spec :: Spec
 spec = do
   describe "persisted event format" $ do
-    -- NOTE: Whenever one of this, make sure to record a **BREAKING** change of the persisted 'state'.
+    -- NOTE: Whenever one of these fails, make sure to record a **BREAKING** change of the persisted 'state'.
     roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 5}) (Proxy @(StateEvent Tx))
     roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
 
