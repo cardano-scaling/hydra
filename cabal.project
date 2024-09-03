@@ -25,6 +25,7 @@ packages:
   hydra-plutus
   hydra-node
   hydra-cluster
+  hydra-tx
   hydra-tui
   hydraw
   hydra-chain-observer

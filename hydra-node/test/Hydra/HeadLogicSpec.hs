@@ -21,16 +21,11 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
-  HeadParameters (..),
-  IsChainState,
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
-import Hydra.Chain.Direct.Fixture qualified as Fixture
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Crypto (generateSigningKey, sign)
-import Hydra.Crypto qualified as Crypto
-import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -51,15 +46,22 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
-import Hydra.Ledger (ChainSlot (..), IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano (cardanoLedger, genKeyPair, genOutput, mkRangedTx)
+import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
+import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod)
-import Hydra.Party (Party (..))
 import Hydra.Prelude qualified as Prelude
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Hydra.Tx.Crypto (generateSigningKey, sign)
+import Hydra.Tx.Crypto qualified as Crypto
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.Party (Party (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 

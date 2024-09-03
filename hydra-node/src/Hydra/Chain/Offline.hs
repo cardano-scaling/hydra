@@ -15,21 +15,19 @@ import Hydra.Chain (
   ChainComponent,
   ChainEvent (..),
   ChainStateHistory,
-  HeadParameters (..),
   OnChainTx (..),
   PostTxError (..),
   chainSlot,
   chainTime,
   initHistory,
  )
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadId (HeadId (..), HeadSeed (..))
-import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Network (NodeId (nodeId))
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
-import Hydra.Party (Party)
+import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
 
 -- | Derived 'HeadId' of offline head.
 offlineHeadId :: NodeId -> HeadId

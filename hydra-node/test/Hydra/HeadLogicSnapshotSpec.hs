@@ -8,9 +8,6 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.Chain (HeadParameters (..))
-import Hydra.Crypto (sign)
-import Hydra.Environment (Environment (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -22,13 +19,25 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
-import Hydra.Ledger (txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Options (defaultContestationPeriod)
-import Hydra.Party (deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
+import Hydra.Tx.Crypto (sign)
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.Party (deriveParty)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Test.Hydra.Tx.Fixture (
+  alice,
+  aliceSk,
+  bob,
+  bobSk,
+  carol,
+  carolSk,
+  deriveOnChainId,
+  testHeadId,
+ )
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicST, pick)
 

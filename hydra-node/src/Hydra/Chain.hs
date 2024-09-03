@@ -13,21 +13,29 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
-import Data.List (nub)
 import Data.List.NonEmpty ((<|))
 import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
  )
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Environment (Environment (..))
-import Hydra.HeadId (HeadId, HeadSeed)
-import Hydra.Ledger (ChainSlot, IsTx (..), UTxOType)
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Tx (
+  CommitBlueprintTx,
+  ConfirmedSnapshot,
+  HeadId,
+  HeadParameters (..),
+  HeadSeed,
+  IsTx (..),
+  Party,
+  SnapshotNumber,
+  SnapshotVersion,
+  UTxOType,
+ )
+import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
+import Test.Hydra.Tx ()
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 
@@ -40,25 +48,6 @@ maxMainnetLovelace = Coin 100_000_000
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
 maximumNumberOfParties = 5
-
--- | Contains the head's parameters as established in the initial transaction.
-data HeadParameters = HeadParameters
-  { contestationPeriod :: ContestationPeriod
-  , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary HeadParameters where
-  arbitrary = dedupParties <$> genericArbitrary
-   where
-    dedupParties HeadParameters{contestationPeriod, parties} =
-      HeadParameters{contestationPeriod, parties = nub parties}
-
--- | Make 'HeadParameters' that are consistent with the given 'Environment'.
-mkHeadParameters :: Environment -> HeadParameters
-mkHeadParameters Environment{party, otherParties, contestationPeriod} =
-  HeadParameters{contestationPeriod, parties = party : otherParties}
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
@@ -91,7 +80,7 @@ deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
-instance IsTx tx => Arbitrary (PostChainTx tx) where
+instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
@@ -141,7 +130,7 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (TxOutType tx), Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
+instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Exceptions thrown by 'postTx'.
@@ -189,7 +178,7 @@ deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
 
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PostTxError tx) where
+instance ArbitraryIsTx tx => Arbitrary (PostTxError tx) where
   arbitrary = genericArbitrary
 
 -- | A non empty sequence of chain states that can be rolled back.
@@ -226,30 +215,6 @@ deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (ChainStateH
 
 instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
-
--- | Types that can be used on-chain by the Hydra protocol.
--- XXX: Find a better name for this. Maybe IsChainTx or IsL1Tx?
-class
-  ( IsTx tx
-  , Eq (ChainStateType tx)
-  , Show (ChainStateType tx)
-  , Arbitrary (ChainStateType tx)
-  , FromJSON (ChainStateType tx)
-  , ToJSON (ChainStateType tx)
-  ) =>
-  IsChainState tx
-  where
-  -- | Types of what to keep as L1 chain state.
-  type ChainStateType tx = c | c -> tx
-
-  -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
-  -- encountered, we assume monotonically increasing slots.
-  chainStateSlot :: ChainStateType tx -> ChainSlot
-
--- | _Blueprint/Draft_ transaction paired with the 'UTxO' which resolves it's inputs.
--- The transaction inputs are committed to a `Head` and the 'lookupUTxO' is expected
--- to contain these inputs.
-data CommitBlueprintTx tx = CommitBlueprintTx {lookupUTxO :: UTxOType tx, blueprintTx :: tx}
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
@@ -307,7 +272,7 @@ deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
-instance (IsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
+instance (ArbitraryIsTx tx, IsChainState tx, Arbitrary ChainSlot) => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the

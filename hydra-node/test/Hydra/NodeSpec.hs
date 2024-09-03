@@ -10,17 +10,13 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), HeadParameters (..), IsChainState, OnChainTx (..), PostTxError (NoSeedInput), mkHeadParameters)
-import Hydra.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Crypto (HydraKey, sign)
-import Hydra.Environment (Environment (..))
-import Hydra.Environment qualified as Environment
+import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger (ChainSlot (ChainSlot))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
@@ -38,9 +34,26 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
-import Hydra.Party (Party, deriveParty)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, deriveOnChainId, testEnvironment, testHeadId, testHeadSeed)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.Crypto (HydraKey, sign)
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.Environment qualified as Environment
+import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
+import Hydra.Tx.Party (Party, deriveParty)
+import Test.Hydra.Tx.Fixture (
+  alice,
+  aliceSk,
+  bob,
+  bobSk,
+  carol,
+  carolSk,
+  cperiod,
+  deriveOnChainId,
+  testEnvironment,
+  testHeadId,
+  testHeadSeed,
+ )
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
 

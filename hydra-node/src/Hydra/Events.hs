@@ -13,8 +13,9 @@ module Hydra.Events where
 
 import Hydra.Prelude
 
-import Hydra.Chain (IsChainState)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 type EventId = Word64
@@ -60,11 +61,11 @@ deriving instance IsChainState tx => Eq (StateEvent tx)
 deriving instance IsChainState tx => ToJSON (StateEvent tx)
 deriving instance IsChainState tx => FromJSON (StateEvent tx)
 
-instance IsChainState tx => Arbitrary (StateEvent tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateEvent tx) where
   arbitrary = arbitrary >>= genStateEvent
   shrink = genericShrink
 
-instance IsChainState tx => ToADTArbitrary (StateEvent tx)
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateEvent tx)
 
 genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
 genStateEvent sc = StateEvent <$> arbitrary <*> pure sc

@@ -6,8 +6,8 @@ module Hydra.Node.ParameterMismatch where
 
 import Hydra.Prelude
 
-import Hydra.ContestationPeriod (ContestationPeriod)
-import Hydra.Party (Party)
+import Hydra.Tx (Party)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 
 -- | Exception used to indicate command line options not matching the persisted
 -- state.

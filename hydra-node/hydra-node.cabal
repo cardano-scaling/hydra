@@ -56,33 +56,22 @@ library
     Hydra.Chain
     Hydra.Chain.CardanoClient
     Hydra.Chain.Direct
-    Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.Handlers
-    Hydra.Chain.Direct.ScriptRegistry
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
-    Hydra.ContestationPeriod
-    Hydra.Crypto
-    Hydra.Environment
+    Hydra.Chain.ScriptRegistry
     Hydra.Events
     Hydra.Events.FileBased
-    Hydra.HeadId
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
-    Hydra.Ledger
     Hydra.Ledger.Cardano
-    Hydra.Ledger.Cardano.Builder
-    Hydra.Ledger.Cardano.Configuration
-    Hydra.Ledger.Cardano.Evaluate
-    Hydra.Ledger.Cardano.Time
-    Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
@@ -101,11 +90,8 @@ library
     Hydra.Node.Network
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
-    Hydra.OnChainId
     Hydra.Options
-    Hydra.Party
     Hydra.Persistence
-    Hydra.Snapshot
     Hydra.Utils
 
   other-modules:   Paths_hydra_node
@@ -120,7 +106,6 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
-    , cardano-ledger-binary
     , cardano-ledger-core:{cardano-ledger-core, testlib}
     , cardano-ledger-shelley
     , cardano-slotting
@@ -132,13 +117,12 @@ library
     , data-default
     , directory
     , filepath
-    , flat
-    , formatting
     , http-types
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-tx:{hydra-tx, testlib}
     , io-classes                                                >=0.3.0.0
     , iohk-monitoring
     , iproute
@@ -153,14 +137,11 @@ library
     , ouroboros-network-api                                     >=0.7.1
     , ouroboros-network-framework
     , ouroboros-network-protocols                               >=0.8
-    , plutus-core                                               >=1.21
     , plutus-ledger-api                                         >=1.21
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
-    , serialise
-    , sop-extras
     , stm
     , text
     , time
@@ -222,6 +203,7 @@ executable hydra-net
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , hydra-tx
     , network
     , optparse-applicative
     , ouroboros-network-framework  >=0.3.0.0
@@ -245,6 +227,7 @@ benchmark tx-cost
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-tx:{hydra-tx, testlib}
     , optparse-applicative
     , plutus-ledger-api
     , plutus-tx
@@ -264,6 +247,7 @@ benchmark micro
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , hydra-tx:{hydra-tx, testlib}
     , QuickCheck
 
   ghc-options:    -threaded -rtsopts
@@ -278,20 +262,6 @@ test-suite tests
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
-    Hydra.Chain.Direct.Contract.Abort
-    Hydra.Chain.Direct.Contract.Close.CloseInitial
-    Hydra.Chain.Direct.Contract.Close.CloseUnused
-    Hydra.Chain.Direct.Contract.Close.CloseUsed
-    Hydra.Chain.Direct.Contract.Close.Healthy
-    Hydra.Chain.Direct.Contract.CollectCom
-    Hydra.Chain.Direct.Contract.Commit
-    Hydra.Chain.Direct.Contract.Contest.ContestCurrent
-    Hydra.Chain.Direct.Contract.Decrement
-    Hydra.Chain.Direct.Contract.FanOut
-    Hydra.Chain.Direct.Contract.Gen
-    Hydra.Chain.Direct.Contract.Init
-    Hydra.Chain.Direct.Contract.Mutation
-    Hydra.Chain.Direct.ContractSpec
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
@@ -329,7 +299,6 @@ test-suite tests
     Hydra.UtilsSpec
     Paths_hydra_node
     Spec
-    Test.Hydra.Fixture
     Test.Util
 
   main-is:            Main.hs
@@ -345,7 +314,6 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-core
-    , cardano-ledger-mary
     , cardano-ledger-shelley:{cardano-ledger-shelley, testlib}
     , cardano-slotting
     , cardano-strict-containers
@@ -362,9 +330,9 @@ test-suite tests
     , hydra-cardano-api
     , hydra-node:{hydra-node, testlib}
     , hydra-plutus
-    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx:{hydra-tx, testlib}
     , io-classes
     , io-sim
     , lens

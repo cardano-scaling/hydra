@@ -51,75 +51,72 @@ import Hydra.Cardano.Api (
   pattern TxOut,
  )
 import Hydra.Chain (
-  ChainStateType,
-  CommitBlueprintTx (..),
-  HeadParameters (..),
-  IsChainState (..),
   OnChainTx (..),
   PostTxError (..),
   maxMainnetLovelace,
   maximumNumberOfParties,
  )
-import Hydra.Chain.Direct.ScriptRegistry (
-  ScriptRegistry (..),
-  genScriptRegistry,
-  registryUTxO,
- )
-import Hydra.Chain.Direct.TimeHandle (PointInTime)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Chain.Direct.Tx (
-  AbortTxError (..),
   CloseObservation (..),
-  CloseTxError (..),
-  ClosedThreadOutput (..),
   CollectComObservation (..),
   CommitObservation (..),
-  ContestTxError (..),
-  FanoutTxError (..),
   InitObservation (..),
   InitialThreadOutput (..),
   NotAnInitReason,
-  OpenThreadOutput (..),
   UTxOHash,
-  abortTx,
-  closeTx,
-  collectComTx,
-  commitTx,
-  contestTx,
-  decrementTx,
-  fanoutTx,
   headIdToPolicyId,
-  initTx,
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
   observeInitTx,
   txInToHeadSeed,
-  verificationKeyToOnChainId,
  )
-import Hydra.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Crypto (HydraKey)
-import Hydra.HeadId (HeadId (..))
-import Hydra.Ledger (ChainSlot (ChainSlot))
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxOut, genUTxO1, genUTxOAdaOnlyOfSize, genVerificationKey)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party, deriveParty, partyToChain)
 import Hydra.Plutus.Extras (posixToUTCTime)
-import Hydra.Snapshot (
+import Hydra.Tx (
+  CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
+  HeadId (..),
+  HeadParameters (..),
+  Party,
+  ScriptRegistry (..),
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
-  genConfirmedSnapshot,
+  deriveParty,
   getSnapshot,
+  partyToChain,
+  registryUTxO,
  )
+import Hydra.Tx.Abort (AbortTxError (..), abortTx)
+import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
+import Hydra.Tx.CollectCom (collectComTx)
+import Hydra.Tx.Commit (commitTx)
+import Hydra.Tx.Contest (ClosedThreadOutput (..), PointInTime, contestTx)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Decrement (decrementTx)
+import Hydra.Tx.Fanout (fanoutTx)
+import Hydra.Tx.Init (initTx)
+import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
+import Test.Hydra.Tx.Gen (
+  genOneUTxOFor,
+  genScriptRegistry,
+  genTxOut,
+  genUTxO1,
+  genUTxOAdaOnlyOfSize,
+  genVerificationKey,
+ )
+import Test.Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
@@ -512,6 +509,11 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
+data CloseTxError
+  = InvalidHeadIdInClose {headId :: HeadId}
+  | CannotFindHeadOutputToClose
+  deriving stock (Show)
+
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
 -- difference should not exceed contestation period.
@@ -551,6 +553,15 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
+
+data ContestTxError
+  = InvalidHeadIdInContest {headId :: HeadId}
+  | CannotFindHeadOutputToContest
+  | MissingHeadDatumInContest
+  | MissingHeadRedeemerInContest
+  | WrongDatumInContest
+  | FailedToConvertFromScriptDataInContest
+  deriving stock (Show)
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
 -- snapshot. The given 'PointInTime' will be used as an upper validity bound and
@@ -609,6 +620,13 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+data FanoutTxError
+  = CannotFindHeadOutputToFanout
+  | MissingHeadDatumInFanout
+  | WrongDatumInFanout
+  | FailedToConvertFromScriptDataInFanout
+  deriving stock (Show)
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
 -- agreed 'UTxO' set to fan out.
@@ -1063,14 +1081,6 @@ genDecrementTx numParties = do
     , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot
     )
 
--- | Split a given UTxO into two, such that the second UTxO is non-empty. This
--- is useful to pick a UTxO to decommit.
-splitUTxO :: UTxO -> (UTxO, UTxO)
-splitUTxO utxo =
-  case UTxO.pairs utxo of
-    [] -> (mempty, mempty)
-    (u : us) -> (UTxO.fromPairs us, UTxO.singleton u)
-
 genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
@@ -1158,7 +1168,7 @@ genStClosed ctx utxo utxoToDecommit = do
               }
           , utxo
           , utxoToDecommit
-          , Hydra.Snapshot.version snap
+          , version snap
           )
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx

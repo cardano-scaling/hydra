@@ -4,7 +4,7 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Ledger (IsTx)
+import Hydra.Tx (IsTx)
 
 data ClientInput tx
   = Init

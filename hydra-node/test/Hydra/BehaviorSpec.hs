@@ -27,18 +27,13 @@ import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
-  ChainStateType,
-  IsChainState,
   OnChainTx (..),
   PostChainTx (..),
-  chainStateSlot,
   initHistory,
  )
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
-import Hydra.Crypto (HydraKey, aggregate, sign)
-import Hydra.Environment (Environment (..))
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (
   Effect (..),
@@ -47,7 +42,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.Ledger (ChainSlot (ChainSlot), IsTx (..), Ledger, nextChainSlot)
+import Hydra.Ledger.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
@@ -55,9 +50,21 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, hydrate, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue))
 import Hydra.NodeSpec (createPersistenceInMemory)
-import Hydra.Party (Party (..), deriveParty, getParty)
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
-import Test.Hydra.Fixture (alice, aliceSk, bob, bobSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.Party (Party (..), deriveParty, getParty)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.Tx.Fixture (
+  alice,
+  aliceSk,
+  bob,
+  bobSk,
+  deriveOnChainId,
+  testHeadId,
+  testHeadSeed,
+ )
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
 
 spec :: Spec

@@ -22,10 +22,9 @@ import Hydra.Chain.CardanoClient (
   queryTip,
  )
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
+import Hydra.Tx.Contest (PointInTime)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
-
-type PointInTime = (SlotNo, UTCTime)
 
 data TimeHandle = TimeHandle
   { currentPointInTime :: Either Text PointInTime

@@ -31,7 +31,7 @@ import Hydra.Persistence (
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 import System.Random (mkStdGen, uniformR)
-import Test.Hydra.Fixture (alice, bob, carol)
+import Test.Hydra.Tx.Fixture (alice, bob, carol)
 import Test.QuickCheck (
   Positive (Positive),
   collect,

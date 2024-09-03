@@ -6,7 +6,7 @@ module Hydra.Events.FileBased where
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
-import Hydra.Chain (IsChainState)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.Persistence (PersistenceIncremental (..))

@@ -11,9 +11,9 @@ import Hydra.Prelude hiding (Any, label)
 import Data.List qualified as List
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import Hydra.Chain.Direct.Fixture (testNetworkId)
-import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (genKeyPair)
+import Hydra.Tx.IsTx (IsTx (..))
+import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
 import Test.QuickCheck.StateModel (HasVariables)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))

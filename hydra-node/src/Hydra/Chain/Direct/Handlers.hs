@@ -28,16 +28,17 @@ import Hydra.Chain (
   ChainCallback,
   ChainEvent (..),
   ChainStateHistory,
-  ChainStateType,
-  CommitBlueprintTx (..),
-  HeadParameters (..),
-  IsChainState,
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
   currentState,
   pushNewState,
   rollbackHistory,
+ )
+import Hydra.Chain.ChainState (
+  ChainSlot (..),
+  ChainStateType,
+  IsChainState,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -57,7 +58,6 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
   AbortObservation (..),
   CloseObservation (..),
-  ClosedThreadOutput (..),
   CollectComObservation (..),
   CommitObservation (..),
   ContestObservation (..),
@@ -74,11 +74,16 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.ContestationPeriod (toNominalDiffTime)
-import Hydra.Ledger (ChainSlot (ChainSlot), UTxOType)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Tx (
+  CommitBlueprintTx (..),
+  HeadParameters (..),
+  UTxOType,
+ )
+import Hydra.Tx.Contest (ClosedThreadOutput (..))
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.

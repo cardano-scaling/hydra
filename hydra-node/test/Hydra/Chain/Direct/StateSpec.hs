@@ -41,14 +41,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  applyMutation,
-  modifyInlineDatum,
-  replaceHeadId,
-  replacePolicyIdWith,
- )
-import Hydra.Chain.Direct.Fixture (slotLength, systemStart, testNetworkId)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -82,7 +74,6 @@ import Hydra.Chain.Direct.State (
   observeCollect,
   observeCommit,
   pickChainContext,
-  splitUTxO,
   unsafeAbort,
   unsafeClose,
   unsafeCollect,
@@ -91,17 +82,12 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), ClosedThreadOutput (closedContesters), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeDecrementTx, observeHeadTx, observeInitTx)
-import Hydra.ContestationPeriod (toNominalDiffTime)
+import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeDecrementTx, observeHeadTx, observeInitTx)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (
-  genOutput,
   genTxOut,
-  genTxOutAdaOnly,
   genTxOutByron,
-  genUTxO1,
-  genUTxOSized,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
@@ -111,11 +97,23 @@ import Hydra.Ledger.Cardano.Evaluate (
   propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
-import Hydra.Snapshot qualified as Snapshot
+import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
+import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.Tx.Utils (splitUTxO)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
+import Test.Hydra.Tx.Gen (genOutput, genTxOutAdaOnly, genUTxO1, genUTxOSized)
+import Test.Hydra.Tx.Mutation (
+  Mutation (..),
+  applyMutation,
+  modifyInlineDatum,
+  replaceHeadId,
+  replacePolicyIdWith,
+ )
 import Test.QuickCheck (
   Property,
   Testable (property),

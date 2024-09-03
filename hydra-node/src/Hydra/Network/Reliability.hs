@@ -110,9 +110,9 @@ import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
-import Hydra.Party (Party)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
-import Test.QuickCheck (getPositive, listOf)
+import Hydra.Tx (Party)
+import Test.QuickCheck ()
 
 data ReliableMsg msg = ReliableMsg
   { knownMessageIds :: Vector Int
@@ -157,10 +157,6 @@ data ReliabilityLog
       }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary (Vector Int) where
-  arbitrary = fromList <$> listOf (getPositive <$> arbitrary)
-  shrink v = fromList <$> shrink (toList v)
 
 instance Arbitrary ReliabilityLog where
   arbitrary = genericArbitrary

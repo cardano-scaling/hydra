@@ -25,15 +25,13 @@ import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   ChainStateHistory,
-  ChainStateType,
-  HeadParameters (..),
-  IsChainState,
   PostTxError,
  )
-import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
+import Hydra.Chain.ChainState (
+  ChainStateType,
+  IsChainState,
+ )
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Crypto (AsType (AsHydraKey))
-import Hydra.Environment (Environment (..))
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
   Effect (..),
@@ -49,14 +47,18 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.Ledger (Ledger)
+import Hydra.Ledger.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
-import Hydra.Party (HasParty (..), Party (..), deriveParty)
+import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx.Crypto (AsType (AsHydraKey))
+import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- * Environment Handling
 
@@ -393,6 +395,6 @@ deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
 
-instance IsChainState tx => Arbitrary (HydraNodeLog tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

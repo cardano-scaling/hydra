@@ -10,11 +10,11 @@ import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
-import Hydra.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Hydra.Logging (traceWith)
 import Hydra.Network (Network (Network, broadcast), NetworkComponent)
-import Hydra.Party (Party (Party, vkey), deriveParty)
 import Hydra.Prelude
+import Hydra.Tx (Party (Party, vkey), deriveParty)
+import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 
 -- | Represents a signed message over the network.
 -- Becomes valid once its receivers verify it against its other peers

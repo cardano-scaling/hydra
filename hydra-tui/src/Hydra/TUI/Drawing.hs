@@ -24,14 +24,12 @@ import Data.Version (Version, showVersion)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
-import Hydra.HeadId (HeadId)
-import Hydra.Ledger (IsTx (..))
 import Hydra.Network (NodeId)
-import Hydra.Party (Party (..))
 import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
 import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style
+import Hydra.Tx (HeadId, IsTx (..), Party (..))
 import Lens.Micro ((^.), (^?), _head)
 import Paths_hydra_tui (version)
 

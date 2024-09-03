@@ -18,7 +18,8 @@ import Hydra.Cardano.Api (
   getChainPoint,
  )
 
-import Hydra.Chain (ChainEvent (..), HeadParameters, OnChainTx (..), chainStateSlot, currentState, initHistory, maximumNumberOfParties)
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
+import Hydra.Chain.ChainState (ChainSlot (..), chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -50,10 +51,8 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
-import Hydra.Ledger (
-  ChainSlot (..),
- )
-import Hydra.OnChainId (OnChainId)
+import Hydra.Tx.HeadParameters (HeadParameters)
+import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,

@@ -3,11 +3,11 @@ module Hydra.Chain.Direct.ScriptRegistrySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.ScriptRegistry (
-  genScriptRegistry,
+import Hydra.Tx.ScriptRegistry (
   newScriptRegistry,
   registryUTxO,
  )
+import Test.Hydra.Tx.Gen (genScriptRegistry)
 import Test.QuickCheck (forAllBlind, (===))
 
 spec :: Spec

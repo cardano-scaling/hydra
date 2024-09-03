@@ -14,7 +14,7 @@ import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
-import Test.Hydra.Fixture (alice, testHeadId)
+import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec

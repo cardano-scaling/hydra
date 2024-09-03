@@ -40,7 +40,6 @@ import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -77,11 +76,11 @@ import Hydra.Cluster.Scenarios (
   threeNodesNoErrorsOnOpen,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),
   getMetrics,
@@ -107,6 +106,8 @@ import System.IO (
  )
 import System.IO.Error (isEOFError)
 import System.Process (waitForProcess)
+import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
 import Test.QuickCheck (generate)
 import Prelude qualified
 

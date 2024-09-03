@@ -3,8 +3,10 @@ module Hydra.HeadLogic.Input where
 import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.Chain (ChainEvent, IsChainState)
+import Hydra.Chain (ChainEvent)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Network.Message (Message, NetworkEvent)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 type TTL = Natural
 
@@ -28,6 +30,6 @@ deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
-instance IsChainState tx => Arbitrary (Input tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

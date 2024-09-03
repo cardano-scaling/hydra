@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Hydra.ChainObserver (ChainObservation (..))
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState (..), aggregateHeadObservations, initialTickState)
-import Hydra.HeadId (HeadId)
+import Hydra.Tx.HeadId (HeadId)
 import Test.QuickCheck (forAll, listOf1, (=/=))
 
 spec :: Spec

@@ -2,19 +2,20 @@ module Hydra.Explorer.ExplorerState where
 
 import Hydra.Prelude
 
-import Hydra.HeadId (HeadId (..), HeadSeed)
+import Hydra.Tx.HeadId (HeadId (..), HeadSeed)
 
 import Data.Aeson (Value (..))
 import Hydra.Cardano.Api (BlockNo, ChainPoint (..), TxIn, UTxO)
-import Hydra.Chain (HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.Direct.Tx (
   headSeedToTxIn,
  )
 import Hydra.ChainObserver (ChainObservation (..))
-import Hydra.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
-import Hydra.OnChainId (OnChainId)
-import Hydra.Party (Party)
-import Hydra.Snapshot (SnapshotNumber (..))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (SnapshotNumber (..))
 
 data HeadMember = HeadMember
   { party :: Party

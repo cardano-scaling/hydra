@@ -12,8 +12,8 @@ import Hydra.Cluster.Faucet (returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Test.Hydra.Tx.Gen (genVerificationKey)
 import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
 
 setupDevnet :: ((Tracer IO EndToEndLog, RunningNode) -> IO a) -> IO a

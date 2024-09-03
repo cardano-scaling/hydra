@@ -7,9 +7,9 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Cardano.Api qualified as Api
-import Hydra.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Tx (Party, deriveParty)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk

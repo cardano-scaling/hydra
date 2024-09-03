@@ -25,16 +25,14 @@ import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..), HydraEvent (..))
-import Hydra.Ledger (IsTx (..), balance)
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Forms
 import Hydra.TUI.Handlers.Global (handleVtyGlobalEvents)
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
+import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
 import Prelude qualified
 

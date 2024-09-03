@@ -55,20 +55,18 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
 import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.HeadId (HeadId)
-import Hydra.Ledger (IsTx (balance), txId)
-import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
-import Hydra.Party (Party)
+import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -101,6 +99,7 @@ import Network.HTTP.Req (
  )
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
+import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
 
 data EndToEndLog

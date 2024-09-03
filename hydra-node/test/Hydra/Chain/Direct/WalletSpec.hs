@@ -41,7 +41,6 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Cardano.Api.Tx (signTx, toLedgerTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -55,7 +54,8 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genOneUTxOFor, genSigningKey)
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genSigningKey)
 import Test.QuickCheck (
   Property,
   checkCoverage,

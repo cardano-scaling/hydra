@@ -39,8 +39,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
-  CommitBlueprintTx (..),
-  HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -53,9 +51,8 @@ import Hydra.Chain.Direct (
   withDirectChain,
  )
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
-import Hydra.Chain.Direct.ScriptRegistry (queryScriptRegistry)
-import Hydra.Chain.Direct.State (initialChainState, splitUTxO)
-import Hydra.Chain.Direct.Tx (verificationKeyToOnChainId)
+import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.ScriptRegistry (queryScriptRegistry)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -71,21 +68,28 @@ import Hydra.Cluster.Fixture (
   cperiod,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
-import Hydra.Crypto (aggregate, sign)
-import Hydra.HeadId (HeadId, HeadSeed (..))
-import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (Tx, genKeyPair)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
-import Hydra.OnChainId (OnChainId)
 import Hydra.Options (
   ChainConfig (..),
   DirectChainConfig (..),
   toArgNetworkId,
  )
-import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.Crypto (aggregate, sign)
+import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Utils (
+  splitUTxO,
+  verificationKeyToOnChainId,
+ )
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
+import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, generate)
 
 spec :: Spec

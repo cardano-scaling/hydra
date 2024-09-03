@@ -32,19 +32,19 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Chain.Direct.Fixture (defaultPParams)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
-import Hydra.Party (Party)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.Snapshot (Snapshot (Snapshot, utxo))
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo))
 import Network.Simple.WSS qualified as WSS
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
-import Test.Hydra.Fixture (alice, testHeadId)
+import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
+import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, generate)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)

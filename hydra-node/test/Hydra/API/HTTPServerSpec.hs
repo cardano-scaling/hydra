@@ -12,17 +12,17 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..))
-import Hydra.Chain.Direct.Fixture (defaultPParams)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
-import Hydra.Ledger (UTxOType)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
+import Hydra.Tx.IsTx (UTxOType)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
+import Test.Hydra.Tx.Fixture (defaultPParams)
 import Test.QuickCheck (
   checkCoverage,
   counterexample,
