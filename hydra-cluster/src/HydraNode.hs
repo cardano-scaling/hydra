@@ -31,7 +31,7 @@ import Hydra.Options (ChainConfig (..), DirectChainConfig (..), InceptionChainCo
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.HTTP.Simple (getResponseBody, httpLbs, setRequestBodyJSON)
+import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -192,6 +192,14 @@ postDecommit HydraClient{apiHost = Host{hostname, port}} decommitTx = do
       <&> setRequestBodyJSON decommitTx
         >>= httpLbs
 
+-- | Fetch protocol parameters fro a hydra-node.
+-- XXX: inconsistent API with other functions
+getProtocolParameters :: Host -> IO (PParams LedgerEra)
+getProtocolParameters host = do
+  parseUrlThrow ("GET http://" <> show host <> "/protocol-parameters")
+    >>= httpJSON
+    <&> getResponseBody
+
 -- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we usually
 -- avoid parsing responses using the same data types as the system under test,
 -- this parses the response as a 'UTxO' type as we often need to pick it apart.
@@ -349,10 +357,8 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
             & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
       Inception InceptionChainConfig{underlyingHydraApi} -> do
         -- NOTE: We use the same protocol-parameters than the underlying hydra head.
-        parseUrlThrow ("GET http://" <> show underlyingHydraApi <> "/protocol-parameters")
-          >>= httpLbs
-          <&> getResponseBody
-            >>= writeFileLBS cardanoLedgerProtocolParametersFile
+        getProtocolParameters underlyingHydraApi
+          >>= Aeson.encodeFile cardanoLedgerProtocolParametersFile
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey

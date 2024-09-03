@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   TxOut,
   WitCtx (..),
   balancedTxBody,
+  defaultTxBodyContent,
   examplePlutusScriptAlwaysFails,
   getTxBody,
   getTxId,
@@ -42,11 +43,14 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
+  setTxIns,
+  setTxOuts,
   shelleyBasedEra,
   throwErrorAsException,
   toLedgerEpochInfo,
   txOutReferenceScript,
   txOutValue,
+  withWitness,
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
   pattern TxOutDatumNone,
@@ -66,7 +70,6 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
-import Hydra.Ledger.Cardano.Builder (addOutputs, addVkInputs, emptyTxBody)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -246,9 +249,9 @@ publishHydraScriptsTx networkId systemStart eraHistory pparams sk utxo = do
   changeAddress = mkVkAddress networkId vk
 
   bodyContent =
-    emptyTxBody
-      & addOutputs outputs
-      & addVkInputs (toList $ UTxO.inputSet selectedUTxO)
+    defaultTxBodyContent
+      & setTxOuts outputs
+      & setTxIns (map withWitness . toList $ UTxO.inputSet selectedUTxO)
 
   outputs =
     mkScriptTxOut

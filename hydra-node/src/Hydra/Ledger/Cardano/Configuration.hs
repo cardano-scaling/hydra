@@ -7,7 +7,6 @@ module Hydra.Ledger.Cardano.Configuration (
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)

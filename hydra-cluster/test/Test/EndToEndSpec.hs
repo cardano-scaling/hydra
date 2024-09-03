@@ -41,6 +41,7 @@ import Data.Text qualified as Text
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.ScriptRegistry (publishHydraScriptsTx)
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -82,11 +83,13 @@ import Hydra.Cluster.Util (chainConfigFor, copyConfigFile, keysFor, modifyConfig
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
 import Hydra.Logging (Tracer, showLogsOnFailure, withTracerOutputTo)
 import Hydra.Options
 import HydraNode (
   HydraClient (..),
   getMetrics,
+  getProtocolParameters,
   getSnapshotUTxO,
   input,
   output,
@@ -130,10 +133,30 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withLogFile (tmpDir </> "logs" </> "test.log") $ \h -> do
           withTracerOutputTo h "Inception" $ \tracer -> do
             let l2Dir = tmpDir </> "l2"
-            withCardanoNodeDevnet (contramap FromCardanoNode tracer) l2Dir $ \node -> do
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) l2Dir $ \node@RunningNode{networkId} -> do
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               -- L2 using node id 1
-              singlePartyOpenAHead tracer l2Dir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
+              singlePartyOpenAHead tracer l2Dir node hydraScriptsTxId $ \l2@HydraClient{apiHost} walletSk -> do
+                let hydraTracer = contramap FromHydraNode tracer
+                -- Publish hydra scripts in L2
+                pparams <- getProtocolParameters apiHost
+                -- XXX: this is all utxo
+                walletUTxO <- getSnapshotUTxO l2
+                -- XXX: fixture dependencies
+                tx <-
+                  either (fail . show) pure $
+                    publishHydraScriptsTx
+                      networkId
+                      Fixture.systemStart
+                      Fixture.eraHistoryWithoutHorizon
+                      pparams
+                      walletSk
+                      walletUTxO
+                send l2 $ input "NewTx" ["transaction" .= tx]
+                waitMatch 3 l2 $ \v -> do
+                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                  guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+
                 -- Start another node pointing to the L2 hydra-node
                 let l3Dir = tmpDir </> "l3"
                 copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
@@ -144,7 +167,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                           , cardanoSigningKey = l3Dir </> "bob.sk"
                           }
                 -- L3 using node id 11
-                withHydraNode (contramap FromHydraNode tracer) chainConfig l3Dir 11 bobSk [] [11] $ \l3 -> do
+                withHydraNode hydraTracer chainConfig l3Dir 11 bobSk [] [11] $ \l3 -> do
                   let blockTime = 0.1 -- L2 is very fast
                   send l3 $ input "Init" []
                   headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
