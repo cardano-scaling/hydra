@@ -228,51 +228,40 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
 -- `hydra-cluster` executable.
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
-  FilePath ->
   RunningNode ->
-  TxId ->
+  HydraClient ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
-  ( `finally`
-      do
-        returnFundsToFaucet tracer node Alice
-        returnFundsToFaucet tracer node AliceFunds
-  )
-    $ do
-      refuelIfNeeded tracer node Alice 55_000_000
-      -- Start hydra-node on chain tip
-      tip <- queryTip networkId nodeSocket
-      contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
-      aliceChainConfig <-
-        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-          <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-        -- Initialize & open head
-        send n1 $ input "Init" []
-        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+singlePartyHeadFullLifeCycle tracer node client =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 55_000_000
 
-        -- Commit something from external key
-        (walletVk, walletSk) <- keysFor AliceFunds
-        amount <- Coin <$> generate (choose (10_000_000, 50_000_000))
-        utxoToCommit <- seedFromFaucet node walletVk amount (contramap FromFaucet tracer)
-        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+    -- Initialize & open head
+    send client $ input "Init" []
+    headId <- waitMatch (10 * blockTime) client $ headIsInitializingWith (Set.fromList [alice])
 
-        waitFor hydraTracer (10 * blockTime) [n1] $
-          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
-        -- Close head
-        send n1 $ input "Close" []
-        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
-          guard $ v ^? key "tag" == Just "HeadIsClosed"
-          guard $ v ^? key "headId" == Just (toJSON headId)
-          v ^? key "contestationDeadline" . _JSON
-        remainingTime <- diffUTCTime deadline <$> getCurrentTime
-        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
-          output "ReadyToFanout" ["headId" .= headId]
-        send n1 $ input "Fanout" []
-        waitFor hydraTracer (10 * blockTime) [n1] $
-          output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
-      traceRemainingFunds Alice
-      traceRemainingFunds AliceFunds
+    -- Commit something from external key
+    (walletVk, walletSk) <- keysFor AliceFunds
+    amount <- Coin <$> generate (choose (10_000_000, 50_000_000))
+    utxoToCommit <- seedFromFaucet node walletVk amount (contramap FromFaucet tracer)
+    requestCommitTx client utxoToCommit <&> signTx walletSk >>= submitTx node
+
+    waitFor hydraTracer (10 * blockTime) [client] $
+      output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+    -- Close head
+    send client $ input "Close" []
+    deadline <- waitMatch (10 * blockTime) client $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsClosed"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      v ^? key "contestationDeadline" . _JSON
+    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+    waitFor hydraTracer (remainingTime + 3 * blockTime) [client] $
+      output "ReadyToFanout" ["headId" .= headId]
+    send client $ input "Fanout" []
+    waitFor hydraTracer (10 * blockTime) [client] $
+      output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+    traceRemainingFunds Alice
  where
   hydraTracer = contramap FromHydraNode tracer
 
@@ -722,6 +711,26 @@ respendUTxO client sk delay = do
       v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
 
 -- * Utilities
+
+-- | Run a single hydra-node using credentials of 'Alice'.
+withHydraNodeSingleAlice ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  -- | Transaction id at which Hydra scripts should have been published.
+  TxId ->
+  RunningNode ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeSingleAlice tracer workDir hydraScriptsTxId node action = do
+  -- Start hydra-node on chain tip
+  tip <- queryTip networkId nodeSocket
+  contestationPeriod <- fromNominalDiffTime $ 10 * blockTime
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+      <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
+  withHydraNode (contramap FromHydraNode tracer) aliceChainConfig workDir 1 aliceSk [] [1] action
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::

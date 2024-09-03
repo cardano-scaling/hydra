@@ -75,6 +75,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
+  withHydraNodeSingleAlice,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
@@ -167,9 +168,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= singlePartyHeadFullLifeCycle tracer tmpDir node
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            withHydraNodeSingleAlice tracer tmpDir hydraScriptsTxId node $ \n1 ->
+              singlePartyHeadFullLifeCycle tracer node n1
+
       it "can close with long deadline" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->

@@ -7,7 +7,7 @@ import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
-import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead, withHydraNodeSingleAlice)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (removeDirectoryRecursive)
@@ -28,8 +28,9 @@ run options =
         Just network ->
           withRunningCardanoNode tracer workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
-            publishOrReuseHydraScripts tracer node
-              >>= singlePartyHeadFullLifeCycle tracer workDir node
+            hydraScriptsTxId <- publishOrReuseHydraScripts tracer node
+            withHydraNodeSingleAlice tracer workDir hydraScriptsTxId node $ \client ->
+              singlePartyHeadFullLifeCycle tracer node client
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
