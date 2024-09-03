@@ -455,15 +455,20 @@ ledgerGenesisFileParser =
     )
 
 -- | Run the hydra-node on top of another hydra-node.
-newtype InceptionChainConfig = InceptionChainConfig {underlyingHydraApi :: Host}
+data InceptionChainConfig = InceptionChainConfig
+  { underlyingHydraApi :: Host
+  , contestationPeriod :: ContestationPeriod
+  }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 inceptionChainConfigParser :: Parser InceptionChainConfig
 inceptionChainConfigParser =
-  InceptionChainConfig <$> pHost
+  InceptionChainConfig
+    <$> inceptionHostParser
+    <*> contestationPeriodParser
  where
-  pHost =
+  inceptionHostParser =
     option
       (eitherReader readHost)
       ( long "inception"
