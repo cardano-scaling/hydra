@@ -10,9 +10,14 @@ import Hydra.Prelude
 
 import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.GenesisParameters (fromShelleyGenesis)
-import Hydra.Cardano.Api (GenesisParameters, ShelleyEra, Tx, sgSystemStart)
-import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostTxError (..))
+import Hydra.Cardano.Api (GenesisParameters, NetworkId (..), NetworkMagic (..), ShelleyEra, Tx, sgSystemStart)
+import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
+import Hydra.Chain.Direct.Tx (initTx)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Network (Host)
 import Hydra.Options (InceptionChainConfig)
+import System.IO (hPutStrLn)
+import Text.Pretty.Simple (pHPrint)
 
 -- | Determine the ledger genesis parameters for the head in a head.
 -- TODO: Make this configurable like --offline?
@@ -30,13 +35,44 @@ withInceptionChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withInceptionChain config chainStateHistory callback action = do
-  action chainHandle
- where
-  chainHandle =
+  -- TODO: add wallet
+  let wallet = undefined
+  -- TODO: open websocket and callback on SnapshotConfirmed
+  action
     Chain
-      { submitTx = const $ pure ()
+      { postTx = postTx wallet
+      , submitTx
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
-      , postTx = \tx -> do
-          print (spy tx)
-          pure ()
       }
+ where
+  -- TODO: configure / fetch from underlying?
+  networkId = Testnet (NetworkMagic 42)
+
+  postTx wallet toPost = do
+    hPutStrLn stderr "Should postTx in Head:"
+    pHPrint stderr toPost
+
+    -- TODO: query spendable utxo on demand
+    -- TODO: define a timehandle to use (current slot?)
+    -- TODO: prepareTxToPost with timehandle, wallet and spendable utxo
+    tx <- atomically $ do
+      case toPost of
+        InitTx{participants, headParameters} ->
+          getSeedInput wallet >>= \case
+            Just seedInput ->
+              pure $ initTx networkId seedInput participants headParameters
+            Nothing ->
+              error "no seed input"
+        _ -> undefined
+
+    -- TODO: finalizeTx with wallet
+    submitTx tx
+
+  submitTx tx = do
+    -- TODO: send via "NewTx" on websocket
+    hPutStrLn stderr "submitTx"
+    pHPrint stderr tx
+
+-- | Create a 'TinyWallet' interface using a connection to the Hydra node.
+newHydraWallet :: Host -> m (TinyWallet m)
+newHydraWallet = undefined
