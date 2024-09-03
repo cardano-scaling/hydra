@@ -19,7 +19,6 @@ module Hydra.Cardano.Api (
   Era,
   LedgerEra,
   ledgerEraVersion,
-  LedgerProtocolParameters (..),
 
   -- * Wrapped Types
   module Hydra.Cardano.Api,
@@ -86,11 +85,13 @@ import Cardano.Api as X hiding (
 import Cardano.Api.Byron as X (
   Address (..),
  )
+import Cardano.Api.Ledger as X (PParams)
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
   Address (..),
   Hash (HeaderHash),
   Key (..),
+  LedgerProtocolParameters (..),
   PlutusScriptOrReferenceInput (PScript),
   PoolId,
   ShelleyGenesis (..),
@@ -114,7 +115,6 @@ import Cardano.Ledger.Coin as X (Coin (..))
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
-  LedgerProtocolParameters,
   Map,
   StandardCrypto,
   ledgerEraVersion,
