@@ -64,6 +64,7 @@ library
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
+    Hydra.Chain.Inception
     Hydra.Chain.Offline
     Hydra.ContestationPeriod
     Hydra.Crypto

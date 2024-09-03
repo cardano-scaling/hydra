@@ -10,12 +10,12 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Inception (getGenesisParameters, withInceptionChain)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Environment (Environment (..))
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano qualified as Ledger
 import Hydra.Ledger.Cardano.Configuration (
-  Globals,
   newGlobals,
   newLedgerEnv,
   pparamsFromJson,
@@ -70,7 +70,7 @@ run opts = do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
       pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
-      globals <- getGlobalsForChain chainConfig
+      globals <- newGlobals =<< getGenesisParametersForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         (eventSource, filePersistenceSink) <-
@@ -98,6 +98,14 @@ run opts = do
               connect chain network server wetHydraNode
                 >>= runHydraNode
  where
+  getGenesisParametersForChain = \case
+    Offline OfflineChainConfig{ledgerGenesisFile} ->
+      loadGenesisFile ledgerGenesisFile
+    Direct DirectChainConfig{networkId, nodeSocket} ->
+      queryGenesisParameters networkId nodeSocket QueryTip
+    Inception{} ->
+      getGenesisParameters
+
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (Ledger.cardanoLedger globals ledgerEnv)
@@ -109,6 +117,8 @@ run opts = do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
+    Inception cfg -> do
+      pure $ withInceptionChain cfg
 
   RunOptions
     { verbosity
@@ -125,15 +135,6 @@ run opts = do
     , tlsCertPath
     , tlsKeyPath
     } = opts
-
-getGlobalsForChain :: ChainConfig -> IO Globals
-getGlobalsForChain = \case
-  Offline OfflineChainConfig{ledgerGenesisFile} ->
-    loadGenesisFile ledgerGenesisFile
-      >>= newGlobals
-  Direct DirectChainConfig{networkId, nodeSocket} ->
-    queryGenesisParameters networkId nodeSocket QueryTip
-      >>= newGlobals
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
