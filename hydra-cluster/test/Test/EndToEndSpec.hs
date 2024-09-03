@@ -78,7 +78,7 @@ import Hydra.Cluster.Scenarios (
   threeNodesNoErrorsOnOpen,
   withHydraNodeSingleAlice,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import Hydra.Cluster.Util (chainConfigFor, copyConfigFile, keysFor, modifyConfig)
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
@@ -127,12 +127,20 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
   describe "End-to-end in another Hydra head (inception)" $ do
     it "full head life-cycle" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
-        withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+        let l2Dir = tmpDir </> "l2"
+        withCardanoNodeDevnet (contramap FromCardanoNode tracer) l2Dir $ \node -> do
           hydraScriptsTxId <- publishHydraScriptsAs node Faucet
           -- L2 using node id 1
-          singlePartyOpenAHead tracer tmpDir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
+          singlePartyOpenAHead tracer l2Dir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
             -- Start another node pointing to the L2 hydra-node
-            let chainConfig = Inception defaultInceptionChainConfig{underlyingHydraApi = apiHost}
+            let l3Dir = tmpDir </> "l3"
+            copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
+            let chainConfig =
+                  Inception
+                    defaultInceptionChainConfig
+                      { underlyingHydraApi = apiHost
+                      , cardanoSigningKey = l3Dir </> "bob.sk"
+                      }
             -- L3 using node id 11
             withHydraNode (contramap FromHydraNode tracer) chainConfig tmpDir 11 bobSk [] [11] $ \l3 -> do
               let blockTime = 0.1 -- L2 is very fast

@@ -23,20 +23,23 @@ import Hydra.ContestationPeriod (ContestationPeriod)
 import Hydra.Ledger.Cardano (genSigningKey)
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), defaultDirectChainConfig)
 import Paths_hydra_cluster qualified as Pkg
-import System.FilePath ((<.>), (</>))
+import System.Directory (createDirectoryIfMissing)
+import System.FilePath (takeDirectory, (<.>), (</>))
 import Test.Hydra.Prelude (failure)
 import Test.QuickCheck (generate)
 
--- | Lookup a config file similar reading a file from disk.
--- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be
--- resolved relative to its value otherwise they will be looked up in the
--- package's data path.
+-- | Read a file from the config/ repository directory. See 'getDataFileName'
+-- how to override the path to config/.
 readConfigFile :: FilePath -> IO ByteString
 readConfigFile source = do
-  filename <-
-    lookupEnv "HYDRA_CONFIG_DIR"
-      >>= maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
-  BS.readFile filename
+  Pkg.getDataFileName ("config" </> source) >>= BS.readFile
+
+-- | Copy a file from the config/ repository directory to a target path. See
+-- 'getDataFileName' how to override the path to config/.
+copyConfigFile :: FilePath -> FilePath -> IO ()
+copyConfigFile source target = do
+  createDirectoryIfMissing True (takeDirectory target)
+  readConfigFile source >>= BS.writeFile target
 
 -- | Get the "well-known" keys for given actor.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)

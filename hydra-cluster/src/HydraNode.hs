@@ -27,11 +27,11 @@ import Hydra.Crypto (HydraKey)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), InceptionChainConfig (InceptionChainConfig, underlyingHydraApi), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
-import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
+import Network.HTTP.Simple (getResponseBody, httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -347,7 +347,12 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
             & atKey "txFeePerByte" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
-      Inception _ -> pure ()
+      Inception InceptionChainConfig{underlyingHydraApi} -> do
+        -- NOTE: We use the same protocol-parameters than the underlying hydra head.
+        parseUrlThrow ("GET http://" <> show underlyingHydraApi <> "/protocol-parameters")
+          >>= httpLbs
+          <&> getResponseBody
+            >>= writeFileLBS cardanoLedgerProtocolParametersFile
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
