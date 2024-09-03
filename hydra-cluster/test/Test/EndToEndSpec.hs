@@ -82,7 +82,7 @@ import Hydra.Cluster.Util (chainConfigFor, copyConfigFile, keysFor, modifyConfig
 import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, genUTxOFor, mkRangedTx, mkSimpleTx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Logging (Tracer, showLogsOnFailure, withTracerOutputTo)
 import Hydra.Options
 import HydraNode (
   HydraClient (..),
@@ -125,31 +125,33 @@ withClusterTempDir = withTempDir "hydra-cluster"
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   describe "End-to-end in another Hydra head (inception)" $ do
-    it "full head life-cycle" $ \tracer -> do
+    it "full head life-cycle" $ \_ ->
       withClusterTempDir $ \tmpDir -> do
-        let l2Dir = tmpDir </> "l2"
-        withCardanoNodeDevnet (contramap FromCardanoNode tracer) l2Dir $ \node -> do
-          hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-          -- L2 using node id 1
-          singlePartyOpenAHead tracer l2Dir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
-            -- Start another node pointing to the L2 hydra-node
-            let l3Dir = tmpDir </> "l3"
-            copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
-            let chainConfig =
-                  Inception
-                    defaultInceptionChainConfig
-                      { underlyingHydraApi = apiHost
-                      , cardanoSigningKey = l3Dir </> "bob.sk"
-                      }
-            -- L3 using node id 11
-            withHydraNode (contramap FromHydraNode tracer) chainConfig tmpDir 11 bobSk [] [11] $ \l3 -> do
-              let blockTime = 0.1 -- L2 is very fast
-              send l3 $ input "Init" []
-              headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
-              -- Commit nothing
-              requestCommitTx l3 mempty <&> signTx walletSk >>= submitTx node
-              waitFor (contramap FromHydraNode tracer) (10 * blockTime) [l3] $
-                output "HeadIsOpen" ["utxo" .= object [], "headId" .= headId]
+        withLogFile (tmpDir </> "logs" </> "test.log") $ \h -> do
+          withTracerOutputTo h "Inception" $ \tracer -> do
+            let l2Dir = tmpDir </> "l2"
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) l2Dir $ \node -> do
+              hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+              -- L2 using node id 1
+              singlePartyOpenAHead tracer l2Dir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
+                -- Start another node pointing to the L2 hydra-node
+                let l3Dir = tmpDir </> "l3"
+                copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
+                let chainConfig =
+                      Inception
+                        defaultInceptionChainConfig
+                          { underlyingHydraApi = apiHost
+                          , cardanoSigningKey = l3Dir </> "bob.sk"
+                          }
+                -- L3 using node id 11
+                withHydraNode (contramap FromHydraNode tracer) chainConfig l3Dir 11 bobSk [] [11] $ \l3 -> do
+                  let blockTime = 0.1 -- L2 is very fast
+                  send l3 $ input "Init" []
+                  headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
+                  -- Commit nothing
+                  requestCommitTx l3 mempty <&> signTx walletSk >>= submitTx node
+                  waitFor (contramap FromHydraNode tracer) (10 * blockTime) [l3] $
+                    output "HeadIsOpen" ["utxo" .= object [], "headId" .= headId]
 
   it "End-to-end offline mode" $ \tracer -> do
     withClusterTempDir $ \tmpDir -> do

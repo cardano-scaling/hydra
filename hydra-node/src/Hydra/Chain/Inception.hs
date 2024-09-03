@@ -36,5 +36,7 @@ withInceptionChain config chainStateHistory callback action = do
     Chain
       { submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
-      , postTx = const $ pure ()
+      , postTx = \tx -> do
+          print (spy tx)
+          pure ()
       }
