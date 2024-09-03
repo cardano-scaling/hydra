@@ -55,7 +55,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), InceptionChainConfig (..), RunOptions (..), defaultContestationPeriod)
 import Hydra.Party (HasParty (..), Party (..), deriveParty)
 
 -- * Environment Handling
@@ -80,6 +80,15 @@ initEnvironment options = do
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
+      -- TODO: avoid duplication
+      Inception
+        InceptionChainConfig
+          { cardanoVerificationKeys
+          , cardanoSigningKey
+          } -> do
+          ownSigningKey <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+          otherVerificationKeys <- mapM (readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey)) cardanoVerificationKeys
+          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
       Direct
         DirectChainConfig
           { cardanoVerificationKeys
@@ -92,6 +101,7 @@ initEnvironment options = do
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Direct DirectChainConfig{contestationPeriod = cp} -> cp
+    Inception InceptionChainConfig{contestationPeriod = cp} -> cp
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

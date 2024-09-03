@@ -38,7 +38,7 @@ import Hydra.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), 
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
@@ -458,15 +458,33 @@ ledgerGenesisFileParser =
 data InceptionChainConfig = InceptionChainConfig
   { underlyingHydraApi :: Host
   , contestationPeriod :: ContestationPeriod
+  , hydraScriptsTxId :: TxId
+  -- ^ Identifier of transaction holding the hydra scripts to use.
+  , cardanoSigningKey :: FilePath
+  -- ^ Path to the cardano signing key of the internal wallet.
+  , cardanoVerificationKeys :: [FilePath]
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+defaultInceptionChainConfig :: InceptionChainConfig
+defaultInceptionChainConfig =
+  InceptionChainConfig
+    { underlyingHydraApi = Host "0.0.0.0" 4001
+    , hydraScriptsTxId = TxId "0101010101010101010101010101010101010101010101010101010101010101"
+    , cardanoSigningKey = "cardano.sk"
+    , cardanoVerificationKeys = []
+    , contestationPeriod = defaultContestationPeriod
+    }
 
 inceptionChainConfigParser :: Parser InceptionChainConfig
 inceptionChainConfigParser =
   InceptionChainConfig
     <$> inceptionHostParser
     <*> contestationPeriodParser
+    <*> hydraScriptsTxIdParser
+    <*> cardanoSigningKeyFileParser
+    <*> many cardanoVerificationKeyFileParser
  where
   inceptionHostParser =
     option
@@ -922,8 +940,18 @@ toArgs
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
       Inception
-        InceptionChainConfig{underlyingHydraApi} ->
+        InceptionChainConfig
+          { underlyingHydraApi
+          , contestationPeriod
+          , hydraScriptsTxId
+          , cardanoSigningKey
+          , cardanoVerificationKeys
+          } ->
           ["--inception", show underlyingHydraApi]
+            <> ["--contestation-period", show contestationPeriod]
+            <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
+            <> ["--cardano-signing-key", cardanoSigningKey]
+            <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]

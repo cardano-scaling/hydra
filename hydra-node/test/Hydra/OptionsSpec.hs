@@ -17,7 +17,7 @@ import Hydra.Options (
   Command (..),
   DirectChainConfig (..),
   GenerateKeyPair (GenerateKeyPair),
-  InceptionChainConfig (InceptionChainConfig, underlyingHydraApi),
+  InceptionChainConfig (underlyingHydraApi),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -25,6 +25,7 @@ import Hydra.Options (
   PublishOptions (..),
   RunOptions (..),
   defaultDirectChainConfig,
+  defaultInceptionChainConfig,
   defaultLedgerConfig,
   defaultOfflineChainConfig,
   defaultRunOptions,
@@ -284,11 +285,11 @@ spec = parallel $
 
     it "switches to inception chain when using --inception" $
       mconcat
-        [ ["--inception", "0.0.0.0:4001"]
+        [ ["--inception", "1.2.3.4:5678"]
         ]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Inception InceptionChainConfig{underlyingHydraApi = Host "0.0.0.0" 4001}
+            { chainConfig = Inception defaultInceptionChainConfig{underlyingHydraApi = Host "1.2.3.4" 5678}
             }
 
     describe "publish-scripts sub-command" $ do

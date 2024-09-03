@@ -132,7 +132,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           -- L2 using node id 1
           singlePartyOpenAHead tracer tmpDir node hydraScriptsTxId $ \HydraClient{apiHost} walletSk -> do
             -- Start another node pointing to the L2 hydra-node
-            let chainConfig = Inception InceptionChainConfig{underlyingHydraApi = apiHost}
+            let chainConfig = Inception defaultInceptionChainConfig{underlyingHydraApi = apiHost}
             -- L3 using node id 11
             withHydraNode (contramap FromHydraNode tracer) chainConfig tmpDir 11 bobSk [] [11] $ \l3 -> do
               let blockTime = 0.1 -- L2 is very fast
