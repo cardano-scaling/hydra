@@ -17,6 +17,7 @@ import Hydra.Options (
   Command (..),
   DirectChainConfig (..),
   GenerateKeyPair (GenerateKeyPair),
+  InceptionChainConfig (InceptionChainConfig, underlyingHydraApi),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -279,6 +280,15 @@ spec = parallel $
         `shouldParse` Run
           defaultRunOptions
             { chainConfig = Offline defaultOfflineChainConfig{initialUTxOFile = "some-file"}
+            }
+
+    it "switches to inception chain when using --inception" $
+      mconcat
+        [ ["--inception", "0.0.0.0:4001"]
+        ]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig = Inception InceptionChainConfig{underlyingHydraApi = Host "0.0.0.0" 4001}
             }
 
     describe "publish-scripts sub-command" $ do

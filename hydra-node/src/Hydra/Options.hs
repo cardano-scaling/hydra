@@ -169,8 +169,8 @@ data RunOptions = RunOptions
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , persistenceDir :: FilePath
-  , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , chainConfig :: ChainConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -195,8 +195,8 @@ instance Arbitrary RunOptions where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     persistenceDir <- genDirPath
-    chainConfig <- arbitrary
     ledgerConfig <- arbitrary
+    chainConfig <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -212,8 +212,8 @@ instance Arbitrary RunOptions where
         , hydraSigningKey
         , hydraVerificationKeys
         , persistenceDir
-        , chainConfig
         , ledgerConfig
+        , chainConfig
         }
 
   shrink = genericShrink
@@ -258,10 +258,11 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
+    <*> ledgerConfigParser
     <*> ( Direct <$> directChainConfigParser
             <|> Offline <$> offlineChainConfigParser
+            <|> Inception <$> inceptionChainConfigParser
         )
-    <*> ledgerConfigParser
 
 -- | Alternative parser to 'runOptionsParser' for running the cardano-node in
 -- offline mode.
@@ -326,12 +327,14 @@ cardanoLedgerProtocolParametersParser =
 data ChainConfig
   = Offline OfflineChainConfig
   | Direct DirectChainConfig
+  | Inception InceptionChainConfig
   deriving stock (Eq, Show, Generic)
 
 instance ToJSON ChainConfig where
   toJSON = \case
     Offline cfg -> toJSON cfg & atKey "tag" ?~ String "OfflineChainConfig"
     Direct cfg -> toJSON cfg & atKey "tag" ?~ String "DirectChainConfig"
+    Inception cfg -> toJSON cfg & atKey "tag" ?~ String "InceptionChainConfig"
 
 instance FromJSON ChainConfig where
   parseJSON =
@@ -339,6 +342,7 @@ instance FromJSON ChainConfig where
       o .: "tag" >>= \case
         "OfflineChainConfig" -> Offline <$> parseJSON (Object o)
         "DirectChainConfig" -> Direct <$> parseJSON (Object o)
+        "InceptionChainConfig" -> Inception <$> parseJSON (Object o)
         tag -> fail $ "unexpected tag " <> tag
 
 data OfflineChainConfig = OfflineChainConfig
@@ -449,6 +453,23 @@ ledgerGenesisFileParser =
         <> showDefault
         <> help "File containing shelley genesis parameters for the simulated L1 in offline mode."
     )
+
+-- | Run the hydra-node on top of another hydra-node.
+newtype InceptionChainConfig = InceptionChainConfig {underlyingHydraApi :: Host}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+inceptionChainConfigParser :: Parser InceptionChainConfig
+inceptionChainConfigParser =
+  InceptionChainConfig <$> pHost
+ where
+  pHost =
+    option
+      (eitherReader readHost)
+      ( long "inception"
+          <> metavar "HOST:PORT"
+          <> help "Use another hydra-node as chain by pointing to API host and port"
+      )
 
 directChainConfigParser :: Parser DirectChainConfig
 directChainConfigParser =
@@ -802,6 +823,7 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMissmatch
       | otherwise -> Right ()
+    Inception{} -> Right ()
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraCommand :: IO Command
@@ -894,6 +916,9 @@ toArgs
             <> ["--contestation-period", show contestationPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
+      Inception
+        InceptionChainConfig{underlyingHydraApi} ->
+          ["--inception", show underlyingHydraApi]
 
     argsLedgerConfig =
       ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
