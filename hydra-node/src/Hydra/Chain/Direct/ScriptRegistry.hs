@@ -9,29 +9,42 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
+  Era,
+  EraHistory,
   Key (..),
+  LedgerEra,
+  LedgerProtocolParameters (..),
   NetworkId,
+  PParams,
   PaymentKey,
   ScriptHash,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   SocketPath,
+  SystemStart,
+  Tx,
+  TxBodyErrorAutoBalance,
   TxId,
   TxIn (..),
   TxIx (..),
   TxOut,
   WitCtx (..),
+  balancedTxBody,
   examplePlutusScriptAlwaysFails,
+  getTxBody,
   getTxId,
   hashScriptInAnyLang,
   makeShelleyKeyWitness,
   makeSignedTransaction,
+  makeTransactionBodyAutoBalance,
   mkScriptAddress,
   mkScriptRef,
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
+  shelleyBasedEra,
   throwErrorAsException,
+  toLedgerEpochInfo,
   txOutReferenceScript,
   txOutValue,
   pattern ReferenceScript,
@@ -41,8 +54,9 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
   awaitTransaction,
-  buildTransaction,
+  queryEraHistory,
   queryProtocolParameters,
+  querySystemStart,
   queryUTxOByTxIn,
   queryUTxOFor,
   submitTransaction,
@@ -52,6 +66,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (genTxOutAdaOnly)
+import Hydra.Ledger.Cardano.Builder (addOutputs, addVkInputs, emptyTxBody)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -172,6 +187,8 @@ queryScriptRegistry networkId socketPath txId = do
  where
   candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
 
+-- | Create, sign and submit a transaction that will publish the Hydra scripts
+-- using a cardano-node through given 'SocketPath'.
 publishHydraScripts ::
   -- | Expected network discriminant.
   NetworkId ->
@@ -183,37 +200,71 @@ publishHydraScripts ::
 publishHydraScripts networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
-  let outputs =
-        mkScriptTxOut pparams
-          <$> [ Initial.validatorScript
-              , Commit.validatorScript
-              , Head.validatorScript
-              ]
-      totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
-      someUTxO =
-        maybe mempty UTxO.singleton $
-          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-  buildTransaction
-    networkId
-    socketPath
-    changeAddress
-    someUTxO
-    []
-    outputs
-    >>= \case
-      Left e ->
-        throwErrorAsException e
-      Right body -> do
-        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-        submitTransaction networkId socketPath tx
-        void $ awaitTransaction networkId socketPath tx
-        return $ getTxId body
+  systemStart <- querySystemStart networkId socketPath QueryTip
+  eraHistory <- queryEraHistory networkId socketPath QueryTip
+  case publishHydraScriptsTx networkId systemStart eraHistory pparams sk utxo of
+    Left e ->
+      throwErrorAsException e
+    Right tx -> do
+      submitTransaction networkId socketPath tx
+      void $ awaitTransaction networkId socketPath tx
+      return . getTxId $ getTxBody tx
+ where
+  vk = getVerificationKey sk
+
+-- | Create and sign a transaction that will publish the Hydra scripts.
+publishHydraScriptsTx ::
+  NetworkId ->
+  SystemStart ->
+  EraHistory ->
+  PParams LedgerEra ->
+  -- | Key assumed to hold funds to pay for the publishing transaction.
+  SigningKey PaymentKey ->
+  -- | UTxO which may be spent. One UTxO which covers the deposit costs will be
+  -- selected.
+  UTxO ->
+  Either (TxBodyErrorAutoBalance Era) Tx
+publishHydraScriptsTx networkId systemStart eraHistory pparams sk utxo = do
+  body <-
+    second balancedTxBody $
+      makeTransactionBodyAutoBalance
+        shelleyBasedEra
+        systemStart
+        (toLedgerEpochInfo eraHistory)
+        (LedgerProtocolParameters pparams)
+        mempty
+        mempty
+        mempty
+        (UTxO.toApi selectedUTxO)
+        bodyContent
+        changeAddress
+        Nothing
+  pure $ makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
  where
   vk = getVerificationKey sk
 
   changeAddress = mkVkAddress networkId vk
 
-  mkScriptTxOut pparams script =
+  bodyContent =
+    emptyTxBody
+      & addOutputs outputs
+      & addVkInputs (toList $ UTxO.inputSet selectedUTxO)
+
+  outputs =
+    mkScriptTxOut
+      <$> [ Initial.validatorScript
+          , Commit.validatorScript
+          , Head.validatorScript
+          ]
+
+  totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
+
+  -- XXX: This does not account for fees!
+  selectedUTxO =
+    maybe mempty UTxO.singleton $
+      UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
+
+  mkScriptTxOut script =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
