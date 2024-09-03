@@ -73,6 +73,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyHeadFullLifeCycle,
+  singlePartyOpenAHead,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
   withHydraNodeSingleAlice,
@@ -123,6 +124,25 @@ withClusterTempDir = withTempDir "hydra-cluster"
 
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
+  describe "End-to-end in another Hydra head (inception)" $ do
+    it "full head life-cycle" $ \tracer -> do
+      withClusterTempDir $ \tmpDir -> do
+        withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node -> do
+          hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+          -- L2 using node id 1
+          singlePartyOpenAHead tracer tmpDir node hydraScriptsTxId $ \l2 walletSk -> do
+            -- Start another node pointing to the L2 hydra-node
+            let chainConfig = undefined
+            -- L3 using node id 11
+            withHydraNode (contramap FromHydraNode tracer) chainConfig tmpDir 11 bobSk [] [11] $ \l3 -> do
+              let blockTime = 0.1 -- L2 is very fast
+              send l3 $ input "Init" []
+              headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
+              -- Commit nothing
+              requestCommitTx l3 mempty <&> signTx walletSk >>= submitTx node
+              waitFor (contramap FromHydraNode tracer) (10 * blockTime) [l3] $
+                output "HeadIsOpen" ["utxo" .= object [], "headId" .= headId]
+
   it "End-to-end offline mode" $ \tracer -> do
     withClusterTempDir $ \tmpDir -> do
       (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice

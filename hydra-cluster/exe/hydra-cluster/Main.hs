@@ -28,8 +28,8 @@ run options =
         Just network ->
           withRunningCardanoNode tracer workDir network $ \node -> do
             waitForFullySynchronized fromCardanoNode node
-            hydraScriptsTxId <- publishOrReuseHydraScripts tracer node
-            withHydraNodeSingleAlice tracer workDir hydraScriptsTxId node $ \client ->
+            txId <- publishOrReuseHydraScripts tracer node
+            withHydraNodeSingleAlice tracer workDir txId node $ \client ->
               singlePartyHeadFullLifeCycle tracer node client
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
