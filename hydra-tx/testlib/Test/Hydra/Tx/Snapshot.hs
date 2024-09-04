@@ -11,7 +11,6 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..))
-import Test.Hydra.Tx.HeadId ()
 import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 
