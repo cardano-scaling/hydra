@@ -26,8 +26,8 @@ import Hydra.Tx (
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -151,10 +151,7 @@ instance IsChainState tx => FromJSON (ServerOutput tx) where
         { omitNothingFields = True
         }
 
-instance
-  ArbitraryIsTx tx =>
-  Arbitrary (ServerOutput tx)
-  where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about

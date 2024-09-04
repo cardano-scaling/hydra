@@ -16,13 +16,12 @@ import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
-import Hydra.Chain.ChainState (ChainStateType)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Tx (IsTx, ScriptRegistry (..), TxIdType, TxOutType, UTxOType)
+import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.Contest (ClosedThreadOutput)
@@ -363,15 +362,3 @@ genUTxO1 gen = do
   txIn <- arbitrary
   txOut <- gen
   pure $ UTxO.singleton (txIn, txOut)
-
--- * Constraint synonyms
-
--- TODO: move next to IsTx
-type ArbitraryIsTx tx =
-  ( IsTx tx
-  , Arbitrary tx
-  , Arbitrary (UTxOType tx)
-  , Arbitrary (TxIdType tx)
-  , Arbitrary (TxOutType tx)
-  , Arbitrary (ChainStateType tx) -- TODO: merge type classes IsChainState and IsTx?
-  )

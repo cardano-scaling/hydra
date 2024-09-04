@@ -27,7 +27,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.Environment (Environment (..))
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -48,7 +48,7 @@ deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
-instance (IsChainState tx, Test.Hydra.Tx.Gen.ArbitraryIsTx tx) => Arbitrary (Effect tx) where
+instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 -- | Head state changed event. These events represent all the internal state
@@ -104,7 +104,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
-genStateChanged :: ArbitraryIsTx tx => Environment -> Gen (StateChanged tx)
+genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary

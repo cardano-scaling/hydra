@@ -19,12 +19,14 @@ class
   , Show (ChainStateType tx)
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
+  , Arbitrary (ChainStateType tx)
   ) =>
   IsChainState tx
   where
-  -- | Types of what to keep as L1 chain state.
+  -- | Type of what to keep as L1 chain state.
+  -- XXX: Why is this not always UTxOType?
   type ChainStateType tx = c | c -> tx
 
-  -- \| Get the chain slot for a chain state. NOTE: For any sequence of 'a'
+  -- | Get the chain slot for a chain state. NOTE: For any sequence of 'a'
   -- encountered, we assume monotonically increasing slots.
   chainStateSlot :: ChainStateType tx -> ChainSlot

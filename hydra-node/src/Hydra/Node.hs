@@ -27,10 +27,7 @@ import Hydra.Chain (
   ChainStateHistory,
   PostTxError,
  )
-import Hydra.Chain.ChainState (
-  ChainStateType,
-  IsChainState,
- )
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), StateEvent (..), getEventId, putEventsToSinks, stateChanged)
 import Hydra.HeadLogic (
@@ -57,8 +54,8 @@ import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..),
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- * Environment Handling
 
@@ -331,7 +328,10 @@ processEffects node tracer inputId effects = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> broadcast hn msg >> enqueue (NetworkInput defaultTTL (ReceivedMessage{sender = party, msg}))
+      NetworkEffect msg -> do
+        broadcast hn msg
+        -- FIXME: This must not be here, such that the network layer can ensure correct delivery (i.e. reliable broadcast)
+        enqueue (NetworkInput defaultTTL (ReceivedMessage{sender = party, msg}))
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->

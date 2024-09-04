@@ -16,7 +16,7 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.Crypto (Signature)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 
 data NetworkEvent msg
   = ConnectivityEvent Connectivity

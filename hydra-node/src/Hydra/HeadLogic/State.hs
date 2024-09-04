@@ -16,13 +16,13 @@ import Hydra.Tx (
   Party,
  )
 import Hydra.Tx.Crypto (Signature)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
  )
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -44,7 +44,7 @@ data HeadState tx
   | Closed (ClosedState tx)
   deriving stock (Generic)
 
-instance ArbitraryIsTx tx => Arbitrary (HeadState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -100,7 +100,7 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialStat
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
 
-instance ArbitraryIsTx tx => Arbitrary (InitialState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
   arbitrary = do
     InitialState
       <$> arbitrary
@@ -133,7 +133,7 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
 
-instance ArbitraryIsTx tx => Arbitrary (OpenState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
   arbitrary =
     OpenState
       <$> arbitrary
@@ -233,7 +233,7 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
-instance ArbitraryIsTx tx => Arbitrary (ClosedState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =
     ClosedState
       <$> arbitrary
