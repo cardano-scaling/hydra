@@ -61,7 +61,6 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
   replaceUTxOHash,
  )
-import Test.Hydra.Tx.Snapshot ()
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 

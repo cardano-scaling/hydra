@@ -118,7 +118,6 @@ library testlib
     Test.Hydra.Tx.Fixture
     Test.Hydra.Tx.Gen
     Test.Hydra.Tx.Mutation
-    Test.Hydra.Tx.Snapshot
 
   other-modules:   Paths_hydra_tx
   build-depends:
