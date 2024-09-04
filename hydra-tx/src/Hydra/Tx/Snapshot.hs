@@ -23,28 +23,22 @@ import Test.QuickCheck.Instances.Natural ()
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
 
 -- NOTE: On-chain scripts ensure snapshot number does not become negative.
 fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
 fromChainSnapshotNumber =
   UnsafeSnapshotNumber . fromMaybe 0 . integerToNatural
 
-instance Arbitrary SnapshotNumber where
-  arbitrary = UnsafeSnapshotNumber <$> arbitrary
-
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
 
 -- NOTE: On-chain scripts ensure snapshot version does not become negative.
 fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
 fromChainSnapshotVersion =
   UnsafeSnapshotVersion . fromMaybe 0 . integerToNatural
-
-instance Arbitrary SnapshotVersion where
-  arbitrary = UnsafeSnapshotVersion <$> arbitrary
 
 -- * Snapshot
 

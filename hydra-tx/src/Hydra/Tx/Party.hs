@@ -24,6 +24,7 @@ import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
 newtype Party = Party {vkey :: VerificationKey HydraKey}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+  deriving newtype (Arbitrary)
 
 instance ToJSONKey Party where
   toJSONKey = toJSONKeyText (serialiseToRawBytesHexText . vkey)
@@ -42,9 +43,6 @@ instance FromJSONKey Party where
 instance Ord Party where
   Party{vkey = a} <= Party{vkey = b} =
     verificationKeyHash a <= verificationKeyHash b
-
-instance Arbitrary Party where
-  arbitrary = Party <$> arbitrary
 
 instance FromCBOR Party where
   fromCBOR = Party <$> fromCBOR
