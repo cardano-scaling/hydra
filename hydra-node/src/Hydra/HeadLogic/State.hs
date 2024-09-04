@@ -22,7 +22,6 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
-import Test.Hydra.Tx ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the

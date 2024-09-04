@@ -34,7 +34,6 @@ import Hydra.Tx.Utils (
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
-import Test.Hydra.Tx ()
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (

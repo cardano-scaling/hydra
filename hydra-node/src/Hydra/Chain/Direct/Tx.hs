@@ -46,7 +46,6 @@ import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
-import Test.Hydra.Tx ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (vectorOf)
 

@@ -34,7 +34,6 @@ import Hydra.Tx (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
-import Test.Hydra.Tx ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
