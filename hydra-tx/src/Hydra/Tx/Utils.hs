@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Hydra.Tx.Utils where
 
 import Hydra.Cardano.Api
