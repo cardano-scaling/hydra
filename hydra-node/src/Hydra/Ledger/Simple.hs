@@ -73,17 +73,13 @@ instance Arbitrary SimpleTx where
 -- | A single output of a 'SimpleTx' having an integer identity and sole value.
 newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
   deriving stock (Generic)
-  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON, Arbitrary)
 
 instance ToCBOR SimpleTxOut where
   toCBOR (SimpleTxOut inId) = toCBOR inId
 
 instance FromCBOR SimpleTxOut where
   fromCBOR = SimpleTxOut <$> fromCBOR
-
-instance Arbitrary SimpleTxOut where
-  shrink = genericShrink
-  arbitrary = genericArbitrary
 
 instance IsTx SimpleTx where
   type TxIdType SimpleTx = SimpleId
@@ -110,14 +106,12 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+  deriving newtype (Arbitrary)
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState
 
   chainStateSlot SimpleChainState{slot} = slot
-
-instance Arbitrary SimpleChainState where
-  arbitrary = SimpleChainState <$> arbitrary
 
 -- * A simple ledger
 
