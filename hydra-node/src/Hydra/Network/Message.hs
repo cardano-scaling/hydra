@@ -91,7 +91,7 @@ deriving stock instance IsTx tx => Show (Message tx)
 deriving anyclass instance IsTx tx => ToJSON (Message tx)
 deriving anyclass instance IsTx tx => FromJSON (Message tx)
 
-instance (ArbitraryIsTx tx, IsTx tx) => Arbitrary (Message tx) where
+instance ArbitraryIsTx tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where

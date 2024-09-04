@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | This module defines the types and functions for creating 'EventSource' and
 -- 'EventSink' instances and is intended to be used as an extension point.
 --

@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.HeadLogic.Input where
 
 import Hydra.Prelude
@@ -30,6 +32,6 @@ deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
 deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
+instance ArbitraryIsTx tx => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

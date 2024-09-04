@@ -3,11 +3,13 @@ module Hydra.Ledger.SimpleSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.Foldable (maximum)
+import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
-import Test.Hydra.Tx.Gen (genSequenceOfValidTransactions)
-import Test.QuickCheck (Property, forAllShrink, shrinkList)
+import Hydra.Tx.IsTx (IsTx (..))
+import Test.QuickCheck (Property, choose, forAllShrink, getSize, shrinkList, sublistOf)
 
 spec :: Spec
 spec =

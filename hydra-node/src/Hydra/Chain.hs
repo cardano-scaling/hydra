@@ -271,7 +271,7 @@ deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx, Arbitrary ChainSlot) => Arbitrary (ChainEvent tx) where
+instance ArbitraryIsTx tx => Arbitrary (ChainEvent tx) where
   arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the

@@ -22,7 +22,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Tx (IsTx (..), ScriptRegistry (..))
+import Hydra.Tx (IsTx, ScriptRegistry (..), TxIdType, TxOutType, UTxOType)
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.Contest (ClosedThreadOutput)
@@ -364,19 +364,14 @@ genUTxO1 gen = do
   txOut <- gen
   pure $ UTxO.singleton (txIn, txOut)
 
-class
-  ( Arbitrary (ChainStateType tx)
+-- * Constraint synonyms
+
+-- TODO: move next to IsTx
+type ArbitraryIsTx tx =
+  ( IsTx tx
   , Arbitrary tx
-  , IsTx tx
   , Arbitrary (UTxOType tx)
   , Arbitrary (TxIdType tx)
   , Arbitrary (TxOutType tx)
-  ) =>
-  ArbitraryIsTx tx
-
-instance
-  ( Arbitrary (ChainStateType Tx)
-  , Arbitrary (UTxOType Tx)
-  , Arbitrary (TxOutType Tx)
-  ) =>
-  ArbitraryIsTx Tx
+  , Arbitrary (ChainStateType tx) -- TODO: merge type classes IsChainState and IsTx?
+  )
