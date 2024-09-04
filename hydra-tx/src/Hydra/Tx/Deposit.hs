@@ -34,14 +34,13 @@ depositTx networkId headId depositUTxO deadline =
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList
 
-  depositValue = foldMap (txOutValue . snd) (UTxO.pairs depositUTxO)
+  depositValue = foldMap txOutValue depositUTxO
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
 
-  deposits =
-    mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
+  deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
-  depositPlutusDatum = Deposit.datum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
+  depositPlutusDatum = Deposit.datum $ Deposit.DepositDatum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
 
   depositDatum = mkTxOutDatumInline depositPlutusDatum
 

@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
-import Hydra.Contract.Deposit (DepositDatum)
+import Hydra.Contract.Deposit (DepositDatum (..))
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (extractInlineDatumFromTxOut)
@@ -23,7 +23,7 @@ main = do
           let depositTransaction = depositTx networkId headId utxo depositDeadline
           writeFileLBS outFile $ textEnvelopeToJSON Nothing depositTransaction
           putStrLn $ "Wrote deposit transaction to " <> outFile
-    Recover RecoverOptions{networkId, headId, outFile, recoverTxIn, utxoFilePath, depositDeadline, recoverSlotNo} -> do
+    Recover RecoverOptions{networkId, outFile, recoverTxIn, utxoFilePath, recoverSlotNo} -> do
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
@@ -32,8 +32,8 @@ main = do
             Just depositedTxOut -> do
               case extractInlineDatumFromTxOut @DepositDatum depositedTxOut of
                 Nothing -> die "failed to extract DepositDatum from recover UTxO"
-                Just (_, _, depositted) -> do
+                Just (DepositDatum (headCS, datumDepositDeadline, deposited)) -> do
                   let recoverTransaction =
-                        recoverTx networkId headId recoverTxIn depositted depositDeadline recoverSlotNo
+                        recoverTx networkId headCS recoverTxIn deposited datumDepositDeadline recoverSlotNo
                   writeFileLBS outFile $ textEnvelopeToJSON Nothing recoverTransaction
                   putStrLn $ "Wrote deposit transaction to " <> outFile

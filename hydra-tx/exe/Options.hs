@@ -27,10 +27,8 @@ data DepositOptions = DepositOptions
 data RecoverOptions = RecoverOptions
   { recoverTxIn :: TxIn
   , utxoFilePath :: FilePath
-  , headId :: HeadId
   , outFile :: FilePath
   , networkId :: NetworkId
-  , depositDeadline :: UTCTime
   , recoverSlotNo :: SlotNo
   }
   deriving stock (Show, Eq)
@@ -76,10 +74,8 @@ recoverOptionsParser =
   RecoverOptions
     <$> txInParser
     <*> utxoParser
-    <*> headIdParser
     <*> outputFileParser
     <*> networkIdParser
-    <*> deadlineParser
     <*> lowerBoundSlotParser
 
 txInParser :: Parser TxIn
@@ -192,6 +188,9 @@ lowerBoundSlotParser =
       <> help
         ( mconcat
             [ "Provide a starting slot for the recover transaction. "
+            , "This value could be obtained by querying the current slot number of the target network."
+            , "The slot needs to be after the deadline which was set in the deposit transaction "
+            , "in order for a recover transaction to be valid."
             ]
         )
 

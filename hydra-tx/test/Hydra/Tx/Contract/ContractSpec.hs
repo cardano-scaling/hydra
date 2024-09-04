@@ -44,7 +44,7 @@ import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (healthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
-import Hydra.Tx.Contract.Recover (healthyRecoverTx)
+import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import PlutusLedgerApi.V2 (fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -119,6 +119,8 @@ spec = parallel $ do
   describe "Recover" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyRecoverTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyRecoverTx genRecoverMutation
   describe "CloseInitial" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseInitialTx

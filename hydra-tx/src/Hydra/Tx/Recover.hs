@@ -13,42 +13,39 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Tx (HeadId, headIdToCurrencySymbol)
+import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
   NetworkId ->
-  HeadId ->
+  CurrencySymbol ->
   -- | Deposit input
   TxIn ->
   -- | Already Deposited funds
   [Commit.Commit] ->
   -- | Recover deadline
-  UTCTime ->
+  POSIXTime ->
   -- | Lower bound slot number
   SlotNo ->
   Tx
-recoverTx networkId headId depositedTxIn depositted deadline lowerBoundSlot =
+recoverTx networkId headId depositTxIn depositted deadline lowerBoundSlot =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs recoverInputs
-      & addOutputs deposittedOutputs
+      & addOutputs depositOutputs
       & setValidityLowerBound lowerBoundSlot
  where
-  recoverInputs = (,depositWitness) <$> [depositedTxIn]
+  recoverInputs = (,depositWitness) <$> [depositTxIn]
 
-  redeemer = Deposit.Recover $ fromIntegral $ length deposittedOutputs
+  redeemer = Deposit.Recover $ fromIntegral $ length depositOutputs
 
   depositWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript (mkScriptDatum constructedDatum) (toScriptData redeemer)
 
-  constructedDatum = (headIdToCurrencySymbol headId, posixFromUTCTime deadline, depositted)
+  constructedDatum = (headId, deadline, depositted)
 
-  deposittedOutputs =
-    let deposited = mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId)) depositted
-     in fmap (toTxContext . snd) deposited
+  depositOutputs = toTxContext . snd <$> mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId)) depositted
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript

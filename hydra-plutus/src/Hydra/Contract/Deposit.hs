@@ -50,23 +50,27 @@ data DepositRedeemer
 PlutusTx.unstableMakeIsData ''DepositRedeemer
 
 -- | Deposit datum containing HeadId, deadline and a list of deposits.
-type DepositDatum = (CurrencySymbol, POSIXTime, [Commit])
+newtype DepositDatum
+  = DepositDatum (CurrencySymbol, POSIXTime, [Commit])
+
+PlutusTx.unstableMakeIsData ''DepositDatum
 
 -- | v_deposit validator checks
 --
--- * Claim redeemer -> no checks are needed
+-- * Claim redeemer -> more checks will be added
 --
 -- * Recover redeemer
---     * The deadline HAS BEEN reached.
---     * The hash of locked outputs are mathing the tx outputs.
+--     * The deadline has been reached.
+--     * The hash of recovered outputs are matching the deposited outputs.
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
-validator (_headId, dl, deposits) r ctx =
+validator depositDatum r ctx =
   case r of
-    Claim -> True
+    Claim -> False
     Recover m ->
       afterDeadline
         && recoverOutputs m
  where
+  DepositDatum (_headId, dl, deposits) = depositDatum
   recoverOutputs m =
     traceIfFalse $(errorCode IncorrectDepositHash) $
       hashOfOutputs m == hashPreSerializedCommits deposits
