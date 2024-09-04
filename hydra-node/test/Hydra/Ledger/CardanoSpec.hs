@@ -24,7 +24,7 @@ import Hydra.Ledger.Cardano (
   genSequenceOfSimplePaymentTransactions,
   genTxOut,
  )
-import Hydra.Ledger.Ledger (applyTransactions)
+import Hydra.Ledger (applyTransactions)
 import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()

@@ -47,8 +47,6 @@ library
     Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
-    Hydra.Ledger.Ledger
-    Hydra.Ledger.Simple
     Hydra.Tx
     Hydra.Tx.Abort
     Hydra.Tx.BlueprintTx

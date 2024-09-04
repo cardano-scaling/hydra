@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
 module Hydra.Chain.ChainState where
@@ -11,6 +10,9 @@ import Hydra.Tx (IsTx (..))
 newtype ChainSlot = ChainSlot Natural
   deriving stock (Ord, Eq, Show, Generic)
   deriving newtype (Num, ToJSON, FromJSON)
+
+instance Arbitrary ChainSlot where
+  arbitrary = genericArbitrary
 
 -- | Types that can be used on-chain by the Hydra protocol.
 -- XXX: Find a better name for this. Maybe IsChainTx or IsL1Tx?

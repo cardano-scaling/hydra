@@ -10,7 +10,7 @@ import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger.Ledger (ValidationError)
+import Hydra.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
   HeadId,

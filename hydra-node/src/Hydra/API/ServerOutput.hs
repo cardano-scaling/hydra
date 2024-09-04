@@ -12,7 +12,7 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger.Ledger (ValidationError)
+import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, NodeId)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (

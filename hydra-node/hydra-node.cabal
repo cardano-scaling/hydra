@@ -71,7 +71,9 @@ library
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
+    Hydra.Ledger
     Hydra.Ledger.Cardano
+    Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
@@ -143,6 +145,7 @@ library
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , serialise
     , stm
     , text
     , time

@@ -47,7 +47,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.Ledger.Ledger (Ledger)
+import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))

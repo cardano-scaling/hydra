@@ -21,13 +21,15 @@ import Data.Aeson (
  )
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..), ChainStateType, IsChainState (..))
-import Hydra.Ledger.Ledger (
+import Hydra.Ledger (
   Ledger (..),
   ValidationError (ValidationError),
  )
 import Hydra.Tx (IsTx (..))
 
 -- * Simple transactions
+
+type SimpleId = Integer
 
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs,
@@ -38,28 +40,6 @@ data SimpleTx = SimpleTx
   , txOutputs :: UTxOType SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Show)
-
-type SimpleId = Integer
-
-instance IsTx SimpleTx where
-  type TxIdType SimpleTx = SimpleId
-  type TxOutType SimpleTx = SimpleTxOut
-  type UTxOType SimpleTx = Set SimpleTxOut
-  type ValueType SimpleTx = Int
-
-  txId (SimpleTx tid _ _) = tid
-  balance = Set.size
-  hashUTxO = toStrict . foldMap (serialise . unSimpleTxOut)
-  utxoFromTx = txOutputs
-  outputsOfUTxO = toList
-  withoutUTxO = Set.difference
-
-  txSpendingUTxO utxo =
-    SimpleTx
-      { txSimpleId = 0
-      , txInputs = utxo
-      , txOutputs = mempty
-      }
 
 instance ToJSON SimpleTx where
   toJSON tx =
@@ -87,20 +67,8 @@ instance FromCBOR SimpleTx where
       <*> fromCBOR
       <*> fromCBOR
 
--- * Simple chain state
-
-newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance IsChainState SimpleTx where
-  type ChainStateType SimpleTx = SimpleChainState
-
-  chainStateSlot SimpleChainState{slot} = slot
-
---
--- MockTxIn
---
+instance Arbitrary SimpleTx where
+  arbitrary = genericArbitrary
 
 -- | A single output of a 'SimpleTx' having an integer identity and sole value.
 newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
@@ -113,6 +81,46 @@ instance ToCBOR SimpleTxOut where
 instance FromCBOR SimpleTxOut where
   fromCBOR = SimpleTxOut <$> fromCBOR
 
+instance Arbitrary SimpleTxOut where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
+instance IsTx SimpleTx where
+  type TxIdType SimpleTx = SimpleId
+  type TxOutType SimpleTx = SimpleTxOut
+  type UTxOType SimpleTx = Set SimpleTxOut
+  type ValueType SimpleTx = Int
+
+  txId (SimpleTx tid _ _) = tid
+  balance = Set.size
+  hashUTxO = toStrict . foldMap (serialise . unSimpleTxOut)
+  utxoFromTx = txOutputs
+  outputsOfUTxO = toList
+  withoutUTxO = Set.difference
+
+  txSpendingUTxO utxo =
+    SimpleTx
+      { txSimpleId = 0
+      , txInputs = utxo
+      , txOutputs = mempty
+      }
+
+-- * Simple chain state
+
+newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance IsChainState SimpleTx where
+  type ChainStateType SimpleTx = SimpleChainState
+
+  chainStateSlot SimpleChainState{slot} = slot
+
+instance Arbitrary SimpleChainState where
+  arbitrary = SimpleChainState <$> arbitrary
+
+-- * A simple ledger
+
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger{applyTransactions}
@@ -124,9 +132,7 @@ simpleLedger =
         then Right $ (utxo Set.\\ ins) `Set.union` outs
         else Left (tx, ValidationError "cannot apply transaction")
 
---
--- Builders
---
+-- * Builders
 
 utxoRef :: Integer -> UTxOType SimpleTx
 utxoRef = Set.singleton . SimpleTxOut
@@ -137,9 +143,7 @@ utxoRefs = Set.fromList . fmap SimpleTxOut
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
 
---
---  Generators
---
+-- * Generators
 
 listOfCommittedUTxOs :: Integer -> Gen [UTxOType SimpleTx]
 listOfCommittedUTxOs numCommits =

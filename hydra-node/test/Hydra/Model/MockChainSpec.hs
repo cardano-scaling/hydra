@@ -6,7 +6,7 @@ import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON, renderUTxO)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
-import Hydra.Ledger.Ledger (Ledger (applyTransactions))
+import Hydra.Ledger (Ledger (applyTransactions))
 import Hydra.Model.MockChain (scriptLedger)
 import Hydra.Prelude
 import Hydra.Tx.IsTx (IsTx (txId))

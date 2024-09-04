@@ -24,7 +24,7 @@ import Control.Monad (foldM)
 import Data.ByteString qualified as BS
 import Data.Default (def)
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Utils (adaOnly)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()

@@ -47,7 +47,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
-import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod)

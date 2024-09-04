@@ -21,7 +21,7 @@ import Hydra.Ledger.Cardano.Configuration (
   LedgerEnv,
   newLedgerEnv,
  )
-import Hydra.Ledger.Ledger (applyTransactions)
+import Hydra.Ledger (applyTransactions)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.Hydra.Tx.Fixture (defaultGlobals, defaultPParams)
 import Test.QuickCheck (

@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
-import Hydra.Ledger.Ledger (applyTransactions)
+import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
 import Test.Hydra.Tx.Gen (genSequenceOfValidTransactions)
 import Test.QuickCheck (Property, forAllShrink, shrinkList)
@@ -20,3 +20,25 @@ prop_validateCorrectTransactions =
 
 shrinkSequence :: [SimpleTx] -> [[SimpleTx]]
 shrinkSequence = shrinkList (const [])
+
+genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
+genSequenceOfValidTransactions initialUTxO = do
+  n <- fromIntegral <$> getSize
+  let maxId = if Set.null initialUTxO then 0 else unSimpleTxOut (maximum initialUTxO)
+  numTxs <- choose (1, n)
+  foldlM newTx (maxId, initialUTxO, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
+ where
+  newTx ::
+    (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx]) ->
+    TxIdType SimpleTx ->
+    Gen (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
+  newTx (maxId, utxo, txs) txid = do
+    (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
+    pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
+
+  genInputsAndOutputs :: Integer -> Set SimpleTxOut -> Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
+  genInputsAndOutputs maxId utxo = do
+    ins <- sublistOf (Set.toList utxo)
+    numOuts <- choose (1, 10)
+    let outs = fmap (+ maxId) [1 .. numOuts]
+    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap SimpleTxOut outs)
