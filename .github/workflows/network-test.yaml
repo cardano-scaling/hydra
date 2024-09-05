@@ -119,14 +119,9 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: "docker-logs-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
-        path: demo/docker-logs
-        if-no-files-found: ignore
-
-    - name: 💾 Upload build & test artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: "benchmarks-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
-        path: benchmarks
+        name: "artifacts-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
+        path: |
+          demo/docker-logs
+          benchmarks
+          demo/devnet/protocol-parameters.json
         if-no-files-found: ignore
