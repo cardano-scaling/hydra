@@ -118,7 +118,7 @@ run opts = do
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
       pure $ withDirectChain (contramap DirectChain tracer) cfg ctx wallet
     Inception cfg -> do
-      pure $ withInceptionChain cfg
+      pure $ withInceptionChain cfg party
 
   RunOptions
     { verbosity

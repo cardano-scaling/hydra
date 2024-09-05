@@ -46,16 +46,18 @@ import Hydra.Cardano.Api (
   txOutAddress,
   pattern ShelleyAddressInEra,
  )
-import Hydra.Chain (Chain (..), ChainComponent, ChainEvent (..), ChainStateHistory, PostChainTx (..), PostTxError (..))
+import Hydra.Chain (Chain (..), ChainComponent, ChainEvent (..), ChainStateHistory, PostChainTx (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Handlers (convertObservation)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
+import Hydra.Chain.Direct.ScriptRegistry (newScriptRegistry)
+import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), commit')
 import Hydra.Chain.Direct.Tx (initTx, observeHeadTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Ledger (txId)
 import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
+import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
@@ -77,25 +79,50 @@ getGenesisParameters = do
 -- HACK: Should add tracing
 withInceptionChain ::
   InceptionChainConfig ->
+  Party ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withInceptionChain config chainStateHistory callback action = do
+withInceptionChain config ownParty chainStateHistory callback action = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   wallet <- newHydraWallet networkId sk underlyingHydraApi
+  -- XXX: Wallet and script registry loading fetches the same utxo
+  utxo <- getSnapshotUTxO underlyingHydraApi
+  scriptRegistry <- either (error . show) pure $ newScriptRegistry utxo
+  -- XXX: Is ChainContext any useful?
+  let ctx =
+        ChainContext
+          { networkId
+          , ownVerificationKey = getVerificationKey sk
+          , scriptRegistry
+          , ownParty
+          }
+
   withAsync observeSnapshots $ \thread -> do
     link thread
     action
       Chain
         { postTx = postTx wallet
         , submitTx = submitTx
-        , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
+        , draftCommitTx = draftCommitTx ctx wallet
         }
  where
   InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} = config
 
   -- TODO: configure / fetch from underlying?
   networkId = Testnet (NetworkMagic 42)
+
+  draftCommitTx ctx wallet headId commitBlueprintTx = do
+    hPutStrLn stderr "draftCommitTx"
+    utxo <- getSnapshotUTxO underlyingHydraApi
+    -- TODO: filter to only "spendable" utxo
+    case commit' ctx headId utxo commitBlueprintTx of
+      Left err -> pure $ Left err
+      Right tx ->
+        coverFee wallet utxo tx >>= \case
+          Left err -> error $ "Failed to cover fee: " <> show err
+          Right balancedTx ->
+            pure . Right $ sign wallet balancedTx
 
   postTx wallet toPost = do
     hPutStrLn stderr "postTx in Head:"
