@@ -73,27 +73,27 @@ withInceptionChain ::
   ChainComponent Tx IO a
 withInceptionChain config chainStateHistory callback action = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-  pHPrint stderr sk
   wallet <- newHydraWallet networkId sk underlyingHydraApi
   -- TODO: open websocket and callback on SnapshotConfirmed
-  withConnectionToNodeHost underlyingHydraApi Nothing $ \client -> do
-    action
-      Chain
-        { postTx = postTx wallet client
-        , submitTx = submitTx client
-        , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
-        }
+  action
+    Chain
+      { postTx = postTx wallet
+      , submitTx = submitTx
+      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
+      }
  where
   InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} = config
 
   -- TODO: configure / fetch from underlying?
   networkId = Testnet (NetworkMagic 42)
 
-  postTx wallet client toPost = do
+  postTx wallet toPost = do
     hPutStrLn stderr "postTx in Head:"
     pHPrint stderr toPost
 
-    -- TODO: query spendable utxo on demand
+    -- HACK: query spendable utxo on demand
+    utxo <- getSnapshotUTxO underlyingHydraApi
+
     -- TODO: define a timehandle to use (current slot?)
     -- TODO: prepareTxToPost with timehandle, wallet and spendable utxo
     tx <- atomically $ do
@@ -104,20 +104,24 @@ withInceptionChain config chainStateHistory callback action = do
               pure $ initTx networkId seedInput participants headParameters
             Nothing ->
               error "no seed input"
-        _ -> undefined
+        _ -> error $ "not implemented: " <> show toPost
 
     -- hPutStrLn stderr $ renderTx tx
+    coverFee wallet utxo tx >>= \case
+      Left err -> error $ "Failed to cover fee: " <> show err
+      Right balancedTx ->
+        sign wallet balancedTx
+          & submitTx
 
-    -- TODO: finalizeTx with wallet
-    submitTx client tx
-
-  submitTx client tx = do
+  submitTx tx = do
     hPutStrLn stderr $ "submitTx " <> show (txId tx)
-    -- HACK: should create a synchronous API
-    send client $ input "NewTx" ["transaction" .= tx]
-    waitMatch 1 client $ \v -> do
-      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-      guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+    withConnectionToNodeHost underlyingHydraApi (Just "/?history=no") $ \client -> do
+      -- HACK: should create a synchronous API
+      send client $ input "NewTx" ["transaction" .= tx]
+      waitMatch 1 client $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+      hPutStrLn stderr "confirmed"
 
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
 --
@@ -185,7 +189,7 @@ send HydraClient{connection} v = do
   sendTextData connection (Aeson.encode v)
 
 withConnectionToNodeHost :: forall a. Host -> Maybe String -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost apiHost@Host{hostname, port} queryParams action = do
+withConnectionToNodeHost apiHost@Host{hostname, port} mPath action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -203,9 +207,9 @@ withConnectionToNodeHost apiHost@Host{hostname, port} queryParams action = do
                     , Handler $ retryOrThrow (Proxy @HandshakeException)
                     ]
 
-  historyMode = fromMaybe "/" queryParams
+  path = fromMaybe "/" mPath
 
-  doConnect connectedOnce = runClient (Text.unpack hostname) (fromInteger . toInteger $ port) historyMode $
+  doConnect connectedOnce = runClient (Text.unpack hostname) (fromInteger . toInteger $ port) path $
     \connection -> do
       atomicWriteIORef connectedOnce True
       res <- action $ HydraClient{apiHost, connection}

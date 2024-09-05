@@ -150,7 +150,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                       Fixture.systemStart
                       Fixture.eraHistoryWithoutHorizon
                       pparams
-                      (spy' "walletSk" walletSk)
+                      walletSk
                       walletUTxO
                 send l2 $ input "NewTx" ["transaction" .= tx]
                 waitMatch 3 l2 $ \v -> do
