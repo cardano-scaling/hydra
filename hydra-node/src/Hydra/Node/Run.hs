@@ -2,9 +2,17 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
+import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
+import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
+import Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import Cardano.Slotting.Time (mkSlotLength)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.Cardano.Api (
+  GenesisParameters (..),
   ProtocolParametersConversionError,
+  ShelleyEra,
+  SystemStart (..),
+  toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -12,12 +20,8 @@ import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
-import Hydra.Ledger.Cardano qualified as Ledger
-import Hydra.Ledger.Cardano.Configuration (
-  Globals,
-  newGlobals,
-  newLedgerEnv,
- )
+import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Ledger.Cardano.Configuration (newLedgerEnv)
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
@@ -99,7 +103,7 @@ run opts = do
  where
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
-     in action (Ledger.cardanoLedger globals ledgerEnv)
+     in action (cardanoLedger globals ledgerEnv)
 
   prepareChainComponent tracer Environment{party} = \case
     Offline cfg ->
@@ -133,6 +137,55 @@ getGlobalsForChain = \case
   Direct DirectChainConfig{networkId, nodeSocket} ->
     queryGenesisParameters networkId nodeSocket QueryTip
       >>= newGlobals
+
+data GlobalsTranslationException = GlobalsTranslationException
+  deriving stock (Eq, Show)
+
+instance Exception GlobalsTranslationException
+
+-- | Create new L2 ledger 'Globals' from 'GenesisParameters'.
+--
+-- Throws at least 'GlobalsTranslationException'
+newGlobals :: MonadThrow m => GenesisParameters ShelleyEra -> m Globals
+newGlobals genesisParameters = do
+  case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
+    Nothing -> throwIO GlobalsTranslationException
+    Just slotCoeff -> do
+      let k = fromIntegral protocolParamSecurity
+      pure $
+        Globals
+          { activeSlotCoeff = slotCoeff
+          , epochInfo
+          , maxKESEvo = fromIntegral protocolParamMaxKESEvolutions
+          , maxLovelaceSupply = fromIntegral protocolParamMaxLovelaceSupply
+          , maxMajorPV
+          , networkId = toShelleyNetwork protocolParamNetworkId
+          , quorum = fromIntegral protocolParamUpdateQuorum
+          , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
+          , securityParameter = k
+          , slotsPerKESPeriod = fromIntegral protocolParamSlotsPerKESPeriod
+          , stabilityWindow = computeStabilityWindow k slotCoeff
+          , systemStart = SystemStart protocolParamSystemStart
+          }
+ where
+  GenesisParameters
+    { protocolParamSlotsPerKESPeriod
+    , protocolParamUpdateQuorum
+    , protocolParamMaxLovelaceSupply
+    , protocolParamSecurity
+    , protocolParamActiveSlotsCoefficient
+    , protocolParamSystemStart
+    , protocolParamNetworkId
+    , protocolParamMaxKESEvolutions
+    , protocolParamEpochLength
+    , protocolParamSlotLength
+    } = genesisParameters
+  -- NOTE: This is used by the ledger to discard blocks that have a version
+  -- beyond a known limit. Or said differently, unused and irrelevant for Hydra.
+  maxMajorPV = minBound
+  -- NOTE: uses fixed epoch info for our L2 ledger
+  epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
+  slotLength = mkSlotLength protocolParamSlotLength
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

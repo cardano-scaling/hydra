@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams (..))
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
 import Data.Text qualified as Text

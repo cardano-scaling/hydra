@@ -7,63 +7,8 @@ module Hydra.Ledger.Cardano.Configuration (
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Ledger.Shelley.API.Types qualified as Ledger
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import Cardano.Slotting.Time (mkSlotLength)
-
--- * Globals
-
-data GlobalsTranslationException = GlobalsTranslationException
-  deriving stock (Eq, Show)
-
-instance Exception GlobalsTranslationException
-
--- | Create new L2 ledger 'Globals' from 'GenesisParameters'.
---
--- Throws at least 'GlobalsTranslationException'
-newGlobals :: MonadThrow m => GenesisParameters ShelleyEra -> m Globals
-newGlobals genesisParameters = do
-  case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
-    Nothing -> throwIO GlobalsTranslationException
-    Just slotCoeff -> do
-      let k = fromIntegral protocolParamSecurity
-      pure $
-        Globals
-          { activeSlotCoeff = slotCoeff
-          , epochInfo
-          , maxKESEvo = fromIntegral protocolParamMaxKESEvolutions
-          , maxLovelaceSupply = fromIntegral protocolParamMaxLovelaceSupply
-          , maxMajorPV
-          , networkId = toShelleyNetwork protocolParamNetworkId
-          , quorum = fromIntegral protocolParamUpdateQuorum
-          , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
-          , securityParameter = k
-          , slotsPerKESPeriod = fromIntegral protocolParamSlotsPerKESPeriod
-          , stabilityWindow = computeStabilityWindow k slotCoeff
-          , systemStart = SystemStart protocolParamSystemStart
-          }
- where
-  GenesisParameters
-    { protocolParamSlotsPerKESPeriod
-    , protocolParamUpdateQuorum
-    , protocolParamMaxLovelaceSupply
-    , protocolParamSecurity
-    , protocolParamActiveSlotsCoefficient
-    , protocolParamSystemStart
-    , protocolParamNetworkId
-    , protocolParamMaxKESEvolutions
-    , protocolParamEpochLength
-    , protocolParamSlotLength
-    } = genesisParameters
-  -- NOTE: This is used by the ledger to discard blocks that have a version
-  -- beyond a known limit. Or said differently, unused and irrelevant for Hydra.
-  maxMajorPV = minBound
-  -- NOTE: uses fixed epoch info for our L2 ledger
-  epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
-  slotLength = mkSlotLength protocolParamSlotLength
 
 -- * LedgerEnv
 
