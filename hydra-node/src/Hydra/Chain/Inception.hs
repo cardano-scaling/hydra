@@ -21,7 +21,7 @@ import Control.Exception (IOException)
 import Control.Lens ((^..), (^?))
 import Control.Monad.Class.MonadAsync (link)
 import Control.Monad.Class.MonadThrow (Handler (..), catches)
-import Control.Tracer (debugTracer, nullTracer, showTracing)
+import Control.Tracer (nullTracer)
 import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values)
@@ -50,8 +50,8 @@ import Hydra.Chain (Chain (..), ChainComponent, ChainEvent (..), ChainStateHisto
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.Chain.Direct.ScriptRegistry (newScriptRegistry)
-import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), commit')
-import Hydra.Chain.Direct.Tx (initTx, observeHeadTx)
+import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), collect, commit', initialize)
+import Hydra.Chain.Direct.Tx (observeHeadTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Ledger (txId)
@@ -64,7 +64,6 @@ import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.IO (hPutStrLn)
-import Text.Pretty.Simple (pHPrint)
 import Text.Printf (printf)
 
 -- | Determine the ledger genesis parameters for the head in a head.
@@ -104,7 +103,7 @@ withInceptionChain config ownParty _chainStateHistory callback action = do
     link thread
     action
       Chain
-        { postTx = postTx wallet
+        { postTx = postTx ctx wallet
         , submitTx = submitTx
         , draftCommitTx = draftCommitTx ctx wallet
         }
@@ -127,26 +126,30 @@ withInceptionChain config ownParty _chainStateHistory callback action = do
           Right balancedTx ->
             pure . Right $ sign wallet balancedTx
 
-  postTx wallet toPost = do
-    -- HACK: query spendable utxo on demand
-    utxo <- getSnapshotUTxO underlyingHydraApi
+  postTx ctx wallet toPost = do
+    -- HACK: query all utxo on demand
+    allUTxO <- getSnapshotUTxO underlyingHydraApi
 
     -- TODO: define a timehandle to use (current slot?)
-    -- TODO: prepareTxToPost with timehandle, wallet and spendable utxo
+    -- TODO: use prepareTxToPost with timehandle, wallet and spendable utxo
     tx <- atomically $ do
       case toPost of
         InitTx{participants, headParameters} ->
           getSeedInput wallet >>= \case
             Just seedInput ->
-              pure $ initTx networkId seedInput participants headParameters
+              pure $ initialize ctx seedInput participants headParameters
             Nothing ->
               error "no seed input"
+        CollectComTx{utxo, headId, headParameters} ->
+          case collect ctx headId headParameters utxo (spy' "allUTxO" allUTxO) of
+            Left _ -> error "failed to collect"
+            Right collectTx -> pure collectTx
         _ -> error $ "not implemented: " <> show toPost
 
     -- HACK: ensure wallet is up-to-date (this will re-fetch snapshot/utxo)
     reset wallet
 
-    coverFee wallet utxo tx >>= \case
+    coverFee wallet allUTxO tx >>= \case
       Left err -> error $ "Failed to cover fee: " <> show err
       Right balancedTx ->
         sign wallet balancedTx
