@@ -13,7 +13,13 @@ import Cardano.Api.GenesisParameters (fromShelleyGenesis)
 import Cardano.Api.Keys.Class (Key (getVerificationKey))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.UTxO qualified as Ledger
+import Control.Exception (IOException)
+import Control.Monad.Class.MonadThrow (Handler (..), catches)
 import Control.Tracer (debugTracer, showTracing)
+import Data.Aeson (object, (.=))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types qualified as Aeson
+import Data.Text qualified as Text
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey), ChainPoint (..), GenesisParameters, LedgerEra, NetworkId (..), NetworkMagic (..), PParams, PaymentKey, ShelleyEra, SigningKey, Tx, UTxO, isVkTxOut, sgSystemStart, toLedgerUTxO)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
@@ -21,10 +27,12 @@ import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
-import Hydra.Network (Host)
+import Hydra.Ledger (txId)
+import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
+import Network.WebSockets (Connection, HandshakeException, runClient, sendClose, sendTextData)
 import System.IO (hPutStrLn)
 import Text.Pretty.Simple (pHPrint)
 
@@ -49,20 +57,21 @@ withInceptionChain config chainStateHistory callback action = do
   pHPrint stderr sk
   wallet <- newHydraWallet networkId sk underlyingHydraApi
   -- TODO: open websocket and callback on SnapshotConfirmed
-  action
-    Chain
-      { postTx = postTx wallet
-      , submitTx
-      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
-      }
+  withConnectionToNodeHost underlyingHydraApi Nothing $ \client -> do
+    action
+      Chain
+        { postTx = postTx wallet client
+        , submitTx = submitTx client
+        , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
+        }
  where
   InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} = config
 
   -- TODO: configure / fetch from underlying?
   networkId = Testnet (NetworkMagic 42)
 
-  postTx wallet toPost = do
-    hPutStrLn stderr "Should postTx in Head:"
+  postTx wallet client toPost = do
+    hPutStrLn stderr "postTx in Head:"
     pHPrint stderr toPost
 
     -- TODO: query spendable utxo on demand
@@ -78,15 +87,15 @@ withInceptionChain config chainStateHistory callback action = do
               error "no seed input"
         _ -> undefined
 
-    hPutStrLn stderr $ renderTx tx
+    -- hPutStrLn stderr $ renderTx tx
 
     -- TODO: finalizeTx with wallet
-    submitTx tx
+    submitTx client tx
 
-  submitTx tx = do
-    -- TODO: send via "NewTx" on websocket
-    hPutStrLn stderr "submitTx"
-    pHPrint stderr tx
+  -- HACK: should await success/failure or create a synchronous API
+  submitTx client tx = do
+    hPutStrLn stderr $ "submitTx " <> show (txId tx)
+    send client $ input "NewTx" ["transaction" .= tx]
 
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
 --
@@ -122,6 +131,8 @@ newHydraWallet networkId sk host =
 
 -- * Hydra client
 
+-- HACK: copied from hydra-cluster HydraNode
+
 -- TODO: This could become a hydra-api or hydra-client package.
 
 -- | Fetch protocol parameters.
@@ -137,3 +148,44 @@ getSnapshotUTxO host = do
   parseUrlThrow ("GET http://" <> show host <> "/snapshot/utxo")
     >>= httpJSON
     <&> getResponseBody
+
+data HydraClient = HydraClient
+  { apiHost :: Host
+  , connection :: Connection
+  }
+
+-- | Create an input as expected by 'send'.
+input :: Text -> [Aeson.Pair] -> Aeson.Value
+input tag pairs = object $ ("tag" .= tag) : pairs
+
+send :: HydraClient -> Aeson.Value -> IO ()
+send HydraClient{connection} v = do
+  sendTextData connection (Aeson.encode v)
+
+withConnectionToNodeHost :: forall a. Host -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost apiHost@Host{hostname, port} queryParams action = do
+  connectedOnce <- newIORef False
+  tryConnect connectedOnce (200 :: Int)
+ where
+  tryConnect connectedOnce n
+    | n == 0 = error $ "Timed out waiting for connection to hydra-node " <> show apiHost
+    | otherwise = do
+        let
+          retryOrThrow :: forall proxy e. Exception e => proxy e -> e -> IO a
+          retryOrThrow _ e =
+            readIORef connectedOnce >>= \case
+              False -> threadDelay 0.1 >> tryConnect connectedOnce (n - 1)
+              True -> throwIO e
+        doConnect connectedOnce
+          `catches` [ Handler $ retryOrThrow (Proxy @IOException)
+                    , Handler $ retryOrThrow (Proxy @HandshakeException)
+                    ]
+
+  historyMode = fromMaybe "/" queryParams
+
+  doConnect connectedOnce = runClient (Text.unpack hostname) (fromInteger . toInteger $ port) historyMode $
+    \connection -> do
+      atomicWriteIORef connectedOnce True
+      res <- action $ HydraClient{apiHost, connection}
+      sendClose connection ("Bye" :: Text)
+      pure res
