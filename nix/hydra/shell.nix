@@ -7,6 +7,7 @@
 , system
 , pkgs
 , compiler
+, pkgsLatest
 }:
 let
 
@@ -46,6 +47,8 @@ let
     pkgs.websocat
     pkgs.yarn
     pkgs.yq
+    # Use latest jq in all shells, to avoid 1.6 bug with large integers.
+    pkgsLatest.jq
   ];
 
   libs = [
@@ -131,6 +134,16 @@ let
     ];
   };
 
+  # Shell for CI activities
+  ciShell = pkgs.mkShell {
+    name = "hydra-ci-shell";
+    buildInputs = [
+      # Note: jq 1.6 has a bug that means it fails to read large integers
+      # correctly, so we require 1.7+ at least.
+      pkgsLatest.jq
+    ];
+  };
+
   # If you want to modify `Python` code add `libtmux` and pyyaml to the
   # `buildInputs` then enter it and then run `Python` module directly so you
   # have fast devel cycle.
@@ -145,4 +158,5 @@ in
   cabalOnly = cabalShell;
   exes = exeShell;
   demo = demoShell;
+  ci = ciShell;
 }
