@@ -158,14 +158,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
 
                 -- Start another node pointing to the L2 hydra-node
-                let l3Dir = tmpDir </> "l3"
-                copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
                 let chainConfig =
                       Inception
                         defaultInceptionChainConfig
                           { underlyingHydraApi = apiHost
-                          , cardanoSigningKey = l3Dir </> "bob.sk"
+                          , cardanoSigningKey = l2Dir </> "wallet.sk"
                           }
+                let l3Dir = tmpDir </> "l3"
+                copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
                 -- L3 using node id 11
                 withHydraNode hydraTracer chainConfig l3Dir 11 bobSk [] [11] $ \l3 -> do
                   let blockTime = 0.1 -- L2 is very fast

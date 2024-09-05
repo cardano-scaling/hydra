@@ -11,16 +11,20 @@ import Hydra.Prelude
 import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.GenesisParameters (fromShelleyGenesis)
 import Cardano.Api.Keys.Class (Key (getVerificationKey))
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.UTxO qualified as Ledger
 import Control.Tracer (debugTracer, showTracing)
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey), GenesisParameters, NetworkId (..), NetworkMagic (..), PaymentKey, ShelleyEra, SigningKey, Tx, sgSystemStart)
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey), ChainPoint (..), GenesisParameters, LedgerEra, NetworkId (..), NetworkMagic (..), PParams, PaymentKey, ShelleyEra, SigningKey, Tx, UTxO, isVkTxOut, sgSystemStart, toLedgerUTxO)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
+import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..), newTinyWallet)
-import Hydra.Logging (withTracer)
+import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Network (Host)
 import Hydra.Options (InceptionChainConfig (..))
+import Network.HTTP.Conduit (parseUrlThrow)
+import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.IO (hPutStrLn)
 import Text.Pretty.Simple (pHPrint)
 
@@ -41,10 +45,9 @@ withInceptionChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withInceptionChain config chainStateHistory callback action = do
-  -- TODO: instantiate a wallet to balance the txs?
-  -- sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
-  -- wallet <- newHydraWallet networkId sk underlyingHydraApi
-  let wallet = undefined
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  pHPrint stderr sk
+  wallet <- newHydraWallet networkId sk underlyingHydraApi
   -- TODO: open websocket and callback on SnapshotConfirmed
   action
     Chain
@@ -86,7 +89,9 @@ withInceptionChain config chainStateHistory callback action = do
     pHPrint stderr tx
 
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
--- HACK: Should find a better "common" denominator for a wallet.
+--
+-- HACK: Should find a better "common" denominator for a wallet. Currently the
+-- TinyWallet is quite strictly tied to direct chain following semantics.
 newHydraWallet :: NetworkId -> SigningKey PaymentKey -> Host -> IO (TinyWallet IO)
 newHydraWallet networkId sk host =
   newTinyWallet
@@ -97,8 +102,38 @@ newHydraWallet networkId sk host =
     queryEpochInfo
     querySomePParams
  where
-  queryWalletInfo = undefined
+  queryWalletInfo _queryTip _address = do
+    utxo <- getSnapshotUTxO host
+    let ownUTxO = UTxO.filter (isVkTxOut $ getVerificationKey sk) utxo
+    pure
+      WalletInfoOnChain
+        { walletUTxO = Ledger.unUTxO $ toLedgerUTxO ownUTxO
+        , -- HACK: hard-coded system start
+          systemStart = Fixture.systemStart
+        , -- HACK: always at genesis
+          tip = ChainPointAtGenesis
+        }
 
-  queryEpochInfo = undefined
+  -- HACK: hard-coded epoch info
+  queryEpochInfo = pure Fixture.epochInfo
 
-  querySomePParams = undefined
+  -- HACK: hard-coded pparams
+  querySomePParams = pure $ BabbagePParams Fixture.defaultPParams
+
+-- * Hydra client
+
+-- TODO: This could become a hydra-api or hydra-client package.
+
+-- | Fetch protocol parameters.
+getProtocolParameters :: Host -> IO (PParams LedgerEra)
+getProtocolParameters host = do
+  parseUrlThrow ("GET http://" <> show host <> "/protocol-parameters")
+    >>= httpJSON
+    <&> getResponseBody
+
+-- | Fetch last confirmed UTxO.
+getSnapshotUTxO :: Host -> IO UTxO
+getSnapshotUTxO host = do
+  parseUrlThrow ("GET http://" <> show host <> "/snapshot/utxo")
+    >>= httpJSON
+    <&> getResponseBody

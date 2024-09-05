@@ -135,6 +135,7 @@ library
     , filepath
     , flat
     , formatting
+    , http-conduit
     , http-types
     , hydra-cardano-api
     , hydra-plutus
