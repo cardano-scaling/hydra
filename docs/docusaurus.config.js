@@ -15,7 +15,7 @@ const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Hydra Head protocol documentation",
-  url: "https://input-output-hk.github.io",
+  url: "https://hydra.family",
   baseUrl: "/head-protocol/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
