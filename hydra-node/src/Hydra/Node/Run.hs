@@ -17,7 +17,6 @@ import Hydra.Ledger.Cardano.Configuration (
   Globals,
   newGlobals,
   newLedgerEnv,
-  pparamsFromJson,
   readJsonFileThrow,
  )
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
@@ -69,7 +68,7 @@ run opts = do
     withMonitoring monitoringPort tracer' $ \tracer -> do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
-      pparams <- readJsonFileThrow pparamsFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+      pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks

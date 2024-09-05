@@ -7,7 +7,6 @@ module Hydra.Ledger.Cardano.Configuration (
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Ledger.Api (PParams)
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
@@ -78,11 +77,6 @@ newGlobals genesisParameters = do
   slotLength = mkSlotLength protocolParamSlotLength
 
 -- * LedgerEnv
-
--- | Decode protocol parameters using the 'ProtocolParameters' instance as this
--- is used by cardano-cli and matches the schema. TODO: define the schema
-pparamsFromJson :: Json.Value -> Json.Parser (PParams LedgerEra)
-pparamsFromJson = parseJSON
 
 -- | Create a new ledger env from given protocol parameters.
 newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra

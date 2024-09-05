@@ -86,6 +86,9 @@ import Cardano.Api as X hiding (
 import Cardano.Api.Byron as X (
   Address (..),
  )
+import Cardano.Api.Ledger as X (
+  PParams,
+ )
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
   Address (..),

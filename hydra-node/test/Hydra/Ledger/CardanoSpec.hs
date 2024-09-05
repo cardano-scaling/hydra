@@ -9,7 +9,6 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
-import Cardano.Ledger.Core (PParams ())
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson

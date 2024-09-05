@@ -118,7 +118,7 @@ testSeedInput :: TxIn
 testSeedInput = generateWith genTxIn 42
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
--- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 1.
+-- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 0
 defaultLedgerEnv :: LedgerEnv LedgerEra
 defaultLedgerEnv = newLedgerEnv defaultPParams
 
