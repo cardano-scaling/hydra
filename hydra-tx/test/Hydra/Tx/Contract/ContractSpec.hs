@@ -25,7 +25,6 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Head qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
-import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   Snapshot (..),
@@ -207,7 +206,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot SimpleTx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot Tx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties

@@ -44,11 +44,8 @@ library
   exposed-modules:
     Hydra.Chain.ChainState
     Hydra.Ledger.Cardano.Builder
-    Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
-    Hydra.Ledger.Ledger
-    Hydra.Ledger.Simple
     Hydra.Tx
     Hydra.Tx.Abort
     Hydra.Tx.BlueprintTx
@@ -125,11 +122,10 @@ library testlib
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-conway:{cardano-ledger-conway, testlib}
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
@@ -145,7 +141,6 @@ library testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
-    , time
 
   ghc-options:     -haddock
 

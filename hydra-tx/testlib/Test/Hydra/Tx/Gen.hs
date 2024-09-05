@@ -9,28 +9,19 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Ledger.Api (
-  updateTxBodyL,
- )
-import Cardano.Ledger.Babbage.Tx qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Magic (uintegerFromBytes)
-import Control.Lens (set)
 import Data.ByteString qualified as BS
-import Data.List (maximum)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
-import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (..))
-import Hydra.Tx (IsTx (..), ScriptRegistry (..))
+import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.Contest (ClosedThreadOutput)
@@ -38,10 +29,10 @@ import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Utils (adaOnly, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusTx.Builtins (fromBuiltin)
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixtures
-import Test.QuickCheck (choose, getSize, listOf, oneof, scale, shrinkList, shrinkMapBy, sublistOf, suchThat, vector, vectorOf)
+import Test.QuickCheck (choose, listOf, oneof, scale, shrinkList, shrinkMapBy, suchThat, vector, vectorOf)
 
 instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
@@ -230,11 +221,7 @@ instance Arbitrary ClosedThreadOutput where
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
-  arbitrary = fromLedgerTx . withoutProtocolUpdates <$> arbitrary
-   where
-    withoutProtocolUpdates tx@(Ledger.AlonzoTx body _ _ _) =
-      let body' = body & set updateTxBodyL Ledger.SNothing
-       in tx{Ledger.body = body'}
+  arbitrary = fromLedgerTx <$> arbitrary
 
 instance Arbitrary UTxO where
   shrink = shrinkUTxO
@@ -359,19 +346,6 @@ assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
 assetNameFromVerificationKey =
   onChainIdToAssetName . verificationKeyToOnChainId
 
-instance Arbitrary ChainSlot where
-  arbitrary = genericArbitrary
-
-instance Arbitrary SimpleChainState where
-  arbitrary = SimpleChainState <$> arbitrary
-
-instance Arbitrary SimpleTxOut where
-  shrink = genericShrink
-  arbitrary = genericArbitrary
-
-instance Arbitrary SimpleTx where
-  arbitrary = genericArbitrary
-
 -- | Generate a 'TxOut' with a reference script. The standard 'genTxOut' is not
 -- including reference scripts, use this generator if you are interested in
 -- these cases.
@@ -388,44 +362,3 @@ genUTxO1 gen = do
   txIn <- arbitrary
   txOut <- gen
   pure $ UTxO.singleton (txIn, txOut)
-
-genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
-genSequenceOfValidTransactions initialUTxO = do
-  n <- fromIntegral <$> getSize
-  let maxId = if Set.null initialUTxO then 0 else unSimpleTxOut (maximum initialUTxO)
-  numTxs <- choose (1, n)
-  foldlM newTx (maxId, initialUTxO, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
- where
-  newTx ::
-    (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx]) ->
-    TxIdType SimpleTx ->
-    Gen (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
-  newTx (maxId, utxo, txs) txid = do
-    (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
-    pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
-
-  genInputsAndOutputs :: Integer -> Set SimpleTxOut -> Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
-  genInputsAndOutputs maxId utxo = do
-    ins <- sublistOf (Set.toList utxo)
-    numOuts <- choose (1, 10)
-    let outs = fmap (+ maxId) [1 .. numOuts]
-    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap SimpleTxOut outs)
-
-class
-  ( Arbitrary (ChainStateType tx)
-  , Arbitrary tx
-  , IsTx tx
-  , Arbitrary (UTxOType tx)
-  , Arbitrary (TxIdType tx)
-  , Arbitrary (TxOutType tx)
-  ) =>
-  ArbitraryIsTx tx
-
-instance
-  ( Arbitrary (ChainStateType Tx)
-  , Arbitrary (UTxOType Tx)
-  , Arbitrary (TxOutType Tx)
-  ) =>
-  ArbitraryIsTx Tx
-
-instance ArbitraryIsTx SimpleTx

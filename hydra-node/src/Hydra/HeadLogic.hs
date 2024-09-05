@@ -68,7 +68,7 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger.Ledger (
+import Hydra.Ledger (
   Ledger (..),
   applyTransactions,
   outputsOfTx,

@@ -168,7 +168,7 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
-            inherit inputs pkgs hsPkgs system compiler;
+            inherit inputs pkgs hsPkgs system compiler pkgsLatest;
           };
         };
     };

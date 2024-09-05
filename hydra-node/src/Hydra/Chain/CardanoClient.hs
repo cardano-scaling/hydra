@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams (..))
 import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -293,8 +292,8 @@ queryProtocolParameters networkId socket queryPoint =
       AllegraEra -> encodeToEra AllegraEra pparams
       MaryEra -> encodeToEra MaryEra pparams
       AlonzoEra -> encodeToEra AlonzoEra pparams
-      BabbageEra -> pure pparams
-      ConwayEra -> encodeToEra ConwayEra pparams
+      BabbageEra -> encodeToEra BabbageEra pparams
+      ConwayEra -> pure pparams
 
 -- | Query the protocol parameters at given point. NOTE: If the era is not
 -- matching this fails with an era mismatch.

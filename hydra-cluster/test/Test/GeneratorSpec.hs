@@ -15,15 +15,10 @@ import Hydra.Generator (
   Dataset (..),
   generateConstantUTxODataset,
  )
-import Hydra.Ledger.Cardano (Tx, cardanoLedger)
-import Hydra.Ledger.Cardano.Configuration (
-  Globals,
-  LedgerEnv,
-  newLedgerEnv,
- )
-import Hydra.Ledger.Ledger (applyTransactions)
+import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger.Cardano (Globals, LedgerEnv, Tx, cardanoLedger, newLedgerEnv)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.Hydra.Tx.Fixture (defaultGlobals, defaultPParams)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultPParams)
 import Test.QuickCheck (
   Positive (Positive),
   Property,

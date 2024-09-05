@@ -5,6 +5,7 @@
 module Hydra.Tx.IsTx where
 
 import Hydra.Cardano.Api
+import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
@@ -19,9 +20,12 @@ import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
-import Hydra.Prelude
 import PlutusLedgerApi.V2 (fromBuiltin)
 
+-- | Types of transactions that can be used by the Head protocol. The associated
+-- types and methods of this type class represent the whole interface of what
+-- the Head protocol needs from a transaction. This ensure the off-chain
+-- protocol stays fairly independent of a concrete transaction type.
 class
   ( Eq tx
   , Show tx
@@ -57,13 +61,22 @@ class
   ) =>
   IsTx tx
   where
+  -- | Type which identifies a transaction
   type TxIdType tx
+
+  -- | Type for individual transaction outputs.
   type TxOutType tx = out | out -> tx
+
+  -- | Type for a set of unspent transaction outputs.
   type UTxOType tx = utxo | utxo -> tx
+
+  -- | Type representing a value on the ledger.
   type ValueType tx
 
   -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
+
+  -- XXX: Is this even used?
   balance :: UTxOType tx -> ValueType tx
 
   -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
@@ -79,6 +92,16 @@ class
 
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
+
+-- * Constraint synonyms
+
+type ArbitraryIsTx tx =
+  ( IsTx tx
+  , Arbitrary tx
+  , Arbitrary (UTxOType tx)
+  , Arbitrary (TxIdType tx)
+  , Arbitrary (TxOutType tx)
+  )
 
 -- * Cardano Tx
 
@@ -128,8 +151,8 @@ instance FromCBOR UTxO where
 
 txType :: Tx -> Text
 txType tx' = case getTxWitnesses tx' of
-  [] -> "Unwitnessed Tx BabbageEra"
-  _ -> "Witnessed Tx BabbageEra"
+  [] -> "Unwitnessed Tx ConwayEra"
+  _ -> "Witnessed Tx ConwayEra"
 
 instance IsTx Tx where
   type TxIdType Tx = TxId
