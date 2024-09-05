@@ -168,7 +168,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 copyConfigFile ("credentials" </> "bob.sk") (l3Dir </> "bob.sk")
                 -- L3 using node id 11
                 withHydraNode hydraTracer chainConfig l3Dir 11 bobSk [] [11] $ \l3 -> do
-                  let blockTime = 0.1 -- L2 is very fast
+                  let blockTime = 0.2 -- L2 is very fast
                   send l3 $ input "Init" []
                   headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
                   -- Commit nothing

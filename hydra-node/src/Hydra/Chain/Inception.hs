@@ -13,15 +13,34 @@ import Cardano.Api.GenesisParameters (fromShelleyGenesis)
 import Cardano.Api.Keys.Class (Key (getVerificationKey))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.UTxO qualified as Ledger
+import Control.Concurrent.STM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
+import Control.Lens ((^..), (^?))
 import Control.Monad.Class.MonadThrow (Handler (..), catches)
 import Control.Tracer (debugTracer, showTracing)
 import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Lens (key, values)
 import Data.Aeson.Types qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey), ChainPoint (..), GenesisParameters, LedgerEra, NetworkId (..), NetworkMagic (..), PParams, PaymentKey, ShelleyEra, SigningKey, Tx, UTxO, isVkTxOut, sgSystemStart, toLedgerUTxO)
-import Hydra.Cardano.Api.Pretty (renderTx)
+import Hydra.Cardano.Api (
+  AsType (AsPaymentKey, AsSigningKey),
+  ChainPoint (..),
+  GenesisParameters,
+  LedgerEra,
+  NetworkId (..),
+  NetworkMagic (..),
+  PParams,
+  PaymentKey,
+  ShelleyEra,
+  SigningKey,
+  Tx,
+  UTxO,
+  sgSystemStart,
+  toLedgerUTxO,
+  txOutAddress,
+  pattern ShelleyAddressInEra,
+ )
 import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Tx (initTx)
@@ -32,7 +51,7 @@ import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
-import Network.WebSockets (Connection, HandshakeException, runClient, sendClose, sendTextData)
+import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.IO (hPutStrLn)
 import Text.Pretty.Simple (pHPrint)
 
@@ -92,10 +111,13 @@ withInceptionChain config chainStateHistory callback action = do
     -- TODO: finalizeTx with wallet
     submitTx client tx
 
-  -- HACK: should await success/failure or create a synchronous API
   submitTx client tx = do
     hPutStrLn stderr $ "submitTx " <> show (txId tx)
+    -- HACK: should create a synchronous API
     send client $ input "NewTx" ["transaction" .= tx]
+    waitMatch 1 client $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
 
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
 --
@@ -111,9 +133,9 @@ newHydraWallet networkId sk host =
     queryEpochInfo
     querySomePParams
  where
-  queryWalletInfo _queryTip _address = do
+  queryWalletInfo _queryTip address = do
     utxo <- getSnapshotUTxO host
-    let ownUTxO = UTxO.filter (isVkTxOut $ getVerificationKey sk) utxo
+    let ownUTxO = UTxO.filter (\o -> txOutAddress o == ShelleyAddressInEra address) utxo
     pure
       WalletInfoOnChain
         { walletUTxO = Ledger.unUTxO $ toLedgerUTxO ownUTxO
@@ -127,7 +149,7 @@ newHydraWallet networkId sk host =
   queryEpochInfo = pure Fixture.epochInfo
 
   -- HACK: hard-coded pparams
-  querySomePParams = pure $ BabbagePParams Fixture.defaultPParams
+  querySomePParams = BabbagePParams <$> getProtocolParameters host
 
 -- * Hydra client
 
@@ -189,3 +211,41 @@ withConnectionToNodeHost apiHost@Host{hostname, port} queryParams action = do
       res <- action $ HydraClient{apiHost, connection}
       sendClose connection ("Bye" :: Text)
       pure res
+
+waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
+waitNext HydraClient{connection} = do
+  -- NOTE: We delay on connection errors to give other assertions the chance to
+  -- provide more detail (e.g. checkProcessHasNotDied) before this fails.
+  bytes <-
+    try (receiveData connection) >>= \case
+      Left (err :: ConnectionException) -> do
+        threadDelay 1
+        error $ "waitNext: " <> show err
+      Right msg -> pure msg
+  case Aeson.eitherDecode' bytes of
+    Left err -> error . fromString $ "WaitNext failed to decode msg: " <> err
+    Right value -> pure value
+
+-- | Wait up to some time for an API server output to match the given predicate.
+waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatch delay client@HydraClient{apiHost} match = do
+  seenMsgs <- newTVarIO []
+  timeout (realToFrac delay) (go seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      error $
+        unlines
+          [ "waitMatch did not match a message within " <> show delay
+          , padRight ' ' 20 "  node:" <> show apiHost
+          , padRight ' ' 20 "  seen messages:"
+              <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
+          ]
+ where
+  go seenMsgs = do
+    msg <- waitNext client
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (match msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (Text.replicate n " " <>) q
