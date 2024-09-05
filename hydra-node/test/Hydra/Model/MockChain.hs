@@ -66,9 +66,9 @@ import Hydra.HeadLogic (
   OpenState (..),
   defaultTTL,
  )
+import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx)
-import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))

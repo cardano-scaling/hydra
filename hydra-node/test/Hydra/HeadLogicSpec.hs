@@ -46,8 +46,8 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
-import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -59,8 +59,8 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
 import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)

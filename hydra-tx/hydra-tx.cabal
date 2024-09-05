@@ -44,7 +44,6 @@ library
   exposed-modules:
     Hydra.Chain.ChainState
     Hydra.Ledger.Cardano.Builder
-    Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
     Hydra.Tx
@@ -127,7 +126,6 @@ library testlib
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
-    , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
@@ -143,7 +141,6 @@ library testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
-    , time
 
   ghc-options:     -haddock
 

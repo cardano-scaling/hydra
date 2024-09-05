@@ -14,13 +14,10 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
 import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
-import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
-import Cardano.Slotting.Time qualified as Slotting
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   Key (VerificationKey),
   LedgerEra,
@@ -36,17 +33,14 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
-import Hydra.Tx.Party (Party, deriveParty)
-
--- import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Configuration (LedgerEnv, newLedgerEnv)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
+import Hydra.Tx.Party (deriveParty)
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party
@@ -117,11 +111,6 @@ testPolicyId = headPolicyId testSeedInput
 testSeedInput :: TxIn
 testSeedInput = generateWith genTxIn 42
 
--- | Default environment for the L2 ledger using the fixed L1 'pparams' with
--- zeroed fees and prices. NOTE: This is using still a constant SlotNo = 0
-defaultLedgerEnv :: LedgerEnv LedgerEra
-defaultLedgerEnv = newLedgerEnv defaultPParams
-
 defaultPParams :: PParams LedgerEra
 defaultPParams =
   pparams
@@ -133,23 +122,3 @@ defaultPParams =
          )
     & ppMinFeeAL .~ Coin 0
     & ppMinFeeBL .~ Coin 0
-
-defaultGlobals :: Ledger.Globals
-defaultGlobals =
-  Ledger.Globals
-    { Ledger.epochInfo = epochInfo
-    , Ledger.slotsPerKESPeriod = 20
-    , Ledger.stabilityWindow = 33
-    , Ledger.randomnessStabilisationWindow = 33
-    , Ledger.securityParameter = 10
-    , Ledger.maxKESEvo = 10
-    , Ledger.quorum = 5
-    , Ledger.maxMajorPV = maxBound
-    , Ledger.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
-    , Ledger.activeSlotCoeff = Ledger.mkActiveSlotCoeff . unsafeBoundRational $ 0.9
-    , Ledger.networkId = Ledger.Testnet
-    , Ledger.systemStart = Slotting.SystemStart $ posixSecondsToUTCTime 0
-    }
- where
-  unsafeBoundRational r =
-    fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
