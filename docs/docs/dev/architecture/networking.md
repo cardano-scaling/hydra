@@ -1,11 +1,7 @@
 # Networking
 
-This document provides details about the Hydra networking layer, which encompasses the network of Hydra nodes where heads can be opened.
-
-:::warning
-
-🛠 This document is a work in progress. We recognize that the current state of networking is suboptimal, serving as an initial implementation to establish a functional basis. Efforts are underway to enhance the network dynamics through a proposed improvement initiative, detailed in [this proposal](https://github.com/input-output-hk/hydra/pull/237).
-:::
+This page provides details about the Hydra networking layer, which encompasses
+the network of Hydra nodes where heads can be opened.
 
 ## Questions
 
@@ -29,6 +25,64 @@ This document provides details about the Hydra networking layer, which encompass
   - Currently leveraging the Ouroboros stack with CBOR message encoding, integrating other tools into the Hydra network may pose challenges.
 
 ## Investigations
+
+### Network resilience
+
+In August 2024 we added some network resilience tests, implemented as a GitHub
+action step in [network-test.yaml](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml).
+
+The approach is to use [Pumba](https://github.com/alexei-led/pumba) to inject
+networking faults into a docker-based setup. This is effective, because of the
+[NetEm](https://srtlab.github.io/srt-cookbook/how-to-articles/using-netem-to-emulate-networks.html)
+capability that allows for very powerful manipulation of the networking stack
+of the containers.
+
+Initially, we have set up percentage-based loss on some very specific
+scenarios; namely a three-node setup between `Alice`, `Bob` and `Carol`.
+
+With this setup, we tested the following scenarios:
+
+- Three nodes, 900 transactions ("scaling=10"):
+  - 1% packet loss to both peers: ✅ Success
+  - 2% packet loss to both peers: ✅ Success
+  - 3% packet loss to both peers: ✅ Success
+  - 4% packet loss to both peers: ✅ Success
+  - 5% packet loss to both peers: Sometimes works, sometimes fails
+  - 10% packet loss to both peers: Sometimes works, sometimes fails
+  - 20% packet loss to both peers: ❌Failure
+
+- Three nodes, 4500 transactions ("scaling=50"):
+  - 1% packet loss to both peers: ✅ Success
+  - 2% packet loss to both peers: ✅ Success
+  - 3% packet loss to both peers: ✅ Success
+  - 4% packet loss to both peers: Sometimes works, sometimes fails
+  - 5% packet loss to both peers: Sometimes works, sometimes fails
+  - 10% packet loss to both peers: ❌Failure
+  - 20% packet loss to both peers: ❌Failure
+
+"Success" here means that _all_ transactions were processed; "Failure" means
+one or more transactions did not get confirmed by all participants within a
+particular timeframe.
+
+The main conclusion here is ... there's a limit to the amount of packet loss
+we can sustain, it's related to how many transactions we are trying to send
+(naturally, [given the percent of failure is per
+ packet](http://www.voiptroubleshooter.com/indepth/burstloss.html).)
+
+You can keep an eye on the runs of this action here: [Network fault
+tolerance](https://github.com/cardano-scaling/hydra/actions/workflows/network-test.yaml).
+
+The main things to note are:
+
+- Overall, the CI job will succeed even if every scenario fails. This is,
+  ultimately, due to a bug in [GitHub
+  actions](https://github.com/actions/runner/issues/2347) that prevents one
+  from declaring an explicit pass-or-fail expectation per scenario. The impact
+  is that you should manually check this job on each of your PRs.
+- It's okay to see certain configurations fail, but it's certainly not
+  expected to see them _all_ fail; certainly not the zero-loss cases. Anything
+  that looks suspcisious should be investigated.
+
 
 ### Ouroboros
 
