@@ -10,12 +10,17 @@ import Hydra.Prelude
 
 import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.GenesisParameters (fromShelleyGenesis)
-import Hydra.Cardano.Api (GenesisParameters, NetworkId (..), NetworkMagic (..), ShelleyEra, Tx, sgSystemStart)
+import Cardano.Api.Keys.Class (Key (getVerificationKey))
+import Control.Tracer (debugTracer, showTracing)
+import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey), GenesisParameters, NetworkId (..), NetworkMagic (..), PaymentKey, ShelleyEra, SigningKey, Tx, sgSystemStart)
+import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (initTx)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..), newTinyWallet)
+import Hydra.Logging (withTracer)
 import Hydra.Network (Host)
-import Hydra.Options (InceptionChainConfig)
+import Hydra.Options (InceptionChainConfig (..))
 import System.IO (hPutStrLn)
 import Text.Pretty.Simple (pHPrint)
 
@@ -29,13 +34,16 @@ getGenesisParameters = do
 
 -- | Start an inception chain component by connecting to the given hydra API
 -- endpoint.
+-- HACK: Should add tracing
 withInceptionChain ::
   InceptionChainConfig ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withInceptionChain config chainStateHistory callback action = do
-  -- TODO: add wallet
+  -- TODO: instantiate a wallet to balance the txs?
+  -- sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
+  -- wallet <- newHydraWallet networkId sk underlyingHydraApi
   let wallet = undefined
   -- TODO: open websocket and callback on SnapshotConfirmed
   action
@@ -45,6 +53,8 @@ withInceptionChain config chainStateHistory callback action = do
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       }
  where
+  InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} = config
+
   -- TODO: configure / fetch from underlying?
   networkId = Testnet (NetworkMagic 42)
 
@@ -65,6 +75,8 @@ withInceptionChain config chainStateHistory callback action = do
               error "no seed input"
         _ -> undefined
 
+    hPutStrLn stderr $ renderTx tx
+
     -- TODO: finalizeTx with wallet
     submitTx tx
 
@@ -73,6 +85,20 @@ withInceptionChain config chainStateHistory callback action = do
     hPutStrLn stderr "submitTx"
     pHPrint stderr tx
 
--- | Create a 'TinyWallet' interface using a connection to the Hydra node.
-newHydraWallet :: Host -> m (TinyWallet m)
-newHydraWallet = undefined
+-- | Create a 'TinyWallet' interface from a connection to the Hydra node.
+-- HACK: Should find a better "common" denominator for a wallet.
+newHydraWallet :: NetworkId -> SigningKey PaymentKey -> Host -> IO (TinyWallet IO)
+newHydraWallet networkId sk host =
+  newTinyWallet
+    (showTracing debugTracer)
+    networkId
+    (getVerificationKey sk, sk)
+    queryWalletInfo
+    queryEpochInfo
+    querySomePParams
+ where
+  queryWalletInfo = undefined
+
+  queryEpochInfo = undefined
+
+  querySomePParams = undefined

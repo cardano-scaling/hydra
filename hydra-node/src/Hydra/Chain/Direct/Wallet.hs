@@ -150,6 +150,7 @@ data WalletInfoOnChain = WalletInfoOnChain
   -- ^ Latest point on chain the wallet knows of.
   }
 
+-- XXX: QueryPoint is always QueryTip
 type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
 
 watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
@@ -164,6 +165,7 @@ newTinyWallet ::
   -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
+  -- XXX: Passing the signing key should be enough
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
