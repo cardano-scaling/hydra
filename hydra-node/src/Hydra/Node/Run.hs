@@ -17,7 +17,6 @@ import Hydra.Ledger.Cardano.Configuration (
   Globals,
   newGlobals,
   newLedgerEnv,
-  readJsonFileThrow,
  )
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -44,6 +43,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Tx.Environment (Environment (..))
+import Hydra.Utils (readJsonFileThrow)
 
 data ConfigurationException
   = -- XXX: this is not used

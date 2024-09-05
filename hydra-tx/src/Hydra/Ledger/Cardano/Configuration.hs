@@ -13,17 +13,6 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Ledger.Shelley.API.Types qualified as Ledger
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
-import Data.Aeson qualified as Json
-import Data.Aeson.Types qualified as Json
-
--- * Helpers
-
-readJsonFileThrow :: (Json.Value -> Json.Parser a) -> FilePath -> IO a
-readJsonFileThrow parser filepath = do
-  value <- Json.eitherDecodeFileStrict filepath >>= either fail pure
-  case Json.parseEither parser value of
-    Left e -> fail e
-    Right a -> pure a
 
 -- * Globals
 

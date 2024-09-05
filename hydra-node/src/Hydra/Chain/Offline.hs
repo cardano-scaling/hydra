@@ -23,7 +23,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
+import Hydra.Utils (readJsonFileThrow)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Network (NodeId (nodeId))
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)

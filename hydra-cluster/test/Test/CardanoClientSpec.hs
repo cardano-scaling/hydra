@@ -8,8 +8,8 @@ import CardanoNode (withCardanoNodeDevnet)
 import Data.Aeson ((.:))
 import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..))
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Utils (readJsonFileThrow)
 import System.FilePath ((</>))
 import Test.EndToEndSpec (withClusterTempDir)
 
