@@ -6,9 +6,9 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (AsIxItem (..))
 import Cardano.Ledger.Api (
-  AlonzoPlutusPurpose (..),
   AlonzoTxAuxData (..),
   AsIx (..),
+  ConwayPlutusPurpose (..),
   Redeemers (..),
   auxDataHashTxBodyL,
   auxDataTxL,
@@ -103,7 +103,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
              in case Map.lookup txin resolved of
                   Nothing -> newRedeemerData
                   Just d ->
-                    (AlonzoSpending (AsIx ix), (d, ExUnits 0 0)) : newRedeemerData
+                    (ConwaySpending (AsIx ix), (d, ExUnits 0 0)) : newRedeemerData
         )
         []
         inputs
@@ -114,7 +114,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       ( \p (d, _ex) ->
           -- XXX: Should soon be available through cardano-ledger-api again
           case redeemerPointerInverse (tx ^. bodyTxL) p of
-            SJust (AlonzoSpending (AsIxItem _ txIn)) -> Map.singleton txIn d
+            SJust (ConwaySpending (AsIxItem _ txIn)) -> Map.singleton txIn d
             _ -> mempty
       )
       (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)

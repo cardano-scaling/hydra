@@ -3,7 +3,12 @@ module Hydra.Cardano.Api.TxBody where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AlonzoPlutusPurpose (..), AsItem (..), AsIx, PlutusPurpose)
+import Cardano.Ledger.Api (
+  AsItem (..),
+  AsIx,
+  ConwayPlutusPurpose (..),
+  PlutusPurpose,
+ )
 import Cardano.Ledger.Babbage.Core (redeemerPointer)
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import Cardano.Ledger.Core qualified as Ledger
@@ -23,7 +28,7 @@ findRedeemerSpending ::
   TxIn ->
   Maybe a
 findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
-  ptr <- strictMaybeToMaybe $ redeemerPointer body (AlonzoSpending . AsItem $ toLedgerTxIn txIn)
+  ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwaySpending . AsItem $ toLedgerTxIn txIn)
   lookupRedeemer ptr scriptData
 
 findRedeemerMinting ::
@@ -32,7 +37,7 @@ findRedeemerMinting ::
   PolicyId ->
   Maybe a
 findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) pid = do
-  ptr <- strictMaybeToMaybe $ redeemerPointer body (AlonzoMinting . AsItem $ toLedgerPolicyID pid)
+  ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwayMinting . AsItem $ toLedgerPolicyID pid)
   lookupRedeemer ptr scriptData
 
 findScriptMinting ::

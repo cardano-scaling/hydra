@@ -1985,7 +1985,7 @@ components:
       properties:
         type:
           type: string
-          enum: ["Tx BabbageEra", "Unwitnessed Tx BabbageEra", "Witnessed Tx BabbageEra"]
+          enum: ["Tx ConwayEra", "Unwitnessed Tx ConwayEra", "Witnessed Tx ConwayEra"]
         description:
           type: string
         cborHex:

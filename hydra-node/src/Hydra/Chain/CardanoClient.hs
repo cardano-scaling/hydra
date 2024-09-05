@@ -293,8 +293,8 @@ queryProtocolParameters networkId socket queryPoint =
       AllegraEra -> encodeToEra AllegraEra pparams
       MaryEra -> encodeToEra MaryEra pparams
       AlonzoEra -> encodeToEra AlonzoEra pparams
-      BabbageEra -> pure pparams
-      ConwayEra -> encodeToEra ConwayEra pparams
+      BabbageEra -> encodeToEra BabbageEra pparams
+      ConwayEra -> pure pparams
 
 -- | Query the protocol parameters at given point. NOTE: If the era is not
 -- matching this fails with an era mismatch.

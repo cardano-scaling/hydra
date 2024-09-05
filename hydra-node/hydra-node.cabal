@@ -106,6 +106,7 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-conway:testlib
     , cardano-ledger-core:{cardano-ledger-core, testlib}
     , cardano-ledger-shelley
     , cardano-slotting
@@ -313,6 +314,7 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-shelley:{cardano-ledger-shelley, testlib}
     , cardano-slotting

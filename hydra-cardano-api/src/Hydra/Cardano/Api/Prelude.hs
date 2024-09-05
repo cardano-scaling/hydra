@@ -53,7 +53,7 @@ import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
 import Test.QuickCheck (Arbitrary (..), Gen)
 
-type Era = BabbageEra
+type Era = ConwayEra
 
 -- | Currently supported ledger era.
 type LedgerEra = ShelleyLedgerEra Era

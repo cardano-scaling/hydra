@@ -33,7 +33,7 @@ spec =
         output
           ^? key "type" . _String `shouldSatisfy` \case
             Nothing -> False
-            Just something -> something == "Witnessed Tx BabbageEra"
+            Just something -> something == "Witnessed Tx ConwayEra"
 
     it "has expected cardano-cli version available" $
       readProcess "cardano-cli" ["--version"] "" >>= (`shouldContain` "9.2.1.0")

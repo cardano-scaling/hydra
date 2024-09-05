@@ -28,6 +28,7 @@ import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Utils (adaOnly)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
+import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genValue)
 import Test.QuickCheck (
   choose,
