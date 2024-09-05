@@ -24,6 +24,11 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
+    - name: Set up and use the "ci" devShell
+      uses: nicknovitski/nix-develop@v1
+      with:
+        arguments: ".#ci"
+
     - name: Get released workflow run id
       id: released-workflow
       uses: actions/github-script@v7
