@@ -51,7 +51,10 @@ data Snapshot tx = Snapshot
   -- ^ Open state version this snapshot is based on.
   , number :: SnapshotNumber
   -- ^ Monotonically increasing snapshot number.
-  , confirmed :: [TxIdType tx]
+  , confirmed :: [tx]
+  -- ^ FIXME: If [tx] is useful, should make it part of snapshot again and only
+  -- keep it out of ReqSn. See also
+  -- https://github.com/cardano-scaling/hydra/pull/922
   , utxo :: UTxOType tx
   -- ^ The set of transactions that lead to 'utxo'
   , utxoToDecommit :: Maybe (UTxOType tx)
@@ -117,7 +120,7 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
 
-instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
+instance (Typeable tx, ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
     toCBOR headId
       <> toCBOR version
@@ -126,7 +129,7 @@ instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Sn
       <> toCBOR utxo
       <> toCBOR utxoToDecommit
 
-instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
+instance (Typeable tx, FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR =
     Snapshot
       <$> fromCBOR

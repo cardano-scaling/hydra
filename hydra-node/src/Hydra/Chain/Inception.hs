@@ -162,7 +162,7 @@ withInceptionChain config ownParty _chainStateHistory callback action = do
       send client $ input "NewTx" ["transaction" .= tx]
       waitMatch 1 client $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-        guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+        guard $ toJSON tx `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
       hPutStrLn stderr "confirmed"
 
   observeSnapshots = do
@@ -170,34 +170,35 @@ withInceptionChain config ownParty _chainStateHistory callback action = do
     withConnectionToNodeHost underlyingHydraApi (Just "/?history=no") $ \client -> do
       observe client utxo
 
+  -- TODO: observe ticks
   observe client utxo = do
     msg <- waitNext client
     case msg :: ServerOutput Tx of
       Greetings{} -> observe client utxo
-      -- HACK: Not using SnapshotConfirmed as I want to avoid book-keeping
-      -- and snapshot only contains transaction ids
-      SnapshotConfirmed{snapshot = Snapshot{number}} -> do
-        hPutStrLn stderr $ printf "SnapshotConfirmed, number: %d" (toInteger number)
-        observe client utxo
-      -- HACK: should use SnapshotConfirmed instead for a "block"
       TxValid{transaction} -> do
         hPutStrLn stderr $ printf "TxValid, txId: %s" (show @Text $ txId transaction)
-        let utxo' = adjustUTxO transaction utxo
-        -- HACK: conversion should not be needed
-        case convertObservation $ observeHeadTx networkId utxo transaction of
-          Nothing ->
-            hPutStrLn stderr "Not a head transaction"
-          Just observedTx -> do
-            hPutStrLn stderr $ "Observed: " <> show observedTx
-            callback
-              Observation
-                { observedTx
-                , newChainState =
-                    ChainStateAt
-                      { spendableUTxO = utxo'
-                      , recordedAt = Nothing -- HACK: always genesis
+        observe client utxo
+      SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} -> do
+        hPutStrLn stderr $ printf "SnapshotConfirmed, number: %d" (toInteger number)
+        let observeOne u tx = do
+              let u' = adjustUTxO tx u
+              -- HACK: conversion should not be needed
+              case convertObservation $ observeHeadTx networkId u tx of
+                Nothing ->
+                  hPutStrLn stderr "Not a head transaction"
+                Just observedTx -> do
+                  hPutStrLn stderr $ "Observed: " <> show observedTx
+                  callback
+                    Observation
+                      { observedTx
+                      , newChainState =
+                          ChainStateAt
+                            { spendableUTxO = u'
+                            , recordedAt = Nothing -- HACK: always genesis
+                            }
                       }
-                }
+              pure u'
+        utxo' <- foldlM observeOne utxo confirmed
         observe client utxo'
       m ->
         error $ "Unhandled message: " <> show m

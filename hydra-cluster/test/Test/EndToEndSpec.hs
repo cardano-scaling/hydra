@@ -128,7 +128,7 @@ withClusterTempDir = withTempDir "hydra-cluster"
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
   describe "End-to-end in another Hydra head (inception)" $ do
-    it "full head life-cycle" $ \_ ->
+    it "open a head in another head" $ \_ ->
       withClusterTempDir $ \tmpDir -> do
         withLogFile (tmpDir </> "logs" </> "test.log") $ \h -> do
           withTracerOutputTo h "Inception" $ \tracer -> do
@@ -155,7 +155,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 send l2 $ input "NewTx" ["transaction" .= tx]
                 waitMatch 3 l2 $ \v -> do
                   guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-                  guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+                  guard $ toJSON tx `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
 
                 -- Start another node pointing to the L2 hydra-node
                 let chainConfig =

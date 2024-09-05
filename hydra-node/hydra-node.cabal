@@ -157,7 +157,6 @@ library
     , ouroboros-network-protocols                               >=0.8
     , plutus-core                                               >=1.21
     , plutus-ledger-api                                         >=1.21
-    , pretty-simple
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt

@@ -293,7 +293,7 @@ spec =
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
               reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing
-              snapshot1 = testSnapshot 1 0 [1] (utxoRefs [1])
+              snapshot1 = testSnapshot 1 0 [t1] (utxoRefs [1])
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
           sa <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -1002,7 +1002,7 @@ testSnapshot ::
   Monoid (UTxOType tx) =>
   SnapshotNumber ->
   SnapshotVersion ->
-  [TxIdType tx] ->
+  [tx] ->
   UTxOType tx ->
   Snapshot tx
 testSnapshot number version confirmed utxo =

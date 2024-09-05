@@ -426,7 +426,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx =
                       { headId
                       , version = version
                       , number = sn
-                      , confirmed = requestedTxIds
+                      , confirmed = requestedTxs
                       , utxo = u
                       , utxoToDecommit = mUtxoToDecommit
                       }

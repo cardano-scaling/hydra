@@ -458,7 +458,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
   let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
   pure $
-    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
+    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO (spy' "commits" commits) utxoToCollect
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
