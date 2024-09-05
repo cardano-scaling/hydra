@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Generic Cardano constants for use in testing.
 module Test.Hydra.Tx.Fixture (

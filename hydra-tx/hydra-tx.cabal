@@ -114,12 +114,9 @@ library testlib
   hs-source-dirs:  testlib
   visibility:      public
   exposed-modules:
-    Test.Hydra.Tx
     Test.Hydra.Tx.Fixture
     Test.Hydra.Tx.Gen
-    Test.Hydra.Tx.HeadId
     Test.Hydra.Tx.Mutation
-    Test.Hydra.Tx.Snapshot
 
   other-modules:   Paths_hydra_tx
   build-depends:

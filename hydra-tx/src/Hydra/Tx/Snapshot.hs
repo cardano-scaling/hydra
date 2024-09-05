@@ -9,18 +9,21 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
+import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Contract.HeadState qualified as Onchain
-import Hydra.Tx.Crypto (MultiSignature)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
 import PlutusLedgerApi.V2 (toBuiltin, toData)
+import Test.QuickCheck (frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
+
+-- * SnapshotNumber and SnapshotVersion
 
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
 
 -- NOTE: On-chain scripts ensure snapshot number does not become negative.
 fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
@@ -30,12 +33,14 @@ fromChainSnapshotNumber =
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
 
 -- NOTE: On-chain scripts ensure snapshot version does not become negative.
 fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
 fromChainSnapshotVersion =
   UnsafeSnapshotVersion . fromMaybe 0 . integerToNatural
+
+-- * Snapshot
 
 data Snapshot tx = Snapshot
   { headId :: HeadId
@@ -54,6 +59,17 @@ data Snapshot tx = Snapshot
 deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
+-- | Binary representation of snapshot signatures. That is, concatenated CBOR for
+-- 'headId', 'version', 'number', 'utxoHash' and 'utxoToDecommitHash' according
+-- to CDDL schemata:
+--
+-- headId = bytes .size 16
+-- version = uint
+-- number = uint
+-- utxoHash = bytes
+-- utxoToDecommitHash = bytes
+--
+-- where hashes are the result of applying 'hashUTxO'.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToDecommit} =
     LBS.toStrict $
@@ -106,6 +122,19 @@ instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       <*> fromCBOR
       <*> fromCBOR
 
+instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Snapshot tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoToDecommit'
+    | confirmed' <- shrink confirmed
+    , utxo' <- shrink utxo
+    , utxoToDecommit' <- shrink utxoToDecommit
+    ]
+
+-- * ConfirmedSnapshot
+
 -- | A snapshot that can be used to close a head with. Either the initial one,
 -- or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
@@ -121,13 +150,13 @@ data ConfirmedSnapshot tx
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
+-- | Safely get a 'Snapshot' from a confirmed snapshot.
+--
 -- NOTE: While we could use 'snapshot' directly, this is a record-field accessor
 -- which may become partial (and lead to unnoticed runtime errors) if we ever
 -- add a new branch to the sumtype. So, we explicitely define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-
--- | Safely get a 'Snapshot' from a confirmed snapshot.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
@@ -147,3 +176,48 @@ isInitialSnapshot :: ConfirmedSnapshot tx -> Bool
 isInitialSnapshot = \case
   InitialSnapshot{} -> True
   ConfirmedSnapshot{} -> False
+
+instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+  arbitrary = do
+    ks <- arbitrary
+    utxo <- arbitrary
+    utxoToDecommit <- arbitrary
+    headId <- arbitrary
+    genConfirmedSnapshot headId 0 0 utxo utxoToDecommit ks
+
+  shrink = \case
+    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
+    ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
+
+genConfirmedSnapshot ::
+  IsTx tx =>
+  HeadId ->
+  -- | Exact snapshot version to generate.
+  SnapshotVersion ->
+  -- | The lower bound on snapshot number to generate.
+  -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
+  -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
+  -- this lower bound.
+  SnapshotNumber ->
+  UTxOType tx ->
+  Maybe (UTxOType tx) ->
+  [SigningKey HydraKey] ->
+  Gen (ConfirmedSnapshot tx)
+genConfirmedSnapshot headId version minSn utxo utxoToDecommit sks
+  | minSn > 0 = confirmedSnapshot
+  | otherwise =
+      frequency
+        [ (1, initialSnapshot)
+        , (9, confirmedSnapshot)
+        ]
+ where
+  initialSnapshot =
+    InitialSnapshot <$> arbitrary <*> pure utxo
+
+  confirmedSnapshot = do
+    -- FIXME: This is another nail in the coffin to our current modeling of
+    -- snapshots
+    number <- arbitrary `suchThat` (> minSn)
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit}
+    let signatures = aggregate $ fmap (`sign` snapshot) sks
+    pure $ ConfirmedSnapshot{snapshot, signatures}

@@ -44,7 +44,6 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
-import Hydra.Tx.Snapshot ()
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V2 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -71,7 +70,6 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
   replaceUTxOHash,
  )
-import Test.Hydra.Tx.Snapshot ()
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 

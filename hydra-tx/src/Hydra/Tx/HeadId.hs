@@ -4,6 +4,7 @@ module Hydra.Tx.HeadId where
 
 import Hydra.Prelude
 
+import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   HasTypeProxy (..),
   PolicyId,
@@ -11,6 +12,9 @@ import Hydra.Cardano.Api (
   UsingRawBytesHex (..),
  )
 import PlutusLedgerApi.V2 (CurrencySymbol (..), toBuiltin)
+import Test.QuickCheck (vectorOf)
+import Test.QuickCheck.Instances.Semigroup ()
+import Test.QuickCheck.Instances.Time ()
 
 -- | Uniquely identifies a Hydra Head.
 newtype HeadId = UnsafeHeadId ByteString
@@ -25,6 +29,9 @@ instance SerialiseAsRawBytes HeadId where
 instance HasTypeProxy HeadId where
   data AsType HeadId = AsHeadId
   proxyToAsType _ = AsHeadId
+
+instance Arbitrary HeadId where
+  arbitrary = UnsafeHeadId . BS.pack <$> vectorOf 16 arbitrary
 
 -- | Unique seed to create a 'HeadId'
 --
@@ -43,6 +50,9 @@ instance SerialiseAsRawBytes HeadSeed where
 instance HasTypeProxy HeadSeed where
   data AsType HeadSeed = AsHeadSeed
   proxyToAsType _ = AsHeadSeed
+
+instance Arbitrary HeadSeed where
+  arbitrary = UnsafeHeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)

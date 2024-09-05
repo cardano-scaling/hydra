@@ -107,6 +107,7 @@ import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
@@ -116,7 +117,6 @@ import Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
 import Test.QuickCheck.Gen (elements)
 import Test.QuickCheck.Modifiers (Positive (Positive))
