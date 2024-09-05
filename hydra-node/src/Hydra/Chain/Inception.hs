@@ -8,6 +8,9 @@ module Hydra.Chain.Inception where
 
 import Hydra.Prelude
 
+-- XXX: This should not be necessary (its needed for FromJSON ServerOutput)
+import Hydra.Chain.Direct.State ()
+
 import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.GenesisParameters (fromShelleyGenesis)
 import Cardano.Api.Keys.Class (Key (getVerificationKey))
@@ -16,6 +19,7 @@ import Cardano.Ledger.UTxO qualified as Ledger
 import Control.Concurrent.STM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (IOException)
 import Control.Lens ((^..), (^?))
+import Control.Monad.Class.MonadAsync (link)
 import Control.Monad.Class.MonadThrow (Handler (..), catches)
 import Control.Tracer (debugTracer, showTracing)
 import Data.Aeson (object, (.=))
@@ -23,6 +27,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values)
 import Data.Aeson.Types qualified as Aeson
 import Data.Text qualified as Text
+import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed, TxValid, snapshot, transaction))
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   ChainPoint (..),
@@ -41,19 +46,23 @@ import Hydra.Cardano.Api (
   txOutAddress,
   pattern ShelleyAddressInEra,
  )
-import Hydra.Chain (Chain (..), ChainComponent, ChainStateHistory, PostChainTx (..), PostTxError (..))
+import Hydra.Chain (Chain (..), ChainComponent, ChainEvent (..), ChainStateHistory, PostChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
-import Hydra.Chain.Direct.Tx (initTx)
+import Hydra.Chain.Direct.Handlers (convertObservation)
+import Hydra.Chain.Direct.State (ChainStateAt (..))
+import Hydra.Chain.Direct.Tx (initTx, observeHeadTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Ledger (txId)
 import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
+import Hydra.Snapshot (Snapshot (..))
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.IO (hPutStrLn)
 import Text.Pretty.Simple (pHPrint)
+import Text.Printf (printf)
 
 -- | Determine the ledger genesis parameters for the head in a head.
 -- TODO: Make this configurable like --offline?
@@ -74,13 +83,14 @@ withInceptionChain ::
 withInceptionChain config chainStateHistory callback action = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   wallet <- newHydraWallet networkId sk underlyingHydraApi
-  -- TODO: open websocket and callback on SnapshotConfirmed
-  action
-    Chain
-      { postTx = postTx wallet
-      , submitTx = submitTx
-      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
-      }
+  withAsync observeSnapshots $ \thread -> do
+    link thread
+    action
+      Chain
+        { postTx = postTx wallet
+        , submitTx = submitTx
+        , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
+        }
  where
   InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} = config
 
@@ -123,6 +133,34 @@ withInceptionChain config chainStateHistory callback action = do
         guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
       hPutStrLn stderr "confirmed"
 
+  observeSnapshots =
+    withConnectionToNodeHost underlyingHydraApi (Just "/?history=no") $ \client -> do
+      forever $ do
+        msg <- waitNext client
+        case msg :: ServerOutput Tx of
+          -- HACK: Not using SnapshotConfirmed as I want to avoid book-keeping
+          -- and snapshot only contains transaction ids
+          SnapshotConfirmed{snapshot = Snapshot{number}} -> do
+            hPutStrLn stderr $ printf "SnapshotConfirmed, number: %d" (toInteger number)
+          -- HACK: should use SnapshotConfirmed instead for a "block"
+          TxValid{transaction} -> do
+            hPutStrLn stderr $ printf "TxValid, txId: %s" (show @Text $ txId transaction)
+            let utxo = mempty -- FIXME
+            -- HACK: conversion should not be needed
+            case convertObservation $ observeHeadTx networkId utxo transaction of
+              Nothing -> pure ()
+              Just observedTx ->
+                callback
+                  Observation
+                    { observedTx
+                    , newChainState =
+                        ChainStateAt
+                          { spendableUTxO = utxo
+                          , recordedAt = Nothing -- HACK: always genesis
+                          }
+                    }
+          _ -> pure ()
+
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
 --
 -- HACK: Should find a better "common" denominator for a wallet. Currently the
@@ -157,9 +195,9 @@ newHydraWallet networkId sk host =
 
 -- * Hydra client
 
--- HACK: copied from hydra-cluster HydraNode
+-- HACK: Mostly copied from hydra-cluster HydraNode
 
--- TODO: This could become a hydra-api or hydra-client package.
+-- TODO: This could become a hydra-api or hydra-client package which uses richer ClientInput and ServerOutput types.
 
 -- | Fetch protocol parameters.
 getProtocolParameters :: Host -> IO (PParams LedgerEra)
@@ -216,7 +254,7 @@ withConnectionToNodeHost apiHost@Host{hostname, port} mPath action = do
       sendClose connection ("Bye" :: Text)
       pure res
 
-waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
+waitNext :: (FromJSON msg, HasCallStack) => HydraClient -> IO msg
 waitNext HydraClient{connection} = do
   -- NOTE: We delay on connection errors to give other assertions the chance to
   -- provide more detail (e.g. checkProcessHasNotDied) before this fails.

@@ -152,7 +152,8 @@ data PostTxError tx
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Comitting byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
-  | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
+  | -- XXX: This is unused
+    InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel
   | NoFuelUTXOFound
   | -- | Script execution failed when finalizing a transaction in the wallet.
