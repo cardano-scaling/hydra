@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | This module defines the types and functions for creating 'EventSource' and
 -- 'EventSink' instances and is intended to be used as an extension point.
 --
@@ -15,7 +17,7 @@ import Hydra.Prelude
 
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 type EventId = Word64

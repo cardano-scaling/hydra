@@ -71,7 +71,9 @@ library
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.State
+    Hydra.Ledger
     Hydra.Ledger.Cardano
+    Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
@@ -143,6 +145,7 @@ library
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , serialise
     , stm
     , text
     , time
@@ -164,21 +167,29 @@ library testlib
   import:          project-config
   visibility:      public
   hs-source-dirs:  testlib
-  exposed-modules: Hydra.JSONSchema
+  exposed-modules:
+    Hydra.JSONSchema
+    Test.Hydra.Node.Fixture
+
   other-modules:   Paths_hydra_node
   build-depends:
     , aeson
     , base
+    , cardano-ledger-core
     , containers
     , directory
     , filepath
+    , hydra-cardano-api
+    , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx:testlib
     , lens
     , lens-aeson
     , process
     , QuickCheck
     , text
+    , time
     , versions
     , yaml
 
@@ -246,9 +257,9 @@ benchmark micro
     , base
     , criterion
     , hydra-cardano-api
-    , hydra-node
+    , hydra-node:{hydra-node, testlib}
     , hydra-prelude
-    , hydra-tx:{hydra-tx, testlib}
+    , hydra-tx
     , QuickCheck
 
   ghc-options:    -threaded -rtsopts

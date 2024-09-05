@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
-module Hydra.Ledger.Ledger where
+module Hydra.Ledger where
 
 import Hydra.Prelude
 

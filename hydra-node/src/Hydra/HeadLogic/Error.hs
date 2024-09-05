@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger.Ledger (ValidationError)
+import Hydra.Ledger (ValidationError)
 import Hydra.Tx (
   HeadId,
   IsTx (TxIdType),

@@ -42,7 +42,7 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.Ledger.Ledger (Ledger, nextChainSlot)
+import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))

@@ -4,6 +4,8 @@ module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Hydra.Ledger.Cardano.Builder,
   Ledger.ShelleyGenesis (..),
+  Ledger.Globals,
+  Ledger.LedgerEnv,
   Tx,
 ) where
 
@@ -24,7 +26,7 @@ import Control.Monad (foldM)
 import Data.ByteString qualified as BS
 import Data.Default (def)
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Utils (adaOnly)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
@@ -79,6 +81,27 @@ cardanoLedger globals ledgerEnv =
         { Ledger.lsUTxOState = def{Ledger.utxosUtxo = toLedgerUTxO utxo}
         , Ledger.lsCertState = def
         }
+
+-- * LedgerEnv
+
+-- | Create a new ledger env from given protocol parameters.
+newLedgerEnv :: PParams LedgerEra -> Ledger.LedgerEnv LedgerEra
+newLedgerEnv protocolParams =
+  Ledger.LedgerEnv
+    { Ledger.ledgerSlotNo = SlotNo 0
+    , -- NOTE: This can probably stay at 0 forever. This is used internally by the
+      -- node's mempool to keep track of transaction seen from peers. Transactions
+      -- in Hydra do not go through the node's mempool and follow a different
+      -- consensus path so this will remain unused.
+      Ledger.ledgerIx = minBound
+    , -- NOTE: This keeps track of the ledger's treasury and reserve which are
+      -- both unused in Hydra. There might be room for interesting features in the
+      -- future with these two but for now, we'll consider them empty.
+      Ledger.ledgerAccount = Ledger.AccountState mempty mempty
+    , Ledger.ledgerPp = protocolParams
+    }
+
+-- * Conversions and utilities
 
 -- | Simple conversion from a generic slot to a specific local one.
 fromChainSlot :: ChainSlot -> SlotNo

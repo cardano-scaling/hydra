@@ -10,9 +10,8 @@ import Data.Aeson (encodeFile)
 import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
-import Hydra.Cardano.Api (Tx)
+import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
 import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
-import Hydra.Ledger.Cardano.Configuration (pparamsFromJson)
 import Hydra.Logging (showLogsOnFailure)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
@@ -43,7 +42,7 @@ spec =
         withTempDir "hydra-cluster" $ \tmpDir -> do
           withCardanoNodeDevnet tracer tmpDir $ \RunningNode{nodeSocket, networkId} -> do
             protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
-            case parseEither pparamsFromJson protocolParameters of
+            case parseEither (parseJSON @(PParams LedgerEra)) protocolParameters of
               Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> show protocolParameters
               Right _ -> pure ()
 

@@ -23,11 +23,11 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Ledger.Cardano.Configuration (readJsonFileThrow)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Network (NodeId (nodeId))
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
+import Hydra.Utils (readJsonFileThrow)
 
 -- | Derived 'HeadId' of offline head.
 offlineHeadId :: NodeId -> HeadId

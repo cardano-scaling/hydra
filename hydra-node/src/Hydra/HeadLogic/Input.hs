@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.HeadLogic.Input where
 
 import Hydra.Prelude
@@ -6,7 +8,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Network.Message (Message, NetworkEvent)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx)
 
 type TTL = Natural
 
