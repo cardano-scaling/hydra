@@ -12,6 +12,7 @@ import CardanoClient (
   RunningNode (..),
   buildTransaction,
   queryTip,
+  queryUTxO,
   queryUTxOFor,
   submitTx,
   waitForUTxO,
@@ -28,40 +29,62 @@ import Data.ByteString qualified as B
 import Data.List qualified as List
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
+  DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
+  BuildTxWith (..),
   Coin (..),
   File (File),
   Key (SigningKey),
+  PaymentCredential (..),
   PaymentKey,
+  PlutusScriptV2,
+  StakeAddressReference (..),
   Tx,
   TxId,
   UTxO,
+  fromPlutusScript,
   getTxBody,
   getVerificationKey,
+  hashScript,
   isVkTxOut,
   lovelaceToValue,
+  makeShelleyAddress,
   makeSignedTransaction,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatumHash,
   mkVkAddress,
+  scriptWitnessInCtx,
   selectLovelace,
   signTx,
+  toScriptData,
   txOutAddress,
   txOutValue,
   utxoFromTx,
   writeFileTextEnvelope,
+  pattern PlutusScript,
   pattern ReferenceScriptNone,
+  pattern ScriptWitness,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Cluster.Faucet (
+  FaucetLog,
+  createOutputAtAddress,
+  seedFromFaucet,
+  seedFromFaucet_,
+ )
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -97,6 +120,7 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import PlutusLedgerApi.Test.Examples qualified as Plutus
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -322,6 +346,91 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       callback n1 walletSk
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
+
+-- | Single hydra-node where the commit is done using some wallet UTxO.
+singlePartyCommitsScriptFromExternal ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsScriptFromExternal tracer workDir node hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer node Alice 25_000_000
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        (_walletVk, walletSk) <- keysFor AliceFunds
+        let script = fromPlutusScript @PlutusScriptV2 $ Plutus.alwaysSucceedingNAryFunction 2
+            scriptAddress = mkScriptAddress @PlutusScriptV2 networkId script
+            redeemer = 1 :: Integer
+            datum = 2 :: Integer
+            scriptWitness =
+              BuildTxWith $
+                ScriptWitness scriptWitnessInCtx $
+                  mkScriptWitness script (mkScriptDatum datum) (toScriptData redeemer)
+        (scriptTxIn, scriptTxOut) <- createOutputAtAddress node scriptAddress (mkTxOutDatumHash datum)
+
+        let utxoToCommit :: UTxO =
+              UTxO.singleton
+                ( scriptTxIn
+                , scriptTxOut
+                )
+        let blueprintTx =
+              unsafeBuildTransaction
+                ( emptyTxBody
+                    & addInputs [(scriptTxIn, scriptWitness)]
+                )
+
+        putStrLn $ renderTxWithUTxO utxoToCommit blueprintTx
+
+        let spendScript = FullCommitRequest{utxo = utxoToCommit, blueprintTx}
+        res <-
+          runReq defaultHttpConfig $
+            req
+              POST
+              (http "127.0.0.1" /: "commit")
+              (ReqBodyJson spendScript)
+              (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+              (port $ 4000 + hydraNodeId)
+
+        let DraftCommitTxResponse{commitTx} = responseBody res
+        submitTx node $ signTx walletSk commitTx
+
+        lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "headId" == Just (toJSON headId)
+          guard $ v ^? key "tag" == Just "HeadIsOpen"
+          pure $ v ^? key "utxo"
+        lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
+        send n1 $ input "Close" []
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+        waitMatch (10 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+        let addr =
+              makeShelleyAddress
+                networkId
+                (PaymentCredentialByScript $ hashScript $ PlutusScript script)
+                NoStakeAddress
+        scriptUTxO <- queryUTxO networkId nodeSocket QueryTip [addr]
+        print scriptUTxO
+ where
+  RunningNode{nodeSocket, blockTime, networkId} = node
 
 -- | Single hydra-node where the commit is done using some wallet UTxO.
 singlePartyCommitsFromExternal ::
