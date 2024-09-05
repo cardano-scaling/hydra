@@ -172,7 +172,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   send l3 $ input "Init" []
                   headId <- waitMatch (10 * blockTime) l3 $ headIsInitializingWith (Set.fromList [bob])
                   -- Commit nothing
-                  requestCommitTx l3 mempty <&> signTx walletSk >>= submitTx node
+                  commitTx <- requestCommitTx l3 mempty <&> signTx walletSk
+                  send l2 $ input "NewTx" ["transaction" .= commitTx]
                   waitFor (contramap FromHydraNode tracer) (10 * blockTime) [l3] $
                     output "HeadIsOpen" ["utxo" .= object [], "headId" .= headId]
 

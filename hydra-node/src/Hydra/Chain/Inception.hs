@@ -21,13 +21,13 @@ import Control.Exception (IOException)
 import Control.Lens ((^..), (^?))
 import Control.Monad.Class.MonadAsync (link)
 import Control.Monad.Class.MonadThrow (Handler (..), catches)
-import Control.Tracer (debugTracer, showTracing)
+import Control.Tracer (debugTracer, nullTracer, showTracing)
 import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values)
 import Data.Aeson.Types qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed, TxValid, snapshot, transaction))
+import Hydra.API.ServerOutput (ServerOutput (Greetings, SnapshotConfirmed, TxValid, snapshot, transaction))
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   ChainPoint (..),
@@ -55,6 +55,7 @@ import Hydra.Chain.Direct.Tx (initTx, observeHeadTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Ledger (txId)
+import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
 import Hydra.Party (Party)
@@ -81,9 +82,10 @@ withInceptionChain ::
   InceptionChainConfig ->
   Party ->
   -- | Last known chain state as loaded from persistence.
+  -- XXX: Not used.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withInceptionChain config ownParty chainStateHistory callback action = do
+withInceptionChain config ownParty _chainStateHistory callback action = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   wallet <- newHydraWallet networkId sk underlyingHydraApi
   -- XXX: Wallet and script registry loading fetches the same utxo
@@ -113,8 +115,9 @@ withInceptionChain config ownParty chainStateHistory callback action = do
   networkId = Testnet (NetworkMagic 42)
 
   draftCommitTx ctx wallet headId commitBlueprintTx = do
-    hPutStrLn stderr "draftCommitTx"
     utxo <- getSnapshotUTxO underlyingHydraApi
+    -- HACK: ensure wallet is up-to-date
+    reset wallet
     -- TODO: filter to only "spendable" utxo
     case commit' ctx headId utxo commitBlueprintTx of
       Left err -> pure $ Left err
@@ -125,9 +128,6 @@ withInceptionChain config ownParty chainStateHistory callback action = do
             pure . Right $ sign wallet balancedTx
 
   postTx wallet toPost = do
-    hPutStrLn stderr "postTx in Head:"
-    pHPrint stderr toPost
-
     -- HACK: query spendable utxo on demand
     utxo <- getSnapshotUTxO underlyingHydraApi
 
@@ -143,7 +143,9 @@ withInceptionChain config ownParty chainStateHistory callback action = do
               error "no seed input"
         _ -> error $ "not implemented: " <> show toPost
 
-    -- hPutStrLn stderr $ renderTx tx
+    -- HACK: ensure wallet is up-to-date (this will re-fetch snapshot/utxo)
+    reset wallet
+
     coverFee wallet utxo tx >>= \case
       Left err -> error $ "Failed to cover fee: " <> show err
       Right balancedTx ->
@@ -160,33 +162,42 @@ withInceptionChain config ownParty chainStateHistory callback action = do
         guard $ toJSON (txId tx) `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
       hPutStrLn stderr "confirmed"
 
-  observeSnapshots =
+  observeSnapshots = do
+    utxo <- getSnapshotUTxO underlyingHydraApi
     withConnectionToNodeHost underlyingHydraApi (Just "/?history=no") $ \client -> do
-      forever $ do
-        msg <- waitNext client
-        case msg :: ServerOutput Tx of
-          -- HACK: Not using SnapshotConfirmed as I want to avoid book-keeping
-          -- and snapshot only contains transaction ids
-          SnapshotConfirmed{snapshot = Snapshot{number}} -> do
-            hPutStrLn stderr $ printf "SnapshotConfirmed, number: %d" (toInteger number)
-          -- HACK: should use SnapshotConfirmed instead for a "block"
-          TxValid{transaction} -> do
-            hPutStrLn stderr $ printf "TxValid, txId: %s" (show @Text $ txId transaction)
-            let utxo = mempty -- FIXME
-            -- HACK: conversion should not be needed
-            case convertObservation $ observeHeadTx networkId utxo transaction of
-              Nothing -> pure ()
-              Just observedTx ->
-                callback
-                  Observation
-                    { observedTx
-                    , newChainState =
-                        ChainStateAt
-                          { spendableUTxO = utxo
-                          , recordedAt = Nothing -- HACK: always genesis
-                          }
-                    }
-          _ -> pure ()
+      observe client utxo
+
+  observe client utxo = do
+    msg <- waitNext client
+    case msg :: ServerOutput Tx of
+      Greetings{} -> observe client utxo
+      -- HACK: Not using SnapshotConfirmed as I want to avoid book-keeping
+      -- and snapshot only contains transaction ids
+      SnapshotConfirmed{snapshot = Snapshot{number}} -> do
+        hPutStrLn stderr $ printf "SnapshotConfirmed, number: %d" (toInteger number)
+        observe client utxo
+      -- HACK: should use SnapshotConfirmed instead for a "block"
+      TxValid{transaction} -> do
+        hPutStrLn stderr $ printf "TxValid, txId: %s" (show @Text $ txId transaction)
+        let utxo' = adjustUTxO transaction utxo
+        -- HACK: conversion should not be needed
+        case convertObservation $ observeHeadTx networkId utxo transaction of
+          Nothing ->
+            hPutStrLn stderr "Not a head transaction"
+          Just observedTx -> do
+            hPutStrLn stderr $ "Observed: " <> show observedTx
+            callback
+              Observation
+                { observedTx
+                , newChainState =
+                    ChainStateAt
+                      { spendableUTxO = utxo'
+                      , recordedAt = Nothing -- HACK: always genesis
+                      }
+                }
+        observe client utxo'
+      m ->
+        error $ "Unhandled message: " <> show m
 
 -- | Create a 'TinyWallet' interface from a connection to the Hydra node.
 --
@@ -195,7 +206,7 @@ withInceptionChain config ownParty chainStateHistory callback action = do
 newHydraWallet :: NetworkId -> SigningKey PaymentKey -> Host -> IO (TinyWallet IO)
 newHydraWallet networkId sk host =
   newTinyWallet
-    (showTracing debugTracer)
+    nullTracer
     networkId
     (getVerificationKey sk, sk)
     queryWalletInfo
