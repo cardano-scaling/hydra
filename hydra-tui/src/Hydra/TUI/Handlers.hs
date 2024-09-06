@@ -11,7 +11,7 @@ import Brick
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 
-import Brick.Forms (Form (formState), editShowableFieldWithValidate, handleFormEvent, newForm)
+import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
@@ -22,6 +22,7 @@ import Graphics.Vty (
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
+import Hydra.Cardano.Api.Prelude ()
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..), HydraEvent (..))
@@ -36,7 +37,6 @@ import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severit
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Lens.Micro.Mtl (use, (%=), (.=))
-import Prelude qualified
 
 handleEvent ::
   CardanoClient ->
@@ -44,6 +44,7 @@ handleEvent ::
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name RootState ()
 handleEvent cardanoClient client e = do
+  -- FIXME: the log event handler preempts form input; e.g. pressing 'f' in an edit field will have the full event log be shown
   zoom logStateL $ handleVtyEventVia handleVtyEventsLogState () e
   handleAppEventVia handleTick () e
   zoom connectedStateL $ do
@@ -78,8 +79,8 @@ handleGlobalEvents = \case
 
 handleHydraEventsConnectedState :: HydraEvent Tx -> EventM Name ConnectedState ()
 handleHydraEventsConnectedState = \case
-  ClientConnected -> id .= Connected emptyConnection
-  ClientDisconnected -> id .= Disconnected
+  ClientConnected -> put $ Connected emptyConnection
+  ClientDisconnected -> put Disconnected
   _ -> pure ()
 
 handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
@@ -111,78 +112,73 @@ handleVtyEventsInitializingScreen :: CardanoClient -> Client Tx IO -> Vty.Event 
 handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
   case e of
     EvKey (KChar 'a') [] ->
-      id .= ConfirmingAbort confirmRadioField
+      put $ ConfirmingAbort confirmRadioField
     _ -> pure ()
   initializingScreen <- use id
   case initializingScreen of
     InitializingHome -> case e of
       EvKey (KChar 'c') [] -> do
         utxo <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
-        id .= CommitMenu (utxoCheckboxField $ UTxO.toMap utxo)
+        put $ CommitMenu (utxoCheckboxField $ UTxO.toMap utxo)
       _ -> pure ()
     CommitMenu i -> do
       case e of
-        EvKey KEsc [] -> id .= InitializingHome
+        EvKey KEsc [] -> put InitializingHome
         EvKey KEnter [] -> do
           let u = formState i
           let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) u
           liftIO $ externalCommit hydraClient commitUTxO
-          id .= InitializingHome
+          put InitializingHome
         _ -> pure ()
       zoom commitMenuL $ handleFormEvent (VtyEvent e)
     ConfirmingAbort i -> do
       case e of
-        EvKey KEsc [] -> id .= InitializingHome
+        EvKey KEsc [] -> put InitializingHome
         EvKey KEnter [] -> do
           let selected = formState i
           if selected
             then liftIO $ sendInput hydraClient Abort
-            else id .= InitializingHome
+            else put InitializingHome
         _ -> pure ()
       zoom confirmingAbortFormL $ handleFormEvent (VtyEvent e)
 
 handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> Vty.Event -> EventM Name OpenScreen ()
-handleVtyEventsOpen cardanoClient hydraClient utxo e = do
-  case e of
-    EvKey (KChar 'c') [] ->
-      id .= ConfirmingClose confirmRadioField
-    _ -> pure ()
-  k <- use id
-  case k of
-    ConfirmingClose i -> do
-      case e of
-        EvKey KEsc [] -> id .= OpenHome
-        EvKey KEnter [] -> do
-          let selected = formState i
-          if selected
-            then liftIO $ sendInput hydraClient Close
-            else id .= OpenHome
-        _ -> pure ()
-      zoom confirmingCloseFormL $ handleFormEvent (VtyEvent e)
+handleVtyEventsOpen cardanoClient hydraClient utxo e =
+  get >>= \case
     OpenHome -> do
       case e of
         EvKey (KChar 'n') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          id .= SelectingUTxO (utxoRadioField utxo')
+          put $ SelectingUTxO (utxoRadioField utxo')
         EvKey (KChar 'd') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          id .= SelectingUTxOToDecommit (utxoRadioField utxo')
+          put $ SelectingUTxOToDecommit (utxoRadioField utxo')
+        EvKey (KChar 'c') [] ->
+          put $ ConfirmingClose confirmRadioField
         _ -> pure ()
-    SelectingUTxO i -> do
+    ConfirmingClose i ->
       case e of
-        EvKey KEsc [] -> id .= OpenHome
+        EvKey KEsc [] -> put OpenHome
+        EvKey KEnter [] -> do
+          let selected = formState i
+          if selected
+            then liftIO $ sendInput hydraClient Close
+            else put OpenHome
+        _ -> zoom confirmingCloseFormL $ handleFormEvent (VtyEvent e)
+    SelectingUTxO i ->
+      case e of
+        EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let utxoSelected@(_, TxOut{txOutValue = v}) = formState i
           let Coin limit = selectLovelace v
           let enteringAmountForm =
                 let field = editShowableFieldWithValidate id "amount" (\n -> n > 0 && n <= limit)
                  in newForm [field] limit
-          id .= EnteringAmount{utxoSelected, enteringAmountForm}
-        _ -> pure ()
-      zoom selectingUTxOFormL $ handleFormEvent (VtyEvent e)
-    SelectingUTxOToDecommit i -> do
+          put EnteringAmount{utxoSelected, enteringAmountForm}
+        _ -> zoom selectingUTxOFormL $ handleFormEvent (VtyEvent e)
+    SelectingUTxOToDecommit i ->
       case e of
-        EvKey KEsc [] -> id .= OpenHome
+        EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let utxoSelected@(_, TxOut{txOutValue = v}) = formState i
           let recipient = mkVkAddress @Era (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
@@ -190,42 +186,78 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e = do
             Left _ -> pure ()
             Right tx -> do
               liftIO (sendInput hydraClient (Decommit tx))
-          id .= OpenHome
-        _ -> pure ()
-      zoom selectingUTxOToDecommitFormL $ handleFormEvent (VtyEvent e)
-    EnteringAmount utxoSelected i -> do
+          put OpenHome
+        _ -> zoom selectingUTxOToDecommitFormL $ handleFormEvent (VtyEvent e)
+    EnteringAmount utxoSelected i ->
       case e of
-        EvKey KEsc [] -> id .= OpenHome
+        EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
-          let amountEntered = formState i
-          let ownAddress = mkVkAddress @Era (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
-          let field =
-                customRadioField '[' 'X' ']' id $
-                  [ (u, show u, decodeUtf8 $ encodePretty u)
-                  | u <- nub addresses
-                  ]
-              addresses = getRecipientAddress <$> Map.elems (UTxO.toMap utxo)
-              getRecipientAddress TxOut{txOutAddress = addr} = addr
-              decorator a _ _ =
-                if a == ownAddress
-                  then withAttr own
-                  else id
-          let selectingRecipientForm = newForm [field decorator] (Prelude.head addresses)
-          id .= SelectingRecipient{utxoSelected, amountEntered, selectingRecipientForm}
-        _ -> pure ()
-      zoom enteringAmountFormL $ handleFormEvent (VtyEvent e)
-    SelectingRecipient utxoSelected amountEntered i -> do
+          let
+            field =
+              customRadioField '[' 'X' ']' id $
+                [ (u, show u, show $ pretty u)
+                | u <- nub $ toList addresses
+                ]
+            decorator a _ _ =
+              if a == SelectAddress ownAddress
+                then withAttr own
+                else id
+            addresses =
+              ManualEntry
+                :| (SelectAddress . txOutAddress <$> toList utxo)
+          put
+            SelectingRecipient
+              { utxoSelected
+              , amountEntered = formState i
+              , selectingRecipientForm = newForm [field decorator] ManualEntry
+              }
+        _ -> zoom enteringAmountFormL $ handleFormEvent (VtyEvent e)
+    SelectingRecipient utxoSelected amountEntered i ->
       case e of
-        EvKey KEsc [] -> id .= OpenHome
+        EvKey KEsc [] -> put OpenHome
+        EvKey KEnter [] -> do
+          case formState i of
+            SelectAddress recipient -> do
+              case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin amountEntered) (sk hydraClient) of
+                Left _ -> pure ()
+                Right tx -> do
+                  liftIO (sendInput hydraClient (NewTx tx))
+                  put OpenHome
+            ManualEntry ->
+              put $
+                EnteringRecipientAddress
+                  { utxoSelected
+                  , amountEntered
+                  , enteringRecipientAddressForm =
+                      newForm
+                        [ editField
+                            id
+                            "manual address entry"
+                            (Just 1)
+                            serialiseAddress
+                            (nonEmpty >=> parseAddress . head)
+                            (txt . fold)
+                            id
+                        ]
+                        ownAddress
+                  }
+        _ -> zoom selectingRecipientFormL $ handleFormEvent (VtyEvent e)
+    EnteringRecipientAddress utxoSelected amountEntered i ->
+      case e of
+        EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let recipient = formState i
           case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin amountEntered) (sk hydraClient) of
             Left _ -> pure ()
             Right tx -> do
               liftIO (sendInput hydraClient (NewTx tx))
-          id .= OpenHome
-        _ -> pure ()
-      zoom selectingRecipientFormL $ handleFormEvent (VtyEvent e)
+              put OpenHome
+        _ -> zoom enteringRecipientAddressFormL $ handleFormEvent (VtyEvent e)
+ where
+  ownAddress = mkVkAddress @Era (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
+
+  parseAddress =
+    fmap ShelleyAddressInEra . deserialiseAddress (AsAddress AsShelleyAddr)
 
 handleVtyEventsFanoutPossible :: Client Tx IO -> Vty.Event -> EventM Name s ()
 handleVtyEventsFanoutPossible hydraClient e = do
@@ -252,9 +284,9 @@ handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do
   case e of
     Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
-      id .= Active (newActiveLink (toList parties) headId)
+      put $ Active (newActiveLink (toList parties) headId)
     Update TimedServerOutput{time, output = HeadIsAborted{}} ->
-      id .= Idle
+      put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
 

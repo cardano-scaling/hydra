@@ -59,8 +59,27 @@ data OpenScreen
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
-  | SelectingRecipient {utxoSelected :: (TxIn, TxOut CtxUTxO), amountEntered :: Integer, selectingRecipientForm :: Form AddressInEra (HydraEvent Tx) Name}
+  | SelectingRecipient
+      { utxoSelected :: (TxIn, TxOut CtxUTxO)
+      , amountEntered :: Integer
+      , selectingRecipientForm :: Form SelectAddressItem (HydraEvent Tx) Name
+      }
+  | EnteringRecipientAddress
+      { utxoSelected :: (TxIn, TxOut CtxUTxO)
+      , amountEntered :: Integer
+      , enteringRecipientAddressForm :: Form AddressInEra (HydraEvent Tx) Name
+      }
   | ConfirmingClose {confirmingCloseForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
+
+data SelectAddressItem
+  = ManualEntry
+  | SelectAddress AddressInEra
+  deriving (Eq, Show)
+
+instance Pretty SelectAddressItem where
+  pretty = \case
+    ManualEntry -> "Manual entry"
+    SelectAddress addr -> pretty $ serialiseAddress addr
 
 newtype ClosedState = ClosedState {contestationDeadline :: UTCTime}
 
@@ -90,6 +109,7 @@ makeLensesFor
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
+  , ("enteringRecipientAddressForm", "enteringRecipientAddressFormL")
   , ("confirmingCloseForm", "confirmingCloseFormL")
   ]
   ''OpenScreen
