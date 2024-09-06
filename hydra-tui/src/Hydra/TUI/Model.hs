@@ -15,6 +15,7 @@ import Hydra.HeadId (HeadId)
 import Hydra.Network (Host (..), NodeId)
 import Hydra.Party (Party (..))
 import Hydra.TUI.Logging.Types (LogState)
+import Lens.Micro ((^?))
 import Lens.Micro.TH (makeLensesFor)
 
 data RootState = RootState
@@ -197,3 +198,15 @@ newActiveLink parties headId =
     , pendingUTxOToDecommit = mempty
     , headId
     }
+
+isModalOpen :: RootState -> Bool
+isModalOpen s =
+  case s
+    ^? connectedStateL
+      . connectionL
+      . headStateL
+      . activeLinkL
+      . activeHeadStateL
+      . openStateL of
+    Just OpenHome -> False
+    _ -> True
