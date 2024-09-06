@@ -18,6 +18,7 @@ import Data.Map qualified as Map
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
+  Modifier (MCtrl),
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
@@ -28,7 +29,6 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.TUI.Forms
-import Hydra.TUI.Handlers.Global (handleVtyGlobalEvents)
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
@@ -41,38 +41,36 @@ handleEvent ::
   Client Tx IO ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name RootState ()
-handleEvent cardanoClient client e = do
-  -- FIXME: the log event handler preempts form input; e.g. pressing 'f' in an edit field will have the full event log be shown
-  zoom logStateL $ handleVtyEventVia handleVtyEventsLogState () e
-  handleAppEventVia handleTick () e
-  zoom connectedStateL $ do
-    handleAppEventVia handleHydraEventsConnectedState () e
-    zoom connectionL $ handleBrickEventsConnection cardanoClient client e
-  zoom (logStateL . logMessagesL) $
-    handleAppEventVia handleHydraEventsInfo () e
-  -- XXX: Global events must be handled as the very last step.
-  -- Any `EventM` that decides to `Continue` would override the `Halt` decision.
-  handleGlobalEvents e
+handleEvent cardanoClient client = \case
+  AppEvent e -> do
+    handleTick e
+    zoom connectedStateL $ do
+      handleHydraEventsConnectedState e
+      zoom connectionL $ handleHydraEventsConnection e
+    zoom (logStateL . logMessagesL) $
+      handleHydraEventsInfo e
+  MouseDown{} -> pure ()
+  MouseUp{} -> pure ()
+  VtyEvent e -> case e of
+    EvKey (KChar 'c') [MCtrl] -> halt
+    EvKey (KChar 'd') [MCtrl] -> halt
+    EvKey (KChar 'q') [] -> halt
+    EvKey (KChar 'Q') [] -> halt
+    _ -> do
+      -- FIXME: the log event handler conflicts with edit field input; e.g.
+      -- pressing 'f' in an edit field will have the full event log be shown.
+      -- Should: pattern match on event / key binding and handle depending on
+      -- state using lenses. See also:
+      -- https://github.com/jtdaugherty/brick/blob/master/docs/guide.rst#customizable-keybindings
+      zoom logStateL $ handleVtyEventsLogState e
+      zoom (connectedStateL . connectionL . headStateL) $
+        handleVtyEventsHeadState cardanoClient client e
+
+-- * AppEvent handlers
 
 handleTick :: HydraEvent Tx -> EventM Name RootState ()
 handleTick = \case
   Tick now -> nowL .= now
-  _ -> pure ()
-
-handleAppEventVia :: (e -> EventM n s a) -> a -> BrickEvent w e -> EventM n s a
-handleAppEventVia f x = \case
-  AppEvent e -> f e
-  _ -> pure x
-
-handleVtyEventVia :: (Vty.Event -> EventM n s a) -> a -> BrickEvent w e -> EventM n s a
-handleVtyEventVia f x = \case
-  VtyEvent e -> f e
-  _ -> pure x
-
-handleGlobalEvents :: BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
-handleGlobalEvents = \case
-  AppEvent _ -> pure ()
-  VtyEvent e -> handleVtyGlobalEvents e
   _ -> pure ()
 
 handleHydraEventsConnectedState :: HydraEvent Tx -> EventM Name ConnectedState ()
@@ -80,6 +78,92 @@ handleHydraEventsConnectedState = \case
   ClientConnected -> put $ Connected emptyConnection
   ClientDisconnected -> put Disconnected
   _ -> pure ()
+
+handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
+handleHydraEventsConnection = \case
+  Update TimedServerOutput{output = Greetings{me}} -> meL .= Identified me
+  Update TimedServerOutput{output = PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
+  Update TimedServerOutput{output = PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  e -> zoom headStateL $ handleHydraEventsHeadState e
+
+handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
+handleHydraEventsHeadState e = do
+  case e of
+    Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
+      put $ Active (newActiveLink (toList parties) headId)
+    Update TimedServerOutput{time, output = HeadIsAborted{}} ->
+      put Idle
+    _ -> pure ()
+  zoom activeLinkL $ handleHydraEventsActiveLink e
+
+handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
+handleHydraEventsActiveLink e = do
+  case e of
+    Update TimedServerOutput{output = Committed{party, utxo}} -> do
+      partyCommitted party utxo
+    Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
+      activeHeadStateL .= Open OpenHome
+    Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{utxo}}} ->
+      utxoL .= utxo
+    Update TimedServerOutput{time, output = HeadIsClosed{headId, snapshotNumber, contestationDeadline}} -> do
+      activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
+    Update TimedServerOutput{time, output = ReadyToFanout{}} ->
+      activeHeadStateL .= FanoutPossible
+    Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
+      utxoL .= utxo
+      activeHeadStateL .= Final
+    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} ->
+      pendingUTxOToDecommitL .= utxoToDecommit
+    Update TimedServerOutput{time, output = DecommitFinalized{}} ->
+      pendingUTxOToDecommitL .= mempty
+    _ -> pure ()
+
+handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
+handleHydraEventsInfo = \case
+  Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
+    info time "Head is initializing"
+  Update TimedServerOutput{time, output = Committed{party, utxo}} -> do
+    info time $ show party <> " committed " <> renderValue (balance @Tx utxo)
+  Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
+    info time "Head is now open!"
+  Update TimedServerOutput{time, output = HeadIsAborted{}} -> do
+    info time "Head aborted, back to square one."
+  Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
+    info time ("Snapshot #" <> show number <> " confirmed.")
+  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
+    warn time $ "Invalid command: " <> show clientInput
+  Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
+    info time $ "Head closed with snapshot number " <> show snapshotNumber
+  Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
+    info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
+  Update TimedServerOutput{time, output = TxValid{}} ->
+    report Success time "Transaction submitted successfully"
+  Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
+    warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
+  Update TimedServerOutput{time, output = DecommitApproved{}} ->
+    report Success time "Decommit approved and submitted to Cardano"
+  Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
+    warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
+  Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
+    info time "Head is finalized"
+  Update TimedServerOutput{time, output = InvalidInput{reason}} ->
+    warn time ("Invalid input error: " <> toText reason)
+  Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
+    case postTxError of
+      NotEnoughFuel -> do
+        warn time "Not enough Fuel. Please provide more to the internal wallet and try again."
+      InternalWalletError{reason} ->
+        warn time reason
+      _ -> warn time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
+  _ -> pure ()
+
+partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()
+partyCommitted party commit = do
+  zoom (activeHeadStateL . initializingStateL) $ do
+    remainingPartiesL %= (\\ [party])
+  utxoL %= (<> commit)
+
+-- * VtyEvent handlers
 
 handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
 handleVtyEventsHeadState cardanoClient hydraClient e = do
@@ -271,100 +355,6 @@ handleVtyEventsFinal hydraClient e = do
       liftIO (sendInput hydraClient Init)
     _ -> pure ()
 
-handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
-handleHydraEventsConnection = \case
-  Update TimedServerOutput{output = Greetings{me}} -> meL .= Identified me
-  Update TimedServerOutput{output = PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
-  Update TimedServerOutput{output = PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
-  e -> zoom headStateL $ handleHydraEventsHeadState e
-
-handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
-handleHydraEventsHeadState e = do
-  case e of
-    Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
-      put $ Active (newActiveLink (toList parties) headId)
-    Update TimedServerOutput{time, output = HeadIsAborted{}} ->
-      put Idle
-    _ -> pure ()
-  zoom activeLinkL $ handleHydraEventsActiveLink e
-
-handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
-handleHydraEventsActiveLink e = do
-  case e of
-    Update TimedServerOutput{output = Committed{party, utxo}} -> do
-      partyCommitted party utxo
-    Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
-      activeHeadStateL .= Open OpenHome
-    Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{utxo}}} ->
-      utxoL .= utxo
-    Update TimedServerOutput{time, output = HeadIsClosed{headId, snapshotNumber, contestationDeadline}} -> do
-      activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
-    Update TimedServerOutput{time, output = ReadyToFanout{}} ->
-      activeHeadStateL .= FanoutPossible
-    Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
-      utxoL .= utxo
-      activeHeadStateL .= Final
-    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} ->
-      pendingUTxOToDecommitL .= utxoToDecommit
-    Update TimedServerOutput{time, output = DecommitFinalized{}} ->
-      pendingUTxOToDecommitL .= mempty
-    _ -> pure ()
-
-handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
-handleHydraEventsInfo = \case
-  Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
-    info time "Head is initializing"
-  Update TimedServerOutput{time, output = Committed{party, utxo}} -> do
-    info time $ show party <> " committed " <> renderValue (balance @Tx utxo)
-  Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
-    info time "Head is now open!"
-  Update TimedServerOutput{time, output = HeadIsAborted{}} -> do
-    info time "Head aborted, back to square one."
-  Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
-    info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
-    warn time $ "Invalid command: " <> show clientInput
-  Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
-    info time $ "Head closed with snapshot number " <> show snapshotNumber
-  Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
-    info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
-  Update TimedServerOutput{time, output = TxValid{}} ->
-    report Success time "Transaction submitted successfully"
-  Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
-    warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
-  Update TimedServerOutput{time, output = DecommitApproved{}} ->
-    report Success time "Decommit approved and submitted to Cardano"
-  Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
-    warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
-  Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
-    info time "Head is finalized"
-  Update TimedServerOutput{time, output = InvalidInput{reason}} ->
-    warn time ("Invalid input error: " <> toText reason)
-  Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
-    case postTxError of
-      NotEnoughFuel -> do
-        warn time "Not enough Fuel. Please provide more to the internal wallet and try again."
-      InternalWalletError{reason} ->
-        warn time reason
-      _ -> warn time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
-  _ -> pure ()
-
-partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()
-partyCommitted party commit = do
-  zoom (activeHeadStateL . initializingStateL) $ do
-    remainingPartiesL %= (\\ [party])
-  utxoL %= (<> commit)
-
-handleBrickEventsConnection ::
-  CardanoClient ->
-  Client Tx IO ->
-  BrickEvent w (HydraEvent Tx) ->
-  EventM Name Connection ()
-handleBrickEventsConnection cardanoClient hydraClient x = case x of
-  AppEvent e -> handleHydraEventsConnection e
-  VtyEvent e -> handleVtyEventsConnection cardanoClient hydraClient e
-  _ -> pure ()
-
 handleVtyEventsConnection ::
   CardanoClient ->
   Client Tx IO ->
@@ -381,9 +371,6 @@ handleVtyEventsLogState = \case
   EvKey (KChar 's') [] -> logVerbosityL .= Short
   _ -> pure ()
 
---
--- View
---
 scroll :: Direction -> EventM Name LogState ()
 scroll direction = do
   x <- use logVerbosityL

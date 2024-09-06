@@ -46,7 +46,6 @@ library
     Hydra.TUI.Drawing.Utils
     Hydra.TUI.Forms
     Hydra.TUI.Handlers
-    Hydra.TUI.Handlers.Global
     Hydra.TUI.Logging.Handlers
     Hydra.TUI.Logging.Types
     Hydra.TUI.Model
