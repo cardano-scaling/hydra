@@ -2021,6 +2021,7 @@ components:
                 - SimpleScript
                 - PlutusScriptV1
                 - PlutusScriptV2
+                - PlutusScriptV3
       example:
         {
           "script": {
