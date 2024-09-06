@@ -143,6 +143,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit = \case
   SelectingUTxOToDecommit x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
+  EnteringRecipientAddress _ _ x -> renderForm x
   ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
  where
   ownAddress = mkVkAddress networkId vk
