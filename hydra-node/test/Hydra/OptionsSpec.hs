@@ -331,9 +331,13 @@ spec = parallel $
           ]
           `shouldParse` Publish
             PublishOptions
-              { publishNodeSocket = "foo"
-              , publishNetworkId = Testnet (NetworkMagic 42)
-              , publishSigningKey = "bar"
+              { publishChainConfig =
+                  Direct
+                    defaultDirectChainConfig
+                      { nodeSocket = "foo"
+                      , networkId = Testnet (NetworkMagic 42)
+                      , cardanoSigningKey = "bar"
+                      }
               }
       it "should parse using mainnet and all options" $
         mconcat
@@ -344,9 +348,13 @@ spec = parallel $
           ]
           `shouldParse` Publish
             PublishOptions
-              { publishNodeSocket = "baz"
-              , publishNetworkId = Mainnet
-              , publishSigningKey = "crux"
+              { publishChainConfig =
+                  Direct
+                    defaultDirectChainConfig
+                      { nodeSocket = "baz"
+                      , networkId = Mainnet
+                      , cardanoSigningKey = "crux"
+                      }
               }
 
     describe "offline sub-command" $ do

@@ -9,10 +9,14 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.Direct.ScriptRegistry (publishHydraScripts)
 import Hydra.Chain.Direct.Util (readKeyPair)
+import Hydra.Chain.Inception qualified as Inception
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Options (
+  ChainConfig (..),
   Command (GenHydraKey, Publish, Run),
+  DirectChainConfig (..),
+  InceptionChainConfig (..),
   PublishOptions (..),
   RunOptions (..),
   parseHydraCommand,
@@ -30,10 +34,16 @@ main = do
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where
-  publish opts = do
-    (_, sk) <- readKeyPair (publishSigningKey opts)
-    let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
-    txId <- publishHydraScripts networkId publishNodeSocket sk
+  publish PublishOptions{publishChainConfig} = do
+    -- HACK: Using a full ChainConfig is smelly as we require defaults on things that are actually not needed
+    txId <- case publishChainConfig of
+      Offline{} -> die "Cannot publish scripts in offline mode"
+      Direct DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} -> do
+        (_, sk) <- readKeyPair cardanoSigningKey
+        publishHydraScripts networkId nodeSocket sk
+      Inception InceptionChainConfig{underlyingHydraApi, cardanoSigningKey} -> do
+        (_, sk) <- readKeyPair cardanoSigningKey
+        Inception.publishHydraScripts underlyingHydraApi sk
     putStr (decodeUtf8 (serialiseToRawBytesHex txId))
 
 identifyNode :: RunOptions -> RunOptions

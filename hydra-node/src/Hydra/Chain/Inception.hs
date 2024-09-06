@@ -40,6 +40,7 @@ import Hydra.Cardano.Api (
   ShelleyEra,
   SigningKey,
   Tx,
+  TxId,
   UTxO,
   sgSystemStart,
   toLedgerUTxO,
@@ -49,13 +50,14 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (..), ChainComponent, ChainEvent (..), ChainStateHistory, PostChainTx (..))
 import Hydra.Chain.Direct.Fixture qualified as Fixture
 import Hydra.Chain.Direct.Handlers (convertObservation)
-import Hydra.Chain.Direct.ScriptRegistry (newScriptRegistry)
+import Hydra.Chain.Direct.ScriptRegistry (newScriptRegistry, publishHydraScriptsTx)
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), collect, commit', initialize)
 import Hydra.Chain.Direct.Tx (observeHeadTx)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Chain.Direct.Wallet (SomePParams (..), TinyWallet (..), WalletInfoOnChain (..), newTinyWallet)
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (adjustUTxO)
+import Hydra.Ledger.Cardano.Evaluate qualified as Fixture
 import Hydra.Network (Host (..))
 import Hydra.Options (InceptionChainConfig (..))
 import Hydra.Party (Party)
@@ -73,6 +75,28 @@ getGenesisParameters = do
   now <- getCurrentTime
   -- TODO: uses internal cardano-api lib
   pure $ fromShelleyGenesis shelleyGenesisDefaults{sgSystemStart = now}
+
+-- | Publish current hydra scripts in an open hydra head.
+publishHydraScripts ::
+  Host ->
+  SigningKey PaymentKey ->
+  IO TxId
+publishHydraScripts host sk = do
+  -- HACK: uses fixtures and hacky hydra client
+  pparams <- getProtocolParameters host
+  utxo <- getSnapshotUTxO host
+  withConnectionToNodeHost host (Just "/?history=no") $ \client -> do
+    tx <-
+      either (fail . show) pure $
+        publishHydraScriptsTx
+          Fixture.testNetworkId
+          Fixture.systemStart
+          Fixture.eraHistoryWithoutHorizon
+          pparams
+          sk
+          utxo
+    send client $ input "NewTx" ["transaction" .= tx]
+    pure $ txId tx
 
 -- | Start an inception chain component by connecting to the given hydra API
 -- endpoint.

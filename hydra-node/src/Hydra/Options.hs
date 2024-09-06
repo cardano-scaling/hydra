@@ -140,19 +140,15 @@ commandParser =
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
       )
 
-data PublishOptions = PublishOptions
-  { publishNetworkId :: NetworkId
-  , publishNodeSocket :: SocketPath
-  , publishSigningKey :: FilePath
+newtype PublishOptions = PublishOptions
+  { publishChainConfig :: ChainConfig
   }
   deriving stock (Show, Eq)
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
   PublishOptions
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> cardanoSigningKeyFileParser
+    <$> chainConfigParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -259,10 +255,13 @@ runOptionsParser =
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
     <*> ledgerConfigParser
-    <*> ( Direct <$> directChainConfigParser
-            <|> Offline <$> offlineChainConfigParser
-            <|> Inception <$> inceptionChainConfigParser
-        )
+    <*> chainConfigParser
+
+chainConfigParser :: Parser ChainConfig
+chainConfigParser =
+  Direct <$> directChainConfigParser
+    <|> Offline <$> offlineChainConfigParser
+    <|> Inception <$> inceptionChainConfigParser
 
 -- | Alternative parser to 'runOptionsParser' for running the cardano-node in
 -- offline mode.
