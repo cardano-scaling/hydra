@@ -77,11 +77,16 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
 
 drawCommandPanel :: RootState -> Widget n
 drawCommandPanel s =
-  vBox
-    [ drawCommandList s
-    , hBorder
-    , drawLogCommandList (s ^. logStateL . logVerbosityL)
-    ]
+  drawCommandList s
+    <=> maybeDrawLogCommandList
+ where
+  maybeDrawLogCommandList
+    | not (isModalOpen s) =
+        vBox
+          [ hBorder
+          , drawLogCommandList (s ^. logStateL . logVerbosityL)
+          ]
+    | otherwise = emptyWidget
 
 drawScreenFullLog :: RootState -> [Widget Name]
 drawScreenFullLog s =

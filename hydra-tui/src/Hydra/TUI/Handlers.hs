@@ -34,7 +34,7 @@ import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severit
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
-import Lens.Micro.Mtl (use, (%=), (.=))
+import Lens.Micro.Mtl (preuse, use, (%=), (.=))
 
 handleEvent ::
   CardanoClient ->
@@ -51,20 +51,21 @@ handleEvent cardanoClient client = \case
       handleHydraEventsInfo e
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
-  VtyEvent e -> case e of
-    EvKey (KChar 'c') [MCtrl] -> halt
-    EvKey (KChar 'd') [MCtrl] -> halt
-    EvKey (KChar 'q') [] -> halt
-    EvKey (KChar 'Q') [] -> halt
-    _ -> do
-      -- FIXME: the log event handler conflicts with edit field input; e.g.
-      -- pressing 'f' in an edit field will have the full event log be shown.
-      -- Should: pattern match on event / key binding and handle depending on
-      -- state using lenses. See also:
-      -- https://github.com/jtdaugherty/brick/blob/master/docs/guide.rst#customizable-keybindings
-      zoom logStateL $ handleVtyEventsLogState e
-      zoom (connectedStateL . connectionL . headStateL) $
-        handleVtyEventsHeadState cardanoClient client e
+  VtyEvent e -> do
+    modalOpen <- gets isModalOpen
+    case e of
+      EvKey (KChar 'c') [MCtrl] -> halt
+      EvKey (KChar 'd') [MCtrl] -> halt
+      EvKey (KChar 'q') []
+        | not modalOpen -> halt
+      EvKey (KChar 'Q') []
+        | not modalOpen -> halt
+      _ -> do
+        zoom (connectedStateL . connectionL . headStateL) $
+          handleVtyEventsHeadState cardanoClient client e
+
+        unless modalOpen $ do
+          zoom logStateL $ handleVtyEventsLogState e
 
 -- * AppEvent handlers
 
