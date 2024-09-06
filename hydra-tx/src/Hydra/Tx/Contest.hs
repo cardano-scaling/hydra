@@ -123,8 +123,8 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
           , deltaUTxOHash =
               case contestRedeemer of
                 Head.ContestCurrent{} ->
-                  Just . toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-                _ -> Nothing
+                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
+                _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod

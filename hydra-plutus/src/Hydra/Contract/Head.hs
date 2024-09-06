@@ -236,7 +236,7 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, Just decommitUtxoHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, decommitUtxoHash) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -348,10 +348,10 @@ checkClose ctx openBefore redeemer =
             signature
       CloseUsed{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
-          isNothing deltaUTxOHash'
+          deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', Just alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
               signature
 
   checkDeadline =
@@ -422,10 +422,10 @@ checkContest ctx closedDatum redeemer =
             signature
       ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestOutdated) $
-          isNothing deltaUTxOHash'
+          deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', Just alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
               signature
 
   mustBeWithinContestationPeriod =
@@ -506,9 +506,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
 
   hasSameUTxOToDecommitHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
-      case deltaUTxOHash of
-        Nothing -> numberOfDecommitOutputs == 0
-        Just hash -> hash == decommitUtxoHash
+      deltaUTxOHash == decommitUtxoHash
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
@@ -657,7 +655,7 @@ hasPT headCurrencySymbol txOut =
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Maybe Hash) -> [Signature] -> Bool
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties == length sigs
@@ -666,7 +664,7 @@ verifySnapshotSignature parties msg sigs =
 
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Maybe Hash) -> Party -> Signature -> Bool
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash) -> Party -> Signature -> Bool
 verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) party =
   verifyEd25519Signature (vkey party) message
  where
@@ -675,7 +673,7 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToD
       <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
-      <> Builtins.serialiseData (toBuiltinData $ fromMaybe mempty utxoToDecommitHash)
+      <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 compareRef :: TxOutRef -> TxOutRef -> Ordering

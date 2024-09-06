@@ -224,7 +224,7 @@ prop_verifySnapshotSignatures =
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
           utxoHash = toBuiltin $ hashUTxO utxo
-          utxoToDecommitHash = toBuiltin . hashUTxO <$> utxoToDecommit
+          utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
        in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)

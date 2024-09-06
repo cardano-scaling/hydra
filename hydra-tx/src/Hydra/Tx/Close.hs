@@ -124,8 +124,8 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , deltaUTxOHash =
               case closeRedeemer of
                 Head.CloseUnused{} ->
-                  Just . toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
-                _ -> Nothing
+                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
+                _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
           , contestationDeadline
           , contestationPeriod = openContestationPeriod

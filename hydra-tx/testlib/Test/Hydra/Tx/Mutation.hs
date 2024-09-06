@@ -858,7 +858,7 @@ replaceUTxOHash utxoHash = \case
         }
   otherState -> otherState
 
-replaceDeltaUTxOHash :: Maybe Head.Hash -> Head.State -> Head.State
+replaceDeltaUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceDeltaUTxOHash deltaUTxOHash' = \case
   Head.Closed Head.ClosedDatum{parties, utxoHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
