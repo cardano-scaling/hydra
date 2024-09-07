@@ -138,6 +138,8 @@ let
   ciShell = pkgs.mkShell {
     name = "hydra-ci-shell";
     buildInputs = [
+      # For building docs
+      pkgs.plantuml
       # Note: jq 1.6 has a bug that means it fails to read large integers
       # correctly, so we require 1.7+ at least.
       pkgsLatest.jq

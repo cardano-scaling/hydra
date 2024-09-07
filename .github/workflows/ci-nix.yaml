@@ -299,6 +299,20 @@ jobs:
         # Ensure we have all history with all commits
         fetch-depth: 0
 
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@V27
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          log-lines = 1000
+
+    - name: Set up and use the "ci" devShell
+      uses: nicknovitski/nix-develop@v1
+      with:
+        arguments: ".#ci"
+
+    # Technically, we don't need this, given we're in a Nix shell;
+    # but we will keep it for the caching.
     - name: 🚧 Setup Node.js
       uses: actions/setup-node@v4
       with:
