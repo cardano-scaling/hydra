@@ -732,8 +732,10 @@ canDecommit tracer workDir node hydraScriptsTxId =
       let walletAddress = mkVkAddress networkId walletVk
       decommitTx <- do
         let (i, o) = List.head $ UTxO.pairs commitUTxO
+        let TxOut a v _ r = o
+        let outputWithDatum = TxOut a v (mkTxOutDatumHash ()) r
         either (failure . show) pure $
-          mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
+          mkSimpleTx (i, outputWithDatum) (walletAddress, txOutValue outputWithDatum) walletSk
 
       expectFailureOnUnsignedDecommitTx n1 headId decommitTx
       expectSuccessOnSignedDecommitTx n1 headId decommitTx
@@ -775,6 +777,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
     failAfter 10 $ waitForUTxO node decommitUTxO
     waitFor hydraTracer 10 [n] $
       output "DecommitFinalized" ["headId" .= headId, "decommitTxId" .= decommitTxId]
+    putStrLn $ renderTxWithUTxO decommitUTxO decommitTx
 
   expectFailureOnUnsignedDecommitTx n headId decommitTx = do
     let unsignedDecommitTx = makeSignedTransaction [] $ getTxBody decommitTx

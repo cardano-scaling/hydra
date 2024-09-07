@@ -128,12 +128,12 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
       }
 
   outs =
-    TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
+    TxOut @CtxTx recipient valueOut (toTxContext datum) refScript
       : [ TxOut @CtxTx
           owner
           (valueIn <> negateValue valueOut)
-          (toTxContext datum)
-          refScript
+          TxOutDatumNone
+          ReferenceScriptNone
         | valueOut /= valueIn
         ]
 
