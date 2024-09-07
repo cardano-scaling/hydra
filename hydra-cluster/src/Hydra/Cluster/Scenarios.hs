@@ -282,6 +282,21 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
 
         waitFor hydraTracer (10 * blockTime) [n1] $
           output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        let (i, o) =
+              List.head $
+                ( \(i', TxOut a v _ r) ->
+                    ( i'
+                    , TxOut a v (mkTxOutDatumHash (42 :: Integer)) r
+                    )
+                )
+                  <$> UTxO.pairs utxoToCommit
+
+        let walletAddress = mkVkAddress networkId walletVk
+        tx <-
+          either (failure . show) pure $
+            mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
+        send n1 $ input "NewTx" ["transaction" .= tx]
         -- Close head
         send n1 $ input "Close" []
         deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
@@ -292,8 +307,10 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
           output "ReadyToFanout" ["headId" .= headId]
         send n1 $ input "Fanout" []
+        let expectedUTxO = utxoFromTx tx
+        print expectedUTxO
         waitFor hydraTracer (10 * blockTime) [n1] $
-          output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+          output "HeadIsFinalized" ["utxo" .= toJSON expectedUTxO, "headId" .= headId]
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
  where
