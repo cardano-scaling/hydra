@@ -77,11 +77,16 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
 
 drawCommandPanel :: RootState -> Widget n
 drawCommandPanel s =
-  vBox
-    [ drawCommandList s
-    , hBorder
-    , drawLogCommandList (s ^. logStateL . logVerbosityL)
-    ]
+  drawCommandList s
+    <=> maybeDrawLogCommandList
+ where
+  maybeDrawLogCommandList
+    | not (isModalOpen s) =
+        vBox
+          [ hBorder
+          , drawLogCommandList (s ^. logStateL . logVerbosityL)
+          ]
+    | otherwise = emptyWidget
 
 drawScreenFullLog :: RootState -> [Widget Name]
 drawScreenFullLog s =
@@ -143,6 +148,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit = \case
   SelectingUTxOToDecommit x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
+  EnteringRecipientAddress _ _ x -> renderForm x
   ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
  where
   ownAddress = mkVkAddress networkId vk

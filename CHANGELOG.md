@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.18.2] - UNRELEASED
+
+- Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
+
 ## [0.18.1] - 2024-08-15
 
 - New landing page and updated documentation style. [#1560](https://github.com/cardano-scaling/hydra/pull/1560)

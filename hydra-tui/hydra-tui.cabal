@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-tui
-version:       0.18.1
+version:       0.18.2
 synopsis:      TUI for managing a Hydra node
 description:   TUI for managing a Hydra node
 author:        IOG
@@ -46,7 +46,6 @@ library
     Hydra.TUI.Drawing.Utils
     Hydra.TUI.Forms
     Hydra.TUI.Handlers
-    Hydra.TUI.Handlers.Global
     Hydra.TUI.Logging.Handlers
     Hydra.TUI.Logging.Types
     Hydra.TUI.Model
