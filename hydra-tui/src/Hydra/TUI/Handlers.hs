@@ -34,7 +34,7 @@ import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severit
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
-import Lens.Micro.Mtl (preuse, use, (%=), (.=))
+import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
   CardanoClient ->
