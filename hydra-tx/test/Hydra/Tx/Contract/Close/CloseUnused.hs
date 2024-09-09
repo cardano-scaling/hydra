@@ -294,7 +294,7 @@ genCloseCurrentMutation (tx, _utxo) =
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
-        mutatedHash <- arbitrary `suchThat` (/= Just (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
+        mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
         pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
     ]
  where

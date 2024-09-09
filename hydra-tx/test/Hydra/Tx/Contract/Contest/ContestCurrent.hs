@@ -349,7 +349,7 @@ genContestMutation (tx, _utxo) =
             (replaceUTxOHash (toBuiltin mutatedUTxOHash))
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- arbitrary `suchThat` (/= Just healthyContestUTxOToDecommitHash)
+        mutatedUTxOHash <- arbitrary `suchThat` (/= healthyContestUTxOToDecommitHash)
         pure $
           modifyInlineDatum
             (replaceDeltaUTxOHash mutatedUTxOHash)

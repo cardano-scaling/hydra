@@ -52,7 +52,7 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: s
   , utxoHash :: Hash
   -- ^ Spec: η. Digest of snapshotted UTxO
-  , deltaUTxOHash :: Maybe Hash
+  , deltaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
   -- ^ Spec: C

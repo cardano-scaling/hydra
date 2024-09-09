@@ -40,7 +40,6 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOpenHeadTxOut,
   healthySignature,
   healthySplitUTxOInHead,
-  healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
@@ -89,7 +88,7 @@ healthyOutdatedSnapshot =
     , number = healthyOutdatedSnapshotNumber
     , confirmed = []
     , utxo = healthySplitUTxOInHead
-    , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , utxoToDecommit = Nothing -- NOTE: In the `CloseOutdated` case, we expect the utxoToDecommit to be Nothing
     }
 
 healthyOutdatedOpenDatum :: Head.State
