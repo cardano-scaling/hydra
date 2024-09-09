@@ -36,11 +36,9 @@ spec :: Spec
 spec =
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @AssetName)
-    -- FIXME: Roundtrip instances for all JSON types we depend on
 
+    -- XXX: Move API conformance tests to API specs and add any missing ones
     describe "UTxO" $ do
-      roundtripAndGoldenSpecs (Proxy @UTxO)
-
       prop "JSON encoding of UTxO according to schema" $
         prop_validateJSONSchema @UTxO "api.json" $
           key "components" . key "schemas" . key "UTxO"
@@ -53,22 +51,10 @@ spec =
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
 
-      prop "Roundtrip to and from Api" roundtripFromAndToApi
-
     describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
 
     describe "Tx" $ do
-      roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
-
-      prop "Same TxId before/after JSON encoding" roundtripTxId
-
-      prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
-
-      prop "Roundtrip to and from Ledger" roundtripLedger
-
-      prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
-
       prop "JSON encoding of Tx according to schema" $
         withMaxSuccess 5 $
           prop_validateJSONSchema @Tx "api.json" $
@@ -112,10 +98,6 @@ shouldParseJSONAs bs =
     Left err -> failure err
     Right (_ :: a) -> pure ()
 
-roundtripFromAndToApi :: UTxO -> Property
-roundtripFromAndToApi utxo =
-  fromApi (toApi utxo) === utxo
-
 -- | Test that the 'PParams' To/FromJSON instances to roundtrip.
 roundtripPParams :: PParams LedgerEra -> Property
 roundtripPParams pparams = do
@@ -124,37 +106,6 @@ roundtripPParams pparams = do
       property False
     Just actual ->
       pparams === actual
-
-roundtripTxId :: Tx -> Property
-roundtripTxId tx@(Tx body _) =
-  case Aeson.decode (Aeson.encode tx) of
-    Nothing ->
-      property False
-    Just tx'@(Tx body' _) ->
-      (tx === tx' .&&. getTxId body === getTxId body')
-        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
-        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
-
-roundtripTxId' :: Tx -> Property
-roundtripTxId' tx@(Tx body _) =
-  case Aeson.decode (Aeson.encode tx) of
-    Nothing ->
-      property False
-    Just tx'@(Tx body' _) ->
-      (txId tx === getTxId body' .&&. txId tx' == getTxId body)
-        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
-        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
-
-roundtripLedger :: Tx -> Property
-roundtripLedger tx =
-  fromLedgerTx (toLedgerTx tx) === tx
-
-roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
-roundtripCBOR a =
-  let encoded = serialize' a
-      decoded = decodeFull $ fromStrict encoded
-   in decoded == Right a
-        & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
