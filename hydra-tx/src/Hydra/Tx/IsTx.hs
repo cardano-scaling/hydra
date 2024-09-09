@@ -117,17 +117,16 @@ instance FromJSON Tx where
   parseJSON =
     withObject "Tx" $ \o -> do
       hexText <- o .: "cborHex"
-      ty <- o .: "type"
+      -- NOTE: We deliberately ingore the "type" to be backwards compatible
       bytes <- decodeBase16 hexText
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left e -> fail $ show e
-        Right tx ->
+        Right tx -> do
+          -- NOTE: Check txId equivalence only if present.
           (o .:? "txId") >>= \case
-            Nothing -> pure tx
-            Just txid' -> do
-              guard (txType tx == ty)
-              guard (txid' == txId tx)
-              pure tx
+            Just txid'
+              | txid' /= txId tx -> fail "txId not matching"
+            _ -> pure tx
 
 -- XXX: Double CBOR encoding?
 instance IsShelleyBasedEra era => ToCBOR (Api.Tx era) where
@@ -149,11 +148,6 @@ instance ToCBOR UTxO where
 instance FromCBOR UTxO where
   fromCBOR = fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
-
-txType :: Tx -> Text
-txType tx' = case getTxWitnesses tx' of
-  [] -> "Unwitnessed Tx ConwayEra"
-  _ -> "Witnessed Tx ConwayEra"
 
 instance IsTx Tx where
   type TxIdType Tx = TxId
