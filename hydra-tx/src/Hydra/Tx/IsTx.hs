@@ -12,12 +12,13 @@ import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Data.Aeson (FromJSONKey, ToJSONKey, object, (.:), (.:?), (.=))
+import Data.Aeson (FromJSONKey, ToJSONKey, (.:), (.:?))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
-import Data.ByteString.Base16 qualified as Base16
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import PlutusLedgerApi.V2 (fromBuiltin)
@@ -105,14 +106,12 @@ type ArbitraryIsTx tx =
 
 -- * Cardano Tx
 
-instance ToJSON Tx where
+instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
   toJSON tx =
-    object
-      [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-      , "txId" .= txId tx
-      , "type" .= txType tx
-      , "description" .= Aeson.String mempty
-      ]
+    case toJSON $ serialiseToTextEnvelope (Just "Hydra-encoded cardano-api Tx") tx of
+      Aeson.Object km ->
+        Aeson.Object $ KeyMap.insert "txId" (toJSON $ getTxId $ getTxBody tx) km
+      v -> v
 
 instance FromJSON Tx where
   parseJSON =

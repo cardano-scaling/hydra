@@ -1,4 +1,11 @@
-module Hydra.Cardano.Api.Tx where
+module Hydra.Cardano.Api.Tx (
+  -- * Extras
+  module Hydra.Cardano.Api.Tx,
+
+  -- * Re-export normal Tx (any era)
+  Tx,
+)
+where
 
 import Hydra.Cardano.Api.Prelude
 

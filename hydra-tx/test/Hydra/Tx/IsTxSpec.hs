@@ -6,14 +6,19 @@ import Test.Hydra.Prelude
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()
 
-import Cardano.Binary (decodeFull, serialize')
+import Cardano.Api.UTxO (fromApi, toApi)
+import Cardano.Binary (serialize')
+import Cardano.Binary qualified as CB
+import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
+import Cardano.Ledger.Api qualified as Ledger
+import Cardano.Ledger.Api.Tx (EraTxBody (outputsTxBodyL))
+import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
-import Hydra.Tx.IsTx (txId)
+import Hydra.Cardano.Api (Tx, UTxO, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
+import Hydra.Tx.IsTx (balance, txId, utxoFromTx)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.QuickCheck (Property, counterexample, property, (.&&.), (===))
-import Hydra.Cardano.Api (pattern Tx, Tx, UTxO, fromLedgerTx, toLedgerTx, getTxId)
-import Cardano.Api.UTxO (toApi, fromApi)
+import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
 
 spec :: Spec
 spec =
@@ -24,14 +29,21 @@ spec =
 
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
-
       prop "Same TxId before/after JSON encoding" roundtripTxId
-
       prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
-
       prop "Roundtrip to and from Ledger" roundtripLedger
-
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
+      prop "JSON decode Babbage era transactions" $
+        forAll (arbitrary @(Ledger.Tx Ledger.Babbage)) $ \tx ->
+          case Aeson.eitherDecode $ Aeson.encode $ fromLedgerTx tx of
+            Left err ->
+              property False
+                & counterexample ("Failed to decode: " <> err)
+            Right (decodedTx :: Tx) ->
+              -- NOTE: Not full comparison as the decoding "upgraded" it to
+              -- the latest era.
+              tx ^. bodyTxL . inputsTxBodyL
+                === toLedgerTx decodedTx ^. bodyTxL . inputsTxBodyL
 
 roundtripFromAndToApi :: UTxO -> Property
 roundtripFromAndToApi utxo =
@@ -64,6 +76,6 @@ roundtripLedger tx =
 roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
 roundtripCBOR a =
   let encoded = serialize' a
-      decoded = decodeFull $ fromStrict encoded
+      decoded = CB.decodeFull $ fromStrict encoded
    in decoded == Right a
         & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)

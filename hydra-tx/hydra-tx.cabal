@@ -95,6 +95,7 @@ library
     , hydra-plutus-extras
     , hydra-prelude
     , lens
+    , lens-aeson
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-core
