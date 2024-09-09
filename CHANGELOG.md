@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.18.2] - UNRELEASED
+## [0.19.0] - UNRELEASED
+
+- Switch L2 ledger to use the `Conway` era. [#1178](https://github.com/cardano-scaling/hydra/issues/1178)
+  - Conway formatted transactions can be submitted to the `hydra-node`, while past eras are still supported (except deprecated features like protocol updates).
+  - This includes support for `PlutusV3` scripts, but most of the governance-related features have no meaning in the Hydra L2.
 
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
 
