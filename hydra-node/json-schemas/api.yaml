@@ -1982,6 +1982,16 @@ components:
         - cborHex
         - description
         - type
+      description: |
+        A Cardano transaction in the text envelope format . That is, a JSON
+        object wrapper with some 'type' around a 'cborHex' encoded transaction.
+        The hydra-node uses this format as follows:
+
+          - When encoding, an additonal 'txId' is included.
+          - On decoding, when 'txId' is included it is checked to be consistent.
+          - The 'type' is not used to determine content and any transaction is
+            tried to decode as a 'ConwayEra' transaction, which mostly is
+            backward compatible to previous eras.
       properties:
         type:
           type: string

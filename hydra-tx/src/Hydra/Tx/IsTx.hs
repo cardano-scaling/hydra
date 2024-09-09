@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+-- NOTE: For serialiseTxLedgerCddl
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.IsTx where
@@ -108,7 +110,11 @@ type ArbitraryIsTx tx =
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
   toJSON tx =
-    case toJSON $ serialiseToTextEnvelope (Just "Hydra-encoded cardano-api Tx") tx of
+    -- XXX: This is a deprecated function, but the only one that produces the
+    -- right 'Witnessed Tx ConwayEra' in the envelope type. Cardano-api will be
+    -- fixing the 'HasTextEnvelope' instance for 'Tx era' and then we can use
+    -- 'serialiseToTextEnvelope' here.
+    case toJSON $ serialiseTxLedgerCddl shelleyBasedEra tx of
       Aeson.Object km ->
         Aeson.Object $ KeyMap.insert "txId" (toJSON $ getTxId $ getTxBody tx) km
       v -> v
