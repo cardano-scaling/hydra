@@ -7,16 +7,15 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen ()
 
 import Cardano.Api.UTxO (fromApi, toApi)
-import Cardano.Binary (serialize')
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
-import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
+import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
 import Cardano.Ledger.Api qualified as Ledger
-import Cardano.Ledger.Api.Tx (EraTxBody (outputsTxBodyL))
-import Control.Lens ((^.))
+import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (Tx, UTxO, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
-import Hydra.Tx.IsTx (balance, txId, utxoFromTx)
+import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
 
@@ -34,7 +33,7 @@ spec =
       prop "Roundtrip to and from Ledger" roundtripLedger
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
       prop "JSON decode Babbage era transactions" $
-        forAll (arbitrary @(Ledger.Tx Ledger.Babbage)) $ \tx ->
+        forAll genConwayCompatibleBabbageTx $ \tx ->
           case Aeson.eitherDecode $ Aeson.encode $ fromLedgerTx tx of
             Left err ->
               property False
@@ -44,6 +43,27 @@ spec =
               -- the latest era.
               tx ^. bodyTxL . inputsTxBodyL
                 === toLedgerTx decodedTx ^. bodyTxL . inputsTxBodyL
+      prop "CBOR decode Babbage era transactions" $
+        forAll genConwayCompatibleBabbageTx $ \tx ->
+          let encoded = serialize' $ fromLedgerTx tx
+           in case decodeFull' encoded of
+                Left err ->
+                  property False
+                    & counterexample ("Failed to decode: " <> show err)
+                    & counterexample ("Encoded: " <> decodeUtf8 (Base16.encode encoded))
+                Right (decodedTx :: Tx) ->
+                  -- NOTE: Not full comparison as the decoding "upgraded" it to
+                  -- the latest era.
+                  tx ^. bodyTxL . inputsTxBodyL
+                    === toLedgerTx decodedTx ^. bodyTxL . inputsTxBodyL
+
+genConwayCompatibleBabbageTx :: Gen (Ledger.Tx Ledger.Babbage)
+genConwayCompatibleBabbageTx = do
+  tx <- arbitrary
+  pure $
+    tx
+      & bodyTxL . certsTxBodyL .~ mempty
+      & bodyTxL . updateTxBodyL .~ empty
 
 roundtripFromAndToApi :: UTxO -> Property
 roundtripFromAndToApi utxo =

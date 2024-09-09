@@ -8,7 +8,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
+import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
@@ -129,9 +129,11 @@ instance FromJSON Tx where
               guard (txid' == txId tx)
               pure tx
 
-instance ToCBOR Tx where
-  toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
+-- XXX: Double CBOR encoding?
+instance IsShelleyBasedEra era => ToCBOR (Api.Tx era) where
+  toCBOR = CBOR.encodeBytes . serialiseToCBOR
 
+-- XXX: Double CBOR encoding?
 instance FromCBOR Tx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
