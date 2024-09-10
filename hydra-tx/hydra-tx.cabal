@@ -166,12 +166,15 @@ test-suite tests
     Hydra.Tx.Contract.FanOut
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.Recover
+    Hydra.Tx.IsTxSpec
     Spec
 
   type:               exitcode-stdio-1.0
   build-depends:
+    , aeson
     , base
     , base16-bytestring
+    , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
@@ -179,6 +182,7 @@ test-suite tests
     , cardano-ledger-core
     , containers
     , hspec
+    , hspec-golden-aeson
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras

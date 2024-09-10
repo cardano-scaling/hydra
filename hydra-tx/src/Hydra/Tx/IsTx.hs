@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+-- NOTE: For serialiseTxLedgerCddl
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.IsTx where
@@ -8,16 +10,17 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator, serialize')
+import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Data.Aeson (FromJSONKey, ToJSONKey, object, (.:), (.:?), (.=))
+import Data.Aeson (FromJSONKey, ToJSONKey, (.:), (.:?))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
-import Data.ByteString.Base16 qualified as Base16
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import PlutusLedgerApi.V2 (fromBuiltin)
@@ -105,34 +108,37 @@ type ArbitraryIsTx tx =
 
 -- * Cardano Tx
 
-instance ToJSON Tx where
+instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
   toJSON tx =
-    object
-      [ "cborHex" .= Aeson.String (decodeUtf8 $ Base16.encode $ serialiseToCBOR tx)
-      , "txId" .= txId tx
-      , "type" .= txType tx
-      , "description" .= Aeson.String mempty
-      ]
+    -- XXX: This is a deprecated function, but the only one that produces the
+    -- right 'Witnessed Tx ConwayEra' in the envelope type. Cardano-api will be
+    -- fixing the 'HasTextEnvelope' instance for 'Tx era' and then we can use
+    -- 'serialiseToTextEnvelope' here.
+    case toJSON $ serialiseTxLedgerCddl shelleyBasedEra tx of
+      Aeson.Object km ->
+        Aeson.Object $ KeyMap.insert "txId" (toJSON $ getTxId $ getTxBody tx) km
+      v -> v
 
 instance FromJSON Tx where
   parseJSON =
     withObject "Tx" $ \o -> do
       hexText <- o .: "cborHex"
-      ty <- o .: "type"
+      -- NOTE: We deliberately ingore the "type" to be backwards compatible
       bytes <- decodeBase16 hexText
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left e -> fail $ show e
-        Right tx ->
+        Right tx -> do
+          -- NOTE: Check txId equivalence only if present.
           (o .:? "txId") >>= \case
-            Nothing -> pure tx
-            Just txid' -> do
-              guard (txType tx == ty)
-              guard (txid' == txId tx)
-              pure tx
+            Just txid'
+              | txid' /= txId tx -> fail "txId not matching"
+            _ -> pure tx
 
-instance ToCBOR Tx where
-  toCBOR = CBOR.encodeBytes . serialize' ledgerEraVersion . toLedgerTx
+-- XXX: Double CBOR encoding?
+instance IsShelleyBasedEra era => ToCBOR (Api.Tx era) where
+  toCBOR = CBOR.encodeBytes . serialiseToCBOR
 
+-- XXX: Double CBOR encoding?
 instance FromCBOR Tx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
@@ -148,11 +154,6 @@ instance ToCBOR UTxO where
 instance FromCBOR UTxO where
   fromCBOR = fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
-
-txType :: Tx -> Text
-txType tx' = case getTxWitnesses tx' of
-  [] -> "Unwitnessed Tx ConwayEra"
-  _ -> "Witnessed Tx ConwayEra"
 
 instance IsTx Tx where
   type TxIdType Tx = TxId

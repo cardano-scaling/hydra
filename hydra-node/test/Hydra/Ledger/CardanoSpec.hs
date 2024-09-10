@@ -2,18 +2,15 @@
 
 module Hydra.Ledger.CardanoSpec where
 
-import Cardano.Api.UTxO (fromApi, toApi)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
-import Data.ByteString.Base16 qualified as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
@@ -24,23 +21,20 @@ import Hydra.Ledger.Cardano (
   genSequenceOfSimplePaymentTransactions,
   genTxOut,
  )
-import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
 import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genUTxOAdaOnlyOfSize, genUTxOAlonzo, genUTxOFor, genValue)
-import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (===))
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
 spec =
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @AssetName)
-    -- FIXME: Roundtrip instances for all JSON types we depend on
 
+    -- XXX: Move API conformance tests to API specs and add any missing ones
     describe "UTxO" $ do
-      roundtripAndGoldenSpecs (Proxy @UTxO)
-
       prop "JSON encoding of UTxO according to schema" $
         prop_validateJSONSchema @UTxO "api.json" $
           key "components" . key "schemas" . key "UTxO"
@@ -53,22 +47,10 @@ spec =
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
 
-      prop "Roundtrip to and from Api" roundtripFromAndToApi
-
     describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
 
     describe "Tx" $ do
-      roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
-
-      prop "Same TxId before/after JSON encoding" roundtripTxId
-
-      prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
-
-      prop "Roundtrip to and from Ledger" roundtripLedger
-
-      prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
-
       prop "JSON encoding of Tx according to schema" $
         withMaxSuccess 5 $
           prop_validateJSONSchema @Tx "api.json" $
@@ -112,10 +94,6 @@ shouldParseJSONAs bs =
     Left err -> failure err
     Right (_ :: a) -> pure ()
 
-roundtripFromAndToApi :: UTxO -> Property
-roundtripFromAndToApi utxo =
-  fromApi (toApi utxo) === utxo
-
 -- | Test that the 'PParams' To/FromJSON instances to roundtrip.
 roundtripPParams :: PParams LedgerEra -> Property
 roundtripPParams pparams = do
@@ -124,37 +102,6 @@ roundtripPParams pparams = do
       property False
     Just actual ->
       pparams === actual
-
-roundtripTxId :: Tx -> Property
-roundtripTxId tx@(Tx body _) =
-  case Aeson.decode (Aeson.encode tx) of
-    Nothing ->
-      property False
-    Just tx'@(Tx body' _) ->
-      (tx === tx' .&&. getTxId body === getTxId body')
-        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
-        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
-
-roundtripTxId' :: Tx -> Property
-roundtripTxId' tx@(Tx body _) =
-  case Aeson.decode (Aeson.encode tx) of
-    Nothing ->
-      property False
-    Just tx'@(Tx body' _) ->
-      (txId tx === getTxId body' .&&. txId tx' == getTxId body)
-        & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
-        & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
-
-roundtripLedger :: Tx -> Property
-roundtripLedger tx =
-  fromLedgerTx (toLedgerTx tx) === tx
-
-roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
-roundtripCBOR a =
-  let encoded = serialize' a
-      decoded = decodeFull $ fromStrict encoded
-   in decoded == Right a
-        & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)
 
 appliesValidTransaction :: Property
 appliesValidTransaction =

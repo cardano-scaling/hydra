@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.18.1
+version:       0.19.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -318,7 +318,6 @@ test-suite tests
   build-depends:
     , aeson
     , base
-    , base16-bytestring
     , bytestring
     , cardano-binary
     , cardano-crypto-class
