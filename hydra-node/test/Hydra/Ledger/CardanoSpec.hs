@@ -2,18 +2,15 @@
 
 module Hydra.Ledger.CardanoSpec where
 
-import Cardano.Api.UTxO (fromApi, toApi)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Binary (decodeFull, serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
-import Data.ByteString.Base16 qualified as Base16
 import Data.Text (unpack)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
@@ -24,12 +21,11 @@ import Hydra.Ledger.Cardano (
   genSequenceOfSimplePaymentTransactions,
   genTxOut,
  )
-import Hydra.Tx.IsTx (txId)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
 import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genUTxOAdaOnlyOfSize, genUTxOAlonzo, genUTxOFor, genValue)
-import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (===))
 import Test.Util (propCollisionResistant)
 
 spec :: Spec

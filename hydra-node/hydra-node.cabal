@@ -318,7 +318,6 @@ test-suite tests
   build-depends:
     , aeson
     , base
-    , base16-bytestring
     , bytestring
     , cardano-binary
     , cardano-crypto-class
