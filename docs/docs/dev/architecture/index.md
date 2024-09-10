@@ -59,7 +59,7 @@ This component represents all the Hydra smart contracts needed for the Hydra Hea
 
 ### API
 
-The `hydra-node` component exposes an [asynchronous API](https://hydra.family/head-protocol/unstable/api-reference) through a WebSocket server. This API is available to the _Hydra client_ for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.
+The `hydra-node` component exposes an [asynchronous API](/api-reference) through a WebSocket server. This API is available to the _Hydra client_ for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.
 
 ### Persistence
 

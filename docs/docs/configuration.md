@@ -125,7 +125,7 @@ While the `hydra-node` needs to pay fees for protocol transactions, any wallet c
  - A set of `UTxO` outputs to commit (belonging to public keys), or
  - A _blueprint_ transaction along with the `UTxO` that resolves it.
 
-This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](/api-reference/#operation-publish-/commit) for details.
 
 If using your own UTxO to commit to a head, send the appropriate JSON representation of the said UTxO to the `/commit` API endpoint. 
 Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (eg, reference inputs, redeemers, validity ranges).
@@ -173,7 +173,7 @@ If the `hydra-node` already tracks a head in its `state` and `--start-chain-from
 
 Hydra supports an offline mode, which allows for disabling the layer 1 interface (that is, the underlying Cardano blockchain which Hydra heads acquire funds and ultimately funds are withdrawn to). Disabling layer 1 interactions allows use cases that would otherwise require running and configuring an entire layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTxO, without having to spin up an entire layer 1 Cardano node.
 
-To initialize the layer 2 ledger's UTxO state, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
+To initialize the layer 2 ledger's UTxO state, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](/api-reference/#schema-UTxO) for the schema.
 
 Using this example UTxO:
 ```json utxo.json
