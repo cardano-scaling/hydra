@@ -22,6 +22,7 @@
     cardano-node.url = "github:intersectmbo/cardano-node/9.1.1";
     mithril.url = "github:input-output-hk/mithril/2430.0";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
+    cachix-push.url = "github:juspay/cachix-push";
   };
 
   outputs =
@@ -36,6 +37,7 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.process-compose-flake.flakeModule
+        inputs.cachix-push.flakeModule
       ];
       systems = [
         "x86_64-linux"
@@ -43,7 +45,7 @@
         "aarch64-darwin"
         "aarch64-linux"
       ];
-      perSystem = { pkgs, config, lib, system, ... }:
+      perSystem = { pkgs, config, lib, system, self', ... }:
         let
           compiler = "ghc966";
 
@@ -124,6 +126,7 @@
                     value = addWerror v;
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+          makeTest = (import (nixpkgsLatest + "/nixos/lib/testing-python.nix") { inherit system; }).makeTest;
         in
         {
           legacyPackages = pkgs // hsPkgs;
@@ -152,6 +155,89 @@
               ];
               treefmt = pkgs.treefmt;
             };
+            hydra-node = makeTest {
+              name = "hydra-node";
+              nodes = {
+                hydraNode = { ... }: {
+                  environment.systemPackages = [
+                    pkgs.cardano-node
+                    pkgs.cardano-cli
+                    pkgs.check-jsonschema
+                  ];
+                  networking.firewall.enable = false;
+                  imports = [ ];
+                  virtualisation = {
+                    cores = 16;
+                    memorySize = 16384;
+                  };
+                };
+              };
+
+              testScript = ''
+                hydraNode.wait_for_unit("multi-user.target")
+                hydraNode.succeed("cp ${self}/hydra-node/golden . -r")
+                hydraNode.succeed("cp ${self}/hydra-node/json-schemas . -r")
+                hydraNode.succeed("mkdir -p test")
+                hydraNode.succeed("cp ${self}/hydra-node/test/tls test/ -r")
+                hydraNode.succeed("${hsPkgs.hydra-node.components.exes.test-exe}/bin/test-exe")
+              '';
+            };
+
+            hydra-tui = makeTest {
+              name = "hydra-tui";
+              nodes = {
+                hydraTui = { ... }: {
+                  environment.systemPackages = [
+                    pkgs.cardano-node
+                    pkgs.cardano-cli
+                    hydraPackages.hydra-node
+                  ];
+                  networking.firewall.enable = false;
+                  imports = [ ];
+                  virtualisation = {
+                    cores = 16;
+                    memorySize = 16384;
+                  };
+                };
+              };
+
+              testScript = ''
+                hydraTui.wait_for_unit("multi-user.target")
+                hydraTui.succeed("TERM=xterm-256color ${hsPkgs.hydra-tui.components.exes.test-exe}/bin/test-exe")
+              '';
+            };
+
+
+            hydra-cluster = makeTest {
+              name = "hydra-cluster";
+              nodes = {
+                hydraCluster = { ... }: {
+                  environment.systemPackages = [
+                    pkgs.cardano-node
+                    pkgs.cardano-cli
+                    pkgs.check-jsonschema
+                    pkgs.mithril-client-cli
+                    hydraPackages.hydra-chain-observer
+                    hydraPackages.hydra-explorer
+                    hydraPackages.hydra-node
+                  ];
+                  networking.firewall.enable = false;
+                  imports = [ ];
+                  virtualisation = {
+                    cores = 16;
+                    memorySize = 16384;
+                  };
+                };
+              };
+
+              testScript = ''
+                hydraCluster.wait_for_unit("multi-user.target")
+                hydraCluster.succeed("mkdir -p config/credentials")
+                hydraCluster.succeed("cp ${self}/hydra-cluster/config/credentials/alice.sk config/credentials/")
+                hydraCluster.succeed("${hsPkgs.hydra-cluster.components.exes.test-exe}/bin/test-exe")
+              '';
+            };
+
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
             "hydra-cardano-api"
             "hydra-chain-observer"
@@ -169,6 +255,15 @@
 
           devShells = import ./nix/hydra/shell.nix {
             inherit inputs pkgs hsPkgs system compiler pkgsLatest;
+          };
+
+          cachix-push = {
+            cacheName = "cardano-scaling";
+            pathsToCache = {
+              hydra-node = self'.packages.hydra-node;
+              hydra-cluster = self'.packages.hydra-cluster;
+              devshell = self'.devShells.default;
+            };
           };
         };
     };

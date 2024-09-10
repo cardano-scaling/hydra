@@ -140,6 +140,7 @@ let
     buildInputs = [
       # For building docs
       pkgs.plantuml
+      pkgs.yarn
       # Note: jq 1.6 has a bug that means it fails to read large integers
       # correctly, so we require 1.7+ at least.
       pkgsLatest.jq

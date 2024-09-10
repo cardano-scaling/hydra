@@ -1,11 +1,11 @@
-name: Check code formatting
+name: Cachix push
 
 on:
   pull_request:
 
 jobs:
-  formatting:
-    name: Check code formatting
+  cachix:
+    name: Cachix push
     runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Checkout repository
@@ -18,10 +18,7 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
-    - name: 📐 Check code formatting
+    - name: 📐 Cachix push
       run: |
-        nix build .#checks.x86_64-linux.treefmt
-
-    - name: 📐 Check hlint
-      run: |
-        nix build .#checks.x86_64-linux.hlint
+        export CACHIX_AUTH_TOKEN="${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}"
+        nix run .#cachix-push

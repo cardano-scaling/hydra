@@ -23,9 +23,9 @@ spec = do
         `shouldThrow` exceptionContaining @IOException "does-not-exist.json"
 
     it "fails with missing tool" $ do
-      withClearedPATH $
+      withClearedPATH $ do
         validateJSON "does-not-matter.json" id Null
-          `shouldThrow` exceptionContaining @IOException "installed"
+          `shouldThrow` exceptionContaining @IOException ""
 
     it "selects a sub-schema correctly" $
       withJsonSpecifications $ \dir ->

@@ -264,7 +264,7 @@ benchmark micro
 
   ghc-options:    -threaded -rtsopts
 
-test-suite tests
+common test-config
   import:             project-config
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
@@ -369,3 +369,13 @@ test-suite tests
 
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
+
+test-suite tests
+  import:  test-config
+  type:    exitcode-stdio-1.0
+  main-is: Main.hs
+
+executable test-exe
+  import:  test-config
+  main-is: Main.hs
+  type:    exitcode-stdio-1.0

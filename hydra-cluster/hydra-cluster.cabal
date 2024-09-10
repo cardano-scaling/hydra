@@ -133,11 +133,9 @@ executable hydra-cluster
   build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts
 
-test-suite tests
+common test-config
   import:             project-config
   hs-source-dirs:     test
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
   other-modules:
     Paths_hydra_cluster
     Spec
@@ -190,6 +188,16 @@ test-suite tests
     , hydra-node:hydra-node
 
   ghc-options:        -threaded -rtsopts
+
+test-suite tests
+  import:  test-config
+  type:    exitcode-stdio-1.0
+  main-is: Main.hs
+
+executable test-exe
+  import:  test-config
+  main-is: Main.hs
+  type:    exitcode-stdio-1.0
 
 benchmark bench-e2e
   import:             project-config

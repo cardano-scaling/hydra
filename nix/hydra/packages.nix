@@ -150,7 +150,7 @@ rec {
     name = "hydra-cluster-tests";
     buildInputs =
       [
-        nativePkgs.hydra-cluster.components.tests.tests
+        nativePkgs.hydra-cluster.components.exes.test-exe
         hydra-node
         hydra-chain-observer
         inputs.cardano-node.packages.${system}.cardano-node

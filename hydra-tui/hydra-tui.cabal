@@ -86,7 +86,7 @@ executable hydra-tui
 
   ghc-options:    -threaded -rtsopts
 
-test-suite tests
+common test-config
   import:             project-config
   hs-source-dirs:     test
   other-modules:
@@ -94,8 +94,6 @@ test-suite tests
     Hydra.TUISpec
     Spec
 
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
   build-depends:
     , blaze-builder
     , bytestring
@@ -120,3 +118,13 @@ test-suite tests
     , hydra-node:hydra-node
 
   ghc-options:        -threaded -rtsopts
+
+executable test-exe
+  import:  test-config
+  main-is: Main.hs
+  type:    exitcode-stdio-1.0
+
+test-suite tests
+  import:  test-config
+  main-is: Main.hs
+  type:    exitcode-stdio-1.0

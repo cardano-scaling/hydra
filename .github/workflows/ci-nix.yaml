@@ -22,15 +22,15 @@ permissions:
 jobs:
   build-test:
     name: "Build & test"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     strategy:
       matrix:
         include:
           - package: plutus-cbor
           - package: plutus-merkle-tree
           - package: hydra-plutus
-          - package: hydra-tui
           - package: hydra-node
+          - package: hydra-tui
           - package: hydra-tx
           - package: hydra-cluster
     steps:
@@ -44,32 +44,22 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: ❓ Test
-      if: ${{ matrix.package != 'hydra-tui' }}
+      if: ${{ matrix.package != 'hydra-tui'
+           && matrix.package != 'hydra-cluster'
+           && matrix.package != 'hydra-node'
+           }}
       run: |
         cd ${{ matrix.package }}
         nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests
 
-    # This one is special, as it requires a tty.
-    - name: ❓ Test (TUI)
-      id: test_tui
-      if: ${{ matrix.package == 'hydra-tui' }}
-      # https://giters.com/gfx/example-github-actions-with-tty
-      # The default shell does not allocate a TTY which breaks some tests
-      shell: 'script -q -e -c "bash {0}"'
-      env:
-        TERM: "xterm"
+    - name: ❓ Test
+      if: ${{ matrix.package == 'hydra-cluster'
+           || matrix.package == 'hydra-node'
+           || matrix.package == 'hydra-tui' }}
       run: |
-        cd ${{ matrix.package  }}
-        nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --command tests
+        nix build --option sandbox false .#checks.x86_64-linux.${{ matrix.package }} -L
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
@@ -107,7 +97,7 @@ jobs:
 
   haddock:
     name: "Build haddock using nix"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -119,27 +109,19 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 📚 Documentation (Haddock)
       run: |
         nix build .#haddocks
-        mkdir -p haddocks
-        cp -aL result/* haddocks/
 
     - name: 💾 Upload haddock artifact
       uses: actions/upload-artifact@v4
       with:
         name: haddocks
-        path: haddocks
+        path: result
 
   benchmarks:
     name: "Benchmarks"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     strategy:
       matrix:
         include:
@@ -165,12 +147,6 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
           log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 📈 Benchmark
       run: |
@@ -199,7 +175,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     # TODO: this is actually only requires the tx-cost benchmark results
     needs: [benchmarks]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Download generated documentation
       uses: actions/download-artifact@v4
@@ -233,7 +209,7 @@ jobs:
 
   nix-flake-check:
     name: "nix flake check"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -245,20 +221,14 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: ❄ Nix Flake Check
       run: |
-        nix flake check -L
+        nix --option sandbox false flake check -L
 
 
   build-specification:
     name: "Build specification using nix"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -269,12 +239,6 @@ jobs:
         extra_nix_config: |
           accept-flake-config = true
           log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Build specification PDF
       run: |
@@ -290,7 +254,7 @@ jobs:
   documentation:
     name: Documentation
     needs: [haddock,benchmarks,build-test,build-specification]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nixos]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -307,25 +271,11 @@ jobs:
           accept-flake-config = true
           log-lines = 1000
 
-    - name: Set up and use the "ci" devShell
-      uses: nicknovitski/nix-develop@v1
-      with:
-        arguments: ".#ci"
-
-    # Technically, we don't need this, given we're in a Nix shell;
-    # but we will keep it for the caching.
-    - name: 🚧 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
-        cache: 'yarn'
-        cache-dependency-path: docs/yarn.lock
-
     - name: ❓ Test API reference
       working-directory: docs
       run: |
-        yarn
-        yarn validate
+        nix develop .#ci --command yarn
+        nix develop .#ci --command bash -c "yarn validate"
 
     - name: 📥 Download benchmark results
       uses: actions/download-artifact@v4
@@ -356,5 +306,5 @@ jobs:
     - name: 📚 Documentation sanity check
       working-directory: docs
       run: |
-        yarn
-        yarn build-dev
+        nix develop .#ci --command yarn
+        nix develop .#ci --command bash -c "yarn build-dev"
