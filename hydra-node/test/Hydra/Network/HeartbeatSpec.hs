@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Network (Network (..), NetworkComponent, NodeId (..))
+import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
@@ -30,7 +30,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Ping otherNodeId)) callback $ \_ ->
+          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Ping otherNodeId)) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
@@ -41,7 +41,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId ())) callback $ \_ ->
+          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Data otherNodeId ())) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
@@ -52,7 +52,7 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\incoming _ -> incoming (Data otherNodeId ()) >> incoming (Ping otherNodeId)) callback $ \_ ->
+          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Data otherNodeId ()) >> deliver (Ping otherNodeId)) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
@@ -63,10 +63,10 @@ spec = parallel $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          let component incoming action =
+          let component NetworkCallback{deliver} action =
                 race_
-                  (action (Network noop))
-                  (incoming (Ping otherNodeId) >> threadDelay 4 >> incoming (Ping otherNodeId) >> threadDelay 7)
+                  (action (Network{broadcast = const $ pure ()}))
+                  (deliver (Ping otherNodeId) >> threadDelay 4 >> deliver (Ping otherNodeId) >> threadDelay 7)
 
           withHeartbeat nodeId component callback $ \_ ->
             threadDelay 20
@@ -101,8 +101,8 @@ spec = parallel $ do
 
     sentHeartbeats `shouldBe` [Ping nodeId, Data nodeId (), Ping nodeId]
 
-noop :: Monad m => b -> m ()
-noop = const $ pure ()
+noop :: Monad m => NetworkCallback b m
+noop = NetworkCallback{deliver = const $ pure ()}
 
 captureOutgoing :: MonadSTM m => m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (), m [Heartbeat ()])
 captureOutgoing = do
@@ -112,10 +112,10 @@ captureOutgoing = do
   broadcast tv msg =
     atomically $ modifyTVar' tv (msg :)
 
-captureConnectivity :: MonadSTM m => m (Either Connectivity a -> m (), m [Connectivity])
+captureConnectivity :: MonadSTM m => m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
 captureConnectivity = do
   tv <- newTVarIO []
-  pure (record tv, readTVarIO tv)
+  pure (NetworkCallback{deliver = record tv}, readTVarIO tv)
  where
   record tv = \case
     Left c -> atomically $ modifyTVar' tv (c :)

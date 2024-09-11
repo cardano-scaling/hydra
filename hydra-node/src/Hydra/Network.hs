@@ -11,8 +11,8 @@
 module Hydra.Network (
   -- * Types
   Network (..),
+  NetworkCallback (..),
   NetworkComponent,
-  NetworkCallback,
   IP,
   Host (..),
   NodeId (..),
@@ -41,17 +41,24 @@ deriving anyclass instance FromJSON IP
 
 -- * Hydra network interface
 
--- | Handle to interface with the hydra network and send messages "off chain".
+-- | Interface from the application to the network layer.
 newtype Network m msg = Network
   { broadcast :: msg -> m ()
-  -- ^ Send a `msg` to the whole hydra network.
+  -- ^ Send a `msg` to the whole configured hydra network including ourselves.
   }
 
 instance Contravariant (Network m) where
   contramap f (Network bcast) = Network $ \msg -> bcast (f msg)
 
--- | Handle to interface for inbound messages.
-type NetworkCallback msg m = msg -> m ()
+-- | Interface from network layer to the application.
+-- XXX: Reliably delivering a message in the crash-recovery fault model is
+-- tricky. According to "Introduction to Reliable and Secure Distributed
+-- Programming" section "2.2.4 Crashes with recoveries" explains that storing to
+-- stable storage and just pointing to stored events is a better way.
+newtype NetworkCallback msg m = NetworkCallback
+  { deliver :: msg -> m ()
+  -- ^ The given `msg` was received from the network.
+  }
 
 -- | A type tying both inbound and outbound messages sending in a single /Component/.
 --

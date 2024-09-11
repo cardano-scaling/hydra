@@ -11,7 +11,7 @@ import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
 import Hydra.Logging (traceWith)
-import Hydra.Network (Network (Network, broadcast), NetworkComponent)
+import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
@@ -64,12 +64,12 @@ withAuthentication ::
   NetworkComponent m (Signed inbound) (Signed outbound) a ->
   -- The node internal authenticated network.
   NetworkComponent m (Authenticated inbound) outbound a
-withAuthentication tracer signingKey parties withRawNetwork callback action = do
-  withRawNetwork checkSignature authenticate
+withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deliver} action = do
+  withRawNetwork NetworkCallback{deliver = checkSignature} authenticate
  where
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
     if verify partyVkey sig msg && elem party parties
-      then callback $ Authenticated msg party
+      then deliver $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 
   me = deriveParty signingKey

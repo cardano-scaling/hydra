@@ -74,7 +74,7 @@ import Hydra.Prelude hiding (fromList, replicate)
 import Control.Tracer (Tracer)
 import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
+import Hydra.Network (Host (..), IP, NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (
@@ -146,12 +146,14 @@ withNetwork tracer configuration callback action = do
                   , remoteHosts = peers
                   }
                 ( \HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-                    callback . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
+                    deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
                 )
 
-  withHeartbeat nodeId reliability (callback . mapHeartbeat) $ \network ->
+  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \network ->
     action network
  where
+  NetworkCallback{deliver} = callback
+
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
 
   mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
@@ -186,12 +188,12 @@ configureMessagePersistence tracer persistenceDir numberOfParties = do
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
   NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
-withFlipHeartbeats withBaseNetwork callback =
-  withBaseNetwork unwrapHeartbeats
+withFlipHeartbeats withBaseNetwork NetworkCallback{deliver} =
+  withBaseNetwork NetworkCallback{deliver = unwrapHeartbeats}
  where
   unwrapHeartbeats = \case
-    Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) _ -> callback $ Ping nid
+    Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)
+    Authenticated (Ping nid) _ -> deliver $ Ping nid
 
 -- | Where are the messages stored, relative to given directory.
 storedMessagesFile :: FilePath -> FilePath

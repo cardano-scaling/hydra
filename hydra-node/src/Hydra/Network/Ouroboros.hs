@@ -36,7 +36,7 @@ import Hydra.Logging (Tracer (..), nullTracer)
 import Hydra.Network (
   Host (..),
   Network (..),
-  NetworkCallback,
+  NetworkCallback (..),
   NetworkComponent,
   PortNumber,
  )
@@ -133,221 +133,226 @@ withOuroborosNetwork ::
   HydraNetworkConfig ->
   (HydraHandshakeRefused -> IO ()) ->
   NetworkComponent IO inbound outbound ()
-withOuroborosNetwork tracer HydraNetworkConfig{protocolVersion, localHost, remoteHosts} handshakeCallback networkCallback between = do
-  bchan <- newBroadcastTChanIO
-  let newBroadcastChannel = atomically $ dupTChan bchan
-  -- NOTE: There should only be one `IOManager` instance per process. Should we
-  -- want to use ouroboros network framework in other places, we must factor out
-  -- this instantiation
-  withIOManager $ \iomgr -> do
-    withServerListening iomgr hydraServer $
-      race_ (connect iomgr newBroadcastChannel hydraClient) $ do
-        between $
-          Network
-            { broadcast = atomically . writeTChan bchan
-            }
- where
-  resolveSockAddr :: Host -> IO SockAddr
-  resolveSockAddr Host{hostname, port} = do
-    is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
-    case is of
-      (info : _) -> pure $ addrAddress info
-      _ -> error "getAdrrInfo failed.. do proper error handling"
-
-  getHost :: SockAddr -> IO Host
-  getHost sockAddr = do
-    (mHost, mPort) <- getNameInfo [NI_NUMERICHOST, NI_NUMERICSERV] True True sockAddr
-    maybe (error "getNameInfo failed.. do proper error handling") pure $ do
-      host <- T.pack <$> mHost
-      port <- readMaybe =<< mPort
-      pure $ Host host port
-
-  connect ::
-    IOManager ->
-    IO t ->
-    ( t ->
-      OuroborosApplicationWithMinimalCtx
-        InitiatorMode
-        SockAddr
-        LByteString
-        IO
-        ()
-        Void
-    ) ->
-    IO Void
-  connect iomgr newBroadcastChannel app = do
-    -- REVIEW(SN): move outside to have this information available?
-    networkState <- newNetworkMutableState
-    -- Using port number 0 to let the operating system pick a random port
-    localAddr <- resolveSockAddr localHost{port = 0}
-    remoteAddrs <- forM remoteHosts resolveSockAddr
-    let sn = socketSnocket iomgr
-    Subscription.ipSubscriptionWorker
-      sn
-      (contramap (WithHost localHost . TraceSubscriptions) tracer)
-      (contramap (WithHost localHost . TraceErrorPolicy) tracer)
-      networkState
-      (subscriptionParams localAddr remoteAddrs)
-      ( \sock ->
-          actualConnect iomgr newBroadcastChannel app sock `catch` \e -> do
-            host <- getHost =<< getPeerName sock
-            onHandshakeError host e
-      )
-
-  onHandshakeError :: Host -> HandshakeProtocolError HydraVersionedProtocolNumber -> IO ()
-  onHandshakeError remoteHost = \case
-    HandshakeError (VersionMismatch theirVersions _) -> do
-      handshakeCallback
-        HydraHandshakeRefused
-          { ourVersion = protocolVersion
-          , theirVersions = KnownHydraVersions theirVersions
-          , remoteHost
-          }
-    _ ->
-      handshakeCallback
-        HydraHandshakeRefused
-          { ourVersion = protocolVersion
-          , theirVersions = NoKnownHydraVersions
-          , remoteHost
-          }
-
-  subscriptionParams ::
-    SockAddr ->
-    [SockAddr] ->
-    SubscriptionParams a IPSubscriptionTarget
-  subscriptionParams localAddr remoteAddrs =
-    SubscriptionParams
-      { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
-      , spConnectionAttemptDelay = const Nothing
-      , spErrorPolicies = nullErrorPolicies
-      , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs (length remoteAddrs)
-      }
-
-  actualConnect ::
-    IOManager ->
-    IO t ->
-    (t -> OuroborosApplicationWithMinimalCtx 'InitiatorMode SockAddr LByteString IO () Void) ->
-    Socket ->
-    IO ()
-  actualConnect iomgr newBroadcastChannel app sn = do
-    chan <- newBroadcastChannel
-    connectToNodeSocket
-      iomgr
-      (codecHandshake hydraVersionedProtocolCodec)
-      noTimeLimitsHandshake
-      hydraVersionedProtocolDataCodec
-      networkConnectTracers
-      (HandshakeCallbacks acceptableVersion queryVersion)
-      (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (app chan))
-      sn
+withOuroborosNetwork
+  tracer
+  HydraNetworkConfig{protocolVersion, localHost, remoteHosts}
+  handshakeCallback
+  NetworkCallback{deliver}
+  between = do
+    bchan <- newBroadcastTChanIO
+    let newBroadcastChannel = atomically $ dupTChan bchan
+    -- NOTE: There should only be one `IOManager` instance per process. Should we
+    -- want to use ouroboros network framework in other places, we must factor out
+    -- this instantiation
+    withIOManager $ \iomgr -> do
+      withServerListening iomgr hydraServer $
+        race_ (connect iomgr newBroadcastChannel hydraClient) $ do
+          between $
+            Network
+              { broadcast = atomically . writeTChan bchan
+              }
    where
-    networkConnectTracers :: NetworkConnectTracers SockAddr HydraVersionedProtocolNumber
-    networkConnectTracers =
-      NetworkConnectTracers
-        { nctMuxTracer = nullTracer
-        , nctHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+    resolveSockAddr :: Host -> IO SockAddr
+    resolveSockAddr Host{hostname, port} = do
+      is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
+      case is of
+        (info : _) -> pure $ addrAddress info
+        _ -> error "getAdrrInfo failed.. do proper error handling"
+
+    getHost :: SockAddr -> IO Host
+    getHost sockAddr = do
+      (mHost, mPort) <- getNameInfo [NI_NUMERICHOST, NI_NUMERICSERV] True True sockAddr
+      maybe (error "getNameInfo failed.. do proper error handling") pure $ do
+        host <- T.pack <$> mHost
+        port <- readMaybe =<< mPort
+        pure $ Host host port
+
+    connect ::
+      IOManager ->
+      IO t ->
+      ( t ->
+        OuroborosApplicationWithMinimalCtx
+          InitiatorMode
+          SockAddr
+          LByteString
+          IO
+          ()
+          Void
+      ) ->
+      IO Void
+    connect iomgr newBroadcastChannel app = do
+      -- REVIEW(SN): move outside to have this information available?
+      networkState <- newNetworkMutableState
+      -- Using port number 0 to let the operating system pick a random port
+      localAddr <- resolveSockAddr localHost{port = 0}
+      remoteAddrs <- forM remoteHosts resolveSockAddr
+      let sn = socketSnocket iomgr
+      Subscription.ipSubscriptionWorker
+        sn
+        (contramap (WithHost localHost . TraceSubscriptions) tracer)
+        (contramap (WithHost localHost . TraceErrorPolicy) tracer)
+        networkState
+        (subscriptionParams localAddr remoteAddrs)
+        ( \sock ->
+            actualConnect iomgr newBroadcastChannel app sock `catch` \e -> do
+              host <- getHost =<< getPeerName sock
+              onHandshakeError host e
+        )
+
+    onHandshakeError :: Host -> HandshakeProtocolError HydraVersionedProtocolNumber -> IO ()
+    onHandshakeError remoteHost = \case
+      HandshakeError (VersionMismatch theirVersions _) -> do
+        handshakeCallback
+          HydraHandshakeRefused
+            { ourVersion = protocolVersion
+            , theirVersions = KnownHydraVersions theirVersions
+            , remoteHost
+            }
+      _ ->
+        handshakeCallback
+          HydraHandshakeRefused
+            { ourVersion = protocolVersion
+            , theirVersions = NoKnownHydraVersions
+            , remoteHost
+            }
+
+    subscriptionParams ::
+      SockAddr ->
+      [SockAddr] ->
+      SubscriptionParams a IPSubscriptionTarget
+    subscriptionParams localAddr remoteAddrs =
+      SubscriptionParams
+        { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
+        , spConnectionAttemptDelay = const Nothing
+        , spErrorPolicies = nullErrorPolicies
+        , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs (length remoteAddrs)
         }
 
-  withServerListening ::
-    IOManager ->
-    OuroborosApplicationWithMinimalCtx 'ResponderMode SockAddr LByteString IO a b ->
-    IO b ->
-    IO ()
-  withServerListening iomgr app continuation = do
-    networkState <- newNetworkMutableState
-    localAddr <- resolveSockAddr localHost
-    -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
-    handle onIOException
-      $ withServerNode
-        (socketSnocket iomgr)
-        makeSocketBearer
-        notConfigureSocket
-        networkServerTracers
-        networkState
-        (AcceptedConnectionsLimit maxBound maxBound 0)
-        localAddr
+    actualConnect ::
+      IOManager ->
+      IO t ->
+      (t -> OuroborosApplicationWithMinimalCtx 'InitiatorMode SockAddr LByteString IO () Void) ->
+      Socket ->
+      IO ()
+    actualConnect iomgr newBroadcastChannel app sn = do
+      chan <- newBroadcastChannel
+      connectToNodeSocket
+        iomgr
         (codecHandshake hydraVersionedProtocolCodec)
         noTimeLimitsHandshake
         hydraVersionedProtocolDataCodec
+        networkConnectTracers
         (HandshakeCallbacks acceptableVersion queryVersion)
-        (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (SomeResponderApplication app))
-        nullErrorPolicies
-      $ \_addr serverAsync -> do
-        race_ (wait serverAsync) continuation
-   where
-    notConfigureSocket :: a -> b -> IO ()
-    notConfigureSocket _ _ = pure ()
+        (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (app chan))
+        sn
+     where
+      networkConnectTracers :: NetworkConnectTracers SockAddr HydraVersionedProtocolNumber
+      networkConnectTracers =
+        NetworkConnectTracers
+          { nctMuxTracer = nullTracer
+          , nctHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+          }
 
-    networkServerTracers :: NetworkServerTracers SockAddr HydraVersionedProtocolNumber
-    networkServerTracers =
-      NetworkServerTracers
-        { nstMuxTracer = nullTracer
-        , nstHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
-        , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
-        , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
+    withServerListening ::
+      IOManager ->
+      OuroborosApplicationWithMinimalCtx 'ResponderMode SockAddr LByteString IO a b ->
+      IO b ->
+      IO ()
+    withServerListening iomgr app continuation = do
+      networkState <- newNetworkMutableState
+      localAddr <- resolveSockAddr localHost
+      -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
+      handle onIOException
+        $ withServerNode
+          (socketSnocket iomgr)
+          makeSocketBearer
+          notConfigureSocket
+          networkServerTracers
+          networkState
+          (AcceptedConnectionsLimit maxBound maxBound 0)
+          localAddr
+          (codecHandshake hydraVersionedProtocolCodec)
+          noTimeLimitsHandshake
+          hydraVersionedProtocolDataCodec
+          (HandshakeCallbacks acceptableVersion queryVersion)
+          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (SomeResponderApplication app))
+          nullErrorPolicies
+        $ \_addr serverAsync -> do
+          race_ (wait serverAsync) continuation
+     where
+      notConfigureSocket :: a -> b -> IO ()
+      notConfigureSocket _ _ = pure ()
+
+      networkServerTracers :: NetworkServerTracers SockAddr HydraVersionedProtocolNumber
+      networkServerTracers =
+        NetworkServerTracers
+          { nstMuxTracer = nullTracer
+          , nstHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+          , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
+          , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
+          }
+
+      onIOException :: IOException -> IO ()
+      onIOException ioException =
+        throwIO $
+          NetworkServerListenException
+            { ioException
+            , localHost
+            }
+
+    hydraClient ::
+      TChan outbound ->
+      OuroborosApplicationWithMinimalCtx 'InitiatorMode addr LByteString IO () Void
+    hydraClient chan =
+      OuroborosApplication
+        [ MiniProtocol
+            { miniProtocolNum = MiniProtocolNum 42
+            , miniProtocolLimits = maximumMiniProtocolLimits
+            , miniProtocolRun = InitiatorProtocolOnly initiator
+            }
+        ]
+     where
+      initiator :: MiniProtocolCb ctx LByteString IO ()
+      initiator =
+        mkMiniProtocolCbFromPeer
+          ( const
+              (nullTracer, codecFireForget, fireForgetClientPeer $ client chan)
+          )
+
+    hydraServer ::
+      OuroborosApplicationWithMinimalCtx 'ResponderMode addr LByteString IO Void ()
+    hydraServer =
+      OuroborosApplication
+        [ MiniProtocol
+            { miniProtocolNum = MiniProtocolNum 42
+            , miniProtocolLimits = maximumMiniProtocolLimits
+            , miniProtocolRun = ResponderProtocolOnly responder
+            }
+        ]
+     where
+      responder :: MiniProtocolCb ctx LByteString IO ()
+      responder = mkMiniProtocolCbFromPeer (const (nullTracer, codecFireForget, fireForgetServerPeer server))
+
+    -- TODO: provide sensible limits
+    -- https://github.com/input-output-hk/ouroboros-network/issues/575
+    maximumMiniProtocolLimits :: MiniProtocolLimits
+    maximumMiniProtocolLimits =
+      MiniProtocolLimits{maximumIngressQueue = maxBound}
+
+    client ::
+      TChan outbound ->
+      FireForgetClient outbound IO ()
+    client chan =
+      Idle $ do
+        atomically (readTChan chan) <&> \msg ->
+          SendMsg msg (pure $ client chan)
+
+    server :: FireForgetServer inbound IO ()
+    server =
+      FireForgetServer
+        { recvMsg = \msg -> deliver msg $> server
+        , recvMsgDone = pure ()
         }
-
-    onIOException :: IOException -> IO ()
-    onIOException ioException =
-      throwIO $
-        NetworkServerListenException
-          { ioException
-          , localHost
-          }
-
-  hydraClient ::
-    TChan outbound ->
-    OuroborosApplicationWithMinimalCtx 'InitiatorMode addr LByteString IO () Void
-  hydraClient chan =
-    OuroborosApplication
-      [ MiniProtocol
-          { miniProtocolNum = MiniProtocolNum 42
-          , miniProtocolLimits = maximumMiniProtocolLimits
-          , miniProtocolRun = InitiatorProtocolOnly initiator
-          }
-      ]
-   where
-    initiator :: MiniProtocolCb ctx LByteString IO ()
-    initiator =
-      mkMiniProtocolCbFromPeer
-        ( const
-            (nullTracer, codecFireForget, fireForgetClientPeer $ client chan)
-        )
-
-  hydraServer ::
-    OuroborosApplicationWithMinimalCtx 'ResponderMode addr LByteString IO Void ()
-  hydraServer =
-    OuroborosApplication
-      [ MiniProtocol
-          { miniProtocolNum = MiniProtocolNum 42
-          , miniProtocolLimits = maximumMiniProtocolLimits
-          , miniProtocolRun = ResponderProtocolOnly responder
-          }
-      ]
-   where
-    responder :: MiniProtocolCb ctx LByteString IO ()
-    responder = mkMiniProtocolCbFromPeer (const (nullTracer, codecFireForget, fireForgetServerPeer server))
-
-  -- TODO: provide sensible limits
-  -- https://github.com/input-output-hk/ouroboros-network/issues/575
-  maximumMiniProtocolLimits :: MiniProtocolLimits
-  maximumMiniProtocolLimits =
-    MiniProtocolLimits{maximumIngressQueue = maxBound}
-
-  client ::
-    TChan outbound ->
-    FireForgetClient outbound IO ()
-  client chan =
-    Idle $ do
-      atomically (readTChan chan) <&> \msg ->
-        SendMsg msg (pure $ client chan)
-
-  server :: FireForgetServer inbound IO ()
-  server =
-    FireForgetServer
-      { recvMsg = \msg -> networkCallback msg $> server
-      , recvMsgDone = pure ()
-      }
 
 data NetworkServerListenException = NetworkServerListenException
   { ioException :: IOException

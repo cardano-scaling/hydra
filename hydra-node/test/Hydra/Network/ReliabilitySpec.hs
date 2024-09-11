@@ -16,7 +16,7 @@ import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Connectivity)
@@ -156,10 +156,10 @@ spec = parallel $ do
               alicePersistence
               alice
               [bob]
-              ( \incoming action -> do
+              ( \NetworkCallback{deliver} action -> do
                   concurrently_
                     (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
-                    (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
+                    (deliver (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
               )
               noop
               $ \Network{broadcast} -> do
@@ -195,10 +195,10 @@ spec = parallel $ do
             messagePersistence
             alice
             [bob]
-            ( \incoming action -> do
+            ( \NetworkCallback{deliver} action -> do
                 concurrently_
                   (action $ Network{broadcast = \m -> atomically $ modifyTVar' sentMessages (`snoc` m)})
-                  (incoming (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
+                  (deliver (Authenticated (ReliableMsg (fromList [0, 1]) (Data "node-2" msg)) bob))
             )
             noop
             $ \Network{broadcast} -> do
@@ -229,11 +229,11 @@ spec = parallel $ do
       withFlipHeartbeats $
         withReliability tracer persistence party peers underlyingNetwork
 
-  failingNetwork seed peer (readQueue, writeQueue) callback action =
+  failingNetwork seed peer (readQueue, writeQueue) NetworkCallback{deliver} action =
     withAsync
       ( forever $ do
           newMsg <- atomically $ readTQueue readQueue
-          callback newMsg
+          deliver newMsg
       )
       $ \_ ->
         action $
@@ -254,15 +254,15 @@ spec = parallel $ do
     createPersistenceIncremental fileName
       >>= \PersistenceIncremental{loadAll} -> loadAll
 
-noop :: Monad m => b -> m ()
-noop = const $ pure ()
+noop :: Monad m => NetworkCallback b m
+noop = NetworkCallback{deliver = const $ pure ()}
 
 aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
   receivedMessages <- newTVarIO empty
   alicePersistence <- mockMessagePersistence 3
 
-  let baseNetwork incoming _ = mapM incoming messages
+  let baseNetwork NetworkCallback{deliver} _ = mapM deliver messages
 
       aliceReliabilityStack =
         withReliability
@@ -277,15 +277,21 @@ aliceReceivesMessages messages = runSimOrThrow $ do
 
   Vector.toList <$> readTVarIO receivedMessages
 
-captureIncoming :: MonadSTM m => TVar m (Vector p) -> p -> m ()
-captureIncoming receivedMessages msg =
-  atomically $ modifyTVar' receivedMessages (`snoc` msg)
+captureIncoming :: MonadSTM m => TVar m (Vector p) -> NetworkCallback p m
+captureIncoming receivedMessages =
+  NetworkCallback
+    { deliver = \msg ->
+        atomically $ modifyTVar' receivedMessages (`snoc` msg)
+    }
 
-capturePayload :: MonadSTM m => TVar m (Vector msg) -> Either Connectivity (Authenticated (Heartbeat msg)) -> m ()
-capturePayload receivedMessages = \case
-  Right Authenticated{payload = Data _ msg} ->
-    atomically $ modifyTVar' receivedMessages (`snoc` msg)
-  _ -> pure ()
+capturePayload :: MonadSTM m => TVar m (Vector msg) -> NetworkCallback (Either Connectivity (Authenticated (Heartbeat msg))) m
+capturePayload receivedMessages =
+  NetworkCallback
+    { deliver = \case
+        Right Authenticated{payload = Data _ msg} ->
+          atomically $ modifyTVar' receivedMessages (`snoc` msg)
+        _ -> pure ()
+    }
 
 waitForAllMessages :: MonadSTM m => [msg] -> TVar m (Vector msg) -> m ()
 waitForAllMessages expectedMessages capturedMessages = atomically $ do

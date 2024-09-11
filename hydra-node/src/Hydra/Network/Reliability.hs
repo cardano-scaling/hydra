@@ -107,7 +107,7 @@ import Data.Vector (
   (!?),
  )
 import Hydra.Logging (traceWith)
-import Hydra.Network (Network (..), NetworkComponent)
+import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
@@ -231,7 +231,10 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
     withAsync (forever $ atomically (readTQueue resendQ) >>= broadcast) $ \_ ->
       reliableBroadcast sentMessages ourIndex acksCache network
  where
+  NetworkCallback{deliver} = callback
+
   allParties = fromList $ sort $ me : otherParties
+
   reliableBroadcast sentMessages ourIndex acksCache Network{broadcast} =
     action $
       Network
@@ -259,46 +262,47 @@ withReliability tracer MessagePersistence{saveAcks, loadAcks, appendMessage, loa
     cacheMessage msg =
       modifyTVar' sentMessages (|> msg)
 
-  reliableCallback acksCache sentMessages resend ourIndex (Authenticated (ReliableMsg acknowledged payload) party) = do
-    if length acknowledged /= length allParties
-      then
-        traceWith
-          tracer
-          ReceivedMalformedAcks
-            { fromParty = party
-            , partyAcks = acknowledged
-            , numberOfParties = length allParties
-            }
-      else do
-        eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
-          loadedAcks <- lift $ readTVar acksCache
-          partyIndex <- hoistMaybe $ findPartyIndex party
-          messageAckForParty <- hoistMaybe (acknowledged !? partyIndex)
-          knownAckForParty <- hoistMaybe $ loadedAcks !? partyIndex
-          if
-            | isPing payload ->
-                -- we do not update indices on Pings but we do propagate them
-                return (True, partyIndex, loadedAcks)
-            | messageAckForParty == knownAckForParty + 1 -> do
-                -- we update indices for next in line messages and propagate them
-                let newAcks = constructAcks loadedAcks partyIndex
-                lift $ writeTVar acksCache newAcks
-                return (True, partyIndex, newAcks)
-            | otherwise ->
-                -- other messages are dropped
-                return (False, partyIndex, loadedAcks)
+  reliableCallback acksCache sentMessages resend ourIndex =
+    NetworkCallback $ \(Authenticated (ReliableMsg acknowledged payload) party) -> do
+      if length acknowledged /= length allParties
+        then
+          traceWith
+            tracer
+            ReceivedMalformedAcks
+              { fromParty = party
+              , partyAcks = acknowledged
+              , numberOfParties = length allParties
+              }
+        else do
+          eShouldCallbackWithKnownAcks <- atomically $ runMaybeT $ do
+            loadedAcks <- lift $ readTVar acksCache
+            partyIndex <- hoistMaybe $ findPartyIndex party
+            messageAckForParty <- hoistMaybe (acknowledged !? partyIndex)
+            knownAckForParty <- hoistMaybe $ loadedAcks !? partyIndex
+            if
+              | isPing payload ->
+                  -- we do not update indices on Pings but we do propagate them
+                  return (True, partyIndex, loadedAcks)
+              | messageAckForParty == knownAckForParty + 1 -> do
+                  -- we update indices for next in line messages and propagate them
+                  let newAcks = constructAcks loadedAcks partyIndex
+                  lift $ writeTVar acksCache newAcks
+                  return (True, partyIndex, newAcks)
+              | otherwise ->
+                  -- other messages are dropped
+                  return (False, partyIndex, loadedAcks)
 
-        case eShouldCallbackWithKnownAcks of
-          Just (shouldCallback, theirIndex, localCounter) -> do
-            if shouldCallback
-              then do
-                callback Authenticated{payload, party}
-                traceWith tracer Received{acknowledged, localCounter, theirIndex, ourIndex}
-              else traceWith tracer Ignored{acknowledged, localCounter, theirIndex, ourIndex}
+          case eShouldCallbackWithKnownAcks of
+            Just (shouldCallback, theirIndex, localCounter) -> do
+              if shouldCallback
+                then do
+                  deliver Authenticated{payload, party}
+                  traceWith tracer Received{acknowledged, localCounter, theirIndex, ourIndex}
+                else traceWith tracer Ignored{acknowledged, localCounter, theirIndex, ourIndex}
 
-            when (isPing payload) $
-              resendMessagesIfLagging sentMessages resend theirIndex localCounter acknowledged ourIndex
-          Nothing -> pure ()
+              when (isPing payload) $
+                resendMessagesIfLagging sentMessages resend theirIndex localCounter acknowledged ourIndex
+            Nothing -> pure ()
 
   constructAcks acks wantedIndex =
     zipWith (\ack i -> if i == wantedIndex then ack + 1 else ack) acks partyIndexes
