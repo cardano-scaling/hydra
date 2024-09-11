@@ -15,7 +15,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   HeadStatus,
-  ServerOutput (Greetings, InvalidInput, hydraNodeVersion),
+  ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithUTxO (..),
@@ -31,6 +31,7 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
 import Hydra.Tx (Party, UTxOType)
+import Hydra.Tx.HeadId (HeadId (..))
 import Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
@@ -52,12 +53,14 @@ wsApp ::
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
+  -- | Read model to enhance 'Greetings' messages with 'HeadId'.
+  Projection STM.STM (ServerOutput tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pending = do
+wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -81,6 +84,7 @@ wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pe
   forwardGreetingOnly con = do
     seq <- atomically $ nextSequenceNumber history
     headStatus <- atomically getLatestHeadStatus
+    hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
 
@@ -93,6 +97,7 @@ wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pe
               Greetings
                 { me = party
                 , headStatus
+                , hydraHeadId
                 , snapshotUtxo
                 , hydraNodeVersion = showVersion Options.hydraNodeVersion
                 } ::
@@ -100,6 +105,7 @@ wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel pe
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
+  Projection{getLatest = getLatestHeadId} = headIdP
   Projection{getLatest = getLatestSnapshotUtxo} = snapshotUtxoP
 
   mkServerOutputConfig qp =

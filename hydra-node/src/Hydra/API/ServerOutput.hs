@@ -120,7 +120,13 @@ data ServerOutput tx
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
-    Greetings {me :: Party, headStatus :: HeadStatus, snapshotUtxo :: Maybe (UTxOType tx), hydraNodeVersion :: String}
+    Greetings
+      { me :: Party
+      , headStatus :: HeadStatus
+      , hydraHeadId :: Maybe HeadId
+      , snapshotUtxo :: Maybe (UTxOType tx)
+      , hydraNodeVersion :: String
+      }
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
@@ -175,10 +181,11 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me headStatus snapshotUtxo hydraNodeVersion ->
+    Greetings me headStatus hydraHeadId snapshotUtxo hydraNodeVersion ->
       Greetings
         <$> shrink me
         <*> shrink headStatus
+        <*> shrink hydraHeadId
         <*> shrink snapshotUtxo
         <*> shrink hydraNodeVersion
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e

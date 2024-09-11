@@ -106,7 +106,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP snapshotUtxoP responseChannel)
+              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel)
               (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP) callback)
       )
       ( do

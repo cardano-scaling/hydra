@@ -624,6 +624,8 @@ components:
           $ref: "api.yaml#/components/schemas/Party"
         headStatus:
           $ref: "api.yaml#/components/schemas/HeadStatus"
+        hydraHeadId:
+          $ref: "api.yaml#/components/schemas/HeadId"
         snapshotUtxo:
           $ref: "api.yaml#/components/schemas/UTxO"
         timestamp:
