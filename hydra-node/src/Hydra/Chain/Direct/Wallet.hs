@@ -63,7 +63,6 @@ import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (HASH, StandardCrypto)
 import Cardano.Ledger.Hashes (EraIndependentTxBody)
-import Cardano.Ledger.Plutus.Language (Language (PlutusV2))
 import Cardano.Ledger.SafeHash qualified as SafeHash
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -94,7 +93,6 @@ import Hydra.Cardano.Api (
   fromLedgerUTxO,
   getChainPoint,
   makeShelleyAddress,
-  recomputeIntegrityHash,
   shelleyAddressInEra,
   toLedgerAddr,
   toLedgerTx,
@@ -181,11 +179,9 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           -- We query pparams here again as it's possible that a hardfork
           -- occurred and the pparams changed.
           pparams <- querySomePParams
-          pure $ do
-            -- TODO: request re-export of upgradeTx in cardano-ledger-api
-            let conwayTx = toLedgerTx partialTx
-            coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO conwayTx
-              <&> fromLedgerTx . recomputeIntegrityHash pparams [PlutusV2]
+          pure $
+            fromLedgerTx
+              <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
