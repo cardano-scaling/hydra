@@ -6,7 +6,7 @@ SCRIPT_DIR=${SCRIPT_DIR:-$(realpath $(dirname $(realpath $0)))}
 NETWORK_ID=42
 
 CCLI_CMD=
-DEVNET_DIR=/devnet
+DEVNET_DIR="${DEVNET_DIR:-/devnet}"
 if [[ -n ${1} ]]; then
     echo >&2 "Using provided cardano-cli command: ${1}"
     $(${1} version > /dev/null)
@@ -14,7 +14,7 @@ if [[ -n ${1} ]]; then
     DEVNET_DIR=${SCRIPT_DIR}/devnet
 fi
 
-HYDRA_NODE_CMD=
+HYDRA_NODE_CMD="${HYDRA_NODE_CMD}"
 if [[ -n ${2} ]]; then
     echo >&2 "Using provided hydra-node command: ${2}"
     ${2} --version > /dev/null
@@ -40,6 +40,15 @@ function publishReferenceScripts() {
     --node-socket ${DEVNET_DIR}/node.socket \
     --cardano-signing-key devnet/credentials/faucet.sk
 }
+
+DOCKER_COMPOSE_CMD=
+if [[ ! -x ${CCLI_CMD} ]]; then
+  if docker compose --version > /dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker compose"
+  else
+    DOCKER_COMPOSE_CMD="docker-compose"
+  fi
+fi
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
