@@ -57,8 +57,6 @@ spec = do
               atomically (readTQueue received) `shouldReturn` 1
 
     it "handshake failures should call the handshakeCallback" $ do
-      received <- atomically newTQueue
-      let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
       showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         let node1Config =
@@ -83,8 +81,8 @@ spec = do
         (handshakeCallback1, getHandshakeFailures1) <- createHandshakeCallback
         (handshakeCallback2, getHandshakeFailures2) <- createHandshakeCallback
 
-        withOuroborosNetwork @Integer @() tracer node1Config handshakeCallback1 mockCallback $ \_ ->
-          withOuroborosNetwork @Integer tracer node2Config handshakeCallback2 recordReceived $ \_ -> do
+        withOuroborosNetwork @Int @Int tracer node1Config handshakeCallback1 mockCallback $ \_ ->
+          withOuroborosNetwork @Int tracer node2Config handshakeCallback2 mockCallback $ \_ -> do
             threadDelay 0.1
             getHandshakeFailures1 `shouldReturn` [Host lo port2]
             getHandshakeFailures2 `shouldReturn` [Host lo port1]
