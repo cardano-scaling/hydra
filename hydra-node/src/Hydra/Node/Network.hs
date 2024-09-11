@@ -73,8 +73,9 @@ import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Logging (traceWith)
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (Host (..), IP, NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
+import Hydra.Logging.Messages (HydraLog)
+import Hydra.Logging.Messages qualified as Log
+import Hydra.Network (Host (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (
@@ -132,14 +133,14 @@ withNetwork tracer configuration callback action = do
   let localHost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
+  messagePersistence <- configureMessagePersistence (contramap Log.Node tracer) persistenceDir numberOfParties
 
   let reliability =
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
-            withAuthentication (contramap Authentication tracer) signingKey otherParties $
+          withReliability (contramap Log.Reliability tracer) messagePersistence me otherParties $
+            withAuthentication (contramap Log.Authentication tracer) signingKey otherParties $
               withOuroborosNetwork
-                (contramap Network tracer)
+                (contramap Log.Network tracer)
                 HydraNetworkConfig
                   { protocolVersion = currentHydraVersionedProtocol
                   , localHost
@@ -149,8 +150,13 @@ withNetwork tracer configuration callback action = do
                     deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
                 )
 
-  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \network ->
-    action network
+  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \Network{broadcast} ->
+    action
+      Network
+        { broadcast = \msg -> do
+            broadcast msg
+            deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
+        }
  where
   NetworkCallback{deliver} = callback
 
