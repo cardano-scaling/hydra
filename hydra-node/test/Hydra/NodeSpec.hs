@@ -179,7 +179,7 @@ spec = parallel $ do
           events <- getRecordedEvents
           getEventId <$> events `shouldSatisfy` isStrictlyMonotonic
 
-    it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
+    it "emits a single ReqSn as leader, even after multiple ReqTxs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         -- NOTE(SN): Sequence of parties in OnInitTx of
         -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
@@ -192,22 +192,21 @@ spec = parallel $ do
                    , receiveMessage ReqTx{transaction = tx2}
                    , receiveMessage ReqTx{transaction = tx3}
                    ]
-            signedSnapshot = sign aliceSk $ testSnapshot 1 0 [1] (utxoRefs [1, 3, 4])
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing, AckSn signedSnapshot 1]
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
             sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
-            sn2 = testSnapshot 2 0 [1] (utxoRefs [1, 3, 4])
             inputs =
               inputsToOpenHead
                 <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}
-                   , receiveMessage $ AckSn (sign aliceSk sn1) 1
+                   , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
+                   , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
                    , receiveMessage ReqTx{transaction = tx1}
                    ]
@@ -217,7 +216,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing, AckSn (sign bobSk sn2) 2]
+        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing]
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do

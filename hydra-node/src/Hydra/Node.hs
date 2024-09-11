@@ -329,10 +329,7 @@ processEffects node tracer inputId effects = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> do
-        broadcast hn msg
-        -- FIXME: This must not be here, such that the network layer can ensure correct delivery (i.e. reliable broadcast)
-        enqueue (NetworkInput defaultTTL (ReceivedMessage{sender = party, msg}))
+      NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->
