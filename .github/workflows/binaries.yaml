@@ -8,7 +8,6 @@ on:
     - release
     tags:
     - "*.*.*"
-  pull_request:
 
 jobs:
   # Produces static ELF binary for using MuslC which includes all needed
