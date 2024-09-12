@@ -126,7 +126,7 @@
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
         in
         {
-          legacyPackages = hsPkgs;
+          legacyPackages = pkgs // hsPkgs;
 
           packages =
             hydraPackages //
