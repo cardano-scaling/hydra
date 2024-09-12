@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 -- | Test the real networking layer
 module Hydra.NetworkSpec where
 
@@ -21,10 +19,11 @@ import Hydra.Network.Message (
  )
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence (..))
-import Hydra.Node.Network (configureMessagePersistence)
+import Hydra.Node.Network (NetworkConfiguration (..), configureMessagePersistence)
 import Hydra.Node.ParameterMismatch (ParameterMismatch)
+import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Node.Fixture (aliceSk, bobSk)
+import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
   Property,
@@ -34,24 +33,43 @@ import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
 spec = do
-  let lo = "127.0.0.1"
-
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
       -- TODO: should add somewhat re-usable tests corresponding to properties
       -- of network layer, like: validity
       it "broadcasts messages to single connected peer" $ \tracer -> do
-        received <- atomically newTQueue
-        let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
-        failAfter 30 $ do
-          [host1, host2] <- fmap (Host lo . fromIntegral) <$> randomUnusedTCPPorts 2
-          withEtcdNetwork @Int tracer aliceSk host1 [host2] mockCallback $ \n1 ->
-            withEtcdNetwork @Int tracer bobSk host2 [host1] recordReceived $ \_n2 -> do
-              broadcast n1 123
-              r <- atomically (readTQueue received)
-              r `shouldSatisfy` \case
-                ReceivedMessage{msg} -> msg == 123
-                _ -> False
+        withTempDir "test-etcd" $ \tmp -> do
+          received <- atomically newTQueue
+          let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+          failAfter 30 $ do
+            [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+            let aliceConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port1
+                    , signingKey = aliceSk
+                    , otherParties = [bob]
+                    , peers = [Host lo port2]
+                    , nodeId = "alice"
+                    , persistenceDir = tmp </> "alice"
+                    }
+            let bobConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port2
+                    , signingKey = bobSk
+                    , otherParties = [alice]
+                    , peers = [Host lo port1]
+                    , nodeId = "bob"
+                    , persistenceDir = tmp </> "bob"
+                    }
+            withEtcdNetwork @Int tracer aliceConfig mockCallback $ \n1 ->
+              withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
+                broadcast n1 123
+                r <- atomically (readTQueue received)
+                r `shouldSatisfy` \case
+                  ReceivedMessage{msg} -> msg == 123
+                  _ -> False
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
@@ -149,6 +167,9 @@ spec = do
         MessagePersistence{saveAcks} <- configureMessagePersistence @_ @Int nullTracer dir 3
         saveAcks (fromList [0, 0, 0])
         configureMessagePersistence @_ @Int nullTracer dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
+
+lo :: IsString s => s
+lo = "127.0.0.1"
 
 withNodeBroadcastingForever :: Network IO Integer -> Integer -> IO b -> IO b
 withNodeBroadcastingForever node value = withNodesBroadcastingForever [(node, value)]
