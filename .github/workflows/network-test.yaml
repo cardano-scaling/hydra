@@ -67,7 +67,20 @@ jobs:
         sleep 5
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
-        DEVNET_DIR=devnet HYDRA_NODE_CMD="nix run .#hydra-node --" ./export-tx-id-and-pparams.sh
+
+        HYDRA_SCRIPTS_TX_ID=$(nix run .#hydra-node -- publish-scripts \
+          --testnet-magic 42 \
+          --node-socket devnet/node.socket \
+          --cardano-signing-key devnet/credentials/faucet.sk)
+
+        echo $HYDRA_SCRIPTS_TX_ID >> .env
+
+        nix run .#cardano-cli query protocol-parameters \
+          --socket-path devnet/node.socket  \
+          --out-file /dev/stdout \
+          | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" \
+          > devnet/protocol-parameters.json
+
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
