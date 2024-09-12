@@ -14,6 +14,8 @@ changes.
   - Conway formatted transactions can be submitted to the `hydra-node`, while past eras are still supported (except deprecated features like protocol updates).
   - This includes support for `PlutusV3` scripts, but most of the governance-related features have no meaning in the Hydra L2.
 
+- Added head id information into the Greetings message.
+
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
 
 ## [0.18.1] - 2024-08-15
