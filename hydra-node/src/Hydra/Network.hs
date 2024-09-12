@@ -75,7 +75,7 @@ instance Arbitrary PortNumber where
   arbitrary = fromIntegral @Word16 <$> arbitrary
 
 newtype NodeId = NodeId {nodeId :: Text}
-  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, IsString, ToString, Read, Ord, ToJSON, FromJSON)
 
 instance Arbitrary NodeId where
   arbitrary =
