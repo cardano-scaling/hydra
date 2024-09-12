@@ -124,6 +124,13 @@
                     value = addWerror v;
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+          alice-blueprint-commit = pkgs.writers.writeHaskellBin
+            "alice-blueprint-commit"
+            {
+              libraries =
+                with pkgs.haskellPackages;
+                [ aeson text bytestring lens lens-aeson shh ];
+            } ''${builtins.readFile demo/alice-blueprint-commit.hs}'';
         in
         {
           legacyPackages = pkgs // hsPkgs;
@@ -132,6 +139,7 @@
             hydraPackages //
             (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
               spec = inputs.hydra-spec.packages.${system}.default;
+              alice-blueprint-commit = alice-blueprint-commit;
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
