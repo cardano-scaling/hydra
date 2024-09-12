@@ -79,6 +79,7 @@ library
     Hydra.Logging.Monitoring
     Hydra.Network
     Hydra.Network.Authenticate
+    Hydra.Network.Etcd
     Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Network.Ouroboros
