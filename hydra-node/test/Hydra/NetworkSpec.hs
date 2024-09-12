@@ -12,10 +12,12 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTQueue, newTVarIO, rea
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network, NetworkCallback (..))
+import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
   Message (..),
+  NetworkEvent(..)
  )
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence (..))
@@ -33,90 +35,108 @@ spec :: Spec
 spec = do
   let lo = "127.0.0.1"
 
+  describe "Etcd" $
+    around (showLogsOnFailure "NetworkSpec") $ do
+      -- TODO: should add somewhat re-usable tests corresponding to properties
+      -- of network layer, like: validity
+      it "broadcasts messages to single connected peer" $ \tracer -> do
+        received <- atomically newTQueue
+        let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+        failAfter 30 $ do
+          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+          withEtcdNetwork @Int tracer mockCallback $ \n1 ->
+            withEtcdNetwork @Int tracer recordReceived $ \_n2 -> do
+              broadcast n1 123
+              r <- atomically (readTQueue received)
+              r `shouldSatisfy` \case
+                ReceivedMessage{msg} -> msg == 123
+                _ -> False
+
   describe "Ouroboros Network" $ do
-    it "broadcasts messages to single connected peer" $ do
-      received <- atomically newTQueue
-      let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
-      showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
-        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-        let node1Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port1
-                , remoteHosts = [Host lo port2]
-                }
-            node2Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port2
-                , remoteHosts = [Host lo port1]
-                }
-        withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) mockCallback $ \hn1 ->
-          withOuroborosNetwork @Integer tracer node2Config (const $ pure ()) recordReceived $ \_ -> do
-            withNodeBroadcastingForever hn1 1 $
-              atomically (readTQueue received) `shouldReturn` 1
+    around (showLogsOnFailure "NetworkSpec") $ do
+      it "broadcasts messages to single connected peer" $ \tracer -> do
+        received <- atomically newTQueue
+        let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+        failAfter 30 $ do
+          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+          let node1Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port1
+                  , remoteHosts = [Host lo port2]
+                  }
+              node2Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port2
+                  , remoteHosts = [Host lo port1]
+                  }
+          withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) mockCallback $ \hn1 ->
+            withOuroborosNetwork @Integer tracer node2Config (const $ pure ()) recordReceived $ \_ -> do
+              withNodeBroadcastingForever hn1 1 $
+                atomically (readTQueue received) `shouldReturn` 1
 
-    it "handshake failures should call the handshakeCallback" $ do
-      showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
-        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-        let node1Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port1
-                , remoteHosts = [Host lo port2]
-                }
-            node2Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 1
-                , localHost = Host lo port2
-                , remoteHosts = [Host lo port1]
-                }
-            createHandshakeCallback :: IO (HydraHandshakeRefused -> IO (), IO [Host])
-            createHandshakeCallback = do
-              x <- newTVarIO []
-              let f (HydraHandshakeRefused{remoteHost}) = atomically $ modifyTVar' x (remoteHost :)
-              let g = readTVarIO x
-              pure (f, g)
+      it "handshake failures should call the handshakeCallback" $ \tracer -> do
+        failAfter 30 $ do
+          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+          let node1Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port1
+                  , remoteHosts = [Host lo port2]
+                  }
+              node2Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 1
+                  , localHost = Host lo port2
+                  , remoteHosts = [Host lo port1]
+                  }
+              createHandshakeCallback :: IO (HydraHandshakeRefused -> IO (), IO [Host])
+              createHandshakeCallback = do
+                x <- newTVarIO []
+                let f (HydraHandshakeRefused{remoteHost}) = atomically $ modifyTVar' x (remoteHost :)
+                let g = readTVarIO x
+                pure (f, g)
 
-        (handshakeCallback1, getHandshakeFailures1) <- createHandshakeCallback
-        (handshakeCallback2, getHandshakeFailures2) <- createHandshakeCallback
+          (handshakeCallback1, getHandshakeFailures1) <- createHandshakeCallback
+          (handshakeCallback2, getHandshakeFailures2) <- createHandshakeCallback
 
-        withOuroborosNetwork @Int @Int tracer node1Config handshakeCallback1 mockCallback $ \_ ->
-          withOuroborosNetwork @Int tracer node2Config handshakeCallback2 mockCallback $ \_ -> do
-            threadDelay 0.1
-            getHandshakeFailures1 `shouldReturn` [Host lo port2]
-            getHandshakeFailures2 `shouldReturn` [Host lo port1]
+          withOuroborosNetwork @Integer @Integer tracer node1Config handshakeCallback1 mockCallback $ \_ ->
+            withOuroborosNetwork @Integer tracer node2Config handshakeCallback2 mockCallback $ \_ -> do
+              threadDelay 0.1
+              getHandshakeFailures1 `shouldReturn` [Host lo port2]
+              getHandshakeFailures2 `shouldReturn` [Host lo port1]
 
-    it "broadcasts messages between 3 connected peers" $ do
-      node1received <- atomically newTQueue
-      node2received <- atomically newTQueue
-      node3received <- atomically newTQueue
-      let recordReceivedIn tq = NetworkCallback{deliver = atomically . writeTQueue tq}
-      showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
-        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        let node1Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port1
-                , remoteHosts = [Host lo port2, Host lo port3]
-                }
-            node2Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port2
-                , remoteHosts = [Host lo port1, Host lo port3]
-                }
-            node3Config =
-              HydraNetworkConfig
-                { protocolVersion = MkHydraVersionedProtocolNumber 0
-                , localHost = Host lo port3
-                , remoteHosts = [Host lo port2, Host lo port1]
-                }
-        withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) (recordReceivedIn node1received) $ \hn1 ->
-          withOuroborosNetwork tracer node2Config (const $ pure ()) (recordReceivedIn node2received) $ \hn2 -> do
-            withOuroborosNetwork tracer node3Config (const $ pure ()) (recordReceivedIn node3received) $ \hn3 -> do
-              withNodesBroadcastingForever [(hn1, 1), (hn2, 2), (hn3, 3)] $
-                assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
+      it "broadcasts messages between 3 connected peers" $ \tracer -> do
+        node1received <- atomically newTQueue
+        node2received <- atomically newTQueue
+        node3received <- atomically newTQueue
+        let recordReceivedIn tq = NetworkCallback{deliver = atomically . writeTQueue tq}
+        failAfter 30 $ do
+          [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+          let node1Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port1
+                  , remoteHosts = [Host lo port2, Host lo port3]
+                  }
+              node2Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port2
+                  , remoteHosts = [Host lo port1, Host lo port3]
+                  }
+              node3Config =
+                HydraNetworkConfig
+                  { protocolVersion = MkHydraVersionedProtocolNumber 0
+                  , localHost = Host lo port3
+                  , remoteHosts = [Host lo port2, Host lo port1]
+                  }
+          withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) (recordReceivedIn node1received) $ \hn1 ->
+            withOuroborosNetwork tracer node2Config (const $ pure ()) (recordReceivedIn node2received) $ \hn2 -> do
+              withOuroborosNetwork tracer node3Config (const $ pure ()) (recordReceivedIn node3received) $ \hn3 -> do
+                withNodesBroadcastingForever [(hn1, 1), (hn2, 2), (hn3, 3)] $
+                  assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
