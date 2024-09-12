@@ -361,8 +361,7 @@ createMockNetwork draftNode nodes =
  where
   broadcast msg = do
     allNodes <- fmap node <$> readTVarIO nodes
-    let otherNodes = filter (\n -> getParty n /= getParty draftNode) allNodes
-    mapM_ (`handleMessage` msg) otherNodes
+    mapM_ (`handleMessage` msg) allNodes
 
   handleMessage HydraNode{inputQueue} msg =
     enqueue inputQueue . NetworkInput defaultTTL $ ReceivedMessage{sender, msg}

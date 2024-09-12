@@ -11,7 +11,7 @@ import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTQueue, newTVarIO, readTQueue, readTVarIO, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Network (Host (..), Network)
+import Hydra.Network (Host (..), Network, NetworkCallback (..))
 import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
@@ -36,6 +36,7 @@ spec = do
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- atomically newTQueue
+      let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
       showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         let node1Config =
@@ -50,13 +51,12 @@ spec = do
                 , localHost = Host lo port2
                 , remoteHosts = [Host lo port1]
                 }
-        withOuroborosNetwork tracer node1Config (const $ pure ()) (const @_ @Integer $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @Integer tracer node2Config (const $ pure ()) (atomically . writeTQueue received) $ \_ -> do
+        withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) mockCallback $ \hn1 ->
+          withOuroborosNetwork @Integer tracer node2Config (const $ pure ()) recordReceived $ \_ -> do
             withNodeBroadcastingForever hn1 1 $
               atomically (readTQueue received) `shouldReturn` 1
 
     it "handshake failures should call the handshakeCallback" $ do
-      received <- atomically newTQueue
       showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         let node1Config =
@@ -81,8 +81,8 @@ spec = do
         (handshakeCallback1, getHandshakeFailures1) <- createHandshakeCallback
         (handshakeCallback2, getHandshakeFailures2) <- createHandshakeCallback
 
-        withOuroborosNetwork @Integer @() tracer node1Config handshakeCallback1 (const @_ @Integer $ pure ()) $ \_ ->
-          withOuroborosNetwork @Integer tracer node2Config handshakeCallback2 (atomically . writeTQueue received) $ \_ -> do
+        withOuroborosNetwork @Int @Int tracer node1Config handshakeCallback1 mockCallback $ \_ ->
+          withOuroborosNetwork @Int tracer node2Config handshakeCallback2 mockCallback $ \_ -> do
             threadDelay 0.1
             getHandshakeFailures1 `shouldReturn` [Host lo port2]
             getHandshakeFailures2 `shouldReturn` [Host lo port1]
@@ -91,6 +91,7 @@ spec = do
       node1received <- atomically newTQueue
       node2received <- atomically newTQueue
       node3received <- atomically newTQueue
+      let recordReceivedIn tq = NetworkCallback{deliver = atomically . writeTQueue tq}
       showLogsOnFailure "NetworkSpec" $ \tracer -> failAfter 30 $ do
         [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
         let node1Config =
@@ -111,9 +112,9 @@ spec = do
                 , localHost = Host lo port3
                 , remoteHosts = [Host lo port2, Host lo port1]
                 }
-        withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) (atomically . writeTQueue node1received) $ \hn1 ->
-          withOuroborosNetwork tracer node2Config (const $ pure ()) (atomically . writeTQueue node2received) $ \hn2 -> do
-            withOuroborosNetwork tracer node3Config (const $ pure ()) (atomically . writeTQueue node3received) $ \hn3 -> do
+        withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) (recordReceivedIn node1received) $ \hn1 ->
+          withOuroborosNetwork tracer node2Config (const $ pure ()) (recordReceivedIn node2received) $ \hn2 -> do
+            withOuroborosNetwork tracer node3Config (const $ pure ()) (recordReceivedIn node3received) $ \hn3 -> do
               withNodesBroadcastingForever [(hn1, 1), (hn2, 2), (hn3, 3)] $
                 assertAllnodesReceivedMessagesFromAllOtherNodes [(node1received, 1), (node2received, 2), (node3received, 3)]
 
@@ -157,3 +158,6 @@ prop_canRoundtripCBOREncoding ::
 prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
+
+mockCallback :: Applicative m => NetworkCallback msg m
+mockCallback = NetworkCallback{deliver = \_ -> pure ()}

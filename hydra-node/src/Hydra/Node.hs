@@ -46,7 +46,7 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -200,8 +200,9 @@ wireClientInput node = enqueue . ClientInput
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
-wireNetworkInput :: DraftHydraNode tx m -> NetworkEvent (Message tx) -> m ()
-wireNetworkInput node = enqueue . NetworkInput defaultTTL
+wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (NetworkEvent (Message tx)) m
+wireNetworkInput node =
+  NetworkCallback{deliver = enqueue . NetworkInput defaultTTL}
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
@@ -328,10 +329,7 @@ processEffects node tracer inputId effects = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> do
-        broadcast hn msg
-        -- FIXME: This must not be here, such that the network layer can ensure correct delivery (i.e. reliable broadcast)
-        enqueue (NetworkInput defaultTTL (ReceivedMessage{sender = party, msg}))
+      NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->

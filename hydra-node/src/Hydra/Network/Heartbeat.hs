@@ -24,7 +24,7 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Network (Network (..), NetworkCallback, NetworkComponent, NodeId)
+import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId)
 import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
 data HeartbeatState = HeartbeatState
@@ -100,21 +100,28 @@ withHeartbeat nodeId withNetwork callback action = do
       withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
         action (updateStateFromOutgoingMessages nodeId lastSent network)
  where
-  onConnectivityChanged = callback . Left
+  NetworkCallback{deliver} = callback
+
+  onConnectivityChanged = deliver . Left
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   NetworkCallback (Either Connectivity inbound) m ->
   NetworkCallback (Heartbeat inbound) m
-updateStateFromIncomingMessages heartbeatState callback = \case
-  Data nodeId msg -> notifyAlive nodeId >> callback (Right msg)
-  Ping nodeId -> notifyAlive nodeId
+updateStateFromIncomingMessages heartbeatState callback =
+  NetworkCallback
+    { deliver = \case
+        Data nodeId msg -> notifyAlive nodeId >> deliver (Right msg)
+        Ping nodeId -> notifyAlive nodeId
+    }
  where
+  NetworkCallback{deliver} = callback
+
   notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (peer `Map.member` aliveSet) $ callback (Left $ Connected peer)
+    unless (peer `Map.member` aliveSet) $ deliver (Left $ Connected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s

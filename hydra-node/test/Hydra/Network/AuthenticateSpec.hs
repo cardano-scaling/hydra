@@ -6,7 +6,7 @@ import Control.Monad.IOSim (runSimOrThrow)
 import Data.ByteString (pack)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
 import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.Network.Message (Message (ReqTx))
@@ -24,8 +24,11 @@ spec = parallel $ do
   let captureOutgoing msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
 
-      captureIncoming receivedMessages msg =
-        atomically $ modifyTVar' receivedMessages (msg :)
+      captureIncoming receivedMessages =
+        NetworkCallback
+          { deliver = \msg ->
+              atomically $ modifyTVar' receivedMessages (msg :)
+          }
 
   msg <- runIO $ generate @(Message SimpleTx) arbitrary
   it "pass the authenticated messages around" $ do
@@ -38,8 +41,8 @@ spec = parallel $ do
             nullTracer
             aliceSk
             [bob]
-            ( \incoming _ -> do
-                incoming (Signed msg (sign bobSk msg) bob)
+            ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign bobSk msg) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -60,9 +63,9 @@ spec = parallel $ do
             nullTracer
             aliceSk
             [bob]
-            ( \incoming _ -> do
-                incoming (Signed msg (sign bobSk msg) bob)
-                incoming (Signed unexpectedMessage (sign aliceSk unexpectedMessage) alice)
+            ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign bobSk msg) bob)
+                deliver (Signed unexpectedMessage (sign aliceSk unexpectedMessage) alice)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -82,8 +85,8 @@ spec = parallel $ do
             nullTracer
             aliceSk
             [bob, carol]
-            ( \incoming _ -> do
-                incoming (Signed msg (sign carolSk msg) bob)
+            ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign carolSk msg) bob)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -128,7 +131,7 @@ spec = parallel $ do
             tracer
             aliceSk
             [bob, carol]
-            (\incoming _ -> incoming signedMsg)
+            (\NetworkCallback{deliver} _ -> deliver signedMsg)
             noop
             $ \_ ->
               threadDelay 1

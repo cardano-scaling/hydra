@@ -73,8 +73,9 @@ import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
 import Hydra.Logging (traceWith)
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (Host (..), IP, NetworkComponent, NodeId, PortNumber)
+import Hydra.Logging.Messages (HydraLog)
+import Hydra.Logging.Messages qualified as Log
+import Hydra.Network (Host (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (
@@ -132,26 +133,33 @@ withNetwork tracer configuration callback action = do
   let localHost = Host{hostname = show host, port}
       me = deriveParty signingKey
       numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence (contramap Node tracer) persistenceDir numberOfParties
+  messagePersistence <- configureMessagePersistence (contramap Log.Node tracer) persistenceDir numberOfParties
 
   let reliability =
         withFlipHeartbeats $
-          withReliability (contramap Reliability tracer) messagePersistence me otherParties $
-            withAuthentication (contramap Authentication tracer) signingKey otherParties $
+          withReliability (contramap Log.Reliability tracer) messagePersistence me otherParties $
+            withAuthentication (contramap Log.Authentication tracer) signingKey otherParties $
               withOuroborosNetwork
-                (contramap Network tracer)
+                (contramap Log.Network tracer)
                 HydraNetworkConfig
                   { protocolVersion = currentHydraVersionedProtocol
                   , localHost
                   , remoteHosts = peers
                   }
                 ( \HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-                    callback . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
+                    deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
                 )
 
-  withHeartbeat nodeId reliability (callback . mapHeartbeat) $ \network ->
-    action network
+  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \Network{broadcast} ->
+    action
+      Network
+        { broadcast = \msg -> do
+            broadcast msg
+            deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
+        }
  where
+  NetworkCallback{deliver} = callback
+
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
 
   mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
@@ -186,12 +194,12 @@ configureMessagePersistence tracer persistenceDir numberOfParties = do
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
   NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
-withFlipHeartbeats withBaseNetwork callback =
-  withBaseNetwork unwrapHeartbeats
+withFlipHeartbeats withBaseNetwork NetworkCallback{deliver} =
+  withBaseNetwork NetworkCallback{deliver = unwrapHeartbeats}
  where
   unwrapHeartbeats = \case
-    Authenticated (Data nid msg) party -> callback $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) _ -> callback $ Ping nid
+    Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)
+    Authenticated (Ping nid) _ -> deliver $ Ping nid
 
 -- | Where are the messages stored, relative to given directory.
 storedMessagesFile :: FilePath -> FilePath
