@@ -6,7 +6,7 @@ We will use offline mode, so lets prepare a starting utxo:
 cat << EOF > utxo.json
 {
   "0000000000000000000000000000000000000000000000000000000000000000#0": {
-    "address": "addr_test1vqg9ywrpx6e50uam03nlu0ewunh3yrscxmjayurmkp52lfskgkq5k",
+    "address": "$(cardano-cli address build --verification-key-file hydra-cluster/config/credentials/alice-funds.vk --testnet-magic 42)",
     "value": {
       "lovelace": 100000000
     }
