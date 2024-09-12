@@ -17,13 +17,14 @@ import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
   Message (..),
-  NetworkEvent(..)
+  NetworkEvent (..),
  )
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence (..))
 import Hydra.Node.Network (configureMessagePersistence)
 import Hydra.Node.ParameterMismatch (ParameterMismatch)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Node.Fixture (aliceSk, bobSk)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
   Property,
@@ -44,8 +45,8 @@ spec = do
         let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
         failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-          withEtcdNetwork @Int tracer mockCallback $ \n1 ->
-            withEtcdNetwork @Int tracer recordReceived $ \_n2 -> do
+          withEtcdNetwork @Int tracer aliceSk [Host lo port2] mockCallback $ \n1 ->
+            withEtcdNetwork @Int tracer bobSk [Host lo port1] recordReceived $ \_n2 -> do
               broadcast n1 123
               r <- atomically (readTQueue received)
               r `shouldSatisfy` \case

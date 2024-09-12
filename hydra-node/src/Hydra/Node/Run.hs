@@ -97,7 +97,7 @@ run opts = do
           withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withEtcdNetwork (contramap Network tracer) (wireNetworkInput wetHydraNode) $ \network -> do
+            withEtcdNetwork (contramap Network tracer) signingKey peers (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
               connect chain network server wetHydraNode
                 >>= runHydraNode
