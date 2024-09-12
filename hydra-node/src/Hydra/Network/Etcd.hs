@@ -21,10 +21,12 @@ withEtcdNetwork ::
   Tracer IO EtcdLog ->
   -- | This node's signing key, used to sign messages sent to peers.
   SigningKey HydraKey ->
-  -- \| Remote hosts to connect to.
+  -- | Local host to listen on.
+  Host ->
+  -- | Remote hosts to connect to.
   [Host] ->
   NetworkComponent IO (NetworkEvent msg) msg ()
-withEtcdNetwork _tracer signingKey _remoteHosts NetworkCallback{deliver} action =
+withEtcdNetwork _tracer signingKey localHost _remoteHosts NetworkCallback{deliver} action =
   withProcessWait etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
@@ -32,7 +34,7 @@ withEtcdNetwork _tracer signingKey _remoteHosts NetworkCallback{deliver} action 
     race_ (waitExitCode p >>= \ec -> die $ "ectd exited with: " <> show ec) $ do
       action Network{broadcast}
  where
-  etcdCmd = proc "etcd" []
+  etcdCmd = proc "etcd" ["--listen-peer-urls", "http://" <> show localHost]
 
   broadcast msg = do
     deliver (ReceivedMessage{sender = deriveParty signingKey, msg})

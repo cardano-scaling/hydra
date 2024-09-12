@@ -44,9 +44,9 @@ spec = do
         received <- atomically newTQueue
         let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
         failAfter 30 $ do
-          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-          withEtcdNetwork @Int tracer aliceSk [Host lo port2] mockCallback $ \n1 ->
-            withEtcdNetwork @Int tracer bobSk [Host lo port1] recordReceived $ \_n2 -> do
+          [host1, host2] <- fmap (Host lo . fromIntegral) <$> randomUnusedTCPPorts 2
+          withEtcdNetwork @Int tracer aliceSk host1 [host2] mockCallback $ \n1 ->
+            withEtcdNetwork @Int tracer bobSk host2 [host1] recordReceived $ \_n2 -> do
               broadcast n1 123
               r <- atomically (readTQueue received)
               r `shouldSatisfy` \case
