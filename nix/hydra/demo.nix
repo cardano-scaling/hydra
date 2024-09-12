@@ -6,6 +6,7 @@
 , cardano-cli
 , cardano-node
 , hydra-node
+, hydra-tui
 , self
 , demoDir
 , process-compose
@@ -118,6 +119,39 @@
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
+      };
+      hydra-tui-alice = {
+        command = ''
+          ${hydra-tui}/bin/hydra-tui \
+            --connect 0.0.0.0:4001 \
+            --node-socket devnet/node.socket \
+            --testnet-magic 42 \
+            --cardano-signing-key devnet/credentials/alice-funds.sk
+        '';
+        is_foreground = true;
+        depends_on."hydra-node-alice".condition = "process_started";
+      };
+      hydra-tui-bob = {
+        command = ''
+          ${hydra-tui}/bin/hydra-tui \
+            --connect 0.0.0.0:4002 \
+            --node-socket devnet/node.socket \
+            --testnet-magic 42 \
+            --cardano-signing-key devnet/credentials/bob-funds.sk
+        '';
+        is_foreground = true;
+        depends_on."hydra-node-bob".condition = "process_started";
+      };
+      hydra-tui-carol = {
+        command = ''
+          ${hydra-tui}/bin/hydra-tui \
+            --connect 0.0.0.0:4003 \
+            --node-socket devnet/node.socket \
+            --testnet-magic 42 \
+            --cardano-signing-key devnet/credentials/carol-funds.sk
+        '';
+        is_foreground = true;
+        depends_on."hydra-node-carol".condition = "process_started";
       };
     };
   };

@@ -138,7 +138,7 @@
             demoDir = ./demo;
             inherit (pkgsLatest) process-compose;
             inherit (pkgs) cardano-node cardano-cli;
-            inherit (hydraPackages) hydra-node;
+            inherit (hydraPackages) hydra-node hydra-tui;
           };
 
           checks = let lu = inputs.lint-utils.linters.${system}; in {
