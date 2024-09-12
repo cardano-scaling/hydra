@@ -85,7 +85,7 @@ instance FromCBOR PortNumber where
   fromCBOR = fmap fromInteger fromCBOR
 
 newtype NodeId = NodeId {nodeId :: Text}
-  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, IsString, ToString, Read, Ord, ToJSON, FromJSON)
 
 instance Arbitrary NodeId where
   arbitrary =
