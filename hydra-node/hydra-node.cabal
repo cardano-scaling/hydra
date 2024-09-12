@@ -156,8 +156,10 @@ library
     , text
     , time
     , transformers
+    , typed-process
     , typed-protocols                 >=0.1.0.0
     , typed-protocols-cborg           >=0.1.0.0
+    , unix
     , unliftio
     , vector
     , wai

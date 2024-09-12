@@ -64,7 +64,10 @@ let
     pkgs.zlib
   ]
   ++
-  pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
+  pkgs.lib.optionals (pkgs.stdenv.isLinux) [
+    pkgs.systemd
+    pkgs.etcd # TODO: Run-time dependency of hyddra-node, better place?
+  ];
 
   haskellNixShell = hsPkgs.shellFor {
     buildInputs = libs ++ buildInputs;
