@@ -41,7 +41,7 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           received <- atomically newTQueue
           let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
-          failAfter 30 $ do
+          failAfter 10 $ do
             [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
             let aliceConfig =
                   NetworkConfiguration
