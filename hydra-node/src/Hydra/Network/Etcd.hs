@@ -7,10 +7,10 @@ module Hydra.Network.Etcd where
 import Hydra.Prelude
 
 import Hydra.Logging (Tracer)
-import Hydra.Network (Host, Network (..), NetworkCallback (..), NetworkComponent)
+import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Message (NetworkEvent (..))
+import Hydra.Node.Network (NetworkConfiguration (..))
 import Hydra.Tx (deriveParty)
-import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (proc, stopProcess, waitExitCode, withProcessWait)
 
@@ -19,14 +19,10 @@ import System.Process.Typed (proc, stopProcess, waitExitCode, withProcessWait)
 withEtcdNetwork ::
   ToCBOR msg =>
   Tracer IO EtcdLog ->
-  -- | This node's signing key, used to sign messages sent to peers.
-  SigningKey HydraKey ->
-  -- | Local host to listen on.
-  Host ->
-  -- | Remote hosts to connect to.
-  [Host] ->
+  NetworkConfiguration msg ->
   NetworkComponent IO (NetworkEvent msg) msg ()
-withEtcdNetwork _tracer signingKey localHost _remoteHosts NetworkCallback{deliver} action =
+withEtcdNetwork _tracer config NetworkCallback{deliver} action =
+  -- TODO: capture stdout into tracer
   withProcessWait etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
@@ -34,10 +30,13 @@ withEtcdNetwork _tracer signingKey localHost _remoteHosts NetworkCallback{delive
     race_ (waitExitCode p >>= \ec -> die $ "ectd exited with: " <> show ec) $ do
       action Network{broadcast}
  where
-  etcdCmd = proc "etcd" ["--listen-peer-urls", "http://" <> show localHost]
+  etcdCmd = proc "etcd" ["--listen-peer-urls", "http://" <> show host <> ":" <> show port]
 
   broadcast msg = do
+    -- TODO: broadcast to cluster instead
     deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
+
+  NetworkConfiguration{host, port, signingKey} = config
 
 data EtcdLog = EtcdLog
   deriving stock (Eq, Show, Generic)

@@ -24,7 +24,6 @@ import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network (Host (..))
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Node (
   chainStateHistory,
@@ -96,9 +95,9 @@ run opts = do
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
           withAPIServer apiServerConfig party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
+            -- XXX: Could parse full local 'Host' directly
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            -- XXX: Should parse full local 'Host' directly
-            withEtcdNetwork (contramap Network tracer) signingKey Host{hostname = show host, port} peers (wireNetworkInput wetHydraNode) $ \network -> do
+            withEtcdNetwork (contramap Network tracer) networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
               -- Main loop
               connect chain network server wetHydraNode
                 >>= runHydraNode
