@@ -17,7 +17,6 @@ import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Hydra.Logging (Tracer)
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent)
-import Hydra.Network.Message (NetworkEvent (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
@@ -29,23 +28,21 @@ withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Show msg) =>
   Tracer IO () ->
   NetworkConfiguration msg ->
-  NetworkComponent IO (NetworkEvent msg) msg ()
+  NetworkComponent IO msg msg ()
 withEtcdNetwork _tracer config callback action = do
-  withEtcd $
-    race_ (waitMessages clientUrl callback) $ do
-      action
-        Network
-          { broadcast = putMessage clientUrl
-          }
+  -- TODO: capture stdout into tracer (also to distinguish multiple instances)
+  -- FIXME: Last etcd instance is not stopping correctly (while it reconnects)
+  withProcessWait etcdCmd $ \p -> do
+    -- Ensure the sub-process is also stopped when we get asked to terminate.
+    _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
+    -- TODO: error handling
+    race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $
+      race_ (waitMessages clientUrl callback) $ do
+        action
+          Network
+            { broadcast = putMessage clientUrl
+            }
  where
-  withEtcd cont =
-    -- TODO: capture stdout into tracer (also to distinguish multiple instances)
-    withProcessWait etcdCmd $ \p -> do
-      -- Ensure the sub-process is also stopped when we get asked to terminate.
-      _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
-      -- TODO: error handling
-      race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) cont
-
   -- TODO: use TLS to secure peer connections
   -- TODO: use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
@@ -79,7 +76,7 @@ withEtcdNetwork _tracer config callback action = do
 
   localHost = Host{hostname = show host, port}
 
-  NetworkConfiguration{nodeId, persistenceDir, host, port, peers, signingKey} = config
+  NetworkConfiguration{nodeId, persistenceDir, host, port, peers} = config
 
 -- | Broadcast a message to the etcd cluster.
 -- HACK: Create/use a proper client.
@@ -104,12 +101,12 @@ waitMessages ::
   forall m msg.
   (MonadIO m, MonadDelay m, FromCBOR msg, Show msg, MonadCatch m) =>
   String ->
-  NetworkCallback (NetworkEvent msg) m ->
+  NetworkCallback msg m ->
   m ()
 waitMessages endpoint NetworkCallback{deliver} = do
   forever $ do
-    threadDelay 1
-    -- TODO: use watch instead of poll
+    threadDelay 0.1
+    -- FIXME: use watch instead of poll
     try (getKey endpoint "foo") >>= \case
       Left (e :: SomeException) -> putStrLn $ "etcd get error" <> show e
       Right entry -> do
@@ -118,8 +115,8 @@ waitMessages endpoint NetworkCallback{deliver} = do
         case decodeFull' $ Base16.decodeLenient (value entry) of
           Left err -> putStrLn $ "Failed to decode etcd entry: " <> show err
           Right msg -> do
-            putStrLn $ "etcd get msg" <> show (msg :: msg)
-            deliver $ ReceivedMessage{sender = undefined, msg}
+            putStrLn $ "etcd get msg: " <> show (msg :: msg)
+            deliver msg
 
 getKey :: MonadIO m => String -> String -> m EtcdEntry
 getKey endpoint key = do
