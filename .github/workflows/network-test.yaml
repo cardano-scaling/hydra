@@ -62,6 +62,8 @@ jobs:
 
     - name: Setup containers for network testing
       run: |
+        set -exo pipefail
+
         cd demo
         ./prepare-devnet.sh
         docker compose up -d cardano-node
@@ -74,9 +76,10 @@ jobs:
           --node-socket devnet/node.socket \
           --cardano-signing-key devnet/credentials/faucet.sk)
 
-        echo "HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" >> .env
+        echo "HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" > .env
 
-        nix run .#cardano-cli query protocol-parameters \
+        nix run .#cardano-cli -- query protocol-parameters \
+          --testnet-magic 42 \
           --socket-path devnet/node.socket  \
           --out-file /dev/stdout \
           | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" \
