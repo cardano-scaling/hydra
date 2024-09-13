@@ -11,12 +11,16 @@ import Hydra.Options (
 import Options.Applicative (Parser, ParserInfo, fullDesc, header, helper, info, progDesc)
 
 type Options :: Type
-data Options = Options
-  { networkId :: NetworkId
-  , nodeSocket :: SocketPath
-  , startChainFrom :: Maybe ChainPoint
-  -- ^ Point at which to start following the chain.
-  }
+data Options
+  = Options
+      { networkId :: NetworkId
+      , nodeSocket :: SocketPath
+      , startChainFrom :: Maybe ChainPoint
+      -- ^ Point at which to start following the chain.
+      }
+  | BlockfrostOptions
+      { networkId :: NetworkId
+      }
   deriving stock (Show, Eq)
 
 optionsParser :: Parser Options
@@ -26,10 +30,15 @@ optionsParser =
     <*> nodeSocketParser
     <*> optional startChainFromParser
 
+blockfrostOptionsParser :: Parser Options
+blockfrostOptionsParser =
+  BlockfrostOptions
+    <$> networkIdParser
+
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    ( optionsParser
+    ( (optionsParser <|> blockfrostOptionsParser)
         <**> helper
     )
     ( fullDesc

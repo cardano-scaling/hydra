@@ -71,17 +71,21 @@ defaultObserverHandler = const $ pure ()
 
 main :: ObserverHandler IO -> IO ()
 main observerHandler = do
-  Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
-  withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
-    traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
-    traceWith tracer ConnectingToNode{nodeSocket, networkId}
-    chainPoint <- case startChainFrom of
-      Nothing -> queryTip networkId nodeSocket
-      Just x -> pure x
-    traceWith tracer StartObservingFrom{chainPoint}
-    connectToLocalNode
-      (connectInfo nodeSocket networkId)
-      (clientProtocols tracer networkId chainPoint observerHandler)
+  opts <- execParser hydraChainObserverOptions
+  case opts of
+    Options{networkId, nodeSocket, startChainFrom} -> do
+      withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
+        traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
+        traceWith tracer ConnectingToNode{nodeSocket, networkId}
+        chainPoint <- case startChainFrom of
+          Nothing -> queryTip networkId nodeSocket
+          Just x -> pure x
+        traceWith tracer StartObservingFrom{chainPoint}
+        connectToLocalNode
+          (connectInfo nodeSocket networkId)
+          (clientProtocols tracer networkId chainPoint observerHandler)
+    BlockfrostOptions{} -> do
+      pure ()
 
 type ChainObserverLog :: Type
 data ChainObserverLog
