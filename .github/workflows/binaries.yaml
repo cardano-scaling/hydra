@@ -23,7 +23,7 @@ jobs:
         fetch-depth: 0
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
+      uses: cachix/install-nix-action@V28
       with:
         extra_nix_config: |
           accept-flake-config = true
@@ -67,7 +67,7 @@ jobs:
         fetch-depth: 0
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V27
+      uses: cachix/install-nix-action@V28
       with:
         extra_nix_config: |
           accept-flake-config = true
