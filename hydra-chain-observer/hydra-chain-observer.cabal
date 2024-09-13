@@ -75,7 +75,9 @@ library
 
   exposed-modules:
     Hydra.ChainObserver
+    Hydra.ChainObserver.NodeClient
     Hydra.ChainObserver.Options
+    Hydra.Ouroborus.ChainObserver
 
 executable hydra-chain-observer
   import:         project-config
