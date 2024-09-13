@@ -68,11 +68,13 @@ withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deli
   withRawNetwork NetworkCallback{deliver = checkSignature} authenticate
  where
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
-    if verify partyVkey sig msg && elem party parties
+    if verify partyVkey sig msg && party `elem` allParties
       then deliver $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 
   me = deriveParty signingKey
+
+  allParties = me : parties
 
   authenticate Network{broadcast} =
     action $

@@ -64,8 +64,9 @@ spec = parallel $ do
             aliceSk
             [bob]
             ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign aliceSk msg) alice)
                 deliver (Signed msg (sign bobSk msg) bob)
-                deliver (Signed unexpectedMessage (sign aliceSk unexpectedMessage) alice)
+                deliver (Signed unexpectedMessage (sign carolSk unexpectedMessage) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -73,7 +74,7 @@ spec = parallel $ do
 
           readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated msg bob]
+    receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg alice]
 
   it "drop message coming from party with wrong signature" $ do
     let receivedMsgs = runSimOrThrow $ do
