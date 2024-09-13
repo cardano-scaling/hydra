@@ -4,6 +4,7 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
+import Hydra.Blockfrost.ChainObserver (blockfrostClient)
 import Hydra.ChainObserver.NodeClient (ChainObserverLog (..), NodeClient (..), ObserverHandler)
 import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
 import Hydra.Contract qualified as Contract
@@ -20,5 +21,6 @@ main observerHandler = do
       Options{networkId, nodeSocket, startChainFrom} -> do
         let NodeClient{follow} = ouroborusClient tracer nodeSocket
         follow networkId startChainFrom observerHandler
-      BlockfrostOptions{} -> do
-        pure ()
+      BlockfrostOptions{networkId, startChainFrom} -> do
+        let NodeClient{follow} = blockfrostClient tracer
+        follow networkId startChainFrom observerHandler

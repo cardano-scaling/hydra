@@ -20,6 +20,7 @@ data Options
       }
   | BlockfrostOptions
       { networkId :: NetworkId
+      , startChainFrom :: Maybe ChainPoint
       }
   deriving stock (Show, Eq)
 
@@ -34,6 +35,7 @@ blockfrostOptionsParser :: Parser Options
 blockfrostOptionsParser =
   BlockfrostOptions
     <$> networkIdParser
+    <*> optional startChainFromParser
 
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =

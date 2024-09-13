@@ -65,6 +65,7 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
+    , blockfrost-client
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
@@ -72,8 +73,10 @@ library
     , hydra-tx
     , optparse-applicative
     , ouroboros-network-protocols
+    , retry
 
   exposed-modules:
+    Hydra.Blockfrost.ChainObserver
     Hydra.ChainObserver
     Hydra.ChainObserver.NodeClient
     Hydra.ChainObserver.Options

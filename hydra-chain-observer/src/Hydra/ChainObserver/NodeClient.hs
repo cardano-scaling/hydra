@@ -50,6 +50,7 @@ type ChainObserverLog :: Type
 data ChainObserverLog
   = KnownScripts {scriptInfo :: ScriptInfo}
   | ConnectingToNode {nodeSocket :: SocketPath, networkId :: NetworkId}
+  | ConnectingToExternalNode {networkId :: NetworkId}
   | StartObservingFrom {chainPoint :: ChainPoint}
   | HeadInitTx {headId :: HeadId}
   | HeadCommitTx {headId :: HeadId}
