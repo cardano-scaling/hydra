@@ -102,6 +102,7 @@ library
     , aeson
     , base
     , base16-bytestring
+    , base64-bytestring
     , bytestring
     , cardano-api:internal
     , cardano-binary
