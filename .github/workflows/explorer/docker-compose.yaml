@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:9.1.0
+    image: ghcr.io/intersectmbo/cardano-node:9.1.1
     volumes:
       - /srv/var/cardano/state-preview:/data
     environment:
