@@ -25,7 +25,7 @@ import System.Process.Typed (byteStringInput, proc, readProcessStdout_, runProce
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
-  (ToCBOR msg, FromCBOR msg, Show msg) =>
+  (ToCBOR msg, FromCBOR msg) =>
   Tracer IO () ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
@@ -89,9 +89,9 @@ putMessage endpoint msg = do
   -- XXX: error handling
   runProcess_ $
     proc "etcdctl" ["--endpoints", endpoint, "put", key]
-      & setStdin (byteStringInput (spy' "etcd hex" hexMsg))
+      & setStdin (byteStringInput hexMsg)
  where
-  -- FIXME
+  -- FIXME: use different keys per message types? per peer?
   key = "foo"
 
   hexMsg = LBase16.encode $ serialize msg
@@ -99,23 +99,22 @@ putMessage endpoint msg = do
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   forall m msg.
-  (MonadIO m, MonadDelay m, FromCBOR msg, Show msg, MonadCatch m) =>
+  (MonadIO m, MonadDelay m, FromCBOR msg, MonadCatch m, MonadFail m) =>
   String ->
   NetworkCallback msg m ->
   m ()
 waitMessages endpoint NetworkCallback{deliver} = do
   forever $ do
     threadDelay 0.1
+    -- TODO: use revisions? and use compaction to limit storage
     -- FIXME: use watch instead of poll
     try (getKey endpoint "foo") >>= \case
-      Left (e :: SomeException) -> putStrLn $ "etcd get error" <> show e
+      Left (e :: SomeException) -> fail $ "etcd get error" <> show e
       Right entry -> do
-        putStrLn $ "etcd get" <> show entry
         -- HACK: lenient decoding
         case decodeFull' $ Base16.decodeLenient (value entry) of
-          Left err -> putStrLn $ "Failed to decode etcd entry: " <> show err
-          Right msg -> do
-            putStrLn $ "etcd get msg: " <> show (msg :: msg)
+          Left err -> fail $ "Failed to decode etcd entry: " <> show err
+          Right msg ->
             deliver msg
 
 getKey :: MonadIO m => String -> String -> m EtcdEntry
