@@ -10,6 +10,8 @@ changes.
 
 ## [0.19.0] - UNRELEASED
 
+- Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
+
 - Switch L2 ledger to use the `Conway` era. [#1178](https://github.com/cardano-scaling/hydra/issues/1178)
   - Conway formatted transactions can be submitted to the `hydra-node`, while past eras are still supported (except deprecated features like protocol updates).
   - This includes support for `PlutusV3` scripts, but most of the governance-related features have no meaning in the Hydra L2.
