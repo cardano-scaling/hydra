@@ -5,7 +5,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.ChainObserver (ChainObservation)
+import Hydra.ChainObserver.NodeClient (ChainObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
 import Hydra.Explorer.Options (Options (..), toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)

@@ -16,9 +16,11 @@ import Blockfrost.Client (
  )
 import Control.Retry (RetryPolicyM, exponentialBackoff, limitRetries)
 
-import Hydra.Cardano.Api (Hash, SlotNo)
+import Hydra.Cardano.Api (BlockNo, Hash, NetworkId, SlotNo, Tx, UTxO)
 import Hydra.Cardano.Api.Prelude (BlockHeader (..), ChainPoint (..))
-import Hydra.ChainObserver.NodeClient (ChainObserverLog (..), NodeClient (..))
+import Hydra.Chain.Direct.Handlers (convertObservation)
+import Hydra.ChainObserver.NodeClient (ChainObservation (..), ChainObserverLog (..), NodeClient (..), ObserverHandler, logOnChainTx, observeAll)
+import Hydra.Tx (txId)
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
@@ -48,6 +50,41 @@ blockfrostClient tracer = do
         void $ runBlockfrost prj $ do
           pure ()
     }
+
+-- TODO! DRY
+rollForward ::
+  Tracer IO ChainObserverLog ->
+  NetworkId ->
+  ChainPoint ->
+  BlockNo ->
+  UTxO ->
+  [Tx] ->
+  ObserverHandler IO ->
+  IO UTxO
+rollForward tracer networkId point blockNo currentUTxO receivedTxs observerHandler = do
+  let receivedTxIds = txId <$> receivedTxs
+  traceWith tracer RollForward{point, receivedTxIds}
+  let (adjustedUTxO, observations) = observeAll networkId currentUTxO receivedTxs
+  let onChainTxs = mapMaybe convertObservation observations
+  forM_ onChainTxs (traceWith tracer . logOnChainTx)
+  let observationsAt = HeadObservation point blockNo <$> onChainTxs
+  observerHandler $
+    if null observationsAt
+      then [Tick point blockNo]
+      else observationsAt
+  pure adjustedUTxO
+
+-- TODO! DRY
+rollBackward ::
+  Tracer IO ChainObserverLog ->
+  ChainPoint ->
+  b ->
+  IO b
+rollBackward tracer point currentUTxO = do
+  traceWith tracer Rollback{point}
+  pure currentUTxO
+
+-- * Helpers
 
 toChainPoint :: Block -> ChainPoint
 toChainPoint Block{_blockSlot, _blockHash} =

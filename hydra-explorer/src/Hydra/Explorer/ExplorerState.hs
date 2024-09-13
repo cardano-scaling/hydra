@@ -10,7 +10,7 @@ import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.Direct.Tx (
   headSeedToTxIn,
  )
-import Hydra.ChainObserver (ChainObservation (..))
+import Hydra.ChainObserver.NodeClient (ChainObservation (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
