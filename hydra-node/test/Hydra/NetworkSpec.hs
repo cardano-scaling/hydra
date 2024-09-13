@@ -15,13 +15,13 @@ import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
   Message (..),
-  NetworkEvent (..),
  )
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence (..))
 import Hydra.Node.Network (NetworkConfiguration (..), configureMessagePersistence)
 import Hydra.Node.ParameterMismatch (ParameterMismatch)
 import System.FilePath ((</>))
+import System.Process.Typed (runProcess_, shell)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk)
 import Test.Network.Ports (randomUnusedTCPPorts)
@@ -41,7 +41,7 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           received <- atomically newTQueue
           let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
-          failAfter 10 $ do
+          failAfter 5 $ do
             [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
             let aliceConfig =
                   NetworkConfiguration
@@ -63,13 +63,15 @@ spec = do
                     , nodeId = "bob"
                     , persistenceDir = tmp </> "bob"
                     }
-            withEtcdNetwork @Int tracer aliceConfig mockCallback $ \n1 ->
+            withEtcdNetwork @Int tracer aliceConfig mockCallback $ \n1 -> do
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 r <- atomically (readTQueue received)
-                r `shouldSatisfy` \case
-                  ReceivedMessage{msg} -> msg == 123
-                  _ -> False
+                print "FOOO"
+                print r
+                r `shouldSatisfy` \msg -> msg == 123
+              putStrLn "!!!!!!!!!!! bob exited"
+            putStrLn "!!!!!!!!!!! alice exited"
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
