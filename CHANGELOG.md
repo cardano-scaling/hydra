@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.19.0] - UNRELEASED
+## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
 
@@ -19,6 +19,9 @@ changes.
 - Added head id information into the Greetings message.
 
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
+
+- Add a demo mode to hydra-cluster to facilitate network resiliance tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
+
 
 ## [0.18.1] - 2024-08-15
 
