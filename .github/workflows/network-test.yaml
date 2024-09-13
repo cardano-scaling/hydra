@@ -74,7 +74,7 @@ jobs:
           --node-socket devnet/node.socket \
           --cardano-signing-key devnet/credentials/faucet.sk)
 
-        echo $HYDRA_SCRIPTS_TX_ID >> .env
+        echo "HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" >> .env
 
         nix run .#cardano-cli query protocol-parameters \
           --socket-path devnet/node.socket  \
