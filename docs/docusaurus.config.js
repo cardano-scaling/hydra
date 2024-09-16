@@ -278,7 +278,7 @@ const config = {
         apiKey: "09b2fc0200d06fb433a5f4ced7c9d427",
         indexName: "hydra",
         searchPagePath: "search",
-        contextualSearch: true,
+        contextualSearch: false,
       },
     }),
 
