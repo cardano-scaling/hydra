@@ -3,12 +3,12 @@ slug: 17
 title: |
   17. Use UDP protocol for Hydra networking
 authors: []
-tags: [Draft]
+tags: [Proposed]
 ---
 
 ## Status
 
-Draft
+Proposed
 
 ## Context
 

@@ -32,7 +32,7 @@ Accepted
 - We need to ensure the Model covers the full lifecycle of a Hydra Head network which at the time of writing this ADR is not the case
 - There cannot be _One Model to Rule Them All_ so we should refrain from defining different `StateModel` or different `RunModel` depending on what needs to be tested
 - In particular, testing against adversarial conditions will certainly require defining different instances of the `Network` or `Chain` components, for example:
-  - An _Active Adversary_ that fully the controls the protocol and the parties,
+  - An _Accepted Adversary_ that fully the controls the protocol and the parties,
   - A _Network Adversary_ that can delay and or drop messages,
   - A _Faulty Filesystem_ that can causes exceptions when reading or writing files,
   - ...

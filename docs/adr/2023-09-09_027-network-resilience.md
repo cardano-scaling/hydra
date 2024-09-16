@@ -3,12 +3,12 @@ slug: 27
 title: |
   27. Network failures model
 authors: [abailly, pgrange]
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Draft
+Accepted
 
 ## Context
 

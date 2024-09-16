@@ -8,7 +8,7 @@ tags: [Accepted]
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
