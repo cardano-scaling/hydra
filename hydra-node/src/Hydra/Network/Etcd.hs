@@ -17,7 +17,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Hydra.Logging (Tracer)
-import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent)
+import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
@@ -26,7 +26,7 @@ import System.Process.Typed (byteStringInput, createPipe, getStdout, proc, readP
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
-  (ToCBOR msg, FromCBOR msg) =>
+  (ToCBOR msg, FromCBOR msg, Show msg) =>
   Tracer IO () ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
@@ -41,7 +41,7 @@ withEtcdNetwork _tracer config callback action = do
       race_ (waitMessages clientUrl callback) $ do
         action
           Network
-            { broadcast = putMessage clientUrl
+            { broadcast = putMessage clientUrl port
             }
  where
   -- TODO: use TLS to secure peer connections
@@ -82,24 +82,25 @@ withEtcdNetwork _tracer config callback action = do
 -- | Broadcast a message to the etcd cluster.
 -- HACK: Create/use a proper client.
 putMessage ::
-  (ToCBOR msg, MonadIO m) =>
+  (ToCBOR msg, MonadIO m, Show msg) =>
   String ->
+  PortNumber ->
   msg ->
   m ()
-putMessage endpoint msg = do
+putMessage endpoint port msg = do
   -- XXX: error handling
   runProcess_ $
     proc "etcdctl" ["--endpoints", endpoint, "put", key]
       & setStdin (byteStringInput hexMsg)
  where
-  -- FIXME: use different keys per message types? per peer?
-  key = "foo"
+  -- FIXME: use different keys per message types?
+  key = "foo-" <> show port
 
-  hexMsg = LBase16.encode $ serialize msg
+  hexMsg = LBase16.encode $ serialize (spy' "Network etcd send: " msg)
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
-  FromCBOR msg =>
+  (FromCBOR msg, Show msg) =>
   String ->
   NetworkCallback msg IO ->
   IO ()
@@ -107,22 +108,23 @@ waitMessages endpoint NetworkCallback{deliver} = do
   forever $ do
     -- Watch all key value updates since revision 1
     let cmd =
-          proc "etcdctl" ["--endpoints", endpoint, "watch", "--rev", "1", key, "-w", "json"]
+          proc "etcdctl" ["--endpoints", endpoint, "watch", "--prefix", key, "-w", "json"]
             & setStdout createPipe
     withProcessWait cmd $ \p -> do
-      bs <- BS.hGetLine (getStdout p)
-      case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-        Left err -> die $ "Failed to parse etcd entry: " <> err
-        Right e@EtcdEntry{entries} -> do
-          print e
-          forM_ entries $ \(_, value) ->
-            -- HACK: lenient decoding
-            case decodeFull' $ Base16.decodeLenient value of
-              Left err -> fail $ "Failed to decode etcd entry: " <> show err
-              Right msg ->
-                deliver msg
+      forever $ do
+        bs <- BS.hGetLine (getStdout p)
+        case Aeson.eitherDecodeStrict (spy' "watch bytes" bs) >>= parseEither parseEtcdEntry of
+          Left err -> die $ "Failed to parse etcd entry: " <> err
+          Right e@EtcdEntry{entries} -> do
+            print e
+            forM_ entries $ \(_, value) ->
+              -- HACK: lenient decoding
+              case decodeFull' $ Base16.decodeLenient value of
+                Left err -> fail $ "Failed to decode etcd entry: " <> show err
+                Right msg ->
+                  deliver (spy' "Network etcd recv: " msg)
  where
-  -- FIXME: use different keys per message types?
+  -- FIXME: different key/prefixes
   key = "foo"
 
 getKey :: MonadIO m => String -> String -> m EtcdEntry
