@@ -79,7 +79,8 @@ withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} p
     link tickThread
     action chainHandle
  where
-  headId = offlineHeadId nodeId
+  -- FIXME: make this configurable to allow networked offline heads
+  headId = offlineHeadId ""
 
   chainHandle =
     Chain
