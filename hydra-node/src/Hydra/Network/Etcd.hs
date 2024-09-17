@@ -16,68 +16,75 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
-import Hydra.Logging (Tracer)
+import Data.Text.IO qualified as Text
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
-import System.Process.Typed (byteStringInput, createPipe, getStdout, proc, readProcessStdout_, runProcess_, setStdin, setStdout, stopProcess, waitExitCode, withProcessWait)
+import System.Process.Typed (byteStringInput, createPipe, getStderr, getStdout, proc, readProcessStdout_, runProcess_, setStderr, setStdin, setStdout, stopProcess, waitExitCode, withProcessWait)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Show msg) =>
-  Tracer IO () ->
+  Tracer IO Text ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
-withEtcdNetwork _tracer config callback action = do
-  -- TODO: capture stdout into tracer (also to distinguish multiple instances)
+withEtcdNetwork tracer config callback action = do
   -- FIXME: Last etcd instance is not stopping correctly (while it reconnects)
   withProcessWait etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
     -- TODO: error handling
     race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $
-      race_ (waitMessages clientUrl callback) $ do
-        action
-          Network
-            { broadcast = putMessage clientUrl port
-            }
+      race_ (traceStderr p) $
+        race_ (waitMessages clientUrl callback) $ do
+          action
+            Network
+              { broadcast = putMessage clientUrl port
+              }
  where
+  traceStderr p =
+    forever $
+      Text.hGetLine (getStderr p) >>= traceWith tracer
+
   -- TODO: use TLS to secure peer connections
   -- TODO: use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   etcdCmd =
-    proc "etcd" $
-      concat
-        [ ["--name", toString nodeId]
-        , ["--data-dir", persistenceDir </> "etcd"]
-        , ["--listen-peer-urls", httpUrl localHost]
-        , ["--initial-advertise-peer-urls", httpUrl localHost]
-        , ["--listen-client-urls", clientUrl]
-        , -- Client access only on configured 'host' interface.
-          ["--advertise-client-urls", clientUrl]
-        , -- XXX: use unique initial-cluster-tokens to isolate clusters
-          ["--initial-cluster-token", "hydra-network-1"]
-        , ["--initial-cluster", clusterPeers]
-        ]
+    setStderr createPipe $
+      proc "etcd" $
+        concat
+          [ -- NOTE: Must be usedin clusterPeers
+            ["--name", show localHost]
+          , ["--data-dir", persistenceDir </> "etcd"]
+          , ["--listen-peer-urls", httpUrl localHost]
+          , ["--initial-advertise-peer-urls", httpUrl localHost]
+          , ["--listen-client-urls", clientUrl]
+          , -- Client access only on configured 'host' interface.
+            ["--advertise-client-urls", clientUrl]
+          , -- XXX: use unique initial-cluster-tokens to isolate clusters
+            ["--initial-cluster-token", "hydra-network-1"]
+          , ["--initial-cluster", clusterPeers]
+          ]
 
   -- NOTE: Offset client port by the same amount as configured 'port' is offset
   -- from the default '5001'. This will result in the default client port 2379
   -- be used by default still.
   clientUrl = httpUrl Host{hostname = show host, port = 2379 + port - 5001}
 
+  -- NOTE: Building a canonical list of labels from the advertised hostname+port
   clusterPeers =
     intercalate ","
-      . map (\(n, h) -> n <> "=" <> httpUrl h)
-      $ (toString nodeId, localHost)
-        : zipWith (\n p -> ("other-" <> show n, p)) [1 :: Int ..] peers
+      . map (\h -> show h <> "=" <> httpUrl h)
+      $ (localHost : peers)
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
   localHost = Host{hostname = show host, port}
 
-  NetworkConfiguration{nodeId, persistenceDir, host, port, peers} = config
+  NetworkConfiguration{persistenceDir, host, port, peers} = config
 
 -- | Broadcast a message to the etcd cluster.
 -- HACK: Create/use a proper client.
