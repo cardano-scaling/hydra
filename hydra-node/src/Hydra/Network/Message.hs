@@ -78,6 +78,7 @@ data Message tx
       , snapshotNumber :: SnapshotNumber
       , transactionIds :: [TxIdType tx]
       , decommitTx :: Maybe tx
+      , incrementUTxO :: Maybe (UTxOType tx)
       }
   | AckSn
       { signed :: Signature (Snapshot tx)
@@ -97,7 +98,7 @@ instance ArbitraryIsTx tx => Arbitrary (Message tx) where
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    ReqSn sv sn txs decommitTx -> toCBOR ("ReqSn" :: Text) <> toCBOR sv <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx
+    ReqSn sv sn txs decommitTx incrementUTxO -> toCBOR ("ReqSn" :: Text) <> toCBOR sv <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx <> toCBOR incrementUTxO
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
     ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
 
@@ -105,7 +106,7 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
       "ReqDec" -> ReqDec <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"

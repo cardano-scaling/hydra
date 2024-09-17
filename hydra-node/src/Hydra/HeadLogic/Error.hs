@@ -40,6 +40,7 @@ data RequirementFailure tx
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | ReqSnDecommitNotSettled
+  | ReqSnCommitNotSettled
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}

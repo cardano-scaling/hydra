@@ -63,6 +63,7 @@ import Hydra.Chain.Direct.State (
   genCommits',
   genContestTx,
   genDecrementTx,
+  genDepositTx,
   genFanoutTx,
   genHydraContext,
   genInitTx,
@@ -82,7 +83,24 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeDecrementTx, observeHeadTx, observeInitTx)
+import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  DepositObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  NotAnInitReason (..),
+  observeCommitTx,
+  observeDecrementTx,
+  observeDepositTx,
+  observeHeadTx,
+  observeInitTx,
+ )
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (
@@ -310,6 +328,17 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
     propIsValid forAllCollectCom
 
+  describe "deposit" $ do
+    propBelowSizeLimit maxTxSize forAllDeposit
+    propIsValid forAllDeposit
+
+    prop "observes deposit" $
+      forAllDeposit $ \utxo tx ->
+        case observeDepositTx testNetworkId utxo tx of
+          Just DepositObservation{} -> property True
+          Nothing ->
+            False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
@@ -405,21 +434,23 @@ prop_observeAnyTx :: Property
 prop_observeAnyTx =
   checkCoverage $ do
     forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
-      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) ->
-        genericCoverTable [transition] $ do
-          let expectedHeadId = chainStateHeadId st
-          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
-            NoHeadTx ->
-              False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
-            -- NOTE: we don't have the generated headId easily accessible in the initial state
-            Init{} -> transition === Transition.Init
-            Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
-            Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
-            CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
-            Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
-            Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
-            Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
-            Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) -> do
+        -- genericCoverTable [transition] $ do
+        let expectedHeadId = chainStateHeadId st
+        case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+          NoHeadTx ->
+            False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+          -- NOTE: we don't have the generated headId easily accessible in the initial state
+          Init{} -> transition === Transition.Init
+          Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
+          Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
+          CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+          Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
+          Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
+          Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
+          Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
+          Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
+          Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
   showTransition (_, _, _, t) = show t
 
@@ -598,6 +629,15 @@ forAllCollectCom action =
     let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
+
+forAllDeposit ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllDeposit action = do
+  forAllShrink (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, _st, utxo, tx) ->
+    action utxo tx
+      & counterexample ("Deposited UTxO: " <> show utxo)
 
 forAllDecrement ::
   Testable property =>

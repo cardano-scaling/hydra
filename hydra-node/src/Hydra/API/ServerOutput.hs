@@ -137,7 +137,10 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx}
+  | RecoverApproved {headId :: HeadId, recoverTx :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -192,8 +195,11 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
+    CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
+    RecoverApproved headId tx  -> RecoverApproved headId  <$> shrink tx
     DecommitFinalized{} -> []
+    CommitFinalized{} -> []
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
@@ -243,8 +249,10 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
+    CommitApproved{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitFinalized{} -> encodedResponse
+    CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
@@ -267,6 +275,23 @@ data HeadStatus
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
+
+-- | All information needed to distinguish behavior of the commit endpoint.
+data CommitInfo
+  = CannotCommit
+  | NormalCommit HeadId
+  | IncrementalCommit HeadId
+
+-- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectCommitInfo :: CommitInfo -> ServerOutput tx -> CommitInfo
+projectCommitInfo commitInfo = \case
+  HeadIsInitializing{headId} -> NormalCommit headId
+  HeadIsOpen{headId} -> IncrementalCommit headId
+  HeadIsAborted{} -> CannotCommit
+  HeadIsClosed{} -> CannotCommit
+  _other -> commitInfo
 
 -- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
 -- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'

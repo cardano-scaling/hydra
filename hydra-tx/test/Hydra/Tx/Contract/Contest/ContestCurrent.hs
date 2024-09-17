@@ -135,6 +135,7 @@ healthyContestSnapshot =
     , number = healthyContestSnapshotNumber
     , utxo = splitUTxOInHead
     , confirmed = []
+    , utxoToCommit = Nothing
     , utxoToDecommit = Just splitUTxOToDecommit
     , version = healthyCloseSnapshotVersion
     }
@@ -145,6 +146,7 @@ healthyClosedState =
     Head.ClosedDatum
       { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
       , utxoHash = healthyClosedUTxOHash
+      , alphaUTxOHash = mempty
       , deltaUTxOHash = mempty
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline

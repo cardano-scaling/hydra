@@ -102,6 +102,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
+          - $ref: "api.yaml#/components/messages/Commit"
           - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
@@ -288,7 +289,21 @@ components:
             enum: ["NewTx"]
           transaction:
             $ref: "api.yaml#/components/schemas/Transaction"
-
+    Commit:
+      title: Commit
+      description: |
+        Request to commit a UTxO to initializing Head by providing a UTxO.
+      payload:
+        type: object
+        required:
+          - tag
+          - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["Commit"]
+          utxo:
+            $ref: "api.yaml#/components/schemas/UTxO"
     Decommit:
       title: Decommit
       description: |
@@ -550,6 +565,20 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/DecommitFinalized"
 
+    CommitApproved:
+      title: CommitApproved
+      description: |
+        Deposit request is observed and validated by other participants and now increment tx is ready to be posted on layer 1 upon next snapshot.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitApproved"
+
+    CommitFinalized:
+      title: CommitFinalized
+      description: |
+        Increment transaction is observed and deposited funds are now on L2.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitFinalized"
+
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -606,6 +635,8 @@ components:
         - $ref: "api.yaml#/components/schemas/DecommitRequested"
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitApproved"
+        - $ref: "api.yaml#/components/schemas/CommitFinalized"
 
     Greetings:
       type: object
@@ -1023,6 +1054,7 @@ components:
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+            - $ref: "api.yaml#/components/messages/Commit/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
@@ -1198,6 +1230,57 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    CommitApproved:
+      title: CommitApproved
+      description: |
+        Deposit request is approved.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToCommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToCommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitFinalized:
+      title: CommitFinalized
+      description: |
+        Deposit request is approved.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          oneof:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
     # END OF SERVER OUTPUT SCHEMAS
 
     Address:
@@ -1547,6 +1630,29 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
+        - title: IncrementTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - incrementingSnapshot
+            - depositScriptUTxO
+          description: |
+            Post a transaction to commit some UTxO to the Head.
+          properties:
+            tag:
+              type: string
+              enum: ["IncrementTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            incrementingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+            depositScriptUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
         - title: DecrementTx
           type: object
           additionalProperties: false
@@ -1913,6 +2019,39 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructCollectTx"]
+        - title: FailedToConstructDepositTx
+          description: |
+            Raised if the user fails to draft a deposit tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructDepositTx"]
+        - title: FailedToConstructRecoverTx
+          description: |
+            Raised if the user fails to draft a recover tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructRecoverTx"]
+        - title: FailedToConstructIncrementTx
+          description: |
+            Raised if the user fails to submit a increment tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructIncrementTx"]
         - title: FailedToConstructDecrementTx
           description: |
             Raised if the user fails to submit a decrement tx.
@@ -1962,6 +2101,10 @@ components:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/TxId"
+        utxoToCommit:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
         utxoToDecommit:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
@@ -2153,6 +2296,8 @@ components:
         oneof:
           - $ref: "api.yaml#/components/schemas/UTxO"
           - $ref: "api.yaml#/components/schemas/FullCommitRequest"
+          - $ref: "api.yaml#/components/schemas/IncrementalCommitDepositRequest"
+          - $ref: "api.yaml#/components/schemas/IncrementalCommitRecoverRequest"
 
     FullCommitRequest:
       type: object
@@ -2193,6 +2338,28 @@ components:
             }
           }
         }
+
+    IncrementalCommitDepositRequest:
+      type: object
+      required:
+        - utxo
+      properties:
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+
+    IncrementalCommitRecoverRequest:
+      type: object
+      required:
+        - recoverHeadid
+        - recoverUTxO
+        - recoverStart
+      properties:
+        recoverHeadId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        recoverUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        recoverStart:
+          $ref: "api.yaml#/components/schemas/SlotNo"
 
     # END OF SERVER OUTPUT SCHEMAS
 

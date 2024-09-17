@@ -1528,6 +1528,7 @@
                         }
                     }
                 },
+                "utxoToCommit": null,
                 "utxoToDecommit": {
                     "0dd06ebacd902e82fe72cbb8e6f709fc077f3fbeaa4512f9b7990db0471b8a52#1": {
                         "address": "2RhQhCGqYPDn2YXmdJDWm8wEoCHJ83oYawQefnUw6NWtbVqpb7aYmuMPQ3gswk9kQQVw4B87fK19abgcgBQfFqTp7RGZuovmvrxS57J4smtEoG",

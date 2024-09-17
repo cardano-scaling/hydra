@@ -7,11 +7,12 @@ import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SubmitTxRequest (..), TransactionSubmitted, httpApp)
+import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..))
+import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -100,10 +101,11 @@ apiServerSpec :: Spec
 apiServerSpec = do
   describe "API should respond correctly" $ do
     let getNothing = pure Nothing
-    let putClientInput = const (pure ())
+        cantCommit = pure CannotCommit
+        putClientInput = const (pure ())
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getNothing putClientInput) $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams cantCommit getNothing putClientInput) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -122,7 +124,7 @@ apiServerSpec = do
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams getNothing getUTxO putClientInput) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO putClientInput) $ do
           get "/snapshot/utxo"
             `shouldRespondWith` case utxo of
               Nothing -> 404
@@ -135,7 +137,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams getNothing getUTxO putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO putClientInput) $ do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -145,7 +147,7 @@ apiServerSpec = do
                   }
 
     describe "POST /commit" $ do
-      let getHeadId = pure $ Just (generateWith arbitrary 42)
+      let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
       let workingChainHandle =
             dummyChainHandle
               { draftCommitTx = \_ _ -> do
@@ -155,17 +157,22 @@ apiServerSpec = do
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication (httpApp nullTracer workingChainHandle defaultPParams getHeadId getNothing putClientInput) $ do
           post "/commit" (Aeson.encode request)
-            `shouldRespondWith` 200
+            `shouldRespondWith` case request of
+              IncrementalCommitDepositRequest{} -> 400
+              IncrementalCommitRecoverRequest{} -> 400 -- NOTE: This request type is used in DELETE verb so we don't care about it here
+              _ -> 200
 
       let failingChainHandle postTxError =
             dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
+              , draftDepositTx = \_ _ _ -> pure $ Left postTxError
               }
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
         let expectedResponse =
               case postTxError of
                 CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
+                CannotFindOwnInitial{} -> 400
                 _ -> 500
         let coverage = case postTxError of
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
@@ -177,7 +184,10 @@ apiServerSpec = do
           coverage $
             withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) defaultPParams getHeadId getNothing putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
-                `shouldRespondWith` expectedResponse
+                `shouldRespondWith` case request of
+                  IncrementalCommitDepositRequest{} -> 400
+                  IncrementalCommitRecoverRequest{} -> 400
+                  _ -> expectedResponse
 
 -- * Helpers
 

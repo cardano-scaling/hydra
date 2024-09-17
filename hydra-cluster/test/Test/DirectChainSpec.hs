@@ -326,6 +326,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 1
                     , utxo = inHead
                     , confirmed = []
+                    , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = v
                     }
@@ -459,6 +460,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 1
                     , utxo = inHead
                     , confirmed = []
+                    , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = 0
                     }
@@ -482,6 +484,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , number = 2
                     , utxo = inHead
                     , confirmed = []
+                    , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = 1
                     }

@@ -43,6 +43,7 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation, healthyCont
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (healthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.Increment (healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
@@ -108,6 +109,9 @@ spec = parallel $ do
       propTransactionEvaluates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
+  describe "Increment" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyIncrementTx
   describe "Decrement" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyDecrementTx
@@ -216,7 +220,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToDecommit, version} :: Snapshot Tx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToCommit, utxoToDecommit, version} :: Snapshot Tx) ->
     forAll arbitrary $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
@@ -224,12 +228,14 @@ prop_verifySnapshotSignatures =
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
           utxoHash = toBuiltin $ hashUTxO utxo
+          utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
           utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)
             & counterexample ("utxoHash: " <> show utxoHash)
+            & counterexample ("utxoToCommitHash: " <> show utxoToCommitHash)
             & counterexample ("utxoToDecommitHash: " <> show utxoToDecommitHash)
             & counterexample ("off-chain message: " <> show (Base16.encode $ getSignableRepresentation snapshot))
             & counterexample ("signatures: " <> show signatures)

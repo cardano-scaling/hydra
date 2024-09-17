@@ -125,6 +125,8 @@ spec =
                       Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
                       CollectCom{} -> transition === Transition.Collect
+                      Deposit{} -> transition === Transition.Deposit
+                      Increment{} -> transition === Transition.Increment
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest

@@ -52,7 +52,9 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: s
   , utxoHash :: Hash
   -- ^ Spec: η. Digest of snapshotted UTxO
-  , deltaUTxOHash :: Hash
+  , alphaUTxOHash :: Hash
+  , -- TODO: ^ Spec: η?. Digest of UTxO still to be committed
+    deltaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
   -- ^ Spec: C
@@ -115,6 +117,20 @@ data ContestRedeemer
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
 
+-- | Sub-type for increment transition
+-- TODO: add more fields as needed.
+data IncrementRedeemer = IncrementRedeemer
+  { signature :: [Signature]
+  -- ^ Spec: ξ
+  , snapshotNumber :: SnapshotNumber
+  -- ^ Spec: s
+  , numberOfCommitOutputs :: Integer
+  -- ^ Spec: m
+  }
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''IncrementRedeemer
+
 -- | Sub-type for decrement transition with auxiliary data as needed.
 data DecrementRedeemer = DecrementRedeemer
   { signature :: [Signature]
@@ -130,6 +146,7 @@ PlutusTx.unstableMakeIsData ''DecrementRedeemer
 
 data Input
   = CollectCom
+  | Increment IncrementRedeemer
   | Decrement DecrementRedeemer
   | Close CloseRedeemer
   | Contest ContestRedeemer

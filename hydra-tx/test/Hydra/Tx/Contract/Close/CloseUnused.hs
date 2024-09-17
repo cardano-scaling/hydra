@@ -110,6 +110,7 @@ healthyCurrentSnapshot =
     , number = healthyCurrentSnapshotNumber
     , confirmed = []
     , utxo = healthySplitUTxOInHead
+    , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
     }
 

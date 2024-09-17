@@ -1055,6 +1055,16 @@ definitions:
             $ref: "api.yaml#/components/schemas/SnapshotNumber"
           leader:
             $ref: "api.yaml#/components/schemas/Party"
+      - title: "ReqSnCommitNotSettled"
+        description: >-
+          Received a ReqSn message with specified new commit but the previous one was not settled.
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSnCommitNotSettled"]
       - title: "ReqSnDecommitNotSettled"
         description: >-
           Received a ReqSn message with specified new decommit but the previous one was not settled.
@@ -1324,6 +1334,26 @@ definitions:
             enum: ["TransactionReceived"]
           tx:
             $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "CommitRecorded"
+        additionalProperties: false
+        required:
+          - tag
+          - commitUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["CommitRecorded"]
+          commitUTxO:
+            type: object
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "CommitFinalized"
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["CommitFinalized"]
       - title: "DecommitRecorded"
         additionalProperties: false
         required:
@@ -1545,6 +1575,7 @@ definitions:
       - allTxs
       - confirmedSnapshot
       - seenSnapshot
+      - commitUTxO
       - decommitTx
       - version
     properties:
@@ -1564,6 +1595,11 @@ definitions:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
         $ref: "logs.yaml#/definitions/SeenSnapshot"
+      commitUTxO:
+        oneOf:
+          - type: "null"
+          - type: object
+            $ref: "api.yaml#/components/schemas/UTxO"
       decommitTx:
         oneOf:
           - type: "null"
@@ -1657,6 +1693,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Init/payload"
               - $ref: "api.yaml#/components/messages/Abort/payload"
               - $ref: "api.yaml#/components/messages/NewTx/payload"
+              - $ref: "api.yaml#/components/messages/Commit/payload"
               - $ref: "api.yaml#/components/messages/Decommit/payload"
               - $ref: "api.yaml#/components/messages/GetUTxO/payload"
               - $ref: "api.yaml#/components/messages/Close/payload"
@@ -1799,6 +1836,7 @@ definitions:
           - snapshotVersion
           - snapshotNumber
           - transactionIds
+          - incrementUTxO
           - decommitTx
         description: >-
           Request from the current snapshot leader to sign some snapshot, eg. a
@@ -1815,6 +1853,11 @@ definitions:
             type: array
             items:
               $ref: "api.yaml#/components/schemas/TxId"
+          incrementUTxO:
+            oneOf:
+              - type: "null"
+              - type: object
+                $ref: "api.yaml#/components/schemas/UTxO"
           decommitTx:
             oneOf:
               - type: "null"
@@ -1991,6 +2034,23 @@ definitions:
             enum: ["OnAbortTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
+      - title: OnDepositTx
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["OnDepositTx"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          utxo:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          deposited:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnDecrementTx
         type: object
         additionalProperties: false
@@ -2318,6 +2378,34 @@ definitions:
                     enum: ["DecommitAlreadyInFlight"]
                   otherDecommitTxId:
                     $ref: "api.yaml#/components/schemas/TxId"
+      - title: WaitOnUnresolvedDecommit
+        description: >-
+          The commit UTxO can't be included until the decommit in flight is resolved.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnUnresolvedDecommit"]
+          decommitTx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: WaitOnUnresolvedCommit
+        description: >-
+          The commit UTxO can't be included until another commit in flight is resolved.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+          - commitUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["WaitOnUnresolvedCommit"]
+          commitUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
 
   RunOptions:
     type: object

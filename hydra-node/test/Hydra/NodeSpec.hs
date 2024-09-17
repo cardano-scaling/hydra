@@ -196,7 +196,7 @@ spec = parallel $ do
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing]
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -204,7 +204,7 @@ spec = parallel $ do
             sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing}
+                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, incrementUTxO = Nothing, decommitTx = Nothing}
                    , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
                    , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
@@ -216,7 +216,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing]
+        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -226,7 +226,7 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing}
+                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, incrementUTxO = Nothing}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
@@ -259,7 +259,7 @@ spec = parallel $ do
                 inputsToOpenHead
                   <> [ receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
                      , receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}
-                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing}
+                     , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, incrementUTxO = Nothing}
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
@@ -333,6 +333,8 @@ mockChain =
   Chain
     { postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
+    , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftRecoverTx = \_ _ _ _ _ _ -> failure "mockChain: unexpected draftRecoverTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     }
 
@@ -454,6 +456,8 @@ throwExceptionOnPostTx exception node =
           Chain
             { postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
+            , draftDepositTx = \_ -> error "draftDepositTx not implemented"
+            , draftRecoverTx = \_ -> error "draftRecoverTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
             }
       }

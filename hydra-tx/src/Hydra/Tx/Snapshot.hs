@@ -51,6 +51,8 @@ data Snapshot tx = Snapshot
   , confirmed :: [TxIdType tx]
   , utxo :: UTxOType tx
   -- ^ The set of transactions that lead to 'utxo'
+  , utxoToCommit :: Maybe (UTxOType tx)
+  -- ^ UTxO to be committed. Spec: Ûα
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Ûω
   }
@@ -67,26 +69,29 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- version = uint
 -- number = uint
 -- utxoHash = bytes
+-- utxoToCommitHash = bytes
 -- utxoToDecommitHash = bytes
 --
 -- where hashes are the result of applying 'hashUTxO'.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToDecommit} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
+        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToCommit)
         <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
     object
       [ "headId" .= headId
       , "version" .= version
       , "snapshotNumber" .= number
       , "confirmedTransactions" .= confirmed
       , "utxo" .= utxo
+      , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
       ]
 
@@ -98,18 +103,23 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "snapshotNumber")
       <*> (obj .: "confirmedTransactions")
       <*> (obj .: "utxo")
+      <*> ( obj .:? "utxoToCommit" >>= \case
+              Nothing -> pure mempty
+              (Just utxo) -> pure utxo
+          )
       <*> ( obj .:? "utxoToDecommit" >>= \case
               Nothing -> pure mempty
               (Just utxo) -> pure utxo
           )
 
 instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToDecommit, version} =
+  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
     toCBOR headId
       <> toCBOR version
       <> toCBOR number
       <> toCBOR confirmed
       <> toCBOR utxo
+      <> toCBOR utxoToCommit
       <> toCBOR utxoToDecommit
 
 instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
@@ -121,15 +131,17 @@ instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       <*> fromCBOR
       <*> fromCBOR
       <*> fromCBOR
+      <*> fromCBOR
 
 instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToDecommit'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
+    , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
 
@@ -166,6 +178,7 @@ getSnapshot = \case
       , number = 0
       , confirmed = []
       , utxo = initialUTxO
+      , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot
@@ -181,9 +194,10 @@ instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrar
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary
+    utxoToCommit <- arbitrary
     utxoToDecommit <- arbitrary
     headId <- arbitrary
-    genConfirmedSnapshot headId 0 0 utxo utxoToDecommit ks
+    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
 
   shrink = \case
     InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
@@ -201,9 +215,10 @@ genConfirmedSnapshot ::
   SnapshotNumber ->
   UTxOType tx ->
   Maybe (UTxOType tx) ->
+  Maybe (UTxOType tx) ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId version minSn utxo utxoToDecommit sks
+genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -218,6 +233,6 @@ genConfirmedSnapshot headId version minSn utxo utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToDecommit}
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}

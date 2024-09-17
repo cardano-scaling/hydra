@@ -14,6 +14,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (HeadId, headIdToCurrencySymbol)
+import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
 depositTx ::
@@ -29,6 +30,7 @@ depositTx networkId headId depositUTxO deadline =
     emptyTxBody
       & addInputs depositInputs
       & addOutputs [depositOutput]
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DepositTx")
  where
   depositInputsList = toList (UTxO.inputSet depositUTxO)
 
