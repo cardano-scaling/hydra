@@ -676,6 +676,7 @@ signedSnapshot ms =
       , number = ms.number
       , confirmed = []
       , utxo
+      , utxoToCommit = Nothing
       , utxoToDecommit = Just toDecommit
       }
 

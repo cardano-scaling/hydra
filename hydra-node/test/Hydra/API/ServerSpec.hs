@@ -29,6 +29,8 @@ import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTim
 import Hydra.Chain (
   Chain (Chain),
   draftCommitTx,
+  draftDepositTx,
+  draftRecoverTx,
   postTx,
   submitTx,
  )
@@ -372,6 +374,8 @@ dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+    , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
+    , draftRecoverTx = \_ -> error "unexpected call to draftRecoverTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
     }
 

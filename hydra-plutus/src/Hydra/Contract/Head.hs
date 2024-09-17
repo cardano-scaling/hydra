@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
+import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer, Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -72,6 +72,8 @@ headValidator oldState input ctx =
       checkCollectCom ctx (contestationPeriod, parties, headId)
     (Initial{parties, headId}, Abort) ->
       checkAbort ctx headId parties
+    (Open openDatum, Increment redeemer) ->
+      checkIncrement ctx openDatum redeemer
     (Open openDatum, Decrement redeemer) ->
       checkDecrement ctx openDatum redeemer
     (Open openDatum, Close redeemer) ->
@@ -221,6 +223,16 @@ commitDatum input = do
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
+-- | Verify a increment transaction.
+checkIncrement ::
+  ScriptContext ->
+  -- | Open state before the decrement
+  OpenDatum ->
+  IncrementRedeemer ->
+  Bool
+checkIncrement _ctx _openBefore _redeemer = True
+{-# INLINEABLE checkIncrement #-}
+
 -- | Verify a decrement transaction.
 checkDecrement ::
   ScriptContext ->
@@ -236,7 +248,8 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, decommitUtxoHash) signature
+    -- TODO: introduce emptyHash instead of hashTxOuts [] ?
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, hashTxOuts [], decommitUtxoHash) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -320,6 +333,7 @@ checkClose ctx openBefore redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
+    , alphaUTxOHash = alphaUTxOHash'
     , deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
@@ -344,14 +358,14 @@ checkClose ctx openBefore redeemer =
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', deltaUTxOHash')
             signature
       CloseUsed{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
           deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alphaUTxOHash', alreadyDecommittedUTxOHash)
               signature
 
   checkDeadline =
@@ -418,14 +432,14 @@ checkContest ctx closedDatum redeemer =
         traceIfFalse $(errorCode FailedContestCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', deltaUTxOHash')
             signature
       ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestOutdated) $
           deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alphaUTxOHash', alreadyDecommittedUTxOHash)
               signature
 
   mustBeWithinContestationPeriod =
@@ -461,6 +475,7 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
+    , alphaUTxOHash = alphaUTxOHash'
     , deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'
@@ -496,6 +511,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameUTxOToDecommitHash
+    && hasSameUTxOToCommitHash
     && afterContestationDeadline
  where
   minted = txInfoMint txInfo
@@ -504,15 +520,24 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       fannedOutUtxoHash == utxoHash
 
+  hasSameUTxOToCommitHash =
+    traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
+      alphaUTxOHash == commitUtxoHash
+
   hasSameUTxOToDecommitHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       deltaUTxOHash == decommitUtxoHash
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
+  -- TODO: get the numberOfCommitOutputs number from the redeemer
+  numberOfCommitOutputs = 0
+
+  commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
+
   decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
+  ClosedDatum{utxoHash, alphaUTxOHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
 
   TxInfo{txInfoOutputs} = txInfo
 
@@ -655,7 +680,7 @@ hasPT headCurrencySymbol txOut =
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash) -> [Signature] -> Bool
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     length parties == length sigs
@@ -664,8 +689,8 @@ verifySnapshotSignature parties msg sigs =
 
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash) -> Party -> Signature -> Bool
-verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToDecommitHash) party =
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
+verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash) party =
   verifyEd25519Signature (vkey party) message
  where
   message =
@@ -673,6 +698,7 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToD
       <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData utxoHash)
+      <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
 
