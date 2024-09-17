@@ -32,12 +32,12 @@ spec = do
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      headId1 <- withOfflineChain "test1" offlineConfig alice chainStateHistory callback $ \_chain ->
+      headId1 <- withOfflineChain "test1" offlineConfig alice [] chainStateHistory callback $ \_chain ->
         waitMatch waitNext 2 $ \case
           Observation{observedTx = OnInitTx{headId}} -> pure headId
           _ -> Nothing
 
-      headId2 <- withOfflineChain "test2" offlineConfig alice chainStateHistory callback $ \_chain ->
+      headId2 <- withOfflineChain "test2" offlineConfig alice [] chainStateHistory callback $ \_chain ->
         waitMatch waitNext 2 $ \case
           Observation{observedTx = OnInitTx{headId}} -> pure headId
           _ -> Nothing
@@ -56,7 +56,7 @@ spec = do
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain "test" offlineConfig alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain "test" offlineConfig alice [] chainStateHistory callback $ \_chain -> do
         -- Expect to see a tick of slot 1 within 2 seconds
         waitMatch waitNext 2 $ \case
           Tick{chainSlot} -> guard $ chainSlot > 0
@@ -76,7 +76,7 @@ spec = do
       let chainStateHistory = initHistory initialChainState
 
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain "test" offlineConfig alice chainStateHistory callback $ \_chain -> do
+      withOfflineChain "test" offlineConfig alice [] chainStateHistory callback $ \_chain -> do
         -- Should not start at 0
         waitMatch waitNext 1 $ \case
           Tick{chainSlot} -> guard $ chainSlot > 1000
