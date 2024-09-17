@@ -23,7 +23,7 @@ import Hydra.Node.ParameterMismatch (ParameterMismatch)
 import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk)
-import Test.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (
   Property,
   (===),
@@ -36,6 +36,28 @@ spec = do
     around (showLogsOnFailure "NetworkSpec") $ do
       -- TODO: should add somewhat re-usable tests corresponding to properties
       -- of network layer, like: validity
+
+      it "broadcasts to self" $ \tracer ->
+        failAfter 5 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePort $ \port -> do
+              let config =
+                    NetworkConfiguration
+                      { host = lo
+                      , port = port
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      }
+              received <- atomically newTQueue
+              let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+              withEtcdNetwork tracer config recordReceived $ \n -> do
+                broadcast n ("asdf" :: Text)
+                r <- atomically (readTQueue received)
+                r `shouldSatisfy` \msg -> msg == "asdf"
+
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           received <- atomically newTQueue
@@ -66,11 +88,7 @@ spec = do
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 r <- atomically (readTQueue received)
-                print "FOOO"
-                print r
                 r `shouldSatisfy` \msg -> msg == 123
-              putStrLn "!!!!!!!!!!! bob exited"
-            putStrLn "!!!!!!!!!!! alice exited"
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
