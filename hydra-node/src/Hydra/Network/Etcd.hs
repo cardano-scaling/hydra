@@ -27,7 +27,7 @@ import System.Process.Typed (byteStringInput, createPipe, getStderr, getStdout, 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
-  (ToCBOR msg, FromCBOR msg, Show msg) =>
+  (ToCBOR msg, FromCBOR msg) =>
   Tracer IO Text ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
@@ -37,9 +37,12 @@ withEtcdNetwork tracer config callback action = do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
     -- TODO: error handling
-    race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $
+    race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $ do
+      -- HACK: give etcd a bit time to start up and do leader election etc.
+      putStrLn "Give etcd a bit time.."
+      threadDelay 2
       race_ (traceStderr p) $
-        race_ (waitMessages clientUrl callback) $ do
+        race_ (waitMessages clientUrl callback) $
           action
             Network
               { broadcast = putMessage clientUrl port
@@ -89,7 +92,7 @@ withEtcdNetwork tracer config callback action = do
 -- | Broadcast a message to the etcd cluster.
 -- HACK: Create/use a proper client.
 putMessage ::
-  (ToCBOR msg, MonadIO m, Show msg) =>
+  (ToCBOR msg, MonadIO m) =>
   String ->
   PortNumber ->
   msg ->
@@ -103,11 +106,11 @@ putMessage endpoint port msg = do
   -- FIXME: use different keys per message types?
   key = "foo-" <> show port
 
-  hexMsg = LBase16.encode $ serialize (spy' "Network etcd send: " msg)
+  hexMsg = LBase16.encode $ serialize msg
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
-  (FromCBOR msg, Show msg) =>
+  FromCBOR msg =>
   String ->
   NetworkCallback msg IO ->
   IO ()
@@ -120,7 +123,7 @@ waitMessages endpoint NetworkCallback{deliver} = do
     withProcessWait cmd $ \p -> do
       forever $ do
         bs <- BS.hGetLine (getStdout p)
-        case Aeson.eitherDecodeStrict (spy' "watch bytes" bs) >>= parseEither parseEtcdEntry of
+        case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
           Left err -> die $ "Failed to parse etcd entry: " <> err
           Right e@EtcdEntry{entries} -> do
             print e
@@ -129,7 +132,7 @@ waitMessages endpoint NetworkCallback{deliver} = do
               case decodeFull' $ Base16.decodeLenient value of
                 Left err -> fail $ "Failed to decode etcd entry: " <> show err
                 Right msg ->
-                  deliver (spy' "Network etcd recv: " msg)
+                  deliver msg
  where
   -- FIXME: different key/prefixes
   key = "foo"
