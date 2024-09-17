@@ -207,5 +207,6 @@ isModalOpen s =
       . activeLinkL
       . activeHeadStateL
       . openStateL of
+    Nothing -> False
     Just OpenHome -> False
-    _ -> True
+    Just _ -> True

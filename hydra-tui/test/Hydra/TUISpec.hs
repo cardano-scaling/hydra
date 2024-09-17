@@ -54,6 +54,13 @@ tuiContestationPeriod = UnsafeContestationPeriod 10
 spec :: Spec
 spec = do
   context "end-to-end smoke tests" $ do
+    it "can quit before connected" $
+      setupBadHostNodeAndTUI $ \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
+        threadDelay 1
+        shouldRender "connecting"
+        sendInputEvent $ EvKey (KChar 'q') []
+        threadDelay 1
+        shouldNotRender "connecting"
     around setupNodeAndTUI $ do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
@@ -146,8 +153,8 @@ spec = do
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
-setupNodeAndTUI' :: Coin -> (TUITest -> IO ()) -> IO ()
-setupNodeAndTUI' lovelace action =
+setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI' hostname lovelace action =
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
@@ -175,7 +182,7 @@ setupNodeAndTUI' lovelace action =
                   Options
                     { hydraNodeHost =
                         Host
-                          { hostname = "127.0.0.1"
+                          { hostname = hostname
                           , port = fromIntegral $ 4000 + hydraNodeId
                           }
                     , cardanoNodeSocket =
@@ -188,10 +195,13 @@ setupNodeAndTUI' lovelace action =
               $ action brickTest
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
-setupNodeAndTUI = setupNodeAndTUI' 100_000_000
+setupNodeAndTUI = setupNodeAndTUI' "127.0.0.1" 100_000_000
+
+setupBadHostNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupBadHostNodeAndTUI = setupNodeAndTUI' "example" 100_000_000
 
 setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
-setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' 2_000_000
+setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' "127.0.0.1" 2_000_000
 
 data TUITest = TUITest
   { buildVty :: IO Vty
