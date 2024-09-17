@@ -167,6 +167,7 @@ rec {
         nativePkgs.hydra-tui.components.tests.tests
         hydra-node
         inputs.cardano-node.packages.${system}.cardano-node
+        inputs.cardano-node.packages.${system}.cardano-cli
       ];
   };
 

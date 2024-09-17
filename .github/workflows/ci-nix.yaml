@@ -57,6 +57,7 @@ jobs:
         nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests
 
+    # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
       id: test_tui
       if: ${{ matrix.package == 'hydra-tui' }}
@@ -68,7 +69,7 @@ jobs:
       run: |
         cd ${{ matrix.package  }}
         nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --build
+        nix develop .#${{ matrix.package }}-tests --command tests
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
