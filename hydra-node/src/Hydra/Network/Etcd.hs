@@ -12,6 +12,7 @@ import Cardano.Binary (decodeFull', serialize)
 import Data.Aeson (withObject, (.:))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser, Value, parseEither)
+import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
@@ -20,7 +21,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComp
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
-import System.Process.Typed (byteStringInput, proc, readProcessStdout_, runProcess_, setStdin, stopProcess, waitExitCode, withProcessWait)
+import System.Process.Typed (byteStringInput, createPipe, getStdout, proc, readProcessStdout_, runProcess_, setStdin, setStdout, stopProcess, waitExitCode, withProcessWait)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -98,24 +99,31 @@ putMessage endpoint msg = do
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
-  forall m msg.
-  (MonadIO m, MonadDelay m, FromCBOR msg, MonadCatch m, MonadFail m) =>
+  FromCBOR msg =>
   String ->
-  NetworkCallback msg m ->
-  m ()
+  NetworkCallback msg IO ->
+  IO ()
 waitMessages endpoint NetworkCallback{deliver} = do
   forever $ do
-    threadDelay 0.1
-    -- TODO: use revisions? and use compaction to limit storage
-    -- FIXME: use watch instead of poll
-    try (getKey endpoint "foo") >>= \case
-      Left (e :: SomeException) -> fail $ "etcd get error" <> show e
-      Right entry -> do
-        -- HACK: lenient decoding
-        case decodeFull' $ Base16.decodeLenient (value entry) of
-          Left err -> fail $ "Failed to decode etcd entry: " <> show err
-          Right msg ->
-            deliver msg
+    -- Watch all key value updates since revision 1
+    let cmd =
+          proc "etcdctl" ["--endpoints", endpoint, "watch", "--rev", "1", key, "-w", "json"]
+            & setStdout createPipe
+    withProcessWait cmd $ \p -> do
+      bs <- BS.hGetLine (getStdout p)
+      case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
+        Left err -> die $ "Failed to parse etcd entry: " <> err
+        Right e@EtcdEntry{entries} -> do
+          print e
+          forM_ entries $ \(_, value) ->
+            -- HACK: lenient decoding
+            case decodeFull' $ Base16.decodeLenient value of
+              Left err -> fail $ "Failed to decode etcd entry: " <> show err
+              Right msg ->
+                deliver msg
+ where
+  -- FIXME: use different keys per message types?
+  key = "foo"
 
 getKey :: MonadIO m => String -> String -> m EtcdEntry
 getKey endpoint key = do
@@ -127,22 +135,23 @@ getKey endpoint key = do
 
 data EtcdEntry = EtcdEntry
   { revision :: Natural
-  , key :: ByteString
-  , value :: ByteString
+  , entries :: [(ByteString, ByteString)]
   }
   deriving (Show)
 
 parseEtcdEntry :: Value -> Parser EtcdEntry
 parseEtcdEntry = withObject "EtcdEntry" $ \o -> do
-  -- TODO: use header revision or mod_revision of entry?
-  revision <- o .: "header" >>= (.: "revision")
-  entries <- o .: "kvs"
-  case entries of
-    [entry] -> do
-      key <- parseBase64 =<< entry .: "key"
-      value <- parseBase64 =<< entry .: "value"
-      pure EtcdEntry{revision, key, value}
-    _ -> fail "expected exactly one entry"
+  revision <- o .: "Header" >>= (.: "revision")
+  entries <- o .: "Events" >>= mapM parseEvent
+  pure EtcdEntry{revision, entries}
+ where
+  parseEvent = withObject "Event" $ \o ->
+    o .: "kv" >>= parseKV
+
+  parseKV = withObject "kv" $ \o -> do
+    key <- parseBase64 =<< o .: "key"
+    value <- parseBase64 =<< o .: "value"
+    pure (key, value)
 
 -- HACK: lenient decoding
 parseBase64 :: Text -> Parser ByteString
