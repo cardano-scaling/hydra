@@ -72,6 +72,7 @@ data StateChanged tx
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
+  | CommitRecorded {depositScriptUTxO :: UTxOType tx, commitUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx}
   | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
@@ -83,6 +84,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
+  | CommitFinalized {newVersion :: SnapshotVersion}
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
@@ -177,6 +179,8 @@ data WaitReason tx
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
+  | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
+  | WaitOnUnresolvedDecommit {decommitTx :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

@@ -148,6 +148,8 @@ spec = do
                       OnAbortTx{} -> Transition.Abort
                       OnCollectComTx{} -> Transition.Collect
                       OnDecrementTx{} -> Transition.Decrement
+                      OnIncrementTx{} -> Transition.Increment
+                      OnDepositTx{} -> Transition.Deposit
                       OnCloseTx{} -> Transition.Close
                       OnContestTx{} -> Transition.Contest
                       OnFanoutTx{} -> Transition.Fanout

@@ -88,6 +88,7 @@ healthyOutdatedSnapshot =
     , number = healthyOutdatedSnapshotNumber
     , confirmed = []
     , utxo = healthySplitUTxOInHead
+    , utxoToCommit = Nothing
     , utxoToDecommit = Nothing -- NOTE: In the `CloseOutdated` case, we expect the utxoToDecommit to be Nothing
     }
 

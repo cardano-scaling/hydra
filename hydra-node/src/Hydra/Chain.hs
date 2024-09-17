@@ -18,6 +18,8 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
+  SlotNo,
+  TxIn,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -34,6 +36,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -54,6 +57,16 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
+  | IncrementTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , incrementingSnapshot :: ConfirmedSnapshot tx
+      , depositScriptUTxO :: UTxOType tx
+      }
+  | RecoverTx
+      { headId :: HeadId
+      , recoverTx :: tx
+      }
   | DecrementTx
       { headId :: HeadId
       , headParameters :: HeadParameters
@@ -85,6 +98,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO} -> IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO
+    RecoverTx{headId, recoverTx} -> RecoverTx <$> shrink headId <*> shrink recoverTx
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -106,6 +121,17 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
+  | OnDepositTx
+      { headId :: HeadId
+      , utxo :: UTxOType tx
+      , deposited :: UTxOType tx
+      }
+  | OnIncrementTx
+      { headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , committedUTxO :: UTxOType tx
+      , depositScriptUTxO :: UTxOType tx
+      }
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
@@ -166,6 +192,9 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructDepositTx
+  | FailedToConstructRecoverTx
+  | FailedToConstructIncrementTx
   | FailedToConstructDecrementTx
   | FailedToConstructFanoutTx
   deriving stock (Generic)
@@ -233,6 +262,25 @@ data Chain tx m = Chain
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- a _blueprint_ transaction which spends these outputs.
   -- Errors are handled at the call site.
+  , draftDepositTx ::
+      MonadThrow m =>
+      HeadId ->
+      UTxOType tx ->
+      UTCTime ->
+      m (Either (PostTxError tx) tx)
+  -- ^ Create a deposit transaction using user provided utxos (zero or many) and
+  -- a deadline for their inclusion into L2.
+  -- Errors are handled at the call site.
+  , draftRecoverTx ::
+      MonadThrow m =>
+      CurrencySymbol ->
+      UTxOType tx ->
+      UTxOType tx ->
+      POSIXTime ->
+      SlotNo ->
+      TxIn ->
+      m (Either (PostTxError tx) tx)
+  -- ^ Create a recover transaction which unlocks deposited funds.
   , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --

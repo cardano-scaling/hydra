@@ -19,6 +19,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -103,6 +104,8 @@ data HeadObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
+  | Deposit DepositObservation
+  | Increment IncrementObservation
   | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
@@ -120,6 +123,8 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Deposit <$> observeDepositTx networkId utxo tx
+      <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
@@ -347,6 +352,89 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
+
+data DepositObservation = DepositObservation
+  { headId :: HeadId
+  , deposited :: UTxO
+  , utxo :: UTxO
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary DepositObservation where
+  arbitrary = genericArbitrary
+
+observeDepositTx ::
+  NetworkId ->
+  UTxO ->
+  Tx ->
+  Maybe DepositObservation
+observeDepositTx networkId _utxo tx = do
+  -- TODO: we will need a function to query all of the deposit outputs in order to be able to display all pending deposits
+  (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
+  dat <- txOutScriptData depositOut
+  Deposit.DepositDatum (headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
+  deposit <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
+    pure . UTxO.fromPairs $ depositedUTxO
+  headId <- currencySymbolToHeadId headCurrencySymbol
+  pure
+    DepositObservation
+      { headId
+      , deposited = deposit
+      , utxo = UTxO.singleton (depositIn, toCtxUTxOTxOut depositOut)
+      }
+ where
+  depositScript = fromPlutusScript Deposit.validatorScript
+
+  depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
+
+data IncrementObservation = IncrementObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , committedUTxO :: UTxO
+  , depositScriptUTxO :: UTxO
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary IncrementObservation where
+  arbitrary = genericArbitrary
+
+observeIncrementTx ::
+  NetworkId ->
+  UTxO ->
+  Tx ->
+  Maybe IncrementObservation
+observeIncrementTx networkId utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
+  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  dat <- txOutScriptData $ toTxContext depositOutput
+  Deposit.DepositDatum (_headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
+  deposit <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
+    pure . UTxO.fromPairs $ depositedUTxO
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) ->
+          pure
+            IncrementObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , committedUTxO = deposit
+              , depositScriptUTxO = utxo
+              }
+        _ -> Nothing
+    _ -> Nothing
+ where
+  depositScript = fromPlutusScript Deposit.validatorScript
+  headScript = fromPlutusScript Head.validatorScript
 
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
