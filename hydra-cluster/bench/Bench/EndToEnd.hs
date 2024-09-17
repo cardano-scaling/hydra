@@ -55,7 +55,6 @@ import HydraNode (
   send,
   waitFor,
   waitForAllMatch,
-  waitForNodesConnected,
   waitMatch,
   withConnectionToNodeHost,
   withHydraCluster,
@@ -94,7 +93,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             let contestationPeriod = UnsafeContestationPeriod 10
             let depositDeadline = UnsafeDepositDeadline 10
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
-              waitForNodesConnected hydraTracer 20 clients
+              -- HACK: waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset clients
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)

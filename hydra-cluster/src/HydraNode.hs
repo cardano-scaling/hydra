@@ -452,6 +452,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
+-- FIXME: Implement equivalent to PeerConnected via etcd
 waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesConnected tracer delay clients =
   mapM_ waitForNodeConnected clients
