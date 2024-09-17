@@ -143,6 +143,7 @@ rec {
     name = "hydra-node-tests";
     buildInputs = [
       nativePkgs.hydra-node.components.tests.tests
+      pkgs.etcd
       pkgs.check-jsonschema
     ];
   };
@@ -152,6 +153,7 @@ rec {
       [
         nativePkgs.hydra-cluster.components.tests.tests
         hydra-node
+        pkgs.etcd
         hydra-chain-observer
         pkgs.cardano-node
         pkgs.cardano-cli
@@ -168,6 +170,7 @@ rec {
         hydra-node
         pkgs.cardano-node
         pkgs.cardano-cli
+        pkgs.etcd
       ];
   };
 
@@ -187,6 +190,7 @@ rec {
         pkgs.cardano-node
         pkgs.cardano-cli
         pkgs.dstat
+        pkgs.etcd
       ];
   };
 
