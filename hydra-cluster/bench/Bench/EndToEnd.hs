@@ -56,7 +56,6 @@ import HydraNode (
   send,
   waitFor,
   waitForAllMatch,
-  waitForNodesConnected,
   waitMatch,
   withConnectionToNodeHost,
   withHydraCluster,
@@ -104,8 +103,8 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
-              let clients = leader : followers
-              waitForNodesConnected hydraTracer 20 clients
+              -- let clients = leader : followers
+              -- HACK: waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset parties leader followers
 
 benchDemo ::
