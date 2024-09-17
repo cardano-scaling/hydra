@@ -68,10 +68,11 @@ withOfflineChain ::
   NodeId ->
   OfflineChainConfig ->
   Party ->
+  [Party] ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party chainStateHistory callback action = do
+withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party otherParties chainStateHistory callback action = do
   initializeOfflineHead
   genesis <- loadGenesisFile ledgerGenesisFile
   withAsync (tickForever genesis callback) $ \tickThread -> do
@@ -103,7 +104,7 @@ withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} p
                 , headSeed = offlineHeadSeed nodeId
                 , headParameters =
                     HeadParameters
-                      { parties = [party]
+                      { parties = sort (party : otherParties)
                       , -- NOTE: This is irrelevant in offline mode.
                         contestationPeriod = defaultContestationPeriod
                       }
@@ -120,6 +121,17 @@ withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} p
                 , headId
                 }
           }
+      forM_ otherParties $ \p ->
+        callback $
+          Observation
+            { newChainState = initialChainState
+            , observedTx =
+                OnCommitTx
+                  { party = p
+                  , committed = mempty
+                  , headId
+                  }
+            }
       callback $
         Observation
           { newChainState = initialChainState

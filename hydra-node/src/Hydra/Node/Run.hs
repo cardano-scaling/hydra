@@ -118,9 +118,9 @@ run opts = do
     let ledgerEnv = newLedgerEnv protocolParams
      in action (cardanoLedger globals ledgerEnv)
 
-  prepareChainComponent tracer Environment{party} = \case
+  prepareChainComponent tracer Environment{party, otherParties} = \case
     Offline cfg ->
-      pure $ withOfflineChain nodeId cfg party
+      pure $ withOfflineChain nodeId cfg party otherParties
     Direct cfg -> do
       ctx <- loadChainContext cfg party
       wallet <- mkTinyWallet (contramap DirectChain tracer) cfg
