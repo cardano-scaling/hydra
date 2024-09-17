@@ -137,11 +137,12 @@ rec {
     name = "hydra-node-tests";
     buildInputs = [
       nativePkgs.hydra-node.components.tests.tests
+      pkgs.etcd
       pkgs.check-jsonschema
     ];
   };
   hydra-tx-tests = pkgs.mkShellNoCC {
-    name = "hydratx-tests";
+    name = "hydra-tx-tests";
     buildInputs = [
       nativePkgs.hydra-tx.components.tests.tests
     ];
@@ -152,6 +153,7 @@ rec {
       [
         nativePkgs.hydra-cluster.components.tests.tests
         hydra-node
+        pkgs.etcd
         hydra-chain-observer
         inputs.cardano-node.packages.${system}.cardano-node
         inputs.cardano-node.packages.${system}.cardano-cli
@@ -166,6 +168,7 @@ rec {
       [
         nativePkgs.hydra-tui.components.tests.tests
         hydra-node
+        pkgs.etcd
         inputs.cardano-node.packages.${system}.cardano-node
         inputs.cardano-node.packages.${system}.cardano-cli
       ];
@@ -184,6 +187,7 @@ rec {
       [
         nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
         hydra-node
+        pkgs.etcd
         inputs.cardano-node.packages.${system}.cardano-node
         inputs.cardano-node.packages.${system}.cardano-cli
       ];
