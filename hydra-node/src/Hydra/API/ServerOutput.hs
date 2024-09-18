@@ -137,6 +137,7 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx}
@@ -195,9 +196,10 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
+    CommitRecorded headId u -> CommitRecorded headId <$> shrink u
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
-    RecoverApproved headId tx  -> RecoverApproved headId  <$> shrink tx
+    RecoverApproved headId tx -> RecoverApproved headId <$> shrink tx
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
 
@@ -249,11 +251,13 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
+    CommitRecorded{} -> encodedResponse
     CommitApproved{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitFinalized{} -> encodedResponse
     CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
+    RecoverApproved{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

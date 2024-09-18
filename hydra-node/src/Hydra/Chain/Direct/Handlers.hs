@@ -13,15 +13,26 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
+  PlutusScriptV2,
   Tx,
   TxId,
   chainPointToSlotNo,
+  findTxOutByScript,
+  fromPlutusScript,
+  fromScriptData,
   getChainPoint,
   getTxBody,
   getTxId,
+  mkScriptAddress,
+  networkIdToNetwork,
+  renderUTxO,
+  toTxContext,
+  txOutScriptData,
+  pattern TxOut,
  )
 import Hydra.Chain (
   Chain (..),
@@ -78,6 +89,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
@@ -85,6 +97,7 @@ import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
+  withoutUTxO,
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
@@ -183,12 +196,27 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           Right (depositTx (networkId ctx) headId utxo deadline)
     , -- Handle that creates a draft **recover** tx using provided arguments.
       -- Possible errors are handled at the api server level.
-      draftRecoverTx = \headCS commitUTxO depositUTxO deadline lowerValidity txIn -> do
+      draftRecoverTx = \txIn lowerValidity -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        let commitsToRecover = mapMaybe Commit.serializeCommit (UTxO.pairs commitUTxO)
-        traverse (finalizeTx wallet ctx spendableUTxO (commitUTxO <> depositUTxO)) $
-          -- TODO: Should we move recover tx argument verification to `recoverTx` function and have Either here?
-          Right (Hydra.Tx.Recover.recoverTx (networkId ctx) headCS txIn commitsToRecover deadline lowerValidity)
+        let networkId' = networkId ctx
+        let depositScript = fromPlutusScript Deposit.validatorScript
+        let depositScriptAddress = mkScriptAddress @PlutusScriptV2 networkId' depositScript
+        let commitUTxO = UTxO.fromPairs $ List.filter (\(txIn', _) -> txIn == txIn') (UTxO.pairs spendableUTxO)
+        let depositUTxO = UTxO.filter (\(TxOut address _ _ _) -> address == depositScriptAddress) spendableUTxO
+        let (_, depositOutput) = List.head $ UTxO.pairs depositUTxO
+        let depositDatumAndDeposits = do
+              dat <- txOutScriptData (toTxContext depositOutput)
+              Deposit.DepositDatum datum@(_, _, onChainDeposits) <- fromScriptData dat
+              deposit <- do
+                depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId')) onChainDeposits
+                pure . UTxO.fromPairs $ depositedUTxO
+              pure (datum, deposit)
+        case depositDatumAndDeposits of
+          Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
+          Just (dat, deposits) -> do
+            let (headCurrencySymbol, deadline, commitsToRecover) = dat
+            -- TODO: Should we move recover tx argument verification to `recoverTx` function and have Either here?
+            pure $ Right (Hydra.Tx.Recover.recoverTx networkId' headCurrencySymbol txIn commitsToRecover deadline lowerValidity)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx

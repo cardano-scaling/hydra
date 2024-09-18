@@ -114,6 +114,7 @@ import Cardano.Api.UTxO (
   UTxO' (..),
  )
 import Cardano.Ledger.Coin as X (Coin (..))
+import Hydra.Cardano.Api.Network as X (networkIdToNetwork)
 import Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,

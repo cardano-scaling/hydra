@@ -36,7 +36,6 @@ import Hydra.Tx (
  )
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
-import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
@@ -273,12 +272,8 @@ data Chain tx m = Chain
   -- Errors are handled at the call site.
   , draftRecoverTx ::
       MonadThrow m =>
-      CurrencySymbol ->
-      UTxOType tx ->
-      UTxOType tx ->
-      POSIXTime ->
-      SlotNo ->
       TxIn ->
+      SlotNo ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a recover transaction which unlocks deposited funds.
   , submitTx :: MonadThrow m => tx -> m ()
