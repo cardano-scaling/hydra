@@ -1,3 +1,4 @@
+# Continuous integration of the hydra project
 name: "CI"
 
 # Limit concurrent runs of this workflow within a single PR
@@ -20,19 +21,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  build-test:
-    name: "Build & test"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: plutus-cbor
-          - package: plutus-merkle-tree
-          - package: hydra-plutus
-          - package: hydra-tui
-          - package: hydra-node
-          - package: hydra-tx
-          - package: hydra-cluster
+  # Build, test, benchmark and generate haskell documentation
+  build:
+    name: "Build"
+    runs-on: ["Linux", "X64", "explorer"]
+    # TODO: only use runs-on: ["Linux", "X64"]
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -50,169 +43,50 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: ❓ Test
-      if: ${{ matrix.package != 'hydra-tui' }}
-      run: |
-        cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --command tests
+    # TODO: Use a dev shell that does only contain build tools (but no HLS etc)
+    - name: Set up and use the default devShell
+      uses: nicknovitski/nix-develop@v1
 
-    # This one is special, as it requires a tty.
-    - name: ❓ Test (TUI)
-      id: test_tui
-      if: ${{ matrix.package == 'hydra-tui' }}
+    - name: 🔨 Build
+      run: |
+        cabal build all
+
+    - name: 🧪 Test
+      # The default shell does not allocate a TTY which is needed by hydra-tui
       # https://giters.com/gfx/example-github-actions-with-tty
-      # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
       run: |
-        cd ${{ matrix.package  }}
-        nix build .#${{ matrix.package }}-tests
-        nix develop .#${{ matrix.package }}-tests --command tests
+        cabal test all
 
-    - name: 💾 Upload build & test artifacts
+    - name: 💾 Upload test results
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.package }}
+        name: test-results
         path: |
           ./**/test-results.xml
           ./**/hspec-results.md
         if-no-files-found: ignore
-
-    # NOTE: This depends on the path used in hydra-cluster e2e tests
-    - name: 💾 Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-cluster-e2e-test-logs
-        path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
-        if-no-files-found: ignore
-
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v4
-      with:
-       pattern: test-results-*
-       merge-multiple: true
 
     - name: ✏ Publish test results to PR
       uses: EnricoMi/publish-unit-test-result-action@v2
       with:
         junit_files: ./**/test-results.xml
 
-  haddock:
-    name: "Build haddock using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V28
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: 📚 Documentation (Haddock)
-      run: |
-        nix build .#haddocks
-        mkdir -p haddocks
-        cp -aL result/* haddocks/
-
-    - name: 💾 Upload haddock artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: haddocks
-        path: haddocks
-
-  benchmarks:
-    name: "Benchmarks"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: hydra-node
-            bench: tx-cost
-            options: '--output-directory $(pwd)/../benchmarks'
-          - package: hydra-node
-            bench: micro
-            options: '-o $(pwd)/../benchmarks/ledger-bench.html'
-          - package: hydra-cluster
-            bench: bench-e2e
-            options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
-          - package: plutus-merkle-tree
-            bench: on-chain-cost
-            options: '$(pwd)/../benchmarks'
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V28
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
     - name: 📈 Benchmark
       run: |
         mkdir -p benchmarks
-        cd ${{ matrix.package }}
-        nix build .#${{ matrix.package }}-bench
-        nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
+        cabal bench on-chain-cost --benchmark-options "${PWD}/benchmarks"
+        cabal bench tx-cost --benchmark-options "--output-directory ${PWD}/benchmarks"
+        cabal bench micro --benchmark-options "-o ${PWD}/benchmarks/ledger-bench.html"
+        cabal bench bench-e2e --benchmark-options "datasets datasets/1-node.json datasets/3-nodes.json --output-directory ${PWD}/benchmarks --timeout 1000s"
 
-    - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmarks-${{matrix.package}}-${{matrix.bench}}
-        path: benchmarks
-
-    # NOTE: This depends on the path used in hydra-cluster bench
-    - name: 💾 Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-cluster-bench-logs
-        path: /tmp/nix-shell.*/bench-*/**/*.log
-        if-no-files-found: ignore
-
-  publish-benchmark-results:
-    name: Publish benchmark results
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    # TODO: this is actually only requires the tx-cost benchmark results
-    needs: [benchmarks]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v4
-      with:
-        path: artifact
-        pattern: benchmarks-*
-        merge-multiple: true
-
-    - name: ⚙ Prepare comment body
+    - name: ⚙ Prepare benchmark comment body
       id: comment-body
       run: |
         # Drop first 5 header lines and demote headlines one level
-        cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
+        cat <(cat benchmarks/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat benchmarks/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
 
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v3
@@ -230,6 +104,34 @@ jobs:
         issue-number: ${{ github.event.pull_request.number }}
         body-file: comment-body.md
         reactions: rocket
+
+    - name: 💾 Upload benchmarks
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmarks
+        path: benchmarks
+
+    # NOTE: This depends on the path used in hydra-cluster e2e tests
+    - name: 💾 Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-cluster-e2e-test-logs
+        path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
+        if-no-files-found: ignore
+
+    - name: 📚 Documentation (Haddock)
+      # TODO: use cabal haddock-project instead
+      run: |
+        nix build .#haddocks
+        mkdir -p haddocks
+        cp -aL result/* haddocks/
+
+    - name: 💾 Upload haddocks
+      uses: actions/upload-artifact@v4
+      with:
+        name: haddocks
+        path: haddocks
 
   nix-flake-check:
     name: "nix flake check"
@@ -254,7 +156,6 @@ jobs:
     - name: ❄ Nix Flake Check
       run: |
         nix flake check -L
-
 
   build-specification:
     name: "Build specification using nix"
@@ -289,7 +190,7 @@ jobs:
 
   documentation:
     name: Documentation
-    needs: [haddock,benchmarks,build-test,build-specification]
+    needs: [build,build-specification]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
