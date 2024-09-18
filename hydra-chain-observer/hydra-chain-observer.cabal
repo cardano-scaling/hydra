@@ -66,6 +66,7 @@ library
   ghc-options:     -haddock
   build-depends:
     , blockfrost-client
+    , cardano-ledger-byron
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
@@ -74,8 +75,10 @@ library
     , optparse-applicative
     , ouroboros-network-protocols
     , retry
+    , safe-money
 
   exposed-modules:
+    Hydra.Blockfrost.Adapter
     Hydra.Blockfrost.ChainObserver
     Hydra.ChainObserver
     Hydra.ChainObserver.NodeClient

@@ -7,17 +7,15 @@ import Hydra.Prelude
 import Hydra.Logging (Tracer, traceWith)
 
 import Blockfrost.Client (
-  Block (..),
   getLatestBlock,
   projectFromEnv,
   runBlockfrost,
-  unBlockHash,
-  unSlot,
  )
 import Control.Retry (RetryPolicyM, exponentialBackoff, limitRetries)
 
-import Hydra.Cardano.Api (BlockNo, Hash, NetworkId, SlotNo, Tx, UTxO)
-import Hydra.Cardano.Api.Prelude (BlockHeader (..), ChainPoint (..))
+import Hydra.Blockfrost.Adapter (toChainPoint)
+import Hydra.Cardano.Api (BlockNo, NetworkId, Tx, UTxO)
+import Hydra.Cardano.Api.Prelude (ChainPoint (..))
 import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (ChainObservation (..), ChainObserverLog (..), NodeClient (..), ObserverHandler, logOnChainTx, observeAll)
 import Hydra.Tx (txId)
@@ -35,6 +33,7 @@ blockfrostClient tracer = do
         prj <- projectFromEnv
         -- TODO! prj carries an environment and a token itself.
         traceWith tracer ConnectingToExternalNode{networkId}
+
         chainPoint <- case startChainFrom of
           Nothing -> do
             latestBlocks <- runBlockfrost prj getLatestBlock
@@ -85,16 +84,6 @@ rollBackward tracer point currentUTxO = do
   pure currentUTxO
 
 -- * Helpers
-
-toChainPoint :: Block -> ChainPoint
-toChainPoint Block{_blockSlot, _blockHash} =
-  ChainPoint slotNo headerHash
- where
-  slotNo :: SlotNo
-  slotNo = maybe 0 (fromInteger . unSlot) _blockSlot
-
-  headerHash :: Hash BlockHeader
-  headerHash = fromString . toString $ unBlockHash _blockHash
 
 retryPolicy :: MonadIO m => RetryPolicyM m
 retryPolicy = exponentialBackoff 50000 <> limitRetries 5
