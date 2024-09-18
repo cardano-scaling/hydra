@@ -39,12 +39,17 @@ recoverTx networkId headId depositTxIn deposited deadline lowerBoundSlot =
  where
   recoverInputs = (,depositWitness) <$> [depositTxIn]
 
-  redeemer = Deposit.Recover $ fromIntegral $ length depositOutputs
+  redeemer = toScriptData $ Deposit.Recover $ fromIntegral $ length depositOutputs
 
   depositWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptWitness depositScript (mkScriptDatum constructedDatum) (toScriptData redeemer)
+        mkScriptWitness depositScript InlineScriptDatum redeemer
+
+  -- depositWitness =
+  --   BuildTxWith $
+  --     ScriptWitness scriptWitnessInCtx $
+  --       mkScriptWitness depositScript (mkScriptDatum constructedDatum) (toScriptData redeemer)
 
   constructedDatum = (headId, deadline, deposited)
 

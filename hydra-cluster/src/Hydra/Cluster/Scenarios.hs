@@ -39,7 +39,6 @@ import Hydra.Cardano.Api (
   File (File),
   Key (SigningKey),
   PaymentKey,
-  SlotNo (..),
   Tx,
   TxId,
   UTxO,
@@ -652,67 +651,78 @@ canCommit tracer workDir node hydraScriptsTxId =
 -- | Open a a single participant head, deposit and then recover it.
 canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canRecoverDeposit tracer workDir node hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 30_000_000
-    let contestationPeriod = UnsafeContestationPeriod 1
-    aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-        <&> setNetworkId networkId
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+  (`finally` returnFundsToFaucet tracer node Alice) $
+    (`finally` returnFundsToFaucet tracer node Bob) $ do
+      refuelIfNeeded tracer node Alice 30_000_000
+      refuelIfNeeded tracer node Bob 30_000_000
+      let contestationPeriod = UnsafeContestationPeriod 1
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId
+      bobChainConfig <-
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
-      -- Commit nothing
-      requestCommitTx n1 mempty >>= submitTx node
-      waitFor hydraTracer (10 * blockTime) [n1] $
-        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= submitTx node
+          requestCommitTx n2 mempty >>= submitTx node
 
-      -- Get some L1 funds
-      (walletVk, walletSk) <- generate genKeyPair
-      let commitAmount = 5_000_000
-      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
-      let depositRequest = object ["utxo" .= commitUTxO]
-      resp <-
-        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-          <&> setRequestBodyJSON depositRequest
-            >>= httpJSON
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
-      ChainPoint slotNo _ <- queryTip networkId nodeSocket
+          -- stop the second node here
+          pure ()
 
-      let depositTransaction = getResponseBody resp :: Tx
-      let tx = signTx walletSk depositTransaction
+        -- Get some L1 funds
+        (walletVk, walletSk) <- generate genKeyPair
+        let commitAmount = 5_000_000
+        commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
 
-      let recoverRequest =
-            object
-              [ "recoverHeadId" .= headId
-              , "recoverUTxO" .= commitUTxO
-              , "depositUTxO" .= utxoFromTx tx
-              , "recoverStart" .= SlotNo (unSlotNo slotNo + 700)
-              ]
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue commitAmount
 
-      let queryStr = BSC.unpack $ Base16.encode $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
+        let depositRequest = object ["utxo" .= commitUTxO]
+        resp <-
+          parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+            <&> setRequestBodyJSON depositRequest
+              >>= httpJSON
 
-      submitTx node tx
+        let depositTransaction = getResponseBody resp :: Tx
 
-      recoverResp <-
-        parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits?" <> queryStr)
-          <&> setRequestBodyJSON recoverRequest
-            >>= httpJSON
+        let tx = signTx walletSk depositTransaction
 
-      let recoverTransaction = getResponseBody recoverResp :: Tx
+        submitTx node tx
 
-      let recoverTx = signTx walletSk recoverTransaction
+        waitForAllMatch 10 [n1] $ \v -> do
+          guard $ v ^? key "tag" == Just "CommitRecorded"
+          pure ()
 
-      putStrLn $ "Recover transaction: " <> show recoverTx
+        ChainPoint slotNo _ <- queryTip networkId nodeSocket
+        let recoverRequest =
+              object
+                [ "recoverStart" .= slotNo
+                ]
 
-      waitFor hydraTracer 10 [n1] $
-        output "RecoverApproved" ["headId" .= headId, "recoverTx" .= recoverTx]
+        let queryStr = BSC.unpack $ Base16.encode $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
 
-      waitFor hydraTracer 10 [n1] $
-        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (mempty :: UTxO)]
+        _recoverResp :: L.Response String <-
+          -- TODO: use slash instead of question mark to utilize the path instead of query params
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits?" <> queryStr)
+            <&> setRequestBodyJSON recoverRequest
+              >>= httpJSON
 
-      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
-        `shouldReturn` lovelaceToValue commitAmount
+        waitForAllMatch 10 [n1] $ \v -> do
+          guard $ v ^? key "tag" == Just "RecoverApproved"
+          pure ()
+
+        threadDelay 10
+
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue commitAmount
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 

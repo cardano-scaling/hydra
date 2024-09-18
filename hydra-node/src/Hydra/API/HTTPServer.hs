@@ -77,10 +77,7 @@ data DraftCommitTxRequest tx
       { utxo :: UTxOType tx
       }
   | IncrementalCommitRecoverRequest
-      { recoverHeadId :: HeadId
-      , recoverUTxO :: UTxOType tx
-      , depositUTxO :: UTxOType tx
-      , recoverStart :: Natural
+      { recoverStart :: Natural
       }
   deriving stock (Generic)
 
@@ -89,12 +86,9 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    IncrementalCommitRecoverRequest{recoverHeadId, recoverUTxO, depositUTxO, recoverStart} ->
+    IncrementalCommitRecoverRequest{recoverStart} ->
       object
-        [ "recoverHeadId" .= toJSON recoverHeadId
-        , "recoverUTxO" .= toJSON recoverUTxO
-        , "depositUTxO" .= toJSON depositUTxO
-        , "recoverStart" .= toJSON recoverStart
+        [ "recoverStart" .= toJSON recoverStart
         ]
     IncrementalCommitDepositRequest{utxo} ->
       object
@@ -123,11 +117,8 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       pure IncrementalCommitDepositRequest{utxo}
 
     recoverVariant = withObject "IncrementalCommitRecoverRequest" $ \o -> do
-      recoverHeadId <- o .: "recoverHeadId"
-      recoverUTxO <- o .: "recoverUTxO"
-      depositUTxO <- o .: "depositUTxO"
       recoverStart <- o .: "recoverStart"
-      pure IncrementalCommitRecoverRequest{recoverHeadId, recoverUTxO, depositUTxO, recoverStart}
+      pure IncrementalCommitRecoverRequest{recoverStart}
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), Eq (UTxOType tx), Monoid (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary =
@@ -135,14 +126,14 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Eq (UTxOType tx), Monoid (UTxOT
       [ FullCommitRequest <$> arbitrary <*> arbitrary
       , SimpleCommitRequest <$> arbitrary
       , IncrementalCommitDepositRequest <$> arbitrary `suchThat` (/= mempty)
-      , IncrementalCommitRecoverRequest <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+      , IncrementalCommitRecoverRequest <$> arbitrary
       ]
 
   shrink = \case
     SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
     FullCommitRequest a b -> FullCommitRequest <$> shrink a <*> shrink b
     IncrementalCommitDepositRequest a -> IncrementalCommitDepositRequest <$> shrink a
-    IncrementalCommitRecoverRequest a b c d -> IncrementalCommitRecoverRequest <$> shrink a <*> shrink b <*> shrink c <*> shrink d
+    IncrementalCommitRecoverRequest a -> IncrementalCommitRecoverRequest <$> shrink a
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -257,8 +248,10 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId utxo = do
-    -- TODO: How to make this configurable for testing?
-    deadline <- getCurrentTime <&> addUTCTime 60
+    -- TODO: How to make this configurable for testing? Right now this is just
+    -- set to current time in order to have easier time testing the recover.
+    -- Perhaps use contestation deadline to come up with a meaningful value?
+    deadline <- getCurrentTime -- <&> addUTCTime 60
     draftDepositTx headId utxo deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
@@ -296,12 +289,11 @@ handleRecoverCommitUtxo directChain getCommitInfo putClientInput recoverQuery bo
       getCommitInfo >>= \case
         IncrementalCommit _ -> do
           case someCommitRequest of
-            IncrementalCommitRecoverRequest{recoverHeadId, recoverUTxO, depositUTxO, recoverStart} -> do
-              deadline <- posixFromUTCTime <$> getCurrentTime
+            IncrementalCommitRecoverRequest{recoverStart} -> do
               case checkRecover recoverQuery of
                 Left err -> pure err
                 Right recoverTxIn ->
-                  recoverDeposit recoverHeadId recoverUTxO depositUTxO deadline recoverStart recoverTxIn >>= \case
+                  recoverDeposit recoverStart recoverTxIn >>= \case
                     Left err -> pure $ responseLBS status500 [] (Aeson.encode $ toJSON err)
                     Right recoverTx -> do
                       putClientInput Recover{recoverTx}
@@ -309,8 +301,8 @@ handleRecoverCommitUtxo directChain getCommitInfo putClientInput recoverQuery bo
             _ -> pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Invalid request: expected a IncrementalCommitRecoverRequest")
         _ -> pure (responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx)))
  where
-  recoverDeposit recoverHeadId recoverUTxO depositUTxO recoverDeadline recoverStart txIn = do
-    draftRecoverTx (headIdToCurrencySymbol recoverHeadId) recoverUTxO depositUTxO recoverDeadline (SlotNo $ fromIntegral recoverStart) txIn <&> \case
+  recoverDeposit recoverStart txIn = do
+    draftRecoverTx txIn (SlotNo $ fromIntegral recoverStart) <&> \case
       Left e -> Left e
       Right recoverTx -> Right recoverTx
 
