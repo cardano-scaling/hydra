@@ -321,8 +321,16 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
+
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
+        -- Spec: T̂ ← T̂ ⋃ {tx}
+        -- Spec: T̂ ← T̂ ⋃ {tx}
+        --       L̂  ← L̂ ◦ tx
+        --       L̂  ← L̂ ◦ tx
+
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -412,7 +420,25 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+
+    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
@@ -736,24 +762,29 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientRecover ::
+  IsTx tx =>
   HeadId ->
+  CoordinatedHeadState tx ->
   tx ->
   Outcome tx
-onOpenClientRecover headId recoverTx =
-  causes
-    [ OnChainEffect
-        { postChainTx =
-            RecoverTx
-              { headId
-              , recoverTx = recoverTx
-              }
-        }
-    , ClientEffect
-        ServerOutput.RecoverApproved
-          { headId
-          , recoverTx = recoverTx
+onOpenClientRecover headId coordinatedHeadState recoverTx =
+  newState RecoverRecorded{recoverUTxO = utxoFromTx recoverTx, newLocalUTxO = localUTxO `withoutUTxO` utxoFromTx recoverTx}
+    <> causes
+      [ OnChainEffect
+          { postChainTx =
+              RecoverTx
+                { headId
+                , recoverTx = recoverTx
+                }
           }
-    ]
+      , ClientEffect
+          ServerOutput.RecoverApproved
+            { headId
+            , recoverTx = recoverTx
+            }
+      ]
+ where
+  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
 -- | Client request to decommit UTxO from the head.
 --
@@ -918,18 +949,20 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
 
 onOpenChainDepositTx ::
   IsTx tx =>
+  HeadId ->
   Environment ->
   OpenState tx ->
   UTxOType tx ->
   UTxOType tx ->
   Outcome tx
-onOpenChainDepositTx env st deposited utxo =
+onOpenChainDepositTx headId env st deposited utxo =
   waitOnUnresolvedDecommit $
     waitOnUnresolvedCommit $
       if not snapshotInFlight && isLeader parameters party nextSn
         then -- TODO: here we include the deposit UTxO to localUTxO before actually signing a snapshot. revisit this.
 
           newState CommitRecorded{depositScriptUTxO = utxo, commitUTxO = deposited, newLocalUTxO = localUTxO <> deposited}
+            <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited})
             <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
@@ -1264,14 +1297,14 @@ update env ledger st ev = case (st, ev) of
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
-  (Open OpenState{headId}, ClientInput Recover{recoverTx}) -> do
-    onOpenClientRecover headId recoverTx
+  (Open OpenState{headId, coordinatedHeadState}, ClientInput Recover{recoverTx}) -> do
+    onOpenClientRecover headId coordinatedHeadState recoverTx
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, utxo}})
-    | ourHeadId == headId -> onOpenChainDepositTx env openState deposited utxo
+    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited utxo
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, committedUTxO}})
@@ -1384,6 +1417,19 @@ aggregate st = \case
                   { localUTxO = newLocalUTxO
                   , commitUTxO = Just commitUTxO
                   , depositScriptUTxO = Just depositScriptUTxO
+                  }
+            }
+    _otherState -> st
+  RecoverRecorded{recoverUTxO, newLocalUTxO} -> case st of
+    Open
+      os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { localUTxO = newLocalUTxO
+                  , commitUTxO = Nothing -- TODO: compare if recover and commit UTxO are matching
+                  , depositScriptUTxO = Nothing
                   }
             }
     _otherState -> st
@@ -1612,6 +1658,7 @@ recoverChainStateHistory initialChainState =
     HeadAborted{chainState} -> pushNewState chainState history
     HeadOpened{chainState} -> pushNewState chainState history
     TransactionAppliedToLocalUTxO{} -> history
+    RecoverRecorded{} -> history
     CommitRecorded{} -> history
     DecommitRecorded{} -> history
     SnapshotRequestDecided{} -> history
