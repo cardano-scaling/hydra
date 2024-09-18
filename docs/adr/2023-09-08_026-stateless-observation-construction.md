@@ -1,14 +1,14 @@
 ---
 slug: 26
 title: |
-  26. Stateless transaction observaion & construction
-authors: []
-tags: [Draft]
+  26. Stateless transaction observation & construction
+authors: [ch1bo]
+tags: [Proposed]
 ---
 
 ## Status
 
-Draft
+Proposed
 
 ## Context
 

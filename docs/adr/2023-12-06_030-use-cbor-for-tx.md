@@ -3,12 +3,12 @@ slug: 30
 title: |
   30. Use CBOR in external representation of Cardano transactions
 authors: [abailly]
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 

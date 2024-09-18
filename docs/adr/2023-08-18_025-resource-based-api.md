@@ -3,12 +3,12 @@ slug: 25
 title: |
   25. Event-sourced, resource-based API
 authors: []
-tags: [Draft]
+tags: [Proposed]
 ---
 
 ## Status
 
-Draft
+Proposed
 
 ## Context
 

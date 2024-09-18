@@ -3,12 +3,12 @@ slug: 19
 title: | 
   19. Use of reference scripts
 authors: []
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
