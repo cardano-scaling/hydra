@@ -8,26 +8,26 @@ Additional implementation-specific documentation for the Hydra Head protocol and
 
 ```mermaid
 sequenceDiagram
-    Alice->>+Node A: POST /commit (UTxO, UTCTime)
+    Alice->>+Node A: POST /commit UTxO
     Node A-->>-Alice: depositTx
 
     Alice ->> Alice: sign depositTx
-    Alice ->> Alice: submit depositTx
+    Alice ->> Chain: submit depositTx
 
     Chain ->>+ Node A: OnDepositTx utxo
     Chain ->>+ Node B: OnDepositTx utxo
 
     Node A -->> Alice: DepositDetected
 
-    Node A -->> Alice: CommitRequested
-
     par Alice isLeader
-        Node A->>Node A: ReqSn utxo
+        Node A->>Node A: ReqSn utxoToCommit
     and
-        Node A->>Node B: ReqSn utxo
+        Node A->>Node B: ReqSn utxoToCommit
     end
 
-    Node A->>Node A: sig = sign snapshot incl. inputs(commitTx)
+    Node A -->> Alice: CommitRequested
+
+    Node A->>Node A: sig = sign snapshot incl. utxoToCommit
 
     par broadcast
         Node A->>Node A: AckSn sig
@@ -48,11 +48,14 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    Alice->>+Node A: DELETE /commit/tx-in (UTxO, UTCTime, SlotNo)
-    Node A-->>-Alice: recoverTx
+    Alice->>+Node A: DELETE /commits/<tx-in>
+    Node A->>Chain: recoverTx
+    Chain ->>+ Node A: OnRecoverTx utxo
+    Chain ->>+ Node B: OnRecoverTx utxo
+    Node A -->>- Alice: CommitRecovered
+    Node B -->>- Bob: CommitRecovered
+    Node A-->>-Alice: OK
 
-    Alice ->> Alice: sign recoverTx
-    Alice ->> Alice: submit recoverTx
 ```
 
 ### Incremental Decommits
