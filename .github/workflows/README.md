@@ -1,17 +1,37 @@
 This explains how to install a cardano runner for the Hydra project.
 
-This runner is used by our smoke-tests and allows us to keep on disk
-an, as up to date as possible, cardano-node database.
+This runner is used by our smoke-tests and allows us to keep on disk an, as up to date as possible, cardano-node database.
 
-# prepare pre-requisites
+# Instance requirements
+
+To host cardano-node instances for `preview`, `preprod` and `mainnet` we need *at least*:
+
+- 150GB of disk space
+- 18GB of RAM 
+
+In AWS an `r5.xlarge` instance type would fit.
+
+# Instance access
+
+Use a shared key to create the instance, connect to it and ensure core
+contributors have access to it using their SSH keys from github. For example:
+
+``` shell
+for GHUSER in ch1bo ffakenz v0d1ch locallycompact noonio; do
+  echo "# ${GHUSER}" >> ~/.ssh/authorized_keys
+  curl https://github.com/${GHUSER}.keys >> ~/.ssh/authorized_keys
+done
+```
+
+# Prepare pre-requisites
 
 Install the following pre-requisites:
 * `git`
 * `docker`
 
-For instance on Debian:
+For instance on Ubuntu:
 ```bash
-sudo apt install git docker
+sudo apt install git docker.io
 ```
 
 Prepare the common directory for cardano database:
@@ -37,6 +57,12 @@ PATH=$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/us
 NIX_PROFILES="/nix/var/nix/profiles/default $HOME/.nix-profile"
 NIX_SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 EOF
+```
+
+Nix should be installed by our actions. However we saw that the github token installed into `/etc/nix/nix.conf` might not be kept up-to-date. Removing it seems to be fine
+
+``` shell
+sudo sed '/access-tokens/d' -i /etc/nix/nix.conf
 ```
 
 # Install github runner as a systemd unit
