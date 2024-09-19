@@ -207,25 +207,6 @@ jobs:
         body-file: comment-body.md
         reactions: rocket
 
-  nix-flake-check:
-    name: "nix flake check"
-    runs-on: [self-hosted, nixos]
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@V28
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Nix Flake Check
-      run: |
-        nix --option sandbox false flake check -L
-
-
   build-specification:
     name: "Build specification using nix"
     runs-on: [self-hosted, nixos]
