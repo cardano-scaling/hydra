@@ -22,7 +22,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: 📐 Check code formatting
       run: |

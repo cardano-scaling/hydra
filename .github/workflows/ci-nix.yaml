@@ -48,7 +48,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❓ Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -123,7 +123,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: 📚 Documentation (Haddock)
       run: |
@@ -170,7 +170,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: 📈 Benchmark
       run: |
@@ -249,7 +249,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❄ Nix Flake Check
       run: |
@@ -274,7 +274,7 @@ jobs:
       uses: cachix/cachix-action@v15
       with:
         name: cardano-scaling
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❄ Build specification PDF
       run: |
