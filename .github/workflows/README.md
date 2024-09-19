@@ -28,10 +28,17 @@ done
 Install the following pre-requisites:
 * `git`
 * `docker`
+* `docker compose`
 
 For instance on Ubuntu:
 ```bash
-sudo apt install git docker.io
+sudo apt install git docker.io docker-compose-v2
+```
+
+Ensure we can run docker commands:
+
+``` bash
+sudo usermod -aG docker $(whoami)
 ```
 
 Prepare the common directory for cardano database:
