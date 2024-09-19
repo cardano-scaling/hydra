@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 spec :: Spec
 spec = do
   it "Should throw if it can't write on disk" $ do
-    result <- genHydraKeys (GenerateKeyPair "/unexisting_directory")
+    result <- genHydraKeys (GenerateKeyPair "/unexisting/directory")
     case result of
       Left (_ :: FileError e) -> pure ()
       Right _ -> expectationFailure "getHydraKeys should have failed with FileError"

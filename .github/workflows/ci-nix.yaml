@@ -253,7 +253,7 @@ jobs:
 
     - name: ❄ Nix Flake Check
       run: |
-        nix flake check -L
+        nix --option sandbox false flake check -L
 
 
   build-specification:

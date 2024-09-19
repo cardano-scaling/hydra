@@ -124,6 +124,26 @@
                     value = addWerror v;
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+          makeTest = (import (nixpkgsLatest + "/nixos/lib/testing-python.nix") { inherit system; }).makeTest;
+          makeHydraVMTest = { name, systemPackages, ... }: makeTest {
+            inherit name;
+            nodes = {
+              testNode = { ... }: {
+                environment = { inherit systemPackages; };
+                networking.firewall.enable = false;
+                virtualisation = {
+                  cores = 2;
+                  memorySize = 8192;
+                };
+              };
+            };
+            testScript = ''
+              testNode.wait_for_unit("multi-user.target")
+              testNode.succeed("cp ${self}/${name} . -r")
+              testNode.succeed("cd ${name} && TERM=xterm-256color ${hsPkgs.${name}.components.tests.tests}/bin/tests")
+            '';
+
+          };
         in
         {
           legacyPackages = pkgs // hsPkgs;
@@ -152,6 +172,37 @@
               ];
               treefmt = pkgs.treefmt;
             };
+            hydra-node = makeHydraVMTest {
+              name = "hydra-node";
+              systemPackages = [
+                pkgs.cardano-node
+                pkgs.cardano-cli
+                pkgs.check-jsonschema
+              ];
+            };
+
+            hydra-tui = makeHydraVMTest {
+              name = "hydra-tui";
+              systemPackages = [
+                pkgs.cardano-node
+                pkgs.cardano-cli
+                hydraPackages.hydra-node
+              ];
+            };
+
+            hydra-cluster = makeHydraVMTest {
+              name = "hydra-cluster";
+              systemPackages = [
+                pkgs.cardano-node
+                pkgs.cardano-cli
+                pkgs.check-jsonschema
+                pkgs.mithril-client-cli
+                hydraPackages.hydra-chain-observer
+                hydraPackages.hydra-explorer
+                hydraPackages.hydra-node
+              ];
+            };
+
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
             "hydra-cardano-api"
             "hydra-chain-observer"
