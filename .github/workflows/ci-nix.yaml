@@ -47,7 +47,7 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
-        name: cardano-scaling
+        name: cardano-scaling-hydra
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❓ Test
@@ -122,7 +122,7 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
-        name: cardano-scaling
+        name: cardano-scaling-hydra
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: 📚 Documentation (Haddock)
@@ -169,7 +169,7 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
-        name: cardano-scaling
+        name: cardano-scaling-hydra
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: 📈 Benchmark
@@ -248,7 +248,7 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
-        name: cardano-scaling
+        name: cardano-scaling-hydra
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❄ Nix Flake Check
@@ -273,7 +273,7 @@ jobs:
     - name: ❄ Cachix cache of nix derivations
       uses: cachix/cachix-action@v15
       with:
-        name: cardano-scaling
+        name: cardano-scaling-hydra
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_HYDRA_AUTH_TOKEN }}'
 
     - name: ❄ Build specification PDF
