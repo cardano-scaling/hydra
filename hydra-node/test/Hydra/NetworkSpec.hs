@@ -37,7 +37,8 @@ spec = do
       -- TODO: should add somewhat re-usable tests corresponding to properties
       -- of network layer, like: validity
 
-      it "broadcasts to self" $ \tracer ->
+      it "broadcasts to self" $ \tracer -> do
+        pendingWith "etcd is not stopping correctly"
         failAfter 5 $
           withTempDir "test-etcd" $ \tmp -> do
             withFreePort $ \port -> do
@@ -59,6 +60,7 @@ spec = do
                 r `shouldSatisfy` \msg -> msg == "asdf"
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
+        pendingWith "etcd is not stopping correctly"
         withTempDir "test-etcd" $ \tmp -> do
           received <- atomically newTQueue
           let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
