@@ -58,7 +58,14 @@ jobs:
       env:
         TERM: "xterm"
       run: |
-        cabal test all
+        # NOTE: Individual invocation because of test polution
+        cabal test hydra-plutus
+        cabal test hydra-tx
+        cabal test hydra-node
+        cabal test hydra-cluster
+        cabal test hydra-chain-observer
+        cabal test hydra-tui
+        cabal test hydra-explorer
 
     - name: 💾 Upload test results
       uses: actions/upload-artifact@v4
