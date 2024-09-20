@@ -1000,10 +1000,10 @@ onOpenChainRecoverTx ::
   UTxOType tx ->
   Outcome tx
 onOpenChainRecoverTx headId st recoveredUTxO =
-  newState RecoverFinalized{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
+  newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
     <> cause
       ( ClientEffect
-          ServerOutput.RecoverFinalized
+          ServerOutput.CommitRecovered
             { headId
             , recoveredUTxO
             }
@@ -1442,7 +1442,7 @@ aggregate st = \case
                   }
             }
     _otherState -> st
-  RecoverFinalized{newLocalUTxO} -> case st of
+  CommitRecovered{newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1680,7 +1680,7 @@ recoverChainStateHistory initialChainState =
     HeadAborted{chainState} -> pushNewState chainState history
     HeadOpened{chainState} -> pushNewState chainState history
     TransactionAppliedToLocalUTxO{} -> history
-    RecoverFinalized{} -> history
+    CommitRecovered{} -> history
     CommitRecorded{} -> history
     DecommitRecorded{} -> history
     SnapshotRequestDecided{} -> history

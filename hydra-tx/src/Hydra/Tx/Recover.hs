@@ -46,13 +46,6 @@ recoverTx networkId headId depositTxIn deposited deadline lowerBoundSlot =
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum redeemer
 
-  -- depositWitness =
-  --   BuildTxWith $
-  --     ScriptWitness scriptWitnessInCtx $
-  --       mkScriptWitness depositScript (mkScriptDatum constructedDatum) (toScriptData redeemer)
-
-  constructedDatum = (headId, deadline, deposited)
-
   depositOutputs = toTxContext . snd <$> mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId)) deposited
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
