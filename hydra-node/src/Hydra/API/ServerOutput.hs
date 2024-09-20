@@ -141,7 +141,7 @@ data ServerOutput tx
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | RecoverApproved {headId :: HeadId, recoverTx :: tx}
+  | RecoverFinalized {headId :: HeadId, recoveredUTxO :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -199,7 +199,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecorded headId u -> CommitRecorded headId <$> shrink u
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
-    RecoverApproved headId tx -> RecoverApproved headId <$> shrink tx
+    RecoverFinalized headId tx -> RecoverFinalized headId <$> shrink tx
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
 
@@ -257,7 +257,7 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     DecommitFinalized{} -> encodedResponse
     CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
-    RecoverApproved{} -> encodedResponse
+    RecoverFinalized{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

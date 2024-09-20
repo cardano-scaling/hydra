@@ -248,6 +248,28 @@ aggregateDepositObservation headId point blockNo currentHeads =
       , blockNo = blockNo
       }
 
+aggregateRecoverObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
+aggregateRecoverObservation headId point blockNo currentHeads =
+  case findHeadState headId currentHeads of
+    Just headState ->
+      let newHeadState = headState{status = Open}
+       in replaceHeadState newHeadState currentHeads
+    Nothing -> currentHeads <> [newUnknownHeadState]
+ where
+  newUnknownHeadState =
+    HeadState
+      { headId
+      , seedTxIn = Unknown
+      , status = Open
+      , contestationPeriod = Unknown
+      , members = Unknown
+      , contestations = Seen 0
+      , snapshotNumber = Seen 0
+      , contestationDeadline = Unknown
+      , point = point
+      , blockNo = blockNo
+      }
+
 aggregateIncrementObservation :: HeadId -> ChainPoint -> BlockNo -> [HeadState] -> [HeadState]
 aggregateIncrementObservation headId point blockNo currentHeads =
   case findHeadState headId currentHeads of
@@ -411,6 +433,11 @@ aggregateHeadObservations observations explorerState =
       HeadObservation{point, blockNo, onChainTx = OnDepositTx{headId}} ->
         ExplorerState
           { heads = aggregateDepositObservation headId point blockNo heads
+          , tick = TickState point blockNo
+          }
+      HeadObservation{point, blockNo, onChainTx = OnRecoverTx{headId}} ->
+        ExplorerState
+          { heads = aggregateRecoverObservation headId point blockNo heads
           , tick = TickState point blockNo
           }
       HeadObservation{point, blockNo, onChainTx = OnIncrementTx{headId}} ->

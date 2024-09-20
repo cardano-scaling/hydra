@@ -768,23 +768,21 @@ onOpenClientRecover ::
   tx ->
   Outcome tx
 onOpenClientRecover headId coordinatedHeadState recoverTx =
-  newState RecoverRecorded{recoverUTxO = utxoFromTx recoverTx, newLocalUTxO = localUTxO `withoutUTxO` utxoFromTx recoverTx}
-    <> causes
-      [ OnChainEffect
-          { postChainTx =
-              RecoverTx
-                { headId
-                , recoverTx = recoverTx
-                }
-          }
-      , ClientEffect
-          ServerOutput.RecoverApproved
-            { headId
-            , recoverTx = recoverTx
+  -- NOTE: if recover outputs match with the deposited UTxO we can proceed
+  if (outputsOfUTxO <$> commitUTxO) == Just (outputsOfUTxO $ utxoFromTx recoverTx)
+    then
+      causes
+        [ OnChainEffect
+            { postChainTx =
+                RecoverTx
+                  { headId
+                  , recoverTx
+                  }
             }
-      ]
+        ]
+    else Error $ RequireFailed RecoverNotMatchingDeposit
  where
-  CoordinatedHeadState{localUTxO} = coordinatedHeadState
+  CoordinatedHeadState{commitUTxO} = coordinatedHeadState
 
 -- | Client request to decommit UTxO from the head.
 --
@@ -994,6 +992,26 @@ onOpenChainDepositTx headId env st deposited utxo =
     LastSeenSnapshot{} -> False
     RequestedSnapshot{} -> True
     SeenSnapshot{} -> True
+
+onOpenChainRecoverTx ::
+  IsTx tx =>
+  HeadId ->
+  OpenState tx ->
+  UTxOType tx ->
+  Outcome tx
+onOpenChainRecoverTx headId st recoveredUTxO =
+  newState RecoverFinalized{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
+    <> cause
+      ( ClientEffect
+          ServerOutput.RecoverFinalized
+            { headId
+            , recoveredUTxO
+            }
+      )
+ where
+  OpenState{coordinatedHeadState} = st
+
+  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1307,6 +1325,10 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited utxo
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO}})
+    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO
+    | otherwise ->
+        Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, committedUTxO}})
     | ourHeadId == headId ->
         onOpenChainIncrementTx openState newVersion committedUTxO
@@ -1420,7 +1442,7 @@ aggregate st = \case
                   }
             }
     _otherState -> st
-  RecoverRecorded{recoverUTxO, newLocalUTxO} -> case st of
+  RecoverFinalized{newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1428,7 +1450,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , commitUTxO = Nothing -- TODO: compare if recover and commit UTxO are matching
+                  , commitUTxO = Nothing
                   , depositScriptUTxO = Nothing
                   }
             }
@@ -1658,7 +1680,7 @@ recoverChainStateHistory initialChainState =
     HeadAborted{chainState} -> pushNewState chainState history
     HeadOpened{chainState} -> pushNewState chainState history
     TransactionAppliedToLocalUTxO{} -> history
-    RecoverRecorded{} -> history
+    RecoverFinalized{} -> history
     CommitRecorded{} -> history
     DecommitRecorded{} -> history
     SnapshotRequestDecided{} -> history

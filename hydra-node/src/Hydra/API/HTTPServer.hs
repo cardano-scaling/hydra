@@ -26,13 +26,10 @@ import Hydra.Chain.ChainState (
  )
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
-  HeadId,
   IsTx (..),
   UTxOType,
-  headIdToCurrencySymbol,
  )
 import Network.HTTP.Types (QueryItem, status200, status400, status404, status500)
 import Network.Wai (

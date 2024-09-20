@@ -95,6 +95,7 @@ import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
   IncrementObservation (..),
   NotAnInitReason (..),
+  RecoverObservation (..),
   observeCommitTx,
   observeDecrementTx,
   observeDepositTx,
@@ -334,7 +335,7 @@ spec = parallel $ do
 
     prop "observes deposit" $
       forAllDeposit $ \utxo tx ->
-        case observeDepositTx testNetworkId utxo tx of
+        case observeDepositTx testNetworkId tx of
           Just DepositObservation{} -> property True
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
@@ -446,6 +447,7 @@ prop_observeAnyTx =
           Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
           CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
           Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
+          Recover RecoverObservation{} -> transition === Transition.Deposit
           Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
           Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
           Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId

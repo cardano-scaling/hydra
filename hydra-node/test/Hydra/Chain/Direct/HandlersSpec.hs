@@ -150,6 +150,7 @@ spec = do
                       OnDecrementTx{} -> Transition.Decrement
                       OnIncrementTx{} -> Transition.Increment
                       OnDepositTx{} -> Transition.Deposit
+                      OnRecoverTx{} -> Transition.Recover
                       OnCloseTx{} -> Transition.Close
                       OnContestTx{} -> Transition.Contest
                       OnFanoutTx{} -> Transition.Fanout
