@@ -125,6 +125,10 @@ data OnChainTx tx
       , utxo :: UTxOType tx
       , deposited :: UTxOType tx
       }
+  | OnRecoverTx
+      { headId :: HeadId
+      , recoveredUTxO :: UTxOType tx
+      }
   | OnIncrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion

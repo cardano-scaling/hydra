@@ -715,11 +715,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
             <&> setRequestBodyJSON recoverRequest
               >>= httpJSON
 
-        waitForAllMatch 10 [n1] $ \v -> do
-          guard $ v ^? key "tag" == Just "RecoverApproved"
+        waitForAllMatch 20 [n1] $ \v -> do
+          guard $ v ^? key "tag" == Just "RecoverFinalized"
           pure ()
-
-        threadDelay 10
 
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount

@@ -9,7 +9,6 @@ module Hydra.Chain.Direct.State where
 
 import Hydra.Prelude hiding (init)
 
-import Cardano.Api.Tx.Body (toCtxUTxOTxOut)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)
 import Data.Map qualified as Map
@@ -41,7 +40,6 @@ import Hydra.Cardano.Api (
   genTxIn,
   isScriptTxOut,
   modifyTxOutValue,
-  resolveInputsUTxO,
   selectAsset,
   selectLovelace,
   toTxContext,
@@ -49,7 +47,6 @@ import Hydra.Cardano.Api (
   txOutScriptData,
   txOutValue,
   txSpendingUTxO,
-  utxoFromTx,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
@@ -172,6 +169,7 @@ data ChainTransition
   | Commit
   | Collect
   | Deposit
+  | Recover
   | Increment
   | Decrement
   | Close
@@ -1147,7 +1145,6 @@ genDepositTx numParties = do
   (_, st@OpenState{headId}) <- genStOpen ctx
   deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
   let tx = depositTx (ctxNetworkId ctx) headId utxo deadline
-  let openUTxO = getKnownUTxO st
   pure (cctx, st, utxo, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
@@ -1156,8 +1153,6 @@ genIncrementTx numParties = do
   cctx <- pickChainContext ctx
   utxo <- genUTxOAdaOnlyOfSize 1
   (_, st@OpenState{headId}) <- genStOpen ctx
-  deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
-  let tx = depositTx (ctxNetworkId ctx) headId utxo deadline
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId 1 version openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)

@@ -17,7 +17,6 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
-import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
@@ -105,6 +104,7 @@ data HeadObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
   | Deposit DepositObservation
+  | Recover RecoverObservation
   | Increment IncrementObservation
   | Decrement DecrementObservation
   | Close CloseObservation
@@ -123,9 +123,10 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
-      <|> Deposit <$> observeDepositTx networkId utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
+      <|> Deposit <$> observeDepositTx networkId tx
+      <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
@@ -365,10 +366,9 @@ instance Arbitrary DepositObservation where
 
 observeDepositTx ::
   NetworkId ->
-  UTxO ->
   Tx ->
   Maybe DepositObservation
-observeDepositTx networkId _utxo tx = do
+observeDepositTx networkId tx = do
   -- TODO: we will need a function to query all of the deposit outputs in order to be able to display all pending deposits
   (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
   dat <- txOutScriptData depositOut
@@ -387,6 +387,44 @@ observeDepositTx networkId _utxo tx = do
   depositScript = fromPlutusScript Deposit.validatorScript
 
   depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
+
+data RecoverObservation = RecoverObservation
+  { headId :: HeadId
+  , recoveredUTxO :: UTxO
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary RecoverObservation where
+  arbitrary = genericArbitrary
+
+observeRecoverTx ::
+  NetworkId ->
+  UTxO ->
+  Tx ->
+  Maybe RecoverObservation
+observeRecoverTx networkId utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (_, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  dat <- txOutScriptData $ toTxContext depositOut
+  Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
+  deposits <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
+    pure $ UTxO.fromPairs depositedUTxO
+  headId <- spy $ currencySymbolToHeadId headCurrencySymbol
+  let depositOuts = toTxContext . snd <$> UTxO.pairs deposits
+  -- NOTE: All deposit outputs need to be present in the recover tx outputs but
+  -- the two lists of outputs are not necesarilly the same.
+  if all (`elem` txOuts' tx) depositOuts
+    then
+      pure
+        ( RecoverObservation
+            { headId
+            , recoveredUTxO = deposits
+            }
+        )
+    else Nothing
+ where
+  depositScript = fromPlutusScript Deposit.validatorScript
 
 data IncrementObservation = IncrementObservation
   { headId :: HeadId
@@ -407,7 +445,7 @@ observeIncrementTx ::
 observeIncrementTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
-  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  (_depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
   Deposit.DepositDatum (_headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
   deposit <- do

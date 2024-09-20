@@ -13,7 +13,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -21,15 +20,12 @@ import Hydra.Cardano.Api (
   Tx,
   TxId,
   chainPointToSlotNo,
-  findTxOutByScript,
   fromPlutusScript,
   fromScriptData,
   getChainPoint,
   getTxBody,
   getTxId,
   mkScriptAddress,
-  networkIdToNetwork,
-  renderUTxO,
   toTxContext,
   txOutScriptData,
   pattern TxOut,
@@ -79,6 +75,7 @@ import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
+  RecoverObservation (..),
   headSeedToTxIn,
   observeHeadTx,
   txInToHeadSeed,
@@ -88,7 +85,6 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
@@ -97,7 +93,6 @@ import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
-  withoutUTxO,
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
@@ -199,24 +194,19 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
       draftRecoverTx = \txIn lowerValidity -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let networkId' = networkId ctx
-        let depositScript = fromPlutusScript Deposit.validatorScript
-        let depositScriptAddress = mkScriptAddress @PlutusScriptV2 networkId' depositScript
-        let commitUTxO = UTxO.fromPairs $ List.filter (\(txIn', _) -> txIn == txIn') (UTxO.pairs spendableUTxO)
+        let depositScriptAddress = mkScriptAddress @PlutusScriptV2 networkId' (fromPlutusScript Deposit.validatorScript)
         let depositUTxO = UTxO.filter (\(TxOut address _ _ _) -> address == depositScriptAddress) spendableUTxO
-        let (_, depositOutput) = List.head $ UTxO.pairs depositUTxO
-        let depositDatumAndDeposits = do
-              dat <- txOutScriptData (toTxContext depositOutput)
-              Deposit.DepositDatum datum@(_, _, onChainDeposits) <- fromScriptData dat
-              deposit <- do
-                depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId')) onChainDeposits
-                pure . UTxO.fromPairs $ depositedUTxO
-              pure (datum, deposit)
-        case depositDatumAndDeposits of
-          Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
-          Just (dat, deposits) -> do
-            let (headCurrencySymbol, deadline, commitsToRecover) = dat
-            -- TODO: Should we move recover tx argument verification to `recoverTx` function and have Either here?
-            pure $ Right (Hydra.Tx.Recover.recoverTx networkId' headCurrencySymbol txIn commitsToRecover deadline lowerValidity)
+        case UTxO.pairs depositUTxO of
+          -- We assume there is only one deposit output for a single input
+          [(_, depositOutput)] -> do
+            let depositDatum = txOutScriptData (toTxContext depositOutput) >>= fromScriptData
+            case depositDatum of
+              Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
+              Just dat -> do
+                let Deposit.DepositDatum (headCurrencySymbol, deadline, commitsToRecover) = dat
+                pure $
+                  Right (Hydra.Tx.Recover.recoverTx networkId' headCurrencySymbol txIn commitsToRecover deadline lowerValidity)
+          _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -372,6 +362,8 @@ convertObservation = \case
     pure OnCollectComTx{headId}
   Deposit DepositObservation{headId, deposited, utxo} ->
     pure OnDepositTx{headId, deposited, utxo}
+  Recover RecoverObservation{headId, recoveredUTxO} ->
+    pure OnRecoverTx{headId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, committedUTxO, depositScriptUTxO} ->
     pure OnIncrementTx{headId, newVersion, committedUTxO, depositScriptUTxO}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
@@ -428,8 +420,8 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO of
         Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
         Right incrementTx' -> pure incrementTx'
-    RecoverTx{headId, recoverTx} ->
-      pure recoverTx
+    RecoverTx{recoverTx = recoverTransaction} ->
+      pure recoverTransaction
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
