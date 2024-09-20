@@ -13,6 +13,10 @@ in
     name = "hydra-node";
     tag = "latest";
     created = "now";
+    contents = [
+      pkgs.busybox
+      pkgs.etcd
+    ];
     config = {
       Entrypoint = [ "${hydraPackages.hydra-node-static}/bin/hydra-node" ];
     };
@@ -25,6 +29,7 @@ in
     contents = [
       pkgs.iproute2
       pkgs.busybox
+      pkgs.etcd
     ];
     config = {
       Entrypoint = [ "${hydraPackages.hydra-node-static}/bin/hydra-node" ];
