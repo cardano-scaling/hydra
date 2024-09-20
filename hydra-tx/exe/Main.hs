@@ -32,8 +32,8 @@ main = do
             Just depositedTxOut -> do
               case extractInlineDatumFromTxOut @DepositDatum depositedTxOut of
                 Nothing -> die "failed to extract DepositDatum from recover UTxO"
-                Just (DepositDatum (headCS, datumDepositDeadline, deposited)) -> do
+                Just (DepositDatum (_, _, deposited)) -> do
                   let recoverTransaction =
-                        recoverTx networkId headCS recoverTxIn deposited datumDepositDeadline recoverSlotNo
+                        recoverTx networkId recoverTxIn deposited recoverSlotNo
                   writeFileLBS outFile $ textEnvelopeToJSON Nothing recoverTransaction
                   putStrLn $ "Wrote deposit transaction to " <> outFile

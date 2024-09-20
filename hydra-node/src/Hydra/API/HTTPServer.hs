@@ -261,6 +261,7 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
         case e of
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
+          CannotFindOwnInitial _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx

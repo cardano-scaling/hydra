@@ -13,7 +13,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.Deposit (healthyDepositTx, healthyDepositUTxO)
+import Hydra.Tx.Contract.Deposit (healthyDepositTx)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -50,7 +50,6 @@ healthyIncrementTx =
       (headInput, headOutput)
       healthySnapshot
       healthySignature
-      healthyDepositUTxO
       depositUTxO
 
   depositUTxO = utxoFromTx $ fst healthyDepositTx

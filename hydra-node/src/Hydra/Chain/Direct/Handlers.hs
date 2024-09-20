@@ -203,9 +203,9 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             case depositDatum of
               Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
               Just dat -> do
-                let Deposit.DepositDatum (headCurrencySymbol, deadline, commitsToRecover) = dat
+                let Deposit.DepositDatum (_, _, commitsToRecover) = dat
                 pure $
-                  Right (Hydra.Tx.Recover.recoverTx networkId' headCurrencySymbol txIn commitsToRecover deadline lowerValidity)
+                  Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
           _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
