@@ -511,7 +511,6 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameUTxOToDecommitHash
-    && hasSameUTxOToCommitHash
     && afterContestationDeadline
  where
   minted = txInfoMint txInfo
@@ -520,24 +519,15 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       fannedOutUtxoHash == utxoHash
 
-  hasSameUTxOToCommitHash =
-    traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
-      alphaUTxOHash == commitUtxoHash
-
   hasSameUTxOToDecommitHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       deltaUTxOHash == decommitUtxoHash
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
-  -- TODO: get the numberOfCommitOutputs number from the redeemer
-  numberOfCommitOutputs = 0
-
-  commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
-
   decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, alphaUTxOHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
+  ClosedDatum{utxoHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
 
   TxInfo{txInfoOutputs} = txInfo
 

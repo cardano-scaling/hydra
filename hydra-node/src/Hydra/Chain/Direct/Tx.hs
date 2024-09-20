@@ -410,7 +410,7 @@ observeRecoverTx networkId utxo tx = do
   deposits <- do
     depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
     pure $ UTxO.fromPairs depositedUTxO
-  headId <- spy $ currencySymbolToHeadId headCurrencySymbol
+  headId <- currencySymbolToHeadId headCurrencySymbol
   let depositOuts = toTxContext . snd <$> UTxO.pairs deposits
   -- NOTE: All deposit outputs need to be present in the recover tx outputs but
   -- the two lists of outputs are not necesarilly the same.

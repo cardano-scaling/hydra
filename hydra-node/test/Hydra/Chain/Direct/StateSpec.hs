@@ -436,23 +436,25 @@ prop_observeAnyTx =
   checkCoverage $ do
     forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
       forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) -> do
-        -- genericCoverTable [transition] $ do
-        let expectedHeadId = chainStateHeadId st
-        case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
-          NoHeadTx ->
-            False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
-          -- NOTE: we don't have the generated headId easily accessible in the initial state
-          Init{} -> transition === Transition.Init
-          Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
-          Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
-          CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
-          Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
-          Recover RecoverObservation{} -> transition === Transition.Deposit
-          Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
-          Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
-          Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
-          Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
-          Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+        genericCoverTable [transition] $ do
+          let expectedHeadId = chainStateHeadId st
+          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+            NoHeadTx ->
+              if transition == Transition.Recover || transition == Transition.Increment
+                then property True
+                else False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+            -- NOTE: we don't have the generated headId easily accessible in the initial state
+            Init{} -> transition === Transition.Init
+            Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
+            Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
+            CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+            Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
+            Recover RecoverObservation{} -> transition === Transition.Deposit
+            Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
+            Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
+            Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
+            Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
+            Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
   showTransition (_, _, _, t) = show t
 

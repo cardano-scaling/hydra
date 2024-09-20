@@ -701,6 +701,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
           guard $ v ^? key "tag" == Just "CommitRecorded"
           pure ()
 
+        (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` 0
+
         ChainPoint slotNo _ <- queryTip networkId nodeSocket
         let recoverRequest =
               object
@@ -716,7 +719,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
               >>= httpJSON
 
         waitForAllMatch 20 [n1] $ \v -> do
-          guard $ v ^? key "tag" == Just "RecoverFinalized"
+          guard $ v ^? key "tag" == Just "CommitRecovered"
           pure ()
 
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)

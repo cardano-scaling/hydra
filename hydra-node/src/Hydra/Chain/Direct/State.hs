@@ -11,6 +11,7 @@ import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -47,6 +48,7 @@ import Hydra.Cardano.Api (
   txOutScriptData,
   txOutValue,
   txSpendingUTxO,
+  utxoFromTx,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
@@ -112,6 +114,7 @@ import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Gen (
@@ -904,6 +907,7 @@ genChainStateWithTx =
     , genAbortWithState
     , genCommitWithState
     , genDepositWithState
+    , genRecoverWithState
     , genIncrementWithState
     , genDecrementWithState
     , genCollectWithState
@@ -943,6 +947,11 @@ genChainStateWithTx =
   genCollectWithState = do
     (ctx, _, st, tx) <- genCollectComTx
     pure (ctx, Initial st, tx, Collect)
+
+  genRecoverWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genRecoverWithState = do
+    (ctx, st, _utxo, tx) <- genRecoverTx maxGenParties
+    pure (ctx, Open st, tx, Recover)
 
   genDepositWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genDepositWithState = do
@@ -1137,11 +1146,23 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
+genRecoverTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
+genRecoverTx numParties = do
+  ctx <- genHydraContextFor numParties
+  cctx <- pickChainContext ctx
+  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
+  (_, st@OpenState{headId}) <- genStOpen ctx
+  deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
+  let depositTransaction = depositTx (ctxNetworkId ctx) headId utxo deadline
+  let (depositTxIn, _) = List.head $ UTxO.pairs (utxoFromTx depositTransaction)
+  let tx = recoverTx (ctxNetworkId ctx) depositTxIn [] 0
+  pure (cctx, st, utxo, tx)
+
 genDepositTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
-  utxo <- genUTxOAdaOnlyOfSize 1
+  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
   deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
   let tx = depositTx (ctxNetworkId ctx) headId utxo deadline
@@ -1151,11 +1172,11 @@ genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genIncrementTx numParties = do
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
-  utxo <- genUTxOAdaOnlyOfSize 1
+  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
   let openUTxO = getKnownUTxO st
-  let version = 0
-  snapshot <- genConfirmedSnapshot headId 1 version openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+  let version = 1
+  snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
   pure
     ( cctx
     , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)

@@ -321,16 +321,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        --       L̂  ← L̂ ◦ tx
-        --       L̂  ← L̂ ◦ tx
-
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -420,25 +412,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-
-    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
@@ -1000,10 +974,10 @@ onOpenChainRecoverTx ::
   UTxOType tx ->
   Outcome tx
 onOpenChainRecoverTx headId st recoveredUTxO =
-  newState RecoverFinalized{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
+  newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
     <> cause
       ( ClientEffect
-          ServerOutput.RecoverFinalized
+          ServerOutput.CommitRecovered
             { headId
             , recoveredUTxO
             }
@@ -1442,7 +1416,7 @@ aggregate st = \case
                   }
             }
     _otherState -> st
-  RecoverFinalized{newLocalUTxO} -> case st of
+  CommitRecovered{newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1680,7 +1654,7 @@ recoverChainStateHistory initialChainState =
     HeadAborted{chainState} -> pushNewState chainState history
     HeadOpened{chainState} -> pushNewState chainState history
     TransactionAppliedToLocalUTxO{} -> history
-    RecoverFinalized{} -> history
+    CommitRecovered{} -> history
     CommitRecorded{} -> history
     DecommitRecorded{} -> history
     SnapshotRequestDecided{} -> history

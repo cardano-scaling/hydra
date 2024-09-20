@@ -35,10 +35,8 @@ healthyRecoverTx =
   tx =
     recoverTx
       testNetworkId
-      headCS
       depositTxIn
       deposits
-      recoverDeadline
       recoverSlotNo
 
   DepositDatum (_, _, deposits) =

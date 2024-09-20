@@ -1,56 +1,7 @@
 {
     "samples": [
         {
-            "recoverDeadline": -4,
-            "recoverHeadId": "01080305010400080404060501050702",
-            "recoverStart": 0,
-            "recoverUTxO": {
-                "0000030601010003080307050307060603020101080603010203040706050705#23": {
-                    "address": "addr_test1zr30qjnnzsj25qj5mnv5vqsy5jx8xx5zw73257vt8v3te7gu9t3jdgw4l7k9etqqy0c9uedjnjlewjxx6j8k2ju6wxtq0vnj63",
-                    "datum": null,
-                    "datumhash": "517149add56d8056965a5f1e890a04c115a7d10d4c3583818356125a28d9e02b",
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
-                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
-                            "80f0d6": 1
-                        },
-                        "lovelace": 1807725733820881937
-                    }
-                },
-                "0005070404060202040204060703060504020801080006050600010106070303#62": {
-                    "address": "addr1y9uzvy8u7gj2cd062qq23jexc7dmwxey94374pjkkkfr93azxccjmsxect2dy6mdmway3gx5m4h2kkekja9qwc20wfpqjkn6nn",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "referenceScript": null,
-                    "value": {
-                        "8600a7febd45652c1a2e9930569eb0463733a845d705476d1a8fa5ff": {
-                            "39": 1
-                        },
-                        "lovelace": 815794582948710859
-                    }
-                },
-                "0305060502030501020005000402080505020005000201030100070702010005#73": {
-                    "address": "addr1wxgqrdmcsh6ss68rn993q6sugpu8rtfatfvsexwwwy52k0srquu59",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "8200581cb2aeae6028d1c39e7a1309d612427267cfe731352aa9036027fccc16",
-                            "description": "",
-                            "type": "SimpleScript"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage"
-                    },
-                    "value": {
-                        "6db635dcef600b0ab43e4592baa30872c7c650578df14e02d0e1a182": {
-                            "37": 1
-                        }
-                    }
-                }
-            }
+            "recoverStart": 0
         },
         {
             "blueprintTx": {

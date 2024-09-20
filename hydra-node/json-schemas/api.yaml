@@ -103,6 +103,7 @@ channels:
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
           - $ref: "api.yaml#/components/messages/Commit"
+          - $ref: "api.yaml#/components/messages/Recover"
           - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
@@ -304,6 +305,22 @@ components:
             enum: ["Commit"]
           utxo:
             $ref: "api.yaml#/components/schemas/UTxO"
+    Recover:
+      title: Recover
+      description: |
+        Request a recover of deposited UTxO by providing a recover transaction for posting.
+      payload:
+        type: object
+        required:
+          - tag
+          - recoverTx
+        properties:
+          tag:
+            type: string
+            enum: ["Recover"]
+          recoverTx:
+            type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
     Decommit:
       title: Decommit
       description: |
@@ -579,6 +596,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommitFinalized"
 
+    CommitRecovered:
+      title: CommitRecovered
+      description: |
+        Recover transaction is observed and deposited funds are recovered to L1.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitRecovered"
+
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -635,8 +659,10 @@ components:
         - $ref: "api.yaml#/components/schemas/DecommitRequested"
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecorded"
         - $ref: "api.yaml#/components/schemas/CommitApproved"
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecovered"
 
     Greetings:
       type: object
@@ -1056,6 +1082,7 @@ components:
             - $ref: "api.yaml#/components/messages/GetUTxO/payload"
             - $ref: "api.yaml#/components/messages/Commit/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
@@ -1254,7 +1281,30 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
-
+    CommitRecorded:
+      title: CommitRecorded
+      description: |
+        Commit request is recorded to the local state.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToCommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitRecorded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToCommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
     CommitFinalized:
       title: CommitFinalized
       description: |
@@ -1281,6 +1331,34 @@ components:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitRecovered:
+      title: CommitRecovered
+      description: |
+        Deposit request is recovered.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - recoveredUTxO
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitRecovered"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        recoveredUTxO:
+          oneof:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
     # END OF SERVER OUTPUT SCHEMAS
 
     Address:
@@ -1630,6 +1708,23 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
+        - title: RecoverTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - recoverTx
+          description: |
+            Post a transaction to recover deposited UTxO back to L1.
+          properties:
+            tag:
+              type: string
+              enum: ["RecoverTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            recoverTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
         - title: IncrementTx
           type: object
           additionalProperties: false
@@ -2350,16 +2445,10 @@ components:
     IncrementalCommitRecoverRequest:
       type: object
       required:
-        - recoverHeadid
-        - recoverUTxO
         - recoverStart
       properties:
-        recoverHeadId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        recoverUTxO:
-          $ref: "api.yaml#/components/schemas/UTxO"
         recoverStart:
-          $ref: "api.yaml#/components/schemas/SlotNo"
+          type: integer
 
     # END OF SERVER OUTPUT SCHEMAS
 
