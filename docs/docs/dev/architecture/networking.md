@@ -7,7 +7,7 @@ in our fully connected topology here) in the way [it is
 specified](../specification) and the following sections explain our realization
 in the Hydra node implementation.
 
-### Interface
+## Interface
 
 Within a `hydra-node`, a `Network` component provides the capability to reliably
 `broadcast` a message to the whole Hydra network. In turn, when a message is
@@ -33,7 +33,7 @@ Lundström](https://arxiv.org/abs/2001.03244); or [atomic
 broadcast](https://en.m.wikipedia.org/wiki/Atomic_broadcast) for an even
 stronger abstraction.
 
-### Topology
+## Topology
 
 Currently, the `hydra-node` operates in a static, **fully connected** network
 topology where each nodes connects to each other node and a message is broadcast
@@ -47,7 +47,7 @@ would simplify configuration to only need to provide *at least one* `--peer`,
 while *peer sharing* in such a network could still allow for redundant
 connections and better fault tolerance.
 
-### Authentication
+## Authentication
 
 The messages exchanged through the _Hydra networking_ layer between participants
 are authenticated. Each message is
@@ -60,7 +60,7 @@ Currently, messages are not encrypted. If confidentiality is required, an
 external mechanism must be implemented to prevent other parties from observing
 the messages exchanged within a head.
 
-### Fault tolerance
+## Fault model
 
 Although the Hydra protocol can only progress when nodes of all participants are
 online and responsive, the network layer should still provide a certain level of
@@ -70,9 +70,27 @@ Concretely, this means that a _fail-recovery_ distributed systems model (again s
 
 See also [this ADR](/adr/27) for a past discussion on making the network component resilient against faults.
 
-## Investigations
+## Implementations
 
-### Network resilience
+### Current network stack
+
+See [haddocks](/haddock/hydra-node/Hydra-Node-Network.html)
+
+- Hydra nodes form a network of pairwise connected *peers* using point-to-point (eg, TCP) connections that are expected to remain active at all times:
+  - Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which manages connections with peers via a reliable point-to-point stream-based communication framework known as a `Snocket`
+  - All messages are _broadcast_ to peers using the PTP connections
+  - Due to the nature of the Hydra protocol, the lack of a connection to a peer halts any progress of the head.
+- A `hydra-node` can only open a head with *all* its peers and exclusively with them. This necessitates that nodes possess prior knowledge of the topology of both peers and heads they intend to establish.
+- Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages.
+- Messages exchanged between peers are signed using the party's Hydra key and validated upon receiving.
+
+### Gossip diffusion network
+
+The following diagram illustrates one possible implementation of a pull-based messaging system for Hydra, developed from discussions with IOG’s networking engineers:
+
+![Hydra pull-based network](./hydra-pull-based-network.jpg)
+
+## Network resilience testing
 
 In August 2024 we added some network resilience tests, implemented as a GitHub
 action step in [network-test.yaml](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml).
@@ -128,21 +146,3 @@ The main things to note are:
 - It's okay to see certain configurations fail, but it's certainly not
   expected to see them _all_ fail; certainly not the zero-loss cases. Anything
   that looks suspcisious should be investigated.
-
-## Implementations
-
-### Current state
-
-- Hydra nodes form a network of pairwise connected *peers* using point-to-point (eg, TCP) connections that are expected to remain active at all times:
-  - Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which manages connections with peers via a reliable point-to-point stream-based communication framework known as a `Snocket`
-  - All messages are _broadcast_ to peers using the PTP connections
-  - Due to the nature of the Hydra protocol, the lack of a connection to a peer halts any progress of the head.
-- A `hydra-node` can only open a head with *all* its peers and exclusively with them. This necessitates that nodes possess prior knowledge of the topology of both peers and heads they intend to establish.
-- Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages.
-- Messages exchanged between peers are signed using the party's Hydra key and validated upon receiving.
-
-### Gossip diffusion network
-
-The following diagram illustrates one possible implementation of a pull-based messaging system for Hydra, developed from discussions with IOG’s networking engineers:
-
-![Hydra pull-based network](./hydra-pull-based-network.jpg)
