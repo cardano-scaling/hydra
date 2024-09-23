@@ -4,16 +4,24 @@ module Hydra.Blockfrost.ChainObserver where
 
 import Hydra.Prelude
 
-import Hydra.Logging (Tracer, traceWith)
-
 import Blockfrost.Client (
+  BlockfrostClientT,
   runBlockfrost,
  )
+import Blockfrost.Client qualified as Blockfrost
 import Control.Retry (RetryPolicyM, exponentialBackoff, limitRetries)
-
-import Hydra.Blockfrost.Adapter (toChainPoint)
-import Hydra.Cardano.Api (BlockNo, HasTypeProxy (..), NetworkId, SerialiseAsCBOR (..), Tx, UTxO)
-import Hydra.Cardano.Api.Prelude (ChainPoint (..))
+import Hydra.Cardano.Api (
+  BlockHeader,
+  ChainPoint (..),
+  HasTypeProxy (..),
+  Hash,
+  NetworkId,
+  SerialiseAsCBOR (..),
+  SlotNo (..),
+  Tx,
+  UTxO,
+  throwError,
+ )
 import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
@@ -23,19 +31,30 @@ import Hydra.ChainObserver.NodeClient (
   logOnChainTx,
   observeAll,
  )
-import Hydra.Tx (txId)
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx (IsTx (..))
 
-import Blockfrost.Client qualified as Blockfrost
+data APIBlockfrostError
+  = BlockfrostError Text
+  | DecodeError Text
+  deriving (Show, Exception)
+
+runBlockfrostM ::
+  Blockfrost.Project ->
+  BlockfrostClientT IO a ->
+  ExceptT APIBlockfrostError IO a
+runBlockfrostM prj action = do
+  result <- liftIO $ runBlockfrost prj action
+  case result of
+    Left err -> throwError (BlockfrostError $ show err)
+    Right val -> return val
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
   NodeClient IO
 blockfrostClient tracer = do
-  -- TODO! state mgmt
-  let initial :: UTxO
-      initial = mempty
   NodeClient
-    { follow = \networkId _startChainFrom observerHandler -> do
+    { follow = \networkId startChainFrom observerHandler -> do
         -- reads token from BLOCKFROST_TOKEN_PATH
         -- environment variable. It expects token
         -- prefixed with Blockfrost environment name
@@ -43,56 +62,85 @@ blockfrostClient tracer = do
         prj <- Blockfrost.projectFromEnv
         -- TODO! prj carries an environment and a token itself.
         traceWith tracer ConnectingToExternalNode{networkId}
-        latestBlock <-
-          either (error . show) id
-            <$> runBlockfrost prj Blockfrost.getLatestBlock
-
-        let chainPoint = toChainPoint latestBlock
+        chainPoint <-
+          case startChainFrom of
+            Just point -> pure point
+            Nothing -> do
+              latestBlock@Blockfrost.Block{_blockHash} <-
+                either (error . show) id
+                  <$> runExceptT (runBlockfrostM prj Blockfrost.getLatestBlock)
+              pure $ toChainPoint latestBlock
         traceWith tracer StartObservingFrom{chainPoint}
-        loop tracer prj latestBlock networkId observerHandler initial
+        let blockHash = fromChainPoint chainPoint
+        void $ runExceptT (loop tracer prj blockHash networkId observerHandler mempty)
     }
 
 loop ::
   Tracer IO ChainObserverLog ->
   Blockfrost.Project ->
-  Blockfrost.Block ->
+  Blockfrost.BlockHash ->
   NetworkId ->
   ObserverHandler IO ->
   UTxO ->
-  IO b
-loop tracer prj latestBlock@Blockfrost.Block{_blockHeight} networkId observerHandler utxo = do
-  -- TODO! handle missing blockNo
-  let blockNo = maybe 0 fromInteger _blockHeight
+  ExceptT APIBlockfrostError IO a
+loop tracer prj blockHash networkId observerHandler utxo = do
+  -- [1] Find block by hash.
+  latestBlock@Blockfrost.Block
+    { _blockHeight
+    , _blockNextBlock
+    , _blockConfirmations
+    } <-
+    runBlockfrostM prj (Blockfrost.getBlock $ Right blockHash)
 
-  -- TODO! use pagination: now it queries 100 entries.
+  -- [2] Check if block within the safe zone to be processes.
+  when (_blockConfirmations < 50) $ do
+    -- XXX: wait some time & retry
+    threadDelay 300
+    loop tracer prj blockHash networkId observerHandler utxo
+
+  -- [3] Search block transactions.
   txHashes <-
-    either (error . show) id
-      <$> runBlockfrost prj (Blockfrost.getBlockTxs $ Right (Blockfrost._blockHash latestBlock))
+    runBlockfrostM prj $
+      Blockfrost.allPages
+        ( \p ->
+            Blockfrost.getBlockTxs' (Right blockHash) p Blockfrost.def
+        )
 
-  -- FIXME!
-  txs <-
-    either (error . show) toCardanoAPI . sequence
-      <$> traverse
-        getTxCBOR
-        txHashes
+  -- [4] Collect CBOR representations
+  txResults <- traverse (lift . getTxCBOR) txHashes
+  cborTxs <- either (throwError . DecodeError) return (sequence txResults)
 
-  let (utxo', observations) = observeAll networkId utxo txs
-      onChainTxs = mapMaybe convertObservation observations
+  -- [5] Convert CBOR to Cardano API Tx.
+  let receivedTxs = toCardanoAPI cborTxs
 
+  let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint latestBlock
-  forM_ onChainTxs (traceWith tracer . logOnChainTx)
+  lift $ traceWith tracer RollForward{point, receivedTxIds}
+
+  -- [6] Collect head observations.
+  let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
+      onChainTxs = mapMaybe convertObservation observations
+  lift $ forM_ onChainTxs (traceWith tracer . logOnChainTx)
+  -- FIXME! handle missing blockNo
+  let blockNo = maybe 0 fromInteger _blockHeight
   let observationsAt = HeadObservation point blockNo <$> onChainTxs
-  observerHandler $
+
+  -- [7] Call observer handler.
+  lift . observerHandler $
     if null observationsAt
       then [Tick point blockNo]
       else observationsAt
 
-  -- wait some time
-  latestBlock' <-
-    either (error . show) id
-      <$> runBlockfrost prj Blockfrost.getLatestBlock
-
-  loop tracer prj latestBlock' networkId observerHandler utxo'
+  -- [8] Loop next.
+  case _blockNextBlock of
+    Just nextBlockHash -> do
+      Blockfrost.Block{_blockHash = _blockHash'} <-
+        runBlockfrostM prj (Blockfrost.getBlock $ Right nextBlockHash)
+      loop tracer prj _blockHash' networkId observerHandler adjustedUTxO
+    Nothing -> do
+      -- XXX: wait some time & retry
+      threadDelay 300
+      loop tracer prj blockHash networkId observerHandler utxo
 
 -- FIXME: (runBlockfrost prj . Blockfrost.getTxCBOR)
 getTxCBOR :: Blockfrost.TxHash -> IO (Either Text Text)
@@ -100,50 +148,30 @@ getTxCBOR = const $ pure $ Right "TxCbor"
 
 toCardanoAPI :: [Text] -> [Tx]
 toCardanoAPI txs =
-  ( \txCbor ->
-      case decodeBase16 txCbor of
-        Left decodeErr -> error $ "Bad Base16 Tx CBOR: " <> decodeErr
-        Right bytes ->
-          case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-            Left deserializeErr -> error $ "Bad Tx CBOR: " <> show deserializeErr
-            Right tx -> tx
-  )
-    <$> txs
-
--- TODO! DRY
-rollForward ::
-  Tracer IO ChainObserverLog ->
-  NetworkId ->
-  ChainPoint ->
-  BlockNo ->
-  UTxO ->
-  [Tx] ->
-  ObserverHandler IO ->
-  IO UTxO
-rollForward tracer networkId point blockNo currentUTxO receivedTxs observerHandler = do
-  let receivedTxIds = txId <$> receivedTxs
-  traceWith tracer RollForward{point, receivedTxIds}
-  let (adjustedUTxO, observations) = observeAll networkId currentUTxO receivedTxs
-  let onChainTxs = mapMaybe convertObservation observations
-  forM_ onChainTxs (traceWith tracer . logOnChainTx)
-  let observationsAt = HeadObservation point blockNo <$> onChainTxs
-  observerHandler $
-    if null observationsAt
-      then [Tick point blockNo]
-      else observationsAt
-  pure adjustedUTxO
-
--- TODO! DRY
-rollBackward ::
-  Tracer IO ChainObserverLog ->
-  ChainPoint ->
-  b ->
-  IO b
-rollBackward tracer point currentUTxO = do
-  traceWith tracer Rollback{point}
-  pure currentUTxO
+  txs <&> \txCbor ->
+    case decodeBase16 txCbor of
+      Left decodeErr -> error $ "Bad Base16 Tx CBOR: " <> decodeErr
+      Right bytes ->
+        case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+          Left deserializeErr -> error $ "Bad Tx CBOR: " <> show deserializeErr
+          Right tx -> tx
 
 -- * Helpers
 
 retryPolicy :: MonadIO m => RetryPolicyM m
 retryPolicy = exponentialBackoff 50000 <> limitRetries 5
+
+toChainPoint :: Blockfrost.Block -> ChainPoint
+toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
+  ChainPoint slotNo headerHash
+ where
+  slotNo :: SlotNo
+  slotNo = maybe 0 (fromInteger . Blockfrost.unSlot) _blockSlot
+
+  headerHash :: Hash BlockHeader
+  headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
+
+fromChainPoint :: ChainPoint -> Blockfrost.BlockHash
+fromChainPoint chainPoint = case chainPoint of
+  ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
+  ChainPointAtGenesis -> Blockfrost.BlockHash "FIXME"
