@@ -62,6 +62,10 @@ blockfrostClient tracer = do
         -- e.g.: testnet-someTokenHash
         prj <- Blockfrost.projectFromEnv
 
+        Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
+          either (error . show) id
+            <$> runExceptT (runBlockfrostM prj (Blockfrost.getBlock (Left 0)))
+
         Blockfrost.Genesis
           { _genesisActiveSlotsCoefficient
           , _genesisSlotLength
@@ -82,7 +86,7 @@ blockfrostClient tracer = do
                   <$> runExceptT (runBlockfrostM prj Blockfrost.getLatestBlock)
               pure $ toChainPoint latestBlock
         traceWith tracer StartObservingFrom{chainPoint}
-        let blockHash = fromChainPoint chainPoint
+        let blockHash = fromChainPoint chainPoint genesisBlockHash
         let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
         void $
@@ -195,10 +199,10 @@ toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
   headerHash :: Hash BlockHeader
   headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
-fromChainPoint :: ChainPoint -> Blockfrost.BlockHash
-fromChainPoint chainPoint = case chainPoint of
+fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
+fromChainPoint chainPoint genesisBlockHash = case chainPoint of
   ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
-  ChainPointAtGenesis -> Blockfrost.BlockHash "FIXME"
+  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
 
 fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
