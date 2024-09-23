@@ -50,10 +50,10 @@ jobs:
         name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Set up and use the "demo" devShell
+    - name: Set up and use the "ci" devShell
       uses: nicknovitski/nix-develop@v1
       with:
-        arguments: ".#demo"
+        arguments: ".#ci"
 
     - name: Build docker images for netem specifically
       run: |
@@ -70,8 +70,21 @@ jobs:
         sleep 5
         # :tear: socket permissions.
         sudo chown runner:docker devnet/node.socket
-        export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
-        ./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
+
+        HYDRA_SCRIPTS_TX_ID=$(nix run .#hydra-node -- publish-scripts \
+          --testnet-magic 42 \
+          --node-socket devnet/node.socket \
+          --cardano-signing-key devnet/credentials/faucet.sk)
+
+        echo "HYDRA_SCRIPTS_TX_ID=$HYDRA_SCRIPTS_TX_ID" > .env
+
+        nix run .#cardano-cli -- query protocol-parameters \
+          --testnet-magic 42 \
+          --socket-path devnet/node.socket  \
+          --out-file /dev/stdout \
+          | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" \
+          > devnet/protocol-parameters.json
+
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
