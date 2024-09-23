@@ -15,7 +15,8 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   HasTypeProxy (..),
   Hash,
-  NetworkId,
+  NetworkId (..),
+  NetworkMagic (..),
   SerialiseAsCBOR (..),
   SlotNo (..),
   Tx,
@@ -54,14 +55,24 @@ blockfrostClient ::
   NodeClient IO
 blockfrostClient tracer = do
   NodeClient
-    { follow = \networkId startChainFrom observerHandler -> do
+    { follow = \_ startChainFrom observerHandler -> do
         -- reads token from BLOCKFROST_TOKEN_PATH
         -- environment variable. It expects token
         -- prefixed with Blockfrost environment name
         -- e.g.: testnet-someTokenHash
         prj <- Blockfrost.projectFromEnv
-        -- TODO! prj carries an environment and a token itself.
+
+        Blockfrost.Genesis
+          { _genesisActiveSlotsCoefficient
+          , _genesisSlotLength
+          , _genesisNetworkMagic
+          } <-
+          either (error . show) id
+            <$> runExceptT (runBlockfrostM prj Blockfrost.getLedgerGenesis)
+
+        let networkId = fromNetworkMagic _genesisNetworkMagic
         traceWith tracer ConnectingToExternalNode{networkId}
+
         chainPoint <-
           case startChainFrom of
             Just point -> pure point
@@ -72,11 +83,12 @@ blockfrostClient tracer = do
               pure $ toChainPoint latestBlock
         traceWith tracer StartObservingFrom{chainPoint}
         let blockHash = fromChainPoint chainPoint
+        let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
         void $
           retrying retryPolicy shouldRetry $ \_ ->
             either (error . show) id
-              <$> runExceptT (loop tracer prj blockHash networkId observerHandler mempty)
+              <$> runExceptT (loop tracer prj blockHash networkId blockTime observerHandler mempty)
     }
 
 loop ::
@@ -84,10 +96,11 @@ loop ::
   Blockfrost.Project ->
   Blockfrost.BlockHash ->
   NetworkId ->
+  DiffTime ->
   ObserverHandler IO ->
   UTxO ->
   ExceptT APIBlockfrostError IO a
-loop tracer prj blockHash networkId observerHandler utxo = do
+loop tracer prj blockHash networkId blockTime observerHandler utxo = do
   -- [1] Find block by hash.
   latestBlock@Blockfrost.Block
     { _blockHeight
@@ -99,8 +112,8 @@ loop tracer prj blockHash networkId observerHandler utxo = do
   -- [2] Check if block within the safe zone to be processes.
   when (_blockConfirmations < 50) $ do
     -- XXX: wait some time & retry
-    threadDelay 300
-    loop tracer prj blockHash networkId observerHandler utxo
+    threadDelay blockTime
+    loop tracer prj blockHash networkId blockTime observerHandler utxo
 
   -- [3] Search block transactions.
   txHashes <-
@@ -123,7 +136,7 @@ loop tracer prj blockHash networkId observerHandler utxo = do
 
   -- [6] Collect head observations.
   let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
-      onChainTxs = mapMaybe convertObservation observations
+  let onChainTxs = mapMaybe convertObservation observations
   lift $ forM_ onChainTxs (traceWith tracer . logOnChainTx)
   -- FIXME! handle missing blockNo
   let blockNo = maybe 0 fromInteger _blockHeight
@@ -140,11 +153,11 @@ loop tracer prj blockHash networkId observerHandler utxo = do
     Just nextBlockHash -> do
       Blockfrost.Block{_blockHash = _blockHash'} <-
         runBlockfrostM prj (Blockfrost.getBlock $ Right nextBlockHash)
-      loop tracer prj _blockHash' networkId observerHandler adjustedUTxO
+      loop tracer prj _blockHash' networkId blockTime observerHandler adjustedUTxO
     Nothing -> do
       -- XXX: wait some time & retry
-      threadDelay 300
-      loop tracer prj blockHash networkId observerHandler utxo
+      threadDelay blockTime
+      loop tracer prj blockHash networkId blockTime observerHandler utxo
 
 -- FIXME: (runBlockfrost prj . Blockfrost.getTxCBOR)
 getTxCBOR :: Blockfrost.TxHash -> IO (Either Text Text)
@@ -186,3 +199,8 @@ fromChainPoint :: ChainPoint -> Blockfrost.BlockHash
 fromChainPoint chainPoint = case chainPoint of
   ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
   ChainPointAtGenesis -> Blockfrost.BlockHash "FIXME"
+
+fromNetworkMagic :: Integer -> NetworkId
+fromNetworkMagic = \case
+  0 -> Mainnet
+  magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
