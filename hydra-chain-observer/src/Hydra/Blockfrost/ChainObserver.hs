@@ -9,7 +9,7 @@ import Blockfrost.Client (
   runBlockfrost,
  )
 import Blockfrost.Client qualified as Blockfrost
-import Control.Retry (RetryPolicyM, exponentialBackoff, limitRetries)
+import Control.Retry (RetryPolicyM, RetryStatus, exponentialBackoff, limitRetries, retrying)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -72,7 +72,11 @@ blockfrostClient tracer = do
               pure $ toChainPoint latestBlock
         traceWith tracer StartObservingFrom{chainPoint}
         let blockHash = fromChainPoint chainPoint
-        void $ runExceptT (loop tracer prj blockHash networkId observerHandler mempty)
+
+        void $
+          retrying retryPolicy shouldRetry $ \_ ->
+            either (error . show) id
+              <$> runExceptT (loop tracer prj blockHash networkId observerHandler mempty)
     }
 
 loop ::
@@ -160,6 +164,13 @@ toCardanoAPI txs =
 
 retryPolicy :: MonadIO m => RetryPolicyM m
 retryPolicy = exponentialBackoff 50000 <> limitRetries 5
+
+isRetryable :: APIBlockfrostError -> Bool
+isRetryable (BlockfrostError _) = True
+isRetryable (DecodeError _) = False
+
+shouldRetry :: RetryStatus -> APIBlockfrostError -> IO Bool
+shouldRetry _ err = return $ isRetryable err
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
