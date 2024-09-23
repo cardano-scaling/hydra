@@ -1,7 +1,74 @@
 # Networking
 
-This page provides details about the Hydra networking layer, which encompasses
-the network of Hydra nodes where heads can be opened.
+This page provides details about the Hydra networking layer, through which hydra
+nodes exchange off-chain protocol messages. The off-chain protocol relies
+heavily on the correct operation of the **multicast** abstraction (`broadcast`
+in our fully connected topology here) in the way [it is
+specified](../specification) and the following sections explain our realization
+in the Hydra node implementation.
+
+### Interface
+
+Within a `hydra-node`, a `Network` component provides the capability to reliably
+`broadcast` a message to the whole Hydra network. In turn, when a message is
+received from the network, the `NetworkCallback` signals this by invoking
+`deliver`. This interface follows reliable broadcast terminology of distributed
+systems literature.
+
+Given the way the [off-chain protocol is specified](../specification), the
+`broadcast` abstraction required from the `Network` interface is a so-called
+_uniform reliable broadcast_ with properties:
+
+1. **Validity**: If a correct process p broadcasts a message m, then p eventually delivers m.
+2. **No duplication**: No message is delivered more than once.
+3. **No creation**: If a process delivers a message m with sender s, then m was
+previously broadcast by process s.
+4. **Agreement**: If a message m is delivered by some correct process, then m is
+eventually delivered by every correct process.
+
+See also Module 3.3 in [Introduction to Reliable and Secure Distributed
+Programming](https://www.distributedprogramming.net) by Cachin et al, or
+[Self-stabilizing Uniform Reliable Broadcast by Oskar
+Lundström](https://arxiv.org/abs/2001.03244); or [atomic
+broadcast](https://en.m.wikipedia.org/wiki/Atomic_broadcast) for an even
+stronger abstraction.
+
+### Topology
+
+Currently, the `hydra-node` operates in a static, **fully connected** network
+topology where each nodes connects to each other node and a message is broadcast
+to all nodes. For this, we need to pass publicly reachable endpoints of *all
+other nodes* via `--peer` options to each hydra node and *all links* must be
+operational to achieve liveness.
+
+Alternative implementations of a the `Network` interface could improve upon this
+by enabling **mesh** topologies where messages are forwarded across links. This
+would simplify configuration to only need to provide *at least one* `--peer`,
+while *peer sharing* in such a network could still allow for redundant
+connections and better fault tolerance.
+
+### Authentication
+
+The messages exchanged through the _Hydra networking_ layer between participants
+are authenticated. Each message is
+[signed](https://github.com/input-output-hk/hydra/issues/727) using the Hydra
+signing key of the emitting party, which is identified by the corresponding
+verification key. When a message with an unknown or incorrect signature is
+received, it is dropped, and a notification is logged.
+
+Currently, messages are not encrypted. If confidentiality is required, an
+external mechanism must be implemented to prevent other parties from observing
+the messages exchanged within a head.
+
+### Fault tolerance
+
+Although the Hydra protocol can only progress when nodes of all participants are
+online and responsive, the network layer should still provide a certain level of
+tolerance to crashes, transient connection problems and *non-byzantine* faults.
+
+Concretely, this means that a _fail-recovery_ distributed systems model (again see Cachin et al) seems to fit these requirements best. This means, that processes may crash and later recover should still be able to participate in the protocol. Processes may forget what they did prior to crashing, but may use stable storage to persist knowledge. Links may fail and are _fair-loss_, where techniques to improve them to _stubborn_ or _perfect_ links likely will be required.
+
+See also [this ADR](/adr/27) for a past discussion on making the network component resilient against faults.
 
 ## Questions
 
@@ -110,7 +177,7 @@ We held a meeting with the networking team on February 14, 2022, to explore the 
 
 ### Cardano networking
 
-See [this Wiki page](https://github.com/input-output-hk/hydra.wiki/blob/master/Networking.md#L1) for detailed notes about how the Cardano network works and uses Ouroboros.
+See [this Wiki page](https://github.com/cardano-scaling/hydra/wiki/Networking) for detailed notes about how the Cardano network works and uses Ouroboros.
 
 - Cardano is a global network spanning thousands of nodes, with nodes constantly joining and leaving, resulting in a widely varying topology. Its primary function is block propagation: blocks produced by certain nodes according to consensus rules must reach every node in the network within 20 seconds.
 - Nodes cannot maintain direct connections to all other nodes; instead, block diffusion occurs through a form of _gossiping_. Each node is connected to a limited set of peers with whom it exchanges blocks.
