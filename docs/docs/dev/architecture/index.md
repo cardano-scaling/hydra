@@ -23,21 +23,7 @@ $ plantuml -Tsvg architecture-c4.puml
 
 ### Network
 
-The _network_ component is responsible for all communications between Hydra nodes related to the off-chain part of the Hydra protocol. The [current implementation](./networking) is based on the [typed protocols](https://github.com/input-output-hk/typed-protocols) library, which is also used by the Cardano networking. It is asynchronous by nature and uses a push-based protocol with a uniform _broadcast_ abstraction.
-
-Messages are exchanged between nodes during different internal transitions and are authenticated using each peer's _Hydra key_. Each message sent is signed by the sender, and the signature is verified by the receiver.
-
-#### Authentication and authorization
-
-The messages exchanged through the _Hydra networking_ layer between participants are authenticated. Each message is [signed](https://github.com/input-output-hk/hydra/issues/727) using the Hydra signing key of the emitting party, which is identified by the corresponding verification key. When a message with an unknown or incorrect signature is received, it is dropped, and a notification is logged.
-
-However, messages are not encrypted. If confidentiality is required, an external mechanism must be implemented to prevent other parties from observing the messages exchanged within a head.
-
-#### Fault tolerance
-
-The Hydra Head protocol guarantees the safety of all honest participants' funds but does not inherently guarantee liveness. Therefore, for the protocol to progress, all parties involved in a head must be online and reactive.
-
-This means that if one or more participants' Hydra nodes become permanently unreachable due to a crash or network partition, no further transactions can occur in the head, and it must be closed. However, the [Hydra networking layer](https://hydra.family/head-protocol/unstable/haddock/hydra-node/Hydra-Node-Network.html) is tolerant to transient disconnections and (non-Byzantine) crashes.
+The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./networking) for details.
 
 ### Chain interaction
 
