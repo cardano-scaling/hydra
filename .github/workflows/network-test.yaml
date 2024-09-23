@@ -47,7 +47,7 @@ jobs:
     - name: Set up and use the "ci" devShell
       uses: nicknovitski/nix-develop@v1
       with:
-        arguments: ".#ci"
+        arguments: ".#exes"
 
     - name: Build docker images for netem specifically
       run: |
@@ -64,8 +64,8 @@ jobs:
         sleep 2
         # :tear: socket permissions.
         sudo chmod a+w devnet/node.socket
-        ./seed-devnet.sh "nix run .#cardano-cli --" "nix run .#hydra-node --"
-
+        export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
+        ./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
@@ -89,14 +89,20 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
+        # TODO: which defaults?
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
-        target_peer="hydra-node-1"
-        other_peers="172.16.238.20 172.16.238.30"
 
-        .github/workflows/network/run_pumba.sh $target_peer $percent $other_peers
+        # Package loss on alice to bob and carol (up to 20min)
+        nix run github:noonio/pumba/noon/add-flake -- -l debug netem \
+          --duration 20m \
+          --target 172.16.238.20 \
+          --target 172.16.238.30 \
+          loss --percent ${percent} \
+          "re2:hydra-node-1" &
 
         # Run benchmark on demo
+        mkdir -p benchmarks
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=benchmarks \
