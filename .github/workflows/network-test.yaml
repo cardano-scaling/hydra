@@ -28,9 +28,9 @@ jobs:
         # however many we would like to configure here.
         # Currently this is just a label and does not have any functional impact.
         peers:          [3]
-        scaling_factor: [10, 50]
+        scaling_factor: [10]
         # Note: We only put here the configuration values we _expected to pass_.
-        netem_loss:     [0, 1, 2, 3]
+        netem_loss:     [0, 1, 5, 10, 25]
     name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, loss: ${{ matrix.netem_loss }}"
     steps:
     - uses: actions/checkout@v4
