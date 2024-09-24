@@ -148,8 +148,8 @@ generateDemoUTxODataset network nodeSocket allClientKeys nTxs = do
               ReferenceScriptNone
     buildTransaction network nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        let signedTx = sign faucetSk body
+      Right tx -> do
+        let signedTx = sign faucetSk $ getTxBody tx
         pure signedTx
   let dataset clientKeys =
         generateClientDataset network fundingTransaction clientKeys nTxs generateOneSelfTransfer

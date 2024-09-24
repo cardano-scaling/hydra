@@ -82,7 +82,7 @@ library
     , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             ^>=9.1
+    , cardano-api             ^>=9.3
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
