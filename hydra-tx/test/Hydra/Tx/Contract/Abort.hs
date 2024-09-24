@@ -253,7 +253,7 @@ genAbortMutation (tx, utxo) =
             ]
               ++ divertFunds
     , SomeMutation (pure $ toErrorCode STNotBurnedError) DoNotBurnST
-        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
+        <$> changeMintedTokens tx (fromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     , SomeMutation (pure $ toErrorCode STNotBurned) DoNotBurnSTInitial
-        <$> changeMintedTokens tx (valueFromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
+        <$> changeMintedTokens tx (fromList [(AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)])
     ]

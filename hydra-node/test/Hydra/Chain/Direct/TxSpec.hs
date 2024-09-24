@@ -370,7 +370,7 @@ generateCommitUTxOs parties = do
       mconcat
         [ lovelaceToValue (Coin 2000000)
         , foldMap txOutValue utxo
-        , valueFromList
+        , fromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]
         ]
@@ -407,7 +407,7 @@ genAbortableOutputs parties =
     toUTxOContext $
       TxOut
         (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
-        (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
+        (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 

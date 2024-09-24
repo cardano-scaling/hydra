@@ -17,8 +17,9 @@
 -- modelling more complex transactions schemes...
 module Hydra.Model where
 
+import Data.Foldable qualified
 import Hydra.Cardano.Api hiding (utxoFromTx)
-import Hydra.Prelude hiding (Any, label, lookup)
+import Hydra.Prelude hiding (Any, label, lookup, toList)
 
 import Cardano.Api.UTxO (pairs)
 import Cardano.Api.UTxO qualified as UTxO
@@ -40,6 +41,7 @@ import Data.Map ((!))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
+import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
@@ -442,7 +444,7 @@ genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
       (from, value) <-
-        elements (filter (not . null . valueToList . snd) confirmedUTxO)
+        elements (filter (not . null . toList . snd) confirmedUTxO)
       let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
       -- NOTE: It's perfectly possible this yields a payment to self and it
       -- assumes hydraParties is not empty else `elements` will crash
@@ -544,7 +546,7 @@ instance
             -- sure that the fanout outputs match what we had in the open Head
             -- exactly.
             let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
-            sorted (toTxOuts finalUTxO) === sorted (toList result)
+            sorted (toTxOuts finalUTxO) === sorted (Data.Foldable.toList result)
           _ -> pure False
       _ -> pure True
 
@@ -667,7 +669,7 @@ performCommit parties party paymentUTxO = do
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
               err@CommandFailed{} -> error $ show err
               _ -> Nothing
-      pure $ fromUtxo $ List.head $ toList observedUTxO
+      pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
   fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
@@ -738,7 +740,7 @@ performNewTx party tx = do
 
   party `sendsInput` Input.NewTx realTx
   lift $ do
-    waitUntilMatch (toList nodes) $ \case
+    waitUntilMatch (Data.Foldable.toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
         txId realTx `elem` Snapshot.confirmed snapshot
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
@@ -775,7 +777,7 @@ performInit party = do
   party `sendsInput` Input.Init
   nodes <- gets nodes
   lift $
-    waitUntilMatch (toList nodes) $ \case
+    waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsInitializing{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
@@ -786,7 +788,7 @@ performAbort party = do
 
   nodes <- gets nodes
   lift $
-    waitUntilMatch (toList nodes) $ \case
+    waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsAborted{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
@@ -799,7 +801,7 @@ performClose party = do
   party `sendsInput` Input.Close
 
   lift $
-    waitUntilMatch (toList nodes) $ \case
+    waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsClosed{} -> True
       err@CommandFailed{} -> error $ show err
       _ -> False
@@ -833,7 +835,7 @@ performCloseWithInitialSnapshot st party = do
       SimulatedChainNetwork{closeWithInitialSnapshot} <- gets chain
       _ <- lift $ closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
       lift $
-        waitUntilMatch (toList nodes) $ \case
+        waitUntilMatch (Data.Foldable.toList nodes) $ \case
           HeadIsClosed{snapshotNumber} ->
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx

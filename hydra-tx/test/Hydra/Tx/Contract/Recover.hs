@@ -1,6 +1,6 @@
 module Hydra.Tx.Contract.Recover where
 
-import Hydra.Cardano.Api hiding (txSpendingUTxO)
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -17,7 +17,6 @@ import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Utils (txSpendingUTxO)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)

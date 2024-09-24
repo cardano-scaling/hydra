@@ -3,7 +3,7 @@
 module Hydra.Ledger.CardanoSpec where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
@@ -12,6 +12,7 @@ import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
 import Data.Text (unpack)
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
@@ -140,7 +141,7 @@ propRealisticValue value =
   numberOfAssets < 100
     & counterexample ("too many individual assets: " <> show numberOfAssets)
  where
-  numberOfAssets = length (valueToList value)
+  numberOfAssets = length (toList value)
 
 -- | Check that an output has enough lovelace to cover asset deposits.
 propHasEnoughLovelace :: TxOut CtxUTxO -> Property
@@ -180,7 +181,7 @@ propGeneratesGoodTxOut txOut =
 
   hasMultiAssets = any (\(an, _) -> an /= AdaAssetId) assets
 
-  assets = valueToList $ txOutValue txOut
+  assets = toList $ txOutValue txOut
 
   isVKOutput = case txOutAddress txOut of
     ByronAddressInEra ByronAddress{} -> False

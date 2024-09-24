@@ -80,7 +80,6 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
     , cardano-ledger-core
     , cardano-ledger-shelley

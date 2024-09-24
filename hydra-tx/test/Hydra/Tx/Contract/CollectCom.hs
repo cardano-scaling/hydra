@@ -4,12 +4,13 @@
 module Hydra.Tx.Contract.CollectCom where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude hiding (label, toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
@@ -178,7 +179,7 @@ healthyCommitOutput participant party committed =
     mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
   commitValue =
     foldMap txOutValue committed
-      <> valueFromList
+      <> fromList
         [ (AssetId testPolicyId (onChainIdToAssetName participant), 1)
         ]
   commitDatum =
@@ -287,13 +288,13 @@ genCollectComMutation (tx, _utxo) =
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
 extractHeadOutputValue headTxOut policyId = do
   removedValue <- do
-    let allAssets = valueToList $ txOutValue headTxOut
+    let allAssets = toList $ txOutValue headTxOut
         nonPTs = flip filter allAssets $ \case
           (AssetId pid _, _) -> pid /= policyId
           _ -> True
     (assetId, Quantity n) <- elements nonPTs
     q <- Quantity <$> choose (1, n)
-    pure $ valueFromList [(assetId, q)]
+    pure $ fromList [(assetId, q)]
   -- Add another output which would extract the 'removedValue'. The ledger would
   -- require this to have a balanced transaction.
   extractionTxOut <- do
