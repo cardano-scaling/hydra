@@ -95,14 +95,14 @@ buildTransaction ::
   [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  IO (Either (TxBodyErrorAutoBalance Era) TxBody)
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   pparams <- queryProtocolParameters networkId socket QueryTip
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
   pure $
-    second balancedTxBody $
+    second ((\(UnsignedTx unsignedTx) -> fromLedgerTx unsignedTx) . balancedTxBody) $
       makeTransactionBodyAutoBalance
         shelleyBasedEra
         systemStart

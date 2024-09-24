@@ -398,8 +398,8 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
               ReferenceScriptNone
       buildTransaction networkId nodeSocket someAddress utxoToCommit (fst <$> UTxO.pairs someUTxO) [someOutput] >>= \case
         Left e -> failure $ show e
-        Right body -> do
-          let unsignedTx = makeSignedTransaction [] body
+        Right tx -> do
+          let unsignedTx = makeSignedTransaction [] $ getTxBody tx
           let clientPayload =
                 Aeson.object
                   [ "blueprintTx" .= unsignedTx
@@ -495,8 +495,8 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
       -- prepare fully balanced tx body
       buildTransaction networkId nodeSocket bobsAddress bobUTxO (fst <$> UTxO.pairs bobUTxO) [carolsOutput] >>= \case
         Left e -> failure $ show e
-        Right body -> do
-          let unsignedTx = makeSignedTransaction [] body
+        Right tx -> do
+          let unsignedTx = makeSignedTransaction [] $ getTxBody tx
           let unsignedRequest = toJSON unsignedTx
           sendRequest hydraNodeId unsignedRequest
             `shouldThrow` expectErrorStatus 400 (Just "MissingVKeyWitnessesUTXOW")
