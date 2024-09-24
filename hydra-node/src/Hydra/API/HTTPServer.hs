@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Cardano.Ledger.Core (PParams)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:))
 import Data.Aeson qualified as Aeson
-import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.Text (pack)
@@ -30,13 +29,12 @@ import Hydra.Tx (
   IsTx (..),
   UTxOType,
  )
-import Network.HTTP.Types (QueryItem, status200, status400, status404, status500)
+import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,
   Request (pathInfo, requestMethod),
   Response,
   consumeRequestBodyStrict,
-  queryString,
   rawPathInfo,
   responseLBS,
  )
@@ -152,33 +150,33 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO putClientInput
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-    ("GET", ["snapshot", "utxo"]) ->
-      -- XXX: Should ensure the UTxO is of the right head and the head is still
-      -- open. This is something we should fix on the "read model" side of the
-      -- server.
-      getConfirmedUTxO >>= \case
-        Nothing -> respond notFound
-        Just utxo -> respond $ okJSON utxo
-    ("POST", ["commit"]) ->
-      consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain getCommitInfo
-        >>= respond
-    ("DELETE", ["commits"]) ->
-      consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo directChain putClientInput (queryString request)
-        >>= respond
-    ("POST", ["decommit"]) ->
-      consumeRequestBodyStrict request
-        >>= handleDecommit putClientInput
-        >>= respond
-    ("GET", ["protocol-parameters"]) ->
-      respond . responseLBS status200 [] . Aeson.encode $ pparams
-    ("POST", ["cardano-transaction"]) ->
-      consumeRequestBodyStrict request
-        >>= handleSubmitUserTx directChain
-        >>= respond
-    _ ->
-      respond $ responseLBS status400 [] "Resource not found"
+        ("GET", ["snapshot", "utxo"]) ->
+          -- XXX: Should ensure the UTxO is of the right head and the head is still
+          -- open. This is something we should fix on the "read model" side of the
+          -- server.
+          getConfirmedUTxO >>= \case
+            Nothing -> respond notFound
+            Just utxo -> respond $ okJSON utxo
+        ("POST", ["commit"]) ->
+          consumeRequestBodyStrict request
+            >>= handleDraftCommitUtxo directChain getCommitInfo
+            >>= respond
+        ("DELETE", ["commits", _]) ->
+          consumeRequestBodyStrict request
+            >>= handleRecoverCommitUtxo directChain putClientInput (last . fromList $ pathInfo request)
+            >>= respond
+        ("POST", ["decommit"]) ->
+          consumeRequestBodyStrict request
+            >>= handleDecommit putClientInput
+            >>= respond
+        ("GET", ["protocol-parameters"]) ->
+          respond . responseLBS status200 [] . Aeson.encode $ pparams
+        ("POST", ["cardano-transaction"]) ->
+          consumeRequestBodyStrict request
+            >>= handleSubmitUserTx directChain
+            >>= respond
+        _ ->
+          respond $ responseLBS status400 [] "Resource not found"
 
 -- * Handlers
 
@@ -245,11 +243,11 @@ handleRecoverCommitUtxo ::
   IsChainState tx =>
   Chain tx IO ->
   (ClientInput tx -> IO ()) ->
-  [QueryItem] ->
+  Text ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo directChain putClientInput recoverQuery _body = do
-  case checkRecover recoverQuery of
+handleRecoverCommitUtxo directChain putClientInput recoverPath _body = do
+  case parseTxInFromPath recoverPath of
     Left err -> pure err
     Right recoverTxIn ->
       draftRecoverTx recoverTxIn >>= \case
@@ -258,13 +256,10 @@ handleRecoverCommitUtxo directChain putClientInput recoverQuery _body = do
           putClientInput Recover{recoverTx}
           pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
  where
-  checkRecover query =
-    case Base16.decode $ foldMap fst query of
-      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to decode TxIn string: " <> pack e))
-      Right txInStr ->
-        case Aeson.eitherDecode (fromStrict txInStr) :: Either String TxIn of
-          Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxIn: " <> pack e))
-          Right txIn -> Right txIn
+  parseTxInFromPath txInStr =
+    case Aeson.eitherDecode (encodeUtf8 txInStr) :: Either String TxIn of
+      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxIn: " <> pack e))
+      Right txIn -> Right txIn
 
   Chain{draftRecoverTx} = directChain
 
