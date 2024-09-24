@@ -48,3 +48,45 @@ allow-newer: plutus-core
 allow-newer: plutus-tx
 allow-newer: plutus-ledger-api
 allow-newer: prettyprinter-configurable
+
+source-repository-package
+  type: git
+  location: https://github.com/locallycompact/plutus
+  tag: 393809cf734dfbbedd0a3b9aae5fd1b7d7812ef1
+  subdir:
+    plutus-core
+    plutus-ledger-api
+    plutus-tx
+    plutus-tx-plugin
+  --sha256: sha256-GXYA6HNLUDfID8HMDKPhxaXEp+1okESqA01xSt8zLoY=
+
+source-repository-package
+  type: git
+  location: https://github.com/locallycompact/websockets
+  tag: a0ec91c7ec6861ac576259f63692c216177eee78
+  --sha256: sha256-fSOKbwTDd8zC7xDa+poTNf6F8DfSrApqgHrSod1Ejkc=
+
+source-repository-package
+  type: git
+  location: https://github.com/erikd/ekg-wai
+  tag: 37620ea26f703ff65c61cbe0e22c545d85bd817a
+  --sha256: sha256-R+kBg6ckOOFnVn3qMBmnF57VzWqM2B36AdSjBzs75h0=
+
+source-repository-package
+  type: git
+  location: https://github.com/ysangkok/openapi3
+  tag: a41903b6c548dc5c7c9d070cc4d4851799a9c866
+  --sha256: sha256-EowHNo1Y4G27SAf/b2V4eBr1RIgNcvn7LgjCZpB1bU8=
+
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/ouroboros-consensus
+  tag: 0ea6deb139d7dd4a08e63e234e1a45bbb9cac44d
+  --sha256: sha256-aIG0UimMklmHXjqqjpY3Dg3c7PDpSgs4nlfcSSxyv9w=
+  subdir:
+    ouroboros-consensus
+    ouroboros-consensus-cardano
+    ouroboros-consensus-diffusion
+    ouroboros-consensus-protocol
+    sop-extras
+    strict-sop-core

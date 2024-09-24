@@ -45,7 +45,7 @@
       ];
       perSystem = { pkgs, config, lib, system, ... }:
         let
-          compiler = "ghc966";
+          compiler = "ghc9101";
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
@@ -70,16 +70,16 @@
               inputs.nix-npm-buildpackage.overlays.default
               # Specific versions of tools we require
               (final: prev: {
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+                #apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
                 cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
-                cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
-                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.3.0";
-                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.1.0";
+                cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.12.1.0";
+                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.4.0";
+                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.16.2.0";
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
                   src = inputs.hls;
                   cabalProject = builtins.readFile (src + "/cabal.project");
                 };
-                hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+#                hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
                 cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
                 cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
                 mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;

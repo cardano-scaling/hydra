@@ -13,8 +13,6 @@ let
 
   buildInputs = [
     # For running automatic refactoring with hlint
-    pkgs.apply-refact
-    pkgs.cabal-fmt
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
     pkgs.cabal-plan
@@ -29,7 +27,6 @@ let
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
     pkgs.haskell-language-server
-    pkgs.hlint
     pkgs.haskellPackages.hspec-discover
     # The interactive Glasgow Haskell Compiler as a Daemon
     pkgs.haskellPackages.ghcid
