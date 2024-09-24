@@ -1,10 +1,16 @@
 # Hydra Chain Observer
 
-A small executable which connects to a chain like the `hydra-node`, but puts any
-observations as traces onto `stdout`.
+A lightweight executable designed to connect to a blockchain, such as the `hydra-node`, and streams chain observations as traces to `stdout`.
+It supports two modes of operation: **Direct** connection to a node via socket, and connection through **Blockfrost** API.
 
-To run, pass a `--node-socket`, corresponding network id and optionally
-`--start-chain-from`. For example:
+## Direct Mode
+
+To run the observer in Direct Mode, provide the following arguments:
+- `--node-socket`: path to the node socket file.
+- network id: `--testnet-magic` (with magic number) for the testnet or `--mainnet` for the mainnet.
+- (optional) `--start-chain-from`: specify a chain point (SLOT.HEADER_HASH) to start observing from.
+
+For example:
 
 ``` shell
 hydra-chain-observer \
@@ -12,3 +18,20 @@ hydra-chain-observer \
   --testnet-magic 1 \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
+
+
+## Blockfrost Mode
+
+To run the observer in Blockfrost Mode, provide the following arguments:
+- `--project`: file path to your Blockfrost project API token hash.
+> expected to be prefixed with environment (e.g. testnetA3C2E...)
+- (optional) `--start-from-block-hash`: specify a block hash to start observing from.
+
+For example:
+
+``` shell
+hydra-chain-observer \
+  --project project_token_hash \
+  --start-from-block-hash "5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
+```
+
