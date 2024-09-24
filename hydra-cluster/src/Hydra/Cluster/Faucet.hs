@@ -64,9 +64,9 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
     let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> do
-        let signedTx = sign faucetSk body
-        submitTransaction networkId nodeSocket (sign faucetSk body)
+      Right tx -> do
+        let signedTx = sign faucetSk $ getTxBody tx
+        submitTransaction networkId nodeSocket signedTx
         pure signedTx
 
   receivingAddress = buildAddress receivingVerificationKey networkId
@@ -138,7 +138,7 @@ returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
     -- entire value is created and paid to the faucet address.
     buildTransaction networkId nodeSocket faucetAddress utxo [] [] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-      Right body -> pure body
+      Right tx -> pure $ getTxBody tx
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
@@ -167,8 +167,10 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
     collateralTxIns
     [output]
     >>= \case
-      Left e -> throwErrorAsException e
-      Right body -> do
+      Left e ->
+        throwErrorAsException e
+      Right x -> do
+        let body = getTxBody x
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
         submitTransaction networkId nodeSocket tx
         newUtxo <- awaitTransaction networkId nodeSocket tx
@@ -193,7 +195,7 @@ calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
   let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
    in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
         Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-        Right body -> pure $ txFee' (sign secretKey body)
+        Right tx -> pure $ txFee' (sign secretKey $ getTxBody tx)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a

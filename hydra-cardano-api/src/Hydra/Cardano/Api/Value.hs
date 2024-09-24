@@ -7,6 +7,7 @@ import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Core (getMinCoinTxOut)
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)
@@ -47,7 +48,7 @@ minUTxOValue pparams (TxOut addr val dat ref) =
 
 -- | Count number of assets in a 'Value'.
 valueSize :: Value -> Int
-valueSize = length . valueToList
+valueSize = length . toList
 
 -- | Access minted assets of a transaction, as an ordered association list.
 txMintAssets :: Tx era -> [(AssetId, Quantity)]
@@ -56,7 +57,7 @@ txMintAssets =
  where
   asList = \case
     TxMintNone -> []
-    TxMintValue _ val _ -> valueToList val
+    TxMintValue _ val _ -> toList val
 
 -- * Type Conversions
 
@@ -80,7 +81,7 @@ toLedgerValue =
 -- | Convert a plutus 'Value' into a cardano-api 'Value'.
 fromPlutusValue :: Plutus.Value -> Maybe Value
 fromPlutusValue plutusValue = do
-  fmap valueFromList . mapM convertAsset $ flattenValue plutusValue
+  fmap fromList . mapM convertAsset $ flattenValue plutusValue
  where
   convertAsset (cs, tk, i)
     | cs == adaSymbol && tk == adaToken =

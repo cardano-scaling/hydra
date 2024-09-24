@@ -70,11 +70,11 @@
 --            , Var 2 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")},
 --                               command = Init{contestationPeriod = -6.413670805613}}
 --            , Var 3 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "264a0707979e0d6691f74b055429b5f318d39c2883bb509310b67424252e9ef2")},
---                               command = Commit{Input.utxo = [("0106010101070600040403010600080805020003040508030307080706060608", valueFromList [(AdaAssetId, 18470954)])]}}
+--                               command = Commit{Input.utxo = [("0106010101070600040403010600080805020003040508030307080706060608", fromList [(AdaAssetId, 18470954)])]}}
 --            , Var 4 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "1c02babf6d3d51b725db8b72043823d66634b39db74836b1494bdb647073d566")},
---                               command = Commit{Input.utxo = [("0000070304040705060101030802010105080806050605070104030603010503", valueFromList [(AdaAssetId, 19691416)])]}}
+--                               command = Commit{Input.utxo = [("0000070304040705060101030802010105080806050605070104030603010503", fromList [(AdaAssetId, 19691416)])]}}
 --            , Var 5 := Command{Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")},
---                               command = Commit{Input.utxo = [("0100000008030606080507030707000607020508050000020207070508040800", valueFromList [(AdaAssetId, 7003529)])]}}
+--                               command = Commit{Input.utxo = [("0100000008030606080507030707000607020508050000020207070508040800", fromList [(AdaAssetId, 7003529)])]}}
 --            , Var 6
 --                := Command
 --                  { Model.party = Party{vkey = HydraVerificationKey (VerKeyEd25519DSIGN "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29")}
@@ -84,7 +84,7 @@
 --                            Payment
 --                              { from = "0100000008030606080507030707000607020508050000020207070508040800"
 --                              , to = "0106010101070600040403010600080805020003040508030307080706060608"
---                              , value = valueFromList [(AdaAssetId, 7003529)]
+--                              , value = fromList [(AdaAssetId, 7003529)]
 --                              }
 --                        }
 --                  }

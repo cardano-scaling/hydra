@@ -4,9 +4,10 @@
 module Hydra.Tx.Contract.FanOut where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude hiding (label, toList)
 
 import Cardano.Api.UTxO as UTxO
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -56,7 +57,7 @@ healthyFanoutTx =
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
 
   participationTokens =
-    valueFromList $
+    fromList $
       map
         ( \party ->
             (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
@@ -121,7 +122,7 @@ genFanoutMutation (tx, _utxo) =
     , -- Spec: All tokens are burnt |{cid 7→ · 7→ −1} ∈ mint| = m′ + 1.
       SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) MutateThreadTokenQuantity <$> do
         (token, _) <- elements burntTokens
-        changeMintedTokens tx (valueFromList [(token, 1)])
+        changeMintedTokens tx (fromList [(token, 1)])
     , -- Spec: The first m outputs are distributing funds according to η. That is, the outputs exactly
       -- correspond to the UTxO canonically combined U
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateAddUnexpectedOutput . PrependOutput <$> do
@@ -147,6 +148,6 @@ genFanoutMutation (tx, _utxo) =
   burntTokens =
     case txMintValue $ txBodyContent $ txBody tx of
       TxMintValueNone -> error "expected minted value"
-      TxMintValue v _ -> valueToList v
+      TxMintValue v _ -> toList v
 
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)

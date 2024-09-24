@@ -1,12 +1,11 @@
 module Hydra.Tx.Contract.Deposit where
 
-import Hydra.Cardano.Api hiding (txSpendingUTxO)
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Hydra.Tx (mkHeadId)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
-import Hydra.Tx.Utils (txSpendingUTxO)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 

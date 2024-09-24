@@ -1,21 +1,19 @@
 module Hydra.Tx.Utils where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Core (auxDataHashTxBodyL, auxDataTxL, bodyTxL, inputsTxBodyL, mkBasicTx)
 import Cardano.Ledger.Alonzo.Tx qualified as Ledger
-import Cardano.Ledger.Api (AlonzoTxAuxData (..), hashTxAuxData, mkBasicTxBody)
+import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
 import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
-import Data.Set qualified as Set
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V2 (fromBuiltin, getPubKeyHash)
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
@@ -54,7 +52,7 @@ verificationKeyToOnChainId =
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =
   [ (assetName, q)
-  | (AssetId pid assetName, q) <- valueToList v
+  | (AssetId pid assetName, q) <- toList v
   , pid == scriptPolicyId (PlutusScript headTokenScript)
   ]
 
@@ -84,14 +82,3 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
     tx
       & auxDataTxL .~ SJust newAuxData
       & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
-
--- | Create a transaction spending all given `UTxO`.
-txSpendingUTxO :: UTxO -> Tx
-txSpendingUTxO utxo =
-  fromLedgerTx $
-    mkBasicTx
-      ( mkBasicTxBody
-          & inputsTxBodyL .~ (toLedgerTxIn `Set.map` inputs)
-      )
- where
-  inputs = UTxO.inputSet utxo

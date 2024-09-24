@@ -43,7 +43,7 @@ mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
   TxOut
     (mkScriptAddress @PlutusScriptV2 networkId headScript)
-    (valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
+    (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
  where
@@ -69,7 +69,7 @@ mkInitialOutput networkId seedTxIn participant =
  where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   initialValue =
-    valueFromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
+    fromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV2 networkId initialScript
   initialScript =
