@@ -54,6 +54,7 @@ changes.
 
 - Add a demo mode to hydra-cluster to facilitate network resiliance tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
 
+- Add **Blockfrost Mode** to `hydra-chain-observer`, to follow the chain via Blockfrost API.
 
 ## [0.18.1] - 2024-08-15
 
