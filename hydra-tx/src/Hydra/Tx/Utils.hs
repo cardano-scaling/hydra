@@ -1,10 +1,11 @@
 module Hydra.Tx.Utils where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import PlutusLedgerApi.V2 (FromData, fromBuiltin, getPubKeyHash)
@@ -47,7 +48,7 @@ verificationKeyToOnChainId =
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
 headTokensFromValue headTokenScript v =
   [ (assetName, q)
-  | (AssetId pid assetName, q) <- valueToList v
+  | (AssetId pid assetName, q) <- toList v
   , pid == scriptPolicyId (PlutusScript headTokenScript)
   ]
 

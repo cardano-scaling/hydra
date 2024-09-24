@@ -16,6 +16,7 @@ import Data.Function (on)
 import Data.List (intercalate, sort, sortBy)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 
 -- | Obtain a human-readable pretty text representation of a transaction.
@@ -96,7 +97,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   totalNumberOfAssets =
     let totalValue = foldMap Api.txOutValue outs
-     in length $ valueToList totalValue
+     in length $ toList totalValue
 
   validityLines =
     [ "== VALIDITY"

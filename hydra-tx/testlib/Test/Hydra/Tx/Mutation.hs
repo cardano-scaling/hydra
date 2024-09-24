@@ -144,6 +144,7 @@ import Control.Lens (set, view, (.~), (^.))
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -151,7 +152,7 @@ import Hydra.Data.ContestationPeriod
 import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Plutus.Orphans ()
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -466,7 +467,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
               (AssetId pid _, _) -> Just pid
               (AdaAssetId, _) -> Nothing
           )
-        $ valueToList mint
+        $ toList mint
 
     mint = fromLedgerMultiAsset $ view mintTxBodyL ledgerBody
 
@@ -574,7 +575,7 @@ addParticipationTokens vks txOut =
  where
   val' =
     txOutValue txOut
-      <> valueFromList
+      <> fromList
         [ (AssetId testPolicyId (onChainIdToAssetName oid), 1)
         | oid <- participants
         ]
@@ -704,7 +705,7 @@ changeMintedValueQuantityFrom tx exclude =
         pure mempty
       TxMintValue v _ -> do
         someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
-        pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+        pure . fromList $ map (second $ const someQuantity) $ toList v
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
@@ -731,12 +732,12 @@ addPTWithQuantity tx quantity =
       TxMintValue v _ -> do
         -- NOTE: We do not expect Ada or any other assets to be minted, so
         -- we can take the policy id from the head
-        case Prelude.head $ valueToList v of
+        case Prelude.head $ toList v of
           (AdaAssetId, _) -> error "unexpected mint of Ada"
           (AssetId pid _an, _) -> do
             -- Some arbitrary token name, which could correspond to a pub key hash
             pkh <- arbitrary
-            pure $ v <> valueFromList [(AssetId pid pkh, quantity)]
+            pure $ v <> fromList [(AssetId pid pkh, quantity)]
       TxMintValueNone ->
         pure mempty
  where
@@ -750,7 +751,7 @@ replacePolicyIdWith original replacement =
 -- | Replace first given 'PolicyId' with the second argument in the whole 'Value'.
 replacePolicyInValue :: PolicyId -> PolicyId -> Value -> Value
 replacePolicyInValue original replacement =
-  valueFromList . map replaceAssetId . valueToList
+  fromList . map replaceAssetId . toList
  where
   replaceAssetId (aid, q) = case aid of
     AssetId pid an
@@ -964,11 +965,11 @@ removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
 removePTFromMintedValue output tx =
   case txMintValue $ txBodyContent $ txBody tx of
     TxMintValueNone -> error "expected minted value"
-    TxMintValue v _ -> valueFromList $ filter (not . isPT) $ valueToList v
+    TxMintValue v _ -> fromList $ filter (not . isPT) $ toList v
  where
   outValue = txOutValue output
   assetNames =
-    [ (policyId, pkh) | (AssetId policyId pkh, _) <- valueToList outValue, policyId == testPolicyId
+    [ (policyId, pkh) | (AssetId policyId pkh, _) <- toList outValue, policyId == testPolicyId
     ]
   (headId, assetName) =
     case assetNames of

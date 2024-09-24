@@ -7,11 +7,13 @@
 -- layer and it's constituents.
 module Hydra.Chain.Direct.State where
 
-import Hydra.Prelude hiding (init)
+import Data.Foldable qualified
+import Hydra.Prelude hiding (init, toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api (
   AssetId (..),
   AssetName (AssetName),
@@ -44,8 +46,6 @@ import Hydra.Cardano.Api (
   txOutScriptData,
   txOutValue,
   txSpendingUTxO,
-  valueFromList,
-  valueToList,
   pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
   pattern TxOut,
@@ -674,7 +674,7 @@ utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 utxoOfThisHead policy = UTxO.filter hasHeadToken
  where
   hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
+    isJust . find isHeadToken . toList . txOutValue
 
   isHeadToken (assetId, quantity) =
     case assetId of
@@ -1037,7 +1037,7 @@ genCommits' genUTxO ctx txInit = do
      in map (fmap (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
 
   scaleQuantitiesDownBy x =
-    valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
+    fromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . toList
 
 genCommitFor :: VerificationKey PaymentKey -> Gen UTxO
 genCommitFor vkey =
@@ -1076,7 +1076,7 @@ genDecrementTx numParties = do
   let openUTxO = getKnownUTxO stOpen
   pure
     ( cctx
-    , maybe mempty toList (utxoToDecommit $ getSnapshot snapshot)
+    , maybe mempty Data.Foldable.toList (utxoToDecommit $ getSnapshot snapshot)
     , stOpen
     , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot
     )

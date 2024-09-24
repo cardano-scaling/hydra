@@ -4,7 +4,7 @@
 module Test.Hydra.Tx.Gen where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
@@ -16,6 +16,7 @@ import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
@@ -233,7 +234,7 @@ instance Arbitrary (TxOut CtxUTxO) where
 
 shrinkValue :: Value -> [Value]
 shrinkValue =
-  shrinkMapBy valueFromList valueToList shrinkListAggressively
+  shrinkMapBy fromList toList shrinkListAggressively
 
 shrinkUTxO :: UTxO -> [UTxO]
 shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
@@ -264,7 +265,7 @@ genMintedOrBurnedValue = do
       ]
   tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
   quantity <- arbitrary `suchThat` (/= 0)
-  pure $ valueFromList [(AssetId policyId tokenName, Quantity quantity)]
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
 
 -- NOTE: Uses 'testPolicyId' for the datum.
 genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
@@ -294,7 +295,7 @@ genAbortableOutputs parties =
     toUTxOContext $
       TxOut
         (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
-        (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
+        (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 
@@ -333,7 +334,7 @@ generateCommitUTxOs parties = do
       mconcat
         [ lovelaceToValue (Coin 2000000)
         , foldMap txOutValue utxo
-        , valueFromList
+        , fromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]
         ]
