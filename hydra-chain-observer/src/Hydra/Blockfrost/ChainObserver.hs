@@ -125,18 +125,14 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
     throwError (NotEnoughBlockConfirmations _blockHash)
 
   -- [2] Search block transactions.
-  txHashes <-
-    runBlockfrostM prj $
-      Blockfrost.allPages
-        ( \p ->
-            Blockfrost.getBlockTxs' (Right _blockHash) p Blockfrost.def
-        )
+  txHashes <- runBlockfrostM prj . Blockfrost.allPages $ \p ->
+    Blockfrost.getBlockTxs' (Right _blockHash) p Blockfrost.def
 
   -- [3] Collect CBOR representations
-  cborTxs <- concat <$> traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
+  cborTxs <- traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
 
   -- [4] Convert CBOR to Cardano API Tx.
-  receivedTxs <- except $ mapM toTx cborTxs
+  receivedTxs <- except $ mapM toTx (concat cborTxs)
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   lift $ traceWith tracer RollForward{point, receivedTxIds}
