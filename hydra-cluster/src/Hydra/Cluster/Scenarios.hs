@@ -25,7 +25,6 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
-import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Set qualified as Set
@@ -102,6 +101,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import Network.HTTP.Types (urlEncode)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -702,11 +702,11 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` 0
 
-        let queryStr = BSC.unpack $ Base16.encode $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
+        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
 
         recoverResp <-
           -- TODO: use slash instead of question mark to utilize the path instead of query params
-          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits?" <> queryStr)
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
             >>= httpJSON
 
         (getResponseBody recoverResp :: String) `shouldBe` "OK"
