@@ -71,6 +71,7 @@ library
     , hydra-plutus
     , hydra-prelude
     , hydra-tx
+    , io-classes
     , optparse-applicative
     , ouroboros-network-protocols
     , retry

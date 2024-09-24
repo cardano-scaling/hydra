@@ -23,4 +23,5 @@ main observerHandler = do
         follow networkId startChainFrom observerHandler
       BlockfrostOptions{projectPath, startFromBlockHash} -> do
         let NodeClient{follow} = blockfrostClient tracer projectPath startFromBlockHash
+        -- FIXME!
         follow (error "not-used") (error "not-used") observerHandler
