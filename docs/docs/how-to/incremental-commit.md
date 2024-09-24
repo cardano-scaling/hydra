@@ -36,20 +36,22 @@ cardano-cli query utxo \
   --address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/faucet.vk)
 ```
 
-As well as the L2 and head state:
-```shell
-cabal run hydra-tui -- --cardano-signing-key incremental-demo/wallet.sk
-```
 
 In this setup, we would be using the `faucet` keys to commit everything into the head.
 
 ```shell
-WALLET_SK=${PWD}/hydra-cluster/config/credentials/faucet.sk
-WALLET_VK=${PWD}/hydra-cluster/config/credentials/faucet.vk
+export WALLET_SK=${PWD}/hydra-cluster/config/credentials/faucet.sk
+export WALLET_VK=${PWD}/hydra-cluster/config/credentials/faucet.vk
 cd incremental-demo
 ```
 
 ### Deposit UTxO to commit
+
+To observe funds owned on L2 we can use `hydra-tui`
+
+```shell
+cabal run hydra-tui -- --cardano-signing-key ${WALLET_SK}
+```
 
 The `/commit` endpoint supports two ways of specifying what to commit, one is just by showing the UTxO (which is assumed to be owned by public keys), while the more advanced way would be using [blueprint transactions](./commit-blueprint).
 
