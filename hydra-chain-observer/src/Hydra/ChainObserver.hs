@@ -21,6 +21,6 @@ main observerHandler = do
       Options{networkId, nodeSocket, startChainFrom} -> do
         let NodeClient{follow} = ouroborusClient tracer nodeSocket
         follow networkId startChainFrom observerHandler
-      BlockfrostOptions{networkId, startChainFrom} -> do
-        let NodeClient{follow} = blockfrostClient tracer
-        follow networkId startChainFrom observerHandler
+      BlockfrostOptions{projectPath, startFromBlockHash} -> do
+        let NodeClient{follow} = blockfrostClient tracer projectPath startFromBlockHash
+        follow (error "not-used") (error "not-used") observerHandler
