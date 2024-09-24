@@ -34,7 +34,6 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
-  ChainPoint (..),
   Coin (..),
   File (File),
   Key (SigningKey),
@@ -620,10 +619,10 @@ canCommit tracer workDir node hydraScriptsTxId =
       -- Get some L1 funds
       (walletVk, walletSk) <- generate genKeyPair
       commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
-      let depositRequest = object ["utxo" .= commitUTxO]
+
       resp <-
         parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-          <&> setRequestBodyJSON depositRequest
+          <&> setRequestBodyJSON commitUTxO
             >>= httpJSON
 
       let depositTransaction = getResponseBody resp :: Tx
@@ -685,10 +684,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
 
-        let depositRequest = object ["utxo" .= commitUTxO]
         resp <-
           parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-            <&> setRequestBodyJSON depositRequest
+            <&> setRequestBodyJSON commitUTxO
               >>= httpJSON
 
         let depositTransaction = getResponseBody resp :: Tx

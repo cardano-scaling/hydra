@@ -208,7 +208,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
                 case currentPointInTime timeHandle of
                   Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
                   Right (lowerValidity, _) ->
-                   pure $ Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
+                    pure $ Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
           _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.

@@ -16,7 +16,6 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (CommitInfo (..))
 import Hydra.Cardano.Api (
   LedgerEra,
-  SlotNo (..),
   Tx,
   TxIn,
  )
@@ -41,7 +40,7 @@ import Network.Wai (
   rawPathInfo,
   responseLBS,
  )
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (oneof)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -70,9 +69,6 @@ data DraftCommitTxRequest tx
       { blueprintTx :: tx
       , utxo :: UTxOType tx
       }
-  | IncrementalCommitDepositRequest
-      { utxo :: UTxOType tx
-      }
   deriving stock (Generic)
 
 deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DraftCommitTxRequest tx)
@@ -80,10 +76,6 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    IncrementalCommitDepositRequest{utxo} ->
-      object
-        [ "utxo" .= toJSON utxo
-        ]
     FullCommitRequest{blueprintTx, utxo} ->
       object
         [ "blueprintTx" .= toJSON blueprintTx
@@ -93,7 +85,7 @@ instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) w
       toJSON utxoToCommit
 
 instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest tx) where
-  parseJSON v = fullVariant v <|> simpleVariant v <|> depositVariant v
+  parseJSON v = fullVariant v <|> simpleVariant v
    where
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
@@ -102,22 +94,16 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
 
     simpleVariant val = SimpleCommitRequest <$> parseJSON val
 
-    depositVariant = withObject "IncrementalCommitDepositRequest" $ \o -> do
-      utxo <- o .: "utxo"
-      pure IncrementalCommitDepositRequest{utxo}
-
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Eq (UTxOType tx), Monoid (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary =
     oneof
       [ FullCommitRequest <$> arbitrary <*> arbitrary
       , SimpleCommitRequest <$> arbitrary
-      , IncrementalCommitDepositRequest <$> arbitrary `suchThat` (/= mempty)
       ]
 
   shrink = \case
     SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
     FullCommitRequest a b -> FullCommitRequest <$> shrink a <*> shrink b
-    IncrementalCommitDepositRequest a -> IncrementalCommitDepositRequest <$> shrink a
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -221,14 +207,13 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
             SimpleCommitRequest{utxoToCommit} -> do
               let blueprintTx = txSpendingUTxO utxoToCommit
               draftCommit headId utxoToCommit blueprintTx
-            _ -> pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Invalid request: expected a FullCommitRequest or SimpleCommitRequest")
         IncrementalCommit headId -> do
           case someCommitRequest of
-            IncrementalCommitDepositRequest{utxo} ->
-              deposit headId utxo
-            _ -> pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Invalid request: expected a IncrementalCommitDepositRequest")
-        -- XXX: This is not really an internal server error
-        -- FIXME: FailedToDraftTxNotInitializing is not a good name and it's not a PostTxError. Should create an error type somewhere in Hydra.API for this.
+            FullCommitRequest{} -> do
+              -- FIXME: deposit should work also with a blueprint tx!
+              pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Cannot deposit with a blueprint tx.")
+            SimpleCommitRequest{utxoToCommit} -> do
+              deposit headId utxoToCommit
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId utxo = do
@@ -261,10 +246,9 @@ handleRecoverCommitUtxo ::
   Chain tx IO ->
   (ClientInput tx -> IO ()) ->
   [QueryItem] ->
-  -- | Request body.
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo directChain putClientInput recoverQuery body = do
+handleRecoverCommitUtxo directChain putClientInput recoverQuery _body = do
   case checkRecover recoverQuery of
     Left err -> pure err
     Right recoverTxIn ->

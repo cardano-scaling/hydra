@@ -157,9 +157,7 @@ apiServerSpec = do
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication (httpApp nullTracer workingChainHandle defaultPParams getHeadId getNothing putClientInput) $ do
           post "/commit" (Aeson.encode request)
-            `shouldRespondWith` case request of
-              IncrementalCommitDepositRequest{} -> 400
-              _ -> 200
+            `shouldRespondWith` 200
 
       let failingChainHandle postTxError =
             dummyChainHandle
@@ -183,9 +181,7 @@ apiServerSpec = do
           coverage $
             withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) defaultPParams getHeadId getNothing putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
-                `shouldRespondWith` case request of
-                  IncrementalCommitDepositRequest{} -> 400
-                  _ -> expectedResponse
+                `shouldRespondWith` expectedResponse
 
 -- * Helpers
 
