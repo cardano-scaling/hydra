@@ -5,7 +5,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), Conway, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), Conway, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, Redeemers (..), bodyTxL, coinTxOutL, outputsTxBodyL)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -89,6 +89,7 @@ spec = parallel $ do
     prop "sets min utxo values" prop_setsMinUTxOValue
     prop "balances transaction with fees" prop_balanceTransaction
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
+    prop "keeps existing withdraw redeemers" prop_validRedeemers
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -218,6 +219,36 @@ prop_setsMinUTxOValue =
  where
   -- Generate a deliberately "under-valued" TxOut
   genTxOutWithoutADA = arbitrary <&> coinTxOutL .~ mempty
+
+prop_validRedeemers :: Property
+prop_validRedeemers =
+  forAllBlind (resize 0 genLedgerTx) $ \tx ->
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
+      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+        case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
+          Left err ->
+            property False
+              & counterexample ("Error: " <> show err)
+          Right tx' ->
+            forAllBlind genSigningKey $ \sk -> do
+              -- NOTE: Testing the signed transaction as adding a witness
+              -- changes the fee requirements.
+              let signedTx = toLedgerTx $ signTx sk (fromLedgerTx tx')
+              let Redeemers rdmrsMap = signedTx ^. witsTxL . rdmrsTxWitsL
+              traceShow rdmrsMap $
+                conjoin
+                  [ isBalanced (lookupUTxO <> walletUTxO) tx signedTx
+                  , hasLowFees Fixture.pparams signedTx
+                  ]
+                  -- & genericCoverTable (show $ Map.keys rdmrsMap)
+                  & counterexample ("Signed tx: \n" <> renderTx (fromLedgerTx signedTx))
+                  & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx'))
+          & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
+          & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+          & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+          -- XXX: This is not exercising any script cost estimation because
+          -- genLedgerTx does not generate txs spending from scripts seemingly.
+          & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =
