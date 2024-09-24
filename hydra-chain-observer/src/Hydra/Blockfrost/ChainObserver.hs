@@ -21,6 +21,8 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   UTxO,
+  except,
+  liftMaybe,
   throwError,
  )
 import Hydra.Chain.Direct.Handlers (convertObservation)
@@ -38,6 +40,9 @@ import Hydra.Tx (IsTx (..))
 data APIBlockfrostError
   = BlockfrostError Text
   | DecodeError Text
+  | NotEnoughBlockConfirmations Blockfrost.BlockHash
+  | MissingBlockNo Blockfrost.BlockHash
+  | MissingNextBlockHash Blockfrost.BlockHash
   deriving (Show, Exception)
 
 runBlockfrostM ::
@@ -91,7 +96,11 @@ blockfrostClient tracer projectPath startFromBlockHash = do
         void $
           retrying retryPolicy shouldRetry $ \_ ->
             either (error . show) id
-              <$> runExceptT (loop tracer prj block networkId blockTime observerHandler mempty)
+              <$> runExceptT
+                ( do
+                    threadDelay blockTime
+                    loop tracer prj block networkId blockTime observerHandler mempty
+                )
     }
 
 loop ::
@@ -112,10 +121,8 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
         } = block
 
   -- [1] Check if block within the safe zone to be processes.
-  when (_blockConfirmations < 50) $ do
-    -- XXX: wait some time & retry
-    threadDelay blockTime
-    loop tracer prj block networkId blockTime observerHandler utxo
+  when (_blockConfirmations < 50) $
+    throwError (NotEnoughBlockConfirmations _blockHash)
 
   -- [2] Search block transactions.
   txHashes <-
@@ -129,7 +136,7 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
   cborTxs <- concat <$> traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
 
   -- [4] Convert CBOR to Cardano API Tx.
-  receivedTxs <- ExceptT . pure $ mapM toTx cborTxs
+  receivedTxs <- except $ mapM toTx cborTxs
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   lift $ traceWith tracer RollForward{point, receivedTxIds}
@@ -139,8 +146,7 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
   let onChainTxs = mapMaybe convertObservation observations
   lift $ forM_ onChainTxs (traceWith tracer . logOnChainTx)
 
-  -- FIXME! handle missing blockNo
-  let blockNo = maybe 0 fromInteger _blockHeight
+  blockNo <- liftMaybe (MissingBlockNo _blockHash) (fromInteger <$> _blockHeight)
   let observationsAt = HeadObservation point blockNo <$> onChainTxs
 
   -- [6] Call observer handler.
@@ -154,10 +160,8 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
     Just nextBlockHash -> do
       block' <- runBlockfrostM prj (Blockfrost.getBlock $ Right nextBlockHash)
       loop tracer prj block' networkId blockTime observerHandler adjustedUTxO
-    Nothing -> do
-      -- XXX: wait some time & retry
-      threadDelay blockTime
-      loop tracer prj block networkId blockTime observerHandler utxo
+    Nothing ->
+      throwError (MissingNextBlockHash _blockHash)
 
 -- * Helpers
 
@@ -167,6 +171,9 @@ retryPolicy = exponentialBackoff 50000 <> limitRetries 5
 isRetryable :: APIBlockfrostError -> Bool
 isRetryable (BlockfrostError _) = True
 isRetryable (DecodeError _) = False
+isRetryable (NotEnoughBlockConfirmations _) = True
+isRetryable (MissingBlockNo _) = True
+isRetryable (MissingNextBlockHash _) = True
 
 shouldRetry :: RetryStatus -> APIBlockfrostError -> IO Bool
 shouldRetry _ err = pure $ isRetryable err
