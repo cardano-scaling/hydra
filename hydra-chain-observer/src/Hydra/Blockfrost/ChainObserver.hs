@@ -48,7 +48,7 @@ runBlockfrostM prj action = do
   result <- liftIO $ runBlockfrost prj action
   case result of
     Left err -> throwError (BlockfrostError $ show err)
-    Right val -> return val
+    Right val -> pure val
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
@@ -128,12 +128,10 @@ loop tracer prj blockHash networkId blockTime observerHandler utxo = do
         )
 
   -- [4] Collect CBOR representations
-  txResults <- traverse (lift . getTxCBOR) txHashes
-  cborTxs <- either (throwError . DecodeError) return (sequence txResults)
+  cborTxs <- traverse getTxCBOR txHashes
 
   -- [5] Convert CBOR to Cardano API Tx.
-  let receivedTxs = toCardanoAPI cborTxs
-
+  receivedTxs <- ExceptT . pure $ toCardanoAPI cborTxs
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint latestBlock
   lift $ traceWith tracer RollForward{point, receivedTxIds}
@@ -164,18 +162,18 @@ loop tracer prj blockHash networkId blockTime observerHandler utxo = do
       loop tracer prj blockHash networkId blockTime observerHandler utxo
 
 -- FIXME: (runBlockfrost prj . Blockfrost.getTxCBOR)
-getTxCBOR :: Blockfrost.TxHash -> IO (Either Text Text)
-getTxCBOR = const $ pure $ Right "TxCbor"
+getTxCBOR :: Blockfrost.TxHash -> ExceptT APIBlockfrostError IO Text
+getTxCBOR = const $ pure "TxCbor"
 
-toCardanoAPI :: [Text] -> [Tx]
+toCardanoAPI :: [Text] -> Either APIBlockfrostError [Tx]
 toCardanoAPI txs =
-  txs <&> \txCbor ->
+  forM txs $ \txCbor ->
     case decodeBase16 txCbor of
-      Left decodeErr -> error $ "Bad Base16 Tx CBOR: " <> decodeErr
+      Left decodeErr -> throwError . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
       Right bytes ->
         case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-          Left deserializeErr -> error $ "Bad Tx CBOR: " <> show deserializeErr
-          Right tx -> tx
+          Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
+          Right tx -> pure tx
 
 -- * Helpers
 
@@ -187,7 +185,7 @@ isRetryable (BlockfrostError _) = True
 isRetryable (DecodeError _) = False
 
 shouldRetry :: RetryStatus -> APIBlockfrostError -> IO Bool
-shouldRetry _ err = return $ isRetryable err
+shouldRetry _ err = pure $ isRetryable err
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
