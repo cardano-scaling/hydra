@@ -135,7 +135,6 @@
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
-            demoDir = ./demo;
             inherit (pkgsLatest) process-compose;
             inherit (pkgs) cardano-node cardano-cli;
             inherit (hydraPackages) hydra-node hydra-tui;
