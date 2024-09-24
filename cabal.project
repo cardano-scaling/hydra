@@ -44,3 +44,10 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
+
+constraints: plutus-core == 1.34.1.0
+
+allow-newer: plutus-core
+allow-newer: plutus-tx
+allow-newer: plutus-ledger-api
+allow-newer: prettyprinter-configurable
