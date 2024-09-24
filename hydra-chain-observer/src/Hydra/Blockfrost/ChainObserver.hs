@@ -193,11 +193,6 @@ toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
   headerHash :: Hash BlockHeader
   headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
-fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
-fromChainPoint chainPoint genesisBlockHash = case chainPoint of
-  ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
-  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
-
 fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
   0 -> Mainnet
