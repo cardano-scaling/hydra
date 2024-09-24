@@ -126,10 +126,10 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
         )
 
   -- [3] Collect CBOR representations
-  cborTxs <- concat <$> traverse (getTxCBOR prj) txHashes
+  cborTxs <- concat <$> traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
 
   -- [4] Convert CBOR to Cardano API Tx.
-  receivedTxs <- ExceptT . pure $ mapM toCardanoAPI cborTxs
+  receivedTxs <- ExceptT . pure $ mapM toTx cborTxs
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   lift $ traceWith tracer RollForward{point, receivedTxIds}
@@ -159,18 +159,6 @@ loop tracer prj block networkId blockTime observerHandler utxo = do
       threadDelay blockTime
       loop tracer prj block networkId blockTime observerHandler utxo
 
-getTxCBOR :: Blockfrost.Project -> Blockfrost.TxHash -> ExceptT APIBlockfrostError IO [Blockfrost.TransactionCBOR]
-getTxCBOR prj = runBlockfrostM prj . Blockfrost.getTxCBOR
-
-toCardanoAPI :: Blockfrost.TransactionCBOR -> Either APIBlockfrostError Tx
-toCardanoAPI (Blockfrost.TransactionCBOR txCbor) =
-  case decodeBase16 txCbor of
-    Left decodeErr -> throwError . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
-    Right bytes ->
-      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-        Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
-        Right tx -> pure tx
-
 -- * Helpers
 
 retryPolicy :: MonadIO m => RetryPolicyM m
@@ -197,3 +185,12 @@ fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
+
+toTx :: Blockfrost.TransactionCBOR -> Either APIBlockfrostError Tx
+toTx (Blockfrost.TransactionCBOR txCbor) =
+  case decodeBase16 txCbor of
+    Left decodeErr -> throwError . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
+    Right bytes ->
+      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+        Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
+        Right tx -> pure tx
