@@ -8,24 +8,20 @@
 , hydra-node
 , hydra-tui
 , self
-, demoDir
 , process-compose
 }: {
-  # httpServer.enable = true;
   package = process-compose;
   settings = {
-    log_location = "./devnet/logs/all.log";
+    log_location = "devnet/logs/process-compose.log";
     log_level = "debug";
     environment = {
-      BASEDIR = "./";
-      SCRIPT_DIR = "./";
       CARDANO_NODE_SOCKET_PATH = "devnet/node.socket";
       CARDANO_NODE_NETWORK_ID = "42";
     };
 
     processes = {
       prepare-devnet = {
-        command = "${demoDir}/prepare-devnet.sh";
+        command = "${self}/demo/prepare-devnet.sh";
       };
       cardano-node = {
         command = ''
@@ -42,12 +38,15 @@
         depends_on."prepare-devnet".condition = "process_completed";
       };
       seed-devnet = {
-        command = "${demoDir}/seed-devnet.sh ${cardano-cli}/bin/cardano-cli ${hydra-node}/bin/hydra-node";
+        command = ''
+          ${self}/demo/seed-devnet.sh ${cardano-cli}/bin/cardano-cli ${hydra-node}/bin/hydra-node
+        '';
         depends_on."cardano-node".condition = "process_log_ready";
       };
       hydra-node-alice = {
         command = ''
-          source .env &&
+          # (Re-)Export all variables from .env
+          set -a; source .env; set +a
           ${hydra-node}/bin/hydra-node \
           --node-id 1 \
           --port 5001 \
@@ -55,24 +54,26 @@
           --monitoring-port 6001 \
           --peer 127.0.0.1:5002 \
           --peer 127.0.0.1:5003 \
-          --hydra-signing-key ${demoDir}/alice.sk \
-          --hydra-verification-key ${demoDir}/bob.vk \
-          --hydra-verification-key ${demoDir}/carol.vk \
-          --hydra-scripts-tx-id  $HYDRA_SCRIPTS_TX_ID \
+          --hydra-signing-key ${self}/demo/alice.sk \
+          --hydra-verification-key ${self}/demo/bob.vk \
+          --hydra-verification-key ${self}/demo/carol.vk \
+          --hydra-scripts-tx-id $$HYDRA_SCRIPTS_TX_ID \
           --cardano-signing-key devnet/credentials/alice.sk \
           --cardano-verification-key devnet/credentials/bob.vk \
           --cardano-verification-key devnet/credentials/carol.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
           --node-socket devnet/node.socket \
-          --persistence-dir devnet
+          --persistence-dir devnet/persistence/alice \
+          --contestation-period 3
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
       };
       hydra-node-bob = {
         command = ''
-          source .env &&
+          # (Re-)Export all variables from .env
+          set -a; source .env; set +a
           ${hydra-node}/bin/hydra-node \
           --node-id 2 \
           --port 5002 \
@@ -80,24 +81,26 @@
           --monitoring-port 6002 \
           --peer 127.0.0.1:5001 \
           --peer 127.0.0.1:5003 \
-          --hydra-signing-key ${demoDir}/bob.sk \
-          --hydra-verification-key ${demoDir}/alice.vk \
-          --hydra-verification-key ${demoDir}/carol.vk \
-          --hydra-scripts-tx-id  $HYDRA_SCRIPTS_TX_ID \
+          --hydra-signing-key ${self}/demo/bob.sk \
+          --hydra-verification-key ${self}/demo/alice.vk \
+          --hydra-verification-key ${self}/demo/carol.vk \
+          --hydra-scripts-tx-id $$HYDRA_SCRIPTS_TX_ID \
           --cardano-signing-key devnet/credentials/bob.sk \
           --cardano-verification-key devnet/credentials/alice.vk \
           --cardano-verification-key devnet/credentials/carol.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
           --node-socket devnet/node.socket \
-          --persistence-dir devnet
+          --persistence-dir devnet/persistence/bob \
+          --contestation-period 3
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
       };
       hydra-node-carol = {
         command = ''
-          source .env &&
+          # (Re-)Export all variables from .env
+          set -a; source .env; set +a
           ${hydra-node}/bin/hydra-node \
           --node-id 3 \
           --port 5003 \
@@ -105,22 +108,24 @@
           --monitoring-port 6003 \
           --peer 127.0.0.1:5001 \
           --peer 127.0.0.1:5002 \
-          --hydra-signing-key ${demoDir}/carol.sk \
-          --hydra-verification-key ${demoDir}/alice.vk \
-          --hydra-verification-key ${demoDir}/bob.vk \
-          --hydra-scripts-tx-id  $HYDRA_SCRIPTS_TX_ID \
+          --hydra-signing-key ${self}/demo/carol.sk \
+          --hydra-verification-key ${self}/demo/alice.vk \
+          --hydra-verification-key ${self}/demo/bob.vk \
+          --hydra-scripts-tx-id $$HYDRA_SCRIPTS_TX_ID \
           --cardano-signing-key devnet/credentials/carol.sk \
           --cardano-verification-key devnet/credentials/alice.vk \
           --cardano-verification-key devnet/credentials/bob.vk \
           --ledger-protocol-parameters devnet/protocol-parameters.json \
           --testnet-magic 42 \
           --node-socket devnet/node.socket \
-          --persistence-dir devnet
+          --persistence-dir devnet/persistence/carol \
+          --contestation-period 3
         '';
         ready_log_line = "NodeIsLeader";
         depends_on."seed-devnet".condition = "process_completed";
       };
       hydra-tui-alice = {
+        working_dir = "./demo";
         command = ''
           ${hydra-tui}/bin/hydra-tui \
             --connect 0.0.0.0:4001 \
@@ -132,6 +137,7 @@
         depends_on."hydra-node-alice".condition = "process_started";
       };
       hydra-tui-bob = {
+        working_dir = "./demo";
         command = ''
           ${hydra-tui}/bin/hydra-tui \
             --connect 0.0.0.0:4002 \
@@ -143,6 +149,7 @@
         depends_on."hydra-node-bob".condition = "process_started";
       };
       hydra-tui-carol = {
+        working_dir = "./demo";
         command = ''
           ${hydra-tui}/bin/hydra-tui \
             --connect 0.0.0.0:4003 \

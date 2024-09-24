@@ -12,7 +12,7 @@ if [[ -n ${1} ]]; then
     echo >&2 "Using provided cardano-cli command: ${1}"
     $(${1} version > /dev/null)
     CCLI_CMD=${1}
-    DEVNET_DIR=${SCRIPT_DIR}/devnet
+    DEVNET_DIR=devnet
 fi
 
 HYDRA_NODE_CMD=
