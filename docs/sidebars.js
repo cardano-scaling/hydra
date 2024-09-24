@@ -10,6 +10,11 @@ module.exports = {
       className: "sidebar-header",
     },
     "getting-started",
+    {
+      type: "doc",
+      label: "... without Docker",
+      id: "getting-started-without-docker",
+    },
     "tutorial/index",
     {
       type: "html",
