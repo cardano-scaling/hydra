@@ -142,24 +142,24 @@ rollForward tracer prj networkId observerHandler (block, utxo) = do
         , _blockHeight
         } = block
 
-  -- [1] Check if block within the safe zone to be processes.
+  -- Check if block within the safe zone to be processes
   when (_blockConfirmations < 50) $
     throwError (NotEnoughBlockConfirmations _blockHash)
 
-  -- [2] Search block transactions.
+  -- Search block transactions
   txHashes <- runBlockfrostM prj . Blockfrost.allPages $ \p ->
     Blockfrost.getBlockTxs' (Right _blockHash) p Blockfrost.def
 
-  -- [3] Collect CBOR representations
+  -- Collect CBOR representations
   cborTxs <- traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
 
-  -- [4] Convert CBOR to Cardano API Tx.
+  -- Convert to cardano-api Tx
   receivedTxs <- except $ mapM toTx (concat cborTxs)
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   lift $ traceWith tracer RollForward{point, receivedTxIds}
 
-  -- [5] Collect head observations.
+  -- Collect head observations
   let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
   let onChainTxs = mapMaybe convertObservation observations
   lift $ forM_ onChainTxs (traceWith tracer . logOnChainTx)
@@ -167,13 +167,13 @@ rollForward tracer prj networkId observerHandler (block, utxo) = do
   blockNo <- liftMaybe (MissingBlockNo _blockHash) (fromInteger <$> _blockHeight)
   let observationsAt = HeadObservation point blockNo <$> onChainTxs
 
-  -- [6] Call observer handler.
+  -- Call observer handler
   lift . observerHandler $
     if null observationsAt
       then [Tick point blockNo]
       else observationsAt
 
-  -- [7] Next.
+  -- Next
   case _blockNextBlock of
     Just nextBlockHash -> do
       block' <- runBlockfrostM prj (Blockfrost.getBlock $ Right nextBlockHash)
