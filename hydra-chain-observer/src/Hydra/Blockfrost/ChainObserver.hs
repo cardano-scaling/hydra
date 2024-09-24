@@ -128,10 +128,10 @@ loop tracer prj blockHash networkId blockTime observerHandler utxo = do
         )
 
   -- [4] Collect CBOR representations
-  cborTxs <- traverse getTxCBOR txHashes
+  cborTxs <- concat <$> traverse (getTxCBOR prj) txHashes
 
   -- [5] Convert CBOR to Cardano API Tx.
-  receivedTxs <- ExceptT . pure $ toCardanoAPI cborTxs
+  receivedTxs <- ExceptT . pure $ mapM toCardanoAPI cborTxs
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint latestBlock
   lift $ traceWith tracer RollForward{point, receivedTxIds}
@@ -161,19 +161,18 @@ loop tracer prj blockHash networkId blockTime observerHandler utxo = do
       threadDelay blockTime
       loop tracer prj blockHash networkId blockTime observerHandler utxo
 
--- FIXME: (runBlockfrost prj . Blockfrost.getTxCBOR)
-getTxCBOR :: Blockfrost.TxHash -> ExceptT APIBlockfrostError IO Text
-getTxCBOR = const $ pure "TxCbor"
+-- FIXME: runBlockfrost prj . Blockfrost.getTxCBOR
+getTxCBOR :: Blockfrost.Project -> Blockfrost.TxHash -> ExceptT APIBlockfrostError IO [Blockfrost.TransactionCBOR]
+getTxCBOR prj = runBlockfrostM prj . Blockfrost.getTxCBOR
 
-toCardanoAPI :: [Text] -> Either APIBlockfrostError [Tx]
-toCardanoAPI txs =
-  forM txs $ \txCbor ->
-    case decodeBase16 txCbor of
-      Left decodeErr -> throwError . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
-      Right bytes ->
-        case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-          Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
-          Right tx -> pure tx
+toCardanoAPI :: Blockfrost.TransactionCBOR -> Either APIBlockfrostError Tx
+toCardanoAPI (Blockfrost.TransactionCBOR txCbor) =
+  case decodeBase16 txCbor of
+    Left decodeErr -> throwError . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
+    Right bytes ->
+      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
+        Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
+        Right tx -> pure tx
 
 -- * Helpers
 
