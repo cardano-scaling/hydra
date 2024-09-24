@@ -2392,7 +2392,6 @@ components:
           - $ref: "api.yaml#/components/schemas/UTxO"
           - $ref: "api.yaml#/components/schemas/FullCommitRequest"
           - $ref: "api.yaml#/components/schemas/IncrementalCommitDepositRequest"
-          - $ref: "api.yaml#/components/schemas/IncrementalCommitRecoverRequest"
 
     FullCommitRequest:
       type: object
@@ -2441,14 +2440,6 @@ components:
       properties:
         utxo:
           $ref: "api.yaml#/components/schemas/UTxO"
-
-    IncrementalCommitRecoverRequest:
-      type: object
-      required:
-        - recoverStart
-      properties:
-        recoverStart:
-          type: integer
 
     # END OF SERVER OUTPUT SCHEMAS
 

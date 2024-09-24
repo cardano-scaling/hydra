@@ -85,7 +85,7 @@ withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} p
       { submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ -> pure $ Left FailedToConstructDepositTx
-      , draftRecoverTx = \_ _ -> pure $ Left FailedToConstructRecoverTx
+      , draftRecoverTx = \_ -> pure $ Left FailedToConstructRecoverTx
       , postTx = const $ pure ()
       }
 

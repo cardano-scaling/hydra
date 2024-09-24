@@ -73,9 +73,6 @@ data DraftCommitTxRequest tx
   | IncrementalCommitDepositRequest
       { utxo :: UTxOType tx
       }
-  | IncrementalCommitRecoverRequest
-      { recoverStart :: Natural
-      }
   deriving stock (Generic)
 
 deriving stock instance (Eq tx, Eq (UTxOType tx)) => Eq (DraftCommitTxRequest tx)
@@ -83,10 +80,6 @@ deriving stock instance (Show tx, Show (UTxOType tx)) => Show (DraftCommitTxRequ
 
 instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) where
   toJSON = \case
-    IncrementalCommitRecoverRequest{recoverStart} ->
-      object
-        [ "recoverStart" .= toJSON recoverStart
-        ]
     IncrementalCommitDepositRequest{utxo} ->
       object
         [ "utxo" .= toJSON utxo
@@ -100,7 +93,7 @@ instance (ToJSON tx, ToJSON (UTxOType tx)) => ToJSON (DraftCommitTxRequest tx) w
       toJSON utxoToCommit
 
 instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest tx) where
-  parseJSON v = fullVariant v <|> simpleVariant v <|> depositVariant v <|> recoverVariant v
+  parseJSON v = fullVariant v <|> simpleVariant v <|> depositVariant v
    where
     fullVariant = withObject "FullCommitRequest" $ \o -> do
       blueprintTx :: tx <- o .: "blueprintTx"
@@ -113,24 +106,18 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
       utxo <- o .: "utxo"
       pure IncrementalCommitDepositRequest{utxo}
 
-    recoverVariant = withObject "IncrementalCommitRecoverRequest" $ \o -> do
-      recoverStart <- o .: "recoverStart"
-      pure IncrementalCommitRecoverRequest{recoverStart}
-
 instance (Arbitrary tx, Arbitrary (UTxOType tx), Eq (UTxOType tx), Monoid (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
   arbitrary =
     oneof
       [ FullCommitRequest <$> arbitrary <*> arbitrary
       , SimpleCommitRequest <$> arbitrary
       , IncrementalCommitDepositRequest <$> arbitrary `suchThat` (/= mempty)
-      , IncrementalCommitRecoverRequest <$> arbitrary
       ]
 
   shrink = \case
     SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
     FullCommitRequest a b -> FullCommitRequest <$> shrink a <*> shrink b
     IncrementalCommitDepositRequest a -> IncrementalCommitDepositRequest <$> shrink a
-    IncrementalCommitRecoverRequest a -> IncrementalCommitRecoverRequest <$> shrink a
 
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
@@ -192,7 +179,7 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO putClientInput
         >>= respond
     ("DELETE", ["commits"]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo directChain getCommitInfo putClientInput (queryString request)
+        >>= handleRecoverCommitUtxo directChain putClientInput (queryString request)
         >>= respond
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
@@ -272,38 +259,21 @@ handleRecoverCommitUtxo ::
   forall tx.
   IsChainState tx =>
   Chain tx IO ->
-  -- | A means to get commit info.
-  IO CommitInfo ->
   (ClientInput tx -> IO ()) ->
   [QueryItem] ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo directChain getCommitInfo putClientInput recoverQuery body = do
-  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
-    Left err ->
-      pure (responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err))
-    Right someCommitRequest ->
-      getCommitInfo >>= \case
-        IncrementalCommit _ -> do
-          case someCommitRequest of
-            IncrementalCommitRecoverRequest{recoverStart} -> do
-              case checkRecover recoverQuery of
-                Left err -> pure err
-                Right recoverTxIn ->
-                  recoverDeposit recoverStart recoverTxIn >>= \case
-                    Left err -> pure $ responseLBS status500 [] (Aeson.encode $ toJSON err)
-                    Right recoverTx -> do
-                      putClientInput Recover{recoverTx}
-                      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
-            _ -> pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Invalid request: expected a IncrementalCommitRecoverRequest")
-        _ -> pure (responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx)))
+handleRecoverCommitUtxo directChain putClientInput recoverQuery body = do
+  case checkRecover recoverQuery of
+    Left err -> pure err
+    Right recoverTxIn ->
+      draftRecoverTx recoverTxIn >>= \case
+        Left err -> pure $ responseLBS status500 [] (Aeson.encode $ toJSON err)
+        Right recoverTx -> do
+          putClientInput Recover{recoverTx}
+          pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
  where
-  recoverDeposit recoverStart txIn = do
-    draftRecoverTx txIn (SlotNo $ fromIntegral recoverStart) <&> \case
-      Left e -> Left e
-      Right recoverTx -> Right recoverTx
-
   checkRecover query =
     case Base16.decode $ foldMap fst query of
       Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to decode TxIn string: " <> pack e))

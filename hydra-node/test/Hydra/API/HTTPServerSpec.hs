@@ -159,7 +159,6 @@ apiServerSpec = do
           post "/commit" (Aeson.encode request)
             `shouldRespondWith` case request of
               IncrementalCommitDepositRequest{} -> 400
-              IncrementalCommitRecoverRequest{} -> 400 -- NOTE: This request type is used in DELETE verb so we don't care about it here
               _ -> 200
 
       let failingChainHandle postTxError =
@@ -186,7 +185,6 @@ apiServerSpec = do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` case request of
                   IncrementalCommitDepositRequest{} -> 400
-                  IncrementalCommitRecoverRequest{} -> 400
                   _ -> expectedResponse
 
 -- * Helpers
