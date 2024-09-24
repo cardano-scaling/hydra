@@ -191,9 +191,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           Right (depositTx (networkId ctx) headId utxo deadline)
     , -- Handle that creates a draft **recover** tx using provided arguments.
       -- Possible errors are handled at the api server level.
-      draftRecoverTx = \txIn lowerValidity -> do
+      draftRecoverTx = \txIn -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let networkId' = networkId ctx
+        timeHandle <- queryTimeHandle
         let depositScriptAddress = mkScriptAddress @PlutusScriptV2 networkId' (fromPlutusScript Deposit.validatorScript)
         let depositUTxO = UTxO.filter (\(TxOut address _ _ _) -> address == depositScriptAddress) spendableUTxO
         case UTxO.pairs depositUTxO of
@@ -204,8 +205,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
               Just dat -> do
                 let Deposit.DepositDatum (_, _, commitsToRecover) = dat
-                pure $
-                  Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
+                case currentPointInTime timeHandle of
+                  Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
+                  Right (lowerValidity, _) ->
+                   pure $ Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
           _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.

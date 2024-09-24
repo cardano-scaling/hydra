@@ -334,7 +334,7 @@ mockChain =
     { postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
-    , draftRecoverTx = \_ _ -> failure "mockChain: unexpected draftRecoverTx"
+    , draftRecoverTx = \_ -> failure "mockChain: unexpected draftRecoverTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     }
 

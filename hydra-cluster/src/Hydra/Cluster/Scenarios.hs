@@ -704,19 +704,14 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` 0
 
-        ChainPoint slotNo _ <- queryTip networkId nodeSocket
-        let recoverRequest =
-              object
-                [ "recoverStart" .= slotNo
-                ]
-
         let queryStr = BSC.unpack $ Base16.encode $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
 
-        _recoverResp :: L.Response String <-
+        recoverResp <-
           -- TODO: use slash instead of question mark to utilize the path instead of query params
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits?" <> queryStr)
-            <&> setRequestBodyJSON recoverRequest
-              >>= httpJSON
+            >>= httpJSON
+
+        (getResponseBody recoverResp :: String) `shouldBe` "OK"
 
         waitForAllMatch 20 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecovered"

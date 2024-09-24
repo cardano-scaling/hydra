@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
-  SlotNo,
   TxIn,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
@@ -277,7 +276,6 @@ data Chain tx m = Chain
   , draftRecoverTx ::
       MonadThrow m =>
       TxIn ->
-      SlotNo ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a recover transaction which unlocks deposited funds.
   , submitTx :: MonadThrow m => tx -> m ()
