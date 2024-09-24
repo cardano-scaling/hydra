@@ -9,7 +9,11 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 ```
 
-> Running the demo without Docker containers, but with plain executables and scripts.
+This tutorial guides you through the same setup as the [docker-based one](./getting-started), but without using Docker containers and only using executables and scripts.
+
+:::info Shortcut using nix
+All steps of this tutorial are also available in a combined [process-compose](https://github.com/F1bonacc1/process-compose) setup via `nix run .#demo`
+:::
 
 ## Preparation
 
@@ -18,15 +22,20 @@ Make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executabl
 - use `nix develop .#demo` or
 - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
 
-:::info Tip for tmux users
-In the `demo` nix shell, there is a `run-tmux` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
-:::
+All further commands are written as if executed from the `demo` folder in the project repository:
 
-All further commands are written as if executed from the `demo` folder in the project repository, so make sure to `cd demo` before continuing.
+```shell
+cd demo
+```
 
 :::info Tip for nix-direnv users
 Allowing the `demo/.envrc` will ensure you have the nix shell environment available whenever you are in the `demo/` directory. To use this, opt-in via `direnv allow` after `cd demo`.
 :::
+
+:::info Tmux shortcut
+In the `demo` nix shell, there is a `run-tmux` script which starts a new `tmux` session with multiple windows and panes executing all the commands below!
+:::
+
 
 ## Set up the devnet
 
