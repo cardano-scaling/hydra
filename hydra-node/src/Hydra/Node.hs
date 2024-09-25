@@ -329,7 +329,13 @@ processEffects node tracer inputId effects = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
       ClientEffect i -> sendOutput server i
-      NetworkEffect msg -> broadcast hn msg
+      NetworkEffect msg ->
+        broadcast hn msg
+          -- HACK: Use dedicated exception type
+          `catch` \(e :: SomeException) -> do
+            -- FIXME: How should we handle this?
+            traceM $ "Failed to broadcast: " <> show e
+            pure ()
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->

@@ -10,7 +10,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTQueue, newTVarIO, rea
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network, NetworkCallback (..))
-import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Etcd (PutMessageException, withEtcdNetwork)
 import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
@@ -133,7 +133,7 @@ spec = do
                   threadDelay 3
               putStrLn "Bob and Carol stopped"
               -- Alice sends a message while she is the only online (= minority)
-              broadcast n1 123 `shouldThrow` \(e :: SomeException) -> error (show e)
+              broadcast n1 123 `shouldThrow` \(_ :: PutMessageException) -> True
 
       it "handles broadcast to majority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
