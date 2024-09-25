@@ -22,7 +22,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComp
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
-import System.Process.Typed (byteStringInput, createPipe, getStderr, getStdout, proc, readProcessStdout_, runProcess_, setStderr, setStdin, setStdout, stopProcess, waitExitCode, withProcessWait)
+import System.Process.Typed (byteStringInput, createPipe, getStderr, getStdout, proc, readProcessStdout_, runProcess_, setStderr, setStdin, setStdout, stopProcess, waitExitCode, withProcessTerm, withProcessWait)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -33,7 +33,7 @@ withEtcdNetwork ::
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer config callback action = do
   -- FIXME: Last etcd instance is not stopping correctly (while it reconnects)
-  withProcessWait etcdCmd $ \p -> do
+  withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
     -- TODO: error handling

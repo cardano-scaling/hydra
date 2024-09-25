@@ -22,7 +22,7 @@ import Hydra.Node.Network (NetworkConfiguration (..), configureMessagePersistenc
 import Hydra.Node.ParameterMismatch (ParameterMismatch)
 import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk)
+import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (
   Property,
@@ -38,7 +38,6 @@ spec = do
       -- of network layer, like: validity
 
       it "broadcasts to self" $ \tracer -> do
-        pendingWith "etcd is not stopping correctly"
         failAfter 5 $
           withTempDir "test-etcd" $ \tmp -> do
             withFreePort $ \port -> do
@@ -60,7 +59,6 @@ spec = do
                 r `shouldSatisfy` \msg -> msg == "asdf"
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
-        pendingWith "etcd is not stopping correctly"
         withTempDir "test-etcd" $ \tmp -> do
           received <- atomically newTQueue
           let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
@@ -86,11 +84,105 @@ spec = do
                     , nodeId = "bob"
                     , persistenceDir = tmp </> "bob"
                     }
-            withEtcdNetwork @Int tracer aliceConfig mockCallback $ \n1 -> do
+            withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 -> do
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 r <- atomically (readTQueue received)
                 r `shouldSatisfy` \msg -> msg == 123
+
+      it "handles broadcast to minority" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 20 $ do
+            [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+            let aliceConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port1
+                    , signingKey = aliceSk
+                    , otherParties = [bob, carol]
+                    , peers = [Host lo port2, Host lo port3]
+                    , nodeId = "alice"
+                    , persistenceDir = tmp </> "alice"
+                    }
+            let bobConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port2
+                    , signingKey = bobSk
+                    , otherParties = [alice, carol]
+                    , peers = [Host lo port1, Host lo port3]
+                    , nodeId = "bob"
+                    , persistenceDir = tmp </> "bob"
+                    }
+            let carolConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port3
+                    , signingKey = carolSk
+                    , otherParties = [alice, bob]
+                    , peers = [Host lo port1, Host lo port2]
+                    , nodeId = "carol"
+                    , persistenceDir = tmp </> "carol"
+                    }
+            received <- atomically newTQueue
+            let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+            withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
+              -- Bob and carol start and stop
+              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
+                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
+                  threadDelay 3
+              putStrLn "Bob and Carol stopped"
+              -- Alice sends a message while she is the only online (= minority)
+              broadcast n1 123 `shouldThrow` \(e :: SomeException) -> error (show e)
+
+      it "handles broadcast to majority" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 20 $ do
+            [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+            let aliceConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port1
+                    , signingKey = aliceSk
+                    , otherParties = [bob, carol]
+                    , peers = [Host lo port2, Host lo port3]
+                    , nodeId = "alice"
+                    , persistenceDir = tmp </> "alice"
+                    }
+            let bobConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port2
+                    , signingKey = bobSk
+                    , otherParties = [alice, carol]
+                    , peers = [Host lo port1, Host lo port3]
+                    , nodeId = "bob"
+                    , persistenceDir = tmp </> "bob"
+                    }
+            let carolConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port3
+                    , signingKey = carolSk
+                    , otherParties = [alice, bob]
+                    , peers = [Host lo port1, Host lo port2]
+                    , nodeId = "carol"
+                    , persistenceDir = tmp </> "carol"
+                    }
+            withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
+                -- Carol starts and stops
+                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
+                  threadDelay 3
+                -- Alice sends a message while Carol is offline
+                broadcast n1 123
+                -- Carol starts again
+                received <- atomically newTQueue
+                let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+                withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
+                  -- Carol should receive what Alice sent while she was offline
+                  r <- atomically (readTQueue received)
+                  r `shouldSatisfy` \msg -> msg == 123
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
@@ -111,7 +203,7 @@ spec = do
                   , localHost = Host lo port2
                   , remoteHosts = [Host lo port1]
                   }
-          withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) mockCallback $ \hn1 ->
+          withOuroborosNetwork @Integer tracer node1Config (const $ pure ()) noopCallback $ \hn1 ->
             withOuroborosNetwork @Integer tracer node2Config (const $ pure ()) recordReceived $ \_ -> do
               withNodeBroadcastingForever hn1 1 $
                 atomically (readTQueue received) `shouldReturn` 1
@@ -141,8 +233,8 @@ spec = do
           (handshakeCallback1, getHandshakeFailures1) <- createHandshakeCallback
           (handshakeCallback2, getHandshakeFailures2) <- createHandshakeCallback
 
-          withOuroborosNetwork @Integer @Integer tracer node1Config handshakeCallback1 mockCallback $ \_ ->
-            withOuroborosNetwork @Integer tracer node2Config handshakeCallback2 mockCallback $ \_ -> do
+          withOuroborosNetwork @Integer @Integer tracer node1Config handshakeCallback1 noopCallback $ \_ ->
+            withOuroborosNetwork @Integer tracer node2Config handshakeCallback2 noopCallback $ \_ -> do
               threadDelay 0.1
               getHandshakeFailures1 `shouldReturn` [Host lo port2]
               getHandshakeFailures2 `shouldReturn` [Host lo port1]
@@ -222,5 +314,5 @@ prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
 
-mockCallback :: Applicative m => NetworkCallback msg m
-mockCallback = NetworkCallback{deliver = \_ -> pure ()}
+noopCallback :: Applicative m => NetworkCallback msg m
+noopCallback = NetworkCallback{deliver = \_ -> pure ()}
