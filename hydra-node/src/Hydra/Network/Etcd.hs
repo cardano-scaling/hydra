@@ -116,26 +116,31 @@ waitMessages ::
   IO ()
 waitMessages endpoint NetworkCallback{deliver} = do
   forever $ do
-    -- Watch all key value updates since revision 1
-    let cmd =
-          proc "etcdctl" ["--endpoints", endpoint, "watch", "--prefix", key, "-w", "json"]
-            & setStdout createPipe
-    withProcessWait cmd $ \p -> do
-      forever $ do
-        bs <- BS.hGetLine (getStdout p)
-        case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-          Left err -> die $ "Failed to parse etcd entry: " <> err
-          Right e@EtcdEntry{entries} -> do
-            print e
-            forM_ entries $ \(_, value) ->
-              -- HACK: lenient decoding
-              case decodeFull' $ Base16.decodeLenient value of
-                Left err -> fail $ "Failed to decode etcd entry: " <> show err
-                Right msg ->
-                  deliver msg
+    -- Watch all key value updates
+    withProcessWait cmd process
+    -- Wait before reconnecting
+    threadDelay 1
  where
   -- FIXME: different key/prefixes
   key = "foo"
+
+  cmd =
+    proc "etcdctl" ["--endpoints", endpoint, "watch", "--prefix", key, "-w", "json"]
+      & setStdout createPipe
+
+  process p = do
+    bs <- BS.hGetLine (getStdout p)
+    case Aeson.eitherDecodeStrict (spy' "got" bs) >>= parseEither parseEtcdEntry of
+      Left err -> putStrLn $ "Failed to parse etcd entry: " <> err
+      Right e@EtcdEntry{entries} -> do
+        print e
+        forM_ entries $ \(_, value) ->
+          -- HACK: lenient decoding
+          case decodeFull' $ Base16.decodeLenient value of
+            Left err -> fail $ "Failed to decode etcd entry: " <> show err
+            Right msg -> do
+              deliver msg
+        process p
 
 getKey :: MonadIO m => String -> String -> m EtcdEntry
 getKey endpoint key = do
