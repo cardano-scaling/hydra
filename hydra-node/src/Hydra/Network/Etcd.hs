@@ -22,7 +22,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComp
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import System.Posix (Handler (Catch), installHandler, sigTERM)
-import System.Process.Typed (byteStringInput, createPipe, getStderr, getStdout, proc, readProcessStdout_, runProcess_, setStderr, setStdin, setStdout, stopProcess, waitExitCode, withProcessTerm, withProcessWait)
+import System.Process.Typed (ExitCodeException (..), byteStringInput, createPipe, getStderr, getStdout, proc, readProcessStdout_, runProcess_, setStderr, setStdin, setStdout, stopProcess, waitExitCode, withProcessTerm, withProcessWait)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -90,23 +90,32 @@ withEtcdNetwork tracer config callback action = do
   NetworkConfiguration{persistenceDir, host, port, peers} = config
 
 -- | Broadcast a message to the etcd cluster.
+-- Throws: 'PutMessageException' if message could not be written to cluster.
 -- HACK: Create/use a proper client.
 putMessage ::
-  (ToCBOR msg, MonadIO m) =>
+  (ToCBOR msg, MonadIO m, MonadCatch m) =>
   String ->
   PortNumber ->
   msg ->
   m ()
 putMessage endpoint port msg = do
-  -- XXX: error handling
-  runProcess_ $
-    proc "etcdctl" ["--endpoints", endpoint, "put", key]
-      & setStdin (byteStringInput hexMsg)
+  handle (throwIO . exitCodeToException) $
+    runProcess_ $
+      proc "etcdctl" ["--endpoints", endpoint, "put", key]
+        & setStdin (byteStringInput hexMsg)
  where
   -- FIXME: use different keys per message types?
   key = "foo-" <> show port
 
   hexMsg = LBase16.encode $ serialize msg
+
+  exitCodeToException :: ExitCodeException -> PutMessageException
+  exitCodeToException ec = PutFailed{reason = decodeUtf8 $ eceStdout ec}
+
+newtype PutMessageException = PutFailed {reason :: Text}
+  deriving stock (Show)
+
+instance Exception PutMessageException
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
