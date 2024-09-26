@@ -32,7 +32,7 @@ jobs:
         peers:          [3]
         scaling_factor: [10]
         # Note: We only put here the configuration values we _expected to pass_.
-        netem_loss:     [0, 1, 5, 10, 25]
+        netem_loss:     [10, 50, 90]
     name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, loss: ${{ matrix.netem_loss }}"
     steps:
     - uses: actions/checkout@v4
@@ -93,13 +93,15 @@ jobs:
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
 
-        # Package loss on alice to bob and carol (up to 20min)
-        nix run github:noonio/pumba/noon/add-flake -- -l debug netem \
-          --duration 20m \
-          --target 172.16.238.20 \
-          --target 172.16.238.30 \
+        # Package loss on random nodes every 20s for 5s. This should make the
+        # benchmark progress reasonably, but under stress
+        nix run github:noonio/pumba/noon/add-flake -- -l info \
+          --random \
+          --interval 20s \
+          netem \
+          --duration 5s \
           loss --percent ${percent} \
-          "re2:hydra-node-1" &
+          "re2:hydra-node" &
 
         # Run benchmark on demo
         mkdir -p benchmarks
@@ -107,7 +109,7 @@ jobs:
           demo \
           --output-directory=benchmarks \
           --scaling-factor="$scaling_factor" \
-          --timeout=1000s \
+          --timeout=1200s \
           --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \
