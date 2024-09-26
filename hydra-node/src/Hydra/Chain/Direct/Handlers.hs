@@ -89,8 +89,6 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
-import Hydra.Tx.Deposit (DepositObservation (..))
-import Hydra.Tx.Recover ( RecoverObservation(..), recoverTx )
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
@@ -98,7 +96,8 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Recover (RecoverObservation (..), recoverTx)
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -369,8 +368,8 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
-  Deposit DepositObservation{headId, deposited, utxo} ->
-    pure OnDepositTx{headId, deposited, utxo}
+  Deposit DepositObservation{headId, deposited, depositTxIn, deadline, depositScriptUTxO} ->
+    pure $ OnDepositTx{headId, deposited, depositTxIn, deadline = posixToUTCTime deadline, depositScriptUTxO}
   Recover RecoverObservation{headId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, committedUTxO, depositScriptUTxO} ->

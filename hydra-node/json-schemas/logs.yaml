@@ -1585,7 +1585,6 @@ definitions:
       - allTxs
       - confirmedSnapshot
       - seenSnapshot
-      - depositScriptUTxO
       - commitUTxO
       - decommitTx
       - version
@@ -1606,11 +1605,6 @@ definitions:
         $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
         $ref: "logs.yaml#/definitions/SeenSnapshot"
-      depositScriptUTxO:
-        oneOf:
-          - type: "null"
-          - type: object
-            $ref: "api.yaml#/components/schemas/UTxO"
       commitUTxO:
         oneOf:
           - type: "null"

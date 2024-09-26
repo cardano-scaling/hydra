@@ -16,6 +16,7 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import PlutusLedgerApi.V2 (POSIXTime)
 
 -- * Construction
 
@@ -61,32 +62,33 @@ depositTx networkId headId depositUTxO deadline =
 data DepositObservation = DepositObservation
   { headId :: HeadId
   , deposited :: UTxO
-  , -- TODO: really needed?
-    utxo :: UTxO
+  , depositTxIn :: TxIn
+  , deadline :: POSIXTime
   }
   deriving stock (Show, Eq, Generic)
 
 observeDepositTx ::
   NetworkId ->
-  -- TODO: needs to also know the UTxO to resolve tx inputs
   Tx ->
   Maybe DepositObservation
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
-  -- FIXME: need to verify consistency of datum against tx inputs!
-  observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
+  depositObservation@DepositObservation{deposited} <- observeDepositTxOut (networkIdToNetwork networkId) (depositIn, toUTxOContext depositOut)
+  if all (`elem` txIns' tx) (UTxO.inputSet deposited)
+    then Just depositObservation
+    else Nothing
  where
   depositScript = fromPlutusScript Deposit.validatorScript
 
   depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
 
-observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe DepositObservation
-observeDepositTxOut network depositOut = do
+observeDepositTxOut :: Network -> (TxIn, TxOut CtxUTxO) -> Maybe DepositObservation
+observeDepositTxOut network (depositIn, depositOut) = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d
     _ -> Nothing
-  Deposit.DepositDatum (headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
+  Deposit.DepositDatum (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   deposit <- do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
     pure . UTxO.fromPairs $ depositedUTxO
@@ -95,6 +97,6 @@ observeDepositTxOut network depositOut = do
     DepositObservation
       { headId
       , deposited = deposit
-      , -- FIXME: drop this
-        utxo = undefined
+      , depositTxIn = depositIn
+      , deadline = deadline
       }
