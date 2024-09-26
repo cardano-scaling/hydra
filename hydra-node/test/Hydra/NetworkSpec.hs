@@ -132,12 +132,10 @@ spec = do
               -- Bob and carol start and stop
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
-                  threadDelay 3
-              putStrLn "Bob and Carol stopped"
+                  pure ()
               -- Alice sends a message while she is the only one online (= minority)
               broadcast n1 123
             -- Now, alice stops too!
-            putStrLn "Alice stopped"
             -- Start alice, bob and carol again
             withEtcdNetwork @Int tracer aliceConfig recordReceived $ \_ -> do
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
@@ -186,7 +184,6 @@ spec = do
                   -- Alice sends a message while Carol is online
                   broadcast n1 123
                   waitNext `shouldReturn` 123
-                putTextLn "Carol stopped"
                 -- Alice sends a message while Carol is offline
                 broadcast n1 456
                 -- Carol starts again
