@@ -6,11 +6,18 @@ import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTQueue, newTVarIO, readTQueue, readTVarIO, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (
+  modifyTVar',
+  newTQueue,
+  newTVarIO,
+  readTQueue,
+  readTVarIO,
+  writeTQueue,
+ )
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network, NetworkCallback (..))
-import Hydra.Network.Etcd (PutMessageException, withEtcdNetwork)
+import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
@@ -51,17 +58,13 @@ spec = do
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
                       }
-              received <- atomically newTQueue
-              let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
-              withEtcdNetwork tracer config recordReceived $ \n -> do
+              (recordingCallback, getReceived) <- newRecordingCallback
+              withEtcdNetwork tracer config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
-                r <- atomically (readTQueue received)
-                r `shouldSatisfy` \msg -> msg == "asdf"
+                getReceived `shouldReturn` "asdf"
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          received <- atomically newTQueue
-          let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
           failAfter 5 $ do
             [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
             let aliceConfig =
@@ -85,10 +88,10 @@ spec = do
                     , persistenceDir = tmp </> "bob"
                     }
             withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 -> do
+              (recordReceived, getReceived) <- newRecordingCallback
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
-                r <- atomically (readTQueue received)
-                r `shouldSatisfy` \msg -> msg == 123
+                getReceived `shouldReturn` 123
 
       it "handles broadcast to minority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -124,8 +127,7 @@ spec = do
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
-            received <- atomically newTQueue
-            let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+            (recordReceived, getReceived) <- newRecordingCallback
             withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
               -- Bob and carol start and stop
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
@@ -133,7 +135,12 @@ spec = do
                   threadDelay 3
               putStrLn "Bob and Carol stopped"
               -- Alice sends a message while she is the only online (= minority)
-              broadcast n1 123 `shouldThrow` \(_ :: PutMessageException) -> True
+              broadcast n1 123
+              -- Start bob and carol again
+              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
+                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
+                  -- Alice should see her own message eventually (when part of majority again)
+                  getReceived `shouldReturn` 123
 
       it "handles broadcast to majority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -316,3 +323,12 @@ prop_canRoundtripCBOREncoding a =
 
 noopCallback :: Applicative m => NetworkCallback msg m
 noopCallback = NetworkCallback{deliver = \_ -> pure ()}
+
+newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg)
+newRecordingCallback = do
+  received <- atomically newTQueue
+  let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+  pure
+    ( recordReceived
+    , atomically $ readTQueue received
+    )
