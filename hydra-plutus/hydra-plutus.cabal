@@ -73,6 +73,7 @@ library
     , hydra-prelude
     , plutus-core          ^>=1.30
     , plutus-ledger-api    ^>=1.30
+    , plutus-script-utils
     , plutus-tx            ^>=1.30
     , plutus-tx-plugin     ^>=1.30
     , QuickCheck

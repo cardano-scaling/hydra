@@ -41,3 +41,13 @@ benchmarks: True
 
 -- Always show detailed output for tests
 test-show-details: direct
+
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/cardano-node-emulator
+  tag: 20f3faf2ef9ca97edcdb7b037507b35a5d76673b
+  --sha256: sha256-bhaJsWqjhojpbwxLX1+vVPSPz86tbhDcBUHk6M1HPzU=
+  subdir:
+    plutus-script-utils
+    plutus-ledger
+

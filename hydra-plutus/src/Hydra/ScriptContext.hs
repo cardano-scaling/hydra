@@ -29,6 +29,7 @@ import PlutusLedgerApi.V2 (
  )
 import PlutusTx (makeIsDataIndexed)
 import PlutusTx.AssocMap (lookup)
+import Plutus.Script.Utils.Typed (IsScriptContext(..))
 
 -- * Tx info
 
@@ -73,6 +74,8 @@ data ScriptContext = ScriptContext
   }
 
 makeIsDataIndexed ''ScriptContext [('ScriptContext, 0)]
+
+instance IsScriptContext ScriptContext
 
 -- * Utilities
 
