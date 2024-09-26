@@ -11,10 +11,12 @@ import Hydra.Options (
 import Options.Applicative (
   Parser,
   ParserInfo,
+  command,
   fullDesc,
   header,
   help,
   helper,
+  hsubparser,
   info,
   long,
   metavar,
@@ -55,9 +57,9 @@ blockfrostOptionsParser =
 projectPathParser :: Parser FilePath
 projectPathParser =
   option str $
-    long "project"
+    long "project-path"
       <> metavar "BLOCKFROST_TOKEN_PATH"
-      <> value "./"
+      <> value "project_token_hash"
       <> help
         "The path where the Blockfrost project token hash is stored.\
         \It expects token prefixed with Blockfrost environment name\
@@ -73,10 +75,25 @@ startFromBlockHashParser =
         \used if the last known head state is older than given point. If not \
         \given and no known head state, the chain tip is used."
 
+directOptionsInfo :: ParserInfo Options
+directOptionsInfo =
+  info
+    optionsParser
+    (progDesc "Direct Mode")
+
+blockfrostOptionsInfo :: ParserInfo Options
+blockfrostOptionsInfo =
+  info
+    blockfrostOptionsParser
+    (progDesc "Blockfrost Mode")
+
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    ( (optionsParser <|> blockfrostOptionsParser)
+    ( hsubparser
+        ( command "direct" directOptionsInfo
+            <> command "blockfrost" blockfrostOptionsInfo
+        )
         <**> helper
     )
     ( fullDesc

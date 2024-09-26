@@ -13,7 +13,7 @@ To run the observer in Direct Mode, provide the following arguments:
 For example:
 
 ``` shell
-hydra-chain-observer \
+hydra-chain-observer direct \
   --node-socket testnets/preprod/node.socket \
   --testnet-magic 1 \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
@@ -23,15 +23,15 @@ hydra-chain-observer \
 ## Blockfrost Mode
 
 To run the observer in Blockfrost Mode, provide the following arguments:
-- `--project`: file path to your Blockfrost project API token hash.
+- `--project-path`: file path to your Blockfrost project API token hash.
 > expected to be prefixed with environment (e.g. testnetA3C2E...)
 - (optional) `--start-from-block-hash`: specify a block hash to start observing from.
 
 For example:
 
 ``` shell
-hydra-chain-observer \
-  --project project_token_hash \
+hydra-chain-observer blockfrost \
+  --project-path project_token_hash \
   --start-from-block-hash "5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
 

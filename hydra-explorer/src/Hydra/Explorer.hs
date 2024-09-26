@@ -84,7 +84,8 @@ run opts = do
     (getExplorerState, modifyExplorerState) <- createExplorerState
 
     let chainObserverArgs =
-          Options.toArgNodeSocket nodeSocket
+          ["direct"]
+            <> Options.toArgNodeSocket nodeSocket
             <> Options.toArgNetworkId networkId
             <> toArgStartChainFrom startChainFrom
     race_
