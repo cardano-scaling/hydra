@@ -65,7 +65,6 @@ import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CollectComObservation (..),
   CommitObservation (..),
-  DepositObservation (..),
   InitObservation (..),
   InitialThreadOutput (..),
   NotAnInitReason,
@@ -74,7 +73,6 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
-  observeDepositTx,
   observeInitTx,
   txInToHeadSeed,
  )
@@ -100,6 +98,7 @@ import Hydra.Tx (
   getSnapshot,
   partyToChain,
   registryUTxO,
+  utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
@@ -110,7 +109,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
-import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
@@ -118,6 +117,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
@@ -172,8 +172,6 @@ data ChainTransition
   | Abort
   | Commit
   | Collect
-  | Deposit
-  | Recover
   | Increment
   | Decrement
   | Close
@@ -907,8 +905,6 @@ genChainStateWithTx =
     [ genInitWithState
     , genAbortWithState
     , genCommitWithState
-    , genDepositWithState
-    , genRecoverWithState
     , genIncrementWithState
     , genDecrementWithState
     , genCollectWithState
@@ -948,16 +944,6 @@ genChainStateWithTx =
   genCollectWithState = do
     (ctx, _, st, tx) <- genCollectComTx
     pure (ctx, Initial st, tx, Collect)
-
-  genRecoverWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
-  genRecoverWithState = do
-    (ctx, st, _utxo, tx) <- genRecoverTx maxGenParties
-    pure (ctx, Open st, tx, Recover)
-
-  genDepositWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
-  genDepositWithState = do
-    (ctx, st, _utxo, tx) <- genDepositTx maxGenParties
-    pure (ctx, Open st, tx, Deposit)
 
   genIncrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
   genIncrementWithState = do
@@ -1147,33 +1133,24 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
-genRecoverTx ::
-  -- XXX: unexpected
-  Int ->
-  Gen
-    ( ChainContext -- XXX: unexpected
-    , OpenState -- XXX: unexpected
-    , -- UTxO that will be recovered
-      UTxO
-    , Tx
-    )
-genRecoverTx numParties = do
-  (ctx, st, _depositedUTxO, txDeposit) <- genDepositTx numParties
-  let DepositObservation{deposited} =
-        fromJust $ observeDepositTx (networkId ctx) txDeposit
-  -- TODO: generate multiple various slots after deadline
-  let tx = recoverTx (mkTxIn txDeposit 0) deposited 0
-  pure (ctx, st, deposited, tx)
-
-genDepositTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
-genDepositTx numParties = do
-  ctx <- genHydraContextFor numParties
-  cctx <- pickChainContext ctx
-  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
-  (_, st@OpenState{headId}) <- genStOpen ctx
+genDepositTx :: Gen (UTxO, Tx)
+genDepositTx = do
+  ctx <- genHydraContextFor 1
+  utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
+  (_, OpenState{headId}) <- genStOpen ctx
   deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
   let tx = depositTx (ctxNetworkId ctx) headId utxo deadline
-  pure (cctx, st, utxo, tx)
+  pure (utxo, tx)
+
+genRecoverTx ::
+  Gen (UTxO, Tx)
+genRecoverTx = do
+  (_depositedUTxO, txDeposit) <- genDepositTx
+  let DepositObservation{deposited} =
+        fromJust $ observeDepositTx testNetworkId txDeposit
+  -- TODO: generate multiple various slots after deadline
+  let tx = recoverTx (mkTxIn txDeposit 0) deposited 100
+  pure (utxoFromTx txDeposit, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genIncrementTx numParties = do

@@ -9,8 +9,6 @@
 -- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx (
   module Hydra.Chain.Direct.Tx,
-  -- XXX: Re-exports until we move the whole module
-  module Hydra.Tx.Deposit,
 ) where
 
 import Hydra.Cardano.Api
@@ -23,6 +21,8 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Tx.Deposit (DepositObservation (..))
+import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -46,7 +46,6 @@ import Hydra.Tx (
 import Hydra.Tx.Close (OpenThreadOutput (..))
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
-import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin)
@@ -130,8 +129,6 @@ observeHeadTx networkId utxo tx =
       <|> CollectCom <$> observeCollectComTx utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
-      <|> Deposit <$> observeDepositTx networkId tx
-      <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
@@ -358,44 +355,6 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
-
-data RecoverObservation = RecoverObservation
-  { headId :: HeadId
-  , recoveredUTxO :: UTxO
-  }
-  deriving stock (Show, Eq, Generic)
-
-instance Arbitrary RecoverObservation where
-  arbitrary = genericArbitrary
-
-observeRecoverTx ::
-  NetworkId ->
-  UTxO ->
-  Tx ->
-  Maybe RecoverObservation
-observeRecoverTx networkId utxo tx = do
-  let inputUTxO = resolveInputsUTxO utxo tx
-  (_, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
-  dat <- txOutScriptData $ toTxContext depositOut
-  Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
-  deposits <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
-    pure $ UTxO.fromPairs depositedUTxO
-  headId <- currencySymbolToHeadId headCurrencySymbol
-  let depositOuts = toTxContext . snd <$> UTxO.pairs deposits
-  -- NOTE: All deposit outputs need to be present in the recover tx outputs but
-  -- the two lists of outputs are not necesarilly the same.
-  if all (`elem` txOuts' tx) depositOuts
-    then
-      pure
-        ( RecoverObservation
-            { headId
-            , recoveredUTxO = deposits
-            }
-        )
-    else Nothing
- where
-  depositScript = fromPlutusScript Deposit.validatorScript
 
 data IncrementObservation = IncrementObservation
   { headId :: HeadId

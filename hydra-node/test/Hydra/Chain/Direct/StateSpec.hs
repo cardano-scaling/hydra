@@ -67,6 +67,7 @@ import Hydra.Chain.Direct.State (
   genFanoutTx,
   genHydraContext,
   genInitTx,
+  genRecoverTx,
   genStInitial,
   getContestationDeadline,
   getKnownUTxO,
@@ -90,15 +91,12 @@ import Hydra.Chain.Direct.Tx (
   CommitObservation (..),
   ContestObservation (..),
   DecrementObservation (..),
-  DepositObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
   IncrementObservation (..),
   NotAnInitReason (..),
-  RecoverObservation (..),
   observeCommitTx,
   observeDecrementTx,
-  observeDepositTx,
   observeHeadTx,
   observeInitTx,
  )
@@ -118,6 +116,8 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (splitUTxO)
@@ -341,6 +341,17 @@ spec = parallel $ do
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
+  describe "recover" $ do
+    propBelowSizeLimit maxTxSize forAllRecover
+    propIsValid forAllRecover
+
+    prop "observes recover" $
+      forAllRecover $ \utxo tx ->
+        case observeRecoverTx testNetworkId utxo tx of
+          Just RecoverObservation{} -> property True
+          Nothing ->
+            False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
@@ -448,8 +459,8 @@ prop_observeAnyTx =
             Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
             Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
             CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
-            Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
-            Recover RecoverObservation{} -> transition === Transition.Deposit
+            Deposit DepositObservation{} -> property False
+            Recover RecoverObservation{} -> property False
             Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
             Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
@@ -639,9 +650,14 @@ forAllDeposit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllDeposit action = do
-  forAllShrink (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, _st, utxo, tx) ->
-    action utxo tx
-      & counterexample ("Deposited UTxO: " <> show utxo)
+  forAllShrink genDepositTx shrink $ uncurry action
+
+forAllRecover ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllRecover action = do
+  forAllShrink genRecoverTx shrink $ uncurry action
 
 forAllDecrement ::
   Testable property =>

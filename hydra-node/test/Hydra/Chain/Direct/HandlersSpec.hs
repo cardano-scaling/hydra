@@ -149,11 +149,11 @@ spec = do
                       OnCollectComTx{} -> Transition.Collect
                       OnDecrementTx{} -> Transition.Decrement
                       OnIncrementTx{} -> Transition.Increment
-                      OnDepositTx{} -> Transition.Deposit
-                      OnRecoverTx{} -> Transition.Recover
                       OnCloseTx{} -> Transition.Close
                       OnContestTx{} -> Transition.Contest
                       OnFanoutTx{} -> Transition.Fanout
+                      OnDepositTx{} -> error "OnDepositTx not expected"
+                      OnRecoverTx{} -> error "OnRecoverTx not expected"
               observedTransition `shouldBe` transition
 
       let handler =

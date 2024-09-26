@@ -126,13 +126,16 @@ spec =
                       Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
                       CollectCom{} -> transition === Transition.Collect
-                      Recover{} -> transition === Transition.Recover
-                      Deposit{} -> transition === Transition.Deposit
                       Increment{} -> transition === Transition.Increment
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       Fanout{} -> transition === Transition.Fanout
+                      -- NOTE: deposit and recover are not Head transactions as
+                      -- they are not operating on Hydra state machine. We don't generate them
+                      -- in these tests so we don't need to check them.
+                      Deposit{} -> property False
+                      Recover{} -> property False
 
     describe "commitTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
