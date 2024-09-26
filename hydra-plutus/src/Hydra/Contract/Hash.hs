@@ -14,7 +14,8 @@ import PlutusTx.Prelude
 import Hydra.Prelude qualified as Haskell
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
-import Hydra.Plutus.Extras (ValidatorType, mkUntypedValidator, scriptValidatorHash)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash)
+import Plutus.Script.Utils.Typed (mkUntypedValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V2 (
   Datum (Datum),
@@ -54,7 +55,7 @@ compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap validator||])
  where
-  wrap = mkUntypedValidator @DatumType @RedeemerType
+  wrap = mkUntypedValidator @ScriptContext @DatumType @RedeemerType
 
 validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator

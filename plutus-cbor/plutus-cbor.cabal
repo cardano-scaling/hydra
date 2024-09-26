@@ -100,6 +100,7 @@ executable encoding-cost
     , hydra-test-utils     >=0.10.0
     , plutus-cbor
     , plutus-ledger-api    >=1.1.0.0
+    , plutus-script-utils
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck

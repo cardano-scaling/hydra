@@ -30,8 +30,9 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
-import Hydra.Plutus.Extras (MintingPolicyType, mkUntypedMintingPolicy)
+import Hydra.Plutus.Extras (MintingPolicyType)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), ownCurrencySymbol, scriptOutputsAt)
+import Plutus.Script.Utils.Typed (mkUntypedMintingPolicy)
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.V2 (
   Datum (getDatum),

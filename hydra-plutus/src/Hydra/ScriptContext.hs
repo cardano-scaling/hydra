@@ -15,6 +15,7 @@ import PlutusLedgerApi.V2.Contexts hiding (
  )
 import PlutusTx.Prelude
 
+import Plutus.Script.Utils.Typed (IsScriptContext (..))
 import PlutusLedgerApi.V2 (
   Address (..),
   Credential (..),
@@ -73,6 +74,8 @@ data ScriptContext = ScriptContext
   }
 
 makeIsDataIndexed ''ScriptContext [('ScriptContext, 0)]
+
+instance IsScriptContext ScriptContext
 
 -- * Utilities
 

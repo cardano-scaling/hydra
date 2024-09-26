@@ -32,7 +32,7 @@ import PlutusLedgerApi.V1 (
   Value (..),
  )
 
-import Hydra.Plutus.Extras (mkUntypedValidator)
+import Plutus.Script.Utils.Typed (mkUntypedValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusTx qualified as Plutus
 

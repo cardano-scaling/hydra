@@ -9,8 +9,8 @@ module Validators where
 
 import PlutusTx.Prelude
 
-import Hydra.Plutus.Extras (mkUntypedValidator)
 import Plutus.MerkleTree qualified as MT
+import Plutus.Script.Utils.Typed (mkUntypedValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V2 (ScriptContext)
 import PlutusTx qualified as Plutus

@@ -17,7 +17,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
 import Hydra.Contract.Util (mustBurnST)
-import Hydra.Plutus.Extras (ValidatorType, mkUntypedValidator, scriptValidatorHash)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash)
 import Hydra.ScriptContext (
   ScriptContext (..),
   TxInfo (txInfoMint, txInfoSignatories),
@@ -26,6 +26,7 @@ import Hydra.ScriptContext (
   scriptOutputsAt,
   valueLockedBy,
  )
+import Plutus.Script.Utils.Typed (mkUntypedValidator)
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (geq, isZero)
@@ -181,7 +182,7 @@ compiledValidator =
   $$(PlutusTx.compile [||wrap . validator||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Commit.validatorHash
  where
-  wrap = mkUntypedValidator @DatumType @RedeemerType
+  wrap = mkUntypedValidator @ScriptContext @DatumType @RedeemerType
 
 validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator

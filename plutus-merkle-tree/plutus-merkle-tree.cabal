@@ -87,6 +87,7 @@ benchmark on-chain-cost
     , hydra-test-utils     >=0.10.0
     , plutus-ledger-api    >=1.1.0.0
     , plutus-merkle-tree
+    , plutus-script-utils
     , plutus-tx
     , plutus-tx-plugin
     , QuickCheck

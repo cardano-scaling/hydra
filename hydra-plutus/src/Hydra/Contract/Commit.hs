@@ -19,8 +19,9 @@ import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.CommitError (CommitError (..), errorCode)
 import Hydra.Contract.Util (hasST, mustBurnST)
 import Hydra.Data.Party (Party)
-import Hydra.Plutus.Extras (ValidatorType, mkUntypedValidator, scriptValidatorHash)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (..))
+import Plutus.Script.Utils.Typed (mkUntypedValidator)
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (..),
@@ -111,7 +112,7 @@ compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap validator||])
  where
-  wrap = mkUntypedValidator @DatumType @RedeemerType
+  wrap = mkUntypedValidator @ScriptContext @DatumType @RedeemerType
 
 validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
