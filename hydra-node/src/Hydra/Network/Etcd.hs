@@ -9,6 +9,7 @@ module Hydra.Network.Etcd where
 import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTBQueue, unGetTBQueue), newTBQueueIO, writeTBQueue)
 import Data.Aeson (withObject, (.:))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser, Value, parseEither)
@@ -41,11 +42,13 @@ withEtcdNetwork tracer config callback action = do
       putStrLn "Give etcd a bit time.."
       threadDelay 2
       race_ (traceStderr p) $
-        race_ (waitMessages clientUrl callback) $
-          action
-            Network
-              { broadcast = putMessage clientUrl port
-              }
+        race_ (waitMessages clientUrl callback) $ do
+          queue <- newTBQueueIO 100
+          race_ (broadcastMessages clientUrl port queue) $
+            action
+              Network
+                { broadcast = atomically . writeTBQueue queue
+                }
  where
   traceStderr p =
     forever $
@@ -87,6 +90,21 @@ withEtcdNetwork tracer config callback action = do
   localHost = Host{hostname = show host, port}
 
   NetworkConfiguration{persistenceDir, host, port, peers} = config
+
+-- | Broadcast messages from a queue to the etcd cluster.
+--
+-- Retries on failure to 'putMessage' in case we are on a minority cluster.
+--
+-- TODO: use a persistent queue
+broadcastMessages :: ToCBOR msg => String -> PortNumber -> TBQueue IO msg -> IO ()
+broadcastMessages endpoint port queue =
+  forever $ do
+    msg <- atomically $ readTBQueue queue
+    putMessage endpoint port msg
+      `catch` \PutFailed{reason} -> do
+        atomically $ unGetTBQueue queue msg
+        putTextLn $ "put failed: " <> reason
+        threadDelay 1
 
 -- | Broadcast a message to the etcd cluster.
 -- Throws: 'PutMessageException' if message could not be written to cluster.
