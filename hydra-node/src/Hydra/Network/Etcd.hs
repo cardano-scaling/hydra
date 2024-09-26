@@ -41,6 +41,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComp
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
+import System.IO.Error (isDoesNotExistError)
 import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (
   ExitCodeException (..),
@@ -48,6 +49,7 @@ import System.Process.Typed (
   createPipe,
   getStderr,
   getStdout,
+  nullStream,
   proc,
   runProcess_,
   setStderr,
@@ -72,9 +74,6 @@ withEtcdNetwork tracer config callback action = do
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
     -- TODO: error handling
     race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $ do
-      -- HACK: give etcd a bit time to start up and do leader election etc.
-      putStrLn "Give etcd a bit time.."
-      threadDelay 2
       race_ (traceStderr p) $ do
         race_ (waitMessages clientUrl persistenceDir callback) $ do
           queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
@@ -202,11 +201,12 @@ getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
     try (decodeFileStrict' $ directory </> "last-known-revision.json") >>= \case
-      Left (e :: IOException) -> do
-        putStrLn $ "Failed to load last known revision: " <> show e
-        pure 1
       Right rev -> do
         pure $ fromMaybe 1 rev
+      Left (e :: IOException)
+        | isDoesNotExistError e -> pure 1
+        | otherwise -> do
+            fail $ "Failed to load last known revision: " <> show e
 
 putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
@@ -230,6 +230,7 @@ putKey endpoint key value =
     runProcess_ $
       proc "etcdctl" ["--endpoints", endpoint, "put", key]
         & setStdin (byteStringInput value)
+        & setStdout nullStream
  where
   exitCodeToException :: ExitCodeException -> PutException
   exitCodeToException ec = PutFailed{reason = decodeUtf8 $ eceStdout ec}
