@@ -677,8 +677,8 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case (depositScriptUTxO, commitUTxO, utxoToCommit) of
-      (Just depositUTxOFromState, Just commitUTxOFromState, Just commitUTxOFromSnapshot) ->
+    case (commitUTxO, utxoToCommit) of
+      (Just commitUTxOFromState, Just commitUTxOFromSnapshot) ->
         if commitUTxOFromState == commitUTxOFromSnapshot
           then
             outcome
@@ -694,7 +694,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                           { headId
                           , headParameters = parameters
                           , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                          , depositScriptUTxO = depositUTxOFromState
+                          , depositScriptUTxO = undefined
                           }
                     }
                 ]
@@ -730,7 +730,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , headId
     } = openState
 
-  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, depositScriptUTxO, commitUTxO, version} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, commitUTxO, version} = coordinatedHeadState
 
 -- | Client request to recover deposited UTxO.
 --
@@ -925,15 +925,14 @@ onOpenChainDepositTx ::
   Environment ->
   OpenState tx ->
   UTxOType tx ->
-  UTxOType tx ->
   Outcome tx
-onOpenChainDepositTx headId env st deposited utxo =
+onOpenChainDepositTx headId env st deposited =
   waitOnUnresolvedDecommit $
     waitOnUnresolvedCommit $
       if not snapshotInFlight && isLeader parameters party nextSn
         then -- TODO: here we include the deposit UTxO to localUTxO before actually signing a snapshot. revisit this.
 
-          newState CommitRecorded{depositScriptUTxO = utxo, commitUTxO = deposited, newLocalUTxO = localUTxO <> deposited}
+          newState CommitRecorded{commitUTxO = deposited, newLocalUTxO = localUTxO <> deposited}
             <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited})
             <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
@@ -1295,8 +1294,8 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, utxo}})
-    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited utxo
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited}})
+    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO}})
@@ -1403,7 +1402,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{localTxs} = coordinatedHeadState
       _otherState -> st
-  CommitRecorded{depositScriptUTxO, commitUTxO, newLocalUTxO} -> case st of
+  CommitRecorded{commitUTxO, newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1412,7 +1411,6 @@ aggregate st = \case
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
                   , commitUTxO = Just commitUTxO
-                  , depositScriptUTxO = Just depositScriptUTxO
                   }
             }
     _otherState -> st
@@ -1425,7 +1423,6 @@ aggregate st = \case
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
                   , commitUTxO = Nothing
-                  , depositScriptUTxO = Nothing
                   }
             }
     _otherState -> st
@@ -1541,7 +1538,6 @@ aggregate st = \case
                   , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
                   , seenSnapshot = NoSeenSnapshot
                   , commitUTxO = Nothing
-                  , depositScriptUTxO = Nothing
                   , decommitTx = Nothing
                   , version = 0
                   }
@@ -1598,7 +1594,6 @@ aggregate st = \case
               { coordinatedHeadState =
                   coordinatedHeadState
                     { commitUTxO = Nothing
-                    , depositScriptUTxO = Nothing
                     , version = newVersion
                     }
               }

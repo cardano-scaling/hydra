@@ -97,7 +97,6 @@ spec =
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
               , commitUTxO = Nothing
-              , depositScriptUTxO = Nothing
               , decommitTx = Nothing
               , version = 0
               }
@@ -652,7 +651,7 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores depositTx of another head" $ \otherHeadId -> do
-        let depositOtherHead = observeTx $ OnDepositTx{headId = otherHeadId, utxo = mempty, deposited = mempty}
+        let depositOtherHead = observeTx $ OnDepositTx{headId = otherHeadId, deposited = mempty}
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
@@ -705,7 +704,6 @@ spec =
                         , seenSnapshot = NoSeenSnapshot
                         , commitUTxO = Nothing
                         , decommitTx = Nothing
-                        , depositScriptUTxO = Nothing
                         , version = 0
                         }
                   , chainState = Prelude.error "should not be used"
@@ -741,7 +739,6 @@ spec =
                       , localTxs = []
                       , confirmedSnapshot = InitialSnapshot testHeadId mempty
                       , seenSnapshot = NoSeenSnapshot
-                      , depositScriptUTxO = Nothing
                       , commitUTxO = Nothing
                       , decommitTx = Nothing
                       , version = 0
@@ -894,7 +891,6 @@ inOpenState parties =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
-      , depositScriptUTxO = Nothing
       , commitUTxO = Nothing
       , decommitTx = Nothing
       , version = 0

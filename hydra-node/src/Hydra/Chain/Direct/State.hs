@@ -1145,9 +1145,9 @@ genDepositTx = do
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (_depositedUTxO, txDeposit) <- genDepositTx
+  (depositedUTxO, txDeposit) <- genDepositTx
   let DepositObservation{deposited} =
-        fromJust $ observeDepositTx testNetworkId txDeposit
+        fromJust $ observeDepositTx testNetworkId depositedUTxO txDeposit
   -- TODO: generate multiple various slots after deadline
   let tx = recoverTx (mkTxIn txDeposit 0) deposited 100
   pure (utxoFromTx txDeposit, tx)

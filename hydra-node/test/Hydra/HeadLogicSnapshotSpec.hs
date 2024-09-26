@@ -64,7 +64,6 @@ spec = do
             , localTxs = mempty
             , confirmedSnapshot = InitialSnapshot testHeadId u0
             , seenSnapshot = NoSeenSnapshot
-            , depositScriptUTxO = Nothing
             , commitUTxO = Nothing
             , decommitTx = Nothing
             , version = 0
@@ -207,7 +206,6 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
         , localTxs = []
         , confirmedSnapshot = sn
         , seenSnapshot
-        , depositScriptUTxO = Nothing
         , commitUTxO = Nothing
         , decommitTx = Nothing
         , version
