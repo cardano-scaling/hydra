@@ -163,6 +163,7 @@ spec = parallel $ do
   roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
+    -- TODO: DRY with TxSpec
     prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
 
   describe "splitUTxO" $ do
@@ -434,15 +435,14 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
 prop_observeAnyTx :: Property
 prop_observeAnyTx =
   checkCoverage $ do
-    forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
-      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) -> do
+    forAllShow genChainStateWithTx (("Transition: " <>) . showTransition) $ \(ctx, st, tx, transition) ->
+      forAllShow genChainStateWithTx (("Some other transition: " <>) . showTransition) $ \(_, otherSt, _, _) -> do
         genericCoverTable [transition] $ do
           let expectedHeadId = chainStateHeadId st
-          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+              utxo = getKnownUTxO st <> getKnownUTxO otherSt
+          case observeHeadTx (networkId ctx) utxo tx of
             NoHeadTx ->
-              if transition == Transition.Recover || transition == Transition.Increment
-                then property True
-                else False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+              False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
             -- NOTE: we don't have the generated headId easily accessible in the initial state
             Init{} -> transition === Transition.Init
             Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId

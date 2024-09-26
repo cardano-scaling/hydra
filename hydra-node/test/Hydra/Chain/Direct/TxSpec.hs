@@ -112,6 +112,7 @@ spec =
         headId' <- currencySymbolToHeadId cs
         pure $ headId' === headId
 
+    -- TODO: DRY with prop_observeAnyTx
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $
@@ -120,8 +121,7 @@ spec =
               counterexample (show transition) $
                 let utxo = getKnownUTxO st
                  in case observeHeadTx testNetworkId utxo tx of
-                      -- TODO: observations for Increment and Recover are not implemented yet
-                      NoHeadTx -> if transition == Transition.Increment || transition == Transition.Recover then property True else property False
+                      NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
                       Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
