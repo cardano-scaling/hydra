@@ -38,8 +38,6 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   fromScriptData,
   genTxIn,
-  getTxBody,
-  getTxId,
   isScriptTxOut,
   mkTxIn,
   modifyTxOutValue,
@@ -50,7 +48,6 @@ import Hydra.Cardano.Api (
   txOutScriptData,
   txOutValue,
   txSpendingUTxO,
-  utxoFromTx,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
@@ -1156,15 +1153,17 @@ genRecoverTx ::
   Gen
     ( ChainContext -- XXX: unexpected
     , OpenState -- XXX: unexpected
-    , UTxO
+    , -- UTxO that will be recovered
+      UTxO
     , Tx
     )
 genRecoverTx numParties = do
   (ctx, st, _depositedUTxO, txDeposit) <- genDepositTx numParties
   let DepositObservation{deposited} =
         fromJust $ observeDepositTx (networkId ctx) txDeposit
-  let tx = recoverTx (networkId ctx) (mkTxIn txDeposit 0) [] 0
-  pure (ctx, st, undefined, tx)
+  -- TODO: generate multiple various slots after deadline
+  let tx = recoverTx (mkTxIn txDeposit 0) deposited 0
+  pure (ctx, st, deposited, tx)
 
 genDepositTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do

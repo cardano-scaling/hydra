@@ -6,7 +6,6 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)
 import Data.List qualified as List
-import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as POSIX
 import Hydra.Contract.Deposit (DepositDatum (..), DepositRedeemer (Recover))
 import Hydra.Contract.DepositError (DepositError (..))
@@ -17,7 +16,6 @@ import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Utils (extractInlineDatumFromTxOut)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
@@ -34,13 +32,9 @@ healthyRecoverTx =
  where
   tx =
     recoverTx
-      testNetworkId
       depositTxIn
-      deposits
+      healthyDepositUTxO
       recoverSlotNo
-
-  DepositDatum (_, _, deposits) =
-    fromJust $ extractInlineDatumFromTxOut @DepositDatum depositTxOut
 
 recoverSlotNo :: SlotNo
 recoverSlotNo = SlotNo $ arbitrary `generateWith` 42
@@ -54,10 +48,10 @@ depositDeadline =
 
 depositTransaction :: Tx
 depositTransaction =
-  depositTx testNetworkId (mkHeadId headPolicyId) utxoToDeposit depositDeadline
+  depositTx testNetworkId (mkHeadId headPolicyId) healthyDepositUTxO depositDeadline
 
-utxoToDeposit :: UTxO
-utxoToDeposit = genUTxOAdaOnlyOfSize 1 `generateWith` 42
+healthyDepositUTxO :: UTxO
+healthyDepositUTxO = genUTxOAdaOnlyOfSize 1 `generateWith` 42
 
 headCS :: CurrencySymbol
 headCS = toPlutusCurrencySymbol testPolicyId
