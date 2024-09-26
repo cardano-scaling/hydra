@@ -32,7 +32,6 @@ withEtcdNetwork ::
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer config callback action = do
-  -- FIXME: Last etcd instance is not stopping correctly (while it reconnects)
   withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
