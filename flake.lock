@@ -871,11 +871,11 @@
     "hackage": {
       "flake": false,
       "locked": {
-        "lastModified": 1727137621,
-        "narHash": "sha256-sQROwcf+zYmsszaRkZdBPUfN32PKuAvBsDs6l+zm8d8=",
+        "lastModified": 1727310401,
+        "narHash": "sha256-YncN9SxrgDH2vzEn7c9sgEafrfDA+16uALYmvA3Ba+M=",
         "owner": "input-output-hk",
         "repo": "hackage.nix",
-        "rev": "e45ce9ce3b8b67c94e50574da815fdf99f995bf3",
+        "rev": "07bc5ccdffa368f40bf9128244096784be5379b2",
         "type": "github"
       },
       "original": {

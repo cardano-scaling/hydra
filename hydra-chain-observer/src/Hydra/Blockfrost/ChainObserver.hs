@@ -154,7 +154,7 @@ rollForward tracer prj networkId observerHandler (block, utxo) = do
   cborTxs <- traverse (runBlockfrostM prj . Blockfrost.getTxCBOR) txHashes
 
   -- Convert to cardano-api Tx
-  receivedTxs <- except $ mapM toTx (concat cborTxs)
+  receivedTxs <- except $ mapM toTx cborTxs
   let receivedTxIds = txId <$> receivedTxs
   let point = toChainPoint block
   lift $ traceWith tracer RollForward{point, receivedTxIds}
