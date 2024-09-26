@@ -3,7 +3,6 @@ module Hydra.Tx.Recover where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano.Builder (
   addInputs,
@@ -16,15 +15,14 @@ import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
-  NetworkId ->
   -- | Deposit input
   TxIn ->
-  -- | Already Deposited funds
-  [Commit.Commit] ->
+  -- | Deposited UTxO to recover
+  UTxO ->
   -- | Lower bound slot number
   SlotNo ->
   Tx
-recoverTx networkId depositTxIn deposited lowerBoundSlot =
+recoverTx depositTxIn deposited lowerBoundSlot =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs recoverInputs
@@ -41,6 +39,7 @@ recoverTx networkId depositTxIn deposited lowerBoundSlot =
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum redeemer
 
-  depositOutputs = toTxContext . snd <$> mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId)) deposited
+  depositOutputs =
+    toTxContext <$> toList deposited
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript

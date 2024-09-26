@@ -215,7 +215,6 @@ executable hydra-tx
     , base
     , bytestring
     , hydra-cardano-api
-    , hydra-plutus
     , hydra-prelude
     , hydra-tx
     , optparse-applicative

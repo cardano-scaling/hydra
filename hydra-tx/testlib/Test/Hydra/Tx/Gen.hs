@@ -26,6 +26,7 @@ import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.Contest (ClosedThreadOutput)
 import Hydra.Tx.Crypto (Hash (..))
+import Hydra.Tx.Deposit (DepositObservation)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Utils (adaOnly, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusTx.Builtins (fromBuiltin)
@@ -218,6 +219,9 @@ instance Arbitrary OpenThreadOutput where
 instance Arbitrary ClosedThreadOutput where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+instance Arbitrary DepositObservation where
+  arbitrary = genericArbitrary
 
 instance Arbitrary Tx where
   -- TODO: shrinker!

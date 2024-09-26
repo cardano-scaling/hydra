@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   mkScriptAddress,
+  networkIdToNetwork,
   toTxContext,
   txOutScriptData,
   pattern TxOut,
@@ -85,6 +86,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, traceWith)
@@ -192,6 +194,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
     , -- Handle that creates a draft **recover** tx using provided arguments.
       -- Possible errors are handled at the api server level.
       draftRecoverTx = \txIn -> do
+        -- TODO: If we would not need to draft, but only build it in the head
+        -- logic, then all this would not be needed as the deposit observation
+        -- would have decoded any deposit datums already and it's a simple map
+        -- lookup using the txid
         ChainStateAt{spendableUTxO} <- atomically getLatest
         let networkId' = networkId ctx
         timeHandle <- queryTimeHandle
@@ -207,8 +213,9 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
                 let Deposit.DepositDatum (_, _, commitsToRecover) = dat
                 case currentPointInTime timeHandle of
                   Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
-                  Right (lowerValidity, _) ->
-                    pure $ Right (Hydra.Tx.Recover.recoverTx networkId' txIn commitsToRecover lowerValidity)
+                  Right (lowerValidity, _) -> do
+                    let depositedUTxO = UTxO.fromPairs $ mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId')) commitsToRecover
+                    pure $ Right (Hydra.Tx.Recover.recoverTx txIn depositedUTxO lowerValidity)
           _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.

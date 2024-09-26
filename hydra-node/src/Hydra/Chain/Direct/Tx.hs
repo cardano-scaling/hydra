@@ -7,7 +7,11 @@
 -- This module also encapsulates the transaction format used when talking to the
 -- cardano-node, which is currently different from the 'Hydra.Ledger.Cardano',
 -- thus we have not yet "reached" 'isomorphism'.
-module Hydra.Chain.Direct.Tx where
+module Hydra.Chain.Direct.Tx (
+  module Hydra.Chain.Direct.Tx,
+  -- XXX: Re-exports until we move the whole module
+  module Hydra.Tx.Deposit,
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
@@ -42,6 +46,7 @@ import Hydra.Tx (
 import Hydra.Tx.Close (OpenThreadOutput (..))
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin)
@@ -353,41 +358,6 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
-
-data DepositObservation = DepositObservation
-  { headId :: HeadId
-  , deposited :: UTxO
-  , -- TODO: really needed?
-    utxo :: UTxO
-  }
-  deriving stock (Show, Eq, Generic)
-
-instance Arbitrary DepositObservation where
-  arbitrary = genericArbitrary
-
-observeDepositTx ::
-  NetworkId ->
-  Tx ->
-  Maybe DepositObservation
-observeDepositTx networkId tx = do
-  -- TODO: we will need a function to query all of the deposit outputs in order to be able to display all pending deposits
-  (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
-  dat <- txOutScriptData depositOut
-  Deposit.DepositDatum (headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
-  deposit <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
-    pure . UTxO.fromPairs $ depositedUTxO
-  headId <- currencySymbolToHeadId headCurrencySymbol
-  pure
-    DepositObservation
-      { headId
-      , deposited = deposit
-      , utxo = UTxO.singleton (depositIn, toCtxUTxOTxOut depositOut)
-      }
- where
-  depositScript = fromPlutusScript Deposit.validatorScript
-
-  depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
