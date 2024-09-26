@@ -58,10 +58,10 @@ spec = do
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
                       }
-              (recordingCallback, getReceived) <- newRecordingCallback
+              (recordingCallback, waitNext) <- newRecordingCallback
               withEtcdNetwork tracer config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
-                getReceived `shouldReturn` "asdf"
+                waitNext `shouldReturn` "asdf"
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -88,10 +88,10 @@ spec = do
                     , persistenceDir = tmp </> "bob"
                     }
             withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 -> do
-              (recordReceived, getReceived) <- newRecordingCallback
+              (recordReceived, waitNext) <- newRecordingCallback
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
-                getReceived `shouldReturn` 123
+                waitNext `shouldReturn` 123
 
       it "handles broadcast to minority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -127,7 +127,7 @@ spec = do
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
-            (recordReceived, getReceived) <- newRecordingCallback
+            (recordReceived, waitNext) <- newRecordingCallback
             withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
               -- Bob and carol start and stop
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
@@ -143,7 +143,7 @@ spec = do
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
                   -- Alice should see her own message eventually (when part of majority again)
-                  getReceived `shouldReturn` 123
+                  waitNext `shouldReturn` 123
 
       it "handles broadcast to majority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -179,20 +179,21 @@ spec = do
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
+            (recordReceived, waitNext) <- newRecordingCallback
             withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 ->
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
-                -- Carol starts and stops
-                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
-                  threadDelay 3
-                -- Alice sends a message while Carol is offline
-                broadcast n1 123
-                -- Carol starts again
-                received <- atomically newTQueue
-                let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
                 withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
-                  -- Carol should receive what Alice sent while she was offline
-                  r <- atomically (readTQueue received)
-                  r `shouldSatisfy` \msg -> msg == 123
+                  -- Alice sends a message while Carol is online
+                  broadcast n1 123
+                  waitNext `shouldReturn` 123
+                putTextLn "Carol stopped"
+                -- Alice sends a message while Carol is offline
+                broadcast n1 456
+                -- Carol starts again
+                withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
+                  -- Carol should receive messages sent by alice while offline
+                  -- (without duplication of 123)
+                  waitNext `shouldReturn` 456
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
