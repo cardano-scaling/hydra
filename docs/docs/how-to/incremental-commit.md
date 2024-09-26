@@ -64,17 +64,9 @@ cardano-cli query utxo \
 
 Then a request to the `/commit` endpoint provides us with a transaction:
 
-:::danger FIXME
-Should be able to do just this:
 ```shell
 curl -X POST localhost:4001/commit \
-  --data @commit-utxo.json
-```
-:::
-
-```shell
-jq '{utxo: .}' commit-utxo.json | \
-  curl -X POST localhost:4001/commit --data @- \
+  --data @commit-utxo.json \
   > deposit-tx.json
 ```
 
@@ -90,3 +82,27 @@ cardano-cli transaction submit \
 ```
 
 This will result in a deposit being detected by the `hydra-node` and consequently the funds to be committed to the head.
+
+### Recover a deposit
+
+Do the same thing as above, **but** with one node stopped, so the deposit is not going to be picked up.
+
+Inspect the deposits:
+```
+cardano-cli query utxo --address addr_test1wrsqjy3463fcgn99jv3rmd7e8dnmy7hl7j4vzw76gslqu9srg3t5f
+```
+
+To recover, we can use the `/commits` endpoint again using the transaction id of the deposit:
+
+:::danger FIXME
+Should be possible this way:
+```shell
+curl -X DELETE localhost:4001/commits/$(cardano-cli transaction txid --tx-file deposit-tx.json)
+```
+:::
+
+```shell
+TXID=$(cardano-cli transaction txid --tx-file deposit-tx.json)
+curl -X DELETE localhost:4001/commits/$(printf "\"${TXID}#0"\" | jq -sRr @uri)
+```
+
