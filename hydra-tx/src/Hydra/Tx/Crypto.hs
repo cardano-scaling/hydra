@@ -91,7 +91,7 @@ instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
-    deriving stock (Eq, Show, Ord)
+    deriving stock (Eq, Show)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 

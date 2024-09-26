@@ -4,6 +4,7 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
+import Cardano.Api.Experimental.Tx (UnsignedTx (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api (
   Key (..),
@@ -17,6 +18,8 @@ import Hydra.Cardano.Api (
   TxIx (..),
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
+  fromLedgerTx,
+  getTxBody,
   getTxId,
   makeShelleyKeyWitness,
   makeSignedTransaction,
@@ -95,7 +98,8 @@ publishHydraScripts networkId socketPath sk = do
     >>= \case
       Left e ->
         throwErrorAsException e
-      Right body -> do
+      Right x -> do
+        let body = getTxBody x
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
         submitTransaction networkId socketPath tx
         void $ awaitTransaction networkId socketPath tx
