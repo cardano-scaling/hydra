@@ -697,23 +697,21 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         waitForAllMatch 10 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecorded"
-          pure ()
 
         (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` 0
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
 
+        -- TODO: Any node should be able to recover
         recoverResp <-
-          -- TODO: use slash instead of question mark to utilize the path instead of query params
-          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> spy path)
             >>= httpJSON
 
         (getResponseBody recoverResp :: String) `shouldBe` "OK"
 
         waitForAllMatch 20 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecovered"
-          pure ()
 
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
