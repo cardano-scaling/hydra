@@ -134,9 +134,12 @@ spec = do
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
                   threadDelay 3
               putStrLn "Bob and Carol stopped"
-              -- Alice sends a message while she is the only online (= minority)
+              -- Alice sends a message while she is the only one online (= minority)
               broadcast n1 123
-              -- Start bob and carol again
+            -- Now, alice stops too!
+            putStrLn "Alice stopped"
+            -- Start alice, bob and carol again
+            withEtcdNetwork @Int tracer aliceConfig recordReceived $ \_ -> do
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
                   -- Alice should see her own message eventually (when part of majority again)
