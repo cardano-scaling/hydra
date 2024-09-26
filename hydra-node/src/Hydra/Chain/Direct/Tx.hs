@@ -357,7 +357,8 @@ observeCollectComTx utxo tx = do
 data DepositObservation = DepositObservation
   { headId :: HeadId
   , deposited :: UTxO
-  , utxo :: UTxO
+  , -- TODO: really needed?
+    utxo :: UTxO
   }
   deriving stock (Show, Eq, Generic)
 

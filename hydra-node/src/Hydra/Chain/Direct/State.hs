@@ -11,7 +11,6 @@ import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)
-import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -39,7 +38,10 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   fromScriptData,
   genTxIn,
+  getTxBody,
+  getTxId,
   isScriptTxOut,
+  mkTxIn,
   modifyTxOutValue,
   selectAsset,
   selectLovelace,
@@ -66,6 +68,7 @@ import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CollectComObservation (..),
   CommitObservation (..),
+  DepositObservation (..),
   InitObservation (..),
   InitialThreadOutput (..),
   NotAnInitReason,
@@ -74,6 +77,7 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
+  observeDepositTx,
   observeInitTx,
   txInToHeadSeed,
  )
@@ -1146,17 +1150,21 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
-genRecoverTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
+genRecoverTx ::
+  -- XXX: unexpected
+  Int ->
+  Gen
+    ( ChainContext -- XXX: unexpected
+    , OpenState -- XXX: unexpected
+    , UTxO
+    , Tx
+    )
 genRecoverTx numParties = do
-  ctx <- genHydraContextFor numParties
-  cctx <- pickChainContext ctx
-  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
-  (_, st@OpenState{headId}) <- genStOpen ctx
-  deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
-  let depositTransaction = depositTx (ctxNetworkId ctx) headId utxo deadline
-  let (depositTxIn, _) = List.head $ UTxO.pairs (utxoFromTx depositTransaction)
-  let tx = recoverTx (ctxNetworkId ctx) depositTxIn [] 0
-  pure (cctx, st, utxo, tx)
+  (ctx, st, _depositedUTxO, txDeposit) <- genDepositTx numParties
+  let DepositObservation{deposited} =
+        fromJust $ observeDepositTx (networkId ctx) txDeposit
+  let tx = recoverTx (networkId ctx) (mkTxIn txDeposit 0) [] 0
+  pure (ctx, st, undefined, tx)
 
 genDepositTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do
