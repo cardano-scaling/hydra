@@ -6,7 +6,7 @@
 , inputs
 , system
 , pkgs
-, compiler
+, ghc
 , pkgsLatest
 }:
 let
@@ -90,7 +90,7 @@ let
     name = "hydra-node-cabal-shell";
 
     buildInputs = libs ++ [
-      hsPkgs.ghc
+      ghc
       pkgs.cabal-install
       pkgs.pkg-config
     ] ++ buildInputs;
