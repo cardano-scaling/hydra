@@ -1,6 +1,8 @@
 name: "Network fault tolerance"
 
 on:
+  # We're using merge-chains; so this needs to run then.
+  merge_group:
   push:
     branches:
     - master

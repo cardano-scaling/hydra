@@ -1,6 +1,8 @@
 name: Check code formatting
 
 on:
+  # We're using merge-chains; so this needs to run then.
+  merge_group:
   pull_request:
 
 jobs:
