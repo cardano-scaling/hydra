@@ -71,10 +71,10 @@
               # Specific versions of tools we require
               (final: prev: {
                 apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
-                cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.9";
+                cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
                 cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
-                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.3.0";
-                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.14.1.0";
+                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.4.0";
+                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.16.2.0";
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
                   src = inputs.hls;
                   cabalProject = builtins.readFile (src + "/cabal.project");
