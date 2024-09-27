@@ -395,9 +395,9 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
 
   peers =
     [ Host
-      { Network.hostname = "127.0.0.1"
-      , Network.port = fromIntegral $ 5_000 + i
-      }
+        { Network.hostname = "127.0.0.1"
+        , Network.port = fromIntegral $ 5_000 + i
+        }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]

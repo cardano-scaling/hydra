@@ -85,7 +85,7 @@ library
   build-depends:
     , aeson
     , async
-    , base                          >=4.7 && <5
+    , base                  >=4.7 && <5
     , bytestring
     , cardano-slotting
     , containers
@@ -98,7 +98,8 @@ library
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx:{hydra-tx, testlib}
+    , hydra-tx
+    , hydra-tx:testlib
     , io-classes
     , iohk-monitoring
     , lens
@@ -157,7 +158,7 @@ test-suite tests
   build-depends:
     , aeson
     , async
-    , base                              >=4.7 && <5
+    , base                >=4.7 && <5
     , bytestring
     , cardano-ledger-api
     , containers
@@ -170,10 +171,12 @@ test-suite tests
     , hydra-cardano-api
     , hydra-cluster
     , hydra-explorer
-    , hydra-node:{hydra-node, testlib}
+    , hydra-node
+    , hydra-node:testlib
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx:{hydra-tx, testlib}
+    , hydra-tx
+    , hydra-tx:testlib
     , io-classes
     , lens
     , lens-aeson
