@@ -336,7 +336,7 @@ spec = parallel $ do
 
     prop "observes deposit" $
       forAllDeposit $ \utxo tx ->
-        case observeDepositTx testNetworkId utxo tx of
+        case observeDepositTx testNetworkId tx of
           Just DepositObservation{} -> property True
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)

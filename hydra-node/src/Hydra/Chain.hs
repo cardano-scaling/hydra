@@ -122,6 +122,9 @@ data OnChainTx tx
   | OnDepositTx
       { headId :: HeadId
       , deposited :: UTxOType tx
+      , depositTxIn :: TxInType tx
+      , deadline :: UTCTime
+      , depositScriptUTxO :: UTxOType tx
       }
   | OnRecoverTx
       { headId :: HeadId

@@ -9,7 +9,7 @@ import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (HeadState, PendingDeposits)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
@@ -22,6 +22,7 @@ import Hydra.Tx (
   SnapshotNumber,
   SnapshotVersion,
   TxIdType,
+  TxInType,
   UTxOType,
   mkHeadParameters,
  )
@@ -72,7 +73,7 @@ data StateChanged tx
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
-  | CommitRecorded {commitUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx}
+  | CommitRecorded {pendingDeposits :: PendingDeposits tx, newLocalUTxO :: UTxOType tx}
   | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx}
   | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
@@ -85,7 +86,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | CommitFinalized {newVersion :: SnapshotVersion}
+  | CommitFinalized {newVersion :: SnapshotVersion, depositTxIn :: TxInType tx}
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}

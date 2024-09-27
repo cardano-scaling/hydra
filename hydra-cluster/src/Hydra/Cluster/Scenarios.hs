@@ -705,7 +705,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         -- TODO: Any node should be able to recover
         recoverResp <-
-          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> spy path)
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
             >>= httpJSON
 
         (getResponseBody recoverResp :: String) `shouldBe` "OK"

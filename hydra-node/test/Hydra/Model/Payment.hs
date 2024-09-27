@@ -86,6 +86,7 @@ instance HasVariables Payment where
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
   type TxIdType Payment = Int
+  type TxInType Payment = Int
   type TxOutType Payment = (CardanoSigningKey, Value)
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value

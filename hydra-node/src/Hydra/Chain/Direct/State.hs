@@ -1145,18 +1145,19 @@ genDepositTx = do
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (depositedUTxO, txDeposit) <- genDepositTx
+  (_depositedUTxO, txDeposit) <- genDepositTx
   let DepositObservation{deposited} =
-        fromJust $ observeDepositTx testNetworkId depositedUTxO txDeposit
+        fromJust $ observeDepositTx testNetworkId txDeposit
   -- TODO: generate multiple various slots after deadline
   let tx = recoverTx (mkTxIn txDeposit 0) deposited 100
   pure (utxoFromTx txDeposit, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
 genIncrementTx numParties = do
+  (_, txDeposit) <- genDepositTx
+  let utxo = utxoFromTx txDeposit
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
-  utxo <- genUTxOAdaOnlyOfSize 3 `suchThat` (not . null)
   (_, st@OpenState{headId}) <- genStOpen ctx
   let openUTxO = getKnownUTxO st
   let version = 1

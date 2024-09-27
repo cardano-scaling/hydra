@@ -64,6 +64,7 @@ data DepositObservation = DepositObservation
   , deposited :: UTxO
   , depositTxIn :: TxIn
   , deadline :: POSIXTime
+  , depositScriptUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
 
@@ -74,7 +75,7 @@ observeDepositTx ::
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
-  depositObservation@DepositObservation{deposited} <- observeDepositTxOut (networkIdToNetwork networkId) (depositIn, toUTxOContext depositOut)
+  depositObservation@DepositObservation{deposited} <- observeDepositTxOut (networkIdToNetwork networkId) (depositIn, toUTxOContext depositOut) (utxoFromTx tx)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then Just depositObservation
     else Nothing
@@ -83,8 +84,8 @@ observeDepositTx networkId tx = do
 
   depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
 
-observeDepositTxOut :: Network -> (TxIn, TxOut CtxUTxO) -> Maybe DepositObservation
-observeDepositTxOut network (depositIn, depositOut) = do
+observeDepositTxOut :: Network -> (TxIn, TxOut CtxUTxO) -> UTxO -> Maybe DepositObservation
+observeDepositTxOut network (depositIn, depositOut) depositScriptUTxO = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d
     _ -> Nothing
@@ -98,5 +99,6 @@ observeDepositTxOut network (depositIn, depositOut) = do
       { headId
       , deposited = deposit
       , depositTxIn = depositIn
-      , deadline = deadline
+      , deadline
+      , depositScriptUTxO
       }
