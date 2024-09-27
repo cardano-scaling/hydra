@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
-import Hydra.Explorer.Options (Options (..), toArgStartChainFrom)
+import Hydra.Explorer.Options (Options (..), toArgProjectPath, toArgStartChainFrom, toArgStartFromBlockHash)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
@@ -84,26 +84,27 @@ run opts = do
     (getExplorerState, modifyExplorerState) <- createExplorerState
 
     let chainObserverArgs =
-          ["direct"]
-            <> Options.toArgNodeSocket nodeSocket
-            <> Options.toArgNetworkId networkId
-            <> toArgStartChainFrom startChainFrom
+          case opts of
+            Options{networkId, nodeSocket, startChainFrom} ->
+              ["direct"]
+                <> Options.toArgNodeSocket nodeSocket
+                <> Options.toArgNetworkId networkId
+                <> toArgStartChainFrom startChainFrom
+            BlockfrostOptions{projectPath, startFromBlockHash} ->
+              ["blockfrost"]
+                <> toArgProjectPath projectPath
+                <> toArgStartFromBlockHash startFromBlockHash
     race_
       ( withArgs chainObserverArgs $
           Hydra.ChainObserver.main (observerHandler modifyExplorerState)
       )
       (Warp.runSettings (settings tracer) (httpApp tracer getExplorerState))
  where
+  portToBind = port opts
+
   settings tracer =
     Warp.defaultSettings
-      & Warp.setPort (fromIntegral port)
+      & Warp.setPort (fromIntegral portToBind)
       & Warp.setHost "0.0.0.0"
-      & Warp.setBeforeMainLoop (traceWith tracer $ APIServerStarted port)
+      & Warp.setBeforeMainLoop (traceWith tracer $ APIServerStarted portToBind)
       & Warp.setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
-
-  Options
-    { networkId
-    , port
-    , nodeSocket
-    , startChainFrom
-    } = opts
