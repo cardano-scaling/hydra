@@ -848,12 +848,11 @@ toOnChainTx now = \case
     OnCollectComTx{headId}
   RecoverTx{headId, recoverTx} ->
     OnRecoverTx{headId, recoveredUTxO = utxoFromTx recoverTx}
-  IncrementTx{headId, incrementingSnapshot, depositScriptUTxO} ->
+  IncrementTx{headId, incrementingSnapshot, depositScriptUTxO, depositTxIn} ->
     OnIncrementTx
       { headId
       , newVersion = version + 1
-      , committedUTxO = fromMaybe mempty utxoToCommit
-      , depositScriptUTxO
+      , depositTxIn
       }
    where
     Snapshot{version, utxoToCommit} = getSnapshot incrementingSnapshot
