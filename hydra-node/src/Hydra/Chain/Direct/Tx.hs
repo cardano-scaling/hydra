@@ -21,8 +21,6 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Tx.Deposit (DepositObservation (..))
-import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -46,7 +44,9 @@ import Hydra.Tx (
 import Hydra.Tx.Close (OpenThreadOutput (..))
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
+import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -127,6 +127,8 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Deposit <$> observeDepositTx networkId  tx
+      <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx

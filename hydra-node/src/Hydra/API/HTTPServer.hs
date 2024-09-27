@@ -150,33 +150,33 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO putClientInput
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
-        ("GET", ["snapshot", "utxo"]) ->
-          -- XXX: Should ensure the UTxO is of the right head and the head is still
-          -- open. This is something we should fix on the "read model" side of the
-          -- server.
-          getConfirmedUTxO >>= \case
-            Nothing -> respond notFound
-            Just utxo -> respond $ okJSON utxo
-        ("POST", ["commit"]) ->
-          consumeRequestBodyStrict request
-            >>= handleDraftCommitUtxo directChain getCommitInfo
-            >>= respond
-        ("DELETE", ["commits", _]) ->
-          consumeRequestBodyStrict request
-            >>= handleRecoverCommitUtxo directChain putClientInput (last . fromList $ pathInfo request)
-            >>= respond
-        ("POST", ["decommit"]) ->
-          consumeRequestBodyStrict request
-            >>= handleDecommit putClientInput
-            >>= respond
-        ("GET", ["protocol-parameters"]) ->
-          respond . responseLBS status200 [] . Aeson.encode $ pparams
-        ("POST", ["cardano-transaction"]) ->
-          consumeRequestBodyStrict request
-            >>= handleSubmitUserTx directChain
-            >>= respond
-        _ ->
-          respond $ responseLBS status400 [] "Resource not found"
+    ("GET", ["snapshot", "utxo"]) ->
+      -- XXX: Should ensure the UTxO is of the right head and the head is still
+      -- open. This is something we should fix on the "read model" side of the
+      -- server.
+      getConfirmedUTxO >>= \case
+        Nothing -> respond notFound
+        Just utxo -> respond $ okJSON utxo
+    ("POST", ["commit"]) ->
+      consumeRequestBodyStrict request
+        >>= handleDraftCommitUtxo directChain getCommitInfo
+        >>= respond
+    ("DELETE", ["commits", _]) ->
+      consumeRequestBodyStrict request
+        >>= handleRecoverCommitUtxo directChain putClientInput (last . fromList $ pathInfo request)
+        >>= respond
+    ("POST", ["decommit"]) ->
+      consumeRequestBodyStrict request
+        >>= handleDecommit putClientInput
+        >>= respond
+    ("GET", ["protocol-parameters"]) ->
+      respond . responseLBS status200 [] . Aeson.encode $ pparams
+    ("POST", ["cardano-transaction"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSubmitUserTx directChain
+        >>= respond
+    _ ->
+      respond $ responseLBS status400 [] "Resource not found"
 
 -- * Handlers
 
@@ -210,7 +210,7 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
             FullCommitRequest{} -> do
               -- FIXME: deposit should work also with a blueprint tx!
               pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Cannot deposit with a blueprint tx.")
-            SimpleCommitRequest{utxoToCommit} -> do
+            SimpleCommitRequest{utxoToCommit} ->
               deposit headId utxoToCommit
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where

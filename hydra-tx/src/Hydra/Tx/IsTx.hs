@@ -49,6 +49,14 @@ class
   , FromJSONKey (TxIdType tx)
   , ToJSONKey (TxIdType tx)
   , --
+    Eq (TxInType tx)
+  , Ord (TxInType tx)
+  , Show (TxInType tx)
+  , ToJSON (TxInType tx)
+  , FromJSON (TxInType tx)
+  , FromJSONKey (TxInType tx)
+  , ToJSONKey (TxInType tx)
+  , --
     Eq (TxOutType tx)
   , Show (TxOutType tx)
   , ToJSON (TxOutType tx)
@@ -66,6 +74,9 @@ class
   where
   -- | Type which identifies a transaction
   type TxIdType tx
+
+  -- | Type for individual transaction inputs.
+  type TxInType tx
 
   -- | Type for individual transaction outputs.
   type TxOutType tx = out | out -> tx
@@ -103,6 +114,7 @@ type ArbitraryIsTx tx =
   , Arbitrary tx
   , Arbitrary (UTxOType tx)
   , Arbitrary (TxIdType tx)
+  , Arbitrary (TxInType tx)
   , Arbitrary (TxOutType tx)
   )
 
@@ -157,6 +169,7 @@ instance FromCBOR UTxO where
 
 instance IsTx Tx where
   type TxIdType Tx = TxId
+  type TxInType Tx = TxIn
   type TxOutType Tx = TxOut CtxUTxO
   type UTxOType Tx = UTxO
   type ValueType Tx = Value

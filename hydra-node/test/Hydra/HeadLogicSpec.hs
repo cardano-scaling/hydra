@@ -48,6 +48,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
+import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod)
@@ -96,7 +97,7 @@ spec =
               , localTxs = mempty
               , confirmedSnapshot = InitialSnapshot testHeadId mempty
               , seenSnapshot = NoSeenSnapshot
-              , commitUTxO = Nothing
+              , pendingDeposits = mempty
               , decommitTx = Nothing
               , version = 0
               }
@@ -651,7 +652,15 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores depositTx of another head" $ \otherHeadId -> do
-        let depositOtherHead = observeTx $ OnDepositTx{headId = otherHeadId, deposited = mempty}
+        let depositOtherHead =
+              observeTx $
+                OnDepositTx
+                  { headId = otherHeadId
+                  , deposited = mempty
+                  , depositTxIn = 1
+                  , deadline = genUTCTime `generateWith` 42
+                  , depositScriptUTxO = mempty
+                  }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
@@ -702,7 +711,7 @@ spec =
                         , localTxs = [expiringTransaction]
                         , confirmedSnapshot = InitialSnapshot testHeadId $ UTxO.singleton utxo
                         , seenSnapshot = NoSeenSnapshot
-                        , commitUTxO = Nothing
+                        , pendingDeposits = mempty
                         , decommitTx = Nothing
                         , version = 0
                         }
@@ -739,7 +748,7 @@ spec =
                       , localTxs = []
                       , confirmedSnapshot = InitialSnapshot testHeadId mempty
                       , seenSnapshot = NoSeenSnapshot
-                      , commitUTxO = Nothing
+                      , pendingDeposits = mempty
                       , decommitTx = Nothing
                       , version = 0
                       }
@@ -891,7 +900,7 @@ inOpenState parties =
       , localTxs = mempty
       , confirmedSnapshot
       , seenSnapshot = NoSeenSnapshot
-      , commitUTxO = Nothing
+      , pendingDeposits = mempty
       , decommitTx = Nothing
       , version = 0
       }

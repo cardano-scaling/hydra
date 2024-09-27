@@ -14,6 +14,8 @@ import Hydra.Prelude
 
 import Codec.Serialise (serialise)
 import Data.Aeson (
+  FromJSONKey,
+  ToJSONKey,
   object,
   withObject,
   (.:),
@@ -81,8 +83,20 @@ instance ToCBOR SimpleTxOut where
 instance FromCBOR SimpleTxOut where
   fromCBOR = SimpleTxOut <$> fromCBOR
 
+-- | A single input of a 'SimpleTx' having an integer identity and sole value.
+newtype SimpleTxIn = SimpleTxIn {unSimpleTxIn :: Integer}
+  deriving stock (Generic)
+  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON, FromJSONKey, ToJSONKey, Arbitrary)
+
+instance ToCBOR SimpleTxIn where
+  toCBOR (SimpleTxIn inId) = toCBOR inId
+
+instance FromCBOR SimpleTxIn where
+  fromCBOR = SimpleTxIn <$> fromCBOR
+
 instance IsTx SimpleTx where
   type TxIdType SimpleTx = SimpleId
+  type TxInType SimpleTx = SimpleTxIn
   type TxOutType SimpleTx = SimpleTxOut
   type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
