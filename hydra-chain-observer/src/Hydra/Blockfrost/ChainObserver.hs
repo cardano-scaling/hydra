@@ -14,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   writeTVar,
  )
-import Control.Retry (RetryPolicyM, RetryStatus (..), exponentialBackoff, limitRetries, retrying)
+import Control.Retry (constantDelay, retrying)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -81,31 +81,30 @@ blockfrostClient tracer projectPath startFromBlockHash = do
         let networkId = fromNetworkMagic _genesisNetworkMagic
         traceWith tracer ConnectingToExternalNode{networkId}
 
-        block <-
+        -- TODO: Take a Chain Point from the options directly
+        -- let chainPoint = toChainPoint block
+        -- traceWith tracer StartObservingFrom{chainPoint}
+        blockHash <-
           case startFromBlockHash of
-            Just bh -> do
-              either (error . show) id
-                <$> runExceptT
-                  ( runBlockfrostM prj $
-                      Blockfrost.getBlock (Right $ Blockfrost.BlockHash bh)
-                  )
+            Just bh -> pure $ Blockfrost.BlockHash bh
             Nothing -> do
-              either (error . show) id
-                <$> runExceptT (runBlockfrostM prj Blockfrost.getLatestBlock)
-
-        let chainPoint = toChainPoint block
-        traceWith tracer StartObservingFrom{chainPoint}
+              runExceptT (runBlockfrostM prj Blockfrost.getLatestBlock) >>= \case
+                Left err -> fail $ "Failed to fetch latest block: " <> show err
+                Right Blockfrost.Block{_blockHash} -> pure _blockHash
 
         let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-        stateTVar <- newTVarIO (block, mempty)
+        stateTVar <- newTVarIO (blockHash, mempty)
         void $
-          retrying retryPolicy shouldRetry $ \RetryStatus{rsIterNumber} -> do
-            -- XXX: wait on any iteration number, except 0 as it's the first try.
-            when (rsIterNumber > 0) $ threadDelay blockTime
-            either (error . show) id
-              <$> runExceptT (loop tracer prj networkId blockTime observerHandler stateTVar)
+          retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
+            runExceptT $ loop tracer prj networkId blockTime observerHandler stateTVar
     }
+ where
+  shouldRetry _ = \case
+    Right{} -> pure False
+    Left err -> pure $ isRetryable (spy err)
+
+  retryPolicy blockTime = constantDelay (truncate blockTime * 1000 * 1000)
 
 -- | Iterative process that follows the chain using a naive roll-forward approach,
 -- keeping track of the latest known current block and UTxO view.
@@ -117,7 +116,7 @@ loop ::
   NetworkId ->
   DiffTime ->
   ObserverHandler IO ->
-  TVar IO (Blockfrost.Block, UTxO) ->
+  TVar IO (Blockfrost.BlockHash, UTxO) ->
   ExceptT APIBlockfrostError IO a
 loop tracer prj networkId blockTime observerHandler stateTVar = do
   current <- lift $ readTVarIO stateTVar
@@ -132,18 +131,20 @@ rollForward ::
   Blockfrost.Project ->
   NetworkId ->
   ObserverHandler IO ->
-  (Blockfrost.Block, UTxO) ->
-  ExceptT APIBlockfrostError IO (Blockfrost.Block, UTxO)
-rollForward tracer prj networkId observerHandler (block, utxo) = do
-  let Blockfrost.Block
-        { _blockHash
-        , _blockConfirmations
-        , _blockNextBlock
-        , _blockHeight
-        } = block
+  (Blockfrost.BlockHash, UTxO) ->
+  ExceptT APIBlockfrostError IO (Blockfrost.BlockHash, UTxO)
+rollForward tracer prj networkId observerHandler (blockHash, utxo) = do
+  block@Blockfrost.Block
+    { _blockHash
+    , _blockConfirmations
+    , _blockNextBlock
+    , _blockHeight
+    } <-
+    runBlockfrostM prj $ Blockfrost.getBlock (Right blockHash)
 
   -- Check if block within the safe zone to be processes
-  when (_blockConfirmations < 50) $
+  -- FIXME: should be configurable
+  when (_blockConfirmations < 1) $
     throwError (NotEnoughBlockConfirmations _blockHash)
 
   -- Search block transactions
@@ -175,16 +176,13 @@ rollForward tracer prj networkId observerHandler (block, utxo) = do
 
   -- Next
   case _blockNextBlock of
-    Just nextBlockHash -> do
-      block' <- runBlockfrostM prj (Blockfrost.getBlock $ Right nextBlockHash)
-      pure (block', adjustedUTxO)
+    Just nextBlockHash ->
+      pure (nextBlockHash, adjustedUTxO)
     Nothing ->
+      -- FIXME: should not error (and retry) after observing already
       throwError (MissingNextBlockHash _blockHash)
 
 -- * Helpers
-
-retryPolicy :: MonadIO m => RetryPolicyM m
-retryPolicy = exponentialBackoff 50000 <> limitRetries 5
 
 isRetryable :: APIBlockfrostError -> Bool
 isRetryable (BlockfrostError _) = True
@@ -192,9 +190,6 @@ isRetryable (DecodeError _) = False
 isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
 isRetryable (MissingNextBlockHash _) = True
-
-shouldRetry :: RetryStatus -> APIBlockfrostError -> IO Bool
-shouldRetry _ err = pure $ isRetryable err
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
