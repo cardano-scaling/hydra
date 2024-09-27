@@ -4,8 +4,9 @@ name: "CI"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 on:
+  # We're using merge-chains; so this needs to run then.
+  merge_group:
   push:
     branches:
     - master
