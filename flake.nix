@@ -149,7 +149,7 @@
                 pkgs.nixpkgs-fmt
                 pkgs.fourmolu
               ];
-              treefmt = pkgs.treefmt;
+              treefmt = pkgsLatest.treefmt;
             };
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
             "hydra-cardano-api"
@@ -167,7 +167,8 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
-            inherit inputs pkgs hsPkgs system compiler pkgsLatest;
+            inherit inputs pkgs hsPkgs system pkgsLatest;
+            ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };
     };
