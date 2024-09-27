@@ -60,6 +60,7 @@ data PostChainTx tx
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
       , depositScriptUTxO :: UTxOType tx
+      , depositTxIn :: TxInType tx
       }
   | RecoverTx
       { headId :: HeadId
@@ -96,7 +97,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO} -> IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxIn} ->
+      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxIn
     RecoverTx{headId, recoverTx} -> RecoverTx <$> shrink headId <*> shrink recoverTx
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
@@ -133,8 +135,7 @@ data OnChainTx tx
   | OnIncrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
-      , committedUTxO :: UTxOType tx
-      , depositScriptUTxO :: UTxOType tx
+      , depositTxIn :: TxInType tx
       }
   | OnDecrementTx
       { headId :: HeadId

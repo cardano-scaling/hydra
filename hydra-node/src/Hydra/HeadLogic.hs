@@ -685,8 +685,8 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(utxoToDeposit, _, _) -> Just utxoToDeposit == utxoToCommit) (Map.elems pendingDeposits) of
-      Just (commitUTxOFromState, depositScriptUTxO, _) ->
+    case find (\(_, (utxoToDeposit, _, _)) -> Just utxoToDeposit == utxoToCommit) (Map.assocs pendingDeposits) of
+      Just (depositTxIn, (commitUTxOFromState, depositScriptUTxO, _)) ->
         outcome
           <> causes
             [ ClientEffect $
@@ -701,6 +701,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       , headParameters = parameters
                       , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                       , depositScriptUTxO
+                      , depositTxIn
                       }
                 }
             ]
@@ -1000,15 +1001,15 @@ onOpenChainIncrementTx ::
   OpenState tx ->
   -- | New open state version
   SnapshotVersion ->
-  -- | increment UTxO
-  UTxOType tx ->
+  -- | Deposit TxIn
+  TxInType tx ->
   Outcome tx
-onOpenChainIncrementTx openState newVersion incrementUTxO =
-  case find (\(_, (pendingDeposit, _, _)) -> incrementUTxO == pendingDeposit) (Map.assocs pendingDeposits) of
-    Nothing -> Error $ AssertionFailed "Increment not matching pending deposit"
-    Just (k, (_, _, _)) ->
-      newState CommitFinalized{newVersion, depositTxIn = k}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = incrementUTxO})
+onOpenChainIncrementTx openState newVersion depositTxIn =
+  case Map.lookup depositTxIn pendingDeposits of
+    Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxIn: " <> show depositTxIn
+    Just (deposited, _, _) ->
+      newState CommitFinalized{newVersion, depositTxIn}
+        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited})
  where
   OpenState{coordinatedHeadState, headId} = openState
 
@@ -1304,9 +1305,9 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, committedUTxO}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxIn}})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx openState newVersion committedUTxO
+        onOpenChainIncrementTx openState newVersion depositTxIn
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})

@@ -372,8 +372,8 @@ convertObservation = \case
     pure $ OnDepositTx{headId, deposited, depositTxIn, deadline = posixToUTCTime deadline, depositScriptUTxO}
   Recover RecoverObservation{headId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredUTxO}
-  Increment IncrementObservation{headId, newVersion, committedUTxO, depositScriptUTxO} ->
-    pure OnIncrementTx{headId, newVersion, committedUTxO, depositScriptUTxO}
+  Increment IncrementObservation{headId, newVersion, depositTxIn} ->
+    pure OnIncrementTx{headId, newVersion, depositTxIn}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
     pure OnDecrementTx{headId, newVersion, distributedOutputs}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->

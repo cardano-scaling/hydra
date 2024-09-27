@@ -127,9 +127,9 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
-      <|> Deposit <$> observeDepositTx networkId  tx
+      <|> Deposit <$> observeDepositTx networkId tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
-      <|> Increment <$> observeIncrementTx networkId utxo tx
+      <|> Increment <$> observeIncrementTx utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
@@ -361,8 +361,7 @@ observeCollectComTx utxo tx = do
 data IncrementObservation = IncrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
-  , committedUTxO :: UTxO
-  , depositScriptUTxO :: UTxO
+  , depositTxIn :: TxIn
   }
   deriving stock (Show, Eq, Generic)
 
@@ -370,19 +369,15 @@ instance Arbitrary IncrementObservation where
   arbitrary = genericArbitrary
 
 observeIncrementTx ::
-  NetworkId ->
   UTxO ->
   Tx ->
   Maybe IncrementObservation
-observeIncrementTx networkId utxo tx = do
+observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
-  (_depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
-  Deposit.DepositDatum (_headCurrencySymbol, _deadline, onChainDeposits) <- fromScriptData dat
-  deposit <- do
-    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
-    pure . UTxO.fromPairs $ depositedUTxO
+  Deposit.DepositDatum _ <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -397,8 +392,7 @@ observeIncrementTx networkId utxo tx = do
             IncrementObservation
               { headId
               , newVersion = fromChainSnapshotVersion version
-              , committedUTxO = deposit
-              , depositScriptUTxO = utxo
+              , depositTxIn = depositInput
               }
         _ -> Nothing
     _ -> Nothing
