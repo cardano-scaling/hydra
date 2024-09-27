@@ -59,8 +59,7 @@ propCompareWithOracle ::
   x ->
   Property
 propCompareWithOracle encodeOracle encodeOurs x =
-  ( Plutus.toBuiltin (CBOR.toStrictByteString oracle) === ours
-  )
+  (Plutus.toBuiltin (CBOR.toStrictByteString oracle) === ours)
     & counterexample ("value: " <> show x)
     & counterexample ("\n─── cborg: \n" <> CBOR.prettyHexEnc oracle)
     & counterexample ("\n─── ours: \n" <> decodeUtf8 (Base16.encode (Plutus.fromBuiltin ours)))

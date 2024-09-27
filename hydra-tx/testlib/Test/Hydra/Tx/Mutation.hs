@@ -223,7 +223,8 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
 -- to the 'genericCoverTable' function to construct and display a coverage
 -- table showing the percentage of each mutation that's been applied and
 -- ensure significant coverage of all possible mutations using 'checkCoverage'.
-data SomeMutation = forall lbl.
+data SomeMutation
+  = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
   { expectedErrors :: [Text]

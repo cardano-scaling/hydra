@@ -124,7 +124,8 @@ library testlib
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-conway:{cardano-ledger-conway, testlib}
+    , cardano-ledger-conway
+    , cardano-ledger-conway:testlib
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
@@ -188,9 +189,11 @@ test-suite tests
     , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx:{hydra-tx, testlib}
+    , hydra-tx
+    , hydra-tx:testlib
     , lens
-    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}
+    , plutus-ledger-api
+    , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-instances

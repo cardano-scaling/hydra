@@ -303,9 +303,9 @@ drawUTxO f utxo =
           $ UTxO.toMap utxo
    in vBox
         [ padTop (Pad 1) $
-          vBox
-            [ f addr
-            , padLeft (Pad 2) $ vBox (str . toString . UTxO.render <$> u)
-            ]
+            vBox
+              [ f addr
+              , padLeft (Pad 2) $ vBox (str . toString . UTxO.render <$> u)
+              ]
         | (addr, u) <- Map.toList byAddress
         ]
