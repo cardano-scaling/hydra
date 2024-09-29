@@ -105,6 +105,9 @@ rec {
   hydra-explorer-web =
     import "${self}/hydra-explorer/web/hydra-explorer.nix" { inherit pkgs; };
 
+  tx-cost =
+    nativePkgs.hydra-node.components.benchmarks.tx-cost;
+
   hydra-tui =
     embedRevision
       nativePkgs.hydra-tui.components.exes.hydra-tui
