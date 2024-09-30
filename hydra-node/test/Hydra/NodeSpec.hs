@@ -334,7 +334,6 @@ mockChain =
     { postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ -> failure "mockChain: unexpected draftDepositTx"
-    , draftRecoverTx = \_ -> failure "mockChain: unexpected draftRecoverTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     }
 
@@ -457,7 +456,6 @@ throwExceptionOnPostTx exception node =
             { postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
-            , draftRecoverTx = \_ -> error "draftRecoverTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
             }
       }

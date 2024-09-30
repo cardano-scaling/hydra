@@ -249,19 +249,14 @@ handleRecoverCommitUtxo ::
 handleRecoverCommitUtxo directChain putClientInput recoverPath _body = do
   case parseTxInFromPath recoverPath of
     Left err -> pure err
-    Right recoverTxIn ->
-      draftRecoverTx recoverTxIn >>= \case
-        Left err -> pure $ responseLBS status500 [] (Aeson.encode $ toJSON err)
-        Right recoverTx -> do
-          putClientInput Recover{recoverTx}
-          pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+    Right recoverTxIn -> do
+      putClientInput Recover{recoverTxIn}
+      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
  where
   parseTxInFromPath txInStr =
-    case Aeson.eitherDecode (encodeUtf8 txInStr) :: Either String TxIn of
+    case Aeson.eitherDecode (encodeUtf8 txInStr) :: Either String (TxInType tx) of
       Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxIn: " <> pack e))
       Right txIn -> Right txIn
-
-  Chain{draftRecoverTx} = directChain
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
