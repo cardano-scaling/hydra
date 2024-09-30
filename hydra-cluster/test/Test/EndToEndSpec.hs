@@ -60,6 +60,7 @@ import Hydra.Cluster.Scenarios (
   canCommit,
   canDecommit,
   canRecoverDeposit,
+  canSeePendingDeposits,
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
@@ -205,6 +206,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canRecoverDeposit tracer tmpDir node
+      it "can see pending deposits" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSeePendingDeposits tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->
