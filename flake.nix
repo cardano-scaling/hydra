@@ -80,6 +80,7 @@
                   cabalProject = builtins.readFile (src + "/cabal.project");
                 };
                 hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
+                weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
                 cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
                 cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
                 mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;

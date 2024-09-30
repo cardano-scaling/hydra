@@ -41,3 +41,6 @@ benchmarks: True
 
 -- Always show detailed output for tests
 test-show-details: direct
+
+program-options
+  ghc-options: -fwrite-ide-info
