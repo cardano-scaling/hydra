@@ -12,6 +12,8 @@ changes.
 
 - Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
 
+- **BREAKING** Plutus Scripts changed due to renaming.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`

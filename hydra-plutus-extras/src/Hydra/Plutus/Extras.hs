@@ -28,34 +28,33 @@ type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed validator to get the basic `ValidatorType` signature which can
 -- be passed to `PlutusTx.compile`.
--- REVIEW: There might be better ways to name this than "wrap"
-wrapValidator ::
+mkUntypedValidator ::
   (UnsafeFromData datum, UnsafeFromData redeemer, UnsafeFromData context) =>
   (datum -> redeemer -> context -> Bool) ->
   ValidatorType
-wrapValidator f d r c =
+mkUntypedValidator f d r c =
   check $ f datum redeemer context
  where
   datum = unsafeFromBuiltinData d
   redeemer = unsafeFromBuiltinData r
   context = unsafeFromBuiltinData c
-{-# INLINEABLE wrapValidator #-}
+{-# INLINEABLE mkUntypedValidator #-}
 
 -- | Signature of an untyped minting policy script.
 type MintingPolicyType = BuiltinData -> BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.
-wrapMintingPolicy ::
+mkUntypedMintingPolicy ::
   (UnsafeFromData redeemer, UnsafeFromData context) =>
   (redeemer -> context -> Bool) ->
   MintingPolicyType
-wrapMintingPolicy f r c =
+mkUntypedMintingPolicy f r c =
   check $ f redeemer context
  where
   redeemer = unsafeFromBuiltinData r
   context = unsafeFromBuiltinData c
-{-# INLINEABLE wrapMintingPolicy #-}
+{-# INLINEABLE mkUntypedMintingPolicy #-}
 
 -- * Similar utilities as plutus-ledger
 

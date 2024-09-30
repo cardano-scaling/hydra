@@ -32,7 +32,7 @@ import PlutusLedgerApi.V1 (
   Value (..),
  )
 
-import Hydra.Plutus.Extras (wrapValidator)
+import Hydra.Plutus.Extras (mkUntypedValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusTx qualified as Plutus
 
@@ -48,12 +48,12 @@ encodeIntegerValidator :: ValidatorKind -> SerialisedScript
 encodeIntegerValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: Integer) (_ :: ScriptContext) -> True||])
+      $$(Plutus.compile [||mkUntypedValidator $ \() (_ :: Integer) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() a (_ :: ScriptContext) ->
+            mkUntypedValidator $ \() a (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeInteger a)
                in lengthOfByteString bytes > 0
             ||]
@@ -63,12 +63,12 @@ encodeByteStringValidator :: ValidatorKind -> SerialisedScript
 encodeByteStringValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: BuiltinByteString) (_ :: ScriptContext) -> True||])
+      $$(Plutus.compile [||mkUntypedValidator $ \() (_ :: BuiltinByteString) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() a (_ :: ScriptContext) ->
+            mkUntypedValidator $ \() a (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeByteString a)
                in lengthOfByteString bytes > 0
             ||]
@@ -78,12 +78,12 @@ encodeListValidator :: ValidatorKind -> SerialisedScript
 encodeListValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: [BuiltinByteString]) (_ :: ScriptContext) -> True||])
+      $$(Plutus.compile [||mkUntypedValidator $ \() (_ :: [BuiltinByteString]) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() xs (_ :: ScriptContext) ->
+            mkUntypedValidator $ \() xs (_ :: ScriptContext) ->
               let bytes =
                     encodingToBuiltinByteString $
                       encodeList encodeByteString xs
@@ -95,12 +95,12 @@ encodeTxOutValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: TxOut) (_ :: ScriptContext) -> True||])
+      $$(Plutus.compile [||mkUntypedValidator $ \() (_ :: TxOut) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() o (_ :: ScriptContext) ->
+            mkUntypedValidator $ \() o (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeTxOut o)
                in lengthOfByteString bytes > 0
             ||]
@@ -110,12 +110,12 @@ encodeTxOutsValidator :: ValidatorKind -> SerialisedScript
 encodeTxOutsValidator = \case
   BaselineValidator ->
     serialiseCompiledCode
-      $$(Plutus.compile [||wrapValidator $ \() (_ :: [TxOut]) (_ :: ScriptContext) -> True||])
+      $$(Plutus.compile [||mkUntypedValidator $ \() (_ :: [TxOut]) (_ :: ScriptContext) -> True||])
   RealValidator ->
     serialiseCompiledCode
       $$( Plutus.compile
             [||
-            wrapValidator $ \() xs (_ :: ScriptContext) ->
+            mkUntypedValidator $ \() xs (_ :: ScriptContext) ->
               let bytes = encodingToBuiltinByteString (encodeList encodeTxOut xs)
                in lengthOfByteString bytes > 0
             ||]
