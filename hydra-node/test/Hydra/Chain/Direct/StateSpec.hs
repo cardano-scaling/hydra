@@ -446,11 +446,11 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
 prop_observeAnyTx :: Property
 prop_observeAnyTx =
   checkCoverage $ do
-    forAllShow genChainStateWithTx (("Transition: " <>) . showTransition) $ \(ctx, st, tx, transition) ->
-      forAllShow genChainStateWithTx (("Some other transition: " <>) . showTransition) $ \(_, otherSt, _, _) -> do
+    forAllShow genChainStateWithTx (("Transition: " <>) . showTransition) $ \(ctx, st, additionalUTxO, tx, transition) ->
+      forAllShow genChainStateWithTx (("Some other transition: " <>) . showTransition) $ \(_, otherSt, additionalUTxO', _, _) -> do
         genericCoverTable [transition] $ do
           let expectedHeadId = chainStateHeadId st
-              utxo = getKnownUTxO st <> getKnownUTxO otherSt
+              utxo = getKnownUTxO st <> getKnownUTxO otherSt <> additionalUTxO <> additionalUTxO'
           case observeHeadTx (networkId ctx) utxo tx of
             NoHeadTx ->
               False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
@@ -467,7 +467,7 @@ prop_observeAnyTx =
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
-  showTransition (_, _, _, t) = show t
+  showTransition (_, _, _, _, t) = show t
 
   chainStateHeadId = \case
     Idle{} -> Nothing
@@ -640,7 +640,7 @@ forAllCollectCom ::
   (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, tx) ->
+  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, _, tx) ->
     let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
@@ -672,7 +672,7 @@ forAllDecrement' ::
   ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
   Property
 forAllDecrement' action = do
-  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, tx) ->
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, _, tx) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action distributed utxo tx
 
@@ -682,7 +682,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, _, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
@@ -692,7 +692,7 @@ forAllContest ::
   (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
-  forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
+  forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, _, tx) ->
     -- XXX: Pick an arbitrary context to contest. We will stumble over this when
     -- we make contests only possible once per party.
     forAllBlind (pickChainContext hctx) $ \ctx ->
@@ -733,7 +733,7 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
+  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, _, tx) ->
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx

@@ -375,7 +375,7 @@ observeIncrementTx ::
 observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
-  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 utxo depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
   Deposit.DepositDatum _ <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput

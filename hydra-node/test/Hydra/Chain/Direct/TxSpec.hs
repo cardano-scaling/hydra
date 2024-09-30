@@ -116,10 +116,10 @@ spec =
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $
-          forAllBlind genChainStateWithTx $ \(_ctx, st, tx, transition) ->
+          forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, transition) ->
             genericCoverTable [transition] $
               counterexample (show transition) $
-                let utxo = getKnownUTxO st
+                let utxo = getKnownUTxO st <> additionalUTxO
                  in case observeHeadTx testNetworkId utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
