@@ -16,20 +16,12 @@ import Control.Monad.Class.MonadSTM (throwSTM)
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
-  PlutusScriptV2,
   Tx,
   TxId,
   chainPointToSlotNo,
-  fromPlutusScript,
-  fromScriptData,
   getChainPoint,
   getTxBody,
   getTxId,
-  mkScriptAddress,
-  networkIdToNetwork,
-  toTxContext,
-  txOutScriptData,
-  pattern TxOut,
  )
 import Hydra.Chain (
   Chain (..),
@@ -62,6 +54,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   increment,
   initialize,
+  recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
@@ -84,9 +77,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Ledger.Cardano (adjustUTxO)
+import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
@@ -97,7 +88,7 @@ import Hydra.Tx (
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
-import Hydra.Tx.Recover (RecoverObservation (..), recoverTx)
+import Hydra.Tx.Recover (RecoverObservation (..))
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -189,32 +180,6 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         traverse (finalizeTx wallet ctx spendableUTxO utxo) $
           -- TODO: Should we move deposit tx argument verification to `depositTx` function and have Either here?
           Right (depositTx (networkId ctx) headId utxo deadline)
-    , -- Handle that creates a draft **recover** tx using provided arguments.
-      -- Possible errors are handled at the api server level.
-      draftRecoverTx = \txIn -> do
-        -- TODO: If we would not need to draft, but only build it in the head
-        -- logic, then all this would not be needed as the deposit observation
-        -- would have decoded any deposit datums already and it's a simple map
-        -- lookup using the txid
-        ChainStateAt{spendableUTxO} <- atomically getLatest
-        let networkId' = networkId ctx
-        timeHandle <- queryTimeHandle
-        let depositScriptAddress = mkScriptAddress @PlutusScriptV2 networkId' (fromPlutusScript Deposit.validatorScript)
-        let depositUTxO = UTxO.filter (\(TxOut address _ _ _) -> address == depositScriptAddress) spendableUTxO
-        case UTxO.pairs depositUTxO of
-          -- We assume there is only one deposit output for a single input
-          [(_, depositOutput)] -> do
-            let depositDatum = txOutScriptData (toTxContext depositOutput) >>= fromScriptData
-            case depositDatum of
-              Nothing -> throwIO (FailedToConstructRecoverTx @Tx)
-              Just dat -> do
-                let Deposit.DepositDatum (_, _, commitsToRecover) = dat
-                case currentPointInTime timeHandle of
-                  Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
-                  Right (lowerValidity, _) -> do
-                    let depositedUTxO = UTxO.fromPairs $ mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId')) commitsToRecover
-                    pure $ Right (Hydra.Tx.Recover.recoverTx txIn depositedUTxO lowerValidity)
-          _ -> throwIO (FailedToConstructRecoverTx @Tx)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -428,8 +393,10 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO of
         Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
         Right incrementTx' -> pure incrementTx'
-    RecoverTx{recoverTx = recoverTransaction} ->
-      pure recoverTransaction
+    RecoverTx{headId, recoverTxIn, utxoToDeposit, deadline} -> do
+      case recover headId recoverTxIn utxoToDeposit (fromChainSlot deadline) of
+        Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
+        Right recoverTx' -> pure recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)

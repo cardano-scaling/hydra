@@ -742,27 +742,29 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientRecover ::
+  IsTx tx =>
   HeadId ->
+  ChainSlot ->
   CoordinatedHeadState tx ->
-  tx ->
+  TxInType tx ->
   Outcome tx
-onOpenClientRecover headId coordinatedHeadState recoverTx =
-  -- NOTE: if recover outputs match with the deposited UTxO we can proceed
-  -- FIXME: revisit - use pendingDeposits to find the TxIn we want to recover
-  -- if (outputsOfUTxO <$> commitUTxO) == Just (outputsOfUTxO $ utxoFromTx recoverTx)
-  -- then
-  causes
-    [ OnChainEffect
-        { postChainTx =
-            RecoverTx
-              { headId
-              , recoverTx
-              }
-        }
-    ]
+onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxIn =
+  case Map.lookup recoverTxIn pendingDeposits of
+    Nothing ->
+      Error $ RequireFailed RecoverNotMatchingDeposit
+    Just (utxoToDeposit, _, _) ->
+      causes
+        [ OnChainEffect
+            { postChainTx =
+                RecoverTx
+                  { headId
+                  , recoverTxIn
+                  , utxoToDeposit
+                  , deadline = currentSlot
+                  }
+            }
+        ]
  where
-  -- else Error $ RequireFailed RecoverNotMatchingDeposit
-
   CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
 
 -- | Client request to decommit UTxO from the head.
@@ -1291,8 +1293,8 @@ update env ledger st ev = case (st, ev) of
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
-  (Open OpenState{headId, coordinatedHeadState}, ClientInput Recover{recoverTx}) -> do
-    onOpenClientRecover headId coordinatedHeadState recoverTx
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Recover{recoverTxIn}) -> do
+    onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxIn
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->

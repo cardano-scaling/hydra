@@ -18,7 +18,6 @@ import Hydra.Cardano.Api (
   Address,
   ByronAddr,
   Coin (..),
-  TxIn,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
@@ -64,7 +63,9 @@ data PostChainTx tx
       }
   | RecoverTx
       { headId :: HeadId
-      , recoverTx :: tx
+      , recoverTxIn :: TxInType tx
+      , utxoToDeposit :: UTxOType tx
+      , deadline :: ChainSlot
       }
   | DecrementTx
       { headId :: HeadId
@@ -99,7 +100,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
     IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxIn} ->
       IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxIn
-    RecoverTx{headId, recoverTx} -> RecoverTx <$> shrink headId <*> shrink recoverTx
+    RecoverTx{headId, recoverTxIn, utxoToDeposit, deadline} ->
+      RecoverTx <$> shrink headId <*> shrink recoverTxIn <*> shrink utxoToDeposit <*> shrink deadline
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -276,11 +278,6 @@ data Chain tx m = Chain
   -- ^ Create a deposit transaction using user provided utxos (zero or many) and
   -- a deadline for their inclusion into L2.
   -- Errors are handled at the call site.
-  , draftRecoverTx ::
-      MonadThrow m =>
-      TxIn ->
-      m (Either (PostTxError tx) tx)
-  -- ^ Create a recover transaction which unlocks deposited funds.
   , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --

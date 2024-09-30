@@ -143,6 +143,9 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
       <*> arbitrary
       <*> arbitrary
 
+-- | Pending deposits are a map from the deposit input to the triple of UTxO is
+-- the one user wants to deposit, deposit script UTxO to be spent in the
+-- increment transaction and the deadline
 type PendingDeposits tx = Map (TxInType tx) (UTxOType tx, UTxOType tx, UTCTime)
 
 -- | Off-chain state of the Coordinated Head protocol.

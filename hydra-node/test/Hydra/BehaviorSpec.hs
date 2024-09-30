@@ -750,7 +750,6 @@ simulatedChainAndNetwork initialChainState = do
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftIncrementalCommitTx"
-                  , draftRecoverTx = \_ -> error "unexpected call to draftRecoverTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
@@ -846,16 +845,16 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
-  RecoverTx{headId, recoverTx} ->
-    OnRecoverTx{headId, recoveredUTxO = utxoFromTx recoverTx}
-  IncrementTx{headId, incrementingSnapshot, depositScriptUTxO, depositTxIn} ->
+  RecoverTx{headId, utxoToDeposit} ->
+    OnRecoverTx{headId, recoveredUTxO = utxoToDeposit}
+  IncrementTx{headId, incrementingSnapshot, depositTxIn} ->
     OnIncrementTx
       { headId
       , newVersion = version + 1
       , depositTxIn
       }
    where
-    Snapshot{version, utxoToCommit} = getSnapshot incrementingSnapshot
+    Snapshot{version} = getSnapshot incrementingSnapshot
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId

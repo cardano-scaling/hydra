@@ -576,6 +576,23 @@ data CloseTxError
   | CannotFindHeadOutputToClose
   deriving stock (Show)
 
+newtype RecoverTxError = InvalidHeadIdInRecover {headId :: HeadId}
+  deriving stock (Show)
+
+-- | Construct a recover transaction spending the deposit output
+-- and producing outputs the user initially deposited.
+recover ::
+  HeadId ->
+  -- | Deposit TxIn
+  TxIn ->
+  -- | Deposit script UTxO to spend
+  UTxO ->
+  SlotNo ->
+  Either RecoverTxError Tx
+recover headId depositTxIn depositedUTxO lowerValiditySlot = do
+  _ <- headIdToPolicyId headId ?> InvalidHeadIdInRecover{headId}
+  Right $ recoverTx depositTxIn depositedUTxO lowerValiditySlot
+
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
 -- difference should not exceed contestation period.
