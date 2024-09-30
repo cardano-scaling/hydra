@@ -49,7 +49,6 @@ healthyIncrementTx =
       parameters
       (headInput, headOutput)
       healthySnapshot
-      healthySignature
       depositUTxO
 
   depositUTxO = utxoFromTx $ fst healthyDepositTx

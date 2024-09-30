@@ -83,7 +83,6 @@ healthyFanoutDatum =
     Head.ClosedDatum
       { snapshotNumber = 1
       , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-      , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
       , deltaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties

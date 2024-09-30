@@ -121,8 +121,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
               toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
-          , alphaUTxOHash =
-              toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
           , deltaUTxOHash =
               case closeRedeemer of
                 Head.CloseUnused{} ->

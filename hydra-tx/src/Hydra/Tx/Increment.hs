@@ -17,7 +17,6 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
-import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
@@ -42,11 +41,10 @@ incrementTx ::
   (TxIn, TxOut CtxUTxO) ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
-  MultiSignature (Snapshot Tx) ->
   -- | Deposit output UTxO to be spent in increment transaction
   UTxO ->
   Tx
-incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures depositScriptUTxO =
+incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
@@ -56,14 +54,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
-    toScriptData $
-      Head.Increment $
-        Head.IncrementRedeemer
-          { signature = toPlutusSignatures signatures
-          , snapshotNumber = fromIntegral number
-          , numberOfCommitOutputs =
-              fromIntegral $ length $ maybe [] toList utxoToCommit
-          }
+    toScriptData $ Head.Increment Head.IncrementRedeemer
 
   utxoHash = toBuiltin $ hashUTxO @Tx (utxo <> fromMaybe mempty utxoToCommit)
 
@@ -108,4 +99,4 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, number, version} = snapshot
+  Snapshot{utxo, utxoToCommit, version} = snapshot
