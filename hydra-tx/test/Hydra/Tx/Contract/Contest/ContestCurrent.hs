@@ -421,8 +421,7 @@ genContestMutation (tx, _utxo) =
           -- `must not push contestation deadline`.
           vectorOf
             (length healthyOnChainParties)
-            ( partyFromVerificationKeyBytes <$> genHash
-            )
+            (partyFromVerificationKeyBytes <$> genHash)
             `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
