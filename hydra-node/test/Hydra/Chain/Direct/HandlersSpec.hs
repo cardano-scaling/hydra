@@ -129,8 +129,8 @@ spec = do
 
     prop "observes transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
-      (ctx, st, tx, transition) <- pick genChainStateWithTx
-      let utxo = getKnownUTxO st
+      (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
+      let utxo = getKnownUTxO st <> utxo'
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
       monitor (label $ show transition)
       localChainState <-

@@ -305,7 +305,7 @@ data ClosedState = ClosedState
 instance Arbitrary ClosedState where
   arbitrary = do
     -- XXX: Untangle the whole generator mess here
-    (_, st, _) <- genFanoutTx maxGenParties maxGenAssets
+    (_, st, _, _) <- genFanoutTx maxGenParties maxGenAssets
     pure st
 
   shrink = genericShrink
@@ -899,7 +899,7 @@ genChainState =
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
-genChainStateWithTx :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+genChainStateWithTx :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
@@ -913,15 +913,15 @@ genChainStateWithTx =
     , genFanoutWithState
     ]
  where
-  genInitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genInitWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genInitWithState = do
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
     let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
-    pure (cctx, Idle, tx, Init)
+    pure (cctx, Idle, mempty, tx, Init)
 
-  genAbortWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genAbortWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genAbortWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
@@ -929,50 +929,50 @@ genChainStateWithTx =
     let utxo = getKnownUTxO stInitial
         InitialState{seedTxIn} = stInitial
         tx = unsafeAbort cctx seedTxIn utxo mempty
-    pure (cctx, Initial stInitial, tx, Abort)
+    pure (cctx, Initial stInitial, mempty, tx, Abort)
 
-  genCommitWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCommitWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genCommitWithState = do
     ctx <- genHydraContext maxGenParties
     (cctx, stInitial) <- genStInitial ctx
     utxo <- genCommit
     let InitialState{headId} = stInitial
     let tx = unsafeCommit cctx headId (getKnownUTxO stInitial) utxo
-    pure (cctx, Initial stInitial, tx, Commit)
+    pure (cctx, Initial stInitial, mempty, tx, Commit)
 
-  genCollectWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCollectWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genCollectWithState = do
-    (ctx, _, st, tx) <- genCollectComTx
-    pure (ctx, Initial st, tx, Collect)
+    (ctx, _, st, utxo, tx) <- genCollectComTx
+    pure (ctx, Initial st, utxo, tx, Collect)
 
-  genIncrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genIncrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genIncrementWithState = do
-    (ctx, _, st, tx) <- genIncrementTx maxGenParties
-    pure (ctx, Open st, tx, Increment)
+    (ctx, _, st, utxo, tx) <- genIncrementTx maxGenParties
+    pure (ctx, Open st, utxo, tx, Increment)
 
-  genDecrementWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genDecrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genDecrementWithState = do
-    (ctx, _, st, tx) <- genDecrementTx maxGenParties
-    pure (ctx, Open st, tx, Decrement)
+    (ctx, _, st, utxo, tx) <- genDecrementTx maxGenParties
+    pure (ctx, Open st, utxo, tx, Decrement)
 
-  genCloseWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genCloseWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genCloseWithState = do
-    (ctx, st, tx, _) <- genCloseTx maxGenParties
-    pure (ctx, Open st, tx, Close)
+    (ctx, st, utxo, tx, _) <- genCloseTx maxGenParties
+    pure (ctx, Open st, utxo, tx, Close)
 
-  genContestWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genContestWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genContestWithState = do
-    (hctx, _, st, tx) <- genContestTx
+    (hctx, _, st, utxo, tx) <- genContestTx
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Contest)
+    pure (ctx, Closed st, utxo, tx, Contest)
 
-  genFanoutWithState :: Gen (ChainContext, ChainState, Tx, ChainTransition)
+  genFanoutWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genFanoutWithState = do
     Positive numParties <- arbitrary
     Positive numOutputs <- arbitrary
-    (hctx, st, tx) <- genFanoutTx numParties numOutputs
+    (hctx, st, utxo, tx) <- genFanoutTx numParties numOutputs
     ctx <- pickChainContext hctx
-    pure (ctx, Closed st, tx, Fanout)
+    pure (ctx, Closed st, utxo, tx, Fanout)
 
 -- ** Warning zone
 
@@ -1121,7 +1121,7 @@ genCommit =
     , (10, genVerificationKey >>= genOneUTxOFor)
     ]
 
-genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, Tx)
+genCollectComTx :: Gen (ChainContext, [UTxO], InitialState, UTxO, Tx)
 genCollectComTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   txInit <- genInitTx ctx
@@ -1131,7 +1131,7 @@ genCollectComTx = do
   let InitialState{headId} = stInitialized
   let utxoToCollect = fold committedUTxO
   let spendableUTxO = getKnownUTxO stInitialized
-  pure (cctx, committedUTxO, stInitialized, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
+  pure (cctx, committedUTxO, stInitialized, mempty, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
 genDepositTx :: Gen (UTxO, Tx)
 genDepositTx = do
@@ -1152,24 +1152,25 @@ genRecoverTx = do
   let tx = recoverTx (mkTxIn txDeposit 0) deposited 100
   pure (utxoFromTx txDeposit, tx)
 
-genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
+genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
 genIncrementTx numParties = do
-  (_, txDeposit) <- genDepositTx
-  let utxo = utxoFromTx txDeposit
+  (utxo, txDeposit) <- genDepositTx
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
+  let DepositObservation{deposited, depositScriptUTxO} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   (_, st@OpenState{headId}) <- genStOpen ctx
   let openUTxO = getKnownUTxO st
   let version = 1
-  snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
   pure
     ( cctx
     , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)
     , st
+    , depositScriptUTxO
     , unsafeIncrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot utxo
     )
 
-genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, Tx)
+genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
 genDecrementTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (null u)
@@ -1182,10 +1183,11 @@ genDecrementTx numParties = do
     ( cctx
     , maybe mempty toList (utxoToDecommit $ getSnapshot snapshot)
     , stOpen
+    , mempty
     , unsafeDecrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot
     )
 
-genCloseTx :: Int -> Gen (ChainContext, OpenState, Tx, ConfirmedSnapshot Tx)
+genCloseTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx, ConfirmedSnapshot Tx)
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
@@ -1196,9 +1198,9 @@ genCloseTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo = getKnownUTxO stOpen
-  pure (cctx, stOpen, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, mempty, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
-genContestTx :: Gen (HydraContext, PointInTime, ClosedState, Tx)
+genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
 genContestTx = do
   ctx <- genHydraContextFor maximumNumberOfParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
@@ -1216,9 +1218,9 @@ genContestTx = do
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
   contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
-  pure (ctx, closePointInTime, stClosed, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
+  pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
-genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, Tx)
+genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, UTxO, Tx)
 genFanoutTx numParties numOutputs = do
   ctx <- genHydraContext numParties
   utxo <- genUTxOAdaOnlyOfSize numOutputs
@@ -1227,7 +1229,7 @@ genFanoutTx numParties numOutputs = do
   cctx <- pickChainContext ctx
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
       spendableUTxO = getKnownUTxO stClosed
-  pure (ctx, stClosed, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
+  pure (ctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
