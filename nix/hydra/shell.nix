@@ -45,6 +45,7 @@ let
     pkgs.treefmt
     # Handy to interact with the hydra-node via websockets
     pkgs.websocat
+    pkgs.weeder
     pkgs.yarn
     pkgs.yq
     # Use latest jq in all shells, to avoid 1.6 bug with large integers.
