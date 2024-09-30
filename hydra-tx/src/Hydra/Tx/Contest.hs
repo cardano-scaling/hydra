@@ -120,8 +120,6 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
         Head.ClosedDatum
           { snapshotNumber = toInteger number
           , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , alphaUTxOHash =
-              toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
           , deltaUTxOHash =
               case contestRedeemer of
                 Head.ContestCurrent{} ->

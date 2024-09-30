@@ -1,7 +1,8 @@
 {
     "samples": [
         {
-            "newVersion": 27,
+            "depositTxIn": "1068efcbc5d21fc0c76bf0606a1ab377ea162c1abda488fb9802692309437667#88",
+            "newVersion": 0,
             "tag": "CommitFinalized"
         }
     ],

@@ -333,7 +333,6 @@ checkClose ctx openBefore redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
-    , alphaUTxOHash = alphaUTxOHash'
     , deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
@@ -358,14 +357,14 @@ checkClose ctx openBefore redeemer =
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', mempty, deltaUTxOHash')
             signature
       CloseUsed{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
           deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alphaUTxOHash', alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', mempty, alreadyDecommittedUTxOHash)
               signature
 
   checkDeadline =
@@ -432,14 +431,14 @@ checkContest ctx closedDatum redeemer =
         traceIfFalse $(errorCode FailedContestCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', mempty, deltaUTxOHash')
             signature
       ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestOutdated) $
           deltaUTxOHash' == hashTxOuts mempty
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alphaUTxOHash', alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', mempty, alreadyDecommittedUTxOHash)
               signature
 
   mustBeWithinContestationPeriod =
@@ -475,7 +474,6 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
-    , alphaUTxOHash = alphaUTxOHash'
     , deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'
