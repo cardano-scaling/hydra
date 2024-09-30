@@ -39,6 +39,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   Tx,
   TxId,
+  TxIn,
   UTxO,
   getTxBody,
   getVerificationKey,
@@ -714,6 +715,74 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
+
+-- | Make sure to be able to see pending deposits.
+canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canSeePendingDeposits tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $
+    (`finally` returnFundsToFaucet tracer node Bob) $ do
+      refuelIfNeeded tracer node Alice 30_000_000
+      refuelIfNeeded tracer node Bob 30_000_000
+      let contestationPeriod = UnsafeContestationPeriod 1
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId
+      bobChainConfig <-
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= submitTx node
+          requestCommitTx n2 mempty >>= submitTx node
+
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+          -- stop the second node here
+          pure ()
+
+        -- Get some L1 funds
+        (walletVk, walletSk) <- generate genKeyPair
+        commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+        commitUTxO2 <- seedFromFaucet node walletVk 4_000_000 (contramap FromFaucet tracer)
+        commitUTxO3 <- seedFromFaucet node walletVk 3_000_000 (contramap FromFaucet tracer)
+
+        flip evalStateT [] $ forM_ [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
+          resp <-
+            parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+              <&> setRequestBodyJSON utxo
+                >>= httpJSON
+
+          let depositTransaction = getResponseBody resp :: Tx
+
+          let tx = signTx walletSk depositTransaction
+
+          liftIO $ submitTx node tx
+
+          liftIO $ waitForAllMatch 10 [n1] $ \v -> do
+            guard $ v ^? key "tag" == Just "CommitRecorded"
+
+          recoverResp <-
+            parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
+              >>= httpJSON
+
+          -- the issue doesn't specify the format of the response so we are
+          -- free to use whatever is convenient for the users ([TxIn]?)
+          let expectedResponse = fst . List.head . UTxO.pairs $ utxoFromTx tx
+          _ <- modify (expectedResponse :)
+          expected <- get
+          let expectedResp = getResponseBody recoverResp :: [TxIn]
+          liftIO $ expectedResp `shouldBe` expected
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
