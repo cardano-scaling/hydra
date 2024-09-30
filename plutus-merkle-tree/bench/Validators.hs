@@ -9,7 +9,7 @@ module Validators where
 
 import PlutusTx.Prelude
 
-import Hydra.Plutus.Extras (wrapValidator)
+import Hydra.Plutus.Extras (mkUntypedValidator)
 import Plutus.MerkleTree qualified as MT
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V2 (ScriptContext)
@@ -21,7 +21,7 @@ merkleTreeMemberValidator =
   serialiseCompiledCode
     $$( Plutus.compile
           [||
-          wrapValidator $
+          mkUntypedValidator $
             \() (e, root, proof) (_ :: ScriptContext) ->
               MT.member e root proof
           ||]
@@ -34,7 +34,7 @@ merkleTreeBuilderValidator =
   serialiseCompiledCode
     $$( Plutus.compile
           [||
-          wrapValidator $
+          mkUntypedValidator $
             \() (utxos, root) (_ :: ScriptContext) ->
               MT.rootHash (MT.fromList utxos) == root
           ||]
