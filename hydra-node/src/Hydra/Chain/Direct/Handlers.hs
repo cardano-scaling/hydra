@@ -210,14 +210,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             PostTxError Tx
         )
     Left e ->
-      throwIO
-        ( InternalWalletError
-            { headUTxO
-            , reason = show e
-            , tx = partialTx
-            } ::
-            PostTxError Tx
-        )
+      traceShow e $
+        throwIO
+          ( InternalWalletError
+              { headUTxO
+              , reason = show e
+              , tx = partialTx
+              } ::
+              PostTxError Tx
+          )
     Right balancedTx ->
       pure $ sign balancedTx
 
