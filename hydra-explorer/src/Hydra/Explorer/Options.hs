@@ -3,7 +3,7 @@ module Hydra.Explorer.Options where
 import Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId, SlotNo (..), SocketPath, serialiseToRawBytesHexText)
-import Hydra.ChainObserver.Options (projectPathParser, startFromBlockHashParser)
+import Hydra.ChainObserver.Options (projectPathParser)
 import Hydra.Network (PortNumber, readPort)
 import Hydra.Options (
   networkIdParser,
@@ -40,7 +40,7 @@ data Options
   | BlockfrostOptions
       { port :: PortNumber
       , projectPath :: FilePath
-      , startFromBlockHash :: Maybe Text
+      , startChainFrom :: Maybe ChainPoint
       }
   deriving stock (Show, Eq)
 
@@ -68,7 +68,7 @@ blockfrostOptionsParser =
   BlockfrostOptions
     <$> apiPortParser
     <*> projectPathParser
-    <*> optional startFromBlockHashParser
+    <*> optional startChainFromParser
 
 directOptionsInfo :: ParserInfo Options
 directOptionsInfo =
@@ -108,10 +108,3 @@ toArgStartChainFrom = \case
 
 toArgProjectPath :: FilePath -> [String]
 toArgProjectPath projectPath = ["--project-path", projectPath]
-
-toArgStartFromBlockHash :: Maybe Text -> [String]
-toArgStartFromBlockHash = \case
-  Just startFromBlockHash ->
-    ["--start-from-block-hash", toString startFromBlockHash]
-  Nothing ->
-    []

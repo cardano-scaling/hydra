@@ -36,8 +36,8 @@ data Options
       }
   | BlockfrostOptions
       { projectPath :: FilePath
-      , startFromBlockHash :: Maybe Text
-      -- ^ Point at which to start following the blockfrost chain.
+      , startChainFrom :: Maybe ChainPoint
+      -- ^ Point at which to start following the chain.
       }
   deriving stock (Show, Eq)
 
@@ -52,7 +52,7 @@ blockfrostOptionsParser :: Parser Options
 blockfrostOptionsParser =
   BlockfrostOptions
     <$> projectPathParser
-    <*> optional startFromBlockHashParser
+    <*> optional startChainFromParser
 
 projectPathParser :: Parser FilePath
 projectPathParser =
@@ -64,16 +64,6 @@ projectPathParser =
         "The path where the Blockfrost project token hash is stored.\
         \It expects token prefixed with Blockfrost environment name\
         \e.g.: testnet-someTokenHash"
-
-startFromBlockHashParser :: Parser Text
-startFromBlockHashParser =
-  option str $
-    long "start-from-block-hash"
-      <> metavar "BLOCK_HASH"
-      <> help
-        "The hash of the block we want to start observing the chain from. Only \
-        \used if the last known head state is older than given point. If not \
-        \given and no known head state, the chain tip is used."
 
 directOptionsInfo :: ParserInfo Options
 directOptionsInfo =

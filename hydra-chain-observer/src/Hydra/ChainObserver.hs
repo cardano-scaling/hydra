@@ -21,7 +21,9 @@ main observerHandler = do
       Options{networkId, nodeSocket, startChainFrom} -> do
         let NodeClient{follow} = ouroborusClient tracer nodeSocket
         follow networkId startChainFrom observerHandler
-      BlockfrostOptions{projectPath, startFromBlockHash} -> do
-        let NodeClient{follow} = blockfrostClient tracer projectPath startFromBlockHash
-        -- FIXME!
-        follow (error "not-used") (error "not-used") observerHandler
+      BlockfrostOptions{projectPath, startChainFrom} -> do
+        -- FIXME: should be configurable
+        let blockConfirmations = 1
+            NodeClient{follow} = blockfrostClient tracer projectPath blockConfirmations
+        -- FIXME
+        follow (error "not-used") startChainFrom observerHandler

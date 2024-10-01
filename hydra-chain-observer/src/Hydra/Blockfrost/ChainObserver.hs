@@ -63,12 +63,17 @@ runBlockfrostM prj action = do
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
   FilePath ->
-  Maybe Text ->
+  Integer ->
   NodeClient IO
-blockfrostClient tracer projectPath startFromBlockHash = do
+blockfrostClient tracer projectPath blockConfirmations = do
   NodeClient
-    { follow = \_ _ observerHandler -> do
+    { follow = \_ startChainFrom observerHandler -> do
         prj <- Blockfrost.projectFromFile projectPath
+
+        Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
+          runExceptT (runBlockfrostM prj (Blockfrost.getBlock (Left 0))) >>= \case
+            Left err -> fail $ "Failed to fetch genesis block: " <> show err
+            Right block -> pure block
 
         Blockfrost.Genesis
           { _genesisActiveSlotsCoefficient
@@ -81,18 +86,19 @@ blockfrostClient tracer projectPath startFromBlockHash = do
         let networkId = fromNetworkMagic _genesisNetworkMagic
         traceWith tracer ConnectingToExternalNode{networkId}
 
-        -- TODO: Take a Chain Point from the options directly
-        -- let chainPoint = toChainPoint block
-        -- traceWith tracer StartObservingFrom{chainPoint}
-        blockHash <-
-          case startFromBlockHash of
-            Just bh -> pure $ Blockfrost.BlockHash bh
+        chainPoint <-
+          case startChainFrom of
+            Just point -> pure point
             Nothing -> do
               runExceptT (runBlockfrostM prj Blockfrost.getLatestBlock) >>= \case
                 Left err -> fail $ "Failed to fetch latest block: " <> show err
-                Right Blockfrost.Block{_blockHash} -> pure _blockHash
+                Right block -> pure $ toChainPoint block
+
+        traceWith tracer StartObservingFrom{chainPoint}
 
         let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+
+        let blockHash = fromChainPoint chainPoint genesisBlockHash
 
         stateTVar <- newTVarIO (blockHash, mempty)
         void $
@@ -214,3 +220,8 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
       case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
         Left deserializeErr -> throwError . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
         Right tx -> pure tx
+
+fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
+fromChainPoint chainPoint genesisBlockHash = case chainPoint of
+  ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
+  ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
