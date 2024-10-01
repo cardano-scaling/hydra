@@ -113,6 +113,7 @@ library
     , text
     , time
     , typed-process
+    , plutus-ledger-api:plutus-ledger-api-testlib
     , unix
     , websockets
 

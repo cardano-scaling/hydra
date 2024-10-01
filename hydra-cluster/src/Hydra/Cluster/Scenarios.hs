@@ -46,25 +46,34 @@ import Hydra.Cardano.Api (
   isVkTxOut,
   lovelaceToValue,
   makeSignedTransaction,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatumHash,
   mkVkAddress,
   renderTxIn,
+  scriptWitnessInCtx,
   selectLovelace,
   signTx,
+  toScriptData,
   txOutAddress,
   txOutValue,
   utxoFromTx,
   writeFileTextEnvelope,
+  pattern BuildTxWith,
+  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
+  pattern ScriptWitness,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -103,6 +112,7 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
+import PlutusLedgerApi.Test.Examples (alwaysSucceedingNAryFunction)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -352,7 +362,6 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
 
         (walletVk, walletSk) <- keysFor AliceFunds
         utxoToCommit <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
-        -- Commit the script output
         res <-
           runReq defaultHttpConfig $
             req
@@ -372,6 +381,61 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
         lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
  where
   RunningNode{nodeSocket, blockTime} = node
+
+singlePartyCommitsScriptBlueprint ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 20_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+      let script = alwaysSucceedingNAryFunction 3
+      let serializedScript = PlutusScriptSerialised script
+      let scriptAddress = mkScriptAddress networkId serializedScript
+      let datumHash = mkTxOutDatumHash ()
+      (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+      let scriptUTxO = spy $ UTxO.singleton (scriptIn, scriptOut)
+
+      let scriptWitness =
+            BuildTxWith $
+              ScriptWitness scriptWitnessInCtx $
+                mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+      let spendingTx =
+            unsafeBuildTransaction $
+              emptyTxBody
+                & addInputs [(scriptIn, scriptWitness)]
+      let clientPayload =
+            Aeson.object
+              [ "blueprintTx" .= spendingTx
+              , "utxo" .= scriptUTxO
+              ]
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      submitTx node commitTx
+
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Single hydra-node where the commit is done from a raw transaction
 -- blueprint.

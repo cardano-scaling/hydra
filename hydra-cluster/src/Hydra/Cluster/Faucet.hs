@@ -21,6 +21,7 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
@@ -145,18 +146,18 @@ createOutputAtAddress ::
   RunningNode ->
   AddressInEra ->
   TxOutDatum CtxTx ->
+  Value ->
   IO (TxIn, TxOut CtxUTxO)
-createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = do
+createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
-  -- any present utxo
   utxo <- findFaucetUTxO node 0
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+  let collateralTxIns = mempty -- fst <$> UTxO.pairs utxo
   let output =
         mkTxOutAutoBalance
           pparams
           atAddress
-          mempty
+          val
           datum
           ReferenceScriptNone
   buildTransaction
@@ -167,18 +168,16 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = 
     collateralTxIns
     [output]
     >>= \case
-      Left e ->
-        throwErrorAsException e
+      Left e -> throwErrorAsException e
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
+        putStrLn $ renderTxWithUTxO utxo tx
         submitTransaction networkId nodeSocket tx
         newUtxo <- awaitTransaction networkId nodeSocket tx
         case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
           Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
           Just u -> pure u
  where
-  collateralTxIns = mempty
-
   changeAddress = mkVkAddress networkId
 
 -- | Build and sign tx and return the calculated fee.
