@@ -96,7 +96,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
         stateTVar <- newTVarIO (blockHash, mempty)
         void $
           retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-            loop tracer prj networkId blockTime observerHandler stateTVar
+            loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
     }
  where
   shouldRetry _ = \case
@@ -116,13 +116,14 @@ loop ::
   NetworkId ->
   DiffTime ->
   ObserverHandler m ->
+  Integer ->
   TVar m (Blockfrost.BlockHash, UTxO) ->
   m a
-loop tracer prj networkId blockTime observerHandler stateTVar = do
+loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar = do
   current <- readTVarIO stateTVar
-  next <- rollForward tracer prj networkId observerHandler current
+  next <- rollForward tracer prj networkId observerHandler blockConfirmations current
   atomically $ writeTVar stateTVar next
-  loop tracer prj networkId blockTime observerHandler stateTVar
+  loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
 
 -- | From the current block and UTxO view, we collect Hydra observations
 -- and yield the next block and adjusted UTxO view.
@@ -132,9 +133,10 @@ rollForward ::
   Blockfrost.Project ->
   NetworkId ->
   ObserverHandler m ->
+  Integer ->
   (Blockfrost.BlockHash, UTxO) ->
   m (Blockfrost.BlockHash, UTxO)
-rollForward tracer prj networkId observerHandler (blockHash, utxo) = do
+rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, utxo) = do
   block@Blockfrost.Block
     { _blockHash
     , _blockConfirmations
@@ -144,8 +146,7 @@ rollForward tracer prj networkId observerHandler (blockHash, utxo) = do
     runBlockfrostM prj $ Blockfrost.getBlock (Right blockHash)
 
   -- Check if block within the safe zone to be processes
-  -- FIXME: should be configurable
-  when (_blockConfirmations < 1) $
+  when (_blockConfirmations < blockConfirmations) $
     throwIO (NotEnoughBlockConfirmations _blockHash)
 
   -- Check if block contains a reference to its next
