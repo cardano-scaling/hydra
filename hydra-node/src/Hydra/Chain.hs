@@ -272,12 +272,12 @@ data Chain tx m = Chain
   , draftDepositTx ::
       MonadThrow m =>
       HeadId ->
-      UTxOType tx ->
+      CommitBlueprintTx tx ->
       UTCTime ->
       m (Either (PostTxError tx) tx)
-  -- ^ Create a deposit transaction using user provided utxos (zero or many) and
-  -- a deadline for their inclusion into L2.
-  -- Errors are handled at the call site.
+  -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
+  -- _blueprint_ transaction which spends these outputs and a deadline for
+  -- their inclusion into L2. Errors are handled at the call site.
   , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --

@@ -49,6 +49,7 @@ import Hydra.Cardano.Api (
   mkScriptAddress,
   mkScriptDatum,
   mkScriptWitness,
+  mkTxIn,
   mkTxOutDatumHash,
   mkVkAddress,
   renderTxIn,
@@ -394,29 +395,13 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
+    (_, walletSk) <- keysFor AliceFunds
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-      let script = alwaysSucceedingNAryFunction 3
-      let serializedScript = PlutusScriptSerialised script
-      let scriptAddress = mkScriptAddress networkId serializedScript
-      let datumHash = mkTxOutDatumHash ()
-      (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
-      let scriptUTxO = spy $ UTxO.singleton (scriptIn, scriptOut)
 
-      let scriptWitness =
-            BuildTxWith $
-              ScriptWitness scriptWitnessInCtx $
-                mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
-      let spendingTx =
-            unsafeBuildTransaction $
-              emptyTxBody
-                & addInputs [(scriptIn, scriptWitness)]
-      let clientPayload =
-            Aeson.object
-              [ "blueprintTx" .= spendingTx
-              , "utxo" .= scriptUTxO
-              ]
+      (clientPayload, scriptUTxO) <- prepareScriptPayload
+
       res <-
         runReq defaultHttpConfig $
           req
@@ -434,7 +419,57 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         guard $ v ^? key "tag" == Just "HeadIsOpen"
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+      -- incrementally commit script to a running Head
+      (clientPayload', scriptUTxO') <- prepareScriptPayload
+
+      res' <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload')
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let depositTransaction = responseBody res'
+      let tx = signTx walletSk depositTransaction
+
+      submitTx node tx
+
+      waitFor hydraTracer 10 [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
+      waitFor hydraTracer 10 [n1] $
+        output "CommitFinalized" ["headId" .= headId, "utxo" .= scriptUTxO', "theDeposit" .= mkTxIn tx 0]
+
+      send n1 $ input "GetUTxO" []
+
+      waitFor hydraTracer 10 [n1] $
+        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
+  prepareScriptPayload = do
+    let script = alwaysSucceedingNAryFunction 3
+    let serializedScript = PlutusScriptSerialised script
+    let scriptAddress = mkScriptAddress networkId serializedScript
+    let datumHash = mkTxOutDatumHash ()
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+    let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
+
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+    let spendingTx =
+          unsafeBuildTransaction $
+            emptyTxBody
+              & addInputs [(scriptIn, scriptWitness)]
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= spendingTx
+          , "utxo" .= scriptUTxO
+          ]
+      , scriptUTxO
+      )
+
   RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Single hydra-node where the commit is done from a raw transaction
@@ -697,9 +732,9 @@ canCommit tracer workDir node hydraScriptsTxId =
 
       waitFor hydraTracer 10 [n1] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
-
       waitFor hydraTracer 10 [n1] $
-        output "CommitFinalized" ["headId" .= headId, "utxo" .= commitUTxO]
+        -- NOTE: is it safe to assume 0 index always?
+        output "CommitFinalized" ["headId" .= headId, "utxo" .= commitUTxO, "theDeposit" .= mkTxIn tx 0]
 
       send n1 $ input "GetUTxO" []
 

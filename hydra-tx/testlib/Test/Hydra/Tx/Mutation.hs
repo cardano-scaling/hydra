@@ -822,7 +822,7 @@ replaceParties parties = \case
         , Head.headId = headId
         , Head.version = version
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash,  deltaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, deltaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -848,7 +848,7 @@ replaceUTxOHash utxoHash = \case
         , Head.headId = headId
         , Head.version = version
         }
-  Head.Closed Head.ClosedDatum{parties,  deltaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, deltaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -865,7 +865,7 @@ replaceUTxOHash utxoHash = \case
 
 replaceDeltaUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceDeltaUTxOHash deltaUTxOHash' = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash,  snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, utxoHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -882,7 +882,7 @@ replaceDeltaUTxOHash deltaUTxOHash' = \case
 
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash,  deltaUTxOHash, parties, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, deltaUTxOHash, parties, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -899,7 +899,7 @@ replaceContestationDeadline contestationDeadline = \case
 
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
 replaceContestationPeriod contestationPeriod = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash,  deltaUTxOHash, parties, headId, contesters, contestationDeadline, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, deltaUTxOHash, parties, headId, contesters, contestationDeadline, version} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -932,7 +932,7 @@ replaceHeadId headId = \case
         , Head.headId = headId
         , Head.version = version
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash,  deltaUTxOHash, contestationDeadline, parties, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, deltaUTxOHash, contestationDeadline, parties, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties

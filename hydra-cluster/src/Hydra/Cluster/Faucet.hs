@@ -21,7 +21,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
@@ -152,7 +151,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
   (faucetVk, faucetSk) <- keysFor Faucet
   utxo <- findFaucetUTxO node 0
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
-  let collateralTxIns = mempty -- fst <$> UTxO.pairs utxo
+  let collateralTxIns = mempty
   let output =
         mkTxOutAutoBalance
           pparams
@@ -171,7 +170,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
       Left e -> throwErrorAsException e
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
-        putStrLn $ renderTxWithUTxO utxo tx
         submitTransaction networkId nodeSocket tx
         newUtxo <- awaitTransaction networkId nodeSocket tx
         case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of

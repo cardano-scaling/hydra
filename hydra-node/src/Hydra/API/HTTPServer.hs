@@ -210,19 +210,18 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
               draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
-            FullCommitRequest{} -> do
-              -- FIXME: deposit should work also with a blueprint tx!
-              pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String "Cannot deposit with a blueprint tx.")
+            FullCommitRequest{blueprintTx, utxo} -> do
+              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
             SimpleCommitRequest{utxoToCommit} ->
-              deposit headId utxoToCommit
+              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
-  deposit headId utxo = do
+  deposit headId commitBlueprint = do
     -- TODO: How to make this configurable for testing? Right now this is just
     -- set to current time in order to have easier time testing the recover.
     -- Perhaps use contestation deadline to come up with a meaningful value?
     deadline <- getCurrentTime -- <&> addUTCTime 60
-    draftDepositTx headId utxo deadline <&> \case
+    draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
 

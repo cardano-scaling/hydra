@@ -47,7 +47,6 @@ import Hydra.Cardano.Api (
   txIns',
   txOutScriptData,
   txOutValue,
-  txSpendingUTxO,
   valueFromList,
   valueToList,
   pattern ByronAddressInEra,
@@ -116,7 +115,7 @@ import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (splitUTxO, txSpendingUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
@@ -1156,7 +1155,7 @@ genDepositTx = do
   utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
   (_, OpenState{headId}) <- genStOpen ctx
   deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
-  let tx = depositTx (ctxNetworkId ctx) headId utxo deadline
+  let tx = depositTx (ctxNetworkId ctx) headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxo, lookupUTxO = utxo} deadline
   pure (utxo, tx)
 
 genRecoverTx ::
