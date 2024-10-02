@@ -175,11 +175,12 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           commit' ctx headId spendableUTxO commitBlueprintTx
     , -- Handle that creates a draft **deposit** tx using the user utxo and a deadline.
       -- Possible errors are handled at the api server level.
-      draftDepositTx = \headId utxo deadline -> do
+      draftDepositTx = \headId commitBlueprintTx deadline -> do
+        let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
-        traverse (finalizeTx wallet ctx spendableUTxO utxo) $
+        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           -- TODO: Should we move deposit tx argument verification to `depositTx` function and have Either here?
-          Right (depositTx (networkId ctx) headId utxo deadline)
+          Right (depositTx (networkId ctx) headId commitBlueprintTx deadline)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -210,14 +211,14 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             PostTxError Tx
         )
     Left e ->
-        throwIO
-          ( InternalWalletError
-              { headUTxO
-              , reason = show e
-              , tx = partialTx
-              } ::
-              PostTxError Tx
-          )
+      throwIO
+        ( InternalWalletError
+            { headUTxO
+            , reason = show e
+            , tx = partialTx
+            } ::
+            PostTxError Tx
+        )
     Right balancedTx ->
       pure $ sign balancedTx
 

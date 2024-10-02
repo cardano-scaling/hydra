@@ -1,6 +1,6 @@
 module Hydra.Tx.Contract.Recover where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (txSpendingUTxO)
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -13,9 +13,11 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.Utils (txSpendingUTxO)
 import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
@@ -28,7 +30,7 @@ import Test.QuickCheck (elements, oneof, suchThat)
 
 healthyRecoverTx :: (Tx, UTxO)
 healthyRecoverTx =
-  (tx, lookupUTxO)
+  (tx, depositScriptUTxO)
  where
   tx =
     recoverTx
@@ -48,7 +50,7 @@ depositDeadline =
 
 depositTransaction :: Tx
 depositTransaction =
-  depositTx testNetworkId (mkHeadId headPolicyId) healthyDepositUTxO depositDeadline
+  depositTx testNetworkId (mkHeadId headPolicyId) CommitBlueprintTx{blueprintTx = txSpendingUTxO healthyDepositUTxO, lookupUTxO = healthyDepositUTxO} depositDeadline
 
 healthyDepositUTxO :: UTxO
 healthyDepositUTxO = genUTxOAdaOnlyOfSize 1 `generateWith` 42
@@ -62,12 +64,12 @@ headPolicyId =
     Nothing -> error "failed to create headId from provided CurrencySymbol"
     Just policyId -> policyId
 
-lookupUTxO :: UTxO
-lookupUTxO = utxoFromTx depositTransaction
+depositScriptUTxO :: UTxO
+depositScriptUTxO = utxoFromTx depositTransaction
 
 depositTxIn :: TxIn
 depositTxOut :: TxOut CtxUTxO
-(depositTxIn, depositTxOut) = List.head $ UTxO.pairs lookupUTxO
+(depositTxIn, depositTxOut) = List.head $ UTxO.pairs depositScriptUTxO
 
 data RecoverMutation
   = -- | Move the deposit deadline further so that the recover lower bound is

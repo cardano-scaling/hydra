@@ -6,8 +6,10 @@ import Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.Utils (txSpendingUTxO)
 import Options
 
 main :: IO ()
@@ -18,7 +20,9 @@ main = do
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
-          let depositTransaction = depositTx networkId headId utxo depositDeadline
+          let blueprintTx = txSpendingUTxO utxo
+          let commitBlueprint = CommitBlueprintTx{lookupUTxO = utxo, blueprintTx}
+          let depositTransaction = depositTx networkId headId commitBlueprint depositDeadline
           writeFileLBS outFile $ textEnvelopeToJSON Nothing depositTransaction
           putStrLn $ "Wrote deposit transaction to " <> outFile
     Recover RecoverOptions{networkId, outFile, recoverTxIn, utxoFilePath, recoverSlotNo} -> do

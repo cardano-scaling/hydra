@@ -9,7 +9,6 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.Cardano.Api (TxIn)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)

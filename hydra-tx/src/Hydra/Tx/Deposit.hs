@@ -3,19 +3,17 @@ module Hydra.Tx.Deposit where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL, outputsTxBodyL)
+import Control.Lens ((.~), (^.))
+import Data.Sequence.Strict qualified as StrictSeq
+import Data.Set qualified as Set
 import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Ledger.Cardano.Builder (
-  addInputs,
-  addOutputs,
-  emptyTxBody,
-  unsafeBuildTransaction,
- )
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
-import Hydra.Tx (HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V2 (POSIXTime)
 
 -- * Construction
@@ -24,18 +22,23 @@ import PlutusLedgerApi.V2 (POSIXTime)
 depositTx ::
   NetworkId ->
   HeadId ->
-  -- | UTxO to deposit
-  UTxO ->
+  CommitBlueprintTx Tx ->
   -- | Deposit deadline
   UTCTime ->
   Tx
-depositTx networkId headId depositUTxO deadline =
-  unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs depositInputs
-      & addOutputs [depositOutput]
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DepositTx")
+depositTx networkId headId commitBlueprintTx deadline =
+  fromLedgerTx $
+    toLedgerTx blueprintTx
+      & addDepositInputs
+      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut depositOutput)
+      & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
  where
+  addDepositInputs tx =
+    let newInputs = tx ^. bodyTxL . inputsTxBodyL <> Set.fromList (toLedgerTxIn . fst <$> depositInputs)
+     in tx & bodyTxL . inputsTxBodyL .~ newInputs
+
+  CommitBlueprintTx{lookupUTxO = depositUTxO, blueprintTx} = commitBlueprintTx
+
   depositInputsList = toList (UTxO.inputSet depositUTxO)
 
   depositInputs = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> depositInputsList

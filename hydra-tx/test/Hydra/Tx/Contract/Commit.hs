@@ -2,7 +2,7 @@
 -- 'healthyCommitTx' gets mutated by an arbitrary 'CommitMutation'.
 module Hydra.Tx.Contract.Commit where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (txSpendingUTxO)
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -20,7 +20,7 @@ import Hydra.Tx (CommitBlueprintTx (..), Party, mkHeadId)
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Hydra.Tx.Utils (txSpendingUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genAddressInEra, genMintedOrBurnedValue, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
