@@ -1360,10 +1360,16 @@ definitions:
         additionalProperties: false
         required:
           - tag
+          - newVersion
+          - depositTxId
         properties:
           tag:
             type: string
             enum: ["CommitFinalized"]
+          newVersion:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
+          depositTxId:
+            $ref: "api.yaml#/components/schemas/TxId"
       - title: "DecommitRecorded"
         additionalProperties: false
         required:

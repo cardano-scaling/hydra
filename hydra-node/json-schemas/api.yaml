@@ -1315,6 +1315,7 @@ components:
         - tag
         - headId
         - utxo
+        - theDeposit
         - seq
         - timestamp
       properties:
@@ -1327,6 +1328,8 @@ components:
           oneof:
             - type: "null"
             - $ref: "api.yaml#/components/schemas/UTxO"
+        theDeposit:
+          $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

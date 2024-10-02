@@ -359,14 +359,14 @@ checkClose ctx openBefore redeemer =
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', mempty, deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
       CloseUsed{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
-          deltaUTxOHash' == hashTxOuts mempty
+          deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', mempty, alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
 
   checkDeadline =
@@ -433,14 +433,14 @@ checkContest ctx closedDatum redeemer =
         traceIfFalse $(errorCode FailedContestCurrent) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', mempty, deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
       ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestOutdated) $
-          deltaUTxOHash' == hashTxOuts mempty
+          deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', mempty, alreadyDecommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
 
   mustBeWithinContestationPeriod =
@@ -726,3 +726,7 @@ decodeHeadOutputOpenDatum ctx =
     Just (Open openDatum) -> openDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
+
+emptyHash :: Hash
+emptyHash = hashTxOuts []
+{-# INLINEABLE emptyHash #-}
