@@ -25,7 +25,7 @@ data DepositOptions = DepositOptions
   deriving stock (Show, Eq)
 
 data RecoverOptions = RecoverOptions
-  { recoverTxIn :: TxIn
+  { recoverTxId :: TxId
   , utxoFilePath :: FilePath
   , outFile :: FilePath
   , networkId :: NetworkId
@@ -72,27 +72,21 @@ depositOptionsParser =
 recoverOptionsParser :: Parser RecoverOptions
 recoverOptionsParser =
   RecoverOptions
-    <$> txInParser
+    <$> txIdParser
     <*> utxoParser
     <*> outputFileParser
     <*> networkIdParser
     <*> lowerBoundSlotParser
 
-txInParser :: Parser TxIn
-txInParser =
+txIdParser :: Parser TxId
+txIdParser =
   option
     ( eitherReader
-        (Atto.parseOnly (parseTxInAtto <* Atto.endOfInput) . BSC.pack)
+        (Atto.parseOnly (parseTxIdAtto <* Atto.endOfInput) . BSC.pack)
     )
     $ long "recover-tx-in"
-      <> metavar "TXID#INDEX"
-      <> help "Transaction input is UTxO TxId and a zero-based output index separated by a hash #."
-
-parseTxInAtto :: Atto.Parser TxIn
-parseTxInAtto =
-  TxIn
-    <$> parseTxIdAtto <* Atto.char '#'
-    <*> parseTxIxAtto
+      <> metavar "TXIN"
+      <> help "Transaction id"
 
 parseTxIdAtto :: Atto.Parser TxId
 parseTxIdAtto = (Atto.<?> "Transaction ID (hexadecimal)") $ do
@@ -100,9 +94,6 @@ parseTxIdAtto = (Atto.<?> "Transaction ID (hexadecimal)") $ do
   case deserialiseFromRawBytesHex AsTxId bstr of
     Right addr -> return addr
     Left e -> fail $ docToString $ "Incorrect transaction id format: " <> prettyError e
-
-parseTxIxAtto :: Atto.Parser TxIx
-parseTxIxAtto = toEnum <$> Atto.decimal
 
 outputFileParser :: Parser FilePath
 outputFileParser =

@@ -657,7 +657,7 @@ spec =
                 OnDepositTx
                   { headId = otherHeadId
                   , deposited = mempty
-                  , depositTxIn = 1
+                  , depositTxId = 1
                   , deadline = genUTCTime `generateWith` 42
                   , depositScriptUTxO = mempty
                   }

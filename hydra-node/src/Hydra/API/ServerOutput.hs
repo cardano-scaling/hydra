@@ -21,7 +21,6 @@ import Hydra.Tx (
   Snapshot,
   SnapshotNumber,
   TxIdType,
-  TxInType,
   UTxOType,
  )
 import Hydra.Tx qualified as Tx
@@ -138,10 +137,10 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxInType tx}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
-  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxInType tx}
+  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx}
   deriving stock (Generic)
 
@@ -197,7 +196,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
-    CommitRecorded headId u txIn -> CommitRecorded headId <$> shrink u <*> shrink txIn
+    CommitRecorded headId u txId -> CommitRecorded headId <$> shrink u <*> shrink txId
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
     CommitRecovered headId u -> CommitRecovered headId <$> shrink u
@@ -290,11 +289,11 @@ data CommitInfo
 --
 
 -- | Projection to obtain the list of pending deposits.
-projectPendingDeposits :: IsTx tx => [TxInType tx] -> ServerOutput tx -> [TxInType tx]
-projectPendingDeposits txIns = \case
-  CommitRecorded{pendingDeposit} -> pendingDeposit : txIns
-  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIns
-  _other -> txIns
+projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdType tx]
+projectPendingDeposits txIds = \case
+  CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
+  _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
 -- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'

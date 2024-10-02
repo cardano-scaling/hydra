@@ -22,7 +22,6 @@ import Hydra.Tx (
   SnapshotNumber,
   SnapshotVersion,
   TxIdType,
-  TxInType,
   UTxOType,
   mkHeadParameters,
  )
@@ -86,7 +85,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | CommitFinalized {newVersion :: SnapshotVersion, depositTxIn :: TxInType tx}
+  | CommitFinalized {newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}

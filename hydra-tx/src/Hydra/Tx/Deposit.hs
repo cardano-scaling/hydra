@@ -65,7 +65,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 data DepositObservation = DepositObservation
   { headId :: HeadId
   , deposited :: UTxO
-  , depositTxIn :: TxIn
+  , depositTxId :: TxId
   , deadline :: POSIXTime
   , depositScriptUTxO :: UTxO
   }
@@ -77,7 +77,7 @@ observeDepositTx ::
   Maybe DepositObservation
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
-  (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddress tx
   (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
@@ -85,7 +85,7 @@ observeDepositTx networkId tx = do
         DepositObservation
           { headId
           , deposited
-          , depositTxIn = depositIn
+          , depositTxId
           , deadline
           , depositScriptUTxO = utxoFromTx tx
           }

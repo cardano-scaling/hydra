@@ -847,11 +847,11 @@ toOnChainTx now = \case
     OnCollectComTx{headId}
   RecoverTx{headId, utxoToDeposit} ->
     OnRecoverTx{headId, recoveredUTxO = utxoToDeposit}
-  IncrementTx{headId, incrementingSnapshot, depositTxIn} ->
+  IncrementTx{headId, incrementingSnapshot, depositTxId} ->
     OnIncrementTx
       { headId
       , newVersion = version + 1
-      , depositTxIn
+      , depositTxId
       }
    where
     Snapshot{version} = getSnapshot incrementingSnapshot

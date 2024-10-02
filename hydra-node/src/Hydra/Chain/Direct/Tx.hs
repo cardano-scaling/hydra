@@ -361,7 +361,7 @@ observeCollectComTx utxo tx = do
 data IncrementObservation = IncrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
-  , depositTxIn :: TxIn
+  , depositTxId :: TxId
   }
   deriving stock (Show, Eq, Generic)
 
@@ -375,7 +375,7 @@ observeIncrementTx ::
 observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
-  (depositInput, depositOutput) <- findTxOutByScript @PlutusScriptV2 utxo depositScript
+  (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV2 utxo depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
   Deposit.DepositDatum _ <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
@@ -392,7 +392,7 @@ observeIncrementTx utxo tx = do
             IncrementObservation
               { headId
               , newVersion = fromChainSnapshotVersion version
-              , depositTxIn = depositInput
+              , depositTxId
               }
         _ -> Nothing
     _ -> Nothing

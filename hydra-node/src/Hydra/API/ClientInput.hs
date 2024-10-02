@@ -4,7 +4,7 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Tx (IsTx, TxInType, UTxOType)
+import Hydra.Tx (IsTx, TxIdType, UTxOType)
 
 data ClientInput tx
   = Init
@@ -12,7 +12,7 @@ data ClientInput tx
   | NewTx {transaction :: tx}
   | GetUTxO
   | Commit {utxo :: UTxOType tx}
-  | Recover {recoverTxIn :: TxInType tx}
+  | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
   | Close
   | Contest
@@ -24,7 +24,7 @@ deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxInType tx)) => Arbitrary (ClientInput tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about

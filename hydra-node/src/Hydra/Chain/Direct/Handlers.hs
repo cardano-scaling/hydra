@@ -334,12 +334,12 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
-  Deposit DepositObservation{headId, deposited, depositTxIn, deadline, depositScriptUTxO} ->
-    pure $ OnDepositTx{headId, deposited, depositTxIn, deadline = posixToUTCTime deadline, depositScriptUTxO}
+  Deposit DepositObservation{headId, deposited, depositTxId, deadline, depositScriptUTxO} ->
+    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline, depositScriptUTxO}
   Recover RecoverObservation{headId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredUTxO}
-  Increment IncrementObservation{headId, newVersion, depositTxIn} ->
-    pure OnIncrementTx{headId, newVersion, depositTxIn}
+  Increment IncrementObservation{headId, newVersion, depositTxId} ->
+    pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
     pure OnDecrementTx{headId, newVersion, distributedOutputs}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
@@ -394,8 +394,8 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO of
         Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
         Right incrementTx' -> pure incrementTx'
-    RecoverTx{headId, recoverTxIn, utxoToDeposit, deadline} -> do
-      case recover headId recoverTxIn utxoToDeposit (fromChainSlot deadline) of
+    RecoverTx{headId, recoverTxId, utxoToDeposit, deadline} -> do
+      case recover headId recoverTxId utxoToDeposit (fromChainSlot deadline) of
         Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
         Right recoverTx' -> pure recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->

@@ -686,7 +686,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
     case find (\(_, (utxoToDeposit, _, _)) -> Just utxoToDeposit == utxoToCommit) (Map.assocs pendingDeposits) of
-      Just (depositTxIn, (commitUTxOFromState, depositScriptUTxO, _)) ->
+      Just (depositTxId, (commitUTxOFromState, depositScriptUTxO, _)) ->
         outcome
           <> causes
             [ ClientEffect $
@@ -701,7 +701,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       , headParameters = parameters
                       , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                       , depositScriptUTxO
-                      , depositTxIn
+                      , depositTxId
                       }
                 }
             ]
@@ -746,10 +746,10 @@ onOpenClientRecover ::
   HeadId ->
   ChainSlot ->
   CoordinatedHeadState tx ->
-  TxInType tx ->
+  TxIdType tx ->
   Outcome tx
-onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxIn =
-  case Map.lookup recoverTxIn pendingDeposits of
+onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
+  case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
       Error $ RequireFailed RecoverNotMatchingDeposit
     Just (utxoToDeposit, _, _) ->
@@ -758,7 +758,7 @@ onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxIn =
             { postChainTx =
                 RecoverTx
                   { headId
-                  , recoverTxIn
+                  , recoverTxId
                   , utxoToDeposit
                   , deadline = currentSlot
                   }
@@ -935,17 +935,17 @@ onOpenChainDepositTx ::
   OpenState tx ->
   -- | Deposited UTxO
   UTxOType tx ->
-  -- | Deposit 'TxIn'
-  TxInType tx ->
+  -- | Deposit 'TxId'
+  TxIdType tx ->
   -- | Deposit deadline
   UTCTime ->
   -- | Deposit script output
   UTxOType tx ->
   Outcome tx
-onOpenChainDepositTx headId env st deposited depositTxIn deadline depositScriptOutput =
+onOpenChainDepositTx headId env st deposited depositTxId deadline depositScriptOutput =
   waitOnUnresolvedDecommit $
-    newState CommitRecorded{pendingDeposits = Map.singleton depositTxIn (deposited, depositScriptOutput, deadline), newLocalUTxO = localUTxO <> deposited}
-      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxIn})
+    newState CommitRecorded{pendingDeposits = Map.singleton depositTxId (deposited, depositScriptOutput, deadline), newLocalUTxO = localUTxO <> deposited}
+      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId})
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
           cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
@@ -1002,15 +1002,15 @@ onOpenChainIncrementTx ::
   OpenState tx ->
   -- | New open state version
   SnapshotVersion ->
-  -- | Deposit TxIn
-  TxInType tx ->
+  -- | Deposit TxId
+  TxIdType tx ->
   Outcome tx
-onOpenChainIncrementTx openState newVersion depositTxIn =
-  case Map.lookup depositTxIn pendingDeposits of
-    Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxIn: " <> show depositTxIn
+onOpenChainIncrementTx openState newVersion depositTxId =
+  case Map.lookup depositTxId pendingDeposits of
+    Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxId: " <> show depositTxId
     Just (deposited, _, _) ->
-      newState CommitFinalized{newVersion, depositTxIn}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited, theDeposit = depositTxIn})
+      newState CommitFinalized{newVersion, depositTxId}
+        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited, theDeposit = depositTxId})
  where
   OpenState{coordinatedHeadState, headId} = openState
 
@@ -1292,23 +1292,23 @@ update env ledger st ev = case (st, ev) of
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
-  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Recover{recoverTxIn}) -> do
-    onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxIn
+  (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Recover{recoverTxId}) -> do
+    onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId
   (Open OpenState{headId, coordinatedHeadState, currentSlot}, ClientInput Decommit{decommitTx}) -> do
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxIn, deadline, depositScriptUTxO}})
-    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxIn deadline depositScriptUTxO
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline, depositScriptUTxO}})
+    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline depositScriptUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO}})
     | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxIn}})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx openState newVersion depositTxIn
+        onOpenChainIncrementTx openState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedOutputs}})
@@ -1592,7 +1592,7 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  CommitFinalized{newVersion, depositTxIn} ->
+  CommitFinalized{newVersion, depositTxId} ->
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
@@ -1600,7 +1600,7 @@ aggregate st = \case
             os
               { coordinatedHeadState =
                   coordinatedHeadState
-                    { pendingDeposits = Map.delete depositTxIn existingDeposits
+                    { pendingDeposits = Map.delete depositTxId existingDeposits
                     , version = newVersion
                     }
               }

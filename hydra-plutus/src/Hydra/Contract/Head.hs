@@ -230,7 +230,9 @@ checkIncrement ::
   OpenDatum ->
   IncrementRedeemer ->
   Bool
-checkIncrement _ctx _openBefore _redeemer = True
+checkIncrement _ctx _openBefore _redeemer =
+  -- FIXME: Implement checkIncrement
+  True
 {-# INLINEABLE checkIncrement #-}
 
 -- | Verify a decrement transaction.

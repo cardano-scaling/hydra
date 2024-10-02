@@ -34,9 +34,11 @@ healthyRecoverTx =
  where
   tx =
     recoverTx
-      depositTxIn
+      depositTxId
       healthyDepositUTxO
       recoverSlotNo
+
+  TxIn depositTxId _ = depositTxIn
 
 recoverSlotNo :: SlotNo
 recoverSlotNo = SlotNo $ arbitrary `generateWith` 42

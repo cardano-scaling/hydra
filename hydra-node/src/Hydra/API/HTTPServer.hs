@@ -140,7 +140,7 @@ httpApp ::
   -- | Get latest confirmed UTxO snapshot.
   IO (Maybe (UTxOType tx)) ->
   -- | Get the pending commits (deposits)
-  IO [TxInType tx] ->
+  IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
@@ -248,16 +248,16 @@ handleRecoverCommitUtxo ::
   LBS.ByteString ->
   IO Response
 handleRecoverCommitUtxo putClientInput recoverPath _body = do
-  case parseTxInFromPath recoverPath of
+  case parseTxIdFromPath recoverPath of
     Left err -> pure err
-    Right recoverTxIn -> do
-      putClientInput Recover{recoverTxIn}
+    Right recoverTxId -> do
+      putClientInput Recover{recoverTxId}
       pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
  where
-  parseTxInFromPath txInStr =
-    case Aeson.eitherDecode (encodeUtf8 txInStr) :: Either String (TxInType tx) of
-      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxIn: " <> pack e))
-      Right txIn -> Right txIn
+  parseTxIdFromPath txIdStr =
+    case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
+      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
+      Right txid -> Right txid
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
