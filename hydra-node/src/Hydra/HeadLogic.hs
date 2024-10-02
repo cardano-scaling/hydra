@@ -944,13 +944,12 @@ onOpenChainDepositTx ::
   Outcome tx
 onOpenChainDepositTx headId env st deposited depositTxIn deadline depositScriptOutput =
   waitOnUnresolvedDecommit $
-    if not snapshotInFlight && isLeader parameters party nextSn
-      then -- TODO: here we include the deposit UTxO to localUTxO before actually signing a snapshot. revisit this.
-
-        newState CommitRecorded{pendingDeposits = Map.singleton depositTxIn (deposited, depositScriptOutput, deadline), newLocalUTxO = localUTxO <> deposited}
-          <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited})
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
-      else noop
+    newState CommitRecorded{pendingDeposits = Map.singleton depositTxIn (deposited, depositScriptOutput, deadline), newLocalUTxO = localUTxO <> deposited}
+      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxIn})
+      <> if not snapshotInFlight && isLeader parameters party nextSn
+        then
+          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        else noop
  where
   waitOnUnresolvedDecommit cont =
     case decommitTx of
@@ -1011,7 +1010,7 @@ onOpenChainIncrementTx openState newVersion depositTxIn =
     Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxIn: " <> show depositTxIn
     Just (deposited, _, _) ->
       newState CommitFinalized{newVersion, depositTxIn}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited})
+        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited, theDeposit = depositTxIn})
  where
   OpenState{coordinatedHeadState, headId} = openState
 

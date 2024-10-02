@@ -16,7 +16,6 @@ import Hydra.API.ServerOutput (CommitInfo (..))
 import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
-  TxIn,
  )
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (
@@ -140,10 +139,12 @@ httpApp ::
   IO CommitInfo ->
   -- | Get latest confirmed UTxO snapshot.
   IO (Maybe (UTxOType tx)) ->
+  -- | Get the pending commits (deposits)
+  IO [TxInType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO putClientInput request respond = do
+httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -165,6 +166,8 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO putClientInput
       consumeRequestBodyStrict request
         >>= handleRecoverCommitUtxo directChain putClientInput (last . fromList $ pathInfo request)
         >>= respond
+    ("GET", ["commits"]) ->
+      getPendingDeposits >>= respond . responseLBS status200 [] . Aeson.encode
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
         >>= handleDecommit putClientInput

@@ -9,6 +9,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.Cardano.Api (TxIn)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
@@ -21,12 +22,13 @@ import Hydra.Tx (
   Snapshot,
   SnapshotNumber,
   TxIdType,
+  TxInType,
   UTxOType,
  )
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
@@ -137,10 +139,10 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxInType tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
-  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx}
+  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxInType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx}
   deriving stock (Generic)
 
@@ -196,7 +198,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
-    CommitRecorded headId u -> CommitRecorded headId <$> shrink u
+    CommitRecorded headId u txIn -> CommitRecorded headId <$> shrink u <*> shrink txIn
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
     CommitRecovered headId u -> CommitRecovered headId <$> shrink u
@@ -285,6 +287,15 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
+
+--
+
+-- | Projection to obtain the list of pending deposits.
+projectPendingDeposits :: IsTx tx => [TxInType tx] -> ServerOutput tx -> [TxInType tx]
+projectPendingDeposits txIns = \case
+  CommitRecorded{pendingDeposit} -> pendingDeposit : txIns
+  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIns
+  _other -> txIns
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
 -- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
