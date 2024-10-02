@@ -18,15 +18,14 @@ spec =
   parallel $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        forAllBlind genChainStateWithTx $ \(_ctx, st, tx, transition) ->
+        forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, transition) ->
           genericCoverTable [transition] $
             counterexample (show transition) $
-              let utxo = getKnownUTxO st <> utxoFromTx tx
+              let utxo = getKnownUTxO st <> utxoFromTx tx <> additionalUTxO
                in case snd $ observeTx testNetworkId utxo tx of
                     Just (Init{}) -> transition === Transition.Init
                     Just (Commit{}) -> transition === Transition.Commit
                     Just (CollectCom{}) -> transition === Transition.Collect
-                    Just (Deposit{}) -> transition === Transition.Deposit
                     Just (Increment{}) -> transition === Transition.Increment
                     Just (Decrement{}) -> transition === Transition.Decrement
                     Just (Abort{}) -> transition === Transition.Abort
@@ -36,12 +35,9 @@ spec =
                     _ -> property False
 
     prop "Updates UTxO state given transaction part of Head lifecycle" $
-      forAllBlind genChainStateWithTx $ \(_ctx, st, tx, transition) ->
-        let utxo = getKnownUTxO st
-         in -- NOTE: deposit doesn't affect the Head UTxO state
-            if transition == Transition.Deposit
-              then property True
-              else fst (observeTx testNetworkId utxo tx) =/= utxo
+      forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, _transition) ->
+        let utxo = getKnownUTxO st <> additionalUTxO
+         in fst (observeTx testNetworkId utxo tx) =/= utxo
 
     prop "Does not updates UTxO state given transactions outside of Head lifecycle" $
       forAll genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->

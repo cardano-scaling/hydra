@@ -164,7 +164,7 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDepo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo directChain putClientInput (last . fromList $ pathInfo request)
+        >>= handleRecoverCommitUtxo putClientInput (last . fromList $ pathInfo request)
         >>= respond
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . responseLBS status200 [] . Aeson.encode
@@ -244,12 +244,11 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
 handleRecoverCommitUtxo ::
   forall tx.
   IsChainState tx =>
-  Chain tx IO ->
   (ClientInput tx -> IO ()) ->
   Text ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo directChain putClientInput recoverPath _body = do
+handleRecoverCommitUtxo putClientInput recoverPath _body = do
   case parseTxInFromPath recoverPath of
     Left err -> pure err
     Right recoverTxIn -> do

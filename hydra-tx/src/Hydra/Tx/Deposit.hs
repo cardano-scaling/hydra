@@ -75,17 +75,25 @@ observeDepositTx ::
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (depositIn, depositOut) <- findTxOutByAddress depositAddress tx
-  depositObservation@DepositObservation{deposited} <- observeDepositTxOut (networkIdToNetwork networkId) (depositIn, toUTxOContext depositOut) (utxoFromTx tx)
+  (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
-    then Just depositObservation
+    then
+      Just
+        DepositObservation
+          { headId
+          , deposited
+          , depositTxIn = depositIn
+          , deadline
+          , depositScriptUTxO = utxoFromTx tx
+          }
     else Nothing
  where
   depositScript = fromPlutusScript Deposit.validatorScript
 
   depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
 
-observeDepositTxOut :: Network -> (TxIn, TxOut CtxUTxO) -> UTxO -> Maybe DepositObservation
-observeDepositTxOut network (depositIn, depositOut) depositScriptUTxO = do
+observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
+observeDepositTxOut network depositOut = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d
     _ -> Nothing
@@ -94,11 +102,4 @@ observeDepositTxOut network (depositIn, depositOut) depositScriptUTxO = do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
     pure . UTxO.fromPairs $ depositedUTxO
   headId <- fromCurrencySymbol headCurrencySymbol
-  pure
-    DepositObservation
-      { headId
-      , deposited = deposit
-      , depositTxIn = depositIn
-      , deadline
-      , depositScriptUTxO
-      }
+  pure (headId, deposit, deadline)
