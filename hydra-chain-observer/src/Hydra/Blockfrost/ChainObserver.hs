@@ -148,6 +148,9 @@ rollForward tracer prj networkId observerHandler (blockHash, utxo) = do
   when (_blockConfirmations < 1) $
     throwIO (NotEnoughBlockConfirmations _blockHash)
 
+  -- Check if block contains a reference to its next
+  nextBlockHash <- maybe (throwIO $ MissingNextBlockHash _blockHash) pure _blockNextBlock
+
   -- Search block transactions
   txHashes <- runBlockfrostM prj . Blockfrost.allPages $ \p ->
     Blockfrost.getBlockTxs' (Right _blockHash) p Blockfrost.def
@@ -176,12 +179,7 @@ rollForward tracer prj networkId observerHandler (blockHash, utxo) = do
       else observationsAt
 
   -- Next
-  case _blockNextBlock of
-    Just nextBlockHash ->
-      pure (nextBlockHash, adjustedUTxO)
-    Nothing ->
-      -- FIXME: should not error (and retry) after observing already
-      throwIO (MissingNextBlockHash _blockHash)
+  pure (nextBlockHash, adjustedUTxO)
 
 -- * Helpers
 
