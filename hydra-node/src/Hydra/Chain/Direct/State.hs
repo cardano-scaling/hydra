@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   SlotNo (SlotNo),
   ToTxContext (toTxContext),
   Tx,
+  TxId,
   TxIn,
   TxOut,
   UTxO,
@@ -38,8 +39,9 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   fromScriptData,
   genTxIn,
+  getTxBody,
+  getTxId,
   isScriptTxOut,
-  mkTxIn,
   modifyTxOutValue,
   selectAsset,
   selectLovelace,
@@ -582,15 +584,15 @@ newtype RecoverTxError = InvalidHeadIdInRecover {headId :: HeadId}
 -- and producing outputs the user initially deposited.
 recover ::
   HeadId ->
-  -- | Deposit TxIn
-  TxIn ->
+  -- | Deposit TxId
+  TxId ->
   -- | Deposit script UTxO to spend
   UTxO ->
   SlotNo ->
   Either RecoverTxError Tx
-recover headId depositTxIn depositedUTxO lowerValiditySlot = do
+recover headId depositTxId depositedUTxO lowerValiditySlot = do
   _ <- headIdToPolicyId headId ?> InvalidHeadIdInRecover{headId}
-  Right $ recoverTx depositTxIn depositedUTxO lowerValiditySlot
+  Right $ recoverTx depositTxId depositedUTxO lowerValiditySlot
 
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
@@ -1165,7 +1167,7 @@ genRecoverTx = do
   let DepositObservation{deposited} =
         fromJust $ observeDepositTx testNetworkId txDeposit
   -- TODO: generate multiple various slots after deadline
-  let tx = recoverTx (mkTxIn txDeposit 0) deposited 100
+  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited 100
   pure (utxoFromTx txDeposit, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)

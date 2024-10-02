@@ -60,7 +60,7 @@ contestTx ::
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToCommit, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
+contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]

@@ -19,13 +19,13 @@ import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
   -- | Deposit input
-  TxIn ->
+  TxId ->
   -- | Deposited UTxO to recover
   UTxO ->
   -- | Lower bound slot number
   SlotNo ->
   Tx
-recoverTx depositTxIn deposited lowerBoundSlot =
+recoverTx depositTxId deposited lowerBoundSlot =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs recoverInputs
@@ -33,7 +33,7 @@ recoverTx depositTxIn deposited lowerBoundSlot =
       & setValidityLowerBound lowerBoundSlot
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "RecoverTx")
  where
-  recoverInputs = (,depositWitness) <$> [depositTxIn]
+  recoverInputs = (,depositWitness) <$> [TxIn depositTxId (TxIx 0)]
 
   redeemer = toScriptData $ Deposit.Recover $ fromIntegral $ length depositOutputs
 

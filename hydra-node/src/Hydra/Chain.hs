@@ -59,11 +59,11 @@ data PostChainTx tx
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
       , depositScriptUTxO :: UTxOType tx
-      , depositTxIn :: TxInType tx
+      , depositTxId :: TxIdType tx
       }
   | RecoverTx
       { headId :: HeadId
-      , recoverTxIn :: TxInType tx
+      , recoverTxId :: TxIdType tx
       , utxoToDeposit :: UTxOType tx
       , deadline :: ChainSlot
       }
@@ -98,10 +98,10 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxIn} ->
-      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxIn
-    RecoverTx{headId, recoverTxIn, utxoToDeposit, deadline} ->
-      RecoverTx <$> shrink headId <*> shrink recoverTxIn <*> shrink utxoToDeposit <*> shrink deadline
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxId} ->
+      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxId
+    RecoverTx{headId, recoverTxId, utxoToDeposit, deadline} ->
+      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink utxoToDeposit <*> shrink deadline
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -126,7 +126,7 @@ data OnChainTx tx
   | OnDepositTx
       { headId :: HeadId
       , deposited :: UTxOType tx
-      , depositTxIn :: TxInType tx
+      , depositTxId :: TxIdType tx
       , deadline :: UTCTime
       , depositScriptUTxO :: UTxOType tx
       }
@@ -137,7 +137,7 @@ data OnChainTx tx
   | OnIncrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
-      , depositTxIn :: TxInType tx
+      , depositTxId :: TxIdType tx
       }
   | OnDecrementTx
       { headId :: HeadId

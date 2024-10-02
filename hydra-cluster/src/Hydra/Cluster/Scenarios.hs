@@ -28,6 +28,7 @@ import Data.ByteString qualified as B
 import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -42,6 +43,7 @@ import Hydra.Cardano.Api (
   TxIn,
   UTxO,
   getTxBody,
+  getTxId,
   getVerificationKey,
   isVkTxOut,
   lovelaceToValue,
@@ -52,7 +54,6 @@ import Hydra.Cardano.Api (
   mkTxIn,
   mkTxOutDatumHash,
   mkVkAddress,
-  renderTxIn,
   scriptWitnessInCtx,
   selectLovelace,
   signTx,
@@ -733,8 +734,7 @@ canCommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
       waitFor hydraTracer 10 [n1] $
-        -- NOTE: is it safe to assume 0 index always?
-        output "CommitFinalized" ["headId" .= headId, "utxo" .= commitUTxO, "theDeposit" .= mkTxIn tx 0]
+        output "CommitFinalized" ["headId" .= headId, "utxo" .= commitUTxO, "theDeposit" .= getTxId (getTxBody tx)]
 
       send n1 $ input "GetUTxO" []
 
@@ -801,7 +801,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` 0
 
-        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ "\"" <> renderTxIn (fst . List.head . UTxO.pairs $ utxoFromTx tx) <> "\""
+        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
 
         recoverResp <-
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)

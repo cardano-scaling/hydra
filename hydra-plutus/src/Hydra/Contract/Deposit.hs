@@ -65,7 +65,9 @@ PlutusTx.unstableMakeIsData ''DepositDatum
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
 validator depositDatum r ctx =
   case r of
-    Claim -> True
+    Claim ->
+      -- FIXME: Implement Claim redeemer
+      True
     Recover m ->
       afterDeadline
         && recoverOutputs m

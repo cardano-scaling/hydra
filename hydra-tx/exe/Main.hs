@@ -1,6 +1,6 @@
 module Main where
 
-import Hydra.Cardano.Api (networkIdToNetwork, textEnvelopeToJSON)
+import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, pattern TxIn, TxIx (..))
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
@@ -25,18 +25,18 @@ main = do
           let depositTransaction = depositTx networkId headId commitBlueprint depositDeadline
           writeFileLBS outFile $ textEnvelopeToJSON Nothing depositTransaction
           putStrLn $ "Wrote deposit transaction to " <> outFile
-    Recover RecoverOptions{networkId, outFile, recoverTxIn, utxoFilePath, recoverSlotNo} -> do
+    Recover RecoverOptions{networkId, outFile, recoverTxId, utxoFilePath, recoverSlotNo} -> do
       -- XXX: Only requires network discriminator / not networkId
       let network = networkIdToNetwork networkId
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err
         Right (utxo :: UTxO) -> do
-          case UTxO.resolve recoverTxIn utxo of
+          case UTxO.resolve (TxIn recoverTxId (TxIx 0)) utxo of
             Nothing -> die "failed to resolve deposited UTxO with provided TxIn"
             Just depositedTxOut -> do
               case observeDepositTxOut network depositedTxOut of
                 Nothing -> die "Failed to observe deposit UTxO"
                 Just (_, deposited, _) -> do
-                  let recoverTransaction = recoverTx recoverTxIn deposited recoverSlotNo
+                  let recoverTransaction = recoverTx recoverTxId deposited recoverSlotNo
                   writeFileLBS outFile $ textEnvelopeToJSON Nothing recoverTransaction
                   putStrLn $ "Wrote deposit transaction to " <> outFile
