@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTxOut)
+import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)
 import Options
 
@@ -32,7 +32,7 @@ main = do
             Just depositedTxOut -> do
               case observeDepositTxOut network depositedTxOut of
                 Nothing -> die "Failed to observe deposit UTxO"
-                Just DepositObservation{deposited} -> do
+                Just (_, deposited, _) -> do
                   let recoverTransaction = recoverTx recoverTxIn deposited recoverSlotNo
                   writeFileLBS outFile $ textEnvelopeToJSON Nothing recoverTransaction
                   putStrLn $ "Wrote deposit transaction to " <> outFile

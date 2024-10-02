@@ -210,7 +210,6 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             PostTxError Tx
         )
     Left e ->
-      traceShow e $
         throwIO
           ( InternalWalletError
               { headUTxO
