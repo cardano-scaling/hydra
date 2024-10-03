@@ -7,11 +7,13 @@ import Codec.Serialise (serialise)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Hydra.Cardano.Api (
+  PlutusScriptVersion (PlutusScriptV3),
   ScriptHash,
   fromPlutusScript,
   hashScript,
   pattern PlutusScript,
  )
+import Hydra.Cardano.Api.Prelude qualified as Api
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -46,7 +48,7 @@ scriptInfo =
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
     , initialScriptHash = plutusScriptHash Initial.validatorScript
     , initialScriptSize = scriptSize Initial.validatorScript
-    , commitScriptHash = plutusScriptHash commitValidatorScript
+    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript commitValidatorScript
     , commitScriptSize = scriptSize commitValidatorScript
     , headScriptHash = plutusScriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript

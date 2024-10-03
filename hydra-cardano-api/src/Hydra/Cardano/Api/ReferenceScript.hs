@@ -14,3 +14,13 @@ mkScriptRef =
     . toScriptInAnyLang
     . PlutusScript PlutusScriptV2
     . fromPlutusScript
+
+-- | Construct a 'ReferenceScript' from any given Plutus script.
+--
+-- NOTE: The script is treated as a 'PlutusScriptV2'
+mkScriptRefV3 :: Plutus.SerialisedScript -> ReferenceScript Era
+mkScriptRefV3 =
+  ReferenceScript babbageBasedEra
+    . toScriptInAnyLang
+    . PlutusScript PlutusScriptV3
+    . fromPlutusScript

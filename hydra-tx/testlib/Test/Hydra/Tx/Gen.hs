@@ -206,7 +206,7 @@ genScriptRegistry = do
           )
       , commitReference =
           ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
+          , txOut{txOutReferenceScript = mkScriptRefV3 commitValidatorScript}
           )
       , headReference =
           ( TxIn txId' (TxIx 2)
@@ -302,12 +302,12 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV3 testNetworkId initialScript)
+        (mkScriptAddress testNetworkId initialScript)
         (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 
@@ -331,7 +331,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV3 testNetworkId commitScript)
+          (mkScriptAddress testNetworkId commitScript)
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
@@ -347,7 +347,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript commitValidatorScript
+    commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 

@@ -308,9 +308,9 @@ observeCommitTx networkId utxo tx = do
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
+  commitAddress = mkScriptAddress networkId commitScript
 
-  commitScript = fromPlutusScript commitValidatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput

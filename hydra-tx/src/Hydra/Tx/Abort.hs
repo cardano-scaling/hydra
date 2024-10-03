@@ -104,7 +104,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitScript =
-    fromPlutusScript @PlutusScriptV2 commitValidatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
