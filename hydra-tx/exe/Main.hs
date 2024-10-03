@@ -1,6 +1,6 @@
 module Main where
 
-import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, pattern TxIn, TxIx (..))
+import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, pattern TxIn)
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
