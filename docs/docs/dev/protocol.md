@@ -17,15 +17,13 @@ sequenceDiagram
     Chain ->>+ Node A: OnDepositTx utxo
     Chain ->>+ Node B: OnDepositTx utxo
 
-    Node A -->> Alice: DepositDetected
+    Node A -->> Alice: CommitRecorded
 
     par Alice isLeader
         Node A->>Node A: ReqSn utxoToCommit
     and
         Node A->>Node B: ReqSn utxoToCommit
     end
-
-    Node A -->> Alice: CommitRequested
 
     Node A->>Node A: sig = sign snapshot incl. utxoToCommit
 
@@ -48,7 +46,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    Alice->>+Node A: DELETE /commits/<tx-in>
+    Alice->>+Node A: DELETE /commits/<tx-id>
     Node A->>Chain: recoverTx
     Chain ->>+ Node A: OnRecoverTx utxo
     Chain ->>+ Node B: OnRecoverTx utxo
