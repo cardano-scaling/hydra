@@ -92,6 +92,10 @@ channels:
           - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
           - $ref: "api.yaml#/components/messages/DecommitFinalized"
+          - $ref: "api.yaml#/components/schemas/CommitRecorded"
+          - $ref: "api.yaml#/components/schemas/CommitApproved"
+          - $ref: "api.yaml#/components/schemas/CommitFinalized"
+          - $ref: "api.yaml#/components/schemas/CommitRecovered"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -313,14 +317,14 @@ components:
         type: object
         required:
           - tag
-          - recoverTx
+          - recoverTxId
         properties:
           tag:
             type: string
             enum: ["Recover"]
-          recoverTx:
+          recoverTxId:
             type: object
-            $ref: "api.yaml#/components/schemas/Transaction"
+            $ref: "api.yaml#/components/schemas/TxId"
     Decommit:
       title: Decommit
       description: |
@@ -1291,6 +1295,7 @@ components:
         - tag
         - headId
         - utxoToCommit
+        - pendingDeposit
         - seq
         - timestamp
       properties:
@@ -1301,6 +1306,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         utxoToCommit:
           $ref: "api.yaml#/components/schemas/UTxO"
+        pendingDeposit:
+          $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1325,9 +1332,7 @@ components:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
         utxo:
-          oneof:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/UTxO"
+           $ref: "api.yaml#/components/schemas/UTxO"
         theDeposit:
           $ref: "api.yaml#/components/schemas/TxId"
         seq:
@@ -1354,9 +1359,7 @@ components:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
         recoveredUTxO:
-          oneof:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1717,7 +1720,9 @@ components:
           required:
             - tag
             - headId
-            - recoverTx
+            - recoverTxId
+            - utxoToDeposit
+            - deadline
           description: |
             Post a transaction to recover deposited UTxO back to L1.
           properties:
@@ -1726,8 +1731,14 @@ components:
               enum: ["RecoverTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
-            recoverTx:
-              $ref: "api.yaml#/components/schemas/Transaction"
+            recoverTxId:
+              $ref: "api.yaml#/components/schemas/TxIn"
+            utxoToDeposit:
+              oneOf:
+                - type: "null"
+                - $ref: "api.yaml#/components/schemas/UTxO"
+            deadline:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
         - title: IncrementTx
           type: object
           additionalProperties: false
@@ -1737,6 +1748,7 @@ components:
             - headParameters
             - incrementingSnapshot
             - depositScriptUTxO
+            - depositTxId
           description: |
             Post a transaction to commit some UTxO to the Head.
           properties:
@@ -1751,6 +1763,8 @@ components:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
             depositScriptUTxO:
               $ref: "api.yaml#/components/schemas/UTxO"
+            depositTxId:
+              $ref: "api.yaml#/components/schemas/TxId"
         - title: DecrementTx
           type: object
           additionalProperties: false
