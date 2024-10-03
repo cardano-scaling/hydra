@@ -15,8 +15,8 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Retry (constantDelay, retrying)
+import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
-  BlockHeader,
   ChainPoint (..),
   HasTypeProxy (..),
   Hash,
@@ -26,6 +26,10 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   UTxO,
+  serialiseToRawBytes,
+ )
+import Hydra.Cardano.Api.Prelude (
+  BlockHeader (..),
  )
 import Hydra.Chain.Direct.Handlers (convertObservation)
 import Hydra.ChainObserver.NodeClient (
@@ -219,5 +223,5 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
 
 fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
 fromChainPoint chainPoint genesisBlockHash = case chainPoint of
-  ChainPoint _ headerHash -> Blockfrost.BlockHash $ show headerHash
+  ChainPoint _ headerHash -> Blockfrost.BlockHash (spy (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash))
   ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash

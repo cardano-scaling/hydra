@@ -65,6 +65,7 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
+    , base16-bytestring
     , blockfrost-client            >=0.9.1.0
     , hydra-cardano-api
     , hydra-node
