@@ -5,5 +5,5 @@ description = "Aiken contracts for project 'hydra/hydra-plutus'"
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "1.6.0"
+version = "2.1.0"
 source = "github"

@@ -53,7 +53,7 @@ spec = do
       -- FIXME: This requires a git working copy, do it differently.
       -- Run 'aiken build' to re-generate plutus.json file
       _ <- do
-        let aikenExec = proc "aiken" ["build", "-k"]
+        let aikenExec = proc "aiken" ["build"]
             aikenProcess = aikenExec
         (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
         waitForProcess aikenProcessHandle
