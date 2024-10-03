@@ -883,7 +883,7 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
         forM_ deposited $ \deposit -> do
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
           recoverResp <-
-            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> spy path)
+            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
               >>= httpJSON
 
           (getResponseBody recoverResp :: String) `shouldBe` "OK"
