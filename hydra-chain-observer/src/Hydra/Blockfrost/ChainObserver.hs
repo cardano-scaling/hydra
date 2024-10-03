@@ -97,6 +97,8 @@ blockfrostClient tracer projectPath blockConfirmations = do
         void $
           retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
             loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
+              `catch` \(ex :: APIBlockfrostError) ->
+                pure $ Left ex
     }
  where
   shouldRetry _ = \case
