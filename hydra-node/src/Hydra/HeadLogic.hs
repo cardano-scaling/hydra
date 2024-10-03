@@ -986,6 +986,7 @@ onOpenChainRecoverTx headId st recoveredUTxO recoveredTxId =
           ServerOutput.CommitRecovered
             { headId
             , recoveredUTxO
+            , recoveredTxId
             }
       )
  where

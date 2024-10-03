@@ -141,7 +141,7 @@ data ServerOutput tx
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxIdType tx}
-  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx}
+  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -199,7 +199,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecorded headId u txId -> CommitRecorded headId <$> shrink u <*> shrink txId
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
-    CommitRecovered headId u -> CommitRecovered headId <$> shrink u
+    CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
 
@@ -292,6 +292,7 @@ data CommitInfo
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
   CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
   CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
   _other -> txIds
 
