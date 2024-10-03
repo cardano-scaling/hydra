@@ -77,6 +77,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> ("\n      " <> prettyAddr (Api.txOutAddress o))
           <> ("\n      " <> prettyValue 1 (Api.txOutValue o))
           <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
+          <> ("\n      " <> prettyReferenceScript (Api.txOutReferenceScript o))
 
   outputLines =
     [ "== OUTPUTS (" <> show (length outs) <> ")"
@@ -124,6 +125,12 @@ renderTxWithUTxO utxo (Tx body _wits) =
     Api.TxOutDatumInline scriptData ->
       "TxOutDatumInline " <> prettyScriptData scriptData
     _ -> error "absurd"
+
+  prettyReferenceScript = \case
+    Api.ReferenceScriptNone ->
+      "ReferenceScriptNone"
+    (Api.ReferenceScript (Api.ScriptInAnyLang l s)) ->
+      "ReferenceScript " <> show l <> " " <> show (serialiseToRawBytesHexText (hashScript s))
 
   prettyDatumCtx = \case
     Api.TxOutDatumNone ->
