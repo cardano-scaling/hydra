@@ -133,6 +133,7 @@ data OnChainTx tx
   | OnRecoverTx
       { headId :: HeadId
       , recoveredUTxO :: UTxOType tx
+      , recoveredTxId :: TxIdType tx
       }
   | OnIncrementTx
       { headId :: HeadId

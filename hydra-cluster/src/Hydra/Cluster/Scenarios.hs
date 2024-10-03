@@ -40,7 +40,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   Tx,
   TxId,
-  TxIn,
   UTxO,
   getTxBody,
   getTxId,
@@ -856,7 +855,7 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
         commitUTxO2 <- seedFromFaucet node walletVk 4_000_000 (contramap FromFaucet tracer)
         commitUTxO3 <- seedFromFaucet node walletVk 3_000_000 (contramap FromFaucet tracer)
 
-        flip evalStateT [] $ forM_ [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
+        deposited <- flip execStateT [] $ forM [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
           resp <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
               <&> setRequestBodyJSON utxo
@@ -868,20 +867,36 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
 
           liftIO $ submitTx node tx
 
-          liftIO $ waitForAllMatch 10 [n1] $ \v -> do
+          liftIO $ waitForAllMatch 10 [n1] $ \v ->
             guard $ v ^? key "tag" == Just "CommitRecorded"
 
-          recoverResp <-
+          pendingDepositReq <-
             parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
               >>= httpJSON
 
-          -- the issue doesn't specify the format of the response so we are
-          -- free to use whatever is convenient for the users ([TxIn]?)
-          let expectedResponse = fst . List.head . UTxO.pairs $ utxoFromTx tx
+          let expectedResponse = getTxId (getTxBody tx)
           _ <- modify (expectedResponse :)
           expected <- get
-          let expectedResp = getResponseBody recoverResp :: [TxIn]
+          let expectedResp = getResponseBody pendingDepositReq :: [TxId]
           liftIO $ expectedResp `shouldBe` expected
+
+        forM_ deposited $ \deposit -> do
+          let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
+          recoverResp <-
+            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> spy path)
+              >>= httpJSON
+
+          (getResponseBody recoverResp :: String) `shouldBe` "OK"
+
+          waitForAllMatch 10 [n1] $ \v -> do
+            guard $ v ^? key "tag" == Just "CommitRecovered"
+
+        pendingDepositReq <-
+          parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
+            >>= httpJSON
+
+        let expectedResp = getResponseBody pendingDepositReq :: [TxId]
+        expectedResp `shouldBe` []
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 

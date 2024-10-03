@@ -50,6 +50,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
   , recoveredUTxO :: UTxO
+  , recoveredTxId :: TxId
   }
   deriving stock (Show, Eq, Generic)
 
@@ -60,7 +61,7 @@ observeRecoverTx ::
   Maybe RecoverObservation
 observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (_, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
   Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
   deposits <- do
@@ -76,6 +77,7 @@ observeRecoverTx networkId utxo tx = do
         ( RecoverObservation
             { headId
             , recoveredUTxO = deposits
+            , recoveredTxId = depositTxId
             }
         )
     else Nothing

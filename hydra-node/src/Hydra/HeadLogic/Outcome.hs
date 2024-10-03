@@ -73,7 +73,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       }
   | CommitRecorded {pendingDeposits :: PendingDeposits tx, newLocalUTxO :: UTxOType tx}
-  | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx}
+  | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.

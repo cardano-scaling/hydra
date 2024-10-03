@@ -19,7 +19,7 @@ We can inspect the L1 utxo with:
 ```shell
 cardano-cli query utxo --whole-utxo
 ```
-and
+and the state of the faucet public key
 
 ```shell
 cardano-cli query utxo \
@@ -80,18 +80,19 @@ cardano-cli query utxo \
 
 
 Inspect the pending deposits:
+
 ```
 curl -X GET localhost:4001/commits
 
-["7fa05f9d5269d95452ed86bb7a32f2485245c781b61380673be0e33fb849c919"]
 ```
+and you should see the tx-id of the deposit transaction `["6b51f3787f5482004b258c60fe0c94775164f547d9284b6233bbb4f6f8b9dfa6"]`
 
 To recover, we can use the `/commits` endpoint again using the transaction id of the deposit:
 
 ```shell
-curl -X DELETE localhost:4001/commits/$(printf "\"7fa05f9d5269d95452ed86bb7a32f2485245c781b61380673be0e33fb849c919"\" | jq -sRr '@uri')
-OK
+curl -X DELETE localhost:4001/commits/$(printf "\"6b51f3787f5482004b258c60fe0c94775164f547d9284b6233bbb4f6f8b9dfa6"\" | jq -sRr '@uri')
 ```
+
 If we inspect the faucet funds again we will see that the locked deposit is now recovered
 
 ```shell
