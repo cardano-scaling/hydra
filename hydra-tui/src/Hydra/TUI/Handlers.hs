@@ -356,14 +356,6 @@ handleVtyEventsFinal hydraClient e = do
       liftIO (sendInput hydraClient Init)
     _ -> pure ()
 
-handleVtyEventsConnection ::
-  CardanoClient ->
-  Client Tx IO ->
-  Vty.Event ->
-  EventM Name Connection ()
-handleVtyEventsConnection cardanoClient hydraClient e = do
-  zoom headStateL $ handleVtyEventsHeadState cardanoClient hydraClient e
-
 handleVtyEventsLogState :: Vty.Event -> EventM Name LogState ()
 handleVtyEventsLogState = \case
   EvKey (KChar '<') [] -> scroll Up
