@@ -387,15 +387,6 @@ commit' ctx headId spendableUTxO commitBlueprintTx = do
   hasMatchingPT pid val =
     selectAsset val (AssetId pid (AssetName (serialiseToRawBytes vkh))) == 1
 
-incrementalCommit ::
-  ChainContext ->
-  HeadId ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  CommitBlueprintTx Tx ->
-  Either (PostTxError Tx) Tx
-incrementalCommit = error "not implemented yet"
-
 rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
 rejectByronAddress u = do
   forM_ u $ \case

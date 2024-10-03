@@ -1371,7 +1371,24 @@ definitions:
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
           depositTxId:
-            $ref: "api.yaml#/components/schemas/TxId"
+            type: string
+      - title: "CommitRecovered"
+        additionalProperties: false
+        required:
+          - tag
+          - recoveredUTxO
+          - newLocalUTxO
+          - recoveredTxId
+        properties:
+          tag:
+            type: string
+            enum: ["CommitRecovered"]
+          recoveredUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          recoveredTxId:
+            type: string
       - title: "DecommitRecorded"
         additionalProperties: false
         required:
@@ -2029,8 +2046,10 @@ definitions:
         required:
           - tag
           - headId
-          - utxo
           - deposited
+          - depositTxId
+          - deadline
+          - depositScriptUTxO
         description: >-
           The deposit transaction locking some UTxO to a deposit script.
         properties:
@@ -2039,9 +2058,13 @@ definitions:
             enum: ["OnDepositTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
           deposited:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          depositTxId:
+            type: string
+          deadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+          depositScriptUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnRecoverTx
         type: object
@@ -2050,6 +2073,7 @@ definitions:
           - tag
           - headId
           - recoveredUTxO
+          - recoveredTxId
         description: >-
           The recover transaction unlocking the deposited UTxO.
         properties:
@@ -2060,14 +2084,16 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           recoveredUTxO:
             $ref: "api.yaml#/components/schemas/UTxO"
+          recoveredTxId:
+            type: string
       - title: OnIncrementTx
         type: object
         additionalProperties: false
         required:
           - tag
           - headId
-          - committedUTxO
-          - depositScriptUTxO
+          - newVersion
+          - depositTxId
         description: >-
           The increment transaction adding some UTxO from L1 into the Head.
         properties:
@@ -2078,10 +2104,8 @@ definitions:
             $ref: "api.yaml#/components/schemas/HeadId"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
-          committedUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          depositScriptUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
+          depositTxId:
+            type: string
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -2115,24 +2139,6 @@ definitions:
             enum: ["OnAbortTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
-      - title: OnDepositTx
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - headId
-          - utxo
-          - deposited
-        properties:
-          tag:
-            type: string
-            enum: ["OnDepositTx"]
-          headId:
-            $ref: "api.yaml#/components/schemas/HeadId"
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
-          deposited:
-            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnIncrementTx
         type: object
         additionalProperties: false
