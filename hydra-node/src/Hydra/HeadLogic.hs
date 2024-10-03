@@ -977,9 +977,10 @@ onOpenChainRecoverTx ::
   HeadId ->
   OpenState tx ->
   UTxOType tx ->
+  TxIdType tx ->
   Outcome tx
-onOpenChainRecoverTx headId st recoveredUTxO =
-  newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO}
+onOpenChainRecoverTx headId st recoveredUTxO recoveredTxId =
+  newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
     <> cause
       ( ClientEffect
           ServerOutput.CommitRecovered
@@ -1302,8 +1303,8 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline depositScriptUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO}})
-    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO, recoveredTxId}})
+    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO recoveredTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}})
@@ -1421,7 +1422,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
     _otherState -> st
-  CommitRecovered{newLocalUTxO} -> case st of
+  CommitRecovered{newLocalUTxO, recoveredTxId} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1429,9 +1430,11 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = mempty
+                  , pendingDeposits = Map.delete (spy recoveredTxId) existingDeposits
                   }
             }
+       where
+        CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
     _otherState -> st
   DecommitRecorded{decommitTx, newLocalUTxO} -> case st of
     Open
