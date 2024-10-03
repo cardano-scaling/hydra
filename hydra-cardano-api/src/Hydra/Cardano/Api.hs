@@ -146,7 +146,6 @@ import Hydra.Cardano.Api.TxIn as Extras
 import Hydra.Cardano.Api.TxOut as Extras
 import Hydra.Cardano.Api.TxOutDatum as Extras
 import Hydra.Cardano.Api.TxOutValue as Extras
-import Hydra.Cardano.Api.TxScriptValidity as Extras
 import Hydra.Cardano.Api.UTxO as Extras
 import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
