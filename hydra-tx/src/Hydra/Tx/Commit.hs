@@ -116,10 +116,10 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
 
   commitScript =
-    fromPlutusScript commitValidatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
   commitAddress =
-    mkScriptAddress @PlutusScriptV2 networkId commitScript
+    mkScriptAddress networkId commitScript
 
   utxoToCommit =
     UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns

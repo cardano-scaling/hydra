@@ -96,6 +96,6 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitValue =
     mconcat $ txOutValue <$> Map.elems commits
   commitScript =
-    fromPlutusScript @PlutusScriptV2 commitValidatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom

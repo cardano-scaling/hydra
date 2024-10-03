@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScriptV2,
+  PlutusScriptV3,
   PolicyId,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -432,7 +433,7 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
-  commitScript = fromPlutusScript @PlutusScriptV2 commitValidatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -470,7 +471,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  commitScript = fromPlutusScript @PlutusScriptV2 commitValidatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 

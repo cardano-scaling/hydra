@@ -173,9 +173,9 @@ healthyCommitOutput participant party committed =
   txIn = genTxIn `genForParty` party
 
   commitScript =
-    fromPlutusScript commitValidatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitAddress =
-    mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
+    mkScriptAddress testNetworkId commitScript
   commitValue =
     foldMap txOutValue committed
       <> fromList

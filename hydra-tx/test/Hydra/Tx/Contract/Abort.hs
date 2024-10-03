@@ -131,7 +131,7 @@ propHasCommit (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript commitValidatorScript)
+  addr = mkScriptAddress testNetworkId (fromPlutusScript @PlutusScriptV3 commitValidatorScript)
   paysToCommitScript txOut =
     txOutAddress txOut == addr
 

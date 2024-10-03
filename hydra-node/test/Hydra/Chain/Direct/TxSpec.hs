@@ -359,7 +359,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
+          (mkScriptAddress testNetworkId commitScript)
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
@@ -375,7 +375,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript commitValidatorScript
+    commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 
