@@ -187,9 +187,6 @@ drawRemainingContestationPeriod deadline now =
         then padLeftRight 1 $ vBox [txt "Remaining time to contest: ", str (renderTime remaining)]
         else txt "Contestation period passed, ready to fan out soon."
 
-drawTotalCommitted :: UTxO -> Widget n
-drawTotalCommitted utxo = str ("Total committed: " <> toString (renderValue (balance @Tx utxo)))
-
 drawRemainingParties :: IdentifiedState -> [Party] -> Widget n
 drawRemainingParties k xs =
   str "Waiting for parties to commit:"
@@ -235,9 +232,6 @@ drawIfActive :: (ActiveLink -> Widget n) -> HeadState -> Widget n
 drawIfActive f = \case
   Idle -> emptyWidget
   Active x -> f x
-
-drawIfLive :: (ActiveLink -> Widget n) -> ConnectedState -> Widget n
-drawIfLive f = drawIfConnected (drawIfActive f . headState)
 
 drawPeersIfConnected :: ConnectedState -> Widget n
 drawPeersIfConnected = drawIfConnected (drawPeers . peers)
