@@ -321,16 +321,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        --       L̂  ← L̂ ◦ tx
-        --       L̂  ← L̂ ◦ tx
-
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -685,7 +677,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(_, (utxoToDeposit, _, _)) -> Just utxoToDeposit == utxoToCommit) (Map.assocs pendingDeposits) of
+    case find (\(_, (depositedUTxO, _, _)) -> Just depositedUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
       Just (depositTxId, (commitUTxOFromState, depositScriptUTxO, _)) ->
         outcome
           <> causes

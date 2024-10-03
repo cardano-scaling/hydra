@@ -250,8 +250,7 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    -- TODO: introduce emptyHash instead of hashTxOuts [] ?
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, hashTxOuts [], decommitUtxoHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $

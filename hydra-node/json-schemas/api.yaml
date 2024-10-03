@@ -323,8 +323,7 @@ components:
             type: string
             enum: ["Recover"]
           recoverTxId:
-            type: object
-            $ref: "api.yaml#/components/schemas/TxId"
+            type: string
     Decommit:
       title: Decommit
       description: |
@@ -1350,6 +1349,7 @@ components:
         - tag
         - headId
         - recoveredUTxO
+        - recoveredTxId
         - seq
         - timestamp
       properties:
@@ -1360,6 +1360,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         recoveredUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
+        recoveredTxId:
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1732,11 +1734,9 @@ components:
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
             recoverTxId:
-              $ref: "api.yaml#/components/schemas/TxIn"
+              type: string
             utxoToDeposit:
-              oneOf:
-                - type: "null"
-                - $ref: "api.yaml#/components/schemas/UTxO"
+              $ref: "api.yaml#/components/schemas/UTxO"
             deadline:
               $ref: "api.yaml#/components/schemas/ChainSlot"
         - title: IncrementTx
@@ -1764,7 +1764,7 @@ components:
             depositScriptUTxO:
               $ref: "api.yaml#/components/schemas/UTxO"
             depositTxId:
-              $ref: "api.yaml#/components/schemas/TxId"
+              type: string
         - title: DecrementTx
           type: object
           additionalProperties: false

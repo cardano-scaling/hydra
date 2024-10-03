@@ -117,6 +117,7 @@
         },
         {
             "headId": "00010406050008050703040407010701",
+            "recoveredTxId": 0,
             "recoveredUTxO": [],
             "tag": "CommitRecovered"
         },
@@ -396,11 +397,12 @@
         },
         {
             "headId": "07000102030306030705020600050407",
+            "recoveredTxId": 1,
             "recoveredUTxO": [
-                -5,
-                1,
-                4,
-                5
+                -6,
+                -1,
+                2,
+                4
             ],
             "tag": "CommitRecovered"
         },
@@ -664,8 +666,9 @@
         },
         {
             "headId": "01030802000808000606010102010706",
+            "recoveredTxId": 5,
             "recoveredUTxO": [
-                -3,
+                4,
                 5
             ],
             "tag": "CommitRecovered"
@@ -1077,7 +1080,11 @@
         },
         {
             "headId": "04010801080402030703030703030603",
-            "recoveredUTxO": [],
+            "recoveredTxId": 1,
+            "recoveredUTxO": [
+                3,
+                6
+            ],
             "tag": "CommitRecovered"
         },
         {
@@ -1218,14 +1225,21 @@
         },
         {
             "headId": "03050307000000040001020602000202",
-            "recoveredUTxO": [],
+            "recoveredTxId": 6,
+            "recoveredUTxO": [
+                -5,
+                1
+            ],
             "tag": "CommitRecovered"
         },
         {
             "headId": "04010600050603060803010801080708",
+            "recoveredTxId": -5,
             "recoveredUTxO": [
-                -5,
-                3
+                -2,
+                -1,
+                0,
+                5
             ],
             "tag": "CommitRecovered"
         },
@@ -1297,6 +1311,7 @@
         },
         {
             "headId": "08020102050306060001030607080106",
+            "recoveredTxId": 3,
             "recoveredUTxO": [],
             "tag": "CommitRecovered"
         },
@@ -2929,10 +2944,11 @@
         },
         {
             "headId": "01040202060208020004020101080304",
+            "recoveredTxId": 0,
             "recoveredUTxO": [
-                -3,
-                0,
-                3
+                -4,
+                2,
+                5
             ],
             "tag": "CommitRecovered"
         },
@@ -3059,7 +3075,14 @@
         },
         {
             "headId": "02030000080303040201040004080208",
-            "recoveredUTxO": [],
+            "recoveredTxId": -2,
+            "recoveredUTxO": [
+                -5,
+                -1,
+                2,
+                5,
+                6
+            ],
             "tag": "CommitRecovered"
         },
         {
@@ -3156,11 +3179,8 @@
         },
         {
             "headId": "00060804060003070301080308060705",
+            "recoveredTxId": -6,
             "recoveredUTxO": [
-                -6,
-                -4,
-                -3,
-                -2,
                 0
             ],
             "tag": "CommitRecovered"
