@@ -59,7 +59,6 @@ library
     Hydra.Contract.Util
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
-    Hydra.Data.Utxo
     Hydra.ScriptContext
 
   hs-source-dirs:  src
