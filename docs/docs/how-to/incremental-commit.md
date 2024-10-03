@@ -2,25 +2,15 @@
 
 Assuming we already have an open Head and some funds on the L1 we would like to commit.
 
-### Demo setup
 
-For example a demo setup could use our `hydra-cluster` binary:
-
-:::caution TODO
-Could also copy the faucet keys for more convenience.
+:::info
+You could run a local [demo](./../getting-started)
 :::
 
-```shell
-cabal run hydra-cluster -- \
-  --devnet \
-  --publish-hydra-scripts \
-  --state-directory incremental-demo
-```
-
-The following commands expect these environment variables:
+The following commands are expected to be run from the `demo` folder and using these environment variables:
 
 ```shell
-export CARDANO_NODE_SOCKET_PATH=${PWD}/incremental-demo/node.socket
+export CARDANO_NODE_SOCKET_PATH=${PWD}/devnet/node.socket
 export CARDANO_NODE_NETWORK_ID=42
 ```
 
@@ -33,25 +23,18 @@ and
 
 ```shell
 cardano-cli query utxo \
-  --address $(cardano-cli address build --payment-verification-key-file hydra-cluster/config/credentials/faucet.vk)
+  --address $(cardano-cli address build --payment-verification-key-file ${PWD}/../hydra-cluster/config/credentials/faucet.vk)
 ```
 
 
 In this setup, we would be using the `faucet` keys to commit everything into the head.
 
 ```shell
-export WALLET_SK=${PWD}/hydra-cluster/config/credentials/faucet.sk
-export WALLET_VK=${PWD}/hydra-cluster/config/credentials/faucet.vk
-cd incremental-demo
+export WALLET_SK=${PWD}/../hydra-cluster/config/credentials/faucet.sk
+export WALLET_VK=${PWD}/../hydra-cluster/config/credentials/faucet.vk
 ```
 
 ### Deposit UTxO to commit
-
-To observe funds owned on L2 we can use `hydra-tui`
-
-```shell
-cabal run hydra-tui -- --cardano-signing-key ${WALLET_SK}
-```
 
 The `/commit` endpoint supports two ways of specifying what to commit, one is just by showing the UTxO (which is assumed to be owned by public keys), while the more advanced way would be using [blueprint transactions](./commit-blueprint).
 
@@ -87,22 +70,32 @@ This will result in a deposit being detected by the `hydra-node` and consequentl
 
 Do the same thing as above, **but** with one node stopped, so the deposit is not going to be picked up.
 
-Inspect the deposits:
+Once we deposited funds we should not see the corresponding UTxO belonging to faucet public key on L1:
+
+```shell
+
+cardano-cli query utxo \
+  --address $(cardano-cli address build --payment-verification-key-file ${PWD}/../hydra-cluster/config/credentials/faucet.vk)
 ```
-cardano-cli query utxo --address addr_test1wrsqjy3463fcgn99jv3rmd7e8dnmy7hl7j4vzw76gslqu9srg3t5f
+
+
+Inspect the pending deposits:
+```
+curl -X GET localhost:4001/commits
+
+["7fa05f9d5269d95452ed86bb7a32f2485245c781b61380673be0e33fb849c919"]
 ```
 
 To recover, we can use the `/commits` endpoint again using the transaction id of the deposit:
 
-:::danger FIXME
-Should be possible this way:
 ```shell
-curl -X DELETE localhost:4001/commits/$(cardano-cli transaction txid --tx-file deposit-tx.json)
+curl -X DELETE localhost:4001/commits/$(printf "\"7fa05f9d5269d95452ed86bb7a32f2485245c781b61380673be0e33fb849c919"\" | jq -sRr '@uri')
+OK
 ```
-:::
+If we inspect the faucet funds again we will see that the locked deposit is now recovered
 
 ```shell
-TXID=$(cardano-cli transaction txid --tx-file deposit-tx.json)
-curl -X DELETE localhost:4001/commits/$(printf "\"${TXID}#0"\" | jq -sRr @uri)
+cardano-cli query utxo \
+  --address $(cardano-cli address build --payment-verification-key-file ${PWD}/../hydra-cluster/config/credentials/faucet.vk)
 ```
 
