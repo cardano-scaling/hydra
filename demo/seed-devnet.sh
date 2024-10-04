@@ -3,6 +3,10 @@
 # Seed a "devnet" by distributing Ada to hydra nodes
 set -eo pipefail
 
+# See: https://github.com/cardano-scaling/hydra/pull/1682
+[[ $(jq -n '9223372036854775807') == "9223372036854775807" ]] \
+  || (echo "bad jq roundtrip: please upgrade your jq to version 1.7+"; exit 1)
+
 SCRIPT_DIR=${SCRIPT_DIR:-$(realpath $(dirname $(realpath $0)))}
 NETWORK_ID=42
 
