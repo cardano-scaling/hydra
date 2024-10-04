@@ -19,7 +19,7 @@ import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRe
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ValidatorType, mkUntypedValidator, scriptValidatorHash)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (valueOf)
@@ -687,7 +687,7 @@ compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap headValidator||])
  where
-  wrap = wrapValidator @DatumType @RedeemerType
+  wrap = mkUntypedValidator @DatumType @RedeemerType
 
 validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator

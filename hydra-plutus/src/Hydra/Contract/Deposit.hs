@@ -22,7 +22,7 @@ import Hydra.Contract.DepositError (
  )
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.Head (hashPreSerializedCommits, hashTxOuts)
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ValidatorType, mkUntypedValidator, scriptValidatorHash)
 import PlutusLedgerApi.V2 (
   CurrencySymbol,
   Datum (Datum),
@@ -91,7 +91,7 @@ compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   $$(PlutusTx.compile [||wrap validator||])
  where
-  wrap = wrapValidator @DepositDatum @DepositRedeemer
+  wrap = mkUntypedValidator @DepositDatum @DepositRedeemer
 
 validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator

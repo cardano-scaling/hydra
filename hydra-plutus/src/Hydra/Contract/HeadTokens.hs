@@ -30,7 +30,7 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST)
-import Hydra.Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
+import Hydra.Plutus.Extras (MintingPolicyType, mkUntypedMintingPolicy)
 import Hydra.ScriptContext (ScriptContext (..), TxInfo (txInfoInputs, txInfoMint), ownCurrencySymbol, scriptOutputsAt)
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.V2 (
@@ -179,7 +179,7 @@ validateTokensBurning context =
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
-  $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
+  $$(PlutusTx.compile [||\vInitial vHead ref -> mkUntypedMintingPolicy (validate vInitial vHead ref)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Initial.validatorHash
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 Head.validatorHash
 
