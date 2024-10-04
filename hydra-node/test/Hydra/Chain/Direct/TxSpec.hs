@@ -53,7 +53,7 @@ import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (adaOnly, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Hydra.Prelude
@@ -64,7 +64,6 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
-  assetNameFromVerificationKey,
   genForParty,
   genOneUTxOFor,
   genSigningKey,
@@ -331,79 +330,3 @@ prop_interestingBlueprintTx = do
             . unRedeemers
             $ toLedgerTx @Era tx ^. witsTxL . rdmrsTxWitsL
         )
-
--- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
--- NOTE: Uses 'testPolicyId' for the datum.
--- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
--- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, UTxO))
-generateCommitUTxOs parties = do
-  txins <- vectorOf (length parties) (arbitrary @TxIn)
-  let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
-  committedUTxO <-
-    vectorOf (length parties) $
-      fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
-  let commitUTxO =
-        zip txins $
-          uncurry mkCommitUTxO <$> zip vks committedUTxO
-  pure $ Map.fromList commitUTxO
- where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, UTxO)
-  mkCommitUTxO (vk, party) utxo =
-    ( toUTxOContext $
-        TxOut
-          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
-          commitValue
-          (mkTxOutDatumInline commitDatum)
-          ReferenceScriptNone
-    , utxo
-    )
-   where
-    commitValue =
-      mconcat
-        [ lovelaceToValue (Coin 2000000)
-        , foldMap txOutValue utxo
-        , valueFromList
-            [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
-            ]
-        ]
-
-    commitScript = fromPlutusScript Commit.validatorScript
-
-    commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
-
--- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
-genAbortableOutputs parties =
-  go
- where
-  go = do
-    (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
-    initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
-    pure (initials, commits)
-
-  genInitial p =
-    mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
-
-  mkInitial ::
-    VerificationKey PaymentKey ->
-    TxIn ->
-    (TxIn, TxOut CtxUTxO)
-  mkInitial vk txin =
-    ( txin
-    , initialTxOut vk
-    )
-
-  initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO
-  initialTxOut vk =
-    toUTxOContext $
-      TxOut
-        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
-        (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
-        (mkTxOutDatumInline initialDatum)
-        ReferenceScriptNone
-
-  initialScript = fromPlutusScript Initial.validatorScript
-
-  initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)

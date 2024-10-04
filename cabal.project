@@ -41,3 +41,11 @@ benchmarks: True
 
 -- Always show detailed output for tests
 test-show-details: direct
+
+-- NOTE: 9.1.0.0 + inlineDatumRaw
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/cardano-api
+  tag: df130eee4298d453cdf118a83f47526326f96192
+  --sha256: sha256-PUpOpm8YjCYv59t9zu+52ZlHNaH83ljw2QQGl4ITBnw=
+  subdir: cardano-api

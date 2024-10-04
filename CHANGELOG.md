@@ -12,6 +12,8 @@ changes.
 
 - **HACK** Disable API server history and break network reliability to avoid growing memory too much.
 
+- Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`

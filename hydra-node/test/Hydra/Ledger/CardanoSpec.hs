@@ -16,16 +16,24 @@ import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (
-  cardanoLedger,
-  genSequenceOfSimplePaymentTransactions,
-  genTxOut,
- )
+import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfSimplePaymentTransactions)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
-import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genUTxOAdaOnlyOfSize, genUTxOAlonzo, genUTxOFor, genValue)
-import Test.QuickCheck (Property, checkCoverage, conjoin, counterexample, cover, forAll, forAllBlind, property, sized, vectorOf, withMaxSuccess, (===))
+import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutput, genTxOut, genUTxO, genUTxOAdaOnlyOfSize, genUTxOFor, genValue)
+import Test.QuickCheck (
+  Property,
+  checkCoverage,
+  conjoin,
+  counterexample,
+  cover,
+  forAll,
+  forAllBlind,
+  property,
+  sized,
+  vectorOf,
+  (===),
+ )
 import Test.Util (propCollisionResistant)
 
 spec :: Spec
@@ -52,9 +60,8 @@ spec =
 
     describe "Tx" $ do
       prop "JSON encoding of Tx according to schema" $
-        withMaxSuccess 5 $
-          prop_validateJSONSchema @Tx "api.json" $
-            key "components" . key "schemas" . key "Transaction"
+        prop_validateJSONSchema @Tx "api.json" $
+          key "components" . key "schemas" . key "Transaction"
 
     describe "applyTransactions" $ do
       prop "works with valid transaction" appliesValidTransaction
@@ -65,7 +72,7 @@ spec =
       propCollisionResistant "arbitrary @TxId" (arbitrary @TxId)
       propCollisionResistant "arbitrary @(VerificationKey PaymentKey)" (arbitrary @(VerificationKey PaymentKey))
       propCollisionResistant "arbitrary @(Hash PaymentKey)" (arbitrary @(Hash PaymentKey))
-      propDoesNotCollapse "genUTxOAlonzo" genUTxOAlonzo
+      propDoesNotCollapse "genUTxO" genUTxO
       propDoesNotCollapse "genUTxOAdaOnlyOfSize" (sized genUTxOAdaOnlyOfSize)
       propCollisionResistant "genUTxOFor" (genUTxOFor (arbitrary `generateWith` 42))
       propCollisionResistant "genOneUTxOFor" (genOneUTxOFor (arbitrary `generateWith` 42))

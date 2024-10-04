@@ -2092,6 +2092,13 @@ components:
             - type: string
               contentEncoding: base16
             - type: "null"
+        inlineDatumRaw:
+          description: |
+            The 'inlineDatum' in its original cbor encoded form. Useful to
+            evaluate scripts and calculate script integrity hashes.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Cbor"
+            - type: "null" 
         datum:
           oneOf:
             - type: string
