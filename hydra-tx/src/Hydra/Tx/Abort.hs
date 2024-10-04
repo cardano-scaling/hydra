@@ -56,7 +56,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
         unsafeBuildTransaction $
           emptyTxBody
             & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
+            & addReferenceInputs ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
             & addOutputs reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
             & addExtraRequiredSigners [verificationKeyHash vk]
