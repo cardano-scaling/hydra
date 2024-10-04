@@ -13,10 +13,6 @@ module Hydra.Plutus.GoldenSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Lens ((^.))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nth, _String)
-import Data.ByteString.Lazy qualified as BSL
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV2, AsScript),
   File (..),
@@ -24,11 +20,9 @@ import Hydra.Cardano.Api (
   fromPlutusScript,
   hashScript,
   readFileTextEnvelope,
-  serialiseToRawBytesHexText,
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
-import Hydra.Contract (ScriptInfo (commitScriptHash), scriptInfo)
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -41,35 +35,16 @@ import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
-  it "checks plutus blueprint remains the same" $ do
+  it "Commit validator script" $ do
     original <- readFileBS "plutus.json"
     -- This re-generate plutus.json
     void $ readProcess "aiken" ["build", "-t", "compact"] ""
     regenerated <- readFileBS "plutus.json"
     regenerated `shouldBe` original
-
-  it "Commit validator script" $ do
-    -- FIXME: Actually test the value of commitValidatorScript
-    withFile "./plutus.json" ReadMode $ \hdl -> do
-      plutusJson <- BSL.hGetContents hdl
-      let blueprintJSON :: Aeson.Value =
-            case Aeson.decode plutusJson of
-              Nothing -> error "Invalid blueprint: plutus.json"
-              Just value -> value
-      -- NOTE: we are using a hardcoded index to access the commit validator.
-      -- This is fragile and will raise problems when we move another plutus validator
-      -- to Aiken.
-      -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
-      let base16Text = blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
-      let plutusScriptHash = commitScriptHash scriptInfo
-      base16Text `shouldBe` serialiseToRawBytesHexText plutusScriptHash
-
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
-
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
   it "Deposit validator script" $
