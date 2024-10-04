@@ -23,9 +23,10 @@ changes.
 
 - Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
 
-- Write the vCommit validator in Aiken.
-  This makes the Abort and CollectCom transactions fit double the participants.
-  But, due to execution memory limits, the maximum number of parties increased to 7.
+- **BREAKING** Rewrite of the commit script in aiken:
+  - This makes `abort` and `collectCom` transactions more efficient and results
+    in a new maximum number of head participants being `9`.
+  - Changes script hashes in `hydra-plutus`
 
 ## [0.19.0] - 2024-09-13
 
