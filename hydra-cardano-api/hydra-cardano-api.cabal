@@ -68,7 +68,6 @@ library
     Hydra.Cardano.Api.TxOut
     Hydra.Cardano.Api.TxOutDatum
     Hydra.Cardano.Api.TxOutValue
-    Hydra.Cardano.Api.TxScriptValidity
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.ValidityInterval
     Hydra.Cardano.Api.Value
