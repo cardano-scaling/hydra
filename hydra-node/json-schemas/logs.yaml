@@ -1610,7 +1610,6 @@ definitions:
       - allTxs
       - confirmedSnapshot
       - seenSnapshot
-      - commitUTxO
       - pendingDeposits
       - decommitTx
       - version
@@ -1633,11 +1632,6 @@ definitions:
         $ref: "logs.yaml#/definitions/SeenSnapshot"
       pendingDeposits:
         type: object
-      commitUTxO:
-        oneOf:
-          - type: "null"
-          - type: object
-            $ref: "api.yaml#/components/schemas/UTxO"
       decommitTx:
         oneOf:
           - type: "null"

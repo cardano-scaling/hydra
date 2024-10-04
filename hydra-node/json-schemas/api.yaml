@@ -92,10 +92,10 @@ channels:
           - $ref: "api.yaml#/components/messages/DecommitRequested"
           - $ref: "api.yaml#/components/messages/DecommitApproved"
           - $ref: "api.yaml#/components/messages/DecommitFinalized"
-          - $ref: "api.yaml#/components/schemas/CommitRecorded"
-          - $ref: "api.yaml#/components/schemas/CommitApproved"
-          - $ref: "api.yaml#/components/schemas/CommitFinalized"
-          - $ref: "api.yaml#/components/schemas/CommitRecovered"
+          - $ref: "api.yaml#/components/messages/CommitRecorded"
+          - $ref: "api.yaml#/components/messages/CommitApproved"
+          - $ref: "api.yaml#/components/messages/CommitFinalized"
+          - $ref: "api.yaml#/components/messages/CommitRecovered"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -139,6 +139,66 @@ channels:
         http:
           type: response
           method: POST
+          bindingVersion: '0.1.0'
+
+  /commits:
+    servers:
+      - localhost-http
+    publish:
+      description: Obtain a list of pending deposit transaction ID's.
+      operationId: pendingDepositsRequest
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: GET
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: pendingDepositsResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+      message:
+        payload:
+          type: array
+          items:
+            type: string
+
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /commits/tx-id:
+    servers:
+      - localhost-http
+    publish:
+      description: Recover deposited UTxO by providing a TxId of a deposit transaction in the request path.
+      operationId: recoverDepositRequest
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: DELETE
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: recoverDepositResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+          * 400 Bad Request
+      message:
+        payload:
+          type: string
+      bindings:
+        http:
+          type: response
+          method: DELETE
           bindingVersion: '0.1.0'
 
   /snapshot/utxo:
@@ -186,7 +246,7 @@ channels:
           * String - 400 bad request
       message:
         payload:
-            type: string
+            $ref: "api.yaml#/components/messages/DecommitResponse"
       bindings:
         http:
           type: response
@@ -585,6 +645,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/DecommitFinalized"
 
+    CommitRecorded:
+      title: CommitRecorded
+      description: |
+         Deposit is detected and recorded in the local state.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitRecorded"
+
     CommitApproved:
       title: CommitApproved
       description: |
@@ -623,6 +690,13 @@ components:
           Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/Transaction"
+
+    DecommitResponse:
+      title: DecommitResponse
+      description: |
+          Emitted by the server after drafting a decommit transaction.
+      payload:
+        type: string
 
     ProtocolParameters:
       title: ProtocolParameters
@@ -1306,7 +1380,7 @@ components:
         utxoToCommit:
           $ref: "api.yaml#/components/schemas/UTxO"
         pendingDeposit:
-          $ref: "api.yaml#/components/schemas/TxId"
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1333,7 +1407,7 @@ components:
         utxo:
            $ref: "api.yaml#/components/schemas/UTxO"
         theDeposit:
-          $ref: "api.yaml#/components/schemas/TxId"
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

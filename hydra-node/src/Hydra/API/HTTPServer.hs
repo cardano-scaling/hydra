@@ -37,7 +37,6 @@ import Network.Wai (
   rawPathInfo,
   responseLBS,
  )
-import Test.QuickCheck (oneof)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -92,11 +91,7 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     simpleVariant val = SimpleCommitRequest <$> parseJSON val
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
-  arbitrary =
-    oneof
-      [ FullCommitRequest <$> arbitrary <*> arbitrary
-      , SimpleCommitRequest <$> arbitrary
-      ]
+  arbitrary = genericArbitrary
 
   shrink = \case
     SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
@@ -220,7 +215,7 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
     -- TODO: How to make this configurable for testing? Right now this is just
     -- set to current time in order to have easier time testing the recover.
     -- Perhaps use contestation deadline to come up with a meaningful value?
-    deadline <- getCurrentTime -- <&> addUTCTime 60
+    deadline <- getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
