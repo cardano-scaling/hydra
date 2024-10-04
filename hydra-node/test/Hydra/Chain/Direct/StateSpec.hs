@@ -102,10 +102,6 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano (
-  genTxOut,
-  genTxOutByron,
- )
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
   genValidityBoundsFromContestationPeriod,
@@ -125,7 +121,7 @@ import PlutusLedgerApi.Test.Examples qualified as Plutus
 import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genOutput, genTxOutAdaOnly, genUTxO1, genUTxOSized)
+import Test.Hydra.Tx.Gen (genOutput, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,

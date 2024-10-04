@@ -90,7 +90,7 @@ validateJSON schemaFilePath selector value = do
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
--- NOTE: This property runs with a fixed `maxSuccess` of 1, but generates 100
+-- NOTE: This property runs with a fixed `maxSuccess` of 1, but generates 1000
 -- values of 'a' to reduce the number of calls to the external schema validation
 -- (which is slow).
 --
