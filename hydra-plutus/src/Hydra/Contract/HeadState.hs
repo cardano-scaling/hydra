@@ -115,6 +115,13 @@ data ContestRedeemer
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
 
+-- | Sub-type for increment transition
+-- TODO: add more fields as needed.
+data IncrementRedeemer = IncrementRedeemer
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''IncrementRedeemer
+
 -- | Sub-type for decrement transition with auxiliary data as needed.
 data DecrementRedeemer = DecrementRedeemer
   { signature :: [Signature]
@@ -130,6 +137,7 @@ PlutusTx.unstableMakeIsData ''DecrementRedeemer
 
 data Input
   = CollectCom
+  | Increment IncrementRedeemer
   | Decrement DecrementRedeemer
   | Close CloseRedeemer
   | Contest ContestRedeemer

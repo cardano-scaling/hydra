@@ -23,6 +23,7 @@ import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
+import Hydra.Tx.Utils (txSpendingUTxO)
 import PlutusLedgerApi.V2 (fromBuiltin)
 
 -- | Types of transactions that can be used by the Head protocol. The associated
@@ -167,7 +168,7 @@ instance IsTx Tx where
   -- NOTE: See note from `Head.hashTxOuts`.
   hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
-  txSpendingUTxO = Hydra.Cardano.Api.txSpendingUTxO
+  txSpendingUTxO = Hydra.Tx.Utils.txSpendingUTxO
 
   utxoFromTx = Api.utxoFromTx
 

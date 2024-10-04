@@ -2,8 +2,8 @@ module Hydra.Tx.Recover where
 
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano.Builder (
@@ -13,39 +13,73 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
-import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime)
+import Hydra.Tx (HeadId, mkHeadId)
+import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
-  NetworkId ->
-  CurrencySymbol ->
   -- | Deposit input
-  TxIn ->
-  -- | Already Deposited funds
-  [Commit.Commit] ->
-  -- | Recover deadline
-  POSIXTime ->
+  TxId ->
+  -- | Deposited UTxO to recover
+  UTxO ->
   -- | Lower bound slot number
   SlotNo ->
   Tx
-recoverTx networkId headId depositTxIn depositted deadline lowerBoundSlot =
+recoverTx depositTxId deposited lowerBoundSlot =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs recoverInputs
       & addOutputs depositOutputs
       & setValidityLowerBound lowerBoundSlot
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "RecoverTx")
  where
-  recoverInputs = (,depositWitness) <$> [depositTxIn]
+  recoverInputs = (,depositWitness) <$> [TxIn depositTxId (TxIx 0)]
 
-  redeemer = Deposit.Recover $ fromIntegral $ length depositOutputs
+  redeemer = toScriptData $ Deposit.Recover $ fromIntegral $ length depositOutputs
 
   depositWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptWitness depositScript (mkScriptDatum constructedDatum) (toScriptData redeemer)
+        mkScriptWitness depositScript InlineScriptDatum redeemer
 
-  constructedDatum = (headId, deadline, depositted)
-
-  depositOutputs = toTxContext . snd <$> mapMaybe (Commit.deserializeCommit (networkIdToNetwork networkId)) depositted
+  depositOutputs =
+    toTxContext <$> toList deposited
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+
+data RecoverObservation = RecoverObservation
+  { headId :: HeadId
+  , recoveredUTxO :: UTxO
+  , recoveredTxId :: TxId
+  }
+  deriving stock (Show, Eq, Generic)
+
+observeRecoverTx ::
+  NetworkId ->
+  UTxO ->
+  Tx ->
+  Maybe RecoverObservation
+observeRecoverTx networkId utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  dat <- txOutScriptData $ toTxContext depositOut
+  Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
+  deposits <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
+    pure $ UTxO.fromPairs depositedUTxO
+  headId <- fmap mkHeadId . fromPlutusCurrencySymbol $ headCurrencySymbol
+  let depositOuts = toTxContext . snd <$> UTxO.pairs deposits
+  -- NOTE: All deposit outputs need to be present in the recover tx outputs but
+  -- the two lists of outputs are not necesarilly the same.
+  if all (`elem` txOuts' tx) depositOuts
+    then
+      pure
+        ( RecoverObservation
+            { headId
+            , recoveredUTxO = deposits
+            , recoveredTxId = depositTxId
+            }
+        )
+    else Nothing
+ where
+  depositScript = fromPlutusScript Deposit.validatorScript

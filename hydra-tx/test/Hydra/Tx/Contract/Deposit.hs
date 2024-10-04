@@ -1,23 +1,27 @@
 module Hydra.Tx.Contract.Deposit where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (txSpendingUTxO)
 import Hydra.Prelude
 
 import Hydra.Tx (mkHeadId)
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Utils (txSpendingUTxO)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 
 healthyDepositTx :: (Tx, UTxO)
 healthyDepositTx =
-  (tx, utxo)
+  (tx, healthyDepositUTxO)
  where
   tx =
     depositTx
       testNetworkId
       (mkHeadId testPolicyId)
-      utxo
+      CommitBlueprintTx{blueprintTx = txSpendingUTxO healthyDepositUTxO, lookupUTxO = healthyDepositUTxO}
       deadline
 
-  utxo = genUTxOAdaOnlyOfSize 5 `generateWith` 42
   deadline = arbitrary `generateWith` 42
+
+healthyDepositUTxO :: UTxO
+healthyDepositUTxO = genUTxOAdaOnlyOfSize 5 `generateWith` 42

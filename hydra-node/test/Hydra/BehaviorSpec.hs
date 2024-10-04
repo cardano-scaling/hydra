@@ -244,7 +244,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 42)
                 waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
 
-                let snapshot = Snapshot testHeadId 0 1 [42] (utxoRefs [1, 2, 42]) mempty
+                let snapshot = Snapshot testHeadId 0 1 [42] (utxoRefs [1, 2, 42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -749,6 +749,7 @@ simulatedChainAndNetwork initialChainState = do
                         threadDelay blockTime
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
+                  , draftDepositTx = \_ -> error "unexpected call to draftIncrementalCommitTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
@@ -844,6 +845,16 @@ toOnChainTx now = \case
     OnAbortTx{headId = testHeadId}
   CollectComTx{headId} ->
     OnCollectComTx{headId}
+  RecoverTx{headId, utxoToDeposit, recoverTxId} ->
+    OnRecoverTx{headId, recoveredUTxO = utxoToDeposit, recoveredTxId = recoverTxId}
+  IncrementTx{headId, incrementingSnapshot, depositTxId} ->
+    OnIncrementTx
+      { headId
+      , newVersion = version + 1
+      , depositTxId
+      }
+   where
+    Snapshot{version} = getSnapshot incrementingSnapshot
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId

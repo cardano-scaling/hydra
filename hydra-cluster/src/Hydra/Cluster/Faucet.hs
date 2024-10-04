@@ -145,18 +145,18 @@ createOutputAtAddress ::
   RunningNode ->
   AddressInEra ->
   TxOutDatum CtxTx ->
+  Value ->
   IO (TxIn, TxOut CtxUTxO)
-createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = do
+createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  -- we don't care which faucet utxo we use here so just pass lovelace 0 to grab
-  -- any present utxo
   utxo <- findFaucetUTxO node 0
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+  let collateralTxIns = mempty
   let output =
         mkTxOutAutoBalance
           pparams
           atAddress
-          mempty
+          val
           datum
           ReferenceScriptNone
   buildTransaction
@@ -167,8 +167,7 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = 
     collateralTxIns
     [output]
     >>= \case
-      Left e ->
-        throwErrorAsException e
+      Left e -> throwErrorAsException e
       Right body -> do
         let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
         submitTransaction networkId nodeSocket tx
@@ -177,8 +176,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum = 
           Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
           Just u -> pure u
  where
-  collateralTxIns = mempty
-
   changeAddress = mkVkAddress networkId
 
 -- | Build and sign tx and return the calculated fee.

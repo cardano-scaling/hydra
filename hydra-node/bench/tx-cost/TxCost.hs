@@ -144,7 +144,7 @@ computeDecrementCost = do
  where
   compute numParties = do
     -- TODO: add decrementedOutputs to the result
-    (ctx, _decrementedOutputs, st, tx) <- generate $ genDecrementTx numParties
+    (ctx, _decrementedOutputs, st, _, tx) <- generate $ genDecrementTx numParties
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
@@ -159,7 +159,7 @@ computeCloseCost = do
   pure $ interesting <> limit
  where
   compute numParties = do
-    (ctx, st, tx, _sn) <- generate $ genCloseTx numParties
+    (ctx, st, _, tx, _sn) <- generate $ genCloseTx numParties
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
@@ -186,7 +186,7 @@ computeContestCost = do
     utxo <- arbitrary
     (closedSnapshotNumber, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo mempty (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
@@ -242,7 +242,7 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo Nothing mempty [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

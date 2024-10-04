@@ -28,21 +28,29 @@
             "headId": "00080807060006050208040205040406",
             "signatures": {
                 "multiSignature": [
-                    "713cffb5729a4b3e6017aa9949492c7f12d69029a9bd4e6abe0606abae7548d128006648c3269d4b75f7a0ae4a9f82f52b56fb0694277ac0d3e1f14b29fd9d00",
-                    "e805dd83cb161c6f13af414ec18dd80eb8dbd19cdb53804dc4f291b5c587647d0f294e76b277abf32c9a3025b6881c57b8077cff9d4089d4a9654f014fe41601",
-                    "31648f68017a5d516bb8d9543090b2eeba9d3c24ce4221fcd985e36574129d4eb7d2c34c075bbcf9b7ca9cdc21c30e1089693b46a7f414cfedf2583f6478ac01"
+                    "26423f803c42a5e3232edf2f61741c0f0877bfc845a3df4916f33822bb1e0d44f087874725fac328fd86ac4a6dba94eee68723c572108f1746cc4b7ecf032a01",
+                    "9b51983fffb3c6a2ed73fe6244c4a33ddaabe522bd1966bbd91c152a779584ef58e8f143c505d730790823a65fe78f7ee7684d24d96f99210a239a95bfa05a0d",
+                    "19f044ae87a82bd5611d77f4a35fd67b834bee518ece5d753f96e608f9f37653f8c89a279f5d8a43e204766d1accbf4261f011b9b8982fcc5ba07565e1038208"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [],
+                "confirmedTransactions": [
+                    5,
+                    -1,
+                    -5,
+                    0,
+                    -2,
+                    -4
+                ],
                 "headId": "00070505050401000300020202030405",
                 "snapshotNumber": 5,
                 "utxo": [
-                    -6,
-                    -4,
-                    1,
+                    -3,
+                    0
+                ],
+                "utxoToCommit": [
                     2,
-                    6
+                    5
                 ],
                 "utxoToDecommit": [
                     -1,
@@ -109,8 +117,9 @@
         },
         {
             "headId": "00010406050008050703040407010701",
-            "tag": "HeadIsFinalized",
-            "utxo": []
+            "recoveredTxId": 0,
+            "recoveredUTxO": [],
+            "tag": "CommitRecovered"
         },
         {
             "headId": "02080305070400040006020007080802",
@@ -127,26 +136,9 @@
             "utxo": []
         },
         {
-            "decommitTx": {
-                "id": -2,
-                "inputs": [
-                    -2,
-                    -1,
-                    3
-                ],
-                "outputs": [
-                    -5,
-                    -1,
-                    1,
-                    6
-                ]
-            },
+            "decommitTxId": -2,
             "headId": "00060702050707010701070000050704",
-            "tag": "DecommitRequested",
-            "utxoToDecommit": [
-                -5,
-                -4
-            ]
+            "tag": "DecommitFinalized"
         },
         {
             "contestationDeadline": "1864-05-05T14:18:25.047033866299Z",
@@ -155,13 +147,17 @@
             "tag": "HeadIsClosed"
         },
         {
-            "decommitTxId": -3,
             "headId": "06010603080202020004020501040203",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 3,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -4,
+                3
+            ]
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "Contest"
             },
             "state": {
                 "contents": {
@@ -170,47 +166,38 @@
                     },
                     "coordinatedHeadState": {
                         "allTxs": {
-                            "-2": {
-                                "id": -6,
+                            "0": {
+                                "id": 3,
                                 "inputs": [
-                                    0,
-                                    2,
-                                    5
-                                ],
-                                "outputs": []
-                            },
-                            "-3": {
-                                "id": -4,
-                                "inputs": [
-                                    -5,
-                                    -2
+                                    6
                                 ],
                                 "outputs": [
-                                    -6,
-                                    -2,
-                                    0,
-                                    1,
-                                    2,
-                                    6
+                                    -3
                                 ]
                             }
                         },
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "8a7c34eeb0ca6e3956bf4095c29cf90eef12bb8d339a0501fdfa15b54cc31fe0e00b8c4fd3e7bf7841b31adeea0da5f3648f7cd80b88daed1fe5cb6b1b1a8209",
-                                    "b0494e8842f7f8b100bedfe83bf2c79338211a50b482d35524e099fda166e1dfead4ff74a4a5210dd090cd86ab6ba843eeca3b62f8a023bd90994c20b32d650d",
-                                    "726d7ab3cabc6925baea0729a9186a35ca27b0990ded2e61de52cde7cf6655071ad5bb4d51778e69e3c6d1f3e6c2ea0fff7c7479ded2c290fba1a342e7f78a03"
+                                    "b701e47f0e98cd4b82e2f0c68ec14a6a0053c21d624cc42f2e2a638d382ef10175805d55ba7007fed251f1dae9926ae0aeff417b15dc9c974590dfb90d908505",
+                                    "07e663baf53e201c33661d1b50d7dd1f6cd0cdb71a4f0b063a7a80ec2998f11d00c7c4b5a2cd8f89bfaf552125ab69033ef2678136a5c98264aedd0478e45702"
                                 ]
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "05020702080505000705050304000802",
-                                "snapshotNumber": 1,
+                                "headId": "03060803050104000305070500050400",
+                                "snapshotNumber": 4,
                                 "utxo": [
                                     2
                                 ],
-                                "utxoToDecommit": [],
+                                "utxoToCommit": [
+                                    -3,
+                                    3
+                                ],
+                                "utxoToDecommit": [
+                                    -3,
+                                    4
+                                ],
                                 "version": 0
                             },
                             "tag": "ConfirmedSnapshot"
@@ -232,26 +219,112 @@
                         },
                         "localTxs": [
                             {
-                                "id": 0,
+                                "id": 5,
+                                "inputs": [],
+                                "outputs": []
+                            },
+                            {
+                                "id": 2,
                                 "inputs": [
-                                    -4,
-                                    -1,
-                                    2
+                                    -2
                                 ],
                                 "outputs": [
-                                    -6,
-                                    -2,
-                                    -1,
+                                    -4,
                                     1,
-                                    2
+                                    5,
+                                    6
                                 ]
+                            },
+                            {
+                                "id": -3,
+                                "inputs": [
+                                    -5,
+                                    -3
+                                ],
+                                "outputs": [
+                                    0,
+                                    2,
+                                    4,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -4,
+                                "inputs": [
+                                    -5,
+                                    1,
+                                    4
+                                ],
+                                "outputs": []
                             }
                         ],
                         "localUTxO": [
-                            -5,
-                            -1,
-                            5
+                            -1
                         ],
+                        "pendingDeposits": {
+                            "-2": [
+                                [
+                                    -3,
+                                    1,
+                                    2,
+                                    3,
+                                    6
+                                ],
+                                [
+                                    3,
+                                    4,
+                                    6
+                                ],
+                                "1864-05-04T10:13:39.644670485547Z"
+                            ],
+                            "-3": [
+                                [],
+                                [],
+                                "1864-05-15T22:15:42.354481122456Z"
+                            ],
+                            "1": [
+                                [
+                                    -4,
+                                    -3,
+                                    0,
+                                    3,
+                                    4
+                                ],
+                                [
+                                    -5,
+                                    -1,
+                                    6
+                                ],
+                                "1864-05-14T05:55:06.373997948547Z"
+                            ],
+                            "2": [
+                                [
+                                    -6,
+                                    2
+                                ],
+                                [
+                                    -4,
+                                    -3,
+                                    -2,
+                                    5
+                                ],
+                                "1864-05-03T07:52:21.375740619827Z"
+                            ],
+                            "3": [
+                                [
+                                    -6,
+                                    -4,
+                                    -1,
+                                    4,
+                                    6
+                                ],
+                                [
+                                    -3,
+                                    4
+                                ],
+                                "1864-05-15T08:36:18.097246119796Z"
+                            ]
+                        },
                         "seenSnapshot": {
                             "tag": "NoSeenSnapshot"
                         },
@@ -280,13 +353,21 @@
             "tag": "CommandFailed"
         },
         {
-            "decommitTxId": -6,
             "headId": "02050108060308040303060101040806",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": -2,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -6,
+                -2,
+                -1,
+                0,
+                1,
+                6
+            ]
         },
         {
             "clientInput": {
-                "tag": "Init"
+                "tag": "Contest"
             },
             "state": {
                 "contents": {
@@ -315,15 +396,15 @@
             "tag": "CommandFailed"
         },
         {
-            "headStatus": "Closed",
-            "hydraNodeVersion": "X\u0018뼲]",
-            "me": {
-                "vkey": "2686f19da51fc796a2363adb3dc5cd5b52ac0b1e2c6e0bf4ad53c4087914d627"
-            },
-            "snapshotUtxo": [
-                -4
+            "headId": "07000102030306030705020600050407",
+            "recoveredTxId": 1,
+            "recoveredUTxO": [
+                -6,
+                -1,
+                2,
+                4
             ],
-            "tag": "Greetings"
+            "tag": "CommitRecovered"
         },
         {
             "peer": "ju",
@@ -374,25 +455,34 @@
             "headId": "00000404080805000206040505070301",
             "signatures": {
                 "multiSignature": [
-                    "a7e0ff85f3641e2a532f35888b278bd6d50e80048443daf6e7fdad5b99ac17b8f1e8bd91db1c524c3e7ec88e2215a75e2d92bf6036cbc841d369a6479ab97707",
-                    "60c24880225d4810c3bb1b12da5a52f0ab08420c56c37c999b7adcf09c3ce38f076ac88f9d81ff98f59f6acfa9651bd59ec192a27430bcc1fc69664491e20d07",
-                    "c7595d39a393d39bf55b6cd307bd90da3ad91fd2be46593eab34d5204d5ccccfb894ead5a3f17b63ee5e6e376e6d25335a655364b6a073aab35b36df1d1b1b03",
-                    "9171c86cafb81dee89df199d953c531d96c55b860e676041370395d75009c3fa333f5e7dedaea867bdfe04d3f8404366fc7e405082e82cddc5b5101b61c12104",
-                    "fc6580b421dd72b5ba9264dfe608870e3c4b67b5b99bdbd6a257c52959e3af1527d0f5ed9f4c38541dda09c26f4bd4d31f6f78ca5329659833dac1b2a89c9f0e",
-                    "cb6ffae7c6c76bf2913246d6715797837414a3790b40409b1053eebb6d308bea63ce8bca16e31a06cbc766a1c9c38dd8819f4cbd958de5e76ec734e8674f8e03"
+                    "a6fab1e2809a7a84f5cf6a05973e2320fa9a7dc4dc1b1bc2b7da7cc91b28b919b9dc8f840bf5931c1fed210814dd70bd0df01977c07d93bcbaae387a925d5408",
+                    "677eba88e94d83e392e158ea526c5e63d336ade39a3e6835457605620ca15e20b5c80d1805890a34d56622e86b7237ab56a8a0fdd96b4e8d43ebfbdf0df05a0c",
+                    "2ed2a748aa0b0541a2e6d3d5bfe317166cd23febb8924f5a6fdc44d322cd51e6e4bed9a5e3bc34565fa1e728374eed32e5afce37bbb01acfa924ea1d61b69905",
+                    "c4b7bd3b9d85fe0de656b2b5da4817fdbc2d3c135bf986e5d0dbf8937e9e116bab696858c61f4a2b1e84d6a04517e1ee429078b767659d2f9194962c831ca709",
+                    "6fc06f5604ce4486bdad0268f38cee56df87f75a0b1557b09c2caa760c239a0483ff23dd95827e85efd836b59bdfd6d75821cc958d39597625243c37c3caae09",
+                    "ede08bca031bc4cf40d1ac310623ea4f57a09c49d8de767ca80c089f1ae18aecd2fd504cefe1e8331b12c6fc7a95e65c4af5e8a66563022460ec64341a36860d"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -4,
                     2,
+                    -4,
                     -3
                 ],
                 "headId": "02060604020700010802070802040207",
                 "snapshotNumber": 4,
                 "utxo": [
-                    3,
-                    4
+                    -4,
+                    -1,
+                    0,
+                    2
+                ],
+                "utxoToCommit": [
+                    -6,
+                    -5,
+                    -1,
+                    1,
+                    5
                 ],
                 "utxoToDecommit": [
                     -6,
@@ -565,36 +655,23 @@
         },
         {
             "headId": "08080406010708020808020108080503",
-            "tag": "HeadIsOpen",
+            "tag": "CommitFinalized",
+            "theDeposit": -1,
             "utxo": [
-                -4,
-                -1,
-                3,
-                6
+                0,
+                1,
+                4,
+                5
             ]
         },
         {
-            "headId": "06010803050507030406060608040704",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -2,
-                    2,
-                    3,
-                    4,
-                    6
-                ],
-                "outputs": []
-            },
-            "utxo": [
-                0,
-                3,
+            "headId": "01030802000808000606010102010706",
+            "recoveredTxId": 5,
+            "recoveredUTxO": [
+                4,
                 5
             ],
-            "validationError": {
-                "reason": "􎞃u\u000bɈ"
-            }
+            "tag": "CommitRecovered"
         },
         {
             "headId": "03060503060407080401010708070202",
@@ -679,14 +756,15 @@
         },
         {
             "postChainTx": {
-                "headId": "04070702080606070404000208040204",
-                "headParameters": {
-                    "contestationPeriod": 604800,
-                    "parties": []
-                },
-                "tag": "CollectComTx",
-                "utxo": [
-                    0
+                "deadline": 4,
+                "headId": "06000803060601060001070305030506",
+                "recoverTxId": 0,
+                "tag": "RecoverTx",
+                "utxoToDeposit": [
+                    1,
+                    3,
+                    5,
+                    6
                 ]
             },
             "postTxError": {
@@ -976,16 +1054,22 @@
         },
         {
             "headId": "01050307000801000808040001000402",
-            "tag": "HeadIsAborted",
+            "tag": "CommitFinalized",
+            "theDeposit": 0,
             "utxo": [
-                -5,
-                0
+                -6,
+                -1,
+                6
             ]
         },
         {
-            "decommitTxId": -2,
             "headId": "03050604020202060408000208040508",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 3,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                0,
+                1
+            ]
         },
         {
             "headId": "05060105030106030104070705040104",
@@ -995,8 +1079,13 @@
             ]
         },
         {
-            "peer": "w",
-            "tag": "PeerConnected"
+            "headId": "04010801080402030703030703030603",
+            "recoveredTxId": 1,
+            "recoveredUTxO": [
+                3,
+                6
+            ],
+            "tag": "CommitRecovered"
         },
         {
             "decommitTx": {
@@ -1022,39 +1111,32 @@
         },
         {
             "headStatus": "Open",
-            "hydraNodeVersion": "𑵒\u001d𨵻;",
+            "hydraHeadId": "04060703040102010807040407060200",
+            "hydraNodeVersion": "\u0008\u0001*\u001c",
             "me": {
                 "vkey": "0eb0f749f6e444f0c5f8c2dafe5e808e3905b46966cf0059a15b2c80e1d4d38b"
             },
-            "snapshotUtxo": [
-                0,
-                1,
-                2,
-                3
-            ],
             "tag": "Greetings"
         },
         {
             "headStatus": "FanoutPossible",
-            "hydraNodeVersion": "ux\u0006",
+            "hydraHeadId": "01060308070100040501060007040701",
+            "hydraNodeVersion": "h𗾊",
             "me": {
                 "vkey": "e7e099335eddfb1a6f8b7b4f777a439e883ca281b84f5802990c515fdb5e09f1"
             },
             "snapshotUtxo": [
+                2,
                 4
             ],
             "tag": "Greetings"
         },
         {
-            "decommitTx": {
-                "id": 5,
-                "inputs": [],
-                "outputs": []
-            },
             "headId": "08020806050701010502000404080600",
-            "tag": "DecommitRequested",
-            "utxoToDecommit": [
-                1
+            "tag": "CommitFinalized",
+            "theDeposit": 2,
+            "utxo": [
+                2
             ]
         },
         {
@@ -1072,13 +1154,27 @@
         },
         {
             "postChainTx": {
-                "contestationDeadline": "1864-05-04T22:41:23.388334205403Z",
-                "headSeed": "01050401010800050400070707040802",
-                "tag": "FanoutTx",
-                "utxo": [
-                    1
-                ],
-                "utxoToDecommit": null
+                "closingSnapshot": {
+                    "headId": "06030308060105010105010207050705",
+                    "initialUTxO": [
+                        6
+                    ],
+                    "tag": "InitialSnapshot"
+                },
+                "headId": "08060305070507050200040206000207",
+                "headParameters": {
+                    "contestationPeriod": 2592000,
+                    "parties": [
+                        {
+                            "vkey": "0096d2060e319077deb35416c14cd9e6d50f39b6ef937e16ea50166a4469f0c7"
+                        },
+                        {
+                            "vkey": "cbdd4a0204d79fc012d227e3941c14c2450184e0b1d8e1ec4c15e12263d9aed9"
+                        }
+                    ]
+                },
+                "openVersion": 6,
+                "tag": "CloseTx"
             },
             "postTxError": {
                 "headUTxO": [
@@ -1128,197 +1224,24 @@
             ]
         },
         {
-            "headId": "03010602080104020302080607000502",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": 4,
-                "inputs": [
-                    -2
-                ],
-                "outputs": [
-                    -2,
-                    0,
-                    5
-                ]
-            },
-            "utxo": [
-                -4,
-                -2,
-                -1,
+            "headId": "03050307000000040001020602000202",
+            "recoveredTxId": 6,
+            "recoveredUTxO": [
+                -5,
                 1
             ],
-            "validationError": {
-                "reason": "􆨶G󸙒\u0018f"
-            }
+            "tag": "CommitRecovered"
         },
         {
-            "clientInput": {
-                "tag": "Abort"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 4
-                    },
-                    "coordinatedHeadState": {
-                        "allTxs": {
-                            "1": {
-                                "id": 0,
-                                "inputs": [
-                                    -4,
-                                    0,
-                                    4
-                                ],
-                                "outputs": [
-                                    2,
-                                    3,
-                                    5
-                                ]
-                            },
-                            "3": {
-                                "id": 5,
-                                "inputs": [
-                                    -5,
-                                    -1
-                                ],
-                                "outputs": [
-                                    1,
-                                    4,
-                                    6
-                                ]
-                            }
-                        },
-                        "confirmedSnapshot": {
-                            "signatures": {
-                                "multiSignature": []
-                            },
-                            "snapshot": {
-                                "confirmedTransactions": [],
-                                "headId": "04010605060807070505060506060801",
-                                "snapshotNumber": 4,
-                                "utxo": [
-                                    1,
-                                    3,
-                                    4,
-                                    6
-                                ],
-                                "utxoToDecommit": [
-                                    1,
-                                    4
-                                ],
-                                "version": 0
-                            },
-                            "tag": "ConfirmedSnapshot"
-                        },
-                        "decommitTx": {
-                            "id": 3,
-                            "inputs": [
-                                -6,
-                                -4
-                            ],
-                            "outputs": [
-                                5
-                            ]
-                        },
-                        "localTxs": [
-                            {
-                                "id": 3,
-                                "inputs": [
-                                    0
-                                ],
-                                "outputs": [
-                                    -6,
-                                    -4,
-                                    2,
-                                    3,
-                                    4
-                                ]
-                            },
-                            {
-                                "id": 5,
-                                "inputs": [
-                                    -4,
-                                    -2,
-                                    6
-                                ],
-                                "outputs": [
-                                    -4,
-                                    -1,
-                                    6
-                                ]
-                            },
-                            {
-                                "id": 6,
-                                "inputs": [
-                                    -5,
-                                    -2,
-                                    1,
-                                    4,
-                                    6
-                                ],
-                                "outputs": []
-                            },
-                            {
-                                "id": 1,
-                                "inputs": [
-                                    -4
-                                ],
-                                "outputs": [
-                                    -6,
-                                    -5,
-                                    -4,
-                                    3,
-                                    4
-                                ]
-                            },
-                            {
-                                "id": -3,
-                                "inputs": [
-                                    4
-                                ],
-                                "outputs": [
-                                    -5,
-                                    4,
-                                    5
-                                ]
-                            },
-                            {
-                                "id": -3,
-                                "inputs": [
-                                    -4,
-                                    0,
-                                    2,
-                                    3,
-                                    6
-                                ],
-                                "outputs": []
-                            }
-                        ],
-                        "localUTxO": [
-                            -5,
-                            -3,
-                            0
-                        ],
-                        "seenSnapshot": {
-                            "tag": "NoSeenSnapshot"
-                        },
-                        "version": 0
-                    },
-                    "currentSlot": 0,
-                    "headId": "03080202020602050502040806080207",
-                    "headSeed": "01040206030504030408060008000401",
-                    "parameters": {
-                        "contestationPeriod": 43200,
-                        "parties": [
-                            {
-                                "vkey": "69686414f4576fe75a3cf0e34d5458728d0e43a81002d8e0e419f418f3e5caca"
-                            }
-                        ]
-                    }
-                },
-                "tag": "Open"
-            },
-            "tag": "CommandFailed"
+            "headId": "04010600050603060803010801080708",
+            "recoveredTxId": -5,
+            "recoveredUTxO": [
+                -2,
+                -1,
+                0,
+                5
+            ],
+            "tag": "CommitRecovered"
         },
         {
             "peer": "xo",
@@ -1387,17 +1310,10 @@
             "tag": "ReadyToFanout"
         },
         {
-            "ourVersion": 2,
-            "remoteHost": {
-                "hostname": "0.0.0.8",
-                "port": 1
-            },
-            "tag": "PeerHandshakeFailure",
-            "theirVersions": [
-                5,
-                4,
-                3
-            ]
+            "headId": "08020102050306060001030607080106",
+            "recoveredTxId": 3,
+            "recoveredUTxO": [],
+            "tag": "CommitRecovered"
         },
         {
             "contestationDeadline": "1864-05-07T15:56:02.021321643245Z",
@@ -1419,12 +1335,14 @@
         },
         {
             "headStatus": "Idle",
-            "hydraNodeVersion": "\u001c[󸮈𖼧Q􍈈",
+            "hydraHeadId": "01050707030702070806040002050306",
+            "hydraNodeVersion": "zvhD>W",
             "me": {
                 "vkey": "de44111249072d84a91d5a5e93bddb1cac388fefe46a98096ec01bc39df0f894"
             },
             "snapshotUtxo": [
-                5
+                0,
+                4
             ],
             "tag": "Greetings"
         },
@@ -1490,15 +1408,15 @@
         },
         {
             "headStatus": "Final",
-            "hydraNodeVersion": "괪𰥕𖦻C",
+            "hydraHeadId": "04080708020301000006050200070503",
+            "hydraNodeVersion": "6z",
             "me": {
                 "vkey": "e3f0b5ffb67cb726ead84333163ed6dfe4663f549a652261f8d1603193ab029f"
             },
             "snapshotUtxo": [
-                -2,
-                -1,
-                4,
-                5
+                -5,
+                1,
+                2
             ],
             "tag": "Greetings"
         },
@@ -1561,56 +1479,50 @@
             "tag": "HeadIsClosed"
         },
         {
-            "decommitTxId": -6,
             "headId": "05000008040405040805080500030403",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": -5,
+            "tag": "CommitRecorded",
+            "utxoToCommit": []
         },
         {
-            "headId": "01080307030308040605020608030500",
-            "tag": "TxInvalid",
-            "transaction": {
-                "id": -2,
-                "inputs": [
-                    -4,
-                    -2
-                ],
-                "outputs": [
-                    -5,
-                    -2,
-                    1,
-                    4
-                ]
-            },
+            "headId": "00010501060605060504060601020802",
+            "tag": "CommitFinalized",
+            "theDeposit": 6,
             "utxo": [
-                2,
-                3,
-                5
-            ],
-            "validationError": {
-                "reason": "4okr;"
-            }
+                -4,
+                -2
+            ]
         },
         {
-            "decommitTxId": 0,
             "headId": "02020800080304060508080007000706",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 1,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -6,
+                -4,
+                -3,
+                -1,
+                5
+            ]
         },
         {
             "headId": "06010503080202000603000801050103",
             "signatures": {
                 "multiSignature": [
-                    "e008f7b5c65002c9ce093dfb96750834d8b4dfb14e98255b90bfca7c8fb3993b309a5ca161a3114c70296f992ca303654c2d1ce2981d30080ddc6c3d98e3b604",
-                    "3117cee762cce6870e22e8cf7f8373cd2130b7dffb3aee0d81734f4efd92d640f7dba6c3f82af30ff5fe438e861daae7680e8aef962dd0ec1b7dd0e7610d9702",
-                    "e69e3f43fb446c75a78f00582d1f0f308bddcb8394adf4e02094fcb172e972811dbd1cd45602f2440c4924f79a719381538234e885f885cf4b5f33fa7178e60c"
+                    "7dd49cd8dc3a490ee714402661253e6e1b958fcf0a0c137b8489f3e96b5ba45fcd6f93d138d0a1d5a0b761ce530455b3e428436e628b7674d3dec5bb0d8ee60b",
+                    "0b0231ed88e2ad987c96f6a1965b63b05c3c53fedc1ee648cde5e152c2b351ec70f1beaddddae848add6e281fc1f447a2917190cc54f958e66ff1de881b5c207",
+                    "84bbd24776fc9422ec7304a8cf44880b283caf02bf0d219603049295d200928406dd24c03410f0a699f16e535fec48f1bd70f6575920d44c0c5ef155e238dc0b"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [
-                    -4
-                ],
+                "confirmedTransactions": [],
                 "headId": "01020002050307070206020001070008",
                 "snapshotNumber": 0,
-                "utxo": [],
+                "utxo": [
+                    3,
+                    4
+                ],
+                "utxoToCommit": null,
                 "utxoToDecommit": [
                     -6,
                     -5,
@@ -1623,52 +1535,38 @@
             "tag": "SnapshotConfirmed"
         },
         {
-            "decommitTx": {
-                "id": -4,
-                "inputs": [
-                    -6,
-                    -1,
-                    0,
-                    2,
-                    3
-                ],
-                "outputs": [
-                    -5,
-                    1,
-                    2,
-                    3,
-                    5
-                ]
-            },
+            "decommitTxId": 6,
             "headId": "01000601040707070508060704010205",
-            "tag": "DecommitRequested",
-            "utxoToDecommit": [
-                0,
-                5,
-                6
-            ]
+            "tag": "DecommitFinalized"
         },
         {
             "headId": "02060702000200000800080400000207",
             "signatures": {
                 "multiSignature": [
-                    "054a59cbc4d0f61175b6f0416833ca1b25bb7b9cc96e801f3b89081dbc21b493977acb1629bf17863cecb6ba74e292326e4657cf4cf6853d44a880be4d83d800"
+                    "d53cfcaaa70883e09163b55cbdaf30e03c003aa8cad11fa9c566570414ce215c2bae428ba43a22120246d0f3da192f90fc829a583003131a1059cb8732d63d0f"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -5,
-                    6,
                     2,
-                    1,
-                    5,
-                    5
+                    0,
+                    2,
+                    -2,
+                    2,
+                    -3
                 ],
                 "headId": "08080301050806030402070801020107",
                 "snapshotNumber": 5,
                 "utxo": [
-                    -1,
+                    -3,
                     4
+                ],
+                "utxoToCommit": [
+                    -6,
+                    -4,
+                    0,
+                    2,
+                    3
                 ],
                 "utxoToDecommit": null,
                 "version": 2
@@ -1682,9 +1580,15 @@
             "tag": "HeadIsContested"
         },
         {
-            "decommitTxId": 3,
             "headId": "02010004010002030706080105030307",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": -6,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -6,
+                -5,
+                -2,
+                5
+            ]
         },
         {
             "decommitInvalidReason": {
@@ -1736,44 +1640,15 @@
         },
         {
             "postChainTx": {
-                "contestingSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "e8d6f7191172472b982a0cfb3269b203dfae4abefff57783715f3964110e717134733938315c2d7c4954e7eb49e1e7e0c23ed765c964c102f3bb89e2f4c59400"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "05030101020803070204040808000205",
-                        "snapshotNumber": 3,
-                        "utxo": [],
-                        "utxoToDecommit": [
-                            -3,
-                            0,
-                            2,
-                            3
-                        ],
-                        "version": 0
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "03080306020404060301010608070007",
-                "headParameters": {
-                    "contestationPeriod": 31536000,
-                    "parties": [
-                        {
-                            "vkey": "54f1dbbc9154cb22c9b09d83d1d375ed05b55e7334814a5dcfedcb6715ddc705"
-                        },
-                        {
-                            "vkey": "a0f466b41a04474021ea994372181df59af6fd3ac5825f325bed2c98dd065f95"
-                        }
-                    ]
-                },
-                "openVersion": 2,
-                "tag": "ContestTx"
+                "headSeed": "08070004030702050203020003010503",
+                "tag": "AbortTx",
+                "utxo": [
+                    0,
+                    1
+                ]
             },
             "postTxError": {
-                "tag": "FailedToConstructFanoutTx"
+                "tag": "FailedToConstructRecoverTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -1835,79 +1710,47 @@
                     },
                     "coordinatedHeadState": {
                         "allTxs": {
-                            "-1": {
-                                "id": -4,
-                                "inputs": [
-                                    -6,
-                                    3,
-                                    6
-                                ],
-                                "outputs": [
-                                    -1,
-                                    3
-                                ]
-                            },
                             "-2": {
-                                "id": 2,
+                                "id": 0,
                                 "inputs": [
+                                    1,
+                                    5
+                                ],
+                                "outputs": [
                                     -1,
-                                    0,
-                                    2,
-                                    4,
-                                    5
-                                ],
-                                "outputs": [
-                                    -3,
-                                    -2,
-                                    5
-                                ]
-                            },
-                            "-4": {
-                                "id": -4,
-                                "inputs": [
-                                    -3,
-                                    2,
-                                    3,
-                                    6
-                                ],
-                                "outputs": [
-                                    5
-                                ]
-                            },
-                            "3": {
-                                "id": 4,
-                                "inputs": [
-                                    -4,
-                                    -3,
-                                    2,
-                                    5
-                                ],
-                                "outputs": [
-                                    -2
-                                ]
-                            },
-                            "6": {
-                                "id": -5,
-                                "inputs": [
-                                    -6,
-                                    -4,
                                     0,
                                     2
-                                ],
-                                "outputs": [
-                                    -1,
-                                    1,
-                                    4
                                 ]
                             }
                         },
                         "confirmedSnapshot": {
-                            "headId": "01000305030600050500070007030202",
-                            "initialUTxO": [
-                                4,
-                                5
-                            ],
-                            "tag": "InitialSnapshot"
+                            "signatures": {
+                                "multiSignature": [
+                                    "53bde42ccfcb81c4bbe7e5d288a081a11bdc93f7624071abf8ec6e08f883d648dab1084e10cb86e89963c213d15704f45070a5a6a4eb1093d5bf6b09d3f7110a"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "05080404040301070406030305050604",
+                                "snapshotNumber": 2,
+                                "utxo": [
+                                    -6
+                                ],
+                                "utxoToCommit": [
+                                    -4,
+                                    1,
+                                    6
+                                ],
+                                "utxoToDecommit": [
+                                    -6,
+                                    -3,
+                                    -1,
+                                    0,
+                                    3
+                                ],
+                                "version": 0
+                            },
+                            "tag": "ConfirmedSnapshot"
                         },
                         "decommitTx": {
                             "id": -2,
@@ -1918,26 +1761,72 @@
                         },
                         "localTxs": [
                             {
+                                "id": 3,
+                                "inputs": [
+                                    5
+                                ],
+                                "outputs": [
+                                    0,
+                                    4,
+                                    5
+                                ]
+                            },
+                            {
                                 "id": -2,
                                 "inputs": [
                                     -4,
                                     -3,
-                                    0,
-                                    1
+                                    -1,
+                                    5
                                 ],
                                 "outputs": [
-                                    -5,
-                                    2
+                                    -6,
+                                    -2,
+                                    2,
+                                    4
+                                ]
+                            },
+                            {
+                                "id": -3,
+                                "inputs": [],
+                                "outputs": [
+                                    -6,
+                                    1
                                 ]
                             }
                         ],
                         "localUTxO": [
-                            0,
-                            3
+                            -5,
+                            6
                         ],
+                        "pendingDeposits": {
+                            "-1": [
+                                [
+                                    -5,
+                                    5
+                                ],
+                                [
+                                    -3,
+                                    0,
+                                    4
+                                ],
+                                "1864-05-12T12:38:48.549408570346Z"
+                            ],
+                            "2": [
+                                [],
+                                [
+                                    -4,
+                                    -2,
+                                    2,
+                                    4
+                                ],
+                                "1864-05-04T00:42:26.77416929517Z"
+                            ]
+                        },
                         "seenSnapshot": {
-                            "lastSeen": 6,
-                            "tag": "LastSeenSnapshot"
+                            "lastSeen": 0,
+                            "requested": 1,
+                            "tag": "RequestedSnapshot"
                         },
                         "version": 1
                     },
@@ -1964,9 +1853,16 @@
             "tag": "CommandFailed"
         },
         {
-            "decommitTxId": -4,
             "headId": "00050801080305040503080802030603",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 2,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -6,
+                -5,
+                -1,
+                0,
+                6
+            ]
         },
         {
             "headId": "07060101060308030302070506080807",
@@ -2082,7 +1978,7 @@
                 "tag": "InitTx"
             },
             "postTxError": {
-                "tag": "FailedToConstructCollectTx"
+                "tag": "FailedToConstructDecrementTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -2118,23 +2014,25 @@
             "headId": "05030106070000000701070004040702",
             "signatures": {
                 "multiSignature": [
-                    "786181773563c75960e94de09075f6e9a5684bb9b5686e85bd9e1598f9ad4b3a2e01ed019b749b73615a464eec48f51ba4f401376fe51c9653ffccb6ad26fc09",
-                    "aa76f26cd1cea552677cce93f3392c9cbe5b79264f6133e77c13c6446ca7ae84ac81dd5679bac9f6af271b8212430297a765932d175cc6d5f9815feb9f2c3a0b",
-                    "655f3ac5d15f9180978ad4380dfd990cfb3cf8f4392722c3ad766ed36b0907a77ac5e43a62e360139c55a6448f87de69325083e13a483296b9afc76ccad4a900",
-                    "2d0fae503eecc548ac6b1f62070a3125bcb67aff8e08cba7c59a40a466ce08826d8df92f2a1195d60fa8f032d04a53ee74599f2e17dd505cf02e153f2e870c03"
+                    "8e39721bed223aa7b6757a7beb70074ec5a188641bb5a6d7bee95c353ce181a084e41a233857a08352b52d533d343662290949f679873cdba6ffee3a761aa405",
+                    "6e31e9c91c6fea516adf0ee5fbc2b914ab26387ee0119968025ef14f6c317507fa9441126f68b2c975ce1e78d80622c3ff8c9af8af32cffc6eb2fc975c5fa10c",
+                    "7fd5ee51d8bfd29701233e37db0b9e05e5ea950723f8af1ba5a04c617c6a3d4734ad637affc01d0bb2456884e464d3d75e38b0901f0db7908ec428d00f03e905",
+                    "acab5f03150c0ee5f34d6d07414bd8d809b6ca2a6bc3fe068974dca46e054a8b21470332c47ff4baacc6ec73a331d09efc5bc0324fa3d51e9bec1917a8074805"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [
-                    -4,
-                    0,
-                    2
-                ],
+                "confirmedTransactions": [],
                 "headId": "06020700020300000307000103060108",
                 "snapshotNumber": 6,
                 "utxo": [
-                    -3,
-                    4
+                    -4,
+                    -1,
+                    1,
+                    2,
+                    6
+                ],
+                "utxoToCommit": [
+                    -1
                 ],
                 "utxoToDecommit": [
                     -1
@@ -2176,11 +2074,13 @@
             ]
         },
         {
-            "decommitTxId": -2,
             "headId": "02060700020407010606080505020500",
-            "tag": "DecommitApproved",
-            "utxoToDecommit": [
-                -4
+            "tag": "CommitFinalized",
+            "theDeposit": -4,
+            "utxo": [
+                -2,
+                0,
+                5
             ]
         },
         {
@@ -2226,100 +2126,59 @@
                     },
                     "coordinatedHeadState": {
                         "allTxs": {
-                            "-1": {
-                                "id": 1,
+                            "-2": {
+                                "id": -2,
                                 "inputs": [
                                     -3,
-                                    1,
-                                    2,
+                                    -2,
+                                    3,
                                     4,
                                     5
                                 ],
                                 "outputs": [
+                                    -2,
                                     -1,
                                     1,
-                                    6
-                                ]
-                            },
-                            "-3": {
-                                "id": -4,
-                                "inputs": [
-                                    -3,
-                                    3,
-                                    4
-                                ],
-                                "outputs": [
-                                    -6,
-                                    -3,
-                                    -2,
                                     2,
                                     4
                                 ]
                             },
                             "-6": {
-                                "id": -1,
-                                "inputs": [
-                                    0,
-                                    1,
-                                    2,
-                                    6
-                                ],
-                                "outputs": [
-                                    -5,
-                                    -4,
-                                    6
-                                ]
-                            },
-                            "4": {
-                                "id": 6,
+                                "id": 5,
                                 "inputs": [
                                     -6,
-                                    -1,
-                                    0,
-                                    3,
-                                    5
-                                ],
-                                "outputs": [
+                                    -3,
                                     -2,
                                     2,
-                                    4
-                                ]
-                            },
-                            "5": {
-                                "id": -2,
-                                "inputs": [
-                                    4
-                                ],
-                                "outputs": [
-                                    -4,
-                                    -2,
-                                    1,
-                                    2,
+                                    5,
                                     6
-                                ]
+                                ],
+                                "outputs": []
                             }
                         },
                         "confirmedSnapshot": {
                             "signatures": {
-                                "multiSignature": [
-                                    "00ac7a4d670d16b08841b79c8ce158b70f66e2b24fe55da798bf041f31a595b18a49be99c0a8ac6e14c7d58717793a08ff930febf37fe5a7ee15288ec4a7370b",
-                                    "c28a0fe7869dc090f0db41fd9e6fa4bffb1f9cfc833c481ce0f1f14a2b49f903b0bf9b9db7d92059d64f5a989103006032954d6293bfa932fb0ac65c924e6207",
-                                    "d8625e6438d7b5cfb7c3d71db965f0481650e70970f1a72d4ae7ac49e39d373856f9a900168b3d904b9c1c83fbf940bba5f953480f0fd7578df5869d6095b202",
-                                    "c8fa86d0a9c0c31046e4769048e30748fa4724001e7f8c28221d80bf80f7bfd34ec825ea8cbe905d6557d182b479e52e00497af30a469c0f41bafc5e7a9c8b0d",
-                                    "687ec2efbd163deca8dccd222314e39d761b5679670446182d185d3ceef812db72f7b575385feb90f5b592d7b596f4628fe33fb3a90496887fbf1cd3ba53950e",
-                                    "85786973f1dac07e2b7f43e2b08fba5fa4a3bc31bd0f62ddb88ecf1bc6765f788d3f451caf3a10e15ea2b65e93ba845c98d1ca4d51018afcd064200e0d83950a"
-                                ]
+                                "multiSignature": []
                             },
                             "snapshot": {
                                 "confirmedTransactions": [],
-                                "headId": "03030002010308080202040304010700",
-                                "snapshotNumber": 1,
+                                "headId": "04050206000402060100060307080503",
+                                "snapshotNumber": 6,
                                 "utxo": [
+                                    -6,
+                                    -4,
+                                    -2,
+                                    5
+                                ],
+                                "utxoToCommit": [
+                                    -5,
+                                    -4,
+                                    -2,
+                                    1,
                                     2
                                 ],
                                 "utxoToDecommit": [
-                                    -1,
-                                    4
+                                    -4
                                 ],
                                 "version": 0
                             },
@@ -2344,53 +2203,110 @@
                         },
                         "localTxs": [
                             {
-                                "id": -6,
+                                "id": -4,
                                 "inputs": [
-                                    -3,
                                     -2,
-                                    -1,
-                                    2,
-                                    5
-                                ],
-                                "outputs": [
-                                    -1
-                                ]
-                            },
-                            {
-                                "id": -6,
-                                "inputs": [
-                                    4,
-                                    6
-                                ],
-                                "outputs": [
-                                    -5,
-                                    -2,
-                                    0,
-                                    4
-                                ]
-                            },
-                            {
-                                "id": -2,
-                                "inputs": [
-                                    -4,
-                                    -3,
                                     0
                                 ],
                                 "outputs": [
+                                    -3,
+                                    -2,
+                                    0,
+                                    3
+                                ]
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    3,
+                                    4
+                                ],
+                                "outputs": [
+                                    -2,
+                                    0,
+                                    3,
+                                    4,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    3
+                                ],
+                                "outputs": [
+                                    3
+                                ]
+                            },
+                            {
+                                "id": -3,
+                                "inputs": [
                                     -6,
                                     -3,
+                                    -1,
                                     1,
-                                    5
+                                    3
+                                ],
+                                "outputs": [
+                                    -5,
+                                    3
+                                ]
+                            },
+                            {
+                                "id": 3,
+                                "inputs": [
+                                    -2
+                                ],
+                                "outputs": [
+                                    2,
+                                    4
                                 ]
                             }
                         ],
                         "localUTxO": [
-                            -5,
-                            1,
-                            3
+                            -6
                         ],
+                        "pendingDeposits": {
+                            "0": [
+                                [
+                                    -4,
+                                    -2,
+                                    4,
+                                    6
+                                ],
+                                [
+                                    2,
+                                    4
+                                ],
+                                "1864-05-15T23:36:09.270211860959Z"
+                            ],
+                            "1": [
+                                [
+                                    -4,
+                                    4
+                                ],
+                                [
+                                    -2,
+                                    5,
+                                    6
+                                ],
+                                "1864-05-13T03:08:41.539342346964Z"
+                            ],
+                            "2": [
+                                [],
+                                [
+                                    -4,
+                                    3,
+                                    4,
+                                    6
+                                ],
+                                "1864-05-05T23:33:07.968514899912Z"
+                            ]
+                        },
                         "seenSnapshot": {
-                            "tag": "NoSeenSnapshot"
+                            "lastSeen": 5,
+                            "requested": 5,
+                            "tag": "RequestedSnapshot"
                         },
                         "version": 2
                     },
@@ -2411,68 +2327,9 @@
             "tag": "CommandFailed"
         },
         {
-            "clientInput": {
-                "tag": "Init"
-            },
-            "state": {
-                "contents": {
-                    "chainState": {
-                        "slot": 5
-                    },
-                    "committed": {
-                        "06884975f827d6ca9a26903effdcee4d89d892e7f84a8d4677cb6e05f6eaeff3": [
-                            6
-                        ],
-                        "642ebd77c603299a3d8738211af9fe5f4f019cc17d24417b31867e2ad7862cd8": [
-                            -1,
-                            3,
-                            5
-                        ],
-                        "70e93a3597e8a0a1f0876ebd7bf025a6c653902944c9b4a3df0ee0bb4adedda7": [
-                            -3,
-                            -2,
-                            0,
-                            2
-                        ],
-                        "8c6a11345ba16a92f685e6622bc8f08e80addec48bd85d9a98153557cc1e62e7": [
-                            0,
-                            2
-                        ]
-                    },
-                    "headId": "00030608070604080608060400030807",
-                    "headSeed": "00030800070202030607060105070501",
-                    "parameters": {
-                        "contestationPeriod": 43200,
-                        "parties": [
-                            {
-                                "vkey": "1877ddbc200788fca87de214d166a6ea08da6ec13d1fb0460878725593de4b9b"
-                            },
-                            {
-                                "vkey": "73f7926b51f2f600287b3cbc44261db79195ff21eb6c38a34633ccd0289a8dcb"
-                            },
-                            {
-                                "vkey": "e307b4818ae4b079e29e686c0cd3891d1654194ccdc519fd08320729b058ceea"
-                            }
-                        ]
-                    },
-                    "pendingCommits": [
-                        {
-                            "vkey": "9a33a4c3fd8127921c98a50b83a0d3316d18684bd847b49005fdedc56306c814"
-                        },
-                        {
-                            "vkey": "e86df98853735aa3b74c2d3cab68aa3b742ae40337f2a6ab516706619e9e6ea2"
-                        },
-                        {
-                            "vkey": "896d8a16c37915acbdf80be0c10ae46d4d197b659534494fa66f2d8a558de7fb"
-                        },
-                        {
-                            "vkey": "c36e50883e28f37c6483c2954719ce124ba2557c51bab003c1b6aff4b05c6205"
-                        }
-                    ]
-                },
-                "tag": "Initial"
-            },
-            "tag": "CommandFailed"
+            "decommitTxId": 0,
+            "headId": "07020401070100020100030100080405",
+            "tag": "DecommitFinalized"
         },
         {
             "contestationPeriod": 86400,
@@ -2503,38 +2360,53 @@
         },
         {
             "headId": "06030102070504080002050702030306",
-            "tag": "HeadIsFinalized",
-            "utxo": []
+            "tag": "CommitFinalized",
+            "theDeposit": -4,
+            "utxo": [
+                -6,
+                -3,
+                0,
+                5
+            ]
         },
         {
             "headId": "07010504020804080806030801010001",
             "tag": "ReadyToFanout"
         },
         {
-            "decommitTxId": -5,
             "headId": "05000406010704070001010307040408",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 1,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                6
+            ]
         },
         {
             "headId": "07030507000402060106070305030108",
             "signatures": {
                 "multiSignature": [
-                    "a1f000ea252b28383b218c4429a73805bb17281f246bf1b1a8c728870098229d47e7b1947571b22902d2e61de7a7da40fe2ac630e479fcaa564c50acd9fc3702",
-                    "82c33dfd54c06966c4a67824538decbfaacf30612d751de04cb2310661121a767936e2fcbdd4bebe94a612f4096a461944d0db1d0e99bba8be023019982c8107",
-                    "bbd5799aa3c60647648d3fe7fe0c23835f533cd508440821e77fef8f3ff6e1fad56c6b187d94ce5916446fb4befb5401463845e778a47cd40d138fde6dffef05",
-                    "c684b19c8eff8062b80fc5faf160464bb260cf87d51815dc6e934d3daa041bb9a3e57d898ad1164c0ae485ac5e1284765d86ed1240527859aa28579b21362a05"
+                    "e6bcd09f470fe25083a5c8b6f438eedf24ce0ea28e6eabfd4acc3920b1a467d0e37e2e5d35a033525b871f217921cf24b75759b0052821ac211425060e02c804",
+                    "acf6879f0ffdaaa4ff4b6b1632264c0b30884634d9914539f551566a1d700fb91f3339d0fd58cb54ee61719fa32bfc8067aa551b8481819b72b20f2a91385305",
+                    "5683f6980f1e60b25f29105568e741f06e56186a6f20dd361f324a5180c403a6c612e693ef526ac027876a3bfe0b1a441fb47c365f9d41fd933d984b1b92c302",
+                    "ee3e90f0fd09f51eaa757778b27a7afce9b01dd1b6d0ab054aeb7737852e7e8c8913faa90fb6668555575451edcdd961c28a4fcd698842a4e46c49ac30fbdd0e"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    -3,
-                    -6
+                    3,
+                    4,
+                    -2,
+                    0
                 ],
                 "headId": "06040706020606080700000502060403",
                 "snapshotNumber": 2,
                 "utxo": [
-                    -1,
-                    2
+                    -4
+                ],
+                "utxoToCommit": [
+                    -4,
+                    3,
+                    5
                 ],
                 "utxoToDecommit": [
                     0
@@ -2577,14 +2449,24 @@
             ]
         },
         {
-            "headId": "01010003030400040405040403060006",
-            "tag": "ReadyToFanout"
+            "headId": "02000302070203060607080102040808",
+            "tag": "CommitApproved",
+            "utxoToCommit": [
+                -2,
+                0,
+                3,
+                6
+            ]
         },
         {
-            "contestationDeadline": "1864-05-06T04:36:44.131145898321Z",
             "headId": "01060200060404070305030803030405",
-            "snapshotNumber": 2,
-            "tag": "HeadIsContested"
+            "tag": "CommitFinalized",
+            "theDeposit": -6,
+            "utxo": [
+                -6,
+                1,
+                4
+            ]
         },
         {
             "decommitInvalidReason": {
@@ -2611,30 +2493,24 @@
             "headId": "00010600080406010606080507070102",
             "signatures": {
                 "multiSignature": [
-                    "eb92497864579472f5ec37d6c0ac23a7eb7782f08ad07baab5895e23dea5530fcddee4e3517515bf8730871fe9b36a86488ddaa8de87ae41a22a946ad4d33c0b",
-                    "3ba38d94decae94bbdde5be89e131ff89e8112762a2f8109c43ea2c2d0d4f553169305d2dba62c404a81108a57ce0ae68338c94cfac77351d2a74cbd49290000",
-                    "591977c3de3f732b7d80e589027cd261397ca55a79aed95e4fb0dbaa99f2413b9b4c0a2cd6e460ab54cb70981debf70b56573ffc7fa1065d408d1e60a1ca3c01",
-                    "26e055dba840622c3a777a6d506e9dce440d1c6761590aeb47d62b82df1f5225cf4c29d37b0f0ce1d1a5757f91a7a91e73dddcda3238602cf21cb0e37dbe8609",
-                    "9e42848e4796464afe60a311f6bf7aed85c740d5660764acd7cc974a7f66b4c905928517428c64c1c3a20e296111e4c5e8c66ad357e409e69c104d138137d00e"
+                    "64c7d000e86d590656ab4e2297c030295468091d135974b3321bfaa5f306a686f761d04e6210eb5f46783871390b7ad43399478556d738b705a1c170206d6c04",
+                    "030a70fe33113f9a942df264d4d8b22e300e4433035eafa82927b3cd4e5a93b4086413b0c6f67eefd9ab1f324f94cd3cff2950421ddcc8b28c544ecd0cf8240e",
+                    "284e290e46daeab4019b6320fc33f71bde106955cb2933d11255cb352543d368fcdb3fefdd871d13d55b3fb05cc7f6ed9976b0a9b3e2d4083312006afb42f20e",
+                    "c74688a683eedb4ec655cefa6a69c8aba8f47399b4357508ca100fbf5746425d162a0e07fec3ce979dc707c129cb625c6a47a1de135a685e8485dc90c1dcce06",
+                    "09b93a2bb0ac4bcdca735fc73e14356817955f6169959f48fc00ec8b5875ce0ac681cbc52a203d0b5df6b882f5e2354daab86bbbcaa1101788558c3e5ec5450c"
                 ]
             },
             "snapshot": {
-                "confirmedTransactions": [
-                    1,
-                    -5,
-                    -5,
-                    2,
-                    3,
-                    1
-                ],
+                "confirmedTransactions": [],
                 "headId": "08040505020300050502060105020508",
                 "snapshotNumber": 4,
                 "utxo": [
-                    -4,
+                    -3,
                     -2,
-                    1,
-                    3
+                    5,
+                    6
                 ],
+                "utxoToCommit": null,
                 "utxoToDecommit": [
                     -2
                 ],
@@ -2712,16 +2588,19 @@
             ]
         },
         {
+            "decommitTxId": 0,
             "headId": "04040203050006020000030105050808",
-            "tag": "GetUTxOResponse",
-            "utxo": [
-                5
-            ]
+            "tag": "DecommitFinalized"
         },
         {
-            "decommitTxId": -3,
             "headId": "04050105010303050307030500000202",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 3,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -6,
+                -3,
+                -2
+            ]
         },
         {
             "decommitInvalidReason": {
@@ -2747,21 +2626,25 @@
             "headId": "02060705060201050704030603050705",
             "signatures": {
                 "multiSignature": [
-                    "8c883a3800678d6e0fb94944ea4a7e6c7f5379f631bd9135c11d61ed626d5a741f29d9a1add9b631da345d8f96e0feddf8742e9f65446ecb61b3730937ccd503",
-                    "f239fba07a4352d7be095e80fe398bd3ff16d2375381f620a60b601c1d29b66132da77e4960ed5c0d898d3575ab6cf7af004cf7ef824a1dbedcbc9d4a8c12404"
+                    "de3a3827c158c314bc705e9d475470a33fe0722ed8950b301961302f6b5d39f8126af897361761ce23d83483bf7237bdcd08547a70558457b1376996cf33d909",
+                    "ff31e82cbcbaf5a74695158425d0e8febe600dc1322dc65fb0fbf77371abae3ac09a3c74bb2bed932228273da20c25908d0b4ccc869bf10ba4b9ba9a914b5f06"
                 ]
             },
             "snapshot": {
                 "confirmedTransactions": [
+                    6,
+                    0,
+                    -2,
                     2,
-                    -5,
-                    2,
-                    5
+                    -3
                 ],
                 "headId": "01080501030003030803050502030402",
                 "snapshotNumber": 0,
                 "utxo": [
-                    -2
+                    5
+                ],
+                "utxoToCommit": [
+                    -4
                 ],
                 "utxoToDecommit": [
                     -4,
@@ -2777,11 +2660,22 @@
         },
         {
             "postChainTx": {
-                "headSeed": "03020803000201070803080501040504",
-                "tag": "AbortTx",
-                "utxo": [
-                    -6
-                ]
+                "headParameters": {
+                    "contestationPeriod": 604800,
+                    "parties": [
+                        {
+                            "vkey": "ffcc2f568f421d76cf118797587187d90c94b518f88ef0262cc939396e4ba82e"
+                        },
+                        {
+                            "vkey": "494812fd769e087ebc815465e30848b359dae1d42ab6b89121b667550990ff7a"
+                        }
+                    ]
+                },
+                "participants": [
+                    "04050807050807040304030704060505060203080407020304000204",
+                    "00030101060102080102010504080202000408050603070307050100"
+                ],
+                "tag": "InitTx"
             },
             "postTxError": {
                 "tag": "FailedToConstructCloseTx"
@@ -2795,12 +2689,21 @@
             },
             "snapshot": {
                 "confirmedTransactions": [
-                    2,
-                    0
+                    3,
+                    3,
+                    -5,
+                    -6,
+                    -6,
+                    -3
                 ],
                 "headId": "06040801030101040704010806040201",
                 "snapshotNumber": 4,
-                "utxo": [],
+                "utxo": [
+                    -6,
+                    1,
+                    6
+                ],
+                "utxoToCommit": null,
                 "utxoToDecommit": [],
                 "version": 0
             },
@@ -2814,7 +2717,7 @@
         },
         {
             "clientInput": {
-                "tag": "GetUTxO"
+                "tag": "Close"
             },
             "state": {
                 "contents": {
@@ -2823,30 +2726,39 @@
                     },
                     "coordinatedHeadState": {
                         "allTxs": {
-                            "0": {
-                                "id": 4,
-                                "inputs": [
-                                    -6,
-                                    -4,
-                                    5,
-                                    6
-                                ],
+                            "6": {
+                                "id": -3,
+                                "inputs": [],
                                 "outputs": [
+                                    -6,
                                     -5,
-                                    -2,
-                                    1,
-                                    6
+                                    -1,
+                                    2,
+                                    3
                                 ]
                             }
                         },
                         "confirmedSnapshot": {
-                            "headId": "04020507000702050007000407020102",
-                            "initialUTxO": [
-                                -2,
-                                -1,
-                                4
-                            ],
-                            "tag": "InitialSnapshot"
+                            "signatures": {
+                                "multiSignature": [
+                                    "83a876dadb99dd9c0b0804c3543c95f844881a269898bc1443175a7a9a49066913273775f01a26cb05135143f80ae7355a2ef9373379e1cd6b9486ccb25ee707",
+                                    "13c3b8fcf412d31b462ccd7c363293806a21b0147b9e93fa2b84127dfe13d302e0b4138bbe8656ad0e8549bc89c4391f33695f36479467626005c12f5b0c1606",
+                                    "6910e8202449838845b92df9581696f0c530edab984f91025ee4d69296638ad3858d7e8961c849b3b832955a9e3fccfd989801a987650f093126ae6c4005e00d"
+                                ]
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [],
+                                "headId": "00000708060602060708020303040805",
+                                "snapshotNumber": 4,
+                                "utxo": [
+                                    -3,
+                                    1
+                                ],
+                                "utxoToCommit": [],
+                                "utxoToDecommit": null,
+                                "version": 0
+                            },
+                            "tag": "ConfirmedSnapshot"
                         },
                         "decommitTx": {
                             "id": 0,
@@ -2862,22 +2774,118 @@
                         },
                         "localTxs": [
                             {
-                                "id": 6,
-                                "inputs": [
-                                    0,
-                                    3,
+                                "id": -6,
+                                "inputs": [],
+                                "outputs": [
+                                    -6,
+                                    -4,
+                                    -2,
                                     4,
-                                    5
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -5,
+                                "inputs": [
+                                    -6,
+                                    1,
+                                    4,
+                                    6
                                 ],
                                 "outputs": [
-                                    2
+                                    -1,
+                                    6
+                                ]
+                            },
+                            {
+                                "id": -6,
+                                "inputs": [
+                                    -3,
+                                    -1,
+                                    1,
+                                    3
+                                ],
+                                "outputs": [
+                                    -6,
+                                    -5,
+                                    4,
+                                    6
                                 ]
                             }
                         ],
                         "localUTxO": [],
+                        "pendingDeposits": {
+                            "-2": [
+                                [
+                                    -5,
+                                    -1,
+                                    2
+                                ],
+                                [
+                                    -4,
+                                    3
+                                ],
+                                "1864-05-14T02:22:40.846173997966Z"
+                            ],
+                            "1": [
+                                [],
+                                [
+                                    -5,
+                                    -4,
+                                    -2
+                                ],
+                                "1864-05-06T11:07:09.182588929405Z"
+                            ],
+                            "2": [
+                                [
+                                    -1
+                                ],
+                                [
+                                    -6,
+                                    -3,
+                                    -2,
+                                    2
+                                ],
+                                "1864-05-07T05:48:54.750390555644Z"
+                            ],
+                            "6": [
+                                [
+                                    -2,
+                                    -1,
+                                    0,
+                                    5,
+                                    6
+                                ],
+                                [
+                                    -6
+                                ],
+                                "1864-05-09T22:28:12.040927065783Z"
+                            ]
+                        },
                         "seenSnapshot": {
-                            "lastSeen": 0,
-                            "tag": "LastSeenSnapshot"
+                            "signatories": {
+                                "6a81883f11099556bafb7dc0a754288d2e63935625d4afc97df4211d83d0c27b": "ea061325075f81025ef1de73c90c86e2a68fbf3549e99eea1f0b2b87aa90adc837849ef09db567aa4702263d6b2a031c3c46dc6acc01ce0c667e4e68e5e6b00a",
+                                "9e7e79d69ea0ebfb3dddf9a477af2b6601ffe3a6a2cddfd1d61d8002d39ecacb": "f28262e9cd4478f74c6a66e3edfb3cd8fb9c89767d4d251cfe7d81e586c9b7f8ba830112dcd80447083055c09fbff33c24b01711d86dcdf6d41176ea5c895002",
+                                "a230903c7e7b0c1b762ef22e2c217df9e0c3955e1cd7609cfe135d833a5aa46a": "f7a016c44026516b115036ed7bd05d67f0131abbcb004c1020b352b306cf441c0c7f9399dc887a3c7ac35a26d59adcedac80fd21bb897e7c1f2898b00bba8a00",
+                                "d7a8f17276100385ef0ca6085bdcc8f19ff0c18971be02ac00c7c7beacb78d45": "b3e75de254d754e46d0cf1b901d00359828028a591ef895e3636be5ab841d26ba01847bb0d92375ed889f990917da6ec9761b0ae2232e024889d812429e37c03",
+                                "ec7e801c48d6ee1d2a0fd6fd3d0604e067f8b85af13f2e4ef3829ebd70346661": "34f2d3f9e901be9cf86721a85cac74afa9c60cce2cb2d28e62515286b33661853e7134932ea402ac31ae1c3e4d444a1eb873cbb59a5832b1f4d97e103821ab05"
+                            },
+                            "snapshot": {
+                                "confirmedTransactions": [
+                                    2,
+                                    2
+                                ],
+                                "headId": "05080002060207030408030400070208",
+                                "snapshotNumber": 2,
+                                "utxo": [
+                                    -5,
+                                    -1
+                                ],
+                                "utxoToCommit": null,
+                                "utxoToDecommit": [],
+                                "version": 5
+                            },
+                            "tag": "SeenSnapshot"
                         },
                         "version": 6
                     },
@@ -2935,48 +2943,27 @@
             }
         },
         {
-            "peer": "eudl",
-            "tag": "PeerDisconnected"
+            "headId": "01040202060208020004020101080304",
+            "recoveredTxId": 0,
+            "recoveredUTxO": [
+                -4,
+                2,
+                5
+            ],
+            "tag": "CommitRecovered"
         },
         {
             "postChainTx": {
-                "closingSnapshot": {
-                    "signatures": {
-                        "multiSignature": [
-                            "2c256ab671823a81698c6f06afa11e692f0b36f775cd0bdbbd9462f81c0617425eb6ee84ee240d33464dedef3748546a433a3f0d06137ebb7aa32d0e8bf7b008",
-                            "c9cea3bfc2294d2b2e7a8f726dd9a972f6f02f76b9d0383dd68976f705cae4e930adb2fe83fb5f9dbc609203ab350e01b3d7d9f46898a3d46a26fbead5607b09",
-                            "4a456926b3e2d3371e5777c08bb0ea2d1e192aa7e69ef60b4c53e7985a65618211650a63ab06ee40a1835229c62b0e2a8a32c49087f3a2802324fbbd82836e0f",
-                            "75ffca8e563ad227883d3ce41120689c306b6b47309790cb0337e7cba04dff84b5a68e4dfd8a8ede0e6b6d9f7c1fb1797205afa99fdb925754a601c71cb7650b",
-                            "d9a761e0304d9d457ef02b5f601860f3c4db90fcc779115138ca9ecda790e4af00d0e5dce44db72bfed67d5bd5af52746332efcc50bcbd3891bdcff54afc2908"
-                        ]
-                    },
-                    "snapshot": {
-                        "confirmedTransactions": [],
-                        "headId": "01070403020001040101030506000502",
-                        "snapshotNumber": 5,
-                        "utxo": [
-                            -2,
-                            -1,
-                            3,
-                            5
-                        ],
-                        "utxoToDecommit": [
-                            3
-                        ],
-                        "version": 0
-                    },
-                    "tag": "ConfirmedSnapshot"
-                },
-                "headId": "05030603040003000003030507070104",
-                "headParameters": {
-                    "contestationPeriod": 31536000,
-                    "parties": []
-                },
-                "openVersion": 3,
-                "tag": "CloseTx"
+                "headSeed": "00050405050705020804000108010701",
+                "tag": "AbortTx",
+                "utxo": [
+                    0,
+                    3,
+                    5
+                ]
             },
             "postTxError": {
-                "tag": "FailedToConstructFanoutTx"
+                "tag": "FailedToConstructRecoverTx"
             },
             "tag": "PostTxOnChainFailed"
         },
@@ -3008,8 +2995,13 @@
         },
         {
             "headId": "08010105060502020600050303020402",
-            "parties": [],
-            "tag": "HeadIsInitializing"
+            "tag": "CommitFinalized",
+            "theDeposit": -4,
+            "utxo": [
+                -3,
+                -2,
+                2
+            ]
         },
         {
             "decommitInvalidReason": {
@@ -3072,27 +3064,35 @@
             ]
         },
         {
-            "postChainTx": {
-                "contestationDeadline": "1864-05-07T08:15:14.484586773058Z",
-                "headSeed": "00070401010004080702080505000106",
-                "tag": "FanoutTx",
-                "utxo": [],
-                "utxoToDecommit": []
-            },
-            "postTxError": {
-                "failureReason": "􇂗++ 􍀹",
-                "tag": "FailedToPostTx"
-            },
-            "tag": "PostTxOnChainFailed"
+            "headId": "07080108050400000201030205020804",
+            "tag": "CommitFinalized",
+            "theDeposit": -3,
+            "utxo": [
+                -6,
+                0,
+                2
+            ]
         },
         {
-            "peer": "tmyq",
-            "tag": "PeerDisconnected"
+            "headId": "02030000080303040201040004080208",
+            "recoveredTxId": -2,
+            "recoveredUTxO": [
+                -5,
+                -1,
+                2,
+                5,
+                6
+            ],
+            "tag": "CommitRecovered"
         },
         {
-            "decommitTxId": 1,
             "headId": "04040508030802080307050405030703",
-            "tag": "DecommitFinalized"
+            "pendingDeposit": 0,
+            "tag": "CommitRecorded",
+            "utxoToCommit": [
+                -1,
+                5
+            ]
         },
         {
             "decommitInvalidReason": {
@@ -3164,38 +3164,26 @@
         },
         {
             "headStatus": "Open",
-            "hydraNodeVersion": "q",
+            "hydraHeadId": "07060104070202080602050202080104",
+            "hydraNodeVersion": "0􊣨",
             "me": {
                 "vkey": "2954b7f0f9e6626884eca7e25d9937b3477c26c3b12ea1676596f658d53b6499"
             },
-            "snapshotUtxo": [
-                -6,
-                -5,
-                1,
-                6
-            ],
+            "snapshotUtxo": [],
             "tag": "Greetings"
         },
         {
+            "decommitTxId": 6,
             "headId": "08030400070801040604070808010708",
-            "tag": "TxValid",
-            "transaction": {
-                "id": 0,
-                "inputs": [
-                    -3,
-                    -1,
-                    0
-                ],
-                "outputs": [
-                    -1,
-                    4
-                ]
-            }
+            "tag": "DecommitFinalized"
         },
         {
-            "input": "󰝱2󹰀𞺐e:",
-            "reason": "",
-            "tag": "InvalidInput"
+            "headId": "00060804060003070301080308060705",
+            "recoveredTxId": -6,
+            "recoveredUTxO": [
+                0
+            ],
+            "tag": "CommitRecovered"
         },
         {
             "decommitInvalidReason": {
@@ -3234,7 +3222,7 @@
         },
         {
             "headStatus": "Closed",
-            "hydraNodeVersion": "𥖏{Oo",
+            "hydraNodeVersion": "\u001c.􎂡𰗴e\"",
             "me": {
                 "vkey": "774c3a725441b5bb006ef7c700605f2d3b1b006469587545f82046c45e525114"
             },

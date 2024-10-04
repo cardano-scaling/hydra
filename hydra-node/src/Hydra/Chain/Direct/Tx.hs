@@ -7,7 +7,9 @@
 -- This module also encapsulates the transaction format used when talking to the
 -- cardano-node, which is currently different from the 'Hydra.Ledger.Cardano',
 -- thus we have not yet "reached" 'isomorphism'.
-module Hydra.Chain.Direct.Tx where
+module Hydra.Chain.Direct.Tx (
+  module Hydra.Chain.Direct.Tx,
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
@@ -17,8 +19,8 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
-import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -42,7 +44,9 @@ import Hydra.Tx (
 import Hydra.Tx.Close (OpenThreadOutput (..))
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
+import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin)
 import PlutusLedgerApi.V2 qualified as Plutus
@@ -103,6 +107,9 @@ data HeadObservation
   | Abort AbortObservation
   | Commit CommitObservation
   | CollectCom CollectComObservation
+  | Deposit DepositObservation
+  | Recover RecoverObservation
+  | Increment IncrementObservation
   | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
@@ -120,6 +127,9 @@ observeHeadTx networkId utxo tx =
       <|> Abort <$> observeAbortTx utxo tx
       <|> Commit <$> observeCommitTx networkId utxo tx
       <|> CollectCom <$> observeCollectComTx utxo tx
+      <|> Deposit <$> observeDepositTx networkId tx
+      <|> Recover <$> observeRecoverTx networkId utxo tx
+      <|> Increment <$> observeIncrementTx utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
@@ -347,6 +357,48 @@ observeCollectComTx utxo tx = do
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
       _ -> Nothing
+
+data IncrementObservation = IncrementObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , depositTxId :: TxId
+  }
+  deriving stock (Show, Eq, Generic)
+
+instance Arbitrary IncrementObservation where
+  arbitrary = genericArbitrary
+
+observeIncrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe IncrementObservation
+observeIncrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript @PlutusScriptV2 inputUTxO headScript
+  (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV2 utxo depositScript
+  dat <- txOutScriptData $ toTxContext depositOutput
+  Deposit.DepositDatum _ <- fromScriptData dat
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript @PlutusScriptV2 (utxoFromTx tx) headScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) ->
+          pure
+            IncrementObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , depositTxId
+              }
+        _ -> Nothing
+    _ -> Nothing
+ where
+  depositScript = fromPlutusScript Deposit.validatorScript
+  headScript = fromPlutusScript Head.validatorScript
 
 data DecrementObservation = DecrementObservation
   { headId :: HeadId

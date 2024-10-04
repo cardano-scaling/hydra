@@ -14,11 +14,14 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
+  CommitInfo (CannotCommit),
   HeadStatus (Idle),
   ServerOutput,
   TimedServerOutput (..),
+  projectCommitInfo,
   projectHeadStatus,
   projectInitializingHeadId,
+  projectPendingDeposits,
   projectSnapshotUtxo,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
@@ -85,7 +88,9 @@ withAPIServer config party persistence tracer chain pparams callback action =
     -- Intialize our read model from stored events
     headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
+    commitInfoP <- mkProjection CannotCommit (output <$> timedOutputEvents) projectCommitInfo
     headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
+    pendingDepositsP <- mkProjection [] (output <$> timedOutputEvents) projectPendingDeposits
 
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
@@ -107,7 +112,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel)
-              (httpApp tracer chain pparams (atomically $ getLatest headIdP) (atomically $ getLatest snapshotUtxoP) callback)
+              (httpApp tracer chain pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do
           waitForServerRunning
@@ -117,8 +122,10 @@ withAPIServer config party persistence tracer chain pparams callback action =
                   timedOutput <- appendToHistory history output
                   atomically $ do
                     update headStatusP output
+                    update commitInfoP output
                     update snapshotUtxoP output
                     update headIdP output
+                    update pendingDepositsP output
                     writeTChan responseChannel timedOutput
               }
       )

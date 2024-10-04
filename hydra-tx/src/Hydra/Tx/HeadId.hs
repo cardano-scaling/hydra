@@ -10,6 +10,7 @@ import Hydra.Cardano.Api (
   PolicyId,
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),
+  fromPlutusCurrencySymbol,
  )
 import PlutusLedgerApi.V2 (CurrencySymbol (..), toBuiltin)
 import Test.QuickCheck (vectorOf)
@@ -56,6 +57,9 @@ instance Arbitrary HeadSeed where
 
 headIdToCurrencySymbol :: HeadId -> CurrencySymbol
 headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
+
+fromCurrencySymbol :: MonadFail m => CurrencySymbol -> m HeadId
+fromCurrencySymbol = fmap mkHeadId . fromPlutusCurrencySymbol
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId = UnsafeHeadId . serialiseToRawBytes

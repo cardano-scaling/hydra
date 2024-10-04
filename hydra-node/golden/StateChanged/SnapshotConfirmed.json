@@ -166,6 +166,7 @@
                         }
                     }
                 },
+                "utxoToCommit": null,
                 "utxoToDecommit": {
                     "199bc5b1cca5f3b286a187060cd32010a7ba5ccbf085a229e216dfd9f0f79480#34": {
                         "address": "addr1y8qarzt472huqn5jdhf9ns5puxvnayw4zn9engccv9s993qwf7pj06attwmtvmpch028ts365kmtzcf7kkrjchkynvys7agvp3",

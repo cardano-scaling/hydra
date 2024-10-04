@@ -135,6 +135,7 @@ healthyContestSnapshot =
     , number = healthyContestSnapshotNumber
     , utxo = splitUTxOInHead
     , confirmed = []
+    , utxoToCommit = Nothing
     , utxoToDecommit = Just splitUTxOToDecommit
     , version = healthyCloseSnapshotVersion
     }

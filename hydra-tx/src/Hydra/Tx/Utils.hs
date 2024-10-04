@@ -4,10 +4,17 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Core (auxDataHashTxBodyL, auxDataTxL, bodyTxL, inputsTxBodyL, mkBasicTx)
+import Cardano.Ledger.Alonzo.Tx qualified as Ledger
+import Cardano.Ledger.Api (AlonzoTxAuxData (..), hashTxAuxData, mkBasicTxBody)
+import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
+import Data.Maybe.Strict (StrictMaybe (..))
+import Data.Set qualified as Set
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
-import PlutusLedgerApi.V2 (FromData, fromBuiltin, getPubKeyHash)
+import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
+import PlutusLedgerApi.V2 (fromBuiltin, getPubKeyHash)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 
 hydraHeadV1AssetName :: AssetName
@@ -64,11 +71,27 @@ adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
--- | Extract the inline datum from a given 'TxOut'.
-extractInlineDatumFromTxOut :: FromData a => TxOut CtxUTxO -> Maybe a
-extractInlineDatumFromTxOut txout =
-  let TxOut _ _ dat _ = txout
-   in case dat of
-        TxOutDatumInline d ->
-          fromScriptData d
-        _ -> Nothing
+addMetadata :: TxMetadata -> Tx -> Ledger.AlonzoTx (Ledger.ConwayEra StandardCrypto) -> Ledger.AlonzoTx (Ledger.ConwayEra StandardCrypto)
+addMetadata (TxMetadata newMetadata) blueprintTx tx =
+  let
+    newMetadataMap = toShelleyMetadata newMetadata
+    newAuxData =
+      case toLedgerTx blueprintTx ^. auxDataTxL of
+        SNothing -> AlonzoTxAuxData newMetadataMap mempty mempty
+        SJust (AlonzoTxAuxData metadata timeLocks languageMap) ->
+          AlonzoTxAuxData (Map.union metadata newMetadataMap) timeLocks languageMap
+   in
+    tx
+      & auxDataTxL .~ SJust newAuxData
+      & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
+
+-- | Create a transaction spending all given `UTxO`.
+txSpendingUTxO :: UTxO -> Tx
+txSpendingUTxO utxo =
+  fromLedgerTx $
+    mkBasicTx
+      ( mkBasicTxBody
+          & inputsTxBodyL .~ (toLedgerTxIn `Set.map` inputs)
+      )
+ where
+  inputs = UTxO.inputSet utxo

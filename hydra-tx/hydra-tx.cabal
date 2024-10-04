@@ -61,6 +61,7 @@ library
     Hydra.Tx.Fanout
     Hydra.Tx.HeadId
     Hydra.Tx.HeadParameters
+    Hydra.Tx.Increment
     Hydra.Tx.Init
     Hydra.Tx.IsTx
     Hydra.Tx.OnChainId
@@ -165,6 +166,7 @@ test-suite tests
     Hydra.Tx.Contract.Decrement
     Hydra.Tx.Contract.Deposit
     Hydra.Tx.Contract.FanOut
+    Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.Recover
     Hydra.Tx.IsTxSpec
@@ -213,7 +215,6 @@ executable hydra-tx
     , base
     , bytestring
     , hydra-cardano-api
-    , hydra-plutus
     , hydra-prelude
     , hydra-tx
     , optparse-applicative

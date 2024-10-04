@@ -57,7 +57,10 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
+  canCommit,
   canDecommit,
+  canRecoverDeposit,
+  canSeePendingDeposits,
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
@@ -66,6 +69,7 @@ import Hydra.Cluster.Scenarios (
   restartedNodeCanObserveCommitTx,
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalTxBlueprint,
+  singlePartyCommitsScriptBlueprint,
   singlePartyHeadFullLifeCycle,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
@@ -193,6 +197,26 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= canDecommit tracer tmpDir node
+      it "can incrementally commit" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canCommit tracer tmpDir node
+      it "can recover deposit" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canRecoverDeposit tracer tmpDir node
+      it "can see pending deposits" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSeePendingDeposits tracer tmpDir node
+      it "incrementally commit script using blueprint tx" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyCommitsScriptBlueprint tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->

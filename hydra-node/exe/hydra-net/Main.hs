@@ -225,7 +225,7 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
 
   client tracer sk party = Idle $ do
     let snapshotVersion = 0
-    let msg = Data "2" (ReqSn @Tx snapshotVersion snapshotNumber [] Nothing)
+    let msg = Data "2" (ReqSn @Tx snapshotVersion snapshotNumber [] Nothing Nothing)
     let signed = Signed msg (sign sk msg) party
     traceWith tracer $ Injecting signed
     pure $ SendMsg signed (pure $ SendDone (pure ()))

@@ -12,15 +12,22 @@ import Data.ByteString.Short ()
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ServerOutput (CommitInfo (..))
 import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
  )
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (
+  IsChainState,
+ )
 import Hydra.Chain.Direct.State ()
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, IsTx (..))
+import Hydra.Tx (
+  CommitBlueprintTx (..),
+  IsTx (..),
+  UTxOType,
+ )
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,
@@ -123,14 +130,16 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
-  -- | A means to get the 'HeadId' if initializing the Head.
-  IO (Maybe HeadId) ->
+  -- | A means to get commit info.
+  IO CommitInfo ->
   -- | Get latest confirmed UTxO snapshot.
   IO (Maybe (UTxOType tx)) ->
+  -- | Get the pending commits (deposits)
+  IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO putClientInput request respond = do
+httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -146,8 +155,14 @@ httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO putCli
         Just utxo -> respond $ okJSON utxo
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain getInitializingHeadId
+        >>= handleDraftCommitUtxo directChain getCommitInfo
         >>= respond
+    ("DELETE", ["commits", _]) ->
+      consumeRequestBodyStrict request
+        >>= handleRecoverCommitUtxo putClientInput (last . fromList $ pathInfo request)
+        >>= respond
+    ("GET", ["commits"]) ->
+      getPendingDeposits >>= respond . responseLBS status200 [] . Aeson.encode
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
         >>= handleDecommit putClientInput
@@ -163,31 +178,49 @@ httpApp tracer directChain pparams getInitializingHeadId getConfirmedUTxO putCli
 
 -- * Handlers
 
+-- FIXME: Api specification for /commit is broken in the spec/docs.
+
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo ::
   forall tx.
   IsChainState tx =>
   Chain tx IO ->
-  -- | A means to get the 'HeadId' if initializing the Head.
-  IO (Maybe HeadId) ->
+  -- | A means to get commit info.
+  IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain getInitializingHeadId body = do
-  getInitializingHeadId >>= \case
-    Just headId -> do
-      case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
-        Left err ->
-          pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
-        Right FullCommitRequest{blueprintTx, utxo} -> do
-          draftCommit headId utxo blueprintTx
-        Right SimpleCommitRequest{utxoToCommit} -> do
-          let blueprintTx = txSpendingUTxO utxoToCommit
-          draftCommit headId utxoToCommit blueprintTx
-    -- XXX: This is not really an internal server error
-    Nothing -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
+handleDraftCommitUtxo directChain getCommitInfo body = do
+  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
+    Left err ->
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right someCommitRequest ->
+      getCommitInfo >>= \case
+        NormalCommit headId ->
+          case someCommitRequest of
+            FullCommitRequest{blueprintTx, utxo} -> do
+              draftCommit headId utxo blueprintTx
+            SimpleCommitRequest{utxoToCommit} -> do
+              let blueprintTx = txSpendingUTxO utxoToCommit
+              draftCommit headId utxoToCommit blueprintTx
+        IncrementalCommit headId -> do
+          case someCommitRequest of
+            FullCommitRequest{blueprintTx, utxo} -> do
+              deposit headId CommitBlueprintTx{blueprintTx, lookupUTxO = utxo}
+            SimpleCommitRequest{utxoToCommit} ->
+              deposit headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxoToCommit, lookupUTxO = utxoToCommit}
+        CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
-  draftCommit headId lookupUTxO blueprintTx =
+  deposit headId commitBlueprint = do
+    -- TODO: How to make this configurable for testing? Right now this is just
+    -- set to current time in order to have easier time testing the recover.
+    -- Perhaps use contestation deadline to come up with a meaningful value?
+    deadline <- getCurrentTime
+    draftDepositTx headId commitBlueprint deadline <&> \case
+      Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
+      Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
+
+  draftCommit headId lookupUTxO blueprintTx = do
     draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx} <&> \case
       Left e ->
         -- Distinguish between errors users can actually benefit from and
@@ -195,10 +228,31 @@ handleDraftCommitUtxo directChain getInitializingHeadId body = do
         case e of
           CommittedTooMuchADAForMainnet _ _ -> badRequest e
           UnsupportedLegacyOutput _ -> badRequest e
+          CannotFindOwnInitial _ -> badRequest e
           _ -> responseLBS status500 [] (Aeson.encode $ toJSON e)
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
-  Chain{draftCommitTx} = directChain
+  Chain{draftCommitTx, draftDepositTx} = directChain
+
+-- | Handle request to recover a pending deposit.
+handleRecoverCommitUtxo ::
+  forall tx.
+  IsChainState tx =>
+  (ClientInput tx -> IO ()) ->
+  Text ->
+  LBS.ByteString ->
+  IO Response
+handleRecoverCommitUtxo putClientInput recoverPath _body = do
+  case parseTxIdFromPath recoverPath of
+    Left err -> pure err
+    Right recoverTxId -> do
+      putClientInput Recover{recoverTxId}
+      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
+ where
+  parseTxIdFromPath txIdStr =
+    case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
+      Left e -> Left (responseLBS status400 [] (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
+      Right txid -> Right txid
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::

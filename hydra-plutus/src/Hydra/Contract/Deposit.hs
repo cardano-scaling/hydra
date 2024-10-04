@@ -65,12 +65,15 @@ PlutusTx.unstableMakeIsData ''DepositDatum
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
 validator depositDatum r ctx =
   case r of
-    Claim -> False
+    Claim ->
+      -- FIXME: Implement Claim redeemer
+      True
     Recover m ->
       afterDeadline
         && recoverOutputs m
  where
   DepositDatum (_headId, dl, deposits) = depositDatum
+
   recoverOutputs m =
     traceIfFalse $(errorCode IncorrectDepositHash) $
       hashOfOutputs m == hashPreSerializedCommits deposits

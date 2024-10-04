@@ -52,7 +52,9 @@ import Hydra.Chain.Direct.State (
   decrement,
   fanout,
   getKnownUTxO,
+  increment,
   initialize,
+  recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Tx (
@@ -64,6 +66,7 @@ import Hydra.Chain.Direct.Tx (
   DecrementObservation (..),
   FanoutObservation (..),
   HeadObservation (..),
+  IncrementObservation (..),
   InitObservation (..),
   headSeedToTxIn,
   observeHeadTx,
@@ -74,7 +77,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Ledger.Cardano (adjustUTxO)
+import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
@@ -84,6 +87,8 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Recover (RecoverObservation (..))
 import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
@@ -168,6 +173,14 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
           commit' ctx headId spendableUTxO commitBlueprintTx
+    , -- Handle that creates a draft **deposit** tx using the user utxo and a deadline.
+      -- Possible errors are handled at the api server level.
+      draftDepositTx = \headId commitBlueprintTx deadline -> do
+        let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
+        ChainStateAt{spendableUTxO} <- atomically getLatest
+        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
+          -- TODO: Should we move deposit tx argument verification to `depositTx` function and have Either here?
+          Right (depositTx (networkId ctx) headId commitBlueprintTx deadline)
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -206,7 +219,7 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             } ::
             PostTxError Tx
         )
-    Right balancedTx -> do
+    Right balancedTx ->
       pure $ sign balancedTx
 
 -- * Following the Chain
@@ -321,6 +334,12 @@ convertObservation = \case
     pure OnCommitTx{headId, party, committed}
   CollectCom CollectComObservation{headId} ->
     pure OnCollectComTx{headId}
+  Deposit DepositObservation{headId, deposited, depositTxId, deadline, depositScriptUTxO} ->
+    pure $ OnDepositTx{headId, deposited, depositTxId, deadline = posixToUTCTime deadline, depositScriptUTxO}
+  Recover RecoverObservation{headId, recoveredUTxO, recoveredTxId} ->
+    pure OnRecoverTx{headId, recoveredUTxO, recoveredTxId}
+  Increment IncrementObservation{headId, newVersion, depositTxId} ->
+    pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
     pure OnDecrementTx{headId, newVersion, distributedOutputs}
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
@@ -371,6 +390,14 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO} ->
+      case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO of
+        Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
+        Right incrementTx' -> pure incrementTx'
+    RecoverTx{headId, recoverTxId, utxoToDeposit, deadline} -> do
+      case recover headId recoverTxId utxoToDeposit (fromChainSlot deadline) of
+        Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
+        Right recoverTx' -> pure recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
         Left _ -> throwIO (FailedToConstructDecrementTx @Tx)

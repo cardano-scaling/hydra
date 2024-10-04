@@ -63,9 +63,11 @@ import Hydra.Chain.Direct.State (
   genCommits',
   genContestTx,
   genDecrementTx,
+  genDepositTx,
   genFanoutTx,
   genHydraContext,
   genInitTx,
+  genRecoverTx,
   genStInitial,
   getContestationDeadline,
   getKnownUTxO,
@@ -82,7 +84,22 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (AbortObservation (..), CloseObservation (..), CollectComObservation (..), CommitObservation (..), ContestObservation (..), DecrementObservation (..), FanoutObservation (..), HeadObservation (..), NotAnInitReason (..), observeCommitTx, observeDecrementTx, observeHeadTx, observeInitTx)
+import Hydra.Chain.Direct.Tx (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  NotAnInitReason (..),
+  observeCommitTx,
+  observeDecrementTx,
+  observeHeadTx,
+  observeInitTx,
+ )
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano (
@@ -99,6 +116,8 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (splitUTxO)
@@ -144,6 +163,7 @@ spec = parallel $ do
   roundtripAndGoldenSpecs (Proxy @Plutus.PubKeyHash)
 
   describe "observeTx" $ do
+    -- TODO: DRY with TxSpec
     prop "All valid transitions for all possible states can be observed." prop_observeAnyTx
 
   describe "splitUTxO" $ do
@@ -310,6 +330,28 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllCollectCom
     propIsValid forAllCollectCom
 
+  describe "deposit" $ do
+    propBelowSizeLimit maxTxSize forAllDeposit
+    propIsValid forAllDeposit
+
+    prop "observes deposit" $
+      forAllDeposit $ \utxo tx ->
+        case observeDepositTx testNetworkId tx of
+          Just DepositObservation{} -> property True
+          Nothing ->
+            False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
+  describe "recover" $ do
+    propBelowSizeLimit maxTxSize forAllRecover
+    propIsValid forAllRecover
+
+    prop "observes recover" $
+      forAllRecover $ \utxo tx ->
+        case observeRecoverTx testNetworkId utxo tx of
+          Just RecoverObservation{} -> property True
+          Nothing ->
+            False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
@@ -404,24 +446,28 @@ genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
 prop_observeAnyTx :: Property
 prop_observeAnyTx =
   checkCoverage $ do
-    forAllShow genChainStateWithTx showTransition $ \(ctx, st, tx, transition) ->
-      forAllShow genChainStateWithTx showTransition $ \(_, otherSt, _, _) ->
+    forAllShow genChainStateWithTx (("Transition: " <>) . showTransition) $ \(ctx, st, additionalUTxO, tx, transition) ->
+      forAllShow genChainStateWithTx (("Some other transition: " <>) . showTransition) $ \(_, otherSt, additionalUTxO', _, _) -> do
         genericCoverTable [transition] $ do
           let expectedHeadId = chainStateHeadId st
-          case observeHeadTx (networkId ctx) (getKnownUTxO st <> getKnownUTxO otherSt) tx of
+              utxo = getKnownUTxO st <> getKnownUTxO otherSt <> additionalUTxO <> additionalUTxO'
+          case observeHeadTx (networkId ctx) utxo tx of
             NoHeadTx ->
-              False & counterexample ("observeHeadTx ignored transaction: " <> show tx)
+              False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
             -- NOTE: we don't have the generated headId easily accessible in the initial state
             Init{} -> transition === Transition.Init
             Commit CommitObservation{headId} -> transition === Transition.Commit .&&. Just headId === expectedHeadId
             Abort AbortObservation{headId} -> transition === Transition.Abort .&&. Just headId === expectedHeadId
             CollectCom CollectComObservation{headId} -> transition === Transition.Collect .&&. Just headId === expectedHeadId
+            Deposit DepositObservation{} -> property False
+            Recover RecoverObservation{} -> property False
+            Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
             Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
  where
-  showTransition (_, _, _, t) = show t
+  showTransition (_, _, _, _, t) = show t
 
   chainStateHeadId = \case
     Idle{} -> Nothing
@@ -594,10 +640,24 @@ forAllCollectCom ::
   (UTxO -> Tx -> property) ->
   Property
 forAllCollectCom action =
-  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, tx) ->
+  forAllBlind genCollectComTx $ \(ctx, committedUTxO, stInitialized, _, tx) ->
     let utxo = getKnownUTxO stInitialized <> getKnownUTxO ctx
      in action utxo tx
           & counterexample ("Committed UTxO: " <> show committedUTxO)
+
+forAllDeposit ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllDeposit action = do
+  forAllShrink genDepositTx shrink $ uncurry action
+
+forAllRecover ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllRecover action = do
+  forAllShrink genRecoverTx shrink $ uncurry action
 
 forAllDecrement ::
   Testable property =>
@@ -612,7 +672,7 @@ forAllDecrement' ::
   ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
   Property
 forAllDecrement' action = do
-  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, tx) ->
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, _, tx) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action distributed utxo tx
 
@@ -622,7 +682,7 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, tx, sn) ->
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, _, tx, sn) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
@@ -632,7 +692,7 @@ forAllContest ::
   (UTxO -> Tx -> property) ->
   Property
 forAllContest action =
-  forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, tx) ->
+  forAllBlind genContestTx $ \(hctx@HydraContext{ctxContestationPeriod}, closePointInTime, stClosed, _, tx) ->
     -- XXX: Pick an arbitrary context to contest. We will stumble over this when
     -- we make contests only possible once per party.
     forAllBlind (pickChainContext hctx) $ \ctx ->
@@ -673,7 +733,7 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, tx) ->
+  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, _, tx) ->
     forAllBlind (pickChainContext hctx) $ \ctx ->
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx

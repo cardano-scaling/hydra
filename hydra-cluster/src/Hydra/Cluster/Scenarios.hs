@@ -25,8 +25,10 @@ import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
+import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -40,28 +42,38 @@ import Hydra.Cardano.Api (
   TxId,
   UTxO,
   getTxBody,
+  getTxId,
   getVerificationKey,
   isVkTxOut,
   lovelaceToValue,
   makeSignedTransaction,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatumHash,
   mkVkAddress,
+  scriptWitnessInCtx,
   selectLovelace,
   signTx,
+  toScriptData,
   txOutAddress,
   txOutValue,
   utxoFromTx,
   writeFileTextEnvelope,
+  pattern BuildTxWith,
+  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
+  pattern ScriptWitness,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cluster.Faucet (FaucetLog, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -83,6 +95,7 @@ import HydraNode (
   withHydraCluster,
   withHydraNode,
  )
+import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -97,6 +110,9 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
+import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import Network.HTTP.Types (urlEncode)
+import PlutusLedgerApi.Test.Examples (alwaysSucceedingNAryFunction)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -314,7 +330,6 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-      -- Commit nothing for now
       requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
@@ -347,7 +362,6 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
 
         (walletVk, walletSk) <- keysFor AliceFunds
         utxoToCommit <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
-        -- Commit the script output
         res <-
           runReq defaultHttpConfig $
             req
@@ -367,6 +381,95 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
         lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
  where
   RunningNode{nodeSocket, blockTime} = node
+
+singlePartyCommitsScriptBlueprint ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 20_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    (_, walletSk) <- keysFor AliceFunds
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (clientPayload, scriptUTxO) <- prepareScriptPayload
+
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      submitTx node commitTx
+
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+      -- incrementally commit script to a running Head
+      (clientPayload', scriptUTxO') <- prepareScriptPayload
+
+      res' <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload')
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let depositTransaction = responseBody res'
+      let tx = signTx walletSk depositTransaction
+
+      submitTx node tx
+
+      waitFor hydraTracer 10 [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
+      waitFor hydraTracer 10 [n1] $
+        output "CommitFinalized" ["headId" .= headId, "utxo" .= scriptUTxO', "theDeposit" .= getTxId (getTxBody tx)]
+
+      send n1 $ input "GetUTxO" []
+
+      waitFor hydraTracer 10 [n1] $
+        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
+ where
+  prepareScriptPayload = do
+    let script = alwaysSucceedingNAryFunction 3
+    let serializedScript = PlutusScriptSerialised script
+    let scriptAddress = mkScriptAddress networkId serializedScript
+    let datumHash = mkTxOutDatumHash ()
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+    let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
+
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+    let spendingTx =
+          unsafeBuildTransaction $
+            emptyTxBody
+              & addInputs [(scriptIn, scriptWitness)]
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= spendingTx
+          , "utxo" .= scriptUTxO
+          ]
+      , scriptUTxO
+      )
+
+  RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Single hydra-node where the commit is done from a raw transaction
 -- blueprint.
@@ -593,6 +696,212 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Open a a single participant head and incrementally commit to it.
+canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canCommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 30_000_000
+    let contestationPeriod = UnsafeContestationPeriod 1
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Commit nothing
+      requestCommitTx n1 mempty >>= submitTx node
+      waitFor hydraTracer (10 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+      -- Get some L1 funds
+      (walletVk, walletSk) <- generate genKeyPair
+      commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+
+      resp <-
+        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+          <&> setRequestBodyJSON commitUTxO
+            >>= httpJSON
+
+      let depositTransaction = getResponseBody resp :: Tx
+      let tx = signTx walletSk depositTransaction
+
+      submitTx node tx
+
+      waitFor hydraTracer 10 [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
+      waitFor hydraTracer 10 [n1] $
+        output "CommitFinalized" ["headId" .= headId, "utxo" .= commitUTxO, "theDeposit" .= getTxId (getTxBody tx)]
+
+      send n1 $ input "GetUTxO" []
+
+      waitFor hydraTracer 10 [n1] $
+        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= commitUTxO]
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
+
+-- | Open a a single participant head, deposit and then recover it.
+canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canRecoverDeposit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $
+    (`finally` returnFundsToFaucet tracer node Bob) $ do
+      refuelIfNeeded tracer node Alice 30_000_000
+      refuelIfNeeded tracer node Bob 30_000_000
+      let contestationPeriod = UnsafeContestationPeriod 1
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId
+      bobChainConfig <-
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= submitTx node
+          requestCommitTx n2 mempty >>= submitTx node
+
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+          -- stop the second node here
+          pure ()
+
+        -- Get some L1 funds
+        (walletVk, walletSk) <- generate genKeyPair
+        let commitAmount = 5_000_000
+        commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue commitAmount
+
+        resp <-
+          parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+            <&> setRequestBodyJSON commitUTxO
+              >>= httpJSON
+
+        let depositTransaction = getResponseBody resp :: Tx
+
+        let tx = signTx walletSk depositTransaction
+
+        submitTx node tx
+
+        waitForAllMatch 10 [n1] $ \v -> do
+          guard $ v ^? key "tag" == Just "CommitRecorded"
+
+        (selectLovelace . balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` 0
+
+        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
+
+        recoverResp <-
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+            >>= httpJSON
+
+        (getResponseBody recoverResp :: String) `shouldBe` "OK"
+
+        waitForAllMatch 20 [n1] $ \v -> do
+          guard $ v ^? key "tag" == Just "CommitRecovered"
+
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue commitAmount
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
+
+-- | Make sure to be able to see pending deposits.
+canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canSeePendingDeposits tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $
+    (`finally` returnFundsToFaucet tracer node Bob) $ do
+      refuelIfNeeded tracer node Alice 30_000_000
+      refuelIfNeeded tracer node Bob 30_000_000
+      let contestationPeriod = UnsafeContestationPeriod 1
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId
+      bobChainConfig <-
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
+
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= submitTx node
+          requestCommitTx n2 mempty >>= submitTx node
+
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+          -- stop the second node here
+          pure ()
+
+        -- Get some L1 funds
+        (walletVk, walletSk) <- generate genKeyPair
+        commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+        commitUTxO2 <- seedFromFaucet node walletVk 4_000_000 (contramap FromFaucet tracer)
+        commitUTxO3 <- seedFromFaucet node walletVk 3_000_000 (contramap FromFaucet tracer)
+
+        deposited <- flip execStateT [] $ forM [commitUTxO, commitUTxO2, commitUTxO3] $ \utxo -> do
+          resp <-
+            parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+              <&> setRequestBodyJSON utxo
+                >>= httpJSON
+
+          let depositTransaction = getResponseBody resp :: Tx
+
+          let tx = signTx walletSk depositTransaction
+
+          liftIO $ submitTx node tx
+
+          liftIO $ waitForAllMatch 10 [n1] $ \v ->
+            guard $ v ^? key "tag" == Just "CommitRecorded"
+
+          pendingDepositReq <-
+            parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
+              >>= httpJSON
+
+          let expectedResponse = getTxId (getTxBody tx)
+          _ <- modify (expectedResponse :)
+          expected <- get
+          let expectedResp = getResponseBody pendingDepositReq :: [TxId]
+          liftIO $ expectedResp `shouldBe` expected
+
+        forM_ deposited $ \deposit -> do
+          let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
+          recoverResp <-
+            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+              >>= httpJSON
+
+          (getResponseBody recoverResp :: String) `shouldBe` "OK"
+
+          waitForAllMatch 10 [n1] $ \v -> do
+            guard $ v ^? key "tag" == Just "CommitRecovered"
+
+        pendingDepositReq <-
+          parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
+            >>= httpJSON
+
+        let expectedResp = getResponseBody pendingDepositReq :: [TxId]
+        expectedResp `shouldBe` []
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+  hydraTracer = contramap FromHydraNode tracer
+
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()

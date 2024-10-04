@@ -6,14 +6,10 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (AsIxItem (..))
 import Cardano.Ledger.Api (
-  AlonzoTxAuxData (..),
   AsIx (..),
   ConwayPlutusPurpose (..),
   Redeemers (..),
-  auxDataHashTxBodyL,
-  auxDataTxL,
   bodyTxL,
-  hashTxAuxData,
   inputsTxBodyL,
   mintTxBodyL,
   outputsTxBodyL,
@@ -36,7 +32,7 @@ import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V2 (CurrencySymbol)
 import PlutusLedgerApi.V2 qualified as Plutus
 
@@ -69,21 +65,8 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
       & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
       & bodyTxL . mintTxBodyL .~ mempty
-      & addMetadata (mkHydraHeadV1TxName "CommitTx")
+      & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
  where
-  addMetadata (TxMetadata newMetadata) tx =
-    let
-      newMetadataMap = toShelleyMetadata newMetadata
-      newAuxData =
-        case toLedgerTx blueprintTx ^. auxDataTxL of
-          SNothing -> AlonzoTxAuxData newMetadataMap mempty mempty
-          SJust (AlonzoTxAuxData metadata timeLocks languageMap) ->
-            AlonzoTxAuxData (Map.union metadata newMetadataMap) timeLocks languageMap
-     in
-      tx
-        & auxDataTxL .~ SJust newAuxData
-        & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
-
   spendFromInitial tx =
     let newRedeemers =
           resolveSpendingRedeemers tx

@@ -9,7 +9,7 @@ import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (HeadState)
+import Hydra.HeadLogic.State (HeadState, PendingDeposits)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
@@ -72,6 +72,8 @@ data StateChanged tx
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
+  | CommitRecorded {pendingDeposits :: PendingDeposits tx, newLocalUTxO :: UTxOType tx}
+  | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
@@ -83,6 +85,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
+  | CommitFinalized {newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
@@ -177,6 +180,8 @@ data WaitReason tx
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
+  | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
+  | WaitOnUnresolvedDecommit {decommitTx :: tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (WaitReason tx)

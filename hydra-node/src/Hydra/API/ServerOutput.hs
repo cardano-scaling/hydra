@@ -26,7 +26,7 @@ import Hydra.Tx (
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
@@ -137,7 +137,11 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx}
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxIdType tx}
+  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -192,8 +196,12 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
+    CommitRecorded headId u txId -> CommitRecorded headId <$> shrink u <*> shrink txId
+    CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
+    CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     DecommitFinalized{} -> []
+    CommitFinalized{} -> []
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
@@ -243,9 +251,13 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
+    CommitRecorded{} -> encodedResponse
+    CommitApproved{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitFinalized{} -> encodedResponse
+    CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
+    CommitRecovered{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
@@ -267,6 +279,33 @@ data HeadStatus
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
+
+-- | All information needed to distinguish behavior of the commit endpoint.
+data CommitInfo
+  = CannotCommit
+  | NormalCommit HeadId
+  | IncrementalCommit HeadId
+
+--
+
+-- | Projection to obtain the list of pending deposits.
+projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdType tx]
+projectPendingDeposits txIds = \case
+  CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
+  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
+  _other -> txIds
+
+-- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectCommitInfo :: CommitInfo -> ServerOutput tx -> CommitInfo
+projectCommitInfo commitInfo = \case
+  HeadIsInitializing{headId} -> NormalCommit headId
+  HeadIsOpen{headId} -> IncrementalCommit headId
+  HeadIsAborted{} -> CannotCommit
+  HeadIsClosed{} -> CannotCommit
+  _other -> commitInfo
 
 -- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
 -- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'

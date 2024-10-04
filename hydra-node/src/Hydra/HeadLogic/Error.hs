@@ -40,10 +40,12 @@ data RequirementFailure tx
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | ReqSnDecommitNotSettled
+  | ReqSnCommitNotSettled
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
+  | RecoverNotMatchingDeposit
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)

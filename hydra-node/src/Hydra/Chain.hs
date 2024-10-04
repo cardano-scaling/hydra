@@ -54,6 +54,19 @@ data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
   | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
   | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
+  | IncrementTx
+      { headId :: HeadId
+      , headParameters :: HeadParameters
+      , incrementingSnapshot :: ConfirmedSnapshot tx
+      , depositScriptUTxO :: UTxOType tx
+      , depositTxId :: TxIdType tx
+      }
+  | RecoverTx
+      { headId :: HeadId
+      , recoverTxId :: TxIdType tx
+      , utxoToDeposit :: UTxOType tx
+      , deadline :: ChainSlot
+      }
   | DecrementTx
       { headId :: HeadId
       , headParameters :: HeadParameters
@@ -85,6 +98,10 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxId} ->
+      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxId
+    RecoverTx{headId, recoverTxId, utxoToDeposit, deadline} ->
+      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink utxoToDeposit <*> shrink deadline
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -106,6 +123,23 @@ data OnChainTx tx
       }
   | OnAbortTx {headId :: HeadId}
   | OnCollectComTx {headId :: HeadId}
+  | OnDepositTx
+      { headId :: HeadId
+      , deposited :: UTxOType tx
+      , depositTxId :: TxIdType tx
+      , deadline :: UTCTime
+      , depositScriptUTxO :: UTxOType tx
+      }
+  | OnRecoverTx
+      { headId :: HeadId
+      , recoveredUTxO :: UTxOType tx
+      , recoveredTxId :: TxIdType tx
+      }
+  | OnIncrementTx
+      { headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , depositTxId :: TxIdType tx
+      }
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
@@ -166,6 +200,9 @@ data PostTxError tx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
+  | FailedToConstructDepositTx
+  | FailedToConstructRecoverTx
+  | FailedToConstructIncrementTx
   | FailedToConstructDecrementTx
   | FailedToConstructFanoutTx
   deriving stock (Generic)
@@ -233,6 +270,15 @@ data Chain tx m = Chain
   -- ^ Create a commit transaction using user provided utxos (zero or many) and
   -- a _blueprint_ transaction which spends these outputs.
   -- Errors are handled at the call site.
+  , draftDepositTx ::
+      MonadThrow m =>
+      HeadId ->
+      CommitBlueprintTx tx ->
+      UTCTime ->
+      m (Either (PostTxError tx) tx)
+  -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
+  -- _blueprint_ transaction which spends these outputs and a deadline for
+  -- their inclusion into L2. Errors are handled at the call site.
   , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --

@@ -112,23 +112,30 @@ spec =
         headId' <- currencySymbolToHeadId cs
         pure $ headId' === headId
 
+    -- TODO: DRY with prop_observeAnyTx
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
         checkCoverage $
-          forAllBlind genChainStateWithTx $ \(_ctx, st, tx, transition) ->
+          forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, transition) ->
             genericCoverTable [transition] $
               counterexample (show transition) $
-                let utxo = getKnownUTxO st
+                let utxo = getKnownUTxO st <> additionalUTxO
                  in case observeHeadTx testNetworkId utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
                       Abort{} -> transition === Transition.Abort
                       Commit{} -> transition === Transition.Commit
                       CollectCom{} -> transition === Transition.Collect
+                      Increment{} -> transition === Transition.Increment
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       Fanout{} -> transition === Transition.Fanout
+                      -- NOTE: deposit and recover are not Head transactions as
+                      -- they are not operating on Hydra state machine. We don't generate them
+                      -- in these tests so we don't need to check them.
+                      Deposit{} -> property False
+                      Recover{} -> property False
 
     describe "commitTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
