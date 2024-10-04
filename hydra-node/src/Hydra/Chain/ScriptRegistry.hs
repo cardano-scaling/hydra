@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   makeSignedTransaction,
   mkScriptAddress,
   mkScriptRef,
+  mkScriptRefV3,
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
@@ -30,7 +31,15 @@ import Hydra.Cardano.Api (
   txOutValue,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain.CardanoClient (QueryPoint (..), awaitTransaction, buildTransaction, queryProtocolParameters, queryUTxOByTxIn, queryUTxOFor, submitTransaction)
+import Hydra.Chain.CardanoClient (
+  QueryPoint (..),
+  awaitTransaction,
+  buildTransaction,
+  queryProtocolParameters,
+  queryUTxOByTxIn,
+  queryUTxOFor,
+  submitTransaction,
+ )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Plutus (commitValidatorScript)
@@ -78,9 +87,9 @@ publishHydraScripts networkId socketPath sk = do
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
-          <$> [ Initial.validatorScript
-              , commitValidatorScript
-              , Head.validatorScript
+          <$> [ mkScriptRef Initial.validatorScript
+              , mkScriptRefV3 commitValidatorScript
+              , mkScriptRef Head.validatorScript
               ]
       totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =
@@ -107,13 +116,12 @@ publishHydraScripts networkId socketPath sk = do
 
   changeAddress = mkVkAddress networkId vk
 
-  mkScriptTxOut pparams script =
+  mkScriptTxOut pparams =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
       mempty
       TxOutDatumNone
-      (mkScriptRef script)
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
