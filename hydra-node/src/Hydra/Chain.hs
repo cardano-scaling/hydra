@@ -46,7 +46,7 @@ maxMainnetLovelace = Coin 100_000_000
 -- The value is obtained from calculating the costs of running the scripts
 -- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 7
+maximumNumberOfParties = 9
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
