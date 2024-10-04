@@ -39,7 +39,7 @@ fn toErrorCode(err: CommitError) -> String {
 //
 //   * ST is present in the output if the redeemer is 'ViaCollectCom'
 validator commit {
-  spend(datum: Option<Datum>, redeemer: Redeemer, utxo: OutputReference, self: Transaction) -> Bool {
+  spend(datum: Option<Datum>, redeemer: Redeemer, _utxo: OutputReference, self: Transaction) -> Bool {
     expect Some(datum) = datum
     when redeemer is {
       // NOTE: The reimbursement of the committed output 'commit' is
