@@ -25,7 +25,7 @@ changes.
 
 - **BREAKING** Rewrite of the commit script in aiken:
   - This makes `abort` and `collectCom` transactions more efficient and results
-    in a new maximum number of head participants being `9`.
+    in a new maximum number of head participants being `8`.
   - Changes script hashes in `hydra-plutus`
 
 ## [0.19.0] - 2024-09-13
