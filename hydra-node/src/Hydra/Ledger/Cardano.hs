@@ -245,56 +245,6 @@ mkOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
     _ ->
       error "Couldn't generate transaction sequence: need exactly one UTXO."
 
--- | Generate a 'Babbage' era 'TxOut', which may contain arbitrary assets
--- addressed to public keys and scripts, as well as datums.
---
--- NOTE: This generator does
---  * not produce byron addresses as most of the cardano ecosystem dropped support for that (including plutus),
---  * not produce reference scripts as they are not fully "visible" from plutus,
---  * replace stake pointers with null references as nobody uses that.
-genTxOut :: Gen (TxOut ctx)
-genTxOut =
-  (noRefScripts . noStakeRefPtr <$> gen)
-    `suchThat` notByronAddress
- where
-  gen =
-    modifyTxOutValue (<> (lovelaceToValue $ Coin 10_000_000))
-      <$> oneof
-        [ fromLedgerTxOut <$> arbitrary
-        , notMultiAsset . fromLedgerTxOut <$> arbitrary
-        ]
-  notMultiAsset =
-    modifyTxOutValue (lovelaceToValue . selectLovelace)
-
-  notByronAddress (TxOut addr _ _ _) = case addr of
-    ByronAddressInEra{} -> False
-    _ -> True
-
-  noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
-    ShelleyAddressInEra (ShelleyAddress _ cre sr) ->
-      case sr of
-        Ledger.StakeRefPtr _ ->
-          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat refScript
-        _ ->
-          TxOut (ShelleyAddressInEra (ShelleyAddress Ledger.Testnet cre sr)) val dat refScript
-    _ -> out
-
-  noRefScripts out =
-    out{txOutReferenceScript = ReferenceScriptNone}
-
--- | Generate a 'TxOut' with a byron address. This is usually not supported by
--- Hydra or Plutus.
-genTxOutByron :: Gen (TxOut ctx)
-genTxOutByron = do
-  addr <- ByronAddressInEra <$> arbitrary
-  value <- genValue
-  pure $ TxOut addr value TxOutDatumNone ReferenceScriptNone
-
--- | Generate UTXO entries that do not contain any assets. Useful to test /
--- measure cases where
-genAdaOnlyUTxO :: Gen UTxO
-genAdaOnlyUTxO = fmap adaOnly <$> arbitrary
-
 -- * Orphans
 
 instance Arbitrary (Hash PaymentKey) where
