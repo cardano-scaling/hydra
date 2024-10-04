@@ -3,6 +3,8 @@ module Hydra.API.HTTPServerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
+import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
@@ -10,6 +12,8 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
+  mkTxOutDatumInline,
+  modifyTxOutDatum,
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
@@ -24,6 +28,7 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.Tx.Fixture (defaultPParams)
+import Test.Hydra.Tx.Gen (genTxOut)
 import Test.QuickCheck (
   checkCoverage,
   counterexample,
@@ -146,6 +151,19 @@ apiServerSpec = do
                         (schemaDir </> "api.json")
                         (key "channels" . key "/snapshot/utxo" . key "subscribe" . key "message" . key "payload")
                   }
+
+      prop "has inlineDatumRaw" $ \i ->
+        forAll genTxOut $ \o -> do
+          let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
+          let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
+          withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+            get "/snapshot/utxo"
+              `shouldRespondWith` 200
+                { matchBody = MatchBody $ \_ body ->
+                    if isNothing (body ^? key (fromString $ show i) . key "inlineDatumRaw")
+                      then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
+                      else Nothing
+                }
 
     describe "POST /commit" $ do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
