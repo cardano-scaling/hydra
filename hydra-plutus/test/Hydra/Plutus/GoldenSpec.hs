@@ -36,38 +36,17 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import PlutusLedgerApi.V2 qualified as Plutus
-import System.FilePath ((</>))
-import System.Process (
-  CreateProcess (..),
-  StdStream (UseHandle),
-  createProcess,
-  proc,
-  waitForProcess,
- )
+import System.Process (readProcess)
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
   it "checks plutus blueprint remains the same" $ do
-    withTempDir "hydra-plutus-golden" $ \tmpDir -> do
-      -- FIXME: This requires a git working copy, do it differently.
-      -- Run 'aiken build' to re-generate plutus.json file
-      _ <- do
-        let aikenExec = proc "aiken" ["build", "-t", "compact"]
-            aikenProcess = aikenExec
-        (_, _, _, aikenProcessHandle) <- createProcess aikenProcess
-        waitForProcess aikenProcessHandle
-      -- Run 'git status' to see if plutus.json file has changed
-      let gitLogFilePath = tmpDir </> "logs" </> "git-processes.log"
-      _ <- withLogFile gitLogFilePath $ \out -> do
-        hSetBuffering out NoBuffering
-        let gitStatusExec = proc "git" ["status", "--porcelain"]
-            gitStatusProcess = gitStatusExec{std_out = UseHandle out, std_err = UseHandle out}
-        (_, _, _, gitStatusProcessHandle) <- createProcess gitStatusProcess
-        waitForProcess gitStatusProcessHandle
-      -- Read git log file and verify plutus.json did not change
-      gitLogContents <- decodeUtf8 <$> readFileBS gitLogFilePath
-      gitLogContents `shouldNotContain` "plutus.json"
+    original <- readFileBS "plutus.json"
+    -- This re-generate plutus.json
+    void $ readProcess "aiken" ["build", "-t", "compact"] ""
+    regenerated <- readFileBS "plutus.json"
+    regenerated `shouldBe` original
 
   it "Commit validator script" $ do
     -- FIXME: Actually test the value of commitValidatorScript
