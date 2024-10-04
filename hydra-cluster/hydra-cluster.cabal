@@ -84,6 +84,7 @@ library
 
   build-depends:
     , aeson
+    , aeson-qq
     , async
     , base                                         >=4.7 && <5
     , bytestring

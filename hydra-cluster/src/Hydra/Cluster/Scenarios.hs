@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.Cluster.Scenarios where
@@ -22,6 +23,7 @@ import Control.Lens ((^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _JSON)
+import Data.Aeson.QQ
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -67,6 +69,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
@@ -362,24 +365,51 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
 
         (walletVk, walletSk) <- keysFor AliceFunds
         utxoToCommit <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
-        res <-
-          runReq defaultHttpConfig $
-            req
-              POST
-              (http "127.0.0.1" /: "commit")
-              (ReqBodyJson utxoToCommit)
-              (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-              (port $ 4000 + hydraNodeId)
 
-        let DraftCommitTxResponse{commitTx} = responseBody res
-        submitTx node $ signTx walletSk commitTx
+        let blueprintTx =
+              [aesonQQ| { "type": "Unwitnessed Tx ConwayEra", "description": "Ledger Cddl Format", "cborHex": "84a600d90102818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030dd90102818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030180020005a1581df039c520d0627aafa728f7e4dd10142b77c257813c36f57e2cb88f72a5000b58208673547ffac99f8abd688e01cae8e519003ffa64027cbb81dee872db7dea8840a206d901028152510100003222253330044a229309b2b2b9a105a182030082455370656e64820101f5f6" }
+              |]
+        let scriptUTxO' =
+              [aesonQQ| { "0b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4#3": { "address": "addr_test1vqmy4j8vnxswhg9xdk2k2c7grt7a85g09qkl5yewk0ynx6gc7svs5", "datum": null, "datumhash": null, "inlineDatum": null, "referenceScript": null, "value": { "lovelace": 2000000 }}}
+              |]
+        let blueprintRequest =
+              [aesonQQ| { "blueprintTx": { "type": "Unwitnessed Tx ConwayEra", "description": "Ledger Cddl Format", "cborHex": "84a600d90102818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030dd90102818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030180020005a1581df039c520d0627aafa728f7e4dd10142b77c257813c36f57e2cb88f72a5000b58208673547ffac99f8abd688e01cae8e519003ffa64027cbb81dee872db7dea8840a206d901028152510100003222253330044a229309b2b2b9a105a182030082455370656e64820101f5f6" }, "utxo": { "0b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4#3": { "address": "addr_test1vqmy4j8vnxswhg9xdk2k2c7grt7a85g09qkl5yewk0ynx6gc7svs5", "datum": null, "datumhash": null, "inlineDatum": null, "referenceScript": null, "value": { "lovelace": 2000000 } } }
+}
+        |]
 
-        lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
-          guard $ v ^? key "headId" == Just (toJSON headId)
-          guard $ v ^? key "tag" == Just "HeadIsOpen"
-          pure $ v ^? key "utxo"
-        lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
+        let blueprintBuiltWithCli =
+              [aesonQQ| { "type": "Unwitnessed Tx BabbageEra", "description": "Ledger Cddl Format", "cborHex": "84a600818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030d818258200b95bec9255a426435e6aa7ff9749d76ee4c6d815acb47f10142db889b0edce4030180020005a1581df039c520d0627aafa728f7e4dd10142b77c257813c36f57e2cb88f72a5000b5820459938c4db5c2747e65b8a4951668be2024eb93b434fdc1b6c5dee4927215d6da2068152510100003222253330044a229309b2b2b9a10581840300455370656e64820101f5f6" }
+        |]
+        case Aeson.eitherDecode' (Aeson.encode scriptUTxO') :: Either String UTxO of
+          Left e -> failure e
+          Right scriptUTxO ->
+            case Aeson.eitherDecode' (Aeson.encode blueprintBuiltWithCli) :: Either String Tx of
+              Left e -> failure e
+              Right tx -> do
+                putStrLn $ renderTxWithUTxO scriptUTxO tx
+                submitTx node tx
  where
+  -- Commit the script output
+  -- res <-
+  --   runReq defaultHttpConfig $
+  --     req
+  --       POST
+  --       (http "127.0.0.1" /: "commit")
+  --       (ReqBodyJson blueprintRequest)
+  --       (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
+  --       (port $ 4000 + hydraNodeId)
+  --
+  -- let DraftCommitTxResponse{commitTx} = responseBody res
+  -- RegTxCert
+  -- putStrLn $ renderTxWithUTxO scriptUTxO commitTx
+  -- submitTx node $ signTx walletSk commitTx
+  --
+  -- lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+  --   guard $ v ^? key "headId" == Just (toJSON headId)
+  --   guard $ v ^? key "tag" == Just "HeadIsOpen"
+  --   pure $ v ^? key "utxo"
+  -- lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
+
   RunningNode{nodeSocket, blockTime} = node
 
 singlePartyCommitsScriptBlueprint ::

@@ -5,7 +5,22 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), Conway, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, Redeemers (..), bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Alonzo.Scripts (AsIxItem (..), ExUnits (..))
+import Cardano.Ledger.Api (
+  AlonzoEraTxWits (rdmrsTxWitsL),
+  AsIx (..),
+  Conway,
+  ConwayPlutusPurpose (..),
+  EraTx (getMinFeeTx, witsTxL),
+  EraTxBody (feeTxBodyL, inputsTxBodyL),
+  PParams,
+  Redeemers (..),
+  bodyTxL,
+  coinTxOutL,
+  outputsTxBodyL,
+  redeemerPointerInverse,
+  unRedeemers,
+ )
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -19,6 +34,7 @@ import Cardano.Ledger.Val (Val (..), invert)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -55,7 +71,7 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genSigningKey)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genSigningKey, genTxOut, genUTxO1)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -89,7 +105,7 @@ spec = parallel $ do
     prop "sets min utxo values" prop_setsMinUTxOValue
     prop "balances transaction with fees" prop_balanceTransaction
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
-    prop "keeps existing withdraw redeemers" prop_validRedeemers
+    prop "keeps existing withdraw redeemers" prop_validWithdrawRedeemers
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -220,35 +236,66 @@ prop_setsMinUTxOValue =
   -- Generate a deliberately "under-valued" TxOut
   genTxOutWithoutADA = arbitrary <&> coinTxOutL .~ mempty
 
-prop_validRedeemers :: Property
-prop_validRedeemers =
+prop_validWithdrawRedeemers :: Property
+prop_validWithdrawRedeemers =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
-      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
-        case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
-          Left err ->
-            property False
-              & counterexample ("Error: " <> show err)
-          Right tx' ->
-            forAllBlind genSigningKey $ \sk -> do
-              -- NOTE: Testing the signed transaction as adding a witness
-              -- changes the fee requirements.
-              let signedTx = toLedgerTx $ signTx sk (fromLedgerTx tx')
-              let Redeemers rdmrsMap = signedTx ^. witsTxL . rdmrsTxWitsL
-              traceShow rdmrsMap $
-                conjoin
-                  [ isBalanced (lookupUTxO <> walletUTxO) tx signedTx
-                  , hasLowFees Fixture.pparams signedTx
-                  ]
-                  -- & genericCoverTable (show $ Map.keys rdmrsMap)
-                  & counterexample ("Signed tx: \n" <> renderTx (fromLedgerTx signedTx))
-                  & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx'))
-          & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
-          & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
-          & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
-          -- XXX: This is not exercising any script cost estimation because
-          -- genLedgerTx does not generate txs spending from scripts seemingly.
-          & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
+      forAllBlind (reasonablySized genUTxO) $ \walletUTxO -> do
+        forAllBlind (reasonablySized $ genUTxO1 genTxOut) $ \withdrawUTxO' -> do
+          let withdrawUTxO = toLedgerUTxO withdrawUTxO'
+          let txWithWithdrawRedeemers =
+                let (withdrawInput, withdrawOutput) = List.head $ Map.toList $ Ledger.unUTxO withdrawUTxO
+                    oldRedeemers =
+                      resolveSpendingRedeemers tx
+                    newInputs = tx ^. bodyTxL . inputsTxBodyL <> Set.singleton withdrawInput
+                 in tx
+                      & bodyTxL . inputsTxBodyL .~ newInputs
+                      & witsTxL . rdmrsTxWitsL .~ mkRedeemers oldRedeemers newInputs
+
+          case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (lookupUTxO <> Ledger.unUTxO withdrawUTxO) walletUTxO txWithWithdrawRedeemers of
+            Left err ->
+              property False
+                & counterexample ("Error: " <> show err)
+            Right tx' ->
+              forAllBlind genSigningKey $ \sk -> do
+                -- NOTE: Testing the signed transaction as adding a witness
+                -- changes the fee requirements.
+                let signedTx = toLedgerTx $ signTx sk (fromLedgerTx tx')
+                let Redeemers rdmrsMap = signedTx ^. witsTxL . rdmrsTxWitsL
+                traceShow rdmrsMap $
+                  conjoin
+                    [ isBalanced (lookupUTxO <> Ledger.unUTxO withdrawUTxO) tx signedTx
+                    , hasLowFees Fixture.pparams signedTx
+                    ]
+                    -- & genericCoverTable (show $ Map.keys rdmrsMap)
+                    & counterexample ("Signed tx: \n" <> renderTx (fromLedgerTx signedTx))
+                    & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx tx'))
+            & counterexample ("Partial tx: \n" <> renderTx (fromLedgerTx tx))
+            & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+            & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
+ where
+  resolveSpendingRedeemers tx =
+    Map.foldMapWithKey
+      ( \p (d, _ex) ->
+          -- XXX: Should soon be available through cardano-ledger-api again
+          case redeemerPointerInverse (tx ^. bodyTxL) p of
+            Ledger.SJust (ConwaySpending (AsIxItem _ txIn)) -> Map.singleton txIn d
+            _ -> mempty
+      )
+      (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
+  mkRedeemers resolved inputs =
+    Redeemers . Map.fromList $
+      foldl'
+        ( \newRedeemerData txin ->
+            let ix = fromIntegral $ Set.findIndex txin inputs
+             in case Map.lookup txin resolved of
+                  Nothing -> newRedeemerData
+                  Just d ->
+                    (ConwayRewarding (AsIx ix), (d, ExUnits 0 0)) : newRedeemerData
+        )
+        []
+        inputs
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =

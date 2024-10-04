@@ -75,7 +75,8 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
      in tx
           & bodyTxL . inputsTxBodyL .~ newInputs
           & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
-          & witsTxL . rdmrsTxWitsL .~ mkRedeemers newRedeemers newInputs
+          & witsTxL . rdmrsTxWitsL <>~ Redeemers (fromList $ resolveNonSpendingRedeemers tx)
+          & witsTxL . rdmrsTxWitsL <>~ mkRedeemers newRedeemers newInputs
 
   -- Make redeemers (with zeroed units) from a TxIn -> Data map and a set of transaction inputs
   mkRedeemers resolved inputs =
@@ -102,6 +103,19 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       )
       (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
 
+  resolveNonSpendingRedeemers tx =
+    Map.foldMapWithKey
+      ( \p (d, ex) ->
+          case redeemerPointerInverse (tx ^. bodyTxL) p of
+            SJust (ConwayMinting (AsIxItem i _)) -> [(ConwayMinting (AsIx i), (d, ex))]
+            SJust (ConwayRewarding (AsIxItem i _)) -> [(ConwayRewarding (AsIx i), (d, ex))]
+            SJust (ConwayCertifying (AsIxItem i _)) -> [(ConwayCertifying (AsIx i), (d, ex))]
+            SJust (ConwayProposing (AsIxItem i _)) -> [(ConwayProposing (AsIx i), (d, ex))]
+            SJust (ConwayVoting (AsIxItem i _)) -> [(ConwayVoting (AsIx i), (d, ex))]
+            SJust (ConwaySpending (AsIxItem _ _)) -> []
+            SNothing -> []
+      )
+      (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
   initialScriptRef =
     fst (initialReference scriptRegistry)
 

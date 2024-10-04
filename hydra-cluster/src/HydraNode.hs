@@ -380,14 +380,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = CreatePipe
+            , std_err = Inherit
             }
 
     traceWith tracer $ HydraNodeCommandSpec $ show $ cmdspec p
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
-        (Just out, Just err) -> action out err processHandle
+        (Just out, Nothing) -> action out stderr processHandle
         (Nothing, _) -> error "Should not happen™"
         (_, Nothing) -> error "Should not happen™"
  where
