@@ -42,11 +42,12 @@ import Test.QuickCheck.Instances.Time ()
 maxMainnetLovelace :: Coin
 maxMainnetLovelace = Coin 100_000_000
 
--- | Hardcoded limit for maximum number of parties in a head protocol
--- The value is obtained from calculating the costs of running the scripts
--- and on-chan validators (see 'computeCollectComCost' 'computeAbortCost')
+-- | Hardcoded limit for maximum number of parties in a head protocol The value
+-- is obtained from calculating the costs of running the scripts and on-chan
+-- validators (see 'computeCollectComCost' 'computeAbortCost'). A too high
+-- enough number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 9
+maximumNumberOfParties = 8
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
