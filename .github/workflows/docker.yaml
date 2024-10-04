@@ -36,7 +36,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v29
+      uses: cachix/install-nix-action@v30
       with:
         extra_nix_config: |
           accept-flake-config = true
