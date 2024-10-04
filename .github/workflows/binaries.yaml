@@ -1,5 +1,5 @@
-# Build distributable executables for hydra
-name: Binaries
+# Build distributable executables and prime nix caches with development shells.
+name: Binaries & devShells
 
 on:
   push:
@@ -10,10 +10,8 @@ on:
     - "*.*.*"
 
 jobs:
-  # Produces static ELF binary for using MuslC which includes all needed
-  # libraries statically linked into it.
-  build-executables-linux:
-    name: "Build x86_64-linux static executables"
+  build-linux:
+    name: "Build for x86_64-linux"
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -43,6 +41,8 @@ jobs:
         echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
     - name: ❄ Build static executables
+      # Produces static ELF binary for using MuslC which includes all needed
+      # libraries statically linked into it.
       run: |
         nix build .#release-static
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
@@ -54,10 +54,12 @@ jobs:
         name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
         path: out/*
 
-  # Produces a dynamic Mach-O binary which is still dynamically linked against
-  # system dependencies, but all third-party libraries are statically linked.
-  build-executables-macos:
-    name: "Build aarch64-darwin dynamic executables"
+    - name: ❄ Build devShells (for cache)
+      run: |
+        nix build .#devShells.default
+
+  build-macos:
+    name: "Build for aarch64-darwin"
     runs-on: macos-latest
     steps:
     - name: 📥 Checkout repository
@@ -87,6 +89,8 @@ jobs:
         echo "VERSION=$(git describe --always HEAD)" | tee "$GITHUB_ENV"
 
     - name: ❄ Build executables
+      # Produces a dynamic Mach-O binary which is still dynamically linked against
+      # system dependencies, but all third-party libraries are statically linked.
       run: |
         nix build .#release
         # XXX: Why unzip https://github.com/actions/upload-artifact/issues/39
@@ -97,3 +101,7 @@ jobs:
       with:
         name: hydra-aarch64-darwin-${{ env.VERSION }} # automatically zips
         path: out/*
+
+    - name: ❄ Build devShells (for cache)
+      run: |
+        nix build .#devShells.default
