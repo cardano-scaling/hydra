@@ -6,16 +6,15 @@ module Hydra.Plutus where
 import Hydra.Prelude
 
 import Control.Lens ((^.))
-import qualified Data.Aeson as Aeson
+import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth, _String)
-import qualified Data.ByteString.Base16 as Base16
+import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
 import PlutusLedgerApi.Common (SerialisedScript)
 
 -- | Loads the "plutus.json" blueprint and provides the decoded JSON.
 blueprintJSON :: Aeson.Value
 blueprintJSON =
-  -- FIXME: this does not trigger re-compilation when plutus.json gets changed
   case Aeson.decodeStrict $(makeRelativeToProject "./plutus.json" >>= embedFile) of
     Nothing -> error "Invalid blueprint: plutus.json"
     Just value -> value
