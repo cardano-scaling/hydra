@@ -31,7 +31,7 @@ For example:
 
 ``` shell
 hydra-chain-observer blockfrost \
-  --project-path project_token_hash \
+  --project-path $PROJECT_TOKEN_HASH_PATH \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
 
