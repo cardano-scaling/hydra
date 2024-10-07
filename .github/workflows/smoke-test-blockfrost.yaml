@@ -1,0 +1,72 @@
+name: "Smoke test Blockfrost"
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: "Cardano network to run against"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+        - preview
+        - preprod
+        - mainnet
+
+      hydra-scripts-tx-id:
+        description: "TxId of already published scripts"
+        required: true
+
+      use-mithril:
+        description: "Bootstrap cardano-node using mithril (removes existing db/)"
+        required: false
+        type: boolean
+
+jobs:
+  smoke-test:
+    name: "Smoke test on ${{inputs.network}}"
+    runs-on: [self-hosted, cardano]
+    concurrency: cardano-${{inputs.network}}
+    env:
+      state_dir: /srv/var/cardano/state-${{inputs.network}}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: ❄ Prepare nix
+      uses: cachix/install-nix-action@v30
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+
+    - name: 🧹 Cleanup hydra-node state
+      run: |
+        rm -rf ${state_dir}/state-*
+
+    - name: 🤐 Setup secret faucet key
+      if: ${{ inputs.network == 'mainnet' }}
+      run: |
+        echo "${{secrets.faucet_sk}}" | base64 -d >hydra-cluster/config/credentials/faucet.sk
+        echo "${{secrets.faucet_vk}}" | base64 -d >hydra-cluster/config/credentials/faucet.vk
+
+    - name: 🚬 Run hydra-cluster smoke test
+      run: |
+        HYDRA_SCRIPTS_ARG="--hydra-scripts-tx-id ${{inputs.hydra-scripts-tx-id}}"
+
+        if ${{inputs.use-mithril}}; then
+          USE_MITHRIL_ARG="--use-mithril"
+        fi
+        # In case we run against an already running node, fix the permissions of
+        # the host-mounted node.socket file (which would be owned by root)
+        if [ -e ${state_dir}/node.socket ]; then
+          sudo chmod a+w ${state_dir}/node.socket
+        fi
+        nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG} --check-observations"
+
+    - name: 💾 Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-cluster-logs
+        path: ${state_dir}/logs/**/*
+        if-no-files-found: ignore
