@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -31,14 +30,19 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V2 (serialiseCompiledCode)
 import PlutusLedgerApi.V2 qualified as Plutus
+import System.Process (readProcess)
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
+  it "Commit validator script" $ do
+    original <- readFileBS "plutus.json"
+    -- This re-generate plutus.json
+    void $ readProcess "aiken" ["build", "-t", "compact"] ""
+    regenerated <- readFileBS "plutus.json"
+    regenerated `shouldBe` original
   it "Initial validator script" $
     goldenScript "vInitial" Initial.validatorScript
-  it "Commit validator script" $
-    goldenScript "vCommit" Commit.validatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $

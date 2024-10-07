@@ -15,6 +15,7 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    aiken.url = "github:aiken-lang/aiken";
     hls = {
       url = "github:haskell/haskell-language-server";
       flake = false;
@@ -70,6 +71,7 @@
               inputs.nix-npm-buildpackage.overlays.default
               # Specific versions of tools we require
               (final: prev: {
+                aiken = inputs.aiken.packages.${system}.aiken;
                 apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
                 cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
                 cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
@@ -168,6 +170,7 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
+            inherit (inputs) aiken;
             inherit inputs pkgs hsPkgs system pkgsLatest;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };

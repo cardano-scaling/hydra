@@ -1,21 +1,19 @@
 module Main where
 
-import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, pattern TxIn)
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
+import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, txSpendingUTxO, pattern TxIn)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
 import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Utils (txSpendingUTxO)
-import Options
+import Options (Command (..), DepositOptions (..), RecoverOptions (..), parseHydraCommand)
 
 main :: IO ()
-main = do
-  cmd <- parseHydraCommand
-  case cmd of
+main =
+  parseHydraCommand >>= \case
     Deposit DepositOptions{networkId, headId, outFile, utxoFilePath, depositDeadline} ->
       eitherDecodeFileStrict utxoFilePath >>= \case
         Left err -> die $ "failed to parse provided UTXO file! " <> err

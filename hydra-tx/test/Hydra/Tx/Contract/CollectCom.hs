@@ -4,13 +4,13 @@
 module Hydra.Tx.Contract.CollectCom where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+import Hydra.Prelude hiding (label, toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Hydra.Contract.Commit qualified as Commit
+import GHC.IsList (IsList (..))
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -20,7 +20,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus.Orphans ()
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (HeadParameters (..), Party, partyToChain)
 import Hydra.Tx.CollectCom (
   collectComTx,
@@ -173,12 +173,12 @@ healthyCommitOutput participant party committed =
   txIn = genTxIn `genForParty` party
 
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitAddress =
-    mkScriptAddress @PlutusScriptV2 testNetworkId commitScript
+    mkScriptAddress testNetworkId commitScript
   commitValue =
     foldMap txOutValue committed
-      <> valueFromList
+      <> fromList
         [ (AssetId testPolicyId (onChainIdToAssetName participant), 1)
         ]
   commitDatum =
@@ -287,13 +287,13 @@ genCollectComMutation (tx, _utxo) =
 extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
 extractHeadOutputValue headTxOut policyId = do
   removedValue <- do
-    let allAssets = valueToList $ txOutValue headTxOut
+    let allAssets = toList $ txOutValue headTxOut
         nonPTs = flip filter allAssets $ \case
           (AssetId pid _, _) -> pid /= policyId
           _ -> True
     (assetId, Quantity n) <- elements nonPTs
     q <- Quantity <$> choose (1, n)
-    pure $ valueFromList [(assetId, q)]
+    pure $ fromList [(assetId, q)]
   -- Add another output which would extract the 'removedValue'. The ledger would
   -- require this to have a balanced transaction.
   extractionTxOut <- do

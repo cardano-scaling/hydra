@@ -18,6 +18,7 @@ import Hydra.Ledger.Cardano.Builder (
   emptyTxBody,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -95,6 +96,6 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitValue =
     mconcat $ txOutValue <$> Map.elems commits
   commitScript =
-    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom

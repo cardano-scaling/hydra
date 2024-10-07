@@ -12,13 +12,14 @@ module Hydra.Chain.Direct.Tx (
 ) where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
@@ -27,6 +28,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -306,9 +308,9 @@ observeCommitTx networkId utxo tx = do
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  commitAddress = mkScriptAddress @PlutusScriptV2 networkId commitScript
+  commitAddress = mkScriptAddress networkId commitScript
 
-  commitScript = fromPlutusScript Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
@@ -604,7 +606,7 @@ txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
 
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
 findHeadAssetId txOut =
-  flip findFirst (valueToList $ txOutValue txOut) $ \case
+  flip findFirst (toList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
       | aname == hydraHeadV1AssetName && q == 1 ->
           Just (pid, aname)

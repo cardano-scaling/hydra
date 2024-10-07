@@ -3,7 +3,7 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api hiding (txSpendingUTxO)
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label)
 
 import Cardano.Api.UTxO (fromPairs)
@@ -81,7 +81,7 @@ import Hydra.Tx.Environment (Environment (Environment, participants, party))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
-import Hydra.Tx.Utils (txSpendingUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)

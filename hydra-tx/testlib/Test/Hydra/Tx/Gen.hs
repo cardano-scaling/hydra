@@ -4,7 +4,7 @@
 module Test.Hydra.Tx.Gen where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
@@ -16,11 +16,12 @@ import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
-import Hydra.Contract.Commit qualified as Commit
+import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Commit (mkCommitDatum)
@@ -205,7 +206,7 @@ genScriptRegistry = do
           )
       , commitReference =
           ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef Commit.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRefV3 commitValidatorScript}
           )
       , headReference =
           ( TxIn txId' (TxIx 2)
@@ -241,7 +242,7 @@ instance Arbitrary (TxOut CtxUTxO) where
 
 shrinkValue :: Value -> [Value]
 shrinkValue =
-  shrinkMapBy valueFromList valueToList shrinkListAggressively
+  shrinkMapBy fromList toList shrinkListAggressively
 
 shrinkUTxO :: UTxO -> [UTxO]
 shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
@@ -272,7 +273,7 @@ genMintedOrBurnedValue = do
       ]
   tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
   quantity <- arbitrary `suchThat` (/= 0)
-  pure $ valueFromList [(AssetId policyId tokenName, Quantity quantity)]
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
 
 -- NOTE: Uses 'testPolicyId' for the datum.
 genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
@@ -301,12 +302,12 @@ genAbortableOutputs parties =
   initialTxOut vk =
     toUTxOContext $
       TxOut
-        (mkScriptAddress @PlutusScriptV2 testNetworkId initialScript)
-        (valueFromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
+        (mkScriptAddress testNetworkId initialScript)
+        (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 
@@ -330,7 +331,7 @@ generateCommitUTxOs parties = do
   mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
-          (mkScriptAddress @PlutusScriptV2 testNetworkId commitScript)
+          (mkScriptAddress testNetworkId commitScript)
           commitValue
           (mkTxOutDatumInline commitDatum)
           ReferenceScriptNone
@@ -341,12 +342,12 @@ generateCommitUTxOs parties = do
       mconcat
         [ lovelaceToValue (Coin 2000000)
         , foldMap txOutValue utxo
-        , valueFromList
+        , fromList
             [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
             ]
         ]
 
-    commitScript = fromPlutusScript Commit.validatorScript
+    commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 

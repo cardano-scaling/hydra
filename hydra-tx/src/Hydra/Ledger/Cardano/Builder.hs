@@ -127,7 +127,7 @@ mintTokens script redeemer assets tx =
         (t, m)
 
   mintedTokens' =
-    mintedTokens <> valueFromList (fmap (first (AssetId policyId)) assets)
+    mintedTokens <> fromList (fmap (first (AssetId policyId)) assets)
 
   mintedWitnesses' =
     BuildTxWith $ mintedWitnesses <> Map.singleton policyId mintingWitness

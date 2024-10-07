@@ -19,6 +19,7 @@ import Hydra.Ledger.Cardano.Builder (
   emptyTxBody,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Utils (headTokensFromValue)
 
@@ -55,7 +56,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
         unsafeBuildTransaction $
           emptyTxBody
             & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addReferenceInputs [initialScriptRef, commitScriptRef, headScriptRef]
+            & addReferenceInputs ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
             & addOutputs reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
             & addExtraRequiredSigners [verificationKeyHash vk]
@@ -103,7 +104,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   commitScriptRef =
     fst (commitReference scriptRegistry)
   commitScript =
-    fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+    fromPlutusScript @PlutusScriptV3 commitValidatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 

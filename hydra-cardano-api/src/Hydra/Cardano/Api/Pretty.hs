@@ -16,6 +16,7 @@ import Data.Function (on)
 import Data.List (intercalate, sort, sortBy)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
+import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 
 -- | Obtain a human-readable pretty text representation of a transaction.
@@ -76,6 +77,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> ("\n      " <> prettyAddr (Api.txOutAddress o))
           <> ("\n      " <> prettyValue 1 (Api.txOutValue o))
           <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
+          <> ("\n      " <> prettyReferenceScript (Api.txOutReferenceScript o))
 
   outputLines =
     [ "== OUTPUTS (" <> show (length outs) <> ")"
@@ -96,7 +98,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
 
   totalNumberOfAssets =
     let totalValue = foldMap Api.txOutValue outs
-     in length $ valueToList totalValue
+     in length $ toList totalValue
 
   validityLines =
     [ "== VALIDITY"
@@ -123,6 +125,12 @@ renderTxWithUTxO utxo (Tx body _wits) =
     Api.TxOutDatumInline scriptData ->
       "TxOutDatumInline " <> prettyScriptData scriptData
     _ -> error "absurd"
+
+  prettyReferenceScript = \case
+    Api.ReferenceScriptNone ->
+      "ReferenceScriptNone"
+    (Api.ReferenceScript (Api.ScriptInAnyLang l s)) ->
+      "ReferenceScript " <> show l <> " " <> show (serialiseToRawBytesHexText (hashScript s))
 
   prettyDatumCtx = \case
     Api.TxOutDatumNone ->

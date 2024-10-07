@@ -219,15 +219,17 @@ computeAbortCost =
 
 computeFanOutCost :: IO [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [5], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [numberOfParties], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
   limit <-
     maybeToList
       . getFirst
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
-        [(p, u) | p <- [5], u <- [100, 99 .. 0]]
+        [(p, u) | p <- [numberOfParties], u <- [100, 99 .. 0]]
   pure $ interesting <> limit
  where
+  numberOfParties = 10
+
   compute parties numElems = do
     (utxo, tx, knownUTxO) <- generate $ genFanoutTx parties numElems
     let utxoSerializedSize = serializedSize utxo

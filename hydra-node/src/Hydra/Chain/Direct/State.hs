@@ -14,6 +14,7 @@ import Data.Fixed (Milli)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
   AssetName (AssetName),
@@ -24,6 +25,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   PlutusScriptV2,
+  PlutusScriptV3,
   PolicyId,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -49,8 +51,7 @@ import Hydra.Cardano.Api (
   txIns',
   txOutScriptData,
   txOutValue,
-  valueFromList,
-  valueToList,
+  txSpendingUTxO,
   pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
   pattern TxOut,
@@ -77,13 +78,13 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   txInToHeadSeed,
  )
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -117,7 +118,7 @@ import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import Hydra.Tx.Utils (splitUTxO, txSpendingUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
@@ -432,7 +433,7 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
@@ -470,7 +471,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  commitScript = fromPlutusScript @PlutusScriptV2 Commit.validatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
@@ -745,7 +746,7 @@ utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 utxoOfThisHead policy = UTxO.filter hasHeadToken
  where
   hasHeadToken =
-    isJust . find isHeadToken . valueToList . txOutValue
+    isJust . find isHeadToken . IsList.toList . txOutValue
 
   isHeadToken (assetId, quantity) =
     case assetId of
@@ -1114,7 +1115,10 @@ genCommits' genUTxO ctx txInit = do
      in map (fmap (modifyTxOutValue (scaleQuantitiesDownBy numberOfUTxOs))) commitUTxOs
 
   scaleQuantitiesDownBy x =
-    valueFromList . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x)) . valueToList
+    -- XXX: Foldable Value instance would be nice here
+    IsList.fromList
+      . map (\(an, Quantity q) -> (an, Quantity $ q `div` fromIntegral x))
+      . IsList.toList
 
 genCommitFor :: VerificationKey PaymentKey -> Gen UTxO
 genCommitFor vkey =

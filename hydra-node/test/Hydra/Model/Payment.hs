@@ -6,11 +6,12 @@
 module Hydra.Model.Payment where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label)
+import Hydra.Prelude hiding (Any, label, toList)
 
 import Data.List qualified as List
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import GHC.IsList (IsList (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -99,10 +100,10 @@ instance IsTx Payment where
   utxoFromTx Payment{to, value} = [(to, value)]
   outputsOfUTxO = id
   withoutUTxO a b =
-    let as = second valueToList <$> a
-        bs = second valueToList <$> b
+    let as = second toList <$> a
+        bs = second toList <$> b
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
-     in second valueFromList <$> result
+     in second fromList <$> result
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
