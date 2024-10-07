@@ -34,6 +34,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
+  ChainPoint,
   Coin (..),
   File (File),
   Key (SigningKey),
@@ -246,7 +247,7 @@ singlePartyHeadFullLifeCycle ::
   FilePath ->
   RunningNode ->
   TxId ->
-  IO ()
+  IO (ChainPoint, HeadId)
 singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
   ( `finally`
       do
@@ -261,7 +262,7 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
           <&> modifyConfig (\config -> config{networkId, startChainFrom = Just tip})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      headId <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
         -- Initialize & open head
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -286,8 +287,10 @@ singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
         send n1 $ input "Fanout" []
         waitFor hydraTracer (10 * blockTime) [n1] $
           output "HeadIsFinalized" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+        pure headId
       traceRemainingFunds Alice
       traceRemainingFunds AliceFunds
+      pure (tip, headId)
  where
   hydraTracer = contramap FromHydraNode tracer
 
@@ -306,9 +309,11 @@ singlePartyOpenAHead ::
   RunningNode ->
   TxId ->
   -- | Continuation called when the head is open
+  (ChainPoint -> HeadId -> IO ()) ->
+  -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> IO ()) ->
   IO ()
-singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
+singlePartyOpenAHead tracer workDir node hydraScriptsTxId checkObservationsCallback callback =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
     -- Start hydra-node on chain tip
@@ -334,6 +339,7 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
+      checkObservationsCallback tip headId
       callback n1 walletSk
  where
   RunningNode{networkId, nodeSocket, blockTime} = node

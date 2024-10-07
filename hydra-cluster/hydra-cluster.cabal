@@ -75,6 +75,7 @@ library
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
     Hydra.Cluster.Mithril
+    Hydra.Cluster.Observations
     Hydra.Cluster.Options
     Hydra.Cluster.Scenarios
     Hydra.Cluster.Util
