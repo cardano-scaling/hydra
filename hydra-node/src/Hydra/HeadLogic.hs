@@ -677,14 +677,14 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(_, (depositedUTxO, _, _)) -> Just depositedUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
-      Just (depositTxId, (commitUTxOFromState, depositScriptUTxO, _)) ->
+    case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) pendingDeposits of
+      Just (depositTxId, depositUTxO) ->
         outcome
           <> causes
             [ ClientEffect $
                 ServerOutput.CommitApproved
                   { headId
-                  , utxoToCommit = commitUTxOFromState
+                  , utxoToCommit = depositUTxO
                   }
             , OnChainEffect
                 { postChainTx =
@@ -692,7 +692,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       { headId
                       , headParameters = parameters
                       , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                      , depositScriptUTxO
                       , depositTxId
                       }
                 }
@@ -741,17 +740,16 @@ onOpenClientRecover ::
   TxIdType tx ->
   Outcome tx
 onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
-  case Map.lookup recoverTxId pendingDeposits of
+  case find (\(depositTxId, _) -> depositTxId == recoverTxId) pendingDeposits of
     Nothing ->
       Error $ RequireFailed RecoverNotMatchingDeposit
-    Just (utxoToDeposit, _, _) ->
+    Just (depositTxId', _) ->
       causes
         [ OnChainEffect
             { postChainTx =
                 RecoverTx
                   { headId
-                  , recoverTxId
-                  , utxoToDeposit
+                  , recoverTxId = depositTxId'
                   , deadline = currentSlot
                   }
             }
@@ -936,7 +934,7 @@ onOpenChainDepositTx ::
   Outcome tx
 onOpenChainDepositTx headId env st deposited depositTxId deadline depositScriptOutput =
   waitOnUnresolvedDecommit $
-    newState CommitRecorded{pendingDeposits = Map.singleton depositTxId (deposited, depositScriptOutput, deadline), newLocalUTxO = localUTxO <> deposited}
+    newState CommitRecorded{pendingDeposits = [(depositTxId, deposited)], newLocalUTxO = localUTxO <> deposited}
       <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId})
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
@@ -968,23 +966,25 @@ onOpenChainRecoverTx ::
   IsTx tx =>
   HeadId ->
   OpenState tx ->
-  UTxOType tx ->
   TxIdType tx ->
   Outcome tx
-onOpenChainRecoverTx headId st recoveredUTxO recoveredTxId =
-  newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
-    <> cause
-      ( ClientEffect
-          ServerOutput.CommitRecovered
-            { headId
-            , recoveredUTxO
-            , recoveredTxId
-            }
-      )
+onOpenChainRecoverTx headId st recoveredTxId =
+  case find (\(depositTxId, _) -> depositTxId /= recoveredTxId) pendingDeposits of
+    Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
+    Just (_, recoveredUTxO) ->
+      newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
+        <> cause
+          ( ClientEffect
+              ServerOutput.CommitRecovered
+                { headId
+                , recoveredTxId
+                , recoveredUTxO
+                }
+          )
  where
   OpenState{coordinatedHeadState} = st
 
-  CoordinatedHeadState{localUTxO} = coordinatedHeadState
+  CoordinatedHeadState{localUTxO, pendingDeposits} = coordinatedHeadState
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1000,11 +1000,11 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainIncrementTx openState newVersion depositTxId =
-  case Map.lookup depositTxId pendingDeposits of
+  case find (\(depositTxId', _) -> depositTxId' == depositTxId) pendingDeposits of
     Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxId: " <> show depositTxId
-    Just (deposited, _, _) ->
+    Just _ ->
       newState CommitFinalized{newVersion, depositTxId}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, utxo = deposited, theDeposit = depositTxId})
+        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
  where
   OpenState{coordinatedHeadState, headId} = openState
 
@@ -1296,8 +1296,8 @@ update env ledger st ev = case (st, ev) of
     | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline depositScriptUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredUTxO, recoveredTxId}})
-    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredUTxO recoveredTxId
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}})
+    | ourHeadId == headId -> onOpenChainRecoverTx headId openState recoveredTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}})
@@ -1409,7 +1409,7 @@ aggregate st = \case
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
                   , -- NOTE: union is left biased, does it matter to us here?
-                    pendingDeposits = pendingDeposits `Map.union` existingDeposits
+                    pendingDeposits = pendingDeposits <> existingDeposits
                   }
             }
        where
@@ -1423,7 +1423,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
+                  , pendingDeposits = filter (\(depositTxId, _) -> depositTxId /= recoveredTxId) existingDeposits
                   }
             }
        where
@@ -1596,7 +1596,7 @@ aggregate st = \case
             os
               { coordinatedHeadState =
                   coordinatedHeadState
-                    { pendingDeposits = Map.delete depositTxId existingDeposits
+                    { pendingDeposits = filter (\(depositTxId', _) -> depositTxId' /= depositTxId) existingDeposits
                     , version = newVersion
                     }
               }

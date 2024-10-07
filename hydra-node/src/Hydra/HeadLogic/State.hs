@@ -143,11 +143,6 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
       <*> arbitrary
       <*> arbitrary
 
--- | Pending deposits are a map from the deposit input to the triple of: UTxO
--- the user wants to deposit, deposit script UTxO to be spent in the
--- increment transaction and a deadline
-type PendingDeposits tx = Map (TxIdType tx) (UTxOType tx, UTxOType tx, UTCTime)
-
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
   { localUTxO :: UTxOType tx
@@ -164,7 +159,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-  , pendingDeposits :: PendingDeposits tx
+  , pendingDeposits :: [(TxIdType tx, UTxOType tx)]
   -- ^ Pending deposit UTxO. Spec: Uα
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
