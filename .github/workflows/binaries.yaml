@@ -56,7 +56,7 @@ jobs:
 
     - name: ❄ Build devShells (for cache)
       run: |
-        nix build .#devShells.default
+        nix build .#devShells.x86_64-linux.default
 
   build-macos:
     name: "Build for aarch64-darwin"
@@ -104,4 +104,4 @@ jobs:
 
     - name: ❄ Build devShells (for cache)
       run: |
-        nix build .#devShells.default
+        nix build .#devShells.aarch64-darwin.default
