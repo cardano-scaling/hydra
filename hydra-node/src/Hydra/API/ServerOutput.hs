@@ -28,6 +28,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -202,6 +203,8 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
+
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO

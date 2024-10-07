@@ -1,0 +1,53 @@
+{
+    "samples": [
+        {
+            "headId": "fca45a4675cfb1a39a06802efbcac1a8",
+            "parties": [
+                {
+                    "vkey": "12a099761a1668fd49cd2886e09122a6f034b045575119ad99212c7cbd718c40"
+                },
+                {
+                    "vkey": "18769a77999b0ea19fe5bf14bc3750159e139164d663e4b80ccdc0f89ca654d7"
+                },
+                {
+                    "vkey": "1138b4ab42aac02639bc9edb1385829652dd8e3cf588da38fda65acc0cd44177"
+                },
+                {
+                    "vkey": "b2bf3a51f32cd465362d625ad9755b1f081e1140e596f73db7428e364fc3ead2"
+                },
+                {
+                    "vkey": "2c7317cf264c77f0aff1d025cf85a80572747e18145c6680deff677f6ab15ef7"
+                },
+                {
+                    "vkey": "496d77963528a974753294333619e779ee83d4ac1c1f5fb6451ccd1b2ebba6a0"
+                },
+                {
+                    "vkey": "f5de362257f3168c374b06388af1bc5ec0b5acbc7e2ace8ca92f25bee29f6194"
+                },
+                {
+                    "vkey": "b5ff6db6681abeeeea3644b71488d1a725b62ab6d9b094bee8905904c45d5a28"
+                },
+                {
+                    "vkey": "f8b4e3d15fe7cd6360abad8995439e10d924af5101bbfe56bbbcc831acf1e230"
+                },
+                {
+                    "vkey": "41f211516c98a37a7a96e77b07e289768041ec1ce05d57c6fc4d30ec1efa9ccf"
+                },
+                {
+                    "vkey": "a579a7ad9c193792f7e1378ab14588af91ad0c4b9ebddd61026c3d9b321f5366"
+                },
+                {
+                    "vkey": "31a6387db2a53166b04d7666dbbdd6d81d9c13bd7a0fc2b02cf9ad8122a1b274"
+                },
+                {
+                    "vkey": "98dc01088e4177a697bf30eff59edef25b4b478984f8797bb0f6b7c99d050868"
+                },
+                {
+                    "vkey": "01dd8c04fb1179f590ebc5cfc5e52c112713413830e1ce1f7a10d62801e6df99"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        }
+    ],
+    "seed": 1908135969
+}
