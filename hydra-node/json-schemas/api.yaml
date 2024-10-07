@@ -2425,7 +2425,9 @@ components:
           description: |
             The 'inlineDatum' in its original cbor encoded form. Useful to
             evaluate scripts and calculate script integrity hashes.
-          $ref: "api.yaml#/components/schemas/Cbor"
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Cbor"
+            - type: "null" 
         datum:
           oneOf:
             - type: string

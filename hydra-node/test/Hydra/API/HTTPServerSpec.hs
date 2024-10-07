@@ -8,12 +8,14 @@ import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
+import Data.Text qualified as Text
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   mkTxOutDatumInline,
   modifyTxOutDatum,
+  renderTxIn,
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
@@ -160,7 +162,7 @@ apiServerSpec = do
             get "/snapshot/utxo"
               `shouldRespondWith` 200
                 { matchBody = MatchBody $ \_ body ->
-                    if isNothing (body ^? key (fromString $ show i) . key "inlineDatumRaw")
+                    if isNothing (body ^? key (fromString $ Text.unpack $ renderTxIn i) . key "inlineDatumRaw")
                       then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
                       else Nothing
                 }

@@ -303,20 +303,3 @@ genMintedOrBurnedValue = do
   tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
   quantity <- arbitrary `suchThat` (/= 0)
   pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
-
--- | Generate a 'TxOut' with a reference script. The standard 'genTxOut' is not
--- including reference scripts, use this generator if you are interested in
--- these cases.
-genTxOutWithReferenceScript :: Gen (TxOut ctx)
-genTxOutWithReferenceScript = do
-  -- Have the ledger generate a TxOut with a reference script as instances are
-  -- not so easily accessible.
-  refScript <- (txOutReferenceScript . fromLedgerTxOut <$> arbitrary) `suchThat` (/= ReferenceScriptNone)
-  genTxOut <&> \out -> out{txOutReferenceScript = refScript}
-
--- | Genereate a 'UTxO' with a single entry using given 'TxOut' generator.
-genUTxO1 :: Gen (TxOut CtxUTxO) -> Gen UTxO
-genUTxO1 gen = do
-  txIn <- arbitrary
-  txOut <- gen
-  pure $ UTxO.singleton (txIn, txOut)

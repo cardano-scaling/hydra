@@ -68,6 +68,7 @@ import Cardano.Api as X hiding (
   blue,
   createAndValidateTransactionBody,
   defaultTxBodyContent,
+  fromLedgerUTxO,
   fromLedgerValue,
   green,
   makeShelleyKeyWitness,
@@ -83,16 +84,12 @@ import Cardano.Api as X hiding (
   toLedgerValue,
   (<+>),
  )
-import Cardano.Api.Byron as X (
-  Address (..),
- )
 import Cardano.Api.Experimental as X (UnsignedTx (..))
 import Cardano.Api.Ledger as X (
   PParams,
  )
 import Cardano.Api.Shelley as X (
   AcquiringFailure (..),
-  Address (..),
   Hash (HeaderHash),
   Key (..),
   PlutusScriptOrReferenceInput (PScript),
@@ -397,6 +394,7 @@ pattern TxBodyContent ::
   TxValidityUpperBound ->
   TxMetadataInEra ->
   TxAuxScripts ->
+  BuildTxWith buidl (TxSupplementalDatums Era) ->
   TxExtraKeyWitnesses ->
   BuildTxWith buidl (Maybe (LedgerProtocolParameters Era)) ->
   TxWithdrawals buidl Era ->
@@ -421,6 +419,7 @@ pattern TxBodyContent
   , txValidityUpperBound
   , txMetadata
   , txAuxScripts
+  , txSupplementalDatums
   , txExtraKeyWits
   , txProtocolParams
   , txWithdrawals
@@ -445,6 +444,7 @@ pattern TxBodyContent
     txValidityUpperBound
     txMetadata
     txAuxScripts
+    txSupplementalDatums
     txExtraKeyWits
     txProtocolParams
     txWithdrawals

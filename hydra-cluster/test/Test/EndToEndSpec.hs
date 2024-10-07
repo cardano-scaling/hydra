@@ -702,6 +702,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
                   , "datum" .= Null
                   , "datumhash" .= Null
                   , "inlineDatum" .= Null
+                  , "inlineDatumRaw" .= Null
                   , "referenceScript" .= Null
                   ]
               )
@@ -713,6 +714,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
                   , "datum" .= Null
                   , "datumhash" .= Null
                   , "inlineDatum" .= Null
+                  , "inlineDatumRaw" .= Null
                   , "referenceScript" .= Null
                   ]
               )

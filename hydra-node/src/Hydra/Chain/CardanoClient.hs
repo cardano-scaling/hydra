@@ -132,6 +132,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
       TxValidityNoUpperBound
       TxMetadataNone
       TxAuxScriptsNone
+      (BuildTxWith TxSupplementalDataNone)
       TxExtraKeyWitnessesNone
       (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
       TxWithdrawalsNone

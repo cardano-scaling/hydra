@@ -4,7 +4,6 @@ module Hydra.Cardano.Api.Address where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.Byron (Address (..))
 import Cardano.Binary (unsafeDeserialize')
 import Cardano.Chain.Common qualified as Ledger
 import Data.ByteString qualified as BS

@@ -1,10 +1,750 @@
 {
     "samples": [
         {
-            "headId": "cdc1411051234aaa8a7682b53f918421",
+            "headId": "fce47ab83cc1fe5d1beb18152868fbb4",
             "tag": "HeadIsAborted",
-            "utxo": {}
+            "utxo": {
+                "0cc2c8aaa81bda9835a406a5a6ea2dbf597ad403f313b0b1cf696231703bf45d#37": {
+                    "address": "addr_test1yq7qep48vwgetsg097m4y493vr7spsw406qd06wu7q6g2t883zy6jw9ehn3stzhlhlenukrew5j2y8a2m564qpzvqufq8uvdqf",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 1,
+                        "fields": [
+                            {
+                                "int": 2
+                            },
+                            {
+                                "constructor": 2,
+                                "fields": [
+                                    {
+                                        "bytes": ""
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "int": 0
+                                                },
+                                                "v": {
+                                                    "int": -3
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -5
+                                                },
+                                                "v": {
+                                                    "int": -5
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "bytes": ""
+                                    },
+                                    {
+                                        "list": []
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "int": -5
+                                                },
+                                                "v": {
+                                                    "int": 2
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -4
+                                                },
+                                                "v": {
+                                                    "bytes": "304303"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -4
+                                                },
+                                                "v": {
+                                                    "bytes": ""
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "constructor": 2,
+                                            "fields": [
+                                                {
+                                                    "int": 5
+                                                },
+                                                {
+                                                    "int": 2
+                                                },
+                                                {
+                                                    "bytes": "e511ba"
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "constructor": 2,
+                                            "fields": []
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "bytes": "84e99d"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "00"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "int": 5
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": [
+                                                {
+                                                    "int": 4
+                                                },
+                                                {
+                                                    "bytes": "c16509"
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "int": 0
+                                                },
+                                                {
+                                                    "int": 0
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "int": -5
+                                                },
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": "8def62f4"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "constructor": 5,
+                                            "fields": [
+                                                {
+                                                    "int": -2
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": -3
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "b222"
+                                                    },
+                                                    "v": {
+                                                        "int": -3
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 4
+                                                    },
+                                                    "v": {
+                                                        "bytes": "f52e"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 4
+                                                    },
+                                                    "v": {
+                                                        "bytes": "f49d"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "int": 5
+                                        },
+                                        "v": {
+                                            "map": []
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "inlineDatumRaw": "d87a9f02d87b9f40a2002224244080a3240223433043032340ffa5d87b9f050243e511baffd87b80a14384e99d4100059f0443c16509030000ffd87d9f2440448def62f4ffd87e9f21ffa4220242b222220442f52e0442f49d05a0ff",
+                    "inlineDatumhash": "06dc397fe7b2b28709e267d601d2637f48d02f382896599f1ce93cbdcee28814",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82041a00047166",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "6fe3c957ad79a1064dffbd1b4f5c1db529a98d0d8c8b09bc48cc35dd": {
+                            "37": 8531070506124420213
+                        },
+                        "lovelace": 6569916924435502565
+                    }
+                },
+                "24039c202a5981239353be13fdbfcd5dcdca1ed8ba287f276552189364cc1fb7#93": {
+                    "address": "addr1zxs9vz58fjuh27tnus0wpdezuknjnpku7vgquqxd6nvs9gde689qga9jgl3mfhrmvn2nzppmtzxw0y3u3w6urrwpccfqcnr0kr",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8201818201838202838200581c2ecc161ed20dc0058747f95d4c5cba95c156ec6dc4adbb2042676cfe8200581cbfec6b0db684396b556247bcb4f7afa312a5be8a4d0a03cf6feb69498200581ca53db23a1d74870d146e59363e0503c5eeefffc73d8d29a8262dd4fc8201808200581ce9d77d663a9455985de92076483675eaf6c455aff9e026a7d8a41035",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "38": 2001334671507472906
+                        },
+                        "fe34d046dfa79d920606ab0fc586d4b77cd02ab5a8f4d698a54f7a88": {
+                            "32": 6691817571409504511,
+                            "b02116eb68f026cadcb346901a0d2fd48399736507929926461280d536f4c8": 1
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "49aaa8724b2e6b51e5c58a4984c7b35f547e4d653537f8c3507fe6a2f4cd6481#53": {
+                    "address": "addr_test1yrea4jhcs5zh2x9mar889axa6mq779dtddwz33ky7svr7c475x703kjg95lll8a34t9dpq0pqsa3jx5l3d3h37uq4ahqkcsg3j",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                            "988e444a45d7dc00a719027627965c735890": 1
+                        },
+                        "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                            "c3b79c36a0b7f984df1d3fd0b95ccdbc7665c3931c504ebadee9ae08": 3729375494378049725
+                        },
+                        "lovelace": 5477148947840677585
+                    }
+                },
+                "79420827e7f3eb15e71b0e4fa02ff33e72c53a5e6c80e6735cc130c6eb6195fb#85": {
+                    "address": "addr1y9yqc4y9djma2d2txgpu2ay7xkwv6drwjgqfpz8k3dppkn8v74px6jmmlz86xw0rnam5pnqa6dp0ersdhp34we49vjmstkfng4",
+                    "datum": null,
+                    "datumhash": "9424cdabf8e60f7d66ec57c896f100d4b0e6fc0725ead088946fcfa74cef3233",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "83030282820282830300808202848200581c9a97bf1f373ff9d74fe334b5a94b5a8e894000cced491f9150369c0d8200581cef55737d05b4bc8d90abeb3ae6f12c4fc55f165da9aa46660cd6e9278200581c6d1bdfc99eda1b827a5b77a7167e1ee9e57e944ffd780edd9eb1387a8200581c3748141504090c09d930a1d20f8cfbcdaa1f35e466c78eea8cab830483030080",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                            "37": 2,
+                            "3afb6092fe29ba9f1f081ff0d6c8a79c3ea277b2ee980119a9645adfba37a5": 3
+                        }
+                    }
+                },
+                "7e2e24bc9246dcbbbada4bb06640bfd72bc3b369b67781079e31418cde322f2f#50": {
+                    "address": "EqGAuA8vHnNqeJngSjJQivruRz8noKNponjxqqXrBsYktYbb2bW8ygvU47AgHFvuictaaMBJzzZv5mJePDfqdijLTyjDwSvWkmbCU5wRHadtSgL3NnqYyjm",
+                    "datum": null,
+                    "datumhash": "08b2142d01aaa62fee60faaa8bd026b34dc1da8519a47a198363d35ca2b14480",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002261",
+                            "description": "",
+                            "type": "PlutusScriptV3"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV3"
+                    },
+                    "value": {
+                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                            "9a2ce0aeed906905c0c6beab197e50e8786309a9e8228d25a0": 1,
+                            "f5a26d5402f20768": 8269089639028808994
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "7f222239d54bff2c20e00b40b82f31a70c73faf8477faa43bd9090999f3cb1cb#57": {
+                    "address": "addr_test1wzfvq0vaqy5qknqr2gu2tpqy83t0xrn3gadp5jvmf6jgmqgvk6xr5",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                            "38": 2,
+                            "47dda359ff99513f18573939a93d7563275a54": 2
+                        },
+                        "a4d6ee565b2d35c4837b25ceda26056e255a8eb527eaabfd2837778d": {
+                            "0e462d80f80b0bf868e9ce7be423d374d8146b886d": 1,
+                            "54c53c783ce568e6d7": 3
+                        },
+                        "lovelace": 5785001487547773227
+                    }
+                },
+                "a4397a16bd17aa418b6db1207db9096715072d7d6b2c86020cba0a0c9651c34c#29": {
+                    "address": "addr_test1zps4uc6s9euakhxva9xx55s7ygm302lj2tnwraj070rykpdnw6a32gpwu6mpz3exec4apqppdrxwscwfnll6jp3q7u2stgz7te",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 1,
+                        "fields": [
+                            {
+                                "int": -2
+                            },
+                            {
+                                "list": [
+                                    {
+                                        "list": [
+                                            {
+                                                "bytes": "a7fb"
+                                            },
+                                            {
+                                                "int": -3
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "int": -4
+                                                },
+                                                "v": {
+                                                    "bytes": "eafd"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "84"
+                                                },
+                                                "v": {
+                                                    "int": -3
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "list": [
+                                            {
+                                                "int": -5
+                                            },
+                                            {
+                                                "int": 2
+                                            },
+                                            {
+                                                "bytes": "fb"
+                                            },
+                                            {
+                                                "int": 2
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": 3,
+                                "fields": [
+                                    {
+                                        "constructor": 0,
+                                        "fields": []
+                                    },
+                                    {
+                                        "int": 3
+                                    }
+                                ]
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "int": 2
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": 3
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "37dd"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "4a"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": -5
+                                                    },
+                                                    "v": {
+                                                        "int": 0
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -2
+                                                    },
+                                                    "v": {
+                                                        "int": -2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -4
+                                                    },
+                                                    "v": {
+                                                        "bytes": "6bd9ecef"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 3
+                                                    },
+                                                    "v": {
+                                                        "int": 1
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "list": [
+                                                {
+                                                    "bytes": "c22ccc"
+                                                },
+                                                {
+                                                    "int": -5
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "bytes": "a7aa9e"
+                                        },
+                                        "v": {
+                                            "constructor": 0,
+                                            "fields": [
+                                                {
+                                                    "int": -3
+                                                },
+                                                {
+                                                    "int": 0
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "int": 5
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "bytes": "33317b"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "05fd"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 1
+                                                    },
+                                                    "v": {
+                                                        "bytes": "e3a8d045"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": ""
+                                                    },
+                                                    "v": {
+                                                        "int": -1
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "b69d"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "817b"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "b6"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "7239"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "constructor": 2,
+                                            "fields": [
+                                                {
+                                                    "int": -4
+                                                },
+                                                {
+                                                    "int": -4
+                                                },
+                                                {
+                                                    "int": -4
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": 1
+                                                    },
+                                                    "v": {
+                                                        "int": 4
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 4
+                                                    },
+                                                    "v": {
+                                                        "int": -3
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": 1,
+                                "fields": [
+                                    {
+                                        "constructor": 3,
+                                        "fields": []
+                                    },
+                                    {
+                                        "bytes": "fd"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "inlineDatumRaw": "d87a9f219f9f42a7fb22ffa22342eafd4184229f240241fb02ffffd87c9fd8798003ffa502a203024237dd414aa42400212123446bd9ecef03019f43c22ccc24ff43a7aa9ed8799f2200ff05a54333317b4205fd0144e3a8d045402042b69d42817b41b6427239d87b9f232323ffa201040422d87a9fd87c8041fdffff",
+                    "inlineDatumhash": "23807f5c9a8eb46b3bd34822c3a9fa11a358e90d726b6a074895f7bf999de515",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "82028483030384820180830301828200581c1b52b81aa1d0bad9947816baf3c6add099e58b44a7b3ce6f65ee086c8200581c8a791b09216e67343be9e5001a80097f18050c1bb25d554e110ea847830300828200581c9790ca36a3cd6e25324fa64c5772e4bed71eeb8fa15e6abd6902f3f98200581c65753768128f168d570754758666a62ff12c2e659874791edc93670e8200581cb49952a0afa35cc912981f55bbc3ee8427d1513d17268887a93e53c283030083820180820180830302828200581c26463177f5bd3d79bb349411158cd608515252558dbf2aef47adb2e28200581cc4d5243a9bcf8d57aa547077feafa1a48a9a2103567446dee72ee69d8201838200581cea815fd39adc08dd20e3fc77d7b0c0cc935bd841c290109b85975d848202848200581cd60c9771dfdc9a8638c3e8e1eb894140fa89eeb42ed8f5c84d64ee418200581c2e7fa368899c0263efd427dbb63cb34d9583a8da2f90fce9eab3fbbb8200581cf79a33f242b13946b3e0e503d17215f97a60947468156fde3be98bab8200581c5482fc0718370924333b1e4ecbe303871f2a215dd1f6f1b52b4357188201818200581cc21acdbdb1e3766819167d2516a6c8eab57626fb293997092eaaebe1830301828201838200581c9621b99ee71c21a6a9d1b41d5b866e18cb3141ac2a385fa6599c41838200581cd9b17102aa52b4c7e6869b6ebd2b10dee8c34f4a8dcf2c7b06e4e3298200581ccc96f62ff4c530776dce4a5aeaee68ef6082c385853c231702006b8f820280",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "8d402c2644ac024e6401a56320c95ce4da3cf46ec7597c3381a91359": {
+                            "21a8964b976b0c1643f1cdc38dac164d24cbf1e2bbf808": 1477660303960690614
+                        },
+                        "f4772dd7ecea0134152731d1eff7bb8ee2bb2d229bb72c7176b72c35": {
+                            "6f4e0de69ca0db9c0be48038f572d5c14b6182aa2e3d": 6077735025902585593
+                        },
+                        "lovelace": 2
+                    }
+                },
+                "de314f8b518ec21cd482b216a12b2453a20fbf53ee47c80875a2a2fbe9c431a3#80": {
+                    "address": "addr_test1zpzrx88ms8u3554p4ckr8qe3zp5sjc4l6gqwz2yz4hm2clakpamanfm72ma5f5hhtk7cy95z6mp4r3kcsvvq954ywaqq8ckjl4",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 4,
+                        "fields": [
+                            {
+                                "bytes": "42e08f92"
+                            },
+                            {
+                                "int": 5
+                            },
+                            {
+                                "constructor": 3,
+                                "fields": [
+                                    {
+                                        "list": [
+                                            {
+                                                "bytes": "84de"
+                                            },
+                                            {
+                                                "int": 3
+                                            },
+                                            {
+                                                "int": 4
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "list": []
+                                    },
+                                    {
+                                        "map": [
+                                            {
+                                                "k": {
+                                                    "bytes": ""
+                                                },
+                                                "v": {
+                                                    "bytes": "b505f5"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": 3
+                                                },
+                                                "v": {
+                                                    "bytes": "f8d9"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": -5
+                                                },
+                                                "v": {
+                                                    "bytes": "bd"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "int": 0
+                                                },
+                                                "v": {
+                                                    "bytes": "4648"
+                                                }
+                                            },
+                                            {
+                                                "k": {
+                                                    "bytes": "7c"
+                                                },
+                                                "v": {
+                                                    "int": -3
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "int": -4
+                                    },
+                                    {
+                                        "int": -5
+                                    }
+                                ]
+                            },
+                            {
+                                "bytes": "3d0e5a"
+                            },
+                            {
+                                "list": []
+                            }
+                        ]
+                    },
+                    "inlineDatumRaw": "d87d9f4442e08f9205d87c9f9f4284de0304ff80a54043b505f50342f8d92441bd00424648417c222324ff433d0e5a80ff",
+                    "inlineDatumhash": "7392bfcb457936a584c91e1165e5fae18175d69c72b4d5dba781d6004afbfda5",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581c9ed6234d5410387a36682864a397bb84fe40c3c90519982903de6b53",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "7abdf53d681a0f3d119ca226d911cf799fd194eaed19e0": 1
+                        },
+                        "lovelace": 3327129474458548717
+                    }
+                },
+                "e5fe57b4ebe900bc60bf65959de18b5bdd90884f29731016b4c35812cdf8df57#55": {
+                    "address": "EqGAuA8vHnPG3kFV1jpE98pVrLusEEVrsGzYbXNgEdA7686Gv8aZgcMY7vZ78wceDegPZXRqP3RDKqX66dEmCPXsey14T9E2m4oKivcHNDV6wovovzLtJFo",
+                    "datum": null,
+                    "datumhash": "88895e2a2e574805367fe2c7bb47f8c68ccf9f26b34d12c9d678931fd456c03c",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "820181820184830302828200581c24cbdd529e45783f393f67702f6f0910895653effa23a155e5b449fd8200581c758ba0831981d7b064fe031c63b8c4d3fce6e94def6690b2cc2830cb8201838200581c183bcc617c9070b2335c3ea2b2adf4946722edb18e74132e20321a8a8200581ce92cef2ee8a85fa94583f1ce31fc65f8adb031024157df094d94a55c8200581c636304678a167a915154e61192381aeacfb66156ba5b867e8069791e8202838200581c9f3cbeba9f122e0daf67b2a31541ea16ff217c4c8398e96fa170483c8200581c942cbbdaf8d3eb4984a8ff52df316d55ff8f98a713d1823a8c85abe48200581cfe50537a5e64c1c0c1b098e702b88de12475dbec2871e9b07e5cacfc8201848200581ca5f482c7fee4716b0c7369c09ce43badb28f4a44f017007355d402a08200581cc665d7ac4abdb4d4e988741d42724737fa48cefa5e6a8d4e39c782d18200581c31570fb9633d20913b88caa11cd22447b4b9975b727c9d267317c49e8200581c0ee1f4de4674b9e9a097e54791a184ad1297349f364ecf06e9f813fa",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "56811027ede950eed2733024c61486e65e3d0a51c05b1353ab7a04ae": {
+                            "25ba657b9d7a29d71f": 7731830373369055588
+                        },
+                        "9e7bc62af0bbfa5185a352ec9c8e87e3538aeca132f1a321b764a019": {
+                            "b68e52442e0d7b55fac3a38d98145831010e": 2
+                        },
+                        "lovelace": 1174650839535685551
+                    }
+                }
+            }
         }
     ],
-    "seed": -785583732
+    "seed": 39882971
 }

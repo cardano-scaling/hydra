@@ -1,9 +1,9 @@
 {
     "samples": [
         {
-            "newVersion": 23,
+            "newVersion": 24,
             "tag": "DecommitFinalized"
         }
     ],
-    "seed": 2131520966
+    "seed": 1929343895
 }
