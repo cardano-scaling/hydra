@@ -1,28 +1,69 @@
 {
     "samples": [
         {
-            "contestationPeriod": 31536000,
-            "headId": "1613dd799b8cb4f6dac58feb50212aa5",
+            "contestationPeriod": 43200,
+            "headId": "fcbcddc2f80c5346b1e60c8f6df0a667",
             "participants": [
-                "d2b0a4f6c8e95508d1725b2fc2fae308253aa8ef68af7f72f42cd18f",
-                "3113a1177c54a8cc548bd57a235217c78208c096ece63f0795f5fba3",
-                "a3b04ad3178ab3e3375e3189012e2b3799f53479a7168f12a44aac88",
-                "42e20cb4cba089eb4b9d92e196fac2be3f4e55514bd0f3949c72183e",
-                "3cf147ce23926dc97336a353b3014917a16afd04d1734b289b875c23",
-                "7f9a10a2182ff27de6b934bf92fe0c44fb51a0cb0902463166598c15",
-                "00d1ffefc30284e1df42a25da9afbe3701ddba848b880ac11229581c",
-                "e9a845d77d97ed5734f70df4865061e57ebd1d9135b7fe3227f27204",
-                "1d1f4b4ff9b56518e74e5b3bd711210daaddc63f461e407cf37409fe",
-                "30fba090ca68e65cc73268c1bb4c6748f6ae498a1e6e211fd0bec03c",
-                "6904088aca3a1c27e560da9315bdc2dd1c1118a28e6c04af46a0f816"
+                "47a6a70e747841ca1437a88f8de62e9a9db1b8130b880ed3bda0e04e",
+                "43ca70459f708ed2103f4d6bcced99fc4b6e0510a110170448dbb28e",
+                "c2d5b64582a63ab361bcc2d040f591388ec02d233a1675a620c5eeab",
+                "848be42e339004fbc4cb3ef946b545c04880b1d931b1d3b2d8af778e",
+                "88e476284517033aba74299428cc962a757ab8b5ec032eab26d40686",
+                "ce0114ec6e9f7dc567c3eeaf55f7256b25977f00b97c292af03b4ccd",
+                "c4468d9b5ae0d238c53832d4ac3405064e8af8f8718924de291f1968",
+                "d8573f6660920eb02f4534c577093d1f3d09ca1b1b83cdb666ab3655",
+                "2a33ea636eebbb7ff2c3b7641c14688990ab0f942fc3bb5fc7c7f029",
+                "8e8c2633082515d524042596a3e3859b62a7c195d5fc0ce448974b29",
+                "df12a2c03fa5c77c7eb22f870a522577520981ca5840c60ac906edcb",
+                "3621ab113577750ff115aed126f68f94d0cba87c69a4ec80462f5562",
+                "1fa91e337ee06d87fae24404d094b2b8f355e255a2b1ca16d0cd5c46",
+                "b863d76f98556a15ed7abf02e8e774145ffb464b4718750d8a5b8ac7",
+                "725293f2aa770ae3505780319026b2daf7ca11e051a8bd795e41d17e",
+                "86ae2de0016353acded7203c770d694518e727eaef7339e62ed30a97",
+                "b9179b38025f3d439c16d929a8e1c1b443b8d9f6f17e79099be7afdc",
+                "b6058586cb283f336608a41b8957634a36791323c5aa3aa3d39e40f7",
+                "074f6e6d130f8a390916b58e33508563acc48631046dba911a12014f",
+                "d669d84099fa9c7181b264f732fc67496b90a686f431ebe436247e53",
+                "2ecf7e60be5b2f93b032945ac97b12ffaccf892a1dff52f840b8ea2c",
+                "28152fc4334f45e12b32bd67c02642ca59fcaf12c7d73306f6aa7978",
+                "2b3953cb1be27214549618082613f710ed842eb8ef80c436893bef0e",
+                "d05b5e0b5082f1e5d3943bf08d1188d2c29c0f8384b839a2058053a8",
+                "a7d9dbce7728cd4e453f45a5717050ca5ae3a67e1c1522508b6e0af0",
+                "9af82dc42872a778c6d67b31fabb55a435dfa0b1ab3325f79311f305",
+                "04283fa39e9f996b16679940a31b77fd72890639f7f5853a62d4a937",
+                "c05f636a26cc79b2e3d4fd83d5612727ef8422f1dfbc3c7d778373b8"
             ],
             "parties": [
                 {
-                    "vkey": "6728f51697372ebe4ff0c8d929272c28c111d5453a862699dda85c0ffc37e7bb"
+                    "vkey": "a8ad9346b2f6c6707f5f565688e8513b53e6ecd80c67c68922f58d8d0832bb77"
+                },
+                {
+                    "vkey": "8334dec7c19d5b40e720061a133cea34acb279b6e2fae3434a2985f89dc498fd"
+                },
+                {
+                    "vkey": "cee55a69c0f5762ed457de6697fd1cb5bfeb8a843a70f02b649627ae62d19104"
+                },
+                {
+                    "vkey": "202e38b7acc5c0720aaa1b626086dfa1d7cc18a274a8c9d9f54c894cf822e3cc"
+                },
+                {
+                    "vkey": "26d367326c8f90b00a3d4db51f505b8552504e97e10546b646334d596e534259"
+                },
+                {
+                    "vkey": "e6c97d17256b5ef8536c3cef4be2065a6d1573a4424df8fd1e137c514bff3f26"
+                },
+                {
+                    "vkey": "2b60ff08f7dc6b1707f656972f57f75a93c3dffd044078a3a24a4837eda7752b"
+                },
+                {
+                    "vkey": "749dc6b1d5a0cc0081f0e76158ed6a83dfe19dc10122a2236b6b123acf8c7d06"
+                },
+                {
+                    "vkey": "eb960adf1516b9807709e9445cd04503296bb453b8401092315343c3e64de111"
                 }
             ],
             "tag": "IgnoredHeadInitializing"
         }
     ],
-    "seed": 851207505
+    "seed": 1585176079
 }

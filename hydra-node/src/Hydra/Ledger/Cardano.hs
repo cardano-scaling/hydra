@@ -17,7 +17,6 @@ import Hydra.Ledger.Cardano.Builder
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
@@ -28,15 +27,12 @@ import Data.Default (def)
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
-import Hydra.Tx.Utils (adaOnly)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genValue)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (
   choose,
   getSize,
-  oneof,
-  suchThat,
   vectorOf,
  )
 

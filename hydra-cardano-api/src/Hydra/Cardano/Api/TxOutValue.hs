@@ -5,7 +5,6 @@ import Hydra.Cardano.Api.Prelude
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::
   forall era.
-  IsShelleyBasedEra era =>
   IsMaryBasedEra era =>
   Value ->
   TxOutValue era

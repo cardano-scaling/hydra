@@ -1,10 +1,10 @@
 {
     "samples": [
         {
-            "depositTxId": "1068efcbc5d21fc0c76bf0606a1ab377ea162c1abda488fb9802692309437667",
-            "newVersion": 0,
+            "depositTxId": "4e03bf2634ed40f0a6436cd48d71402be0c4c1a4b4edaf848010cb394cdbb943",
+            "newVersion": 4,
             "tag": "CommitFinalized"
         }
     ],
-    "seed": -631512089
+    "seed": -1820290309
 }

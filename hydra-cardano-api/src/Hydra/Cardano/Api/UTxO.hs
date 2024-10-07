@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.UTxO where
 
-import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
 import Hydra.Cardano.Api.TxId (toLedgerTxId)
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn, txIns')
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
