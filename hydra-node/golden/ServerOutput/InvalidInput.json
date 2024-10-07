@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "input": ":IUW",
+            "reason": "\\ꫩM\u0018",
+            "tag": "InvalidInput"
+        }
+    ],
+    "seed": -205662730
+}

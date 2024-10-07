@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "decommitTxId": "71157f3d09c5bb56e3c0110915679d2d12c19e91e71b0669b2222876685ff367",
+            "headId": "ee48504cc872f5e284148ce9d1736133",
+            "tag": "DecommitFinalized"
+        }
+    ],
+    "seed": -1624243448
+}

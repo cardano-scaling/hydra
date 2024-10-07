@@ -1,0 +1,28 @@
+{
+    "samples": [
+        {
+            "contestationPeriod": 31536000,
+            "headId": "1613dd799b8cb4f6dac58feb50212aa5",
+            "participants": [
+                "d2b0a4f6c8e95508d1725b2fc2fae308253aa8ef68af7f72f42cd18f",
+                "3113a1177c54a8cc548bd57a235217c78208c096ece63f0795f5fba3",
+                "a3b04ad3178ab3e3375e3189012e2b3799f53479a7168f12a44aac88",
+                "42e20cb4cba089eb4b9d92e196fac2be3f4e55514bd0f3949c72183e",
+                "3cf147ce23926dc97336a353b3014917a16afd04d1734b289b875c23",
+                "7f9a10a2182ff27de6b934bf92fe0c44fb51a0cb0902463166598c15",
+                "00d1ffefc30284e1df42a25da9afbe3701ddba848b880ac11229581c",
+                "e9a845d77d97ed5734f70df4865061e57ebd1d9135b7fe3227f27204",
+                "1d1f4b4ff9b56518e74e5b3bd711210daaddc63f461e407cf37409fe",
+                "30fba090ca68e65cc73268c1bb4c6748f6ae498a1e6e211fd0bec03c",
+                "6904088aca3a1c27e560da9315bdc2dd1c1118a28e6c04af46a0f816"
+            ],
+            "parties": [
+                {
+                    "vkey": "6728f51697372ebe4ff0c8d929272c28c111d5453a862699dda85c0ffc37e7bb"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        }
+    ],
+    "seed": 851207505
+}

@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "headId": "cdc1411051234aaa8a7682b53f918421",
+            "tag": "HeadIsAborted",
+            "utxo": {}
+        }
+    ],
+    "seed": -785583732
+}
