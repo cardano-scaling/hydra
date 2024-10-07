@@ -45,16 +45,17 @@ fromChainSnapshotVersion =
 data Snapshot tx = Snapshot
   { headId :: HeadId
   , version :: SnapshotVersion
-  -- ^ Open state version this snapshot is based on.
+  -- ^ Open state version this snapshot is based on. Spec: v
   , number :: SnapshotNumber
-  -- ^ Monotonically increasing snapshot number.
-  , confirmed :: [TxIdType tx]
+  -- ^ Monotonically increasing snapshot number. Spec: s
+  , confirmed :: [tx]
+  -- ^ The set of transactions that lead to 'utxo'. Spec: T
   , utxo :: UTxOType tx
-  -- ^ The set of transactions that lead to 'utxo'
+  -- ^ Snaspshotted UTxO set. Spec: U
   , utxoToCommit :: Maybe (UTxOType tx)
-  -- ^ UTxO to be committed. Spec: Ûα
+  -- ^ UTxO to be committed. Spec: Uα
   , utxoToDecommit :: Maybe (UTxOType tx)
-  -- ^ UTxO to be decommitted. Spec: Ûω
+  -- ^ UTxO to be decommitted. Spec: Uω
   }
   deriving stock (Generic)
 
@@ -88,8 +89,8 @@ instance IsTx tx => ToJSON (Snapshot tx) where
     object
       [ "headId" .= headId
       , "version" .= version
-      , "snapshotNumber" .= number
-      , "confirmedTransactions" .= confirmed
+      , "number" .= number
+      , "confirmed" .= confirmed
       , "utxo" .= utxo
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
@@ -100,8 +101,8 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     Snapshot
       <$> (obj .: "headId")
       <*> (obj .: "version")
-      <*> (obj .: "snapshotNumber")
-      <*> (obj .: "confirmedTransactions")
+      <*> (obj .: "number")
+      <*> (obj .: "confirmed")
       <*> (obj .: "utxo")
       <*> ( obj .:? "utxoToCommit" >>= \case
               Nothing -> pure mempty
@@ -112,7 +113,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               (Just utxo) -> pure utxo
           )
 
-instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Snapshot tx) where
+instance (Typeable tx, ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
     toCBOR headId
       <> toCBOR version
@@ -122,7 +123,7 @@ instance (Typeable tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Sn
       <> toCBOR utxoToCommit
       <> toCBOR utxoToDecommit
 
-instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Snapshot tx) where
+instance (Typeable tx, FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR =
     Snapshot
       <$> fromCBOR
@@ -133,7 +134,7 @@ instance (Typeable tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       <*> fromCBOR
       <*> fromCBOR
 
-instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Snapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
@@ -190,7 +191,7 @@ isInitialSnapshot = \case
   InitialSnapshot{} -> True
   ConfirmedSnapshot{} -> False
 
-instance (Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     utxo <- arbitrary

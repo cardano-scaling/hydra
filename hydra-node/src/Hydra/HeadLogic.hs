@@ -322,7 +322,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      (cause (ClientEffect $ ServerOutput.TxValid headId tx) <>) $
+      (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx)) <>) $
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -429,7 +429,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                         { headId
                         , version = version
                         , number = sn
-                        , confirmed = requestedTxIds
+                        , confirmed = requestedTxs
                         , utxo = u
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit

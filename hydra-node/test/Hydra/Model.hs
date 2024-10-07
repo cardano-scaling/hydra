@@ -742,7 +742,7 @@ performNewTx party tx = do
   lift $ do
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       SnapshotConfirmed{snapshot = snapshot} ->
-        txId realTx `elem` Snapshot.confirmed snapshot
+        realTx `elem` Snapshot.confirmed snapshot
       err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx

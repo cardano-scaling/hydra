@@ -31,6 +31,12 @@ changes.
 
 - Fix the bug where commit endpoint drops withdraw redeemers [#1643](https://github.com/cardano-scaling/hydra/issues/1643)
 
+- **BREAKING** Change to `SnapshotConfirmed` and `TxValid` server outputs:
+  - Snapshots now contain the full transactions in `confirmed` and field names changed.
+  - `TxValid` only refers to the transaction by id.
+  - Overall this results in transactions still to be submitted once per client,
+    but requires signifanctly less book-keeping on the client-side.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`

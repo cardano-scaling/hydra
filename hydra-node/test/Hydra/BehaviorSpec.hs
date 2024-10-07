@@ -232,7 +232,7 @@ spec = parallel $ do
                 openHead chain n1 n2
 
                 send n1 (NewTx (aValidTx 42))
-                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
+                waitUntil [n1, n2] $ TxValid testHeadId 42
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -241,10 +241,11 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
 
-                send n1 (NewTx $ aValidTx 42)
-                waitUntil [n1, n2] $ TxValid testHeadId (aValidTx 42)
+                let tx = aValidTx 42
+                send n1 (NewTx tx)
+                waitUntil [n1, n2] $ TxValid testHeadId 42
 
-                let snapshot = Snapshot testHeadId 0 1 [42] (utxoRefs [1, 2, 42]) mempty mempty
+                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -269,7 +270,7 @@ spec = parallel $ do
                 -- transaction right away which is the current snapshot policy.
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    number == 1 && confirmed == [40]
+                    number == 1 && confirmed == [aValidTx 40]
                   _ -> False
 
                 -- Expect bob to also snapshot what did "not fit" into the first
@@ -278,7 +279,7 @@ spec = parallel $ do
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     -- NOTE: We sort the confirmed to be clear that the order may
                     -- be freely picked by the leader.
-                    number == 2 && sort confirmed == [41, 42]
+                    number == 2 && sort confirmed == [aValidTx 41, aValidTx 42]
                   _ -> False
 
                 -- As there are no pending transactions and snapshots anymore
@@ -286,7 +287,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 44)
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    number == 3 && confirmed == [44]
+                    number == 3 && confirmed == [aValidTx 44]
                   _ -> False
 
       it "depending transactions stay pending and are confirmed in order" $
@@ -302,16 +303,16 @@ spec = parallel $ do
                 send n1 (NewTx firstTx)
 
                 -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxValid testHeadId firstTx
+                waitUntil [n1, n2] $ TxValid testHeadId 1
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [1] (utxoRefs [2, 3])
+                  let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
-                waitUntil [n1, n2] $ TxValid testHeadId secondTx
+                waitUntil [n1, n2] $ TxValid testHeadId 2
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 2 0 [2] (utxoRefs [2, 4])
+                  let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
@@ -322,7 +323,7 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
-                let secondTx = SimpleTx 1 (utxoRef 3) (utxoRef 4)
+                let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
                 -- If we wait too long, secondTx will expire
@@ -332,7 +333,7 @@ spec = parallel $ do
                   _ -> False
 
                 send n1 (NewTx firstTx)
-                waitUntil [n1, n2] $ TxValid testHeadId firstTx
+                waitUntil [n1, n2] $ TxValid testHeadId 1
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
@@ -355,7 +356,7 @@ spec = parallel $ do
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [1] (utxoRefs [2, 10])
+                  let snapshot = testSnapshot 1 0 [tx'] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
                 waitUntilMatch [n1, n2] $ \case
@@ -371,7 +372,7 @@ spec = parallel $ do
                 let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
                 send n1 (NewTx newTx)
 
-                let snapshot = testSnapshot 1 0 [42] (utxoRefs [2, 42])
+                let snapshot = testSnapshot 1 0 [newTx] (utxoRefs [2, 42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
@@ -461,7 +462,7 @@ spec = parallel $ do
                 let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                 send n2 (NewTx normalTx)
                 waitUntilMatch [n1, n2] $ \case
-                  SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> 2 `elem` confirmed
+                  SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                   _ -> False
 
                 waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
@@ -602,7 +603,7 @@ spec = parallel $ do
             rollbackAndForward chain 2
             -- We expect the node to still work and let us post L2 transactions
             send n1 (NewTx (aValidTx 42))
-            waitUntil [n1] $ TxValid testHeadId (aValidTx 42)
+            waitUntil [n1] $ TxValid testHeadId 42
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
