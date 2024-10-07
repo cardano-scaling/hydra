@@ -9,7 +9,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (EraTxAuxData (hashTxAuxData))
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
-  ConwayPlutusPurpose (ConwaySpending),
+  ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
   Metadatum,
   auxDataHashTxBodyL,
   auxDataTxL,
@@ -31,6 +31,7 @@ import Control.Lens ((^.))
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
+import Hydra.Cardano.Api.Prelude (StakeCredential (StakeCredentialByScript))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
@@ -83,6 +84,7 @@ import Test.QuickCheck (
   cover,
   forAll,
   forAllBlind,
+  oneof,
   property,
   vectorOf,
   (.&&.),
@@ -186,6 +188,9 @@ spec =
                       & counterexample "Validity range mismatch"
                   , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. inputsTxBodyL)
                       & counterexample "Blueprint inputs missing"
+                  , length (toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL & unRedeemers) + 1
+                      === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
+                      & counterexample "Blueprint witnesses missing"
                   , property
                       ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))
                       & counterexample "Blueprint outputs not discarded"
@@ -233,6 +238,7 @@ genBlueprintTxWithUTxO =
       >>= addValidityRange
       >>= addRandomMetadata
       >>= addCollateralInput
+      >>= sometimesAddRewardRedeemer
  where
   spendingPubKeyOutput (utxo, txbody) = do
     utxoToSpend <- genUTxOAdaOnlyOfSize =<< choose (0, 3)
@@ -287,6 +293,33 @@ genBlueprintTxWithUTxO =
       , txbody{txInsCollateral = TxInsCollateral $ toList (UTxO.inputSet utxoToSpend)}
       )
 
+  sometimesAddRewardRedeemer (utxo, txbody) =
+    oneof
+      [ pure (utxo, txbody)
+      , do
+          lovelace <- arbitrary
+          let scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
+              alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+              redeemer = toScriptData (123 :: Integer)
+              -- XXX: Depends on hydra-cardano-api prelude (maybe extract a helper to hydra-cardano-api?)
+              stakeCredential = StakeCredentialByScript $ hashScript $ PlutusScript alwaysSucceedingScript
+              stakeAddress = makeStakeAddress testNetworkId stakeCredential
+          pure
+            ( utxo
+            , txbody
+                & setTxWithdrawals
+                  ( TxWithdrawals
+                      shelleyBasedEra
+                      [
+                        ( stakeAddress
+                        , lovelace
+                        , BuildTxWith $ ScriptWitness ScriptWitnessForStakeAddr scriptWitness
+                        )
+                      ]
+                  )
+            )
+      ]
+
 genMetadata :: Gen TxMetadataInEra
 genMetadata = do
   genMetadata' @LedgerEra >>= \(ShelleyTxAuxData m) ->
@@ -307,7 +340,18 @@ prop_interestingBlueprintTx = do
       & cover 1 (spendsFromPubKey (utxo, tx)) "blueprint spends pub key UTxO"
       & cover 1 (spendsFromPubKey (utxo, tx) && spendsFromScript (utxo, tx)) "blueprint spends from script AND pub key"
       & cover 1 (hasReferenceInputs tx) "blueprint has reference input"
+      & cover 1 (hasRewardRedeemer tx) "blueprint has reward redeemer"
  where
+  hasRewardRedeemer tx =
+    toLedgerTx tx ^. witsTxL . rdmrsTxWitsL
+      & unRedeemers @LedgerEra
+      & Map.keysSet
+      & any
+        ( \case
+            ConwayRewarding _ -> True
+            _ -> False
+        )
+
   hasReferenceInputs tx =
     not . null $ toLedgerTx tx ^. bodyTxL . referenceInputsTxBodyL
 
