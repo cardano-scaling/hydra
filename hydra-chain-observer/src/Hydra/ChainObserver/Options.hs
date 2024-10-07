@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Hydra.ChainObserver.Options where
 
 import Hydra.Prelude
@@ -26,33 +28,41 @@ import Options.Applicative (
   value,
  )
 
-type Options :: Type
-data Options
-  = Options
-      { networkId :: NetworkId
-      , nodeSocket :: SocketPath
-      , startChainFrom :: Maybe ChainPoint
-      -- ^ Point at which to start following the chain.
-      }
-  | BlockfrostOptions
-      { projectPath :: FilePath
-      , startChainFrom :: Maybe ChainPoint
-      -- ^ Point at which to start following the chain.
-      }
+data DirectOptions = DirectOptions
+  { networkId :: NetworkId
+  , nodeSocket :: SocketPath
+  , startChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
+  }
   deriving stock (Show, Eq)
 
-optionsParser :: Parser Options
-optionsParser =
-  Options
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> optional startChainFromParser
+data BlockfrostOptions = BlockfrostOptions
+  { projectPath :: FilePath
+  , startChainFrom :: Maybe ChainPoint
+  -- ^ Point at which to start following the chain.
+  }
+  deriving stock (Show, Eq)
+
+type Options :: Type
+data Options = DirectOpts DirectOptions | BlockfrostOpts BlockfrostOptions
+  deriving stock (Show, Eq)
+
+directOptionsParser :: Parser Options
+directOptionsParser =
+  DirectOpts
+    <$> ( DirectOptions
+            <$> networkIdParser
+            <*> nodeSocketParser
+            <*> optional startChainFromParser
+        )
 
 blockfrostOptionsParser :: Parser Options
 blockfrostOptionsParser =
-  BlockfrostOptions
-    <$> projectPathParser
-    <*> optional startChainFromParser
+  BlockfrostOpts
+    <$> ( BlockfrostOptions
+            <$> projectPathParser
+            <*> optional startChainFromParser
+        )
 
 projectPathParser :: Parser FilePath
 projectPathParser =
@@ -68,7 +78,7 @@ projectPathParser =
 directOptionsInfo :: ParserInfo Options
 directOptionsInfo =
   info
-    optionsParser
+    directOptionsParser
     (progDesc "Direct Mode")
 
 blockfrostOptionsInfo :: ParserInfo Options

@@ -29,19 +29,22 @@ import Options.Applicative (
   value,
  )
 
-type Options :: Type
-data Options
-  = Options
-      { networkId :: NetworkId
-      , port :: PortNumber
-      , nodeSocket :: SocketPath
-      , startChainFrom :: Maybe ChainPoint
-      }
-  | BlockfrostOptions
-      { port :: PortNumber
-      , projectPath :: FilePath
-      , startChainFrom :: Maybe ChainPoint
-      }
+data DirectOptions = DirectOptions
+  { networkId :: NetworkId
+  , port :: PortNumber
+  , nodeSocket :: SocketPath
+  , startChainFrom :: Maybe ChainPoint
+  }
+  deriving stock (Show, Eq)
+
+data BlockfrostOptions = BlockfrostOptions
+  { port :: PortNumber
+  , projectPath :: FilePath
+  , startChainFrom :: Maybe ChainPoint
+  }
+  deriving stock (Show, Eq)
+
+data Options = DirectOpts DirectOptions | BlockfrostOpts BlockfrostOptions
   deriving stock (Show, Eq)
 
 apiPortParser :: Parser PortNumber
@@ -55,25 +58,29 @@ apiPortParser =
         <> help "Listen port for incoming client API connections."
     )
 
-optionsParser :: Parser Options
-optionsParser =
-  Options
-    <$> networkIdParser
-    <*> apiPortParser
-    <*> nodeSocketParser
-    <*> optional startChainFromParser
+directOptionsParser :: Parser Options
+directOptionsParser =
+  DirectOpts
+    <$> ( DirectOptions
+            <$> networkIdParser
+            <*> apiPortParser
+            <*> nodeSocketParser
+            <*> optional startChainFromParser
+        )
 
 blockfrostOptionsParser :: Parser Options
 blockfrostOptionsParser =
-  BlockfrostOptions
-    <$> apiPortParser
-    <*> projectPathParser
-    <*> optional startChainFromParser
+  BlockfrostOpts
+    <$> ( BlockfrostOptions
+            <$> apiPortParser
+            <*> projectPathParser
+            <*> optional startChainFromParser
+        )
 
 directOptionsInfo :: ParserInfo Options
 directOptionsInfo =
   info
-    optionsParser
+    directOptionsParser
     (progDesc "Direct Mode")
 
 blockfrostOptionsInfo :: ParserInfo Options

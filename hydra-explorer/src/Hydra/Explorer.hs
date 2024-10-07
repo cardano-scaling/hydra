@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation)
 import Hydra.Explorer.ExplorerState (ExplorerState (..), HeadState, TickState, aggregateHeadObservations, initialTickState)
-import Hydra.Explorer.Options (Options (..), toArgProjectPath, toArgStartChainFrom)
+import Hydra.Explorer.Options (BlockfrostOptions (..), DirectOptions (..), Options (..), toArgProjectPath, toArgStartChainFrom)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Options qualified as Options
 import Network.Wai (Middleware, Request (..))
@@ -85,12 +85,12 @@ run opts = do
 
     let chainObserverArgs =
           case opts of
-            Options{networkId, nodeSocket, startChainFrom} ->
+            DirectOpts DirectOptions{networkId, nodeSocket, startChainFrom} ->
               ["direct"]
                 <> Options.toArgNodeSocket nodeSocket
                 <> Options.toArgNetworkId networkId
                 <> toArgStartChainFrom startChainFrom
-            BlockfrostOptions{projectPath, startChainFrom} ->
+            BlockfrostOpts BlockfrostOptions{projectPath, startChainFrom} ->
               ["blockfrost"]
                 <> toArgProjectPath projectPath
                 <> toArgStartChainFrom startChainFrom
@@ -100,7 +100,10 @@ run opts = do
       )
       (Warp.runSettings (settings tracer) (httpApp tracer getExplorerState))
  where
-  portToBind = port opts
+  portToBind =
+    case opts of
+      DirectOpts DirectOptions{port} -> port
+      BlockfrostOpts BlockfrostOptions{port} -> port
 
   settings tracer =
     Warp.defaultSettings
