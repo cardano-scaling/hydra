@@ -40,6 +40,8 @@ changes.
   - Overall this results in transactions still to be submitted once per client,
     but requires signifanctly less book-keeping on the client-side.
 
+- Add **Blockfrost Mode** to `hydra-chain-observer`, to follow the chain via Blockfrost API.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
@@ -53,8 +55,6 @@ changes.
 - Adds a manual recipient address entry to `hydra-tui` and fixes event handling. [#1607](https://github.com/cardano-scaling/hydra/pull/1607)
 
 - Add a demo mode to hydra-cluster to facilitate network resiliance tests [#1552](https://github.com/cardano-scaling/hydra/pull/1552)
-
-- Add **Blockfrost Mode** to `hydra-chain-observer`, to follow the chain via Blockfrost API.
 
 ## [0.18.1] - 2024-08-15
 
