@@ -632,12 +632,12 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     -- Second submission: now valid
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor hydraTracer 3 [n1] $
-      output "TxValid" ["transaction" .= tx, "headId" .= headId]
+      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
     confirmedTransactions <- waitMatch 3 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-      v ^? key "snapshot" . key "confirmedTransactions"
-    confirmedTransactions ^.. values `shouldBe` [toJSON $ txId tx]
+      v ^? key "snapshot" . key "confirmed"
+    confirmedTransactions ^.. values `shouldBe` [toJSON tx]
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
@@ -687,7 +687,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
             aliceExternalSk
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor hydraTracer 10 [n1, n2, n3] $
-      output "TxValid" ["transaction" .= tx, "headId" .= headId]
+      output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
     -- The expected new utxo set is the created payment to bob,
     -- alice's remaining utxo in head and whatever bot has
@@ -724,12 +724,12 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     waitMatch 10 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
-      snapshotNumber <- v ^? key "snapshot" . key "snapshotNumber"
+      snapshotNumber <- v ^? key "snapshot" . key "number"
       guard $ snapshotNumber == toJSON expectedSnapshotNumber
       utxo <- v ^? key "snapshot" . key "utxo"
       guard $ utxo == toJSON newUTxO
-      confirmedTransactions <- v ^? key "snapshot" . key "confirmedTransactions"
-      guard $ confirmedTransactions == toJSON [txId tx]
+      confirmedTransactions <- v ^? key "snapshot" . key "confirmed"
+      guard $ confirmedTransactions == toJSON [tx]
 
     (toJSON <$> getSnapshotUTxO n1) `shouldReturn` toJSON newUTxO
 

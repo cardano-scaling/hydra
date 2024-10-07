@@ -1025,8 +1025,8 @@ respendUTxO client sk delay = do
     waitMatch 10 client $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $
-        toJSON (txId tx)
-          `elem` (v ^.. key "snapshot" . key "confirmedTransactions" . values)
+        toJSON tx
+          `elem` (v ^.. key "snapshot" . key "confirmed" . values)
       v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
 
 -- * Utilities
