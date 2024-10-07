@@ -1009,7 +1009,7 @@ components:
       required:
         - tag
         - headId
-        - transaction
+        - transactionId
         - seq
         - timestamp
       properties:
@@ -1018,8 +1018,8 @@ components:
           enum: ["TxValid"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        transaction:
-          $ref: "api.yaml#/components/schemas/Transaction"
+        transactionId:
+          $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2271,22 +2271,25 @@ components:
       type: object
       required:
       - headId
-      - snapshotNumber
+      - number
       - utxo
-      - confirmedTransactions
+      - confirmed
       - version
       properties:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        snapshotNumber:
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        number:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        confirmed:
+          description: The list of transactions that leads to this snapshot utxo.
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
         utxo:
           description: Choose between to display or not using the `snapshot-utxo` query parameter.
           $ref: "api.yaml#/components/schemas/UTxO"
-        confirmedTransactions:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/TxId"
         utxoToCommit:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
@@ -2295,9 +2298,6 @@ components:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
             - type: "null"
-        version:
-          $ref: "api.yaml#/components/schemas/SnapshotVersion"
-
 
     SnapshotNumber:
       type: integer

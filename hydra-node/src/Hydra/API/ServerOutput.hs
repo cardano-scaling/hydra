@@ -103,7 +103,7 @@ data ServerOutput tx
   | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
-    TxValid {headId :: HeadId, transaction :: tx}
+    TxValid {headId :: HeadId, transactionId :: TxIdType tx}
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -239,10 +239,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     CommandFailed{} -> encodedResponse
-    TxValid{Hydra.API.ServerOutput.transaction = tx} ->
-      (key "transaction" .~ toJSON tx) encodedResponse
-    TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
-      (key "transaction" .~ toJSON tx) encodedResponse
+    TxValid{} -> encodedResponse
+    TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
