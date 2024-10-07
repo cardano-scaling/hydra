@@ -107,7 +107,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
  where
   shouldRetry _ = \case
     Right{} -> pure False
-    Left err -> pure $ isRetryable (spy err)
+    Left err -> pure $ isRetryable err
 
   retryPolicy blockTime = constantDelay (truncate blockTime * 1000 * 1000)
 
@@ -223,5 +223,5 @@ toTx (Blockfrost.TransactionCBOR txCbor) =
 
 fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
 fromChainPoint chainPoint genesisBlockHash = case chainPoint of
-  ChainPoint _ headerHash -> Blockfrost.BlockHash (spy (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash))
+  ChainPoint _ headerHash -> Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
   ChainPointAtGenesis -> Blockfrost.BlockHash genesisBlockHash
