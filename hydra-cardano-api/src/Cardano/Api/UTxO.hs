@@ -66,6 +66,10 @@ pairs = Map.toList . toMap
 find :: (out -> Bool) -> UTxO' out -> Maybe (TxIn, out)
 find fn utxo = List.find (fn . snd) $ pairs utxo
 
+-- | Find first 'UTxO' which satisfies given predicate.
+findBy :: ((TxIn, out) -> Bool) -> UTxO' out -> Maybe (TxIn, out)
+findBy fn utxo = List.find fn $ pairs utxo
+
 -- | Filter UTxO to only include 'out's satisfying given predicate.
 filter :: (out -> Bool) -> UTxO' out -> UTxO' out
 filter fn = UTxO . Map.filter fn . toMap
