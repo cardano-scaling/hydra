@@ -61,6 +61,7 @@ library
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
+    Hydra.Cardano.Api.StakeAddress
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxId

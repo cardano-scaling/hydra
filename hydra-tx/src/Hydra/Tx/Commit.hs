@@ -77,7 +77,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
           & bodyTxL . inputsTxBodyL .~ newInputs
           & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
           & witsTxL . rdmrsTxWitsL
-            .~ Redeemers (fromList $ resolveNonSpendingRedeemers tx)
+            .~ Redeemers (fromList $ nonSpendingRedeemers tx)
               <> Redeemers (fromList $ mkRedeemers newRedeemers newInputs)
 
   -- Make redeemers (with zeroed units) from a TxIn -> Data map and a set of transaction inputs
@@ -104,7 +104,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
       )
       (unRedeemers $ tx ^. witsTxL . rdmrsTxWitsL)
 
-  resolveNonSpendingRedeemers tx =
+  nonSpendingRedeemers tx =
     Map.foldMapWithKey
       ( \p (d, ex) ->
           case redeemerPointerInverse (tx ^. bodyTxL) p of
