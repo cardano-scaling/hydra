@@ -11,7 +11,7 @@ import Bench.Summary (Summary (..), errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import System.Environment (withArgs)
@@ -36,13 +36,8 @@ main = do
  where
   playDemo outputDirectory scalingFactor networkId nodeSocket action = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
-    let toClientKeys (actor, funds) = do
-          sk <- snd <$> keysFor actor
-          fundsSk <- snd <$> keysFor funds
-          pure $ ClientKeys sk fundsSk
-    clientKeys <- forM actors toClientKeys
-    dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
+    hydraNodeKeys <- mapM (fmap snd . keysFor) [AliceFunds, BobFunds, CarolFunds]
+    dataset <- generateDemoUTxODataset networkId nodeSocket hydraNodeKeys numberOfTxs
     workDir <- maybe (createTempDir "bench-demo") pure outputDirectory
     results <- runSingle dataset action workDir
     summarizeResults outputDirectory [results]
