@@ -22,7 +22,6 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
-import Data.Aeson.Types (parseMaybe)
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Scientific (Scientific)
@@ -32,10 +31,7 @@ import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
-  headIsInitializingWith,
- )
+import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Generator (ClientDataset (..), ClientKeys (..), Dataset (..))
 import Hydra.Logging (
   Tracer,
@@ -43,7 +39,7 @@ import Hydra.Logging (
   withTracerOutputTo,
  )
 import Hydra.Network (Host)
-import Hydra.Tx (HeadId, Party, deriveParty, txId)
+import Hydra.Tx (HeadId, deriveParty, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
@@ -75,15 +71,6 @@ import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
 import Prelude (read)
 
-data Event = Event
-  { submittedAt :: UTCTime
-  , validAt :: Maybe UTCTime
-  , invalidAt :: Maybe UTCTime
-  , confirmedAt :: Maybe UTCTime
-  }
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
-
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO Summary
 bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
@@ -93,7 +80,6 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
         putTextLn "Starting benchmark"
         let cardanoKeys = map (\ClientDataset{clientKeys = ClientKeys{signingKey}} -> (getVerificationKey signingKey, signingKey)) clientDatasets
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
-        let parties = Set.fromList (deriveParty <$> hydraKeys)
         withOSStats workDir $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
@@ -106,7 +92,7 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
               let clients = leader : followers
               waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer node workDir dataset parties leader followers
+              scenario hydraTracer node workDir dataset leader followers
 
 benchDemo ::
   NetworkId ->
@@ -136,7 +122,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  scenario hydraTracer node workDir dataset mempty leader followers
+                  scenario hydraTracer node workDir dataset leader followers
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -161,24 +147,20 @@ scenario ::
   RunningNode ->
   FilePath ->
   Dataset ->
-  Set Party ->
   HydraClient ->
   [HydraClient] ->
   IO Summary
-scenario hydraTracer node workDir Dataset{clientDatasets, title, description} parties leader followers = do
+scenario hydraTracer node workDir Dataset{clientDatasets, title, description} leader followers = do
   let clusterSize = fromIntegral $ length clientDatasets
   let clients = leader : followers
   let totalTxs = sum $ map (length . txSequence) clientDatasets
 
   putTextLn "Initializing Head"
   send leader $ input "Init" []
-  headId <-
-    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $ \v ->
-      headIsInitializingWith parties v
-        <|> do
-          guard $ v ^? key "tag" == Just "HeadIsInitializing"
-          headId <- v ^? key "headId"
-          parseMaybe parseJSON headId :: Maybe HeadId
+  headId :: HeadId <-
+    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsInitializing"
+      v ^? key "headId" . _JSON
 
   putTextLn "Comitting initialUTxO from dataset"
   expectedUTxO <- commitUTxO node clients clientDatasets
@@ -347,6 +329,15 @@ commitUTxO node clients clientDatasets =
       <&> signTx externalSigningKey
         >>= submitTx node
     pure initialUTxO
+
+data Event = Event
+  { submittedAt :: UTCTime
+  , validAt :: Maybe UTCTime
+  , invalidAt :: Maybe UTCTime
+  , confirmedAt :: Maybe UTCTime
+  }
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
 
 processTransactions :: [HydraClient] -> [ClientDataset] -> IO (Map.Map TxId Event)
 processTransactions clients clientDatasets = do
