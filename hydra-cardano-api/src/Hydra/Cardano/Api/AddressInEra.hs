@@ -58,18 +58,6 @@ mkScriptAddress networkId script =
  where
   version = plutusScriptVersion @lang
 
--- | Construct a stake address from a Plutus script.
-mkStakeScriptAddress ::
-  forall lang.
-  IsPlutusScriptLanguage lang =>
-  NetworkId ->
-  PlutusScript lang ->
-  StakeAddress
-mkStakeScriptAddress networkId script =
-  makeStakeAddress networkId $ StakeCredentialByScript $ hashScript $ PlutusScript version script
- where
-  version = plutusScriptVersion @lang
-
 -- * Type Conversions
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'

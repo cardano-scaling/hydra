@@ -300,7 +300,7 @@ genBlueprintTxWithUTxO =
           let scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
               redeemer = toScriptData (123 :: Integer)
-              stakeAddress = mkStakeScriptAddress testNetworkId alwaysSucceedingScript
+              stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
           pure
             ( utxo
             , txbody
