@@ -21,6 +21,8 @@ changes.
       - Remove Commit client input since it is unused
       - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
 
+- Fix the **BUG** where commit endpoint drops withdraw redeemers [#1643](https://github.com/cardano-scaling/hydra/issues/1643)
+
 - Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
 
 - **BREAKING** Rewrite of the commit script in aiken:
