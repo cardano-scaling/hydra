@@ -1197,7 +1197,7 @@ genRecoverTx = do
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
 genIncrementTx numParties = do
-  (utxo, txDeposit) <- genDepositTx
+  (_utxo, txDeposit) <- genDepositTx
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
   let DepositObservation{deposited, depositTxId} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
@@ -1205,12 +1205,13 @@ genIncrementTx numParties = do
   let openUTxO = getKnownUTxO st
   let version = 1
   snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
+  let depositUTxO = utxoFromTx txDeposit
   pure
     ( cctx
     , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)
     , st
-    , utxo
-    , unsafeIncrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot depositTxId
+    , depositUTxO
+    , unsafeIncrement cctx (openUTxO <> depositUTxO) headId (ctxHeadParameters ctx) snapshot depositTxId
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
