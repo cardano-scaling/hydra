@@ -13,7 +13,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
@@ -43,9 +43,10 @@ main = do
           pure $ ClientKeys sk fundsSk
     clientKeys <- forM actors toClientKeys
     dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
-    results <- withTempDir "bench-demo" $ \dir -> do
-      runSingle dataset action (fromMaybe dir outputDirectory)
+    workDir <- maybe (createTempDir "bench-demo") pure outputDirectory
+    results <- runSingle dataset action workDir
     summarizeResults outputDirectory [results]
+    removeDirectoryRecursive workDir
 
   play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId = do
     (_, faucetSk) <- keysFor Faucet
@@ -54,12 +55,11 @@ main = do
     dataset <- generate $ do
       numberOfTxs <- scale (* scalingFactor) getSize
       generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-    case outputDirectory of
-      Nothing -> pure ()
-      Just dir -> do
-        saveDataset (dir </> "dataset.json") dataset
+    workDir <- maybe (createTempDir "bench-single") pure outputDirectory
+    saveDataset (workDir </> "dataset.json") dataset
     let action = bench startingNodeId timeoutSeconds
-    run outputDirectory [dataset] action
+    results <- runSingle dataset action workDir
+    summarizeResults outputDirectory [results]
 
   runSingle dataset action dir = do
     withArgs [] $ do
