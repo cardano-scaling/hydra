@@ -6,8 +6,7 @@ import CardanoNode (findRunningCardanoNode, waitForFullySynchronized, withCardan
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
-import Hydra.Cluster.Observations (runCheckObservations)
-import Hydra.Cluster.Options (CheckObservations (..), Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
+import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -31,21 +30,18 @@ run options =
             waitForFullySynchronized fromCardanoNode node
             publishOrReuseHydraScripts tracer node
               >>= singlePartyHeadFullLifeCycle tracer workDir node
-              >>= uncurry (checkObservationsCallback node)
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
-            let
-            singlePartyOpenAHead tracer workDir node txId (checkObservationsCallback node) $
-              \client walletSk -> do
-                case scenario of
-                  Idle -> forever $ pure ()
-                  RespendUTxO -> do
-                    -- Start respending the same UTxO with a 100ms delay.
-                    -- XXX: Should make this configurable
-                    respendUTxO client walletSk 0.1
+            singlePartyOpenAHead tracer workDir node txId $ \client walletSk -> do
+              case scenario of
+                Idle -> forever $ pure ()
+                RespendUTxO -> do
+                  -- Start respending the same UTxO with a 100ms delay.
+                  -- XXX: Should make this configurable
+                  respendUTxO client walletSk 0.1
  where
-  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, checkObservations, scenario} = options
+  Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario} = options
 
   withRunningCardanoNode tracer workDir network action =
     findRunningCardanoNode (contramap FromCardanoNode tracer) workDir network >>= \case
@@ -70,11 +66,6 @@ run options =
       Reuse hydraScriptsTxId -> do
         traceWith tracer $ UsingHydraScriptsAt{hydraScriptsTxId}
         pure hydraScriptsTxId
-
-  checkObservationsCallback node chainPoint headId =
-    case checkObservations of
-      NotCheckObservations -> pure ()
-      CheckObservations -> runCheckObservations node chainPoint headId
 
 hydraClusterOptions :: ParserInfo Options
 hydraClusterOptions =

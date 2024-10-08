@@ -12,19 +12,23 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (RunningNode (..), submitTx)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
+import Data.ByteString (hGetLine)
 import Data.List qualified as List
-import Hydra.Cardano.Api (lovelaceToValue, mkVkAddress, signTx)
+import Data.Text qualified as T
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Observations (chainObserverSees, withChainObserver)
 import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Tx.IsTx (txId)
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import System.IO.Error (isEOFError, isIllegalOperation)
+import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -43,7 +47,7 @@ spec = do
             (aliceCardanoVk, _) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] cperiod
             withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              withChainObserver cardanoNode Nothing $ \observer -> do
+              withChainObserver cardanoNode $ \observer -> do
                 seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 (walletVk, walletSk) <- generate genKeyPair
@@ -95,9 +99,76 @@ spec = do
 
                 chainObserverSees observer "HeadFanoutTx" headId
 
+chainObserverSees :: HasCallStack => ChainObserverHandle -> Value -> Text -> IO ()
+chainObserverSees observer txType headId =
+  awaitMatch observer 5 $ \v -> do
+    guard $ v ^? key "message" . key "tag" == Just txType
+    let actualId = v ^? key "message" . key "headId" . _String
+    guard $ actualId == Just headId
+
+awaitMatch :: HasCallStack => ChainObserverHandle -> DiffTime -> (Aeson.Value -> Maybe a) -> IO a
+awaitMatch chainObserverHandle delay f = do
+  seenMsgs <- newTVarIO []
+  timeout delay (go seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "awaitMatch did not match a message within " <> show delay
+            , padRight ' ' 20 "  seen messages:"
+                <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
+            ]
+ where
+  go seenMsgs = do
+    msg <- awaitNext chainObserverHandle
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (f msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (T.replicate n " " <>) q
+
+newtype ChainObserverHandle = ChainObserverHandle {awaitNext :: IO Value}
+
 data ChainObserverLog
   = FromCardanoNode NodeLog
   | FromHydraNode HydraNodeLog
   | FromFaucet FaucetLog
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+-- | Starts a 'hydra-chain-observer' on some Cardano network.
+withChainObserver :: RunningNode -> (ChainObserverHandle -> IO ()) -> IO ()
+withChainObserver cardanoNode action =
+  withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
+    action
+      ChainObserverHandle
+        { awaitNext = awaitNext out
+        }
+ where
+  awaitNext :: Handle -> IO Aeson.Value
+  awaitNext out = do
+    x <- try (hGetLine out)
+    case x of
+      Left e | isEOFError e || isIllegalOperation e -> do
+        threadDelay 1
+        awaitNext out
+      Left e -> failure $ "awaitNext failed with exception " <> show e
+      Right d -> do
+        case Aeson.eitherDecode (fromStrict d) of
+          Left _err -> do
+            putBSLn $ "awaitNext failed to decode msg: " <> d
+            threadDelay 1
+            awaitNext out
+          Right value -> pure value
+
+  process =
+    proc
+      "hydra-chain-observer"
+      $ ["direct", "--node-socket", unFile nodeSocket]
+        <> case networkId of
+          Mainnet -> ["--mainnet"]
+          Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
+
+  RunningNode{nodeSocket, networkId} = cardanoNode

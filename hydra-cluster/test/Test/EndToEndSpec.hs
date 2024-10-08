@@ -166,8 +166,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
-              >>= void
-              . singlePartyHeadFullLifeCycle tracer tmpDir node
+              >>= singlePartyHeadFullLifeCycle tracer tmpDir node
       it "can close with long deadline" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->

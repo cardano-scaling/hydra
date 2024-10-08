@@ -12,7 +12,6 @@ data Options = Options
   , stateDirectory :: Maybe FilePath
   , publishHydraScripts :: PublishOrReuse
   , useMithril :: UseMithril
-  , checkObservations :: CheckObservations
   , scenario :: Scenario
   }
   deriving stock (Show, Eq, Generic)
@@ -23,10 +22,6 @@ data PublishOrReuse = Publish | Reuse TxId
   deriving anyclass (ToJSON, FromJSON)
 
 data UseMithril = NotUseMithril | UseMithril
-  deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-data CheckObservations = NotCheckObservations | CheckObservations
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -41,7 +36,6 @@ parseOptions =
     <*> parseStateDirectory
     <*> parsePublishHydraScripts
     <*> parseUseMithril
-    <*> parseCheckObservations
     <*> parseScenario
  where
   parseKnownNetwork =
@@ -97,15 +91,6 @@ parseOptions =
             \When setting this, ensure that there is no db/ in --state-directory. \
             \If not set, the cardano-node will synchronize the network given the current \
             \cardano-node state in --state-directory."
-      )
-
-  parseCheckObservations =
-    flag
-      NotCheckObservations
-      CheckObservations
-      ( long "check-observations"
-          <> help
-            "Use hydra-chain-observer to in both modes and verify they observe the same."
       )
 
   parseScenario =
