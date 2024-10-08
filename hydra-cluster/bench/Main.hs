@@ -15,7 +15,7 @@ import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODatas
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing)
 import System.Environment (withArgs)
-import System.FilePath (takeDirectory, takeFileName, (</>))
+import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
@@ -24,11 +24,12 @@ main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
     StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
-      workDir <- createSystemTempDirectory "bench"
-      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
+      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
-      run outputDirectory datasetFiles action
+      putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
+      datasets <- forM datasetFiles loadDataset
+      run outputDirectory datasets action
     DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
       let action = benchDemo networkId nodeSocket timeoutSeconds hydraClients
       playDemo outputDirectory scalingFactor networkId nodeSocket action
@@ -46,15 +47,19 @@ main = do
       runSingle dataset action (fromMaybe dir outputDirectory)
     summarizeResults outputDirectory [results]
 
-  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
+  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId = do
     (_, faucetSk) <- keysFor Faucet
-    putStrLn $ "Generating single dataset in work directory: " <> workDir
-    numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- generate $ generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-    let datasetPath = workDir </> "dataset.json"
-    saveDataset datasetPath dataset
+    -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
+    putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
+    dataset <- generate $ do
+      numberOfTxs <- scale (* scalingFactor) getSize
+      generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+    case outputDirectory of
+      Nothing -> pure ()
+      Just dir -> do
+        saveDataset (dir </> "dataset.json") dataset
     let action = bench startingNodeId timeoutSeconds
-    run outputDirectory [datasetPath] action
+    run outputDirectory [dataset] action
 
   runSingle dataset action dir = do
     withArgs [] $ do
@@ -65,11 +70,9 @@ main = do
           | numberOfInvalidTxs == 0 -> pure $ Right summary
           | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
 
-  run outputDirectory datasetFiles action = do
-    results <- forM datasetFiles $ \datasetPath -> do
-      putTextLn $ "Running benchmark with dataset " <> show datasetPath
-      dataset <- loadDataset datasetPath
-      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir -> do
+  run outputDirectory datasets action = do
+    results <- forM datasets $ \dataset -> do
+      withTempDir "bench-dataset" $ \dir -> do
         -- XXX: Wait between each bench run to give the OS time to cleanup resources??
         threadDelay 10
         runSingle dataset action dir
