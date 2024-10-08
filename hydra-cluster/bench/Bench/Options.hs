@@ -6,17 +6,36 @@ import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host, readHost)
 import Hydra.Options (networkIdParser, nodeSocketParser)
-import Options.Applicative (Parser, ParserInfo, auto, command, fullDesc, header, help, helpDoc, helper, hsubparser, info, long, maybeReader, metavar, option, progDesc, short, str, strOption, value)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  auto,
+  command,
+  fullDesc,
+  header,
+  help,
+  helper,
+  hsubparser,
+  info,
+  long,
+  maybeReader,
+  metavar,
+  option,
+  progDesc,
+  short,
+  str,
+  strOption,
+  value,
+ )
 import Options.Applicative.Builder (argument)
 import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
 
 data Options
   = StandaloneOptions
-      { workDirectory :: Maybe FilePath
-      , outputDirectory :: Maybe FilePath
-      , scalingFactor :: Int
-      , timeoutSeconds :: NominalDiffTime
+      { scalingFactor :: Int
       , clusterSize :: Word64
+      , outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       }
   | DatasetOptions
@@ -65,28 +84,10 @@ standaloneOptionsInfo =
 standaloneOptionsParser :: Parser Options
 standaloneOptionsParser =
   StandaloneOptions
-    <$> optional
-      ( strOption
-          ( long "work-directory"
-              <> helpDoc
-                ( Just $
-                    "Directory containing generated transactions, UTxO set, log files for spawned processes, etc."
-                      <> item
-                        [ "If the directory exists, it's assumed to be used for replaying"
-                        , "a previous benchmark and is expected to contain 'txs.json' and"
-                        , "'utxo.json' files,"
-                        ]
-                      <> item
-                        [ "If the directory does not exist, it will be created and"
-                        , "populated with new transactions and UTxO set."
-                        ]
-                )
-          )
-      )
-    <*> optional outputDirectoryParser
-    <*> scalingFactorParser
-    <*> timeoutParser
+    <$> scalingFactorParser
     <*> clusterSizeParser
+    <*> optional outputDirectoryParser
+    <*> timeoutParser
     <*> startingNodeIdParser
 
 item :: [Doc] -> Doc
