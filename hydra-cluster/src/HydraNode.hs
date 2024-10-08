@@ -437,11 +437,12 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryPa
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesConnected tracer delay clients =
   mapM_ waitForNodeConnected clients
  where
-  allNodeIds = hydraNodeId <$> clients
+  allNodeIds = hydraNodeId <$> toList clients
+
   waitForNodeConnected n@HydraClient{hydraNodeId} =
     waitForAll tracer delay [n] $
       fmap

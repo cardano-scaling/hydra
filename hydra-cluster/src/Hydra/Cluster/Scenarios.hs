@@ -191,7 +191,7 @@ testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = 
 
   withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
     aliceStartsWithoutKnowingBob $ \n2 -> do
-      failToConnect hydraTracer [n1, n2]
+      failToConnect hydraTracer (n1 :| [n2])
 
     threadDelay 1
 
@@ -203,7 +203,7 @@ testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = 
     removeDirectoryRecursive $ workDir </> "state-2"
 
     aliceRestartsWithBobConfigured $ \n2 -> do
-      waitForNodesConnected hydraTracer 10 [n1, n2]
+      waitForNodesConnected hydraTracer 10 (n1 :| [n2])
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
@@ -633,8 +633,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
 
   let contestationPeriod = UnsafeContestationPeriod 2
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| rest) -> do
-    let clients = leader : rest
+  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+    let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 
     -- Funds to be used as fuel by Hydra protocol transactions
@@ -643,7 +643,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
     seedFromFaucet_ node carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send leader $ input "Init" []
-    void . waitForAllMatch 10 clients $
+    void . waitForAllMatch 10 (toList clients) $
       headIsInitializingWith (Set.fromList [alice, bob, carol])
 
     mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx node) clients
