@@ -13,7 +13,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
-import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
+import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
@@ -24,39 +24,50 @@ main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
     StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
-      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId
+      (_, faucetSk) <- keysFor Faucet
+      -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
+      putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
+      dataset <- generate $ do
+        numberOfTxs <- scale (* scalingFactor) getSize
+        generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      -- XXX: Using the --output-directory for both dataset storage and as a
+      -- state directory for the cluster is weird. However, the 'scenario'
+      -- contains the writing of the 'results.csv' file right now and we can't
+      -- use a temporary directory if we want to keep the 'results.csv' for
+      -- plotting after benchmarking.
+      workDir <- maybe (createTempDir "bench-single") checkEmpty outputDirectory
+      saveDataset (workDir </> "dataset.json") dataset
+      let action = bench startingNodeId timeoutSeconds
+      results <- runSingle dataset workDir action
+      summarizeResults outputDirectory [results]
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+      numberOfTxs <- generate $ scale (* scalingFactor) getSize
+      hydraNodeKeys <- mapM (fmap snd . keysFor) [AliceFunds, BobFunds, CarolFunds]
+      dataset <- generateDemoUTxODataset networkId nodeSocket hydraNodeKeys numberOfTxs
+      workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
+      results <-
+        runSingle dataset workDir $
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients
+      summarizeResults outputDirectory [results]
+      removeDirectoryRecursive workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
       putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
       datasets <- forM datasetFiles loadDataset
-      run outputDirectory datasets action
-    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
-      let action = benchDemo networkId nodeSocket timeoutSeconds hydraClients
-      playDemo outputDirectory scalingFactor networkId nodeSocket action
+      results <- forM datasets $ \dataset -> do
+        withTempDir "bench-dataset" $ \dir -> do
+          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+          threadDelay 10
+          runSingle dataset dir action
+      summarizeResults outputDirectory results
  where
-  playDemo outputDirectory scalingFactor networkId nodeSocket action = do
-    numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    hydraNodeKeys <- mapM (fmap snd . keysFor) [AliceFunds, BobFunds, CarolFunds]
-    dataset <- generateDemoUTxODataset networkId nodeSocket hydraNodeKeys numberOfTxs
-    workDir <- maybe (createTempDir "bench-demo") pure outputDirectory
-    results <- runSingle dataset action workDir
-    summarizeResults outputDirectory [results]
-    removeDirectoryRecursive workDir
+  checkEmpty fp = do
+    createDirectoryIfMissing True fp
+    listDirectory fp >>= \case
+      [] -> pure fp
+      _files -> die $ "ERROR: Output directory not empty: " <> fp
 
-  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId = do
-    (_, faucetSk) <- keysFor Faucet
-    -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
-    putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
-    dataset <- generate $ do
-      numberOfTxs <- scale (* scalingFactor) getSize
-      generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-    workDir <- maybe (createTempDir "bench-single") pure outputDirectory
-    saveDataset (workDir </> "dataset.json") dataset
-    let action = bench startingNodeId timeoutSeconds
-    results <- runSingle dataset action workDir
-    summarizeResults outputDirectory [results]
-
-  runSingle dataset action dir = do
+  runSingle dataset dir action = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, errorSummary dataset exc, TestFailed exc)
@@ -65,27 +76,16 @@ main = do
           | numberOfInvalidTxs == 0 -> pure $ Right summary
           | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
 
-  run outputDirectory datasets action = do
-    results <- forM datasets $ \dataset -> do
-      withTempDir "bench-dataset" $ \dir -> do
-        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-        threadDelay 10
-        runSingle dataset action dir
-    summarizeResults outputDirectory results
-
   summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) Summary] -> IO ()
   summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> writeBenchmarkReport outputDirectory summaries
-      errs ->
-        mapM_
-          ( \(_, dir, summary, exc) ->
-              writeBenchmarkReport outputDirectory [summary]
-                >> benchmarkFailedWith dir exc
-          )
-          errs
-          >> exitFailure
+      errs -> do
+        forM_ errs $ \(_, dir, summary, exc) -> do
+          writeBenchmarkReport outputDirectory [summary]
+          benchmarkFailedWith dir exc
+        exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
