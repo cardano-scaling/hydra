@@ -11,14 +11,9 @@ import Data.Default (def)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds)
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger.Cardano (
-  generateOneRandomTransfer,
-  generateOneSelfTransfer,
- )
+import Hydra.Ledger.Cardano (mkTransferTx)
 import Hydra.Tx (balance)
-import Test.Hydra.Tx.Gen (
-  genSigningKey,
- )
+import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -107,7 +102,7 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
           (Coin availableInitialFunds)
           clientFunds
   let dataset clientKeys =
-        generateClientDataset networkId fundingTransaction clientKeys nTxs generateOneRandomTransfer
+        generateClientDataset networkId fundingTransaction clientKeys nTxs
   clientDatasets <- forM allClientKeys dataset
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
 
@@ -146,7 +141,7 @@ generateDemoUTxODataset network nodeSocket allClientKeys nTxs = do
         let signedTx = sign faucetSk $ getTxBody tx
         pure signedTx
   let dataset clientKeys =
-        generateClientDataset network fundingTransaction clientKeys nTxs generateOneSelfTransfer
+        generateClientDataset network fundingTransaction clientKeys nTxs
   generate $ do
     clientDatasets <- forM allClientKeys dataset
     pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
@@ -177,12 +172,13 @@ generateClientDataset ::
   Tx ->
   ClientKeys ->
   Int ->
-  (NetworkId -> (UTxO, SigningKey PaymentKey, [Tx]) -> Int -> Gen (UTxO, SigningKey PaymentKey, [Tx])) ->
   Gen ClientDataset
-generateClientDataset network fundingTransaction clientKeys@ClientKeys{externalSigningKey} nTxs action = do
+generateClientDataset network fundingTransaction clientKeys@ClientKeys{externalSigningKey} nTxs = do
   let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction
-  txSequence <-
-    reverse
-      . thrd
-      <$> foldM (action network) (initialUTxO, externalSigningKey, []) [1 .. nTxs]
-  pure ClientDataset{clientKeys, initialUTxO, txSequence}
+  (_, txs) <- foldM (go externalSigningKey) (initialUTxO, []) [1 .. nTxs]
+  pure ClientDataset{clientKeys, initialUTxO, txSequence = reverse txs}
+ where
+  go sk (utxo, txs) _ = do
+    case mkTransferTx network utxo sk (getVerificationKey sk) of
+      Left err -> error $ "mkTransferTx failed: " <> err
+      Right tx -> pure (utxoFromTx tx, tx : txs)
