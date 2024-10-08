@@ -120,6 +120,8 @@ the directory containing the benchmark's results.
 
 To run and plot results of the benchmark:
 
+FIXME: this is not possible anymore:
+
 ```sh
 $ cabal bench --benchmark-options 'single'
 Running 1 benchmarks...
@@ -134,20 +136,9 @@ Created plot: /run/user/1000/bench-6b772589d08f82a5/results.png
 
 Note that if it's present in the environment, benchnark executable will gather basic system-level statistics about the RAM, CPU, and network bandwidth used. The `plot.sh` script then displays those alongside tx confirmation time in a single graph.
 
-The benchmark can be run in two modes corresponding to two different commands:
+The benchmark can be run in three modes:
 
-* `single`: Runs a single _dataset_ either freshly generated in some temporary directory or pre-existing. This is useful to either generate data or to run experiments.
-* `datasets`: Runs one or more preexisting _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
-
-Check out `cabal bench --benchmark-options --help` for more details.
-
-# Network Testing
-
-The benchmark can be also run over the running `demo` hydra-cluster, using `cabal bench` and produces a
-`results.csv` file in a work directory. Same as for benchmarks results, you can use the `bench/plot.sh` script to plot the transaction confirmation times.
-
-To run the benchmark in this mode, the command is:
-* `demo`: Runs a single _dataset_ freshly generated and collects its results in a markdown formatted file. The purpose of this setup is to facilitate a variaty of network-resiliance scenarios, such as packet loss or node failures. This is useful to prove the robustness and performance of the hydra-node's network over time and produce a human-readable summary.
-
-For instance, we make use of this in our [CI](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) to keep track for scenarios that we care about.
+* `single`: Generate a single _dataset_ and runs the benchmark with it.
+* `datasets`: Runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
+* `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resiliance scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 
