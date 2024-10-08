@@ -39,7 +39,7 @@ import Hydra.Logging (
   withTracerOutputTo,
  )
 import Hydra.Network (Host)
-import Hydra.Tx (HeadId, deriveParty, txId)
+import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
@@ -89,10 +89,9 @@ bench startingNodeId timeoutSeconds workDir dataset@Dataset{clientDatasets} = do
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \(leader :| followers) -> do
-              let clients = leader : followers
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer node workDir dataset leader followers
+              scenario hydraTracer node workDir dataset clients
 
 benchDemo ::
   NetworkId ->
@@ -122,7 +121,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  scenario hydraTracer node workDir dataset leader followers
+                  scenario hydraTracer node workDir dataset (leader :| followers)
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -147,12 +146,12 @@ scenario ::
   RunningNode ->
   FilePath ->
   Dataset ->
-  HydraClient ->
-  [HydraClient] ->
+  NonEmpty HydraClient ->
   IO Summary
-scenario hydraTracer node workDir Dataset{clientDatasets, title, description} leader followers = do
+scenario hydraTracer node workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
   let clusterSize = fromIntegral $ length clientDatasets
-  let clients = leader : followers
+  let leader = head nonEmptyClients
+      clients = toList nonEmptyClients
   let totalTxs = sum $ map (length . txSequence) clientDatasets
 
   putTextLn "Initializing Head"
