@@ -13,7 +13,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
+import System.Directory (createDirectoryIfMissing)
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, takeFileName, (</>))
 import Test.HUnit.Lang (formatFailureReason)
@@ -23,15 +23,7 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{workDirectory = Just workDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
-      -- XXX: This option is a bit weird as it allows to re-run a test by
-      -- providing --work-directory, which is now redundant of the dataset
-      -- sub-command.
-      existsDir <- doesDirectoryExist workDir
-      if existsDir
-        then replay outputDirectory timeoutSeconds startingNodeId workDir
-        else play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
-    StandaloneOptions{workDirectory = Nothing, outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
       workDir <- createSystemTempDirectory "bench"
       play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
@@ -61,12 +53,6 @@ main = do
     dataset <- generate $ generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
     let datasetPath = workDir </> "dataset.json"
     saveDataset datasetPath dataset
-    let action = bench startingNodeId timeoutSeconds
-    run outputDirectory [datasetPath] action
-
-  replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    let datasetPath = benchDir </> "dataset.json"
-    putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
     let action = bench startingNodeId timeoutSeconds
     run outputDirectory [datasetPath] action
 
