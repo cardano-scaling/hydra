@@ -49,7 +49,6 @@ recoverTx depositTxId deposited lowerBoundSlot =
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
-  , recoveredUTxO :: UTxO
   , recoveredTxId :: TxId
   }
   deriving stock (Show, Eq, Generic)
@@ -76,7 +75,6 @@ observeRecoverTx networkId utxo tx = do
       pure
         ( RecoverObservation
             { headId
-            , recoveredUTxO = deposits
             , recoveredTxId = depositTxId
             }
         )
