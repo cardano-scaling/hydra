@@ -257,9 +257,11 @@ withFile fp mode action =
     Right x -> pure x
 
 -- | Like 'traceShow', but with pretty printing of the value.
+{-# WARNING spy "Use for debugging purposes only" #-}
 spy :: Show a => a -> a
 spy a = trace (toString $ pShow a) a
 
 -- | Like 'spy' but prefixed with a label.
+{-# WARNING spy' "Use for debugging purposes only" #-}
 spy' :: Show a => String -> a -> a
 spy' msg a = trace (msg <> ": " <> toString (pShow a)) a
