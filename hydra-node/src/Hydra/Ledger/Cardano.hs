@@ -103,7 +103,26 @@ newLedgerEnv protocolParams =
 fromChainSlot :: ChainSlot -> SlotNo
 fromChainSlot (ChainSlot s) = fromIntegral s
 
--- | Create a zero-fee, payment cardano transaction.
+-- | Build a zero-fee transaction which spends the first output owned by given
+-- signing key and transfers it in full to given verification key.
+mkTransferTx ::
+  MonadFail m =>
+  NetworkId ->
+  UTxO ->
+  SigningKey PaymentKey ->
+  VerificationKey PaymentKey ->
+  m Tx
+mkTransferTx networkId utxo sender recipient =
+  case UTxO.find (isVkTxOut $ getVerificationKey sender) utxo of
+    Nothing -> fail "no utxo left to spend"
+    Just (txIn, txOut) ->
+      case mkSimpleTx (txIn, txOut) (mkVkAddress networkId recipient, foldMap txOutValue utxo) sender of
+        Left err ->
+          fail $ "mkSimpleTx failed: " <> show err
+        Right tx ->
+          pure tx
+
+-- | Build a zero-fee payment transaction.
 mkSimpleTx ::
   (TxIn, TxOut CtxUTxO) ->
   -- | Recipient address and amount.
@@ -185,7 +204,6 @@ adjustUTxO tx utxo =
 -- * Generators
 
 -- | Generates a sequence of simple "transfer" transactions for a single key.
--- The kind of transactions produced by this generator is very limited, see `generateOneTransfer`.
 genSequenceOfSimplePaymentTransactions :: Gen (UTxO, [Tx])
 genSequenceOfSimplePaymentTransactions = do
   n <- getSize
@@ -196,50 +214,16 @@ genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
 genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
   (vk, sk) <- genKeyPair
   utxo <- genOneUTxOFor vk
-  txs <-
-    reverse
-      . thrd
-      <$> foldM (generateOneRandomTransfer testNetworkId) (utxo, sk, []) [1 .. numTxs]
-  pure (utxo, txs)
+  (_, txs) <- foldM (go sk) (utxo, []) [1 .. numTxs]
+  pure (utxo, reverse txs)
  where
-  thrd (_, _, c) = c
+  -- Magic number is irrelevant.
   testNetworkId = Testnet $ NetworkMagic 42
 
-generateOneRandomTransfer ::
-  NetworkId ->
-  (UTxO, SigningKey PaymentKey, [Tx]) ->
-  Int ->
-  Gen (UTxO, SigningKey PaymentKey, [Tx])
-generateOneRandomTransfer networkId senderUtxO nbrTx = do
-  recipient <- genKeyPair
-  pure $ mkOneTransfer networkId (snd recipient) senderUtxO nbrTx
-
-generateOneSelfTransfer ::
-  NetworkId ->
-  (UTxO, SigningKey PaymentKey, [Tx]) ->
-  Int ->
-  Gen (UTxO, SigningKey PaymentKey, [Tx])
-generateOneSelfTransfer networkId senderUtxO nbrTx = do
-  let (_, recipientSk, _) = senderUtxO
-  pure $ mkOneTransfer networkId recipientSk senderUtxO nbrTx
-
-mkOneTransfer ::
-  NetworkId ->
-  SigningKey PaymentKey ->
-  (UTxO, SigningKey PaymentKey, [Tx]) ->
-  Int ->
-  (UTxO, SigningKey PaymentKey, [Tx])
-mkOneTransfer networkId recipientSk (utxo, sender, txs) _ = do
-  let recipientVk = getVerificationKey recipientSk
-  -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
-  -- this function to be ever used in production, and crash will be caught in tests
-  case UTxO.pairs utxo of
-    [txin] ->
-      case mkSimpleTx txin (mkVkAddress networkId recipientVk, balance @Tx utxo) sender of
-        Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
-        Right tx -> (utxoFromTx tx, recipientSk, tx : txs)
-    _ ->
-      error "Couldn't generate transaction sequence: need exactly one UTXO."
+  go sk (utxo, txs) _ = do
+    case mkTransferTx testNetworkId utxo sk (getVerificationKey sk) of
+      Left err -> error $ "mkTransferTx failed: " <> err
+      Right tx -> pure (utxoFromTx tx, tx : txs)
 
 -- * Orphans
 

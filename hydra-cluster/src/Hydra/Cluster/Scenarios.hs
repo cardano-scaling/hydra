@@ -44,7 +44,6 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   getVerificationKey,
-  isVkTxOut,
   lovelaceToValue,
   makeSignedTransaction,
   mkScriptAddress,
@@ -56,7 +55,6 @@ import Hydra.Cardano.Api (
   selectLovelace,
   signTx,
   toScriptData,
-  txOutAddress,
   txOutValue,
   utxoFromTx,
   writeFileTextEnvelope,
@@ -73,7 +71,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -115,6 +113,7 @@ import Network.HTTP.Types (urlEncode)
 import PlutusLedgerApi.Test.Examples (alwaysSucceedingNAryFunction)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
+import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
 
@@ -1008,17 +1007,11 @@ respendUTxO client sk delay = do
  where
   vk = getVerificationKey sk
 
-  respend utxo =
-    case UTxO.find (isVkTxOut vk) utxo of
-      Nothing -> fail "no utxo left to spend"
-      Just (txIn, txOut) ->
-        case mkSimpleTx (txIn, txOut) (txOutAddress txOut, txOutValue txOut) sk of
-          Left err ->
-            fail $ "mkSimpleTx failed: " <> show err
-          Right tx -> do
-            utxo' <- submitToHead (signTx sk tx)
-            threadDelay $ realToFrac delay
-            respend utxo'
+  respend utxo = do
+    tx <- mkTransferTx testNetworkId utxo sk vk
+    utxo' <- submitToHead (signTx sk tx)
+    threadDelay $ realToFrac delay
+    respend utxo'
 
   submitToHead tx = do
     send client $ input "NewTx" ["transaction" .= tx]
