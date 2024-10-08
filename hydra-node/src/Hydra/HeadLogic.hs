@@ -1423,7 +1423,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.delete (spy recoveredTxId) existingDeposits
+                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
                   }
             }
        where
