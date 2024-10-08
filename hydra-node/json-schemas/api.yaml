@@ -1394,7 +1394,6 @@ components:
       required:
         - tag
         - headId
-        - utxo
         - theDeposit
         - seq
         - timestamp
@@ -1404,8 +1403,6 @@ components:
           enum: ["CommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        utxo:
-           $ref: "api.yaml#/components/schemas/UTxO"
         theDeposit:
           type: string
         seq:
@@ -1797,7 +1794,6 @@ components:
             - tag
             - headId
             - recoverTxId
-            - utxoToDeposit
             - deadline
           description: |
             Post a transaction to recover deposited UTxO back to L1.
@@ -1809,8 +1805,6 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
             recoverTxId:
               type: string
-            utxoToDeposit:
-              $ref: "api.yaml#/components/schemas/UTxO"
             deadline:
               $ref: "api.yaml#/components/schemas/ChainSlot"
         - title: IncrementTx
@@ -1821,7 +1815,6 @@ components:
             - headId
             - headParameters
             - incrementingSnapshot
-            - depositScriptUTxO
             - depositTxId
           description: |
             Post a transaction to commit some UTxO to the Head.
@@ -1835,8 +1828,6 @@ components:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             incrementingSnapshot:
               $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-            depositScriptUTxO:
-              $ref: "api.yaml#/components/schemas/UTxO"
             depositTxId:
               type: string
         - title: DecrementTx
