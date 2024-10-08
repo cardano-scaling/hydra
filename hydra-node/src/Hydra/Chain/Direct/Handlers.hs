@@ -391,13 +391,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
     IncrementTx{headId, headParameters, incrementingSnapshot} ->
-      let depositScriptUTxO = undefined
-       in case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO of
-            Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
-            Right incrementTx' -> pure incrementTx'
+      case increment ctx spendableUTxO headId headParameters incrementingSnapshot of
+        Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
+        Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do
-      let utxoToDeposit = undefined
-      case recover headId recoverTxId utxoToDeposit (fromChainSlot deadline) of
+      case recover headId recoverTxId spendableUTxO (fromChainSlot deadline) of
         Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
         Right recoverTx' -> pure recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
