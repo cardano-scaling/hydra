@@ -39,7 +39,7 @@ instance Exception FaucetException
 
 data FaucetLog
   = TraceResourceExhaustedHandled Text
-  | ReturnedFunds {actor :: String, returnAmount :: Coin}
+  | ReturnedFunds {returnAmount :: Coin}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -130,7 +130,7 @@ returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
         submitTransaction networkId nodeSocket tx
         void $ awaitTransaction networkId nodeSocket tx
         pure allLovelace
-  traceWith tracer $ ReturnedFunds{actor = show senderVk, returnAmount}
+  traceWith tracer $ ReturnedFunds{returnAmount}
   pure returnAmount
  where
   buildTxBody utxo faucetAddress =

@@ -19,61 +19,75 @@ import Test.QuickCheck (choose, generate, sized)
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
 
--- | A 'Dataset' that can be run for testing purpose.
--- Each `Dataset` represents a complete scenario where several `ClientDataset` are run concurrently
--- against one or more `HydraNode`s. A dataset can optionally have a `title` and `description`
--- which will be used to report results.
+-- | A 'Dataset' that can be run for testing purpose. Each `Dataset` represents
+-- a complete scenario where several `ClientDataset` are run concurrently
+-- against one or more `HydraNode`s. A dataset can optionally have a `title` and
+-- `description` which will be used to report results.
 data Dataset = Dataset
   { fundingTransaction :: Tx
+  , hydraNodeKeys :: [SigningKey PaymentKey]
+  -- ^ Cardano signing keys that will hold fuel.
   , clientDatasets :: [ClientDataset]
   , title :: Maybe Text
   , description :: Maybe Text
   }
   deriving stock (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+
+-- NOTE: Hand-written ToJSON and FromJSON instances to deliberately serialize
+-- signing keys.
+
+instance ToJSON Dataset where
+  toJSON Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title, description} =
+    object
+      [ "fundingTransaction" .= fundingTransaction
+      , "hydraNodeKeys" .= (serialiseToTextEnvelope (Just "hydraNodeKey") <$> hydraNodeKeys)
+      , "clientDatasets" .= clientDatasets
+      , "title" .= title
+      , "description" .= description
+      ]
+
+instance FromJSON Dataset where
+  parseJSON = withObject "Dataset" $ \o -> do
+    fundingTransaction <- o .: "fundingTransaction"
+    hydraNodeKeys <- o .: "hydraNodeKeys" >>= mapM parseSigningKey
+    clientDatasets <- o .: "clientDatasets"
+    title <- o .: "title"
+    description <- o .: "description"
+    pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title, description}
+   where
+    parseSigningKey =
+      either (fail . show) pure . deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey)
 
 instance Arbitrary Dataset where
   arbitrary = sized $ \n -> do
     sk <- genSigningKey
     generateConstantUTxODataset sk (n `div` 10) n
 
-data ClientKeys = ClientKeys
-  { signingKey :: SigningKey PaymentKey
-  -- ^ Key used by the hydra-node to authorize hydra transactions and holding fuel.
-  , externalSigningKey :: SigningKey PaymentKey
-  -- ^ Key holding funds to commit.
-  }
-  deriving stock (Show)
-
-instance ToJSON ClientKeys where
-  toJSON ClientKeys{signingKey, externalSigningKey} =
-    object
-      [ "signingKey" .= serialiseToTextEnvelope (Just "signingKey") signingKey
-      , "externalSigningKey" .= serialiseToTextEnvelope (Just "externalSigningKey") externalSigningKey
-      ]
-
-instance FromJSON ClientKeys where
-  parseJSON =
-    withObject "ClientKeys" $ \o ->
-      ClientKeys
-        <$> (decodeSigningKey =<< o .: "signingKey")
-        <*> (decodeSigningKey =<< o .: "externalSigningKey")
-   where
-    decodeSigningKey v = do
-      envelope <- parseJSON v
-      deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey) envelope
-        & either (fail . show) pure
-
-instance Arbitrary ClientKeys where
-  arbitrary = ClientKeys <$> genSigningKey <*> genSigningKey
-
 data ClientDataset = ClientDataset
-  { clientKeys :: ClientKeys
+  { paymentKey :: SigningKey PaymentKey
   , initialUTxO :: UTxO
   , txSequence :: [Tx]
   }
   deriving stock (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+
+instance ToJSON ClientDataset where
+  toJSON ClientDataset{paymentKey, initialUTxO, txSequence} =
+    object
+      [ "paymentKey" .= serialiseToTextEnvelope (Just "paymentKey") paymentKey
+      , "initialUTxO" .= initialUTxO
+      , "txSequence" .= txSequence
+      ]
+
+instance FromJSON ClientDataset where
+  parseJSON =
+    withObject "ClientDataset" $ \o -> do
+      paymentKey <- o .: "paymentKey" >>= parseSigningKey
+      initialUTxO <- o .: "initialUTxO"
+      txSequence <- o .: "txSequence"
+      pure ClientDataset{paymentKey, initialUTxO, txSequence}
+   where
+    parseSigningKey =
+      either (fail . show) pure . deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey)
 
 defaultProtocolParameters :: PParams LedgerEra
 defaultProtocolParameters = def
@@ -90,21 +104,20 @@ generateConstantUTxODataset ::
   Int ->
   Gen Dataset
 generateConstantUTxODataset faucetSk nClients nTxs = do
-  allClientKeys <- replicateM nClients arbitrary
+  hydraNodeKeys <- replicateM nClients genSigningKey
+  allPaymentKeys <- replicateM nClients genSigningKey
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- genClientFunds allClientKeys availableInitialFunds
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
   let fundingTransaction =
         mkGenesisTx
           networkId
           faucetSk
           (Coin availableInitialFunds)
           clientFunds
-  let dataset clientKeys =
-        generateClientDataset networkId fundingTransaction clientKeys nTxs
-  clientDatasets <- forM allClientKeys dataset
-  pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
+  clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
+  pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
 
 -- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
 -- This queries the network to fetch the current funds available in the faucet
@@ -113,19 +126,19 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
 generateDemoUTxODataset ::
   NetworkId ->
   SocketPath ->
-  -- | Number of clients
-  [ClientKeys] ->
+  -- | Hydra node (fuel) keys.
+  [SigningKey PaymentKey] ->
   -- | Number of transactions
   Int ->
   IO Dataset
-generateDemoUTxODataset network nodeSocket allClientKeys nTxs = do
+generateDemoUTxODataset network nodeSocket allPaymentKeys nTxs = do
   (faucetVk, faucetSk) <- keysFor Faucet
   faucetUTxO <- queryUTxOFor network nodeSocket QueryTip faucetVk
   let (Coin fundsAvailable) = selectLovelace (balance @Tx faucetUTxO)
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- generate $ genClientFunds allClientKeys fundsAvailable
+  clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable
   fundingTransaction <- do
     let changeAddress = mkVkAddress network faucetVk
     let recipientOutputs =
@@ -140,11 +153,16 @@ generateDemoUTxODataset network nodeSocket allClientKeys nTxs = do
       Right tx -> do
         let signedTx = sign faucetSk $ getTxBody tx
         pure signedTx
-  let dataset clientKeys =
-        generateClientDataset network fundingTransaction clientKeys nTxs
   generate $ do
-    clientDatasets <- forM allClientKeys dataset
-    pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
+    clientDatasets <- forM allPaymentKeys (generateClientDataset network fundingTransaction nTxs)
+    pure
+      Dataset
+        { fundingTransaction
+        , hydraNodeKeys = [] -- Not needed as we won't start nodes
+        , clientDatasets
+        , title = Nothing
+        , description = Nothing
+        }
 
 -- * Helpers
 thrd :: (a, b, c) -> c
@@ -159,24 +177,24 @@ withInitialUTxO externalSigningKey fundingTransaction =
       utxoProducedByTx fundingTransaction
         & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
 
-genClientFunds :: [ClientKeys] -> Integer -> Gen [(VerificationKey PaymentKey, Coin)]
-genClientFunds clientKeys availableFunds =
-  forM clientKeys $ \ClientKeys{externalSigningKey} -> do
+genClientFunds :: [SigningKey PaymentKey] -> Integer -> Gen [(VerificationKey PaymentKey, Coin)]
+genClientFunds paymentKeys availableFunds =
+  forM paymentKeys $ \paymentKey -> do
     amount <- Coin <$> choose (1, availableFunds `div` fromIntegral nClients)
-    pure (getVerificationKey externalSigningKey, amount)
+    pure (getVerificationKey paymentKey, amount)
  where
-  nClients = length clientKeys
+  nClients = length paymentKeys
 
 generateClientDataset ::
   NetworkId ->
   Tx ->
-  ClientKeys ->
   Int ->
+  SigningKey PaymentKey ->
   Gen ClientDataset
-generateClientDataset network fundingTransaction clientKeys@ClientKeys{externalSigningKey} nTxs = do
-  let initialUTxO = withInitialUTxO externalSigningKey fundingTransaction
-  (_, txs) <- foldM (go externalSigningKey) (initialUTxO, []) [1 .. nTxs]
-  pure ClientDataset{clientKeys, initialUTxO, txSequence = reverse txs}
+generateClientDataset network fundingTransaction nTxs paymentKey = do
+  let initialUTxO = withInitialUTxO paymentKey fundingTransaction
+  (_, txs) <- foldM (go paymentKey) (initialUTxO, []) [1 .. nTxs]
+  pure ClientDataset{paymentKey, initialUTxO, txSequence = reverse txs}
  where
   go sk (utxo, txs) _ = do
     case mkTransferTx network utxo sk (getVerificationKey sk) of
