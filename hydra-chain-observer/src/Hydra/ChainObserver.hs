@@ -19,11 +19,10 @@ main observerHandler = do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
     case opts of
       DirectOpts DirectOptions{networkId, nodeSocket, startChainFrom} -> do
-        let NodeClient{follow} = ouroborusClient tracer nodeSocket
-        follow networkId startChainFrom observerHandler
+        let NodeClient{follow} = ouroborusClient tracer nodeSocket networkId
+        follow startChainFrom observerHandler
       BlockfrostOpts BlockfrostOptions{projectPath, startChainFrom} -> do
         -- FIXME: should be configurable
         let blockConfirmations = 1
             NodeClient{follow} = blockfrostClient tracer projectPath blockConfirmations
-        -- FIXME
-        follow (error "not-used") startChainFrom observerHandler
+        follow startChainFrom observerHandler

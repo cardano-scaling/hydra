@@ -43,7 +43,7 @@ defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
 
 newtype NodeClient m = NodeClient
-  { follow :: NetworkId -> Maybe ChainPoint -> ObserverHandler m -> m ()
+  { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
   }
 
 type ChainObserverLog :: Type

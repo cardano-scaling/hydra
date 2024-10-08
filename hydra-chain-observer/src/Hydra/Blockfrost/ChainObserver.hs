@@ -69,7 +69,7 @@ blockfrostClient ::
   NodeClient IO
 blockfrostClient tracer projectPath blockConfirmations = do
   NodeClient
-    { follow = \_ startChainFrom observerHandler -> do
+    { follow = \startChainFrom observerHandler -> do
         prj <- Blockfrost.projectFromFile projectPath
 
         Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-

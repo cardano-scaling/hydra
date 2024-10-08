@@ -46,10 +46,11 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
 ouroborusClient ::
   Tracer IO ChainObserverLog ->
   SocketPath ->
+  NetworkId ->
   NodeClient IO
-ouroborusClient tracer nodeSocket =
+ouroborusClient tracer nodeSocket networkId =
   NodeClient
-    { follow = \networkId startChainFrom observerHandler -> do
+    { follow = \startChainFrom observerHandler -> do
         traceWith tracer ConnectingToNode{nodeSocket, networkId}
         chainPoint <- case startChainFrom of
           Nothing -> queryTip networkId nodeSocket
