@@ -28,29 +28,6 @@ buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
 buildAddress vKey networkId =
   makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
 
-buildScriptAddress :: Script -> NetworkId -> Address ShelleyAddr
-buildScriptAddress script networkId =
-  let hashed = hashScript script
-   in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
-
--- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut CtxTx] -> Either TxBodyError TxBody
-buildRaw ins outs =
-  createAndValidateTransactionBody $
-    defaultTxBodyContent
-      & setTxIns (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
-      & setTxOuts outs
-
-data Sizes = Sizes
-  { inputs :: Int
-  , outputs :: Int
-  , witnesses :: Int
-  }
-  deriving stock (Eq, Show)
-
-defaultSizes :: Sizes
-defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
-
 -- | Sign a transaction body with given signing key.
 sign :: SigningKey PaymentKey -> TxBody -> Tx
 sign signingKey body =
@@ -111,11 +88,8 @@ waitForUTxO node utxo =
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 
--- | Helper used to generate transaction datasets for use in hydra-cluster benchmarks.
-buildRawTransaction ::
+mkGenesisTx ::
   NetworkId ->
-  -- | Initial input from which to spend
-  TxIn ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Amount of initialFunds
@@ -123,18 +97,32 @@ buildRawTransaction ::
   -- | Recipients and amounts to pay in this transaction.
   [(VerificationKey PaymentKey, Coin)] ->
   Tx
-buildRawTransaction networkId initialInput signingKey initialAmount recipients =
-  case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) of
-    Left err -> error $ "Fail to build raw transations: " <> show err
+mkGenesisTx networkId signingKey initialAmount recipients =
+  case createAndValidateTransactionBody body of
+    Left err -> error $ "Fail to build genesis transations: " <> show err
     Right tx -> sign signingKey tx
  where
+  body =
+    defaultTxBodyContent
+      & setTxIns [(initialInput, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
+      & setTxOuts (recipientOutputs <> [changeOutput])
+      & setTxFee (TxFeeExplicit 2_000_000)
+
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+
+  fee = 2_000_000
+
   totalSent = foldMap snd recipients
 
   changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
+
   changeOutput =
     TxOut
       changeAddr
-      (lovelaceToValue $ initialAmount - totalSent)
+      (lovelaceToValue $ initialAmount - totalSent - fee)
       TxOutDatumNone
       ReferenceScriptNone
 
