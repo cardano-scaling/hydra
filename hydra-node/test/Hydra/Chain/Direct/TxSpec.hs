@@ -31,7 +31,6 @@ import Control.Lens ((^.))
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
-import Hydra.Cardano.Api.Prelude (StakeCredential (StakeCredentialByScript))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
@@ -301,9 +300,7 @@ genBlueprintTxWithUTxO =
           let scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
               redeemer = toScriptData (123 :: Integer)
-              -- XXX: Depends on hydra-cardano-api prelude (maybe extract a helper to hydra-cardano-api?)
-              stakeCredential = StakeCredentialByScript $ hashScript $ PlutusScript alwaysSucceedingScript
-              stakeAddress = makeStakeAddress testNetworkId stakeCredential
+              stakeAddress = mkStakeScriptAddress testNetworkId alwaysSucceedingScript
           pure
             ( utxo
             , txbody
