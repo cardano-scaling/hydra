@@ -61,7 +61,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace
-    let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
+    let changeAddress = mkVkAddress networkId faucetVk
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do

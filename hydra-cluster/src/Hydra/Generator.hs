@@ -4,7 +4,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), buildRawTransaction, buildTransaction, queryUTxOFor, sign)
+import CardanoClient (QueryPoint (QueryTip), buildTransaction, mkGenesisTx, queryUTxOFor, sign)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
@@ -101,9 +101,8 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
   -- funded in the beginning of the benchmark run.
   clientFunds <- genClientFunds allClientKeys availableInitialFunds
   let fundingTransaction =
-        buildRawTransaction
+        mkGenesisTx
           networkId
-          initialInput
           faucetSk
           (Coin availableInitialFunds)
           clientFunds
@@ -111,11 +110,6 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
         generateClientDataset networkId fundingTransaction clientKeys nTxs generateOneRandomTransfer
   clientDatasets <- forM allClientKeys dataset
   pure Dataset{fundingTransaction, clientDatasets, title = Nothing, description = Nothing}
- where
-  initialInput =
-    genesisUTxOPseudoTxIn
-      networkId
-      (unsafeCastHash $ verificationKeyHash $ getVerificationKey faucetSk)
 
 -- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
 -- This queries the network to fetch the current funds available in the faucet
