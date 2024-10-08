@@ -929,10 +929,10 @@ onOpenChainDepositTx ::
   TxIdType tx ->
   -- | Deposit deadline
   UTCTime ->
-  -- | Deposit script output
-  UTxOType tx ->
   Outcome tx
-onOpenChainDepositTx headId env st deposited depositTxId deadline depositScriptOutput =
+onOpenChainDepositTx headId env st deposited depositTxId _deadline =
+  -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
+  -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
     newState CommitRecorded{pendingDeposits = [(depositTxId, deposited)], newLocalUTxO = localUTxO <> deposited}
       <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId})
@@ -969,7 +969,7 @@ onOpenChainRecoverTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainRecoverTx headId st recoveredTxId =
-  case find (\(depositTxId, _) -> depositTxId /= recoveredTxId) pendingDeposits of
+  case find (\(depositTxId, _) -> depositTxId == recoveredTxId) pendingDeposits of
     Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
     Just (_, recoveredUTxO) ->
       newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
@@ -1292,8 +1292,8 @@ update env ledger st ev = case (st, ev) of
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl openState transaction
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline, depositScriptUTxO}})
-    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline depositScriptUTxO
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, deposited, depositTxId, deadline}})
+    | ourHeadId == headId -> onOpenChainDepositTx headId env openState deposited depositTxId deadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId}})
@@ -1408,8 +1408,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , -- NOTE: union is left biased, does it matter to us here?
-                    pendingDeposits = pendingDeposits <> existingDeposits
+                  , pendingDeposits = Map.toList . Map.fromList $ pendingDeposits <> existingDeposits
                   }
             }
        where
