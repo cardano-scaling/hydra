@@ -76,7 +76,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Property, Smart (..), choose, cover, elements, forAll, frequency, ioProperty, oneof, shuffle, sublistOf, (===))
+import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, choose, cover, elements, frequency, ioProperty, oneof, shuffle, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -98,25 +98,23 @@ import Text.Show (Show (..))
 
 spec :: Spec
 spec = do
-  prop "generates interesting transaction traces" prop_traces
-  prop "all valid transactions" prop_runActions
   prop "realWorldModelUTxO preserves addition" $ \u1 u2 ->
     realWorldModelUTxO (u1 <> u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
+  prop "generates interesting transaction traces" $ \actions ->
+    checkCoverage $ coversInterestingActions actions True
+  prop "all valid transactions" prop_runActions
 
-prop_traces :: Property
-prop_traces =
-  forAll (arbitrary :: Gen (Actions Model)) $ \(Actions_ _ (Smart _ steps)) ->
-    -- FIXME: fix generators and minimums and re-enable coverage
-    -- checkCoverage $
-    True
-      & cover 1 (null steps) "empty"
-      & cover 5 (hasDecrement steps) "has decrements"
-      & cover 1 (countContests steps >= 2) "has multiple contests"
-      & cover 5 (closeNonInitial steps) "close with non initial snapshots"
-      & cover 10 (hasFanout steps) "reach fanout"
-      & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
-      & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-      & cover 0.5 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
+coversInterestingActions :: Testable p => Actions Model -> p -> Property
+coversInterestingActions (Actions_ _ (Smart _ steps)) p =
+  p
+    & cover 1 (null steps) "empty"
+    & cover 5 (hasDecrement steps) "has decrements"
+    & cover 1 (countContests steps >= 2) "has multiple contests"
+    & cover 5 (closeNonInitial steps) "close with non initial snapshots"
+    & cover 10 (hasFanout steps) "reach fanout"
+    & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+    & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
+    & cover 0.5 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
  where
   hasUTxOToDecommit snapshot = not . null $ decommitUTxO snapshot
 
@@ -173,9 +171,11 @@ prop_traces =
 
 prop_runActions :: Actions Model -> Property
 prop_runActions actions =
-  monadic runAppMProperty $ do
-    -- print actions
-    void (runActions actions)
+  coversInterestingActions actions
+    . monadic runAppMProperty
+    $ do
+      -- print actions
+      void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
   runAppMProperty action = ioProperty $ do
