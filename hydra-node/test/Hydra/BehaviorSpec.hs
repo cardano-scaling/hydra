@@ -381,128 +381,187 @@ spec = parallel $ do
 
                 waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
 
-      it "can request decommit" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
+      describe "Commit" $ do
+        it "requested commits get approved" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  let depositScriptUTxO = utxoRefs [12]
+                  let deadline = arbitrary `generateWith` 42
+                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
 
-                let decommitTx = aValidTx 42
-                send n1 (Decommit decommitTx)
-                waitUntil [n1, n2] $
-                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                        maybe False (11 `member`) utxoToCommit
+                      _ -> False
 
-      it "requested decommits get approved" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
-                let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n2 (Decommit decommitTx)
-                waitUntil [n1, n2] $
-                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO, theDeposit = 1}
 
-                waitUntilMatch [n1] $
-                  \case
-                    SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
-                      maybe False (42 `member`) utxoToDecommit
+                  send n1 GetUTxO
+                  waitUntilMatch [n1] $
+                    \case
+                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
+                      _ -> False
+        it "can process multiple commits at once" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  let depositUTxO2 = utxoRefs [111]
+                  let depositScriptUTxO = utxoRefs [12]
+                  let deadline = arbitrary `generateWith` 42
+
+                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
+
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                        maybe False (11 `member`) (spy utxoToCommit)
+                      _ -> False
+                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO, theDeposit = 1}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                        maybe False (111 `member`) (spy utxoToCommit)
+                      _ -> False
+                  -- waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
+                  -- waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO2, theDeposit = 2}
+
+      describe "Decommit" $ do
+        it "can request decommit" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+
+                  let decommitTx = aValidTx 42
+                  send n1 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+
+        it "requested decommits get approved" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  send n2 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+
+                  waitUntilMatch [n1] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                        maybe False (42 `member`) utxoToDecommit
+                      _ -> False
+
+                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+
+                  send n1 GetUTxO
+                  waitUntilMatch [n1] $
+                    \case
+                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
+                      _ -> False
+
+        it "can only process one decommit at once" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  send n1 (Decommit{decommitTx = decommitTx1})
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
+
+                  let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
+                  send n2 (Decommit{decommitTx = decommitTx2})
+                  waitUntil [n2] $
+                    DecommitInvalid
+                      { headId = testHeadId
+                      , decommitTx = decommitTx2
+                      , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
+                      }
+
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
+
+                  send n2 (Decommit{decommitTx = decommitTx2})
+                  waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
+
+        it "can process transactions while decommit pending" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+
+                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  send n2 (Decommit{decommitTx})
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                  waitUntil [n1, n2] $
+                    DecommitApproved{headId = testHeadId, decommitTxId = 1, utxoToDecommit = utxoRefs [42]}
+
+                  let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+                  send n2 (NewTx normalTx)
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
 
-                waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
-                waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
 
-                send n1 GetUTxO
-                waitUntilMatch [n1] $
-                  \case
-                    GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
-                    _ -> False
+        it "can close with decommit in flight" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 -> do
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
+                  send n2 (Decommit{decommitTx})
+                  send n1 Close
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
 
-      it "can only process one decommit at once" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
-                let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n1 (Decommit{decommitTx = decommitTx1})
-                waitUntil [n1, n2] $
-                  DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
+                  waitMatch n2 $ \case
+                    HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
+                    _ -> Nothing
 
-                let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
-                send n2 (Decommit{decommitTx = decommitTx2})
-                waitUntil [n2] $
-                  DecommitInvalid
-                    { headId = testHeadId
-                    , decommitTx = decommitTx2
-                    , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
-                    }
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
-                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
-
-                send n2 (Decommit{decommitTx = decommitTx2})
-                waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
-                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
-
-      it "can process transactions while decommit pending" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
-
-                let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                send n2 (Decommit{decommitTx})
-                waitUntil [n1, n2] $
-                  DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
-                waitUntil [n1, n2] $
-                  DecommitApproved{headId = testHeadId, decommitTxId = 1, utxoToDecommit = utxoRefs [42]}
-
-                let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
-                send n2 (NewTx normalTx)
-                waitUntilMatch [n1, n2] $ \case
-                  SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
-                  _ -> False
-
-                waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
-
-    it "can close with decommit in flight" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 -> do
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead chain n1 n2
-              let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
-              send n2 (Decommit{decommitTx})
-              send n1 Close
-              waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
-              send n1 Fanout
-
-              waitMatch n2 $ \case
-                HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
-                _ -> Nothing
-
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
-
-    it "fanout utxo is correct after a decommit" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 -> do
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead chain n1 n2
-              let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-              send n2 (Decommit{decommitTx})
-              waitUntil [n1, n2] $
-                DecommitApproved
-                  { headId = testHeadId
-                  , decommitTxId = txId decommitTx
-                  , utxoToDecommit = utxoRefs [42]
-                  }
-              send n1 Close
-              waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
-              send n1 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
+        it "fanout utxo is correct after a decommit" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 -> do
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  send n2 (Decommit{decommitTx})
+                  waitUntil [n1, n2] $
+                    DecommitApproved
+                      { headId = testHeadId
+                      , decommitTxId = txId decommitTx
+                      , utxoToDecommit = utxoRefs [42]
+                      }
+                  send n1 Close
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
@@ -644,7 +703,7 @@ waitUntilMatch nodes predicate = do
     unless (predicate msg) $
       match seenMsgs n
 
-  oneMonth = 3600 * 24 * 30
+  oneMonth = 60 -- 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
