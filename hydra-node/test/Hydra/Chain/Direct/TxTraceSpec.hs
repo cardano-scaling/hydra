@@ -309,20 +309,26 @@ instance StateModel Model where
                not (null utxoInHead)
                ]
       Closed{} ->
-        oneof $
-          [ do
-              -- Fanout with the currently known model state.
-              pure $
-                Some $
-                  Fanout
-                    { utxo = utxoInHead
-                    , deltaUTxO = pendingDecommitUTxO
-                    }
+        frequency $
+          [
+            ( 1
+            , do
+                -- Fanout with the currently known model state.
+                pure $
+                  Some $
+                    Fanout
+                      { utxo = utxoInHead
+                      , deltaUTxO = pendingDecommitUTxO
+                      }
+            )
           ]
-            <> [ do
-                  actor <- elements allActors
-                  snapshot <- genSnapshot
-                  pure $ Some Contest{actor, snapshot}
+            <> [
+                 ( 10
+                 , do
+                    actor <- elements allActors
+                    snapshot <- genSnapshot
+                    pure $ Some Contest{actor, snapshot}
+                 )
                ]
       Final -> pure $ Some Stop
    where
