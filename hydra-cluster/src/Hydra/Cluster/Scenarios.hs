@@ -438,7 +438,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
       waitFor hydraTracer 10 [n1] $
-        output "CommitFinalized" ["headId" .= headId, "utxo" .= scriptUTxO', "theDeposit" .= getTxId (getTxBody tx)]
+        output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx)]
 
       send n1 $ input "GetUTxO" []
 
