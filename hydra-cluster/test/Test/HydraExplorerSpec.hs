@@ -150,7 +150,8 @@ withHydraExplorer cardanoNode mStartChainFrom action =
   process =
     proc
       "hydra-explorer"
-      $ Options.toArgNodeSocket nodeSocket
+      $ ["direct"]
+        <> Options.toArgNodeSocket nodeSocket
         <> Options.toArgNetworkId networkId
         <> Options.toArgApiPort 9090
         <> toArgStartChainFrom mStartChainFrom

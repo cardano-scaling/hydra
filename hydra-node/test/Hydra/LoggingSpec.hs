@@ -19,7 +19,7 @@ spec = do
         traceWith tracer (object ["foo" .= (42 :: Int)])
 
     -- This test is flakey in CI. Suspected race condition.
-    liftIO $ threadDelay 2
+    liftIO $ threadDelay 5
 
     captured `shouldContain` "{\"foo\":42}"
 

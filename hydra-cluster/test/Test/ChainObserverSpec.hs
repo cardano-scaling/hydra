@@ -166,7 +166,7 @@ withChainObserver cardanoNode action =
   process =
     proc
       "hydra-chain-observer"
-      $ ["--node-socket", unFile nodeSocket]
+      $ ["direct", "--node-socket", unFile nodeSocket]
         <> case networkId of
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
