@@ -294,7 +294,9 @@ instance StateModel Model where
             , do
                 actor <- elements allActors
                 snapshot <- genSnapshot
-                pure $ Some $ Close{actor, snapshot}
+                -- XXX: Too much randomness in genSnapshot
+                version <- elements [currentVersion, currentVersion + 1]
+                pure $ Some $ Close{actor, snapshot = snapshot{version}}
             )
           ]
             <> [ ( 1
