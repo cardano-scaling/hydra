@@ -42,6 +42,8 @@ changes.
 
 - Add **Blockfrost Mode** to `hydra-chain-observer`, to follow the chain via Blockfrost API.
 
+- Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`

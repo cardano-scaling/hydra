@@ -1,10 +1,10 @@
 {
     "samples": [
         {
-            "headId": "e9af8102bfc3e9b31b9a057c7668dcd1",
+            "headId": "f7736e4e33ced68c72d57e39e05c5d9a",
             "tag": "TxValid",
-            "transactionId": "5dc9ead730a42868a34222c57a9b3040f1df5bf2cdc6a37e0e18622a342ed03e"
+            "transactionId": "fcff37a90068281074b340044939db952231b3da94a8a467fcd01c3cfa3c5197"
         }
     ],
-    "seed": -781182720
+    "seed": 135640436
 }

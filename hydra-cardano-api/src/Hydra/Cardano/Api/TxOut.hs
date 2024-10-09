@@ -58,7 +58,6 @@ modifyTxOutAddress fn (TxOut addr value dat ref) =
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
   IsMaryBasedEra era =>
-  IsShelleyBasedEra era =>
   (Value -> Value) ->
   TxOut ctx era ->
   TxOut ctx era
@@ -159,7 +158,7 @@ toLedgerTxOut =
 -- Plutus addresses are stripped off it.
 fromPlutusTxOut ::
   forall era.
-  (IsMaryBasedEra era, IsAlonzoBasedEra era, IsBabbageBasedEra era, IsShelleyBasedEra era) =>
+  IsBabbageBasedEra era =>
   Network ->
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
