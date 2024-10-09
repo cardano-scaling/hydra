@@ -18,10 +18,10 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTBQueue,
   writeTBQueue,
  )
-import Control.Lens (to, (^?))
+import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import Data.Aeson.Lens (key, _Array, _JSON, _Number, _String)
+import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -424,7 +424,7 @@ newTx registry client tx = do
 data WaitResult
   = TxInvalid {transactionId :: TxId, reason :: Text}
   | TxValid {transactionId :: TxId}
-  | SnapshotConfirmed {txIds :: [Value], snapshotNumber :: Scientific}
+  | SnapshotConfirmed {txIds :: [Value], number :: Scientific}
 
 data Registry tx = Registry
   { processedTxs :: TVar IO (Map.Map TxId Event)
@@ -486,7 +486,7 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeTxValid v = do
     guard (v ^? key "tag" == Just "TxValid")
     v
-      ^? key "transaction" . key "txId" . to fromJSON >>= \case
+      ^? key "transactionId" . to fromJSON >>= \case
         Error _ -> Nothing
         Success txid -> pure $ TxValid txid
 
@@ -501,14 +501,12 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
-    SnapshotConfirmed
-      <$> snapshot
-        ^? key "confirmedTransactions"
-          . _Array
-          . to toList
-      <*> snapshot
-        ^? key "snapshotNumber"
-          . _Number
+    number <- snapshot ^? key "number" . _Number
+    pure $
+      SnapshotConfirmed
+        { txIds = snapshot ^.. key "confirmed" . values . key "txId"
+        , number
+        }
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

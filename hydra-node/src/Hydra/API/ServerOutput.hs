@@ -28,6 +28,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -103,7 +104,7 @@ data ServerOutput tx
   | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
-    TxValid {headId :: HeadId, transaction :: tx}
+    TxValid {headId :: HeadId, transactionId :: TxIdType tx}
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -203,6 +204,8 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
 
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
@@ -239,10 +242,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     CommandFailed{} -> encodedResponse
-    TxValid{Hydra.API.ServerOutput.transaction = tx} ->
-      (key "transaction" .~ toJSON tx) encodedResponse
-    TxInvalid{Hydra.API.ServerOutput.transaction = tx} ->
-      (key "transaction" .~ toJSON tx) encodedResponse
+    TxValid{} -> encodedResponse
+    TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse

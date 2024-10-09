@@ -173,7 +173,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1}])
+          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transactionId = 1}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents
@@ -253,12 +253,14 @@ spec = parallel $ do
     it "signs snapshot even if it has seen conflicting transactions" $
       failAfter 1 $
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let snapshot = testSnapshot 1 0 [2] (utxoRefs [1, 3, 5])
+          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}
+              snapshot = testSnapshot 1 0 [tx2] (utxoRefs [1, 3, 5])
               sigBob = sign bobSk snapshot
               inputs =
                 inputsToOpenHead
-                  <> [ receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}}
-                     , receiveMessageFrom bob ReqTx{transaction = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}}
+                  <> [ receiveMessageFrom bob ReqTx{transaction = tx1}
+                     , receiveMessageFrom bob ReqTx{transaction = tx2}
                      , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, incrementUTxO = Nothing}
                      ]
           (node, getNetworkEvents) <-

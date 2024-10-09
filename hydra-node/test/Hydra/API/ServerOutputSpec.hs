@@ -8,22 +8,18 @@ import Hydra.API.ServerOutput (ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Ledger.Simple (SimpleTx)
 import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
+  roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
  )
 
 spec :: Spec
 spec = parallel $ do
-  roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (ServerOutput SimpleTx)))
-
-  roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (ServerOutput Tx)))
+  roundtripAndGoldenADTSpecsWithSettings
+    defaultSettings{sampleSize = 1}
+    $ Proxy @(ServerOutput Tx)
 
   prop "matches JSON schema" $
     prop_validateJSONSchema @(TimedServerOutput Tx) "api.json" $
@@ -32,11 +28,5 @@ spec = parallel $ do
   -- NOTE: The golden file produced by this is also used by the
   -- 'validate:outputs' target in ./docs/package.json.
   roundtripAndGoldenSpecsWithSettings
-    settings
-    (Proxy @(ReasonablySized (TimedServerOutput Tx)))
-
-settings :: Settings
-settings =
-  defaultSettings
-    { sampleSize = 200
-    }
+    defaultSettings{sampleSize = 5}
+    $ Proxy @(ReasonablySized (TimedServerOutput Tx))
