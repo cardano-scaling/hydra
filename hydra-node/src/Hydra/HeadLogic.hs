@@ -359,11 +359,12 @@ onOpenNetworkReqTx env ledger st ttl tx =
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx Nothing)
       else outcome
+
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version, pendingDeposits} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -624,7 +625,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
                 --         multicast (reqSn, v, ̅S.s + 1, T̂, txω)
-                & maybeRequestNextSnapshot (number snapshot + 1)
+                & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -668,13 +669,14 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys}
 
-  maybeRequestNextSnapshot nextSn outcome =
-    if isLeader parameters party nextSn && not (null localTxs)
-      then
-        outcome
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx Nothing)
-      else outcome
+  maybeRequestNextSnapshot currentSn outcome =
+    let nextSn = number currentSn + 1
+     in if isLeader parameters party nextSn && not (null localTxs)
+          then
+            outcome
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx Nothing)
+          else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
     case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
