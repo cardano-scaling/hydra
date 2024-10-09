@@ -389,9 +389,8 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let depositScriptUTxO = utxoRefs [12]
                   let deadline = arbitrary `generateWith` 42
-                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
 
                   waitUntilMatch [n1, n2] $
@@ -401,7 +400,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -415,29 +414,28 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
-                  let depositUTxO2 = utxoRefs [111]
-                  let depositScriptUTxO = utxoRefs [12]
+                  let depositUTxO2 = utxoRefs [22]
                   let deadline = arbitrary `generateWith` 42
 
-                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  injectChainEvent n2 Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline depositScriptUTxO, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 3}}
 
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (11 `member`) (spy utxoToCommit)
+                        maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO, theDeposit = 1}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                        maybe False (111 `member`) (spy utxoToCommit)
+                        maybe False (22 `member`) utxoToCommit
                       _ -> False
-                  -- waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
-                  -- waitUntil [n1] $ CommitFinalized{headId = testHeadId, utxo = depositUTxO2, theDeposit = 2}
+                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
+                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
 
       describe "Decommit" $ do
         it "can request decommit" $
