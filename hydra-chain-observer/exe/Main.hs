@@ -1,7 +1,7 @@
 module Main where
 
-import Hydra.ChainObserver (defaultObserverHandler)
 import Hydra.ChainObserver qualified
+import Hydra.ChainObserver.NodeClient (defaultObserverHandler)
 import Hydra.Prelude
 
 main :: IO ()
