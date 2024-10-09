@@ -24,18 +24,15 @@ import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
-import Hydra.Tx.Commit (mkCommitDatum)
 import Hydra.Tx.Contest (ClosedThreadOutput)
 import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Deposit (DepositObservation)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Recover (RecoverObservation)
-import Hydra.Tx.Utils (adaOnly, onChainIdToAssetName, verificationKeyToOnChainId)
 import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixtures
-import Test.QuickCheck (choose, listOf, oneof, scale, shrinkList, shrinkMapBy, suchThat, vector, vectorOf)
+import Test.QuickCheck (listOf, oneof, scale, shrinkList, shrinkMapBy, suchThat, vector, vectorOf)
 
 instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
@@ -274,86 +271,6 @@ genMintedOrBurnedValue = do
   tokenName <- oneof [arbitrary, pure (AssetName $ fromBuiltin hydraHeadV1)]
   quantity <- arbitrary `suchThat` (/= 0)
   pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]
-
--- NOTE: Uses 'testPolicyId' for the datum.
-genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
-genAbortableOutputs parties =
-  go
- where
-  go = do
-    (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
-    initials <- mapM genInitial initParties
-    commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
-    pure (initials, commits)
-
-  genInitial p =
-    mkInitial (genVerificationKey `genForParty` p) <$> arbitrary
-
-  mkInitial ::
-    VerificationKey PaymentKey ->
-    TxIn ->
-    (TxIn, TxOut CtxUTxO)
-  mkInitial vk txin =
-    ( txin
-    , initialTxOut vk
-    )
-
-  initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO
-  initialTxOut vk =
-    toUTxOContext $
-      TxOut
-        (mkScriptAddress testNetworkId initialScript)
-        (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
-        (mkTxOutDatumInline initialDatum)
-        ReferenceScriptNone
-
-  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
-
-  initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
-
--- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
--- NOTE: Uses 'testPolicyId' for the datum.
--- NOTE: We don't generate empty commits and it is used only at one place so perhaps move it?
--- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, UTxO))
-generateCommitUTxOs parties = do
-  txins <- vectorOf (length parties) (arbitrary @TxIn)
-  let vks = (\p -> (genVerificationKey `genForParty` p, p)) <$> parties
-  committedUTxO <-
-    vectorOf (length parties) $
-      fmap adaOnly <$> (genOneUTxOFor =<< arbitrary)
-  let commitUTxO =
-        zip txins $
-          uncurry mkCommitUTxO <$> zip vks committedUTxO
-  pure $ Map.fromList commitUTxO
- where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, UTxO)
-  mkCommitUTxO (vk, party) utxo =
-    ( toUTxOContext $
-        TxOut
-          (mkScriptAddress testNetworkId commitScript)
-          commitValue
-          (mkTxOutDatumInline commitDatum)
-          ReferenceScriptNone
-    , utxo
-    )
-   where
-    commitValue =
-      mconcat
-        [ lovelaceToValue (Coin 2000000)
-        , foldMap txOutValue utxo
-        , fromList
-            [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
-            ]
-        ]
-
-    commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
-
-    commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
-
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-assetNameFromVerificationKey =
-  onChainIdToAssetName . verificationKeyToOnChainId
 
 -- | Generate a 'TxOut' with a reference script. The standard 'genTxOut' is not
 -- including reference scripts, use this generator if you are interested in
