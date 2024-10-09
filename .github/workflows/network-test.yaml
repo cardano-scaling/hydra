@@ -119,9 +119,6 @@ jobs:
         .github/workflows/network/run_pumba.sh $target_peer $percent $other_peers
 
         # Run benchmark on demo
-        mkdir benchmarks
-        touch benchmarks/test.log
-
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=benchmarks \
