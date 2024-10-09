@@ -354,21 +354,6 @@ components:
             enum: ["NewTx"]
           transaction:
             $ref: "api.yaml#/components/schemas/Transaction"
-    Commit:
-      title: Commit
-      description: |
-        Request to commit a UTxO to initializing Head by providing a UTxO.
-      payload:
-        type: object
-        required:
-          - tag
-          - utxo
-        properties:
-          tag:
-            type: string
-            enum: ["Commit"]
-          utxo:
-            $ref: "api.yaml#/components/schemas/UTxO"
     Recover:
       title: Recover
       description: |
@@ -1157,7 +1142,6 @@ components:
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/GetUTxO/payload"
-            - $ref: "api.yaml#/components/messages/Commit/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
