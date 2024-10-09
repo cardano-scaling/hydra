@@ -11,7 +11,6 @@ data ClientInput tx
   | Abort
   | NewTx {transaction :: tx}
   | GetUTxO
-  | Commit {utxo :: UTxOType tx}
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
   | Close
@@ -36,7 +35,6 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
     NewTx tx -> NewTx <$> shrink tx
     GetUTxO -> []
     Recover tx -> Recover <$> shrink tx
-    Commit tx -> Commit <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
     Close -> []
     Contest -> []
