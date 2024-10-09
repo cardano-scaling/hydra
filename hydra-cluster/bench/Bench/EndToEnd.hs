@@ -189,7 +189,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} no
 
   writeResultsCsv (workDir </> "results.csv") aggregates
 
-  let confTimes = map (\(_, _, a) -> a) res
+  let confTimes = spy' "Conf times" $ map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
       averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
