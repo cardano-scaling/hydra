@@ -5,15 +5,17 @@
 -- chain modules.
 --
 -- The model is focusing on transitions between Open and Closed states of the
--- head right now. It generates plausible sequences of Decrement and Close
--- actions, along with Contest and Fanout, each using a snapshot of some version
--- and number. UTxOs are simplified such that their identity is A-E and value is
--- just a number.
---
--- Actions and snapshots are generated "just-in-time" and result in valid, but
--- also deliberately invalid combinations of versions/numbers. Generated
--- snapshots are correctly signed and consistent in what they decommit from the
 -- head.
+--
+-- TODO: implement it this way
+-- Given an initial UTxO, the model generates a plausible sequence of snapshots
+-- that an honest node would approve. That is, the total balance of UTxO remains
+-- constant and utxoToDecommit is only allowed to clear if the version is
+-- incremented. All snapshots are correctly signed and UTxOs are simplified such
+-- that their identity is A-E and value is just a number.
+--
+-- From this sequence of valid snapshots, possible Decrement and Close actions
+-- are generated, along with occasional Contest and consequential Fanout.
 module Hydra.Chain.Direct.TxTraceSpec where
 
 import Hydra.Prelude hiding (Any, State, label, show)
@@ -252,18 +254,13 @@ data TxResult = TxResult
   }
   deriving (Eq, Show)
 
-initialAmount :: Natural
-initialAmount = 10
-
-initialModelUTxO :: ModelUTxO
-initialModelUTxO = fromList $ map (,initialAmount) [A, B, C, D, E]
-
 balanceUTxOInHead :: Ord k => Map k Natural -> Map k Natural -> Map k Natural
 balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
   currentUtxoInHead `Map.difference` someUTxOToDecrement
 
 instance StateModel Model where
   data Action Model a where
+    ProduceSnapshots :: {snapshots :: [ModelSnapshot]} -> Action Model ()
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
@@ -278,7 +275,7 @@ instance StateModel Model where
       , currentVersion = 0
       , latestSnapshot = 0
       , alreadyContested = []
-      , utxoInHead = initialModelUTxO
+      , utxoInHead = fromList $ map (,10) [A, B, C]
       , pendingDecommitUTxO = Map.empty
       }
 
@@ -542,6 +539,10 @@ instance MonadState UTxO AppM where
 
 type instance Realized AppM a = a
 
+-- XXX: Most of the heavy-lifting here is similar to what
+-- quickcheck-contractmodel does. We could consider using that package and
+-- define a corresponding RunModel using our tx construction / evaluation hooks
+-- only.
 instance RunModel Model AppM where
   perform Model{currentVersion} action _lookupVar = do
     case action of
