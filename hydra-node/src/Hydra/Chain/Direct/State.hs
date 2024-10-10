@@ -554,18 +554,9 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
-  case utxoToDecommit of
-    Nothing ->
-      Left SnapshotMissingDecrementUTxO
-    Just decrementUTxO
-      | null decrementUTxO ->
-          Left SnapshotDecrementUTxOIsNull
-    _ ->
-      Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
+  Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
-
-  Snapshot{utxoToDecommit} = sn
 
   (sn, sigs) =
     case decrementingSnapshot of
