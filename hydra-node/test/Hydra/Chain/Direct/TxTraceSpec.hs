@@ -110,6 +110,7 @@ coversInterestingActions :: Testable p => Actions Model -> p -> Property
 coversInterestingActions (Actions_ _ (Smart _ steps)) p =
   p
     & cover 1 (null steps) "empty"
+    & cover 50 (hasSomeSnapshots steps) "has some snapshots"
     & cover 5 (hasDecrement steps) "has decrements"
     & cover 1 (countContests steps >= 2) "has multiple contests"
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
@@ -118,6 +119,13 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
     & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
     & cover 0.5 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
  where
+  hasSomeSnapshots =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        NewSnapshot{} ->
+          polarity == PosPolarity
+        _ -> False
+
   hasUTxOToDecommit snapshot = not . null $ decommitUTxO snapshot
 
   hasFanout =
@@ -176,7 +184,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      -- print actions
+      print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -197,6 +205,7 @@ type ModelUTxO = Map SingleUTxO Natural
 
 data Model = Model
   { headState :: State
+  , knownSnapshots :: [ModelSnapshot]
   , currentVersion :: SnapshotVersion
   , latestSnapshot :: SnapshotNumber
   , alreadyContested :: [Actor]
@@ -260,7 +269,7 @@ balanceUTxOInHead currentUtxoInHead someUTxOToDecrement =
 
 instance StateModel Model where
   data Action Model a where
-    ProduceSnapshots :: {snapshots :: [ModelSnapshot]} -> Action Model ()
+    NewSnapshot :: {newSnapshot :: ModelSnapshot} -> Action Model ()
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
@@ -272,6 +281,7 @@ instance StateModel Model where
   initialState =
     Model
       { headState = Open
+      , knownSnapshots = []
       , currentVersion = 0
       , latestSnapshot = 0
       , alreadyContested = []
@@ -285,23 +295,19 @@ instance StateModel Model where
   arbitraryAction _lookup Model{headState, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
     case headState of
       Open{} ->
-        frequency $
-          [
-            ( 1
-            , do
-                actor <- elements allActors
-                snapshot <- genSnapshot
-                -- XXX: Too much randomness in genSnapshot
-                version <- elements [currentVersion, currentVersion + 1]
-                pure $ Some $ Close{actor, snapshot = snapshot{version}}
-            )
+        oneof $
+          [ Some . NewSnapshot <$> genSnapshot
+          , do
+              actor <- elements allActors
+              snapshot <- genSnapshot
+              -- XXX: Too much randomness in genSnapshot
+              version <- elements [currentVersion, currentVersion + 1]
+              pure $ Some $ Close{actor, snapshot = snapshot{version}}
           ]
-            <> [ ( 1
-                 , do
-                    actor <- elements allActors
-                    snapshot <- genSnapshot
-                    pure $ Some Decrement{actor, snapshot}
-                 )
+            <> [ do
+                  actor <- elements allActors
+                  snapshot <- genSnapshot
+                  pure $ Some Decrement{actor, snapshot}
                | -- We dont want to generate decrements if there is nothing in the head.
                not (null utxoInHead)
                ]
@@ -329,6 +335,7 @@ instance StateModel Model where
                ]
       Final -> pure $ Some Stop
    where
+    -- TODO: Generate a snapshot an honest node would sign given the current model state.
     genSnapshot = do
       someUTxOToDecrement <- reduceValues =<< genSubModelOf utxoInHead
       let filteredSomeUTxOToDecrement = Map.filter (> 0) someUTxOToDecrement
@@ -404,8 +411,11 @@ instance StateModel Model where
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, latestSnapshot, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
+  precondition Model{headState, knownSnapshots, latestSnapshot, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
     Stop -> headState /= Final
+    NewSnapshot{newSnapshot} ->
+      -- None of the produced snapshots is already known
+      newSnapshot `notElem` knownSnapshots
     Decrement{snapshot} ->
       headState == Open
         && snapshot.version == currentVersion
@@ -448,6 +458,7 @@ instance StateModel Model where
   validFailingAction :: Model -> Action Model a -> Bool
   validFailingAction Model{headState, utxoInHead, currentVersion} = \case
     Stop -> False
+    NewSnapshot{} -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
     Decrement{snapshot} ->
@@ -484,6 +495,8 @@ instance StateModel Model where
   nextState m@Model{currentVersion} t _result =
     case t of
       Stop -> m
+      NewSnapshot{newSnapshot} ->
+        m{knownSnapshots = m.knownSnapshots <> [newSnapshot]}
       Decrement{snapshot} ->
         m
           { headState = Open
@@ -559,6 +572,7 @@ instance RunModel Model AppM where
       Fanout{utxo, deltaUTxO} -> do
         tx <- newFanoutTx Alice utxo deltaUTxO
         performTx tx
+      NewSnapshot{} -> pure ()
       Stop -> pure ()
 
   postcondition (modelBefore, modelAfter) action _lookup result = runPostconditionM' $ do
