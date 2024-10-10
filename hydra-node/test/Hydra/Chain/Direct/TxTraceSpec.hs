@@ -667,13 +667,6 @@ getValidationError tx utxo =
 allActors :: [Actor]
 allActors = [Alice, Bob, Carol]
 
--- | A "random" UTxO distribution for a given 'ModelSnapshot'.
-generateUTxOFromModelSnapshot :: ModelSnapshot -> (UTxO, UTxO)
-generateUTxOFromModelSnapshot snapshot =
-  ( realWorldModelUTxO (snapshotUTxO snapshot)
-  , realWorldModelUTxO (decommitUTxO snapshot)
-  )
-
 -- | Map a 'ModelUTxO' to a real-world 'UTxO'.
 realWorldModelUTxO :: ModelUTxO -> UTxO
 realWorldModelUTxO =
@@ -691,7 +684,6 @@ signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 signedSnapshot ms =
   (snapshot, signatures)
  where
-  (utxo, toDecommit) = generateUTxOFromModelSnapshot ms
   snapshot =
     Snapshot
       { headId = mkHeadId Fixture.testPolicyId
@@ -700,10 +692,16 @@ signedSnapshot ms =
       , confirmed = []
       , utxo
       , utxoToCommit = Nothing
-      , utxoToDecommit = Just toDecommit
+      , utxoToDecommit
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
+
+  utxo = realWorldModelUTxO (snapshotUTxO ms)
+
+  utxoToDecommit =
+    let u = realWorldModelUTxO (decommitUTxO ms)
+     in if null u then Nothing else Just u
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
@@ -715,7 +713,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
         { -- -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = fst $ generateUTxOFromModelSnapshot modelSnapshot
+        , initialUTxO = realWorldModelUTxO $ snapshotUTxO modelSnapshot
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
