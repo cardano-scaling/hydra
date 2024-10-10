@@ -1004,7 +1004,6 @@ onOpenChainRecoverTx headId st recoveredTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
-  IsTx tx =>
   OpenState tx ->
   -- | New open state version
   SnapshotVersion ->
@@ -1012,15 +1011,10 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainIncrementTx openState newVersion depositTxId =
-  case Map.lookup depositTxId pendingDeposits of
-    Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxId: " <> show depositTxId
-    Just _ ->
-      newState CommitFinalized{newVersion, depositTxId}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
+  newState CommitFinalized{newVersion, depositTxId}
+    <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
  where
-  OpenState{coordinatedHeadState, headId} = openState
-
-  CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+  OpenState{headId} = openState
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1420,7 +1414,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposits <> existingDeposits
+                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
                   }
             }
        where
