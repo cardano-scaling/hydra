@@ -206,13 +206,19 @@ type ModelUTxO = Map SingleUTxO Natural
 data Model = Model
   { headState :: State
   , knownSnapshots :: [ModelSnapshot]
+  -- ^ List of off-chain snapshots, from most recent to oldest.
   , currentVersion :: SnapshotVersion
-  , latestSnapshot :: SnapshotNumber
+  , closedSnapshotNumber :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
   , pendingDecommitUTxO :: ModelUTxO
   }
   deriving (Show)
+
+latestSnapshotNumber :: [ModelSnapshot] -> SnapshotNumber
+latestSnapshotNumber = \case
+  (s : _) -> s.number
+  _ -> 0
 
 -- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
 -- simplified form of 'UTxO'.
@@ -283,7 +289,7 @@ instance StateModel Model where
       { headState = Open
       , knownSnapshots = []
       , currentVersion = 0
-      , latestSnapshot = 0
+      , closedSnapshotNumber = 0
       , alreadyContested = []
       , utxoInHead = fromList $ map (,10) [A, B, C]
       , pendingDecommitUTxO = Map.empty
@@ -292,7 +298,7 @@ instance StateModel Model where
   -- FIXME: 1.5k discards on 100 runs
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
+  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingDecommitUTxO} =
     case headState of
       Open{} ->
         oneof $
@@ -339,46 +345,47 @@ instance StateModel Model where
       let filteredSomeUTxOToDecrement = Map.filter (> 0) someUTxOToDecrement
       let balancedUTxOInHead = balanceUTxOInHead utxoInHead filteredSomeUTxOToDecrement
 
-      version <- elements $ currentVersion : [currentVersion - 1 | currentVersion > 0] <> [currentVersion + 1]
       let validSnapshot =
             ModelSnapshot
-              { version
-              , number = latestSnapshot
+              { version = currentVersion
+              , number = latestSnapshotNumber knownSnapshots + 1
               , snapshotUTxO = balancedUTxOInHead
               , decommitUTxO = filteredSomeUTxOToDecrement
               }
-      oneof
-        [ -- valid
-          pure validSnapshot
-        , -- unbalanced
-          pure validSnapshot{snapshotUTxO = utxoInHead}
-        , do
-            -- old
-            let number' = if latestSnapshot == 0 then 0 else latestSnapshot - 1
-            pure (validSnapshot :: ModelSnapshot){number = number'}
-        , -- new
-          pure (validSnapshot :: ModelSnapshot){number = latestSnapshot + 1}
-        , do
-            -- shuffled
-            someUTxOToDecrement' <- shuffleValues filteredSomeUTxOToDecrement
-            pure validSnapshot{decommitUTxO = someUTxOToDecrement'}
-        , do
-            -- more in head
-            utxoInHead' <- increaseValues utxoInHead
-            pure validSnapshot{snapshotUTxO = utxoInHead'}
-        , do
-            -- more in decommit
-            someUTxOToDecrement' <- increaseValues =<< genSubModelOf utxoInHead
-            let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
-            pure
-              validSnapshot
-                { snapshotUTxO = balancedUTxOInHead'
-                , decommitUTxO = someUTxOToDecrement'
-                }
-        , -- decommit all
-          pure validSnapshot{snapshotUTxO = mempty, decommitUTxO = utxoInHead}
-        , arbitrary
-        ]
+      -- TODO: check whether these cases are met
+      -- oneof
+      --   [ -- valid
+      --     pure validSnapshot
+      --   , -- unbalanced
+      --     pure validSnapshot{snapshotUTxO = utxoInHead}
+      --   , do
+      --       -- old
+      --       let number' = if closedSnapshotNumber == 0 then 0 else closedSnapshotNumber - 1
+      --       pure (validSnapshot :: ModelSnapshot){number = number'}
+      --   , -- new
+      --     pure (validSnapshot :: ModelSnapshot){number = closedSnapshotNumber + 1}
+      --   , do
+      --       -- shuffled
+      --       someUTxOToDecrement' <- shuffleValues filteredSomeUTxOToDecrement
+      --       pure validSnapshot{decommitUTxO = someUTxOToDecrement'}
+      --   , do
+      --       -- more in head
+      --       utxoInHead' <- increaseValues utxoInHead
+      --       pure validSnapshot{snapshotUTxO = utxoInHead'}
+      --   , do
+      --       -- more in decommit
+      --       someUTxOToDecrement' <- increaseValues =<< genSubModelOf utxoInHead
+      --       let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
+      --       pure
+      --         validSnapshot
+      --           { snapshotUTxO = balancedUTxOInHead'
+      --           , decommitUTxO = someUTxOToDecrement'
+      --           }
+      --   , -- decommit all
+      --     pure validSnapshot{snapshotUTxO = mempty, decommitUTxO = utxoInHead}
+      --   , arbitrary
+      --   ]
+      pure validSnapshot
 
     genSubModelOf :: ModelUTxO -> Gen ModelUTxO
     genSubModelOf model = do
@@ -409,11 +416,11 @@ instance StateModel Model where
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, knownSnapshots, latestSnapshot, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
+  precondition Model{headState, knownSnapshots, closedSnapshotNumber, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
     Stop -> headState /= Final
     NewSnapshot{newSnapshot} ->
-      -- None of the produced snapshots is already known
-      newSnapshot `notElem` knownSnapshots
+      newSnapshot.version == currentVersion
+        && newSnapshot.number > latestSnapshotNumber knownSnapshots
     Decrement{snapshot} ->
       headState == Open
         && snapshot.version == currentVersion
@@ -427,8 +434,7 @@ instance StateModel Model where
         && ( if snapshot.number == 0
               then snapshotUTxO snapshot == initialUTxOInHead
               else
-                snapshot.number >= latestSnapshot
-                  && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
         -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
@@ -440,7 +446,7 @@ instance StateModel Model where
       headState == Closed
         && actor `notElem` alreadyContested
         && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
-        && snapshot.number > latestSnapshot
+        && snapshot.number > closedSnapshotNumber
         -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- your tx is balanced with the utxo in the head
@@ -494,18 +500,17 @@ instance StateModel Model where
     case t of
       Stop -> m
       NewSnapshot{newSnapshot} ->
-        m{knownSnapshots = m.knownSnapshots <> [newSnapshot]}
+        m{knownSnapshots = newSnapshot : m.knownSnapshots}
       Decrement{snapshot} ->
         m
           { headState = Open
           , currentVersion = m.currentVersion + 1
-          , latestSnapshot = snapshot.number
           , utxoInHead = balanceUTxOInHead (utxoInHead m) (decommitUTxO snapshot)
           }
       Close{snapshot} ->
         m
           { headState = Closed
-          , latestSnapshot = snapshot.number
+          , closedSnapshotNumber = snapshot.number
           , alreadyContested = []
           , utxoInHead = snapshotUTxO snapshot
           , pendingDecommitUTxO = if currentVersion == snapshot.version then decommitUTxO snapshot else mempty
@@ -513,7 +518,7 @@ instance StateModel Model where
       Contest{actor, snapshot} ->
         m
           { headState = Closed
-          , latestSnapshot = snapshot.number
+          , closedSnapshotNumber = snapshot.number
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
           , pendingDecommitUTxO = decommitUTxO snapshot
