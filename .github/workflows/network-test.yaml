@@ -71,7 +71,7 @@ jobs:
         docker compose up -d cardano-node
         sleep 5
         # :tear: socket permissions.
-        sudo chown runner:docker devnet/node.socket
+        sudo chmod a+w devnet/node.socket
 
         HYDRA_SCRIPTS_TX_ID=$(nix run .#hydra-node -- publish-scripts \
           --testnet-magic 42 \
