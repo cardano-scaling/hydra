@@ -416,10 +416,12 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   let depositUTxO2 = utxoRefs [22]
                   let deadline = arbitrary `generateWith` 42
-
-                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  injectChainEvent n2 Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 3}}
-
+                  injectChainEvent
+                    n1
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent
+                    n2
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 3}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2}
                   waitUntilMatch [n1, n2] $
@@ -436,6 +438,27 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
                   waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
+
+        it "can process transactions while commit pending" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  let deadline = arbitrary `generateWith` 42
+                  injectChainEvent
+                    n1
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
+                  let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+                  send n2 (NewTx normalTx)
+                  waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
+                    _ -> False
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
 
       describe "Decommit" $ do
         it "can request decommit" $
