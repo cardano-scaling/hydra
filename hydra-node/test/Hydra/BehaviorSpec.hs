@@ -544,6 +544,48 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+        it "commit and decommit same utxo" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 -> do
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  let deadline = arbitrary `generateWith` 42
+                  injectChainEvent
+                    n1
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                        maybe False (11 `member`) utxoToCommit
+                      _ -> False
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+
+                  send n1 GetUTxO
+                  waitUntilMatch [n1] $
+                    \case
+                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
+                      _ -> False
+
+                  let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 88)
+                  send n2 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [88]}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                        maybe False (88 `member`) utxoToDecommit
+                      _ -> False
+
+                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [88])
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  send n1 GetUTxO
+                  waitUntilMatch [n1] $
+                    \case
+                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 11 utxo)
+                      _ -> False
 
       describe "Decommit" $ do
         it "can request decommit" $
