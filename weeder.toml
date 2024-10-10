@@ -1,2 +1,2 @@
-roots = [ "^Main.main$" ]
+roots = [ "^Main.main$" ,"^Spec.main$"  ]
 type-class-roots = true
