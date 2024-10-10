@@ -512,6 +512,39 @@ spec = parallel $ do
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
+        it "multiple commits and decommits in sequence" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 -> do
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead chain n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  let deadline = arbitrary `generateWith` 42
+                  injectChainEvent
+                    n1
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1}
+                  waitUntilMatch [n1, n2] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
+                        maybe False (11 `member`) utxoToCommit
+                      _ -> False
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+
+                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  send n2 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+
+                  waitUntilMatch [n1] $
+                    \case
+                      SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit}} ->
+                        maybe False (42 `member`) utxoToDecommit
+                      _ -> False
+
+                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+
       describe "Decommit" $ do
         it "can request decommit" $
           shouldRunInSim $ do
@@ -776,7 +809,7 @@ waitUntilMatch nodes predicate = do
     unless (predicate msg) $
       match seenMsgs n
 
-  oneMonth = 60 -- 3600 * 24 * 30
+  oneMonth = 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.

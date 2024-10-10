@@ -630,7 +630,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
                 --         multicast (reqSn, v, ̅S.s + 1, T̂, txω)
-                & maybeRequestNextSnapshot snapshot
+                & maybeRequestNextSnapshot (number snapshot + 1)
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -674,14 +674,13 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           RequireFailed $
             InvalidMultisignature{multisig = show multisig, vkeys}
 
-  maybeRequestNextSnapshot currentSn outcome =
-    let nextSn = number currentSn + 1
-     in if isLeader parameters party nextSn && not (null localTxs)
-          then
-            outcome
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
-          else outcome
+  maybeRequestNextSnapshot nextSn outcome =
+    if isLeader parameters party nextSn && not (null localTxs)
+      then
+        outcome
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
+      else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
     case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
