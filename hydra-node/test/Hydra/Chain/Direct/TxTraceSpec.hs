@@ -341,7 +341,7 @@ instance StateModel Model where
    where
     -- TODO: Generate a snapshot an honest node would sign given the current model state.
     genSnapshot = do
-      someUTxOToDecrement <- reduceValues =<< genSubModelOf utxoInHead
+      someUTxOToDecrement <- reduceValues =<< submapOf utxoInHead
       let filteredSomeUTxOToDecrement = Map.filter (> 0) someUTxOToDecrement
       let balancedUTxOInHead = balanceUTxOInHead utxoInHead filteredSomeUTxOToDecrement
 
@@ -352,7 +352,7 @@ instance StateModel Model where
               , snapshotUTxO = balancedUTxOInHead
               , decommitUTxO = filteredSomeUTxOToDecrement
               }
-      -- TODO: check whether these cases are met
+      -- FIXME: check whether these cases are met
       -- oneof
       --   [ -- valid
       --     pure validSnapshot
@@ -374,7 +374,7 @@ instance StateModel Model where
       --       pure validSnapshot{snapshotUTxO = utxoInHead'}
       --   , do
       --       -- more in decommit
-      --       someUTxOToDecrement' <- increaseValues =<< genSubModelOf utxoInHead
+      --       someUTxOToDecrement' <- increaseValues =<< submapOf utxoInHead
       --       let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
       --       pure
       --         validSnapshot
@@ -387,8 +387,8 @@ instance StateModel Model where
       --   ]
       pure validSnapshot
 
-    genSubModelOf :: ModelUTxO -> Gen ModelUTxO
-    genSubModelOf model = do
+    submapOf :: Ord k => Map k v -> Gen (Map k v)
+    submapOf model = do
       subset <- sublistOf (Map.toList model)
       return $ Map.fromList subset
 
@@ -425,10 +425,10 @@ instance StateModel Model where
       headState == Open
         && snapshot `elem` knownSnapshots
         && snapshot.version == currentVersion
-        -- you are decrementing from existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- your tx is balanced with the utxo in the head
-        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+    -- you are decrementing from existing utxo in the head
+    -- && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+    -- your tx is balanced with the utxo in the head
+    -- && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Close{snapshot} ->
       headState == Open
         && snapshot `elem` knownSnapshots
@@ -471,11 +471,11 @@ instance StateModel Model where
       headState == Open
         && snapshot `elem` knownSnapshots
         && snapshot.version /= currentVersion
-        -- Ignore unbalanced decrements.
-        -- TODO: make them fail gracefully and test this?
-        && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-        -- Ignore decrements that work with non existing utxo in the head
-        && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
+    -- Ignore unbalanced decrements.
+    -- TODO: make them fail gracefully and test this?
+    -- && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
+    -- Ignore decrements that work with non existing utxo in the head
+    -- && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Close{snapshot} ->
       headState == Open
         && snapshot `elem` knownSnapshots
@@ -567,8 +567,7 @@ instance RunModel Model AppM where
   perform Model{currentVersion} action _lookupVar = do
     case action of
       Decrement{actor, snapshot} -> do
-        let (s, signatures) = signedSnapshot snapshot
-        tx <- newDecrementTx actor ConfirmedSnapshot{snapshot = s, signatures}
+        tx <- newDecrementTx actor (confirmedSnapshot snapshot)
         performTx tx
       Close{actor, snapshot} -> do
         tx <- newCloseTx actor currentVersion (confirmedSnapshot snapshot)
