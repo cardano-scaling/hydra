@@ -23,8 +23,7 @@ services:
     ports:
       - "80:8080"
     command:
-      [ "direct"
-      , "--node-socket", "/data/node.socket"
+      [ "--node-socket", "/data/node.socket"
       , "--testnet-magic", "2"
       , "--api-port", "8080"
       # NOTE: Block in which current master scripts were published
