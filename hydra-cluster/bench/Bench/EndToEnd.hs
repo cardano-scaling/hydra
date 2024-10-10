@@ -132,7 +132,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
   returnFaucetFunds tracer node = do
     putTextLn "Returning funds to faucet"
     let faucetTracer = contramap FromFaucet tracer
-    forM (paymentKey <$> clientDatasets) $ \sk -> do
+    forM (hydraNodeKeys dataset <> (paymentKey <$> clientDatasets)) $ \sk -> do
       returnAmount <- returnFundsToFaucet' faucetTracer node sk
       traceWith faucetTracer $ ReturnedFunds{returnAmount}
 
@@ -189,7 +189,7 @@ scenario hydraTracer node workDir Dataset{clientDatasets, title, description} no
 
   writeResultsCsv (workDir </> "results.csv") aggregates
 
-  let confTimes = spy' "Conf times" $ map (\(_, _, a) -> a) res
+  let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
       averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs

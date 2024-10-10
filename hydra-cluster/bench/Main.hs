@@ -42,7 +42,7 @@ main = do
       summarizeResults outputDirectory [results]
     DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
-      hydraNodeKeys <- mapM (fmap snd . keysFor) [AliceFunds, BobFunds, CarolFunds]
+      hydraNodeKeys <- mapM (fmap snd . keysFor) [Alice, Bob, Carol]
       dataset <- generateDemoUTxODataset networkId nodeSocket hydraNodeKeys numberOfTxs
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
