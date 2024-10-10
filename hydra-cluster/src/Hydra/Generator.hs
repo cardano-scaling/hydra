@@ -9,8 +9,7 @@ import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
 import Hydra.Cluster.Faucet (FaucetException (..))
-import Hydra.Cluster.Fixture (Actor (..), availableInitialFunds)
-import Hydra.Cluster.Util (keysFor)
+import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkTransferTx)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
@@ -91,9 +90,10 @@ instance FromJSON ClientDataset where
 defaultProtocolParameters :: PParams LedgerEra
 defaultProtocolParameters = def
 
--- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
--- The sequence of transactions generated consist only of simple payments from
--- and to arbitrary keys controlled by the individual clients.
+-- | Generate a 'Dataset' which does not grow the per-client UTXO set over time.
+-- This version provided faucet key owns funds on the initial funds of the
+-- devnet (See 'availableInitialFunds' and 'genesis-shelley.json'). Then for a
+-- given number of clients a number of transactions are generated.
 generateConstantUTxODataset ::
   -- | Faucet signing key
   SigningKey PaymentKey ->
@@ -118,21 +118,22 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
   clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
   pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
 
--- | Generates a 'Dataset' from an already running network by quering available
--- funds of the well-known 'faucet.sk' and using given hydra-node keys. For each
--- hydra-node a 'ClientDataset' with given number of transaction is generated.
+-- | Generate a 'Dataset' from an already running network by quering available
+-- funds of the well-known 'faucet.sk' and assuming the hydra-nodes we connect
+-- to have fuel available. Then for a given number of clients a number of
+-- transactions are generated.
 generateDemoUTxODataset ::
   NetworkId ->
   SocketPath ->
-  -- | Hydra node (fuel) keys.
-  [SigningKey PaymentKey] ->
+  -- | Faucet signing key
+  SigningKey PaymentKey ->
+  -- | Number of clients.
+  Int ->
   -- | Number of transactions
   Int ->
   IO Dataset
-generateDemoUTxODataset network nodeSocket hydraNodeKeys nTxs = do
-  let nClients = length hydraNodeKeys
+generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
   -- Query available funds
-  (faucetVk, faucetSk) <- keysFor Faucet
   faucetUTxO <- queryUTxOFor network nodeSocket QueryTip faucetVk
   let (Coin fundsAvailable) = foldMap (selectLovelace . txOutValue) faucetUTxO
   -- Generate client datasets
@@ -140,7 +141,6 @@ generateDemoUTxODataset network nodeSocket hydraNodeKeys nTxs = do
   clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable
   -- XXX: DRY with 'seedFromFaucet'
   fundingTransaction <- do
-    let changeAddress = mkVkAddress network faucetVk
     let recipientOutputs =
           flip map clientFunds $ \(vk, ll) ->
             TxOut
@@ -148,7 +148,7 @@ generateDemoUTxODataset network nodeSocket hydraNodeKeys nTxs = do
               (lovelaceToValue ll)
               TxOutDatumNone
               ReferenceScriptNone
-    buildTransaction network nodeSocket changeAddress faucetUTxO [] recipientOutputs >>= \case
+    buildTransaction network nodeSocket faucetAddress faucetUTxO [] recipientOutputs >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do
@@ -156,11 +156,15 @@ generateDemoUTxODataset network nodeSocket hydraNodeKeys nTxs = do
     pure
       Dataset
         { fundingTransaction
-        , hydraNodeKeys
+        , hydraNodeKeys = [] -- Not needed as we won't start nodes
         , clientDatasets
         , title = Nothing
         , description = Nothing
         }
+ where
+  faucetVk = getVerificationKey faucetSk
+
+  faucetAddress = mkVkAddress network faucetVk
 
 -- * Helpers
 

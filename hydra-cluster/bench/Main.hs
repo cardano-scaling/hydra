@@ -41,9 +41,9 @@ main = do
       results <- runSingle dataset workDir action
       summarizeResults outputDirectory [results]
     DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+      (_, faucetSk) <- keysFor Faucet
       numberOfTxs <- generate $ scale (* scalingFactor) getSize
-      hydraNodeKeys <- mapM (fmap snd . keysFor) [Alice, Bob, Carol]
-      dataset <- generateDemoUTxODataset networkId nodeSocket hydraNodeKeys numberOfTxs
+      dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
