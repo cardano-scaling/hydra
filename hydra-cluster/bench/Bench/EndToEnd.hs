@@ -136,6 +136,8 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
       returnAmount <- returnFundsToFaucet' faucetTracer node sk
       traceWith faucetTracer $ ReturnedFunds{returnAmount}
 
+-- | Runs the benchmark scenario given a list of clients. The first client is
+-- used to drive the life-cycle of the head.
 scenario ::
   Tracer IO HydraNodeLog ->
   RunningNode ->
