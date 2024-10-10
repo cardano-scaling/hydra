@@ -357,12 +357,17 @@ onOpenNetworkReqTx env ledger st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx Nothing)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx pendingDeposit)
       else outcome
 
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
+
+  pendingDeposit =
+    case Map.toList pendingDeposits of
+      [] -> Nothing
+      (_, depositUTxO) : _ -> Just depositUTxO
 
   CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version, pendingDeposits} = coordinatedHeadState
 
@@ -675,7 +680,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           then
             outcome
               <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx Nothing)
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
           else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -728,6 +733,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , coordinatedHeadState
     , headId
     } = openState
+
+  pendingDeposit =
+    case Map.toList pendingDeposits of
+      [] -> Nothing
+      (_, depositUTxO) : _ -> Just depositUTxO
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, version} = coordinatedHeadState
 
