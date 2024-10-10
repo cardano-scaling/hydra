@@ -46,6 +46,8 @@ import System.Process (
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
+-- * Client to interact with a hydra-node
+
 data HydraClient = HydraClient
   { hydraNodeId :: Int
   , apiHost :: Host
@@ -222,15 +224,7 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
       Req.bsResponse
       (Req.port $ 6_000 + hydraNodeId)
 
-data HydraNodeLog
-  = HydraNodeCommandSpec {cmd :: Text}
-  | NodeStarted {nodeId :: Int}
-  | SentMessage {nodeId :: Int, message :: Aeson.Value}
-  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
-  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
-  | EndWaiting {nodeId :: Int}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON, ToObject)
+-- * Start / connect to a cluster of nodes
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
@@ -291,6 +285,8 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
         hydraVerificationKeys
         allNodeIds
         (\c -> startNodes (c : clients) rest)
+
+-- * Start / connect to a hydra-node
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -441,11 +437,12 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryPa
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesConnected tracer delay clients =
   mapM_ waitForNodeConnected clients
  where
-  allNodeIds = hydraNodeId <$> clients
+  allNodeIds = hydraNodeId <$> toList clients
+
   waitForNodeConnected n@HydraClient{hydraNodeId} =
     waitForAll tracer delay [n] $
       fmap
@@ -456,3 +453,13 @@ waitForNodesConnected tracer delay clients =
               ]
         )
         (filter (/= hydraNodeId) allNodeIds)
+
+data HydraNodeLog
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
+  | SentMessage {nodeId :: Int, message :: Aeson.Value}
+  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
+  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
+  | EndWaiting {nodeId :: Int}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, ToObject)

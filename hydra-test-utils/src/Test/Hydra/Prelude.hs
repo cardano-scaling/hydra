@@ -1,5 +1,4 @@
 module Test.Hydra.Prelude (
-  createSystemTempDirectory,
   failure,
   HUnitFailure (..),
   location,
@@ -12,6 +11,7 @@ module Test.Hydra.Prelude (
   pickBlind,
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
+  createTempDir,
   withTempDir,
   withLogFile,
   checkProcessHasNotDied,
@@ -44,19 +44,20 @@ import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 
--- | Create a unique temporary directory.
-createSystemTempDirectory :: String -> IO FilePath
-createSystemTempDirectory template = do
+-- | Create a unique directory in the caonical, system-specific temporary path,
+-- e.g. in /tmp.
+createTempDir :: MonadIO m => String -> m FilePath
+createTempDir template = liftIO $ do
   tmpDir <- case os of
     "darwin" -> pure "/tmp" -- https://github.com/cardano-scaling/hydra/issues/158.
     _ -> getCanonicalTemporaryDirectory
   createTempDirectory tmpDir template
 
--- | Create a temporary directory for the given 'action' to use.
--- The directory is removed if and only if the action completes successfuly.
+-- | Create a temporary directory for the given 'action' to use. The directory
+-- is removed if and only if the action completes successfuly.
 withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
 withTempDir baseName action = do
-  tmpDir <- liftIO $ createSystemTempDirectory baseName
+  tmpDir <- createTempDir baseName
   res <- action tmpDir
   liftIO $ cleanup 0 tmpDir
   pure res

@@ -11,11 +11,11 @@ import Bench.Summary (Summary (..), errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (ClientKeys (..), Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
 import Options.Applicative (execParser)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
+import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
-import System.FilePath (takeDirectory, takeFileName, (</>))
+import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate, getSize, scale)
 
@@ -23,54 +23,51 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{workDirectory = Just workDir, outputDirectory, timeoutSeconds, startingNodeId, scalingFactor, clusterSize} -> do
-      -- XXX: This option is a bit weird as it allows to re-run a test by
-      -- providing --work-directory, which is now redundant of the dataset
-      -- sub-command.
-      existsDir <- doesDirectoryExist workDir
-      if existsDir
-        then replay outputDirectory timeoutSeconds startingNodeId workDir
-        else play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
-    StandaloneOptions{workDirectory = Nothing, outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
-      workDir <- createSystemTempDirectory "bench"
-      play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir
+    StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
+      (_, faucetSk) <- keysFor Faucet
+      -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
+      putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
+      dataset <- generate $ do
+        numberOfTxs <- scale (* scalingFactor) getSize
+        generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      -- XXX: Using the --output-directory for both dataset storage and as a
+      -- state directory for the cluster is weird. However, the 'scenario'
+      -- contains the writing of the 'results.csv' file right now and we can't
+      -- use a temporary directory if we want to keep the 'results.csv' for
+      -- plotting after benchmarking.
+      workDir <- maybe (createTempDir "bench-single") checkEmpty outputDirectory
+      saveDataset (workDir </> "dataset.json") dataset
+      let action = bench startingNodeId timeoutSeconds
+      results <- runSingle dataset workDir action
+      summarizeResults outputDirectory [results]
+    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+      (_, faucetSk) <- keysFor Faucet
+      numberOfTxs <- generate $ scale (* scalingFactor) getSize
+      dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
+      workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
+      results <-
+        runSingle dataset workDir $
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients
+      summarizeResults outputDirectory [results]
+      removeDirectoryRecursive workDir
     DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
       let action = bench startingNodeId timeoutSeconds
-      run outputDirectory datasetFiles action
-    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
-      let action = benchDemo networkId nodeSocket timeoutSeconds hydraClients
-      playDemo outputDirectory scalingFactor networkId nodeSocket action
+      putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
+      datasets <- forM datasetFiles loadDataset
+      results <- forM datasets $ \dataset -> do
+        withTempDir "bench-dataset" $ \dir -> do
+          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+          threadDelay 10
+          runSingle dataset dir action
+      summarizeResults outputDirectory results
  where
-  playDemo outputDirectory scalingFactor networkId nodeSocket action = do
-    numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    let actors = [(Alice, AliceFunds), (Bob, BobFunds), (Carol, CarolFunds)]
-    let toClientKeys (actor, funds) = do
-          sk <- snd <$> keysFor actor
-          fundsSk <- snd <$> keysFor funds
-          pure $ ClientKeys sk fundsSk
-    clientKeys <- forM actors toClientKeys
-    dataset <- generateDemoUTxODataset networkId nodeSocket clientKeys numberOfTxs
-    results <- withTempDir "bench-demo" $ \dir -> do
-      runSingle dataset action (fromMaybe dir outputDirectory)
-    summarizeResults outputDirectory [results]
+  checkEmpty fp = do
+    createDirectoryIfMissing True fp
+    listDirectory fp >>= \case
+      [] -> pure fp
+      _files -> die $ "ERROR: Output directory not empty: " <> fp
 
-  play outputDirectory timeoutSeconds scalingFactor clusterSize startingNodeId workDir = do
-    (_, faucetSk) <- keysFor Faucet
-    putStrLn $ "Generating single dataset in work directory: " <> workDir
-    numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- generate $ generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-    let datasetPath = workDir </> "dataset.json"
-    saveDataset datasetPath dataset
-    let action = bench startingNodeId timeoutSeconds
-    run outputDirectory [datasetPath] action
-
-  replay outputDirectory timeoutSeconds startingNodeId benchDir = do
-    let datasetPath = benchDir </> "dataset.json"
-    putStrLn $ "Replaying single dataset from work directory: " <> datasetPath
-    let action = bench startingNodeId timeoutSeconds
-    run outputDirectory [datasetPath] action
-
-  runSingle dataset action dir = do
+  runSingle dataset dir action = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, errorSummary dataset exc, TestFailed exc)
@@ -79,29 +76,16 @@ main = do
           | numberOfInvalidTxs == 0 -> pure $ Right summary
           | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
 
-  run outputDirectory datasetFiles action = do
-    results <- forM datasetFiles $ \datasetPath -> do
-      putTextLn $ "Running benchmark with dataset " <> show datasetPath
-      dataset <- loadDataset datasetPath
-      withTempDir ("bench-" <> takeFileName datasetPath) $ \dir -> do
-        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-        threadDelay 10
-        runSingle dataset action dir
-    summarizeResults outputDirectory results
-
   summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) Summary] -> IO ()
   summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> writeBenchmarkReport outputDirectory summaries
-      errs ->
-        mapM_
-          ( \(_, dir, summary, exc) ->
-              writeBenchmarkReport outputDirectory [summary]
-                >> benchmarkFailedWith dir exc
-          )
-          errs
-          >> exitFailure
+      errs -> do
+        forM_ errs $ \(_, dir, summary, exc) -> do
+          writeBenchmarkReport outputDirectory [summary]
+          benchmarkFailedWith dir exc
+        exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do

@@ -39,7 +39,7 @@ instance Exception FaucetException
 
 data FaucetLog
   = TraceResourceExhaustedHandled Text
-  | ReturnedFunds {actor :: String, returnAmount :: Coin}
+  | ReturnedFunds {returnAmount :: Coin}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -61,7 +61,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace
-    let changeAddress = ShelleyAddressInEra (buildAddress faucetVk networkId)
+    let changeAddress = mkVkAddress networkId faucetVk
     buildTransaction networkId nodeSocket changeAddress faucetUTxO [] [theOutput] >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
@@ -130,7 +130,7 @@ returnFundsToFaucet' tracer RunningNode{networkId, nodeSocket} senderSk = do
         submitTransaction networkId nodeSocket tx
         void $ awaitTransaction networkId nodeSocket tx
         pure allLovelace
-  traceWith tracer $ ReturnedFunds{actor = show senderVk, returnAmount}
+  traceWith tracer $ ReturnedFunds{returnAmount}
   pure returnAmount
  where
   buildTxBody utxo faucetAddress =
