@@ -89,6 +89,48 @@ spec = do
           . key "subscribe"
           . key "message"
 
+    prop "Validate /commit publish api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commit"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /commit subscribe api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commit"
+          . key "subscribe"
+          . key "message"
+
+    prop "Validate /commits publish api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commits"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /commits subscribe api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commits"
+          . key "subscribe"
+          . key "message"
+
+    prop "Validate /commits/<tx-id> publish api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commits/tx-id"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /commits/<tx-id> subscribe api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/commits/tx-id"
+          . key "subscribe"
+          . key "message"
+
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
       prop "accepts json encoded transaction" $
