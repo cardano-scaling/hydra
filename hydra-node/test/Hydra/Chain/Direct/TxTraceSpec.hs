@@ -292,24 +292,22 @@ instance StateModel Model where
   -- FIXME: 1.5k discards on 100 runs
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
+  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, latestSnapshot, utxoInHead, pendingDecommitUTxO} =
     case headState of
       Open{} ->
         oneof $
-          [ Some . NewSnapshot <$> genSnapshot
-          , do
-              actor <- elements allActors
-              snapshot <- genSnapshot
-              -- XXX: Too much randomness in genSnapshot
-              version <- elements [currentVersion, currentVersion + 1]
-              pure $ Some $ Close{actor, snapshot = snapshot{version}}
-          ]
+          [Some . NewSnapshot <$> genSnapshot]
             <> [ do
                   actor <- elements allActors
-                  snapshot <- genSnapshot
+                  snapshot <- elements knownSnapshots
                   pure $ Some Decrement{actor, snapshot}
-               | -- We dont want to generate decrements if there is nothing in the head.
-               not (null utxoInHead)
+               | not (null knownSnapshots) -- XXX: DRY this check
+               ]
+            <> [ do
+                  actor <- elements allActors
+                  snapshot <- elements knownSnapshots
+                  pure $ Some $ Close{actor, snapshot = snapshot}
+               | not (null knownSnapshots)
                ]
       Closed{} ->
         frequency $
@@ -325,13 +323,13 @@ instance StateModel Model where
                       }
             )
           ]
-            <> [
-                 ( 10
+            <> [ ( 10
                  , do
                     actor <- elements allActors
-                    snapshot <- genSnapshot
+                    snapshot <- elements knownSnapshots
                     pure $ Some Contest{actor, snapshot}
                  )
+               | not (null knownSnapshots)
                ]
       Final -> pure $ Some Stop
    where
