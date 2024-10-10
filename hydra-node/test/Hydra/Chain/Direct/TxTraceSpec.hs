@@ -509,6 +509,7 @@ instance StateModel Model where
           { headState = Open
           , currentVersion = m.currentVersion + 1
           , utxoInHead = balanceUTxOInHead (utxoInHead m) (decommitUTxO snapshot)
+          -- TODO: why is this not needed?, pendingDecommitUTxO = m.pendingDecommitUTxO \\ snapshot.snapshotUTxO
           }
       Close{snapshot} ->
         m
@@ -524,7 +525,7 @@ instance StateModel Model where
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshotUTxO snapshot
-          , pendingDecommitUTxO = decommitUTxO snapshot
+          , pendingDecommitUTxO = if currentVersion == snapshot.version then decommitUTxO snapshot else mempty
           }
       Fanout{} -> m{headState = Final}
 
