@@ -59,13 +59,11 @@ data PostChainTx tx
       { headId :: HeadId
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
-      , depositScriptUTxO :: UTxOType tx
       , depositTxId :: TxIdType tx
       }
   | RecoverTx
       { headId :: HeadId
       , recoverTxId :: TxIdType tx
-      , utxoToDeposit :: UTxOType tx
       , deadline :: ChainSlot
       }
   | DecrementTx
@@ -99,10 +97,10 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
     AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
     CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositScriptUTxO, depositTxId} ->
-      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositScriptUTxO <*> shrink depositTxId
-    RecoverTx{headId, recoverTxId, utxoToDeposit, deadline} ->
-      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink utxoToDeposit <*> shrink deadline
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
+      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
+    RecoverTx{headId, recoverTxId, deadline} ->
+      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
@@ -129,11 +127,9 @@ data OnChainTx tx
       , deposited :: UTxOType tx
       , depositTxId :: TxIdType tx
       , deadline :: UTCTime
-      , depositScriptUTxO :: UTxOType tx
       }
   | OnRecoverTx
       { headId :: HeadId
-      , recoveredUTxO :: UTxOType tx
       , recoveredTxId :: TxIdType tx
       }
   | OnIncrementTx

@@ -15,7 +15,6 @@ changes.
      Important to note is that on-chain security is not implemented and hydra-node in this
      state is not releasable!
      Missing off-chain items to implement as a series of next PR's:
-      - Use the observed UTxO to construct increment/recover
       - Add documentation to explain the feature
       - Implement tests scenarios outlined in the [incremental-commit] (https://github.com/cardano-scaling/hydra/issues/199) issue
       - Remove Commit client input since it is unused

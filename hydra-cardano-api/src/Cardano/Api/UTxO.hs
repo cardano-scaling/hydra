@@ -62,9 +62,13 @@ resolve k = Map.lookup k . toMap
 pairs :: UTxO' out -> [(TxIn, out)]
 pairs = Map.toList . toMap
 
--- | Find first 'UTxO' which satisfies given predicate.
+-- | Find first 'UTxO' using the output in predicate.
 find :: (out -> Bool) -> UTxO' out -> Maybe (TxIn, out)
-find fn utxo = List.find (fn . snd) $ pairs utxo
+find fn = findBy (fn . snd)
+
+-- | Find first 'UTxO' using both input and output in predicate.
+findBy :: ((TxIn, out) -> Bool) -> UTxO' out -> Maybe (TxIn, out)
+findBy fn utxo = List.find fn $ pairs utxo
 
 -- | Filter UTxO to only include 'out's satisfying given predicate.
 filter :: (out -> Bool) -> UTxO' out -> UTxO' out

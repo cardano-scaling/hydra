@@ -141,7 +141,7 @@ data ServerOutput tx
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
-  | CommitFinalized {headId :: HeadId, utxo :: UTxOType tx, theDeposit :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   deriving stock (Generic)
 

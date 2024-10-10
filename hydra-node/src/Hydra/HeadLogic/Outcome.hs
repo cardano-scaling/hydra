@@ -9,7 +9,7 @@ import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (HeadState, PendingDeposits)
+import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
@@ -72,7 +72,7 @@ data StateChanged tx
       { tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
-  | CommitRecorded {pendingDeposits :: PendingDeposits tx, newLocalUTxO :: UTxOType tx}
+  | CommitRecorded {pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx}
   | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}

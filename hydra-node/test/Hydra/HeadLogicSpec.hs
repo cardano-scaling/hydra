@@ -659,7 +659,6 @@ spec =
                   , deposited = mempty
                   , depositTxId = 1
                   , deadline = genUTCTime `generateWith` 42
-                  , depositScriptUTxO = mempty
                   }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})

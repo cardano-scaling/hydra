@@ -67,7 +67,6 @@ data DepositObservation = DepositObservation
   , deposited :: UTxO
   , depositTxId :: TxId
   , deadline :: POSIXTime
-  , depositScriptUTxO :: UTxO
   }
   deriving stock (Show, Eq, Generic)
 
@@ -87,7 +86,6 @@ observeDepositTx networkId tx = do
           , deposited
           , depositTxId
           , deadline
-          , depositScriptUTxO = utxoFromTx tx
           }
     else Nothing
  where

@@ -45,6 +45,7 @@ import Hydra.Cardano.Api (
   getTxId,
   isScriptTxOut,
   modifyTxOutValue,
+  networkIdToNetwork,
   selectAsset,
   selectLovelace,
   toTxContext,
@@ -54,6 +55,7 @@ import Hydra.Cardano.Api (
   txSpendingUTxO,
   pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
+  pattern TxIn,
   pattern TxOut,
  )
 import Hydra.Chain (
@@ -78,6 +80,7 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   txInToHeadSeed,
  )
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
@@ -111,7 +114,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx, observeDepositTxOut)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
@@ -478,6 +481,7 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
 data IncrementTxError
   = InvalidHeadIdInIncrement {headId :: HeadId}
   | CannotFindHeadOutputInIncrement
+  | CannotFindDepositOutputInIncrement {depositTxId :: TxId}
   | SnapshotMissingIncrementUTxO
   | SnapshotIncrementUTxOIsNull
   deriving stock (Show)
@@ -492,22 +496,30 @@ increment ::
   HeadParameters ->
   -- | Snapshot to increment with.
   ConfirmedSnapshot Tx ->
-  -- | Deposit script UTxO to spend
-  UTxO ->
+  -- | Deposited TxId
+  TxId ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO headId headParameters incrementingSnapshot depositScriptUTxO = do
+increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
+  (depositedIn, depositedOut) <-
+    UTxO.findBy
+      ( \(TxIn txid _, txout) ->
+          isScriptTxOut depositScript txout && txid == depositTxId
+      )
+      spendableUTxO
+      ?> CannotFindDepositOutputInIncrement{depositTxId}
   case utxoToCommit of
     Nothing ->
       Left SnapshotMissingIncrementUTxO
     Just deposit
       | null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn depositScriptUTxO
+      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut))
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
 
   Snapshot{utxoToCommit} = sn
 
@@ -569,22 +581,40 @@ data CloseTxError
   | CannotFindHeadOutputToClose
   deriving stock (Show)
 
-newtype RecoverTxError = InvalidHeadIdInRecover {headId :: HeadId}
+data RecoverTxError
+  = InvalidHeadIdInRecover {headId :: HeadId}
+  | CannotFindDepositOutputToRecover {depositTxId :: TxId}
+  | CannotFindDepositedOutputToRecover {depositedTxId :: TxId}
   deriving stock (Show)
 
 -- | Construct a recover transaction spending the deposit output
 -- and producing outputs the user initially deposited.
 recover ::
+  ChainContext ->
   HeadId ->
   -- | Deposit TxId
   TxId ->
-  -- | Deposit script UTxO to spend
+  -- | Spendable UTxO
   UTxO ->
   SlotNo ->
   Either RecoverTxError Tx
-recover headId depositTxId depositedUTxO lowerValiditySlot = do
-  _ <- headIdToPolicyId headId ?> InvalidHeadIdInRecover{headId}
-  Right $ recoverTx depositTxId depositedUTxO lowerValiditySlot
+recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
+  (_, depositedOut) <-
+    UTxO.findBy
+      ( \(TxIn txid _, txout) ->
+          isScriptTxOut depositScript txout && txid == depositedTxId
+      )
+      spendableUTxO
+      ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}
+  (headId', deposited, _deadline) <-
+    observeDepositTxOut (networkIdToNetwork networkId) depositedOut
+      ?> CannotFindDepositedOutputToRecover{depositedTxId = depositedTxId}
+  if headId /= headId'
+    then Left InvalidHeadIdInRecover{headId}
+    else Right $ recoverTx depositedTxId deposited lowerValiditySlot
+ where
+  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  ChainContext{networkId} = ctx
 
 -- | Construct a close transaction spending the head output in given 'UTxO',
 -- head parameters, and a confirmed snapshot. NOTE: Lower and upper bound slot
@@ -1167,20 +1197,21 @@ genRecoverTx = do
 
 genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
 genIncrementTx numParties = do
-  (utxo, txDeposit) <- genDepositTx
+  (_utxo, txDeposit) <- genDepositTx
   ctx <- genHydraContextFor numParties
   cctx <- pickChainContext ctx
-  let DepositObservation{deposited, depositScriptUTxO} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
+  let DepositObservation{deposited, depositTxId} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   (_, st@OpenState{headId}) <- genStOpen ctx
   let openUTxO = getKnownUTxO st
   let version = 1
   snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
+  let depositUTxO = utxoFromTx txDeposit
   pure
     ( cctx
     , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)
     , st
-    , depositScriptUTxO
-    , unsafeIncrement cctx openUTxO headId (ctxHeadParameters ctx) snapshot utxo
+    , depositUTxO
+    , unsafeIncrement cctx (openUTxO <> depositUTxO) headId (ctxHeadParameters ctx) snapshot depositTxId
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
@@ -1331,10 +1362,10 @@ unsafeIncrement ::
   HeadId ->
   HeadParameters ->
   ConfirmedSnapshot Tx ->
-  UTxO ->
+  TxId ->
   Tx
-unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositScriptUTxO =
-  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositScriptUTxO
+unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId =
+  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId
 
 unsafeDecrement ::
   HasCallStack =>

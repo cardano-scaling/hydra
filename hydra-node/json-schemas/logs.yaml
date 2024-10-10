@@ -2043,7 +2043,6 @@ definitions:
           - deposited
           - depositTxId
           - deadline
-          - depositScriptUTxO
         description: >-
           The deposit transaction locking some UTxO to a deposit script.
         properties:
@@ -2058,15 +2057,12 @@ definitions:
             type: string
           deadline:
             $ref: "api.yaml#/components/schemas/UTCTime"
-          depositScriptUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnRecoverTx
         type: object
         additionalProperties: false
         required:
           - tag
           - headId
-          - recoveredUTxO
           - recoveredTxId
         description: >-
           The recover transaction unlocking the deposited UTxO.
@@ -2076,8 +2072,6 @@ definitions:
             enum: ["OnRecoverTx"]
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
-          recoveredUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
           recoveredTxId:
             type: string
       - title: OnIncrementTx
