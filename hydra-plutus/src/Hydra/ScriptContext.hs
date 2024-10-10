@@ -28,7 +28,6 @@ import PlutusLedgerApi.V2 (
   Value,
  )
 import PlutusTx (makeIsDataIndexed)
-import PlutusTx.AssocMap (lookup)
 
 -- * Tx info
 
@@ -98,11 +97,6 @@ findOwnInput ScriptContext{scriptContextTxInfo = TxInfo{txInfoInputs}, scriptCon
   find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == txOutRef) txInfoInputs
 findOwnInput _ = Nothing
 {-# INLINEABLE findOwnInput #-}
-
--- | Find the data corresponding to a data hash, if there is one
-findDatum :: DatumHash -> TxInfo -> Maybe Datum
-findDatum dsh TxInfo{txInfoData} = lookup dsh txInfoData
-{-# INLINEABLE findDatum #-}
 
 -- | Given a UTXO reference and a transaction (`TxInfo`), resolve it to one of the transaction's inputs (`TxInInfo`).
 findTxInByTxOutRef :: TxOutRef -> TxInfo -> Maybe TxInInfo
