@@ -184,7 +184,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      -- print actions
+      print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -216,7 +216,9 @@ data Model = Model
   , closedSnapshotNumber :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
-  , pendingDecommitUTxO :: ModelUTxO
+  , -- XXX: This is used in two ways, to track pending decommits for generating
+    -- snapshots and to remember the pending (delta) utxo during close/fanout
+    pendingDecommit :: ModelUTxO
   }
   deriving (Show)
 
@@ -224,6 +226,11 @@ latestSnapshotNumber :: [ModelSnapshot] -> SnapshotNumber
 latestSnapshotNumber = \case
   (s : _) -> s.number
   _ -> 0
+
+latestSnapshot :: [ModelSnapshot] -> Maybe ModelSnapshot
+latestSnapshot = \case
+  [] -> Nothing
+  (s : _) -> Just s
 
 -- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
 -- simplified form of 'UTxO'.
@@ -293,11 +300,11 @@ instance StateModel Model where
       , closedSnapshotNumber = 0
       , alreadyContested = []
       , utxoInHead = fromList $ map (,10) [A, B, C]
-      , pendingDecommitUTxO = Map.empty
+      , pendingDecommit = Map.empty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingDecommitUTxO} =
+  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingDecommit} =
     case headState of
       Open{} ->
         frequency $
@@ -327,7 +334,7 @@ instance StateModel Model where
                 Some $
                   Fanout
                     { utxo = utxoInHead
-                    , deltaUTxO = pendingDecommitUTxO
+                    , deltaUTxO = pendingDecommit
                     }
           )
             : [ ( 3
@@ -342,12 +349,17 @@ instance StateModel Model where
    where
     -- TODO: Generate a snapshot an honest node would sign given the current model state.
     genSnapshot = do
-      toDecommit <- reduceValues =<< submapOf utxoInHead
+      -- Only decommit if not already pending
+      toDecommit <-
+        if null pendingDecommit
+          then submapOf utxoInHead >>= reduceValues
+          else pure pendingDecommit
       let validSnapshot =
             ModelSnapshot
               { version = currentVersion
               , number = latestSnapshotNumber knownSnapshots + 1
-              , inHead = utxoInHead `remove` toDecommit
+              , -- TODO: could shuffle UTxO in head (retaining balance)
+                inHead = utxoInHead `remove` toDecommit
               , toDecommit
               }
       -- FIXME: check whether these cases are met
@@ -395,13 +407,13 @@ instance StateModel Model where
      where
       reduceValue n = do
         let i = naturalToInteger n
-        reduction <- choose (0, i)
+        reduction <- choose (1, i)
         pure . naturalFromInteger $ i - reduction
 
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, knownSnapshots, closedSnapshotNumber, alreadyContested, utxoInHead, pendingDecommitUTxO, currentVersion} = \case
+  precondition Model{headState, knownSnapshots, closedSnapshotNumber, alreadyContested, currentVersion, utxoInHead, pendingDecommit} = \case
     Stop -> headState /= Final
     NewSnapshot{newSnapshot} ->
       newSnapshot.version == currentVersion
@@ -429,7 +441,7 @@ instance StateModel Model where
     Fanout{utxo, deltaUTxO} ->
       headState == Closed
         && utxo == utxoInHead
-        && deltaUTxO == pendingDecommitUTxO
+        && deltaUTxO == pendingDecommit
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
@@ -461,29 +473,30 @@ instance StateModel Model where
     case t of
       Stop -> m
       NewSnapshot{newSnapshot} ->
-        m{knownSnapshots = newSnapshot : m.knownSnapshots}
+        m
+          { knownSnapshots = newSnapshot : m.knownSnapshots
+          , pendingDecommit = newSnapshot.toDecommit
+          }
       Decrement{snapshot} ->
         m
           { headState = Open
           , currentVersion = m.currentVersion + 1
-          , utxoInHead = utxoInHead m `remove` toDecommit snapshot
-          -- TODO: why is this not needed?, pendingDecommitUTxO = m.pendingDecommitUTxO \\ snapshot.inHead
+          , utxoInHead = m.utxoInHead `remove` snapshot.toDecommit
+          , pendingDecommit = mempty
           }
       Close{snapshot} ->
         m
           { headState = Closed
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = []
-          , utxoInHead = inHead snapshot
-          , pendingDecommitUTxO = if currentVersion == snapshot.version then toDecommit snapshot else mempty
+          , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Contest{actor, snapshot} ->
         m
           { headState = Closed
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = actor : alreadyContested m
-          , utxoInHead = inHead snapshot
-          , pendingDecommitUTxO = if currentVersion == snapshot.version then toDecommit snapshot else mempty
+          , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Fanout{} -> m{headState = Final}
 
@@ -763,7 +776,7 @@ newContestTx actor openVersion snapshot = do
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
 newFanoutTx :: Actor -> ModelUTxO -> ModelUTxO -> AppM (Either FanoutTxError Tx)
-newFanoutTx actor utxo deltaUTxO = do
+newFanoutTx actor utxo pendingDecommit = do
   spendableUTxO <- get
   pure $
     fanout
@@ -772,7 +785,7 @@ newFanoutTx actor utxo deltaUTxO = do
       Fixture.testSeedInput
       (realWorldModelUTxO utxo)
       -- Model world has no 'Maybe ModelUTxO', but real world does.
-      (if null deltaUTxO then Nothing else Just $ realWorldModelUTxO deltaUTxO)
+      (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
       deadline
  where
   CP.UnsafeContestationPeriod contestationPeriod = Fixture.cperiod
