@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   findRedeemerSpending,
   fromPlutusScript,
   genTxIn,
+  hasStakeReference,
   hashScript,
   isScriptTxOut,
   lovelaceToValue,
@@ -32,12 +33,15 @@ import Hydra.Cardano.Api (
   toScriptData,
   txInputSet,
   txIns',
+  txOutAddress,
+  txOutDatum,
   txOutValue,
   txOuts',
   utxoFromTx,
   valueSize,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
+  pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
@@ -734,8 +738,15 @@ forAllFanout action =
       let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
+            & cover 1 (any isStaked $ txOuts' tx) "has staked output"
+            & cover 1 (any hasDatum $ txOuts' tx) "has a datum"
+            & checkCoverage
  where
   maxSupported = 58
+
+  isStaked = hasStakeReference . txOutAddress
+
+  hasDatum o = txOutDatum o /= TxOutDatumNone
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 

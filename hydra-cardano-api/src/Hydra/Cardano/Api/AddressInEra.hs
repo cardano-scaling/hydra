@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Ledger (StakeReference (..))
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
@@ -56,6 +57,14 @@ mkScriptAddress networkId script =
     NoStakeAddress
  where
   version = plutusScriptVersion @lang
+
+-- | Predicate to check whether an address is staked.
+hasStakeReference :: AddressInEra era -> Bool
+hasStakeReference = \case
+  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ _ ref) ->
+    ref /= StakeRefNull
+  _ ->
+    False
 
 -- * Type Conversions
 

@@ -29,6 +29,7 @@ import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Deposit (DepositObservation)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Recover (RecoverObservation)
+import Hydra.Tx.Utils (adaOnly)
 import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture qualified as Fixtures
@@ -158,7 +159,7 @@ genUTxOAdaOnlyOfSize :: Int -> Gen UTxO
 genUTxOAdaOnlyOfSize numUTxO =
   fold <$> vectorOf numUTxO (UTxO.singleton <$> gen)
  where
-  gen = (,) <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
+  gen = (,) <$> arbitrary <*> (adaOnly <$> genTxOut)
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
