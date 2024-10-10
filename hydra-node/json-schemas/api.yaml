@@ -106,7 +106,6 @@ channels:
           - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/GetUTxO"
-          - $ref: "api.yaml#/components/messages/Commit"
           - $ref: "api.yaml#/components/messages/Recover"
           - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
@@ -2402,7 +2401,7 @@ components:
             evaluate scripts and calculate script integrity hashes.
           oneOf:
             - $ref: "api.yaml#/components/schemas/Cbor"
-            - type: "null" 
+            - type: "null"
         datum:
           oneOf:
             - type: string
