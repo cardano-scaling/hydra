@@ -78,7 +78,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, choose, cover, elements, frequency, ioProperty, oneof, sublistOf, (===))
+import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, choose, cover, elements, frequency, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -184,7 +184,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      print actions
+      -- print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -300,42 +300,44 @@ instance StateModel Model where
   arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingDecommitUTxO} =
     case headState of
       Open{} ->
-        oneof $
-          [Some . NewSnapshot <$> genSnapshot]
-            <> [ do
-                  actor <- elements allActors
-                  snapshot <- elements knownSnapshots
-                  pure $ Some Decrement{actor, snapshot}
-               | not (null knownSnapshots) -- XXX: DRY this check
-               ]
-            <> [ do
-                  actor <- elements allActors
-                  snapshot <- elements knownSnapshots
-                  pure $ Some $ Close{actor, snapshot = snapshot}
-               | not (null knownSnapshots)
-               ]
-      Closed{} ->
         frequency $
-          [
-            ( 1
-            , do
-                -- Fanout with the currently known model state.
-                pure $
-                  Some $
-                    Fanout
-                      { utxo = utxoInHead
-                      , deltaUTxO = pendingDecommitUTxO
-                      }
-            )
-          ]
+          [(5, Some . NewSnapshot <$> genSnapshot)]
             <> [ ( 10
                  , do
                     actor <- elements allActors
                     snapshot <- elements knownSnapshots
-                    pure $ Some Contest{actor, snapshot}
+                    pure $ Some Decrement{actor, snapshot}
+                 )
+               | not (null knownSnapshots) -- XXX: DRY this check
+               ]
+            <> [ ( 1
+                 , do
+                    actor <- elements allActors
+                    snapshot <- elements knownSnapshots
+                    pure $ Some $ Close{actor, snapshot = snapshot}
                  )
                | not (null knownSnapshots)
                ]
+      Closed{} ->
+        frequency $
+          ( 1
+          , do
+              -- Fanout with the currently known model state.
+              pure $
+                Some $
+                  Fanout
+                    { utxo = utxoInHead
+                    , deltaUTxO = pendingDecommitUTxO
+                    }
+          )
+            : [ ( 3
+                , do
+                    actor <- elements allActors
+                    snapshot <- elements knownSnapshots
+                    pure $ Some Contest{actor, snapshot}
+                )
+              | not (null knownSnapshots)
+              ]
       Final -> pure $ Some Stop
    where
     -- TODO: Generate a snapshot an honest node would sign given the current model state.
