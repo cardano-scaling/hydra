@@ -45,6 +45,7 @@ import Hydra.Cardano.Api (
   getTxId,
   isScriptTxOut,
   modifyTxOutValue,
+  negateValue,
   networkIdToNetwork,
   selectAsset,
   selectLovelace,
@@ -535,7 +536,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
 data DecrementTxError
   = InvalidHeadIdInDecrement {headId :: HeadId}
   | CannotFindHeadOutputInDecrement
-  | SnapshotMissingDecrementUTxO
+  | DecrementValueNegative
   | SnapshotDecrementUTxOIsNull
   deriving stock (Show)
 
@@ -553,10 +554,17 @@ decrement ::
 decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
+  headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
+  let balance = txOutValue headOut <> negateValue decommitValue
+  when (isNegative balance) $
+    Left DecrementValueNegative
   Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+
+  decommitValue = foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
+
+  isNegative = any ((< 0) . snd) . IsList.toList
 
   (sn, sigs) =
     case decrementingSnapshot of
