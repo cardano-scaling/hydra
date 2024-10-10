@@ -17,7 +17,6 @@ changes.
      Missing off-chain items to implement as a series of next PR's:
       - Add documentation to explain the feature
       - Implement tests scenarios outlined in the [incremental-commit] (https://github.com/cardano-scaling/hydra/issues/199) issue
-      - Remove Commit client input since it is unused
       - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
 
 
