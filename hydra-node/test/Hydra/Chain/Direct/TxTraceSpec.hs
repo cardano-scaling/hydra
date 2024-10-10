@@ -428,7 +428,6 @@ instance StateModel Model where
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
         -- your tx is balanced with the utxo in the head
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
-        && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
       headState == Open
         && ( if snapshot.number == 0
@@ -473,8 +472,6 @@ instance StateModel Model where
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
         -- Ignore decrements that work with non existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
-        -- Ignore decrement without something to decommit
-        && (not . null $ decommitUTxO snapshot)
     Close{snapshot} ->
       headState == Open
         && ( snapshot.number == 0
