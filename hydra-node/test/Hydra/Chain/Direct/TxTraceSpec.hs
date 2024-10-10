@@ -423,6 +423,7 @@ instance StateModel Model where
         && newSnapshot.number > latestSnapshotNumber knownSnapshots
     Decrement{snapshot} ->
       headState == Open
+        && snapshot `elem` knownSnapshots
         && snapshot.version == currentVersion
         -- you are decrementing from existing utxo in the head
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
@@ -430,6 +431,7 @@ instance StateModel Model where
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
     Close{snapshot} ->
       headState == Open
+        && snapshot `elem` knownSnapshots
         && ( if snapshot.number == 0
               then snapshotUTxO snapshot == initialUTxOInHead
               else
@@ -443,6 +445,7 @@ instance StateModel Model where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
+        && snapshot `elem` knownSnapshots
         && actor `notElem` alreadyContested
         && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
         && snapshot.number > closedSnapshotNumber
@@ -459,13 +462,14 @@ instance StateModel Model where
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead, currentVersion} = \case
+  validFailingAction Model{headState, knownSnapshots, utxoInHead, currentVersion} = \case
     Stop -> False
     NewSnapshot{} -> False
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
     Decrement{snapshot} ->
       headState == Open
+        && snapshot `elem` knownSnapshots
         && snapshot.version /= currentVersion
         -- Ignore unbalanced decrements.
         -- TODO: make them fail gracefully and test this?
@@ -474,6 +478,7 @@ instance StateModel Model where
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Close{snapshot} ->
       headState == Open
+        && snapshot `elem` knownSnapshots
         && ( snapshot.number == 0
               || snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
@@ -484,6 +489,7 @@ instance StateModel Model where
         && all (`elem` Map.keys utxoInHead) (Map.keys (decommitUTxO snapshot) <> Map.keys (snapshotUTxO snapshot))
     Contest{snapshot} ->
       headState == Closed
+        && snapshot `elem` knownSnapshots
         -- Ignore unbalanced close.
         -- TODO: make them fail gracefully and test this?
         && sum (decommitUTxO snapshot) + sum (snapshotUTxO snapshot) == sum utxoInHead
@@ -599,8 +605,6 @@ instance RunModel Model AppM where
             -- exactly.
             let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
             let fannedOut = utxoFromTx tx
-            -- counterexamplePost ("Fanned out UTxO does not match: " <> renderUTxO fannedOut)
-            -- counterexamplePost ("SnapshotUTxO: " <> renderUTxO (snapshotUTxO snapshot))
             guard $ sorted fannedOut == sorted (realWorldModelUTxO utxo <> realWorldModelUTxO deltaUTxO)
 
         expectValid result $ \case
