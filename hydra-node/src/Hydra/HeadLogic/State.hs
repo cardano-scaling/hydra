@@ -159,7 +159,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
   -- ^ Last seen snapshot and signatures accumulator. Spec: Û, ŝ and Σ̂
-  , pendingDeposits :: [(TxIdType tx, UTxOType tx)]
+  , pendingDeposits :: Map (TxIdType tx) (UTxOType tx)
   -- ^ Pending deposit UTxO. Spec: Uα
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω

@@ -677,7 +677,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) pendingDeposits of
+    case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
       Just (depositTxId, depositUTxO) ->
         outcome
           <> causes
@@ -740,16 +740,16 @@ onOpenClientRecover ::
   TxIdType tx ->
   Outcome tx
 onOpenClientRecover headId currentSlot coordinatedHeadState recoverTxId =
-  case find (\(depositTxId, _) -> depositTxId == recoverTxId) pendingDeposits of
+  case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
       Error $ RequireFailed RecoverNotMatchingDeposit
-    Just (depositTxId', _) ->
+    Just _ ->
       causes
         [ OnChainEffect
             { postChainTx =
                 RecoverTx
                   { headId
-                  , recoverTxId = depositTxId'
+                  , recoverTxId = recoverTxId
                   , deadline = currentSlot
                   }
             }
@@ -934,7 +934,7 @@ onOpenChainDepositTx headId env st deposited depositTxId _deadline =
   -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
   -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
-    newState CommitRecorded{pendingDeposits = [(depositTxId, deposited)], newLocalUTxO = localUTxO <> deposited}
+    newState CommitRecorded{pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited}
       <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId})
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
@@ -969,9 +969,9 @@ onOpenChainRecoverTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainRecoverTx headId st recoveredTxId =
-  case find (\(depositTxId, _) -> depositTxId == recoveredTxId) pendingDeposits of
+  case Map.lookup recoveredTxId pendingDeposits of
     Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
-    Just (_, recoveredUTxO) ->
+    Just recoveredUTxO ->
       newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
         <> cause
           ( ClientEffect
@@ -1000,7 +1000,7 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainIncrementTx openState newVersion depositTxId =
-  case find (\(depositTxId', _) -> depositTxId' == depositTxId) pendingDeposits of
+  case Map.lookup depositTxId pendingDeposits of
     Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxId: " <> show depositTxId
     Just _ ->
       newState CommitFinalized{newVersion, depositTxId}
@@ -1408,7 +1408,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = Map.toList . Map.fromList $ pendingDeposits <> existingDeposits
+                  , pendingDeposits = pendingDeposits <> existingDeposits
                   }
             }
        where
@@ -1422,7 +1422,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = filter (\(depositTxId, _) -> depositTxId /= recoveredTxId) existingDeposits
+                  , pendingDeposits = Map.delete recoveredTxId existingDeposits
                   }
             }
        where
@@ -1595,7 +1595,7 @@ aggregate st = \case
             os
               { coordinatedHeadState =
                   coordinatedHeadState
-                    { pendingDeposits = filter (\(depositTxId', _) -> depositTxId' /= depositTxId) existingDeposits
+                    { pendingDeposits = Map.delete depositTxId existingDeposits
                     , version = newVersion
                     }
               }
