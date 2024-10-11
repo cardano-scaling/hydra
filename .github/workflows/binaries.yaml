@@ -54,10 +54,6 @@ jobs:
         name: hydra-x86_64-linux-${{ env.VERSION }} # automatically zips
         path: out/*
 
-    - name: ❄ Build devShells (for cache)
-      run: |
-        nix build .#devShells.x86_64-linux.default
-
   build-macos:
     name: "Build for aarch64-darwin"
     runs-on: macos-latest
@@ -101,7 +97,3 @@ jobs:
       with:
         name: hydra-aarch64-darwin-${{ env.VERSION }} # automatically zips
         path: out/*
-
-    - name: ❄ Build devShells (for cache)
-      run: |
-        nix build .#devShells.aarch64-darwin.default
