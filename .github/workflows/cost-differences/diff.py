@@ -43,7 +43,7 @@ def compare_to_md(f, old, new):
       return x
 
     if x > 0:
-      return f"$${{\\color{{black}}+{x}}}$$"
+      return f"+{x}"
     else:
       return f"$${{\\color{{green}}{x:.2f}}}$$"
 
