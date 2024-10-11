@@ -15,7 +15,6 @@ changes.
      Important to note is that on-chain security is not implemented and hydra-node in this
      state is not releasable!
      Missing off-chain items to implement as a series of next PR's:
-      - Add documentation to explain the feature
       - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
 
 - Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
