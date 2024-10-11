@@ -71,6 +71,11 @@ module.exports = {
     },
     "dev/protocol",
     {
+      type: "doc",
+      id: "dev/commit_to_a_Head",
+      label: "Commit funds to a Head",
+    },
+    {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },
       label: "Architecture",
