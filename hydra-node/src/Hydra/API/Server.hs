@@ -33,6 +33,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Tx (Party)
+import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -74,13 +75,14 @@ withAPIServer ::
   forall tx.
   IsChainState tx =>
   APIServerConfig ->
+  Environment ->
   Party ->
   PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerComponent tx IO ()
-withAPIServer config party persistence tracer chain pparams callback action =
+withAPIServer config env party persistence tracer chain pparams callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     timedOutputEvents <- loadAll
@@ -112,7 +114,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel)
-              (httpApp tracer chain pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do
           waitForServerRunning

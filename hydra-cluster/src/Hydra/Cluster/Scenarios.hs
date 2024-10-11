@@ -751,7 +751,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = UnsafeContestationPeriod 1
+      -- NOTE: this value is also used to determine the deposit deadline
+      let deadline = 1
+      let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
@@ -800,6 +802,8 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
 
+        threadDelay $ fromIntegral deadline
+
         recoverResp <-
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
             >>= httpJSON
@@ -825,7 +829,8 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = UnsafeContestationPeriod 1
+      let deadline = 1
+      let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
@@ -880,6 +885,7 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
 
         forM_ deposited $ \deposit -> do
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
+          threadDelay $ fromIntegral deadline
           recoverResp <-
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
               >>= httpJSON
