@@ -92,7 +92,7 @@ run opts = do
           -- API
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-          withAPIServer apiServerConfig party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
+          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do

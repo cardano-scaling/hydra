@@ -1352,6 +1352,7 @@ components:
         - headId
         - utxoToCommit
         - pendingDeposit
+        - deadline
         - seq
         - timestamp
       properties:
@@ -1364,6 +1365,8 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         pendingDeposit:
           type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

@@ -29,6 +29,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
+import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams)
 import Test.Hydra.Tx.Gen (genTxOut)
 import Test.QuickCheck (
@@ -155,7 +156,7 @@ apiServerSpec = do
         putClientInput = const (pure ())
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -174,7 +175,7 @@ apiServerSpec = do
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
           get "/snapshot/utxo"
             `shouldRespondWith` case utxo of
               Nothing -> 404
@@ -187,7 +188,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -200,7 +201,7 @@ apiServerSpec = do
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
           let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
-          withApplication (httpApp @Tx nullTracer dummyChainHandle defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
             get "/snapshot/utxo"
               `shouldRespondWith` 200
                 { matchBody = MatchBody $ \_ body ->
@@ -218,7 +219,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
-        withApplication (httpApp nullTracer workingChainHandle defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
           post "/commit" (Aeson.encode request)
             `shouldRespondWith` 200
 
@@ -242,7 +243,7 @@ apiServerSpec = do
               _ -> property
         checkCoverage $
           coverage $
-            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` expectedResponse
 
