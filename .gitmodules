@@ -1,3 +1,0 @@
-[submodule "testnets/cardano-configurations"]
-	path = testnets/cardano-configurations
-	url = git@github.com:input-output-hk/cardano-configurations.git
