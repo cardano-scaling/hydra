@@ -498,8 +498,9 @@ increment ::
   ConfirmedSnapshot Tx ->
   -- | Deposited TxId
   TxId ->
+  SlotNo ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId = do
+increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
@@ -516,7 +517,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Just deposit
       | null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut))
+      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
@@ -1206,12 +1207,13 @@ genIncrementTx numParties = do
   let version = 1
   snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
   let depositUTxO = utxoFromTx txDeposit
+  slotNo <- arbitrary
   pure
     ( cctx
     , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)
     , st
     , depositUTxO
-    , unsafeIncrement cctx (openUTxO <> depositUTxO) headId (ctxHeadParameters ctx) snapshot depositTxId
+    , unsafeIncrement cctx (openUTxO <> depositUTxO) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
@@ -1363,9 +1365,10 @@ unsafeIncrement ::
   HeadParameters ->
   ConfirmedSnapshot Tx ->
   TxId ->
+  SlotNo ->
   Tx
-unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId =
-  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId
+unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo =
+  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo
 
 unsafeDecrement ::
   HasCallStack =>
