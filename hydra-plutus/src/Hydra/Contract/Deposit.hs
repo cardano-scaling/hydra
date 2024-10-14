@@ -16,7 +16,9 @@ import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.DepositError (
   DepositError (
     DepositDeadlineNotReached,
+    DepositDeadlineSurpassed,
     DepositNoLowerBoundDefined,
+    DepositNoUpperBoundDefined,
     IncorrectDepositHash
   ),
  )
@@ -34,6 +36,8 @@ import PlutusLedgerApi.V2 (
   ScriptContext (..),
   ScriptHash,
   SerialisedScript,
+  UpperBound (..),
+  ivTo,
   serialiseCompiledCode,
   txInfoOutputs,
   txInfoValidRange,
@@ -66,8 +70,7 @@ validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
 validator depositDatum r ctx =
   case r of
     Claim ->
-      -- FIXME: Implement Claim redeemer
-      True
+      beforeDeadline
     Recover m ->
       afterDeadline
         && recoverOutputs m
@@ -80,6 +83,13 @@ validator depositDatum r ctx =
 
   hashOfOutputs m =
     hashTxOuts $ take m (txInfoOutputs txInfo)
+
+  beforeDeadline =
+    case ivTo (txInfoValidRange txInfo) of
+      UpperBound (Finite t) _ ->
+        traceIfFalse $(errorCode DepositDeadlineSurpassed) $
+          t <= dl
+      _ -> traceError $(errorCode DepositNoUpperBoundDefined)
 
   afterDeadline =
     case ivFrom (txInfoValidRange txInfo) of
