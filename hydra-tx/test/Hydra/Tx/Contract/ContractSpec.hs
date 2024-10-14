@@ -43,7 +43,7 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation, healthyCont
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (healthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
-import Hydra.Tx.Contract.Increment (healthyIncrementTx)
+import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
@@ -112,6 +112,8 @@ spec = parallel $ do
   describe "Increment" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyIncrementTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyIncrementTx genIncrementMutation
   describe "Decrement" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyDecrementTx
