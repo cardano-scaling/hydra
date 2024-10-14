@@ -117,7 +117,7 @@ spec = do
           . key "subscribe"
           . key "message"
 
-    prop "Validate /commits/<tx-id> publish api schema" $
+    prop "Validate /commits/tx-id publish api schema" $
       prop_validateJSONSchema @Text "api.json" $
         key "channels"
           . key "/commits/tx-id"
