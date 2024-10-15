@@ -801,8 +801,8 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
           `shouldReturn` 0
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
-
-        threadDelay $ fromIntegral deadline
+        -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
+        threadDelay $ fromIntegral (deadline * 2)
 
         recoverResp <-
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
@@ -885,7 +885,8 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
 
         forM_ deposited $ \deposit -> do
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
-          threadDelay $ fromIntegral deadline
+          -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
+          threadDelay $ fromIntegral (deadline * 2)
           recoverResp <-
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
               >>= httpJSON

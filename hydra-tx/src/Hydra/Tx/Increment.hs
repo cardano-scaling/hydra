@@ -14,6 +14,7 @@ import Hydra.Ledger.Cardano.Builder (
   addOutputs,
   addReferenceInputs,
   emptyTxBody,
+  setValidityUpperBound,
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
@@ -43,14 +44,16 @@ incrementTx ::
   Snapshot Tx ->
   -- | Deposit output UTxO to be spent in increment transaction
   UTxO ->
+  SlotNo ->
   Tx
-incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO =
+incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs [headOutput']
       & addExtraRequiredSigners [verificationKeyHash vk]
+      & setValidityUpperBound upperValiditySlot
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
@@ -92,7 +95,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO
 
-  depositRedeemer = toScriptData Deposit.Claim
+  depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
 
   depositWitness =
     BuildTxWith $
