@@ -234,7 +234,12 @@ checkIncrement ctx openBefore _redeemer =
   -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here?
   -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+    && mustIncreaseVersion
  where
+  mustIncreaseVersion =
+    traceIfFalse $(errorCode VersionNotIncremented) $
+      nextVersion == prevVersion + 1
+
   OpenDatum
     { parties = prevParties
     , contestationPeriod = prevCperiod
@@ -243,8 +248,7 @@ checkIncrement ctx openBefore _redeemer =
     } = openBefore
 
   OpenDatum
-    { utxoHash = nextUtxoHash
-    , parties = nextParties
+    { parties = nextParties
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion

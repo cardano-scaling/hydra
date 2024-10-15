@@ -10,6 +10,7 @@ import Test.Hydra.Tx.Mutation (
   addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
+  replaceSnapshotVersion,
  )
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -41,7 +42,7 @@ import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyIncrementTx :: (Tx, UTxO)
@@ -156,6 +157,8 @@ data IncrementMutation
     DepositMutateHeadId
   | -- | Change parties in incrment output datum
     IncrementMutateParties
+  | -- | New version is incremented correctly
+    IncrementUseDifferentSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -183,6 +186,9 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (pure $ toErrorCode VersionNotIncremented) IncrementUseDifferentSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
