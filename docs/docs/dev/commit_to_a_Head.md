@@ -64,9 +64,9 @@ up and made available inside of L2 by posting a **increment** transaction. This
 also happens automatically but here we want to describe this process and bring
 it closer to Hydra users.
 
-It is worthwhile mentioning that deposit deadline is the same as the value used
-for contestation period which the users control by specifying it in the
-arguments to `hydra-node` executable.
+It is worthwhile mentioning that deposit deadline is double the value used for
+contestation period. This gives the users control by specifying the
+contestation period it in the arguments to `hydra-node` executable.
 
 ::::info
 Deadline information is present in the `CommitRecorded` API server output.
