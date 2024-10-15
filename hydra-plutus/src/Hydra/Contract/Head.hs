@@ -227,9 +227,25 @@ checkIncrement ::
   OpenDatum ->
   IncrementRedeemer ->
   Bool
-checkIncrement _ctx _openBefore _redeemer =
-  -- FIXME: Implement checkIncrement
-  True
+checkIncrement ctx openBefore _redeemer =
+  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here?
+  -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
+  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+ where
+  OpenDatum
+    { parties = prevParties
+    , contestationPeriod = prevCperiod
+    , headId = prevHeadId
+    , version = prevVersion
+    } = openBefore
+
+  OpenDatum
+    { utxoHash = nextUtxoHash
+    , parties = nextParties
+    , contestationPeriod = nextCperiod
+    , headId = nextHeadId
+    , version = nextVersion
+    } = decodeHeadOutputOpenDatum ctx
 {-# INLINEABLE checkIncrement #-}
 
 -- | Verify a decrement transaction.

@@ -517,17 +517,17 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Just deposit
       | null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot
+      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
  where
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
 
   Snapshot{utxoToCommit} = sn
 
-  sn =
+  (sn, sigs) =
     case incrementingSnapshot of
-      ConfirmedSnapshot{snapshot} -> snapshot
-      _ -> getSnapshot incrementingSnapshot
+      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+      _ -> (getSnapshot incrementingSnapshot, mempty)
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
