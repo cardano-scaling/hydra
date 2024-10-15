@@ -19,7 +19,8 @@ import Hydra.Contract.DepositError (
     DepositDeadlineSurpassed,
     DepositNoLowerBoundDefined,
     DepositNoUpperBoundDefined,
-    IncorrectDepositHash
+    IncorrectDepositHash,
+    WrongHeadIdInDepositDatum
   ),
  )
 import Hydra.Contract.Error (errorCode)
@@ -47,7 +48,8 @@ import PlutusTx qualified
 
 data DepositRedeemer
   = -- | Claims already deposited funds.
-    Claim
+    -- FIXME: Make sure to change the spec and add head CS to the Claim redeemer.
+    Claim CurrencySymbol
   | -- | Recovers m number of deposited outputs.
     Recover Integer
 
@@ -61,7 +63,9 @@ PlutusTx.unstableMakeIsData ''DepositDatum
 
 -- | v_deposit validator checks
 --
--- * Claim redeemer -> more checks will be added
+-- * Claim redeemer ->
+--     * The deadline has not been reached.
+--     * HeadId matches.
 --
 -- * Recover redeemer
 --     * The deadline has been reached.
@@ -69,13 +73,16 @@ PlutusTx.unstableMakeIsData ''DepositDatum
 validator :: DepositDatum -> DepositRedeemer -> ScriptContext -> Bool
 validator depositDatum r ctx =
   case r of
-    Claim ->
-      beforeDeadline
+    Claim headId' -> beforeDeadline && checkHeadId headId'
     Recover m ->
       afterDeadline
         && recoverOutputs m
  where
-  DepositDatum (_headId, dl, deposits) = depositDatum
+  DepositDatum (headId, dl, deposits) = depositDatum
+
+  checkHeadId headId' =
+    traceIfFalse $(errorCode WrongHeadIdInDepositDatum) $
+      headId' == headId
 
   recoverOutputs m =
     traceIfFalse $(errorCode IncorrectDepositHash) $

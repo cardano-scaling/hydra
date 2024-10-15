@@ -95,7 +95,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO
 
-  depositRedeemer = toScriptData Deposit.Claim
+  depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
 
   depositWitness =
     BuildTxWith $
