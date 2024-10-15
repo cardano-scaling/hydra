@@ -5,10 +5,11 @@ module Hydra.Tx.Contract.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Tx.Mutation (
-  Mutation (ChangeInput),
+  Mutation (ChangeInput, ChangeOutput),
   SomeMutation (..),
   addParticipationTokens,
   modifyInlineDatum,
+  replaceParties,
  )
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -17,6 +18,7 @@ import Hydra.Contract.Deposit (DepositDatum (..), DepositRedeemer (Claim))
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
+import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
@@ -39,7 +41,7 @@ import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
-import Test.QuickCheck (elements, oneof)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyIncrementTx :: (Tx, UTxO)
@@ -61,6 +63,7 @@ healthyIncrementTx =
       healthySnapshot
       depositUTxO
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
+      healthySignature
 
   depositUTxO = utxoFromTx $ fst healthyDepositTx
 
@@ -148,6 +151,8 @@ data IncrementMutation
     DepositMutateDepositDeadline
   | -- | Alter the head id
     DepositMutateHeadId
+  | -- | Change parties in incrment output datum
+    IncrementMutateParties
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -170,6 +175,9 @@ genIncrementMutation (tx, utxo) =
                     DepositDatum (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
+    , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
     ]
  where
   depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
