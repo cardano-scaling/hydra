@@ -9,6 +9,7 @@ import Hydra.Plutus.Orphans ()
 import Options.Applicative (
   Parser,
   ParserInfo,
+  auto,
   execParser,
   fullDesc,
   header,
@@ -17,6 +18,7 @@ import Options.Applicative (
   info,
   long,
   metavar,
+  option,
   progDesc,
   short,
   strOption,
@@ -24,6 +26,8 @@ import Options.Applicative (
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
+import Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
+import Test.QuickCheck.Random (mkQCGen)
 import TxCost (
   computeAbortCost,
   computeCloseCost,
@@ -35,7 +39,7 @@ import TxCost (
   computeInitCost,
  )
 
-newtype Options = Options {outputDirectory :: Maybe FilePath}
+data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int}
 
 txCostOptionsParser :: Parser Options
 txCostOptionsParser =
@@ -48,6 +52,15 @@ txCostOptionsParser =
               <> help
                 "Directory where benchmark files should be output to. \
                 \ If none is given, output is sent to stdout"
+          )
+      )
+    <*> optional
+      ( option
+          auto
+          ( long "seed"
+              <> short 's'
+              <> metavar "INT"
+              <> help "A seed value"
           )
       )
 
@@ -67,21 +80,24 @@ logFilterOptions =
 main :: IO ()
 main =
   execParser logFilterOptions >>= \case
-    Options{outputDirectory = Nothing} -> writeTransactionCostMarkdown stdout
-    Options{outputDirectory = Just outputDir} -> do
+    Options{outputDirectory = Nothing, seed = seed} -> writeTransactionCostMarkdown seed stdout
+    Options{outputDirectory = Just outputDir, seed = seed} -> do
       unlessM (doesDirectoryExist outputDir) $ createDirectoryIfMissing True outputDir
-      withFile (outputDir </> "transaction-cost.md") WriteMode writeTransactionCostMarkdown
+      withFile (outputDir </> "transaction-cost.md") WriteMode (writeTransactionCostMarkdown seed)
 
-writeTransactionCostMarkdown :: Handle -> IO ()
-writeTransactionCostMarkdown hdl = do
-  initC <- costOfInit
-  commitC <- costOfCommit
-  collectComC <- costOfCollectCom
-  decrementC <- costOfDecrement
-  closeC <- costOfClose
-  contestC <- costOfContest
-  abortC <- costOfAbort
-  fanoutC <- costOfFanOut
+writeTransactionCostMarkdown :: Maybe Int -> Handle -> IO ()
+writeTransactionCostMarkdown mseed hdl = do
+  seed <- case mseed of
+    Nothing -> generate chooseAny
+    Just s -> pure s
+  let initC = costOfInit seed
+  let commitC = costOfCommit seed
+  let collectComC = costOfCollectCom seed
+  let decrementC = costOfDecrement seed
+  let closeC = costOfClose seed
+  let contestC = costOfContest seed
+  let abortC = costOfAbort seed
+  let fanoutC = costOfFanOut seed
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -153,8 +169,11 @@ scriptSizes =
     , depositScriptSize
     } = scriptInfo
 
-costOfInit :: IO Text
-costOfInit = markdownInitCost <$> computeInitCost
+genFromSeed :: Gen a -> Int -> a
+genFromSeed (MkGen g) seed = g (mkQCGen seed) 30
+
+costOfInit :: Int -> Text
+costOfInit = markdownInitCost . genFromSeed computeInitCost
  where
   markdownInitCost stats =
     unlines $
@@ -179,8 +198,8 @@ costOfInit = markdownInitCost <$> computeInitCost
           )
           stats
 
-costOfCommit :: IO Text
-costOfCommit = markdownCommitCost <$> computeCommitCost
+costOfCommit :: Int -> Text
+costOfCommit = markdownCommitCost . genFromSeed computeCommitCost
  where
   markdownCommitCost stats =
     unlines $
@@ -206,8 +225,8 @@ costOfCommit = markdownCommitCost <$> computeCommitCost
           )
           stats
 
-costOfCollectCom :: IO Text
-costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
+costOfCollectCom :: Int -> Text
+costOfCollectCom = markdownCollectComCost . genFromSeed computeCollectComCost
  where
   markdownCollectComCost stats =
     unlines $
@@ -234,8 +253,8 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
           )
           stats
 
-costOfDecrement :: IO Text
-costOfDecrement = markdownDecrementCost <$> computeDecrementCost
+costOfDecrement :: Int -> Text
+costOfDecrement = markdownDecrementCost . genFromSeed computeDecrementCost
  where
   markdownDecrementCost stats =
     unlines $
@@ -260,8 +279,8 @@ costOfDecrement = markdownDecrementCost <$> computeDecrementCost
           )
           stats
 
-costOfClose :: IO Text
-costOfClose = markdownClose <$> computeCloseCost
+costOfClose :: Int -> Text
+costOfClose = markdownClose . genFromSeed computeCloseCost
  where
   markdownClose stats =
     unlines $
@@ -286,8 +305,8 @@ costOfClose = markdownClose <$> computeCloseCost
           )
           stats
 
-costOfContest :: IO Text
-costOfContest = markdownContest <$> computeContestCost
+costOfContest :: Int -> Text
+costOfContest = markdownContest . genFromSeed computeContestCost
  where
   markdownContest stats =
     unlines $
@@ -312,8 +331,8 @@ costOfContest = markdownContest <$> computeContestCost
           )
           stats
 
-costOfAbort :: IO Text
-costOfAbort = markdownAbortCost <$> computeAbortCost
+costOfAbort :: Int -> Text
+costOfAbort = markdownAbortCost . genFromSeed computeAbortCost
  where
   markdownAbortCost stats =
     unlines $
@@ -339,8 +358,8 @@ costOfAbort = markdownAbortCost <$> computeAbortCost
           )
           stats
 
-costOfFanOut :: IO Text
-costOfFanOut = markdownFanOutCost <$> computeFanOutCost
+costOfFanOut :: Int -> Text
+costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
  where
   markdownFanOutCost stats =
     unlines $
