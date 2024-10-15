@@ -22,7 +22,6 @@ import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (valueOf)
 import PlutusLedgerApi.V2 (
   Address,
   CurrencySymbol,
@@ -44,8 +43,6 @@ import PlutusLedgerApi.V2 (
   TxOutRef (..),
   UpperBound (..),
   Value (Value),
-  adaSymbol,
-  adaToken,
  )
 import PlutusLedgerApi.V2.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
@@ -541,18 +538,6 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
-
-(&) :: a -> (a -> b) -> b
-(&) = flip ($)
-{-# INLINEABLE (&) #-}
-
-txOutAdaValue :: TxOut -> Integer
-txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
-{-# INLINEABLE txOutAdaValue #-}
-
-txInfoAdaFee :: TxInfo -> Integer
-txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
-{-# INLINEABLE txInfoAdaFee #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
