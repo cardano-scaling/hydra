@@ -401,8 +401,10 @@ jobs:
 
     - name: "Compute costs on both old and new"
       run: |
-        nix run ./new/#tx-cost >new.md
-        nix run ./old/#tx-cost >old.md
+        SEED=$RANDOM
+        echo "Using random seed $SEED"
+        nix run ./new/#tx-cost -- --seed $SEED >new.md
+        nix run ./old/#tx-cost -- --seed $SEED >old.md
 
     - name: "Compute the difference markdown"
       run: |
