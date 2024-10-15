@@ -116,8 +116,11 @@ data ContestRedeemer
 PlutusTx.unstableMakeIsData ''ContestRedeemer
 
 -- | Sub-type for increment transition
--- TODO: add more fields as needed.
 data IncrementRedeemer = IncrementRedeemer
+  { signature :: [Signature]
+  , snapshotNumber :: SnapshotNumber
+  , increment :: TxOutRef
+  }
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''IncrementRedeemer
