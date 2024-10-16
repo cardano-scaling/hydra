@@ -5,7 +5,7 @@ module Hydra.Tx.Contract.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Tx.Mutation (
-  Mutation (ChangeInput, ChangeOutput),
+  Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
   modifyInlineDatum,
@@ -66,8 +66,7 @@ healthyIncrementTx =
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
       healthySignature
 
-  depositUTxO = utxoFromTx $ fst healthyDepositTx
-
+  depositUTxO = utxoFromTx (fst healthyDepositTx)
   parameters =
     HeadParameters
       { parties = healthyParties
@@ -156,6 +155,8 @@ data IncrementMutation
     IncrementMutateParties
   | -- | New version is incremented correctly
     IncrementUseDifferentSnapshotVersion
+  -- \| -- | Alter the Claim redeemer `TxOutRef`
+  -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
