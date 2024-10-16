@@ -42,7 +42,7 @@ import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -153,6 +153,8 @@ data IncrementMutation
     IncrementUseDifferentSnapshotVersion
   | -- | Produce invalid signatures
     ProduceInvalidSignatures
+  | -- | Change the head value
+    ChangeHeadValue
   -- \| -- | Alter the Claim redeemer `TxOutRef`
   -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
@@ -192,9 +194,13 @@ genIncrementMutation (tx, utxo) =
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.pairs depositUTxO
               }
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
+        newValue <- genValue `suchThat` (/= txOutValue headTxOut)
+        pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
+
   (depositIn, depositOut@(TxOut addr val _ rscript)) =
     fromJust $
       find
