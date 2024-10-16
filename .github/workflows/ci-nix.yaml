@@ -27,8 +27,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - package: plutus-cbor
-          - package: plutus-merkle-tree
           - package: hydra-plutus
           - package: hydra-tui
           - package: hydra-node
@@ -153,9 +151,6 @@ jobs:
           - package: hydra-cluster
             bench: bench-e2e
             options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
-          - package: plutus-merkle-tree
-            bench: on-chain-cost
-            options: '$(pwd)/../benchmarks'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
