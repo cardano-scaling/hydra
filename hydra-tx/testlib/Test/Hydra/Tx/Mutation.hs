@@ -570,8 +570,7 @@ modifyInlineDatum fn txOut =
       case fromScriptData sd of
         Just st ->
           txOut{txOutDatum = mkTxOutDatumInline $ fn st}
-        Nothing ->
-          error "Invalid data"
+        Nothing -> error "invalid data"
 
 addParticipationTokens :: [VerificationKey PaymentKey] -> TxOut CtxUTxO -> TxOut CtxUTxO
 addParticipationTokens vks txOut =
