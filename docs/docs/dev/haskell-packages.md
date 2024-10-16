@@ -6,8 +6,6 @@ The Hydra project consists of several Haskell packages, each serving distinct pa
 
 | Package                                                                                        | Description                                                                         |
 | ---                                                                                            | ---                                                                                 |
-| [plutus-merkle-tree](pathname:///haddock/plutus-merkle-tree/index.html) | Implementation of Merkle trees, compatible with on-chain Plutus validators         |
-| [plutus-cbor](pathname:///haddock/plutus-cbor/index.html)               | Implementation of CBOR encoders, compatible with on-chain Plutus validators        |
 | [hydra-prelude](pathname:///haddock/hydra-prelude/index.html)           | Custom Hydra prelude used across other Hydra packages                              |
 | [hydra-cardano-api](pathname:///haddock/hydra-cardano-api/index.html)   | A wrapper around the `cardano-api`, with era-specialized types and extra utilities |
 

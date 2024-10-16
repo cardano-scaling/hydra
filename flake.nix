@@ -165,8 +165,6 @@
             "hydra-plutus-extras"
             "hydra-test-utils"
             "hydra-tui"
-            "plutus-cbor"
-            "plutus-merkle-tree"
           ]);
 
           devShells = import ./nix/hydra/shell.nix {

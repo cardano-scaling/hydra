@@ -124,14 +124,6 @@ rec {
 
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
-  plutus-cbor-tests = pkgs.mkShellNoCC {
-    name = "plutus-cbor-tests";
-    buildInputs = [ nativePkgs.plutus-cbor.components.tests.tests ];
-  };
-  plutus-merkle-tree-tests = pkgs.mkShellNoCC {
-    name = "plutus-merkle-tree-tests";
-    buildInputs = [ nativePkgs.plutus-merkle-tree.components.tests.tests ];
-  };
   hydra-plutus-tests = pkgs.mkShellNoCC {
     name = "hydra-plutus-tests";
     buildInputs = [
@@ -194,16 +186,10 @@ rec {
         inputs.cardano-node.packages.${system}.cardano-cli
       ];
   };
-  plutus-merkle-tree-bench = pkgs.mkShellNoCC {
-    name = "plutus-merkle-tree-bench";
-    buildInputs = [ nativePkgs.plutus-merkle-tree.components.benchmarks.on-chain-cost ];
-  };
 
   haddocks = pkgs.runCommand "hydra-haddocks"
     {
       paths = [
-        hsPkgs.plutus-cbor.components.library.doc
-        hsPkgs.plutus-merkle-tree.components.library.doc
         hsPkgs.hydra-prelude.components.library.doc
         hsPkgs.hydra-cardano-api.components.library.doc
         hsPkgs.hydra-plutus.components.library.doc

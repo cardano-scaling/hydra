@@ -20,8 +20,6 @@ packages:
   hydra-cardano-api
   hydra-test-utils
   hydra-plutus-extras
-  plutus-cbor
-  plutus-merkle-tree
   hydra-plutus
   hydra-node
   hydra-cluster
