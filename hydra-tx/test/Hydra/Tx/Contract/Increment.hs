@@ -42,7 +42,7 @@ import Hydra.Tx.Utils (adaOnly, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -153,6 +153,8 @@ data IncrementMutation
     IncrementUseDifferentSnapshotVersion
   | -- | Produce invalid signatures
     ProduceInvalidSignatures
+  | -- | Change the head value
+    ChangeHeadValue
   -- \| -- | Alter the Claim redeemer `TxOutRef`
   -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
