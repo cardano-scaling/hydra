@@ -33,7 +33,7 @@ import Hydra.Tx.Increment (
   incrementTx,
  )
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
+import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
@@ -66,7 +66,6 @@ healthyIncrementTx =
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
       healthySignature
 
-  depositUTxO = utxoFromTx (fst healthyDepositTx)
   parameters =
     HeadParameters
       { parties = healthyParties
@@ -81,6 +80,9 @@ healthyIncrementTx =
     mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
+
+depositUTxO :: UTxO
+depositUTxO = utxoFromTx (fst healthyDepositTx)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
@@ -107,24 +109,15 @@ healthySnapshotVersion = 1
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
-  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
-   in Snapshot
-        { headId = mkHeadId testPolicyId
-        , version = healthySnapshotVersion
-        , number = succ healthySnapshotNumber
-        , confirmed = []
-        , utxo
-        , utxoToCommit = Nothing
-        , utxoToDecommit = Just utxoToDecommit'
-        }
-
-splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
-splitDecommitUTxO utxo =
-  case UTxO.pairs utxo of
-    [] -> error "empty utxo in splitDecommitUTxO"
-    (decommit : _rest) ->
-      let decommitUTxO' = UTxO.fromPairs [decommit]
-       in (utxo `withoutUTxO` decommitUTxO', decommitUTxO')
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , version = healthySnapshotVersion
+    , number = succ healthySnapshotNumber
+    , confirmed = []
+    , utxo = healthyUTxO
+    , utxoToCommit = Just healthyDepositUTxO
+    , utxoToDecommit = Nothing
+    }
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -135,15 +128,14 @@ healthyUTxO = adaOnly <$> generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
-  let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
-   in Head.Open
-        Head.OpenDatum
-          { utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , parties = healthyOnChainParties
-          , contestationPeriod = toChain healthyContestationPeriod
-          , headId = toPlutusCurrencySymbol testPolicyId
-          , version = toInteger healthySnapshotVersion
-          }
+  Head.Open
+    Head.OpenDatum
+      { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , parties = healthyOnChainParties
+      , contestationPeriod = toChain healthyContestationPeriod
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , version = toInteger healthySnapshotVersion
+      }
 
 data IncrementMutation
   = -- | Move the deadline from the deposit datum back in time
@@ -155,6 +147,8 @@ data IncrementMutation
     IncrementMutateParties
   | -- | New version is incremented correctly
     IncrementUseDifferentSnapshotVersion
+  | -- | Produce invalid signatures
+    ProduceInvalidSignatures
   -- \| -- | Alter the Claim redeemer `TxOutRef`
   -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)

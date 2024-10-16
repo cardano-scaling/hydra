@@ -60,6 +60,12 @@ depositTx networkId headId commitBlueprintTx deadline =
       depositDatum
       ReferenceScriptNone
 
+depositScript :: PlutusScript
+depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+
+depositAddress :: NetworkId -> AddressInEra
+depositAddress networkId = mkScriptAddress @PlutusScriptV2 networkId depositScript
+
 -- * Observation
 
 data DepositObservation = DepositObservation
