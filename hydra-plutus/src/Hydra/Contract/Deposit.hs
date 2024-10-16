@@ -24,7 +24,7 @@ import Hydra.Contract.DepositError (
   ),
  )
 import Hydra.Contract.Error (errorCode)
-import Hydra.Contract.Head (hashPreSerializedCommits, hashTxOuts)
+import Hydra.Contract.Util (hashPreSerializedCommits, hashTxOuts)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V3 (
   CurrencySymbol,
