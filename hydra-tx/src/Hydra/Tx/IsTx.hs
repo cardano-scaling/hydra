@@ -24,6 +24,7 @@ import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Head qualified as Head
 import PlutusLedgerApi.V3 (fromBuiltin)
+import Hydra.Contract.Util qualified as Util
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what
@@ -164,8 +165,8 @@ instance IsTx Tx where
   txId = getTxId . getTxBody
   balance = foldMap txOutValue
 
-  -- NOTE: See note from `Head.hashTxOuts`.
-  hashUTxO = fromBuiltin . Head.hashTxOuts . mapMaybe toPlutusTxOut . toList
+  -- NOTE: See note from `Util.hashTxOuts`.
+  hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . toList
 
   txSpendingUTxO = Api.txSpendingUTxO
 
