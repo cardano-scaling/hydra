@@ -14,6 +14,7 @@ import PlutusTx.Prelude
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer (..), Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
@@ -40,7 +41,6 @@ import PlutusLedgerApi.V2 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef (..),
   UpperBound (..),
   Value (Value),
  )
@@ -220,6 +220,17 @@ commitDatum input = do
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
+-- | Try to find the deposit datum in the input and
+-- if it is there return the committed utxo
+depositDatum :: TxOut -> [Commit]
+depositDatum input = do
+  let datum = getTxOutDatum input
+  case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
+    Just (Deposit.DepositDatum (_headId, _deadline, commits)) ->
+      commits
+    Nothing -> []
+{-# INLINEABLE depositDatum #-}
+
 -- | Verify a increment transaction.
 checkIncrement ::
   ScriptContext ->
@@ -232,17 +243,26 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
+    && checkSnapshotSignature
  where
+  deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
+
+  depositHash = hashPreSerializedCommits deposited
+
   depositInput = txInInfoOutRef $ txInfoInputs txInfo !! 1
-  IncrementRedeemer{increment} = redeemer
+
+  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
   -- FIXME: This part of the spec is not very clear - revisit
   -- 3. Claimed deposit is spent
   --    𝜙increment = 𝜙deposit
   -- I would assume the following condition should yield true but this is not the case
-  claimedDepositIsSpent =
+  _claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
       depositInput == increment
+
+  checkSnapshotSignature =
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -256,7 +276,8 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     } = openBefore
 
   OpenDatum
-    { parties = nextParties
+    { utxoHash = nextUtxoHash
+    , parties = nextParties
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion
@@ -650,31 +671,6 @@ getTxOutDatum o =
     OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
 
--- | Hash a potentially unordered list of commits by sorting them, concatenating
--- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
---
--- NOTE: See note from `hashTxOuts`.
-hashPreSerializedCommits :: [Commit] -> BuiltinByteString
-hashPreSerializedCommits commits =
-  sha2_256 . foldMap preSerializedOutput $
-    sortBy (\a b -> compareRef (input a) (input b)) commits
-{-# INLINEABLE hashPreSerializedCommits #-}
-
--- | Hash a pre-ordered list of transaction outputs by serializing each
--- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
--- digest over that.
---
--- NOTE: In general, from asserting that `hash(x || y) = hash (x' || y')` it is
--- not safe to conclude that `(x,y) = (x', y')` as the same hash could be
--- obtained by moving one or more bytes from the end of `x` to the beginning of
--- `y`, but in the context of Hydra validators it seems impossible to exploit
--- this property without breaking other logic or verification (eg. producing a
--- valid and meaningful `TxOut`).
-hashTxOuts :: [TxOut] -> BuiltinByteString
-hashTxOuts =
-  sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
-{-# INLINEABLE hashTxOuts #-}
-
 -- | Check if 'TxOut' contains the PT token.
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
@@ -706,13 +702,6 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
-
-compareRef :: TxOutRef -> TxOutRef -> Ordering
-TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
-  case compare txOutRefId id' of
-    EQ -> compare txOutRefIdx idx'
-    ord -> ord
-{-# INLINEABLE compareRef #-}
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
