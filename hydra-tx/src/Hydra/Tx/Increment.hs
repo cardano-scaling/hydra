@@ -61,8 +61,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headRedeemer =
     toScriptData $ Head.Increment Head.IncrementRedeemer{signature = toPlutusSignatures sigs, snapshotNumber = fromIntegral number, increment = toPlutusTxOutRef depositIn}
 
-  utxoHash = toBuiltin $ hashUTxO @Tx (utxo <> fromMaybe mempty utxoToCommit)
-
   HeadParameters{parties, contestationPeriod} = headParameters
 
   headOutput' =
@@ -78,6 +76,8 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -104,4 +104,4 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version, number} = snapshot
+  Snapshot{utxo, version, number} = snapshot
