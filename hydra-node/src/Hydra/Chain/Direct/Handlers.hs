@@ -390,8 +390,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case collect ctx headId headParameters utxo spendableUTxO of
         Left _ -> throwIO (FailedToConstructCollectTx @Tx)
         Right collectTx -> pure collectTx
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
-      case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId of
+    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} -> do
+      (_, currentTime) <- throwLeft currentPointInTime
+      let HeadParameters{contestationPeriod} = headParameters
+      (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
+      case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperBound of
         Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
         Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do

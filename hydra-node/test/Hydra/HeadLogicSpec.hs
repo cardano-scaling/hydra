@@ -215,6 +215,15 @@ spec =
                       }
                 }
 
+        it "cannot commit while another decommit is pending" $ do
+          let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              s0 = inOpenState' threeParties $ coordinatedHeadState{decommitTx = Just decommitTx}
+              observeDeposit =
+                observeTx $
+                  OnDepositTx{headId = testHeadId, deposited = utxoRefs [2], depositTxId = 1, deadline = arbitrary `generateWith` 42}
+          update aliceEnv ledger s0 observeDeposit
+            `assertWait` WaitOnUnresolvedDecommit{decommitTx}
+
         it "waits if a requested decommit tx is not (yet) applicable" $ do
           let decommitTx = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
               s0 = inOpenState threeParties
@@ -661,6 +670,16 @@ spec =
                   , deadline = genUTCTime `generateWith` 42
                   }
         update bobEnv ledger (inOpenState threeParties) depositOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "ignores recoverTx of another head" $ \otherHeadId -> do
+        let recoverOtherHead =
+              observeTx $
+                OnRecoverTx
+                  { headId = otherHeadId
+                  , recoveredTxId = 1
+                  }
+        update bobEnv ledger (inOpenState threeParties) recoverOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do

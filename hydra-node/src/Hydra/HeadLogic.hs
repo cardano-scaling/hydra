@@ -357,13 +357,19 @@ onOpenNetworkReqTx env ledger st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx Nothing)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx pendingDeposit)
       else outcome
+
   Environment{party} = env
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version} = coordinatedHeadState
+  pendingDeposit =
+    case Map.toList pendingDeposits of
+      [] -> Nothing
+      (_, depositUTxO) : _ -> Just depositUTxO
+
+  CoordinatedHeadState{localTxs, localUTxO, confirmedSnapshot, seenSnapshot, decommitTx, version, pendingDeposits} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -673,7 +679,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx Nothing)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx pendingDeposit)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -726,6 +732,11 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     , coordinatedHeadState
     , headId
     } = openState
+
+  pendingDeposit =
+    case Map.toList pendingDeposits of
+      [] -> Nothing
+      (_, depositUTxO) : _ -> Just depositUTxO
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, pendingDeposits, version} = coordinatedHeadState
 
@@ -930,12 +941,12 @@ onOpenChainDepositTx ::
   -- | Deposit deadline
   UTCTime ->
   Outcome tx
-onOpenChainDepositTx headId env st deposited depositTxId _deadline =
+onOpenChainDepositTx headId env st deposited depositTxId deadline =
   -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
   -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
     newState CommitRecorded{pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited}
-      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId})
+      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline})
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
           cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
@@ -992,7 +1003,6 @@ onOpenChainRecoverTx headId st recoveredTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
-  IsTx tx =>
   OpenState tx ->
   -- | New open state version
   SnapshotVersion ->
@@ -1000,15 +1010,10 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainIncrementTx openState newVersion depositTxId =
-  case Map.lookup depositTxId pendingDeposits of
-    Nothing -> Error $ AssertionFailed $ "Increment not matching pending deposit! TxId: " <> show depositTxId
-    Just _ ->
-      newState CommitFinalized{newVersion, depositTxId}
-        <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
+  newState CommitFinalized{newVersion, depositTxId}
+    <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
  where
-  OpenState{coordinatedHeadState, headId} = openState
-
-  CoordinatedHeadState{pendingDeposits} = coordinatedHeadState
+  OpenState{headId} = openState
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1408,7 +1413,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposits <> existingDeposits
+                  , pendingDeposits = pendingDeposits `Map.union` existingDeposits
                   }
             }
        where

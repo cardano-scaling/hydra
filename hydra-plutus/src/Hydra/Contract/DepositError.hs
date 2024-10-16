@@ -12,7 +12,7 @@ data DepositError
   | DepositNoLowerBoundDefined
   | DepositDeadlineNotReached
   | IncorrectDepositHash
-  | DTNotMinted
+  | WrongHeadIdInDepositDatum
   deriving stock (Show)
 
 instance ToErrorCode DepositError where
@@ -22,4 +22,4 @@ instance ToErrorCode DepositError where
     DepositNoLowerBoundDefined -> "D03"
     DepositDeadlineNotReached -> "D04"
     IncorrectDepositHash -> "D05"
-    DTNotMinted -> "D06"
+    WrongHeadIdInDepositDatum -> "D06"

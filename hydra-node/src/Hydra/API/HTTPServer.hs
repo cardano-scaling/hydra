@@ -28,6 +28,8 @@ import Hydra.Tx (
   IsTx (..),
   UTxOType,
  )
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Environment (Environment (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
   Application,
@@ -129,6 +131,7 @@ httpApp ::
   IsChainState tx =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
+  Environment ->
   PParams LedgerEra ->
   -- | A means to get commit info.
   IO CommitInfo ->
@@ -139,7 +142,7 @@ httpApp ::
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -155,7 +158,7 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDepo
         Just utxo -> respond $ okJSON utxo
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo directChain getCommitInfo
+        >>= handleDraftCommitUtxo env directChain getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -184,13 +187,14 @@ httpApp tracer directChain pparams getCommitInfo getConfirmedUTxO getPendingDepo
 handleDraftCommitUtxo ::
   forall tx.
   IsChainState tx =>
+  Environment ->
   Chain tx IO ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo directChain getCommitInfo body = do
+handleDraftCommitUtxo env directChain getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err ->
       pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
@@ -212,10 +216,10 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    -- TODO: How to make this configurable for testing? Right now this is just
-    -- set to current time in order to have easier time testing the recover.
-    -- Perhaps use contestation deadline to come up with a meaningful value?
-    deadline <- getCurrentTime
+    -- NOTE: We double the contestation period and use it for the deadline
+    -- value in order to give enough time for the increment to be valid in
+    -- terms of deadline.
+    deadline <- addUTCTime (toNominalDiffTime contestationPeriod * 2) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
@@ -233,6 +237,7 @@ handleDraftCommitUtxo directChain getCommitInfo body = do
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
   Chain{draftCommitTx, draftDepositTx} = directChain
+  Environment{contestationPeriod} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

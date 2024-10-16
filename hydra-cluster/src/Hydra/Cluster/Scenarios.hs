@@ -751,7 +751,9 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = UnsafeContestationPeriod 1
+      -- NOTE: this value is also used to determine the deposit deadline
+      let deadline = 1
+      let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
@@ -799,6 +801,8 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
           `shouldReturn` 0
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
+        -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
+        threadDelay $ fromIntegral (deadline * 2)
 
         recoverResp <-
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
@@ -825,7 +829,8 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
     (`finally` returnFundsToFaucet tracer node Bob) $ do
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
-      let contestationPeriod = UnsafeContestationPeriod 1
+      let deadline = 1
+      let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
           <&> setNetworkId networkId
@@ -880,6 +885,8 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
 
         forM_ deposited $ \deposit -> do
           let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
+          -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
+          threadDelay $ fromIntegral (deadline * 2)
           recoverResp <-
             parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
               >>= httpJSON
