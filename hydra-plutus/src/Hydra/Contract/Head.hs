@@ -245,6 +245,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
+    && mustIncreaseValue
  where
   deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
 
@@ -268,6 +269,16 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
+
+  mustIncreaseValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue <> depositValue == headOutValue
+
+  headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
+
+  depositValue = txOutValue $ txInInfoResolved (txInfoInputs txInfo !! 1)
+
+  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
 
   OpenDatum
     { parties = prevParties
