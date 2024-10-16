@@ -5,7 +5,7 @@ module Hydra.Tx.Contract.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Tx.Mutation (
-  Mutation (ChangeInput, ChangeOutput),
+  Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
   modifyInlineDatum,
@@ -66,8 +66,7 @@ healthyIncrementTx =
       (slotNoFromUTCTime systemStart slotLength depositDeadline)
       healthySignature
 
-  depositUTxO = utxoFromTx $ fst healthyDepositTx
-
+  depositUTxO = utxoFromTx (fst healthyDepositTx)
   parameters =
     HeadParameters
       { parties = healthyParties
@@ -159,36 +158,37 @@ data IncrementMutation
     IncrementMutateParties
   | -- | New version is incremented correctly
     IncrementUseDifferentSnapshotVersion
+  -- \| -- | Alter the Claim redeemer `TxOutRef`
+  -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genIncrementMutation (tx, utxo) =
-  oneof
-    [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = UTxO.pairs (resolveInputsUTxO utxo tx) List.!! 1
-        let datum =
-              txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
-                  DepositDatum (headCS', depositDatumDeadline, commits) ->
-                    DepositDatum (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1, commits)
-        let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
-    , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
-        otherHeadId <- arbitrary
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = UTxO.pairs (resolveInputsUTxO utxo tx) List.!! 1
-        let datum =
-              txOutDatum $
-                flip modifyInlineDatum (toTxContext depositOut) $ \case
-                  DepositDatum (_headCS, depositDatumDeadline, commits) ->
-                    DepositDatum (otherHeadId, depositDatumDeadline, commits)
-        let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
-    , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
-        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
-    , SomeMutation (pure $ toErrorCode VersionNotIncremented) IncrementUseDifferentSnapshotVersion <$> do
-        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
-    ]
+  let (depositIn, depositOut@(TxOut addr val _ rscript)) = UTxO.pairs (resolveInputsUTxO utxo tx) List.!! 1
+   in oneof
+        [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
+            let datum =
+                  txOutDatum $
+                    flip modifyInlineDatum (toTxContext depositOut) $ \case
+                      DepositDatum (headCS', depositDatumDeadline, commits) ->
+                        DepositDatum (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1, commits)
+            let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
+            pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
+        , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
+            otherHeadId <- arbitrary
+            let datum =
+                  txOutDatum $
+                    flip modifyInlineDatum (toTxContext depositOut) $ \case
+                      DepositDatum (_headCS, depositDatumDeadline, commits) ->
+                        DepositDatum (otherHeadId, depositDatumDeadline, commits)
+            let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
+            pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
+        , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
+            mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
+            pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+        , SomeMutation (pure $ toErrorCode VersionNotIncremented) IncrementUseDifferentSnapshotVersion <$> do
+            mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
+            pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
+        ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

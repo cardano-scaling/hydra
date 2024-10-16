@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer, Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
+import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer (..), Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
 import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -223,16 +223,27 @@ commitDatum input = do
 -- | Verify a increment transaction.
 checkIncrement ::
   ScriptContext ->
-  -- | Open state before the decrement
+  -- | Open state before the increment
   OpenDatum ->
   IncrementRedeemer ->
   Bool
-checkIncrement ctx openBefore _redeemer =
+checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
   -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here?
   -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
  where
+  depositInput = txInInfoOutRef $ txInfoInputs txInfo !! 1
+  IncrementRedeemer{increment} = redeemer
+
+  -- FIXME: This part of the spec is not very clear - revisit
+  -- 3. Claimed deposit is spent
+  --    𝜙increment = 𝜙deposit
+  -- I would assume the following condition should yield true but this is not the case
+  claimedDepositIsSpent =
+    traceIfFalse $(errorCode DepositNotSpent) $
+      depositInput == increment
+
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1

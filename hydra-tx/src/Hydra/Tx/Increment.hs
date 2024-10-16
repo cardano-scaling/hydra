@@ -59,9 +59,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
-    toScriptData $ Head.Increment Head.IncrementRedeemer{signature = toPlutusSignatures sigs, snapshotNumber = fromIntegral number, increment = depositOutRef}
-
-  depositOutRef = toPlutusTxOutRef $ fst $ List.head (UTxO.pairs depositScriptUTxO)
+    toScriptData $ Head.Increment Head.IncrementRedeemer{signature = toPlutusSignatures sigs, snapshotNumber = fromIntegral number, increment = toPlutusTxOutRef depositIn}
 
   utxoHash = toBuiltin $ hashUTxO @Tx (utxo <> fromMaybe mempty utxoToCommit)
 
