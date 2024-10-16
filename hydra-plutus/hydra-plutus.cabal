@@ -49,7 +49,6 @@ library
     Hydra.Contract.Deposit
     Hydra.Contract.DepositError
     Hydra.Contract.Error
-    Hydra.Contract.Hash
     Hydra.Contract.Head
     Hydra.Contract.HeadError
     Hydra.Contract.HeadState
