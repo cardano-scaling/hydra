@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
-import Hydra.Contract.Head qualified as OnChain
+import Hydra.Contract.Util qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
