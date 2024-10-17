@@ -42,6 +42,7 @@ import PlutusLedgerApi.V3 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  TxOutRef (..),
   UpperBound (..),
   Value (Value),
  )
@@ -247,22 +248,27 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && checkSnapshotSignature
     && mustIncreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
+    && claimedDepositIsSpent
  where
   deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
 
   depositHash = hashPreSerializedCommits deposited
 
-  depositInput = txInInfoOutRef $ txInfoInputs txInfo !! 1
+  depositInput = txInfoInputs txInfo !! 1
+
+  depositRef = txInInfoOutRef depositInput
+
+  depositValue = txOutValue $ txInInfoResolved depositInput
+
+  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
+
+  headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
 
   IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
-  -- FIXME: This part of the spec is not very clear - revisit
-  -- 3. Claimed deposit is spent
-  --    𝜙increment = 𝜙deposit
-  -- I would assume the following condition should yield true but this is not the case
-  _claimedDepositIsSpent =
+  claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      depositInput == increment
+      depositRef == increment && spendsOutput txInfo (txOutRefId depositRef) (txOutRefIdx depositRef)
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
@@ -274,12 +280,6 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue <> depositValue == headOutValue
-
-  headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
-
-  depositValue = txOutValue $ txInInfoResolved (txInfoInputs txInfo !! 1)
-
-  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
 
   OpenDatum
     { parties = prevParties
