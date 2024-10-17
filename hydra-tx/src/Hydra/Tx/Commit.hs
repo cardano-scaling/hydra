@@ -64,7 +64,6 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     toLedgerTx blueprintTx
       & spendFromInitial
       & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton (toLedgerTxOut commitOutput)
-      & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
       & bodyTxL . mintTxBodyL .~ mempty
       & addMetadata (mkHydraHeadV1TxName "CommitTx") blueprintTx
  where
@@ -76,6 +75,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
      in tx
           & bodyTxL . inputsTxBodyL .~ newInputs
           & bodyTxL . referenceInputsTxBodyL <>~ Set.singleton (toLedgerTxIn initialScriptRef)
+          & bodyTxL . reqSignerHashesTxBodyL <>~ Set.singleton (toLedgerKeyHash vkh)
           & witsTxL . rdmrsTxWitsL
             .~ Redeemers (fromList $ nonSpendingRedeemers tx)
               <> Redeemers (fromList $ mkRedeemers newRedeemers newInputs)
