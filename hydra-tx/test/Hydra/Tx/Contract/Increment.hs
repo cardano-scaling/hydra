@@ -157,8 +157,8 @@ data IncrementMutation
     ChangeHeadValue
   | -- | Change the required signers
     AlterRequiredSigner
-  -- \| -- | Alter the Claim redeemer `TxOutRef`
-  -- IncrementDifferentClaimRedeemer
+  | -- | Alter the Claim redeemer `TxOutRef`
+    IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -202,6 +202,15 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+        invalidDepositRef <- genTxIn
+        pure $
+          Head.Increment
+            Head.IncrementRedeemer
+              { signature = toPlutusSignatures healthySignature
+              , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+              , increment = toPlutusTxOutRef invalidDepositRef
+              }
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

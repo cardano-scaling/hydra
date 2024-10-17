@@ -45,7 +45,6 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositValue = foldMap txOutValue depositUTxO
 
-
   deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
   depositPlutusDatum = Deposit.datum $ Deposit.DepositDatum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
@@ -81,7 +80,7 @@ observeDepositTx ::
   Maybe DepositObservation
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
-  (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddress tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
   (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
@@ -93,10 +92,6 @@ observeDepositTx networkId tx = do
           , deadline
           }
     else Nothing
- where
-  depositScript = fromPlutusScript Deposit.validatorScript
-
-  depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
 
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut network depositOut = do
