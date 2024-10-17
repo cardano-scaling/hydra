@@ -155,6 +155,8 @@ data IncrementMutation
     ProduceInvalidSignatures
   | -- | Change the head value
     ChangeHeadValue
+  | -- | Change the required signers
+    AlterRequiredSigner
   -- \| -- | Alter the Claim redeemer `TxOutRef`
   -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
@@ -197,6 +199,9 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+    , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
