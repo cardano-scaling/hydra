@@ -151,6 +151,8 @@ data IncrementMutation
     ProduceInvalidSignatures
   | -- | Change the head value
     ChangeHeadValue
+  | -- | Change the required signers
+    AlterRequiredSigner
   -- \| -- | Alter the Claim redeemer `TxOutRef`
   -- IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)

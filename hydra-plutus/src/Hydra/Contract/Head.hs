@@ -246,6 +246,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && mustIncreaseVersion
     && checkSnapshotSignature
     && mustIncreaseValue
+    && mustBeSignedByParticipant ctx prevHeadId
  where
   deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
 
