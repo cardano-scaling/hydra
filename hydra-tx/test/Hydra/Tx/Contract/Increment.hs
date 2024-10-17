@@ -153,8 +153,8 @@ data IncrementMutation
     ChangeHeadValue
   | -- | Change the required signers
     AlterRequiredSigner
-  -- \| -- | Alter the Claim redeemer `TxOutRef`
-  -- IncrementDifferentClaimRedeemer
+  | -- | Alter the Claim redeemer `TxOutRef`
+    IncrementDifferentClaimRedeemer
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -183,6 +183,30 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode VersionNotIncremented) IncrementUseDifferentSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ProduceInvalidSignatures . ChangeHeadRedeemer <$> do
+        invalidSignature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
+        pure $
+          Head.Increment
+            Head.IncrementRedeemer
+              { signature = invalidSignature
+              , snapshotNumber = fromIntegral healthySnapshotNumber
+              , increment = toPlutusTxOutRef $ fst $ List.head $ UTxO.pairs depositUTxO
+              }
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
+        newValue <- genValue `suchThat` (/= txOutValue headTxOut)
+        pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
+    , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
+        pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+        invalidDepositRef <- genTxIn
+        pure $
+          Head.Increment
+            Head.IncrementRedeemer
+              { signature = toPlutusSignatures healthySignature
+              , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+              , increment = toPlutusTxOutRef invalidDepositRef
+              }
     ]
  where
   depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
