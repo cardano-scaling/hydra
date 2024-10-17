@@ -14,8 +14,9 @@ import PlutusLedgerApi.V2 (
   TokenName (..),
   TxInfo (TxInfo, txInfoMint),
   TxOut,
+  TxOutRef (..),
   Value (getValue),
-  toBuiltinData, TxOutRef (..),
+  toBuiltinData,
  )
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
