@@ -40,7 +40,7 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -165,9 +165,9 @@ genIncrementMutation (tx, utxo) =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
                   DepositDatum (headCS', depositDatumDeadline, commits) ->
-                    DepositDatum (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1, commits)
+                    DepositDatum (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
+        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
     , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
         otherHeadId <- arbitrary
         let datum =
@@ -176,7 +176,7 @@ genIncrementMutation (tx, utxo) =
                   DepositDatum (_headCS, depositDatumDeadline, commits) ->
                     DepositDatum (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
+        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
     , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
@@ -198,7 +198,7 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode DepositInputNotFound) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
         invalidDepositRef <- genTxIn
         pure $
           Head.Increment

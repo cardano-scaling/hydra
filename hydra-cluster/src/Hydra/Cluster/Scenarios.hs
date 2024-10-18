@@ -738,7 +738,9 @@ canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
-    let contestationPeriod = UnsafeContestationPeriod 1
+    -- NOTE: it is important to provide _large_ enough contestation period so that
+    -- increment tx can be submitted before the deadline
+    let contestationPeriod = UnsafeContestationPeriod 5
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
@@ -789,7 +791,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
       -- NOTE: this value is also used to determine the deposit deadline
-      let deadline = 1
+      let deadline = 5
       let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod

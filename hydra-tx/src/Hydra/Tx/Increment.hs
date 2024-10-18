@@ -59,7 +59,13 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
-    toScriptData $ Head.Increment Head.IncrementRedeemer{signature = toPlutusSignatures sigs, snapshotNumber = fromIntegral number, increment = toPlutusTxOutRef depositIn}
+    toScriptData $
+      Head.Increment
+        Head.IncrementRedeemer
+          { signature = toPlutusSignatures sigs
+          , snapshotNumber = fromIntegral number
+          , increment = toPlutusTxOutRef depositIn
+          }
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
@@ -90,12 +96,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = txOutValue depositOut
+  depositedValue = foldMap (txOutValue . snd) (UTxO.pairs (fromMaybe mempty utxoToCommit))
 
   depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
 
@@ -104,4 +110,4 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, version, number} = snapshot
+  Snapshot{utxo, utxoToCommit, version, number} = snapshot
