@@ -51,6 +51,8 @@ data HeadError
   | FanoutNoLowerBoundDefined
   | FanoutUTxOToDecommitHashMismatch
   | DepositNotSpent
+  | DepositInputNotFound
+  | HeadInputNotFound
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -106,3 +108,5 @@ instance ToErrorCode HeadError where
     LowerBoundBeforeContestationDeadline -> "H43"
     FanoutNoLowerBoundDefined -> "H44"
     DepositNotSpent -> "H45"
+    DepositInputNotFound -> "H46"
+    HeadInputNotFound -> "H47"
