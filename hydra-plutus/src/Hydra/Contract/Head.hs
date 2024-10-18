@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -249,17 +250,17 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && mustBeSignedByParticipant ctx prevHeadId
     && claimedDepositIsSpent
  where
-  deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
+  inputs = txInfoInputs txInfo
 
-  depositHash = hashPreSerializedCommits deposited
+  depositInput = inputs !! 1
 
-  depositInput = txInfoInputs txInfo !! 1
+  depositHash = hashPreSerializedCommits $ depositDatum $ txInInfoResolved depositInput
 
   depositRef = txInInfoOutRef depositInput
 
   depositValue = txOutValue $ txInInfoResolved depositInput
 
-  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
+  headInValue = txOutValue $ txInInfoResolved (head inputs)
 
   headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
 
@@ -267,7 +268,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      depositRef == increment && spendsOutput txInfo (txOutRefId depositRef) (txOutRefIdx depositRef)
+      depositRef == increment -- && spendsOutput txInfo (txOutRefId depositRef) (txOutRefIdx depositRef)
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
