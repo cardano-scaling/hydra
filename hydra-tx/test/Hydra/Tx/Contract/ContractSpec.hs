@@ -132,12 +132,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseUnused" $ do
+  describe "CloseUnusedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseUsed" $ do
+  describe "CloseUsedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
