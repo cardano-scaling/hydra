@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -41,11 +42,10 @@ import PlutusLedgerApi.V2 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef (..),
   UpperBound (..),
   Value (Value),
  )
-import PlutusLedgerApi.V2.Contexts (findOwnInput, spendsOutput)
+import PlutusLedgerApi.V2.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -240,34 +240,42 @@ checkIncrement ::
   IncrementRedeemer ->
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
-  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here?
+  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here? utxo hash?
   -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
-    && checkSnapshotSignature
     && mustIncreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
+    && checkSnapshotSignature
     && claimedDepositIsSpent
  where
-  deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
+  inputs = txInfoInputs txInfo
 
-  depositHash = hashPreSerializedCommits deposited
+  depositInput =
+    case findTxInByTxOutRef increment txInfo of
+      Nothing -> traceError $(errorCode DepositInputNotFound)
+      Just i -> i
 
-  depositInput = txInfoInputs txInfo !! 1
+  commits = depositDatum $ txInInfoResolved depositInput
+
+  depositHash = hashPreSerializedCommits commits
 
   depositRef = txInInfoOutRef depositInput
+  -- TODO: how to get the deposited value without putting it in the redeemer?
+  -- depositValue = txOutValue $ txInInfoResolved depositInput
 
-  depositValue = txOutValue $ txInInfoResolved depositInput
+  headInValue =
+    case find (/= depositInput) inputs of
+      Nothing -> traceError $(errorCode HeadInputNotFound)
+      Just i -> txOutValue $ txInInfoResolved i
 
-  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
+  headOutValue = txOutValue $ head $ txInfoOutputs txInfo
 
-  headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
-
-  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
+  IncrementRedeemer{signature, snapshotNumber, increment, depositValue} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      depositRef == increment && spendsOutput txInfo (txOutRefId depositRef) (txOutRefIdx depositRef)
+      depositRef == increment
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
