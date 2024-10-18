@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -42,7 +43,6 @@ import PlutusLedgerApi.V3 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef (..),
   UpperBound (..),
   Value (Value),
  )
@@ -241,34 +241,42 @@ checkIncrement ::
   IncrementRedeemer ->
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
-  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here?
+  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here? utxo hash?
   -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
-    && checkSnapshotSignature
     && mustIncreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
+    && checkSnapshotSignature
     && claimedDepositIsSpent
  where
-  deposited = foldMap (depositDatum . txInInfoResolved) (txInfoInputs txInfo)
+  inputs = txInfoInputs txInfo
 
-  depositHash = hashPreSerializedCommits deposited
+  depositInput =
+    case findTxInByTxOutRef increment txInfo of
+      Nothing -> traceError $(errorCode DepositInputNotFound)
+      Just i -> i
 
-  depositInput = txInfoInputs txInfo !! 1
+  commits = depositDatum $ txInInfoResolved depositInput
+
+  depositHash = hashPreSerializedCommits commits
 
   depositRef = txInInfoOutRef depositInput
 
   depositValue = txOutValue $ txInInfoResolved depositInput
 
-  headInValue = txOutValue $ txInInfoResolved (head (txInfoInputs txInfo))
+  headInValue =
+    case find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
+      Nothing -> traceError $(errorCode HeadInputNotFound)
+      Just i -> i
 
-  headOutValue = foldMap txOutValue $ txInfoOutputs txInfo
+  headOutValue = txOutValue $ head $ txInfoOutputs txInfo
 
   IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      depositRef == increment && spendsOutput txInfo (txOutRefId depositRef) (txOutRefIdx depositRef)
+      depositRef == increment
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
@@ -624,6 +632,7 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
+-- | This is safe only because usually Head transaction only consume one input.
 getHeadInput :: ScriptContext -> TxInInfo
 getHeadInput ctx = case findOwnInput ctx of
   Nothing -> traceError $(errorCode ScriptNotSpendingAHeadInput)
