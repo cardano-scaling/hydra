@@ -24,6 +24,7 @@ data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   , commitReference :: (TxIn, TxOut CtxUTxO)
   , headReference :: (TxIn, TxOut CtxUTxO)
+  , depositReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -60,7 +61,8 @@ newScriptRegistry =
     initialReference <- lookupScriptHash "νInitial" initialScriptHash m
     commitReference <- lookupScriptHash "νCommit" commitScriptHash m
     headReference <- lookupScriptHash "νHead" headScriptHash m
-    pure $ ScriptRegistry{initialReference, commitReference, headReference}
+    depositReference <- lookupScriptHash "νDeposit" depositScriptHash m
+    pure $ ScriptRegistry{initialReference, commitReference, headReference, depositReference}
 
   lookupScriptHash name sh m =
     case lookup sh m of
@@ -71,6 +73,7 @@ newScriptRegistry =
     { initialScriptHash
     , commitScriptHash
     , headScriptHash
+    , depositScriptHash
     } = scriptInfo
 
 -- | Get the UTxO that corresponds to a script registry.
@@ -80,10 +83,11 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference, headReference]
+  UTxO.fromPairs [initialReference, commitReference, headReference, depositReference]
  where
   ScriptRegistry
     { initialReference
     , commitReference
     , headReference
+    , depositReference
     } = scriptRegistry

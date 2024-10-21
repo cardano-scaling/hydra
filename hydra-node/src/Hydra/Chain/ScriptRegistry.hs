@@ -42,7 +42,7 @@ import Hydra.Chain.CardanoClient (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -90,6 +90,7 @@ publishHydraScripts networkId socketPath sk = do
           <$> [ mkScriptRef Initial.validatorScript
               , mkScriptRefV3 commitValidatorScript
               , mkScriptRef Head.validatorScript
+              , mkScriptRefV3 depositValidatorScript
               ]
       totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =
