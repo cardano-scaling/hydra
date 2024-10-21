@@ -35,7 +35,7 @@ import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
-  it "Commit validator script" $ do
+  it "Commit and deposit validator scripts" $ do
     original <- readFileBS "plutus.json"
     -- This re-generate plutus.json
     void $ readProcess "aiken" ["build", "-t", "compact"] ""
