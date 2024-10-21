@@ -13,6 +13,7 @@ import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
@@ -61,7 +62,7 @@ depositTx networkId headId commitBlueprintTx deadline =
       ReferenceScriptNone
 
 depositScript :: PlutusScript
-depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+depositScript = fromPlutusScript @PlutusScriptV2 depositValidatorScript
 
 depositAddress :: NetworkId -> AddressInEra
 depositAddress networkId = mkScriptAddress @PlutusScriptV2 networkId depositScript

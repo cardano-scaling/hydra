@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (
   txOutValue,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
   awaitTransaction,

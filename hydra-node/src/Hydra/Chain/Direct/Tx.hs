@@ -28,7 +28,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -399,7 +399,7 @@ observeIncrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
+  depositScript = fromPlutusScript depositValidatorScript
   headScript = fromPlutusScript Head.validatorScript
 
 data DecrementObservation = DecrementObservation
