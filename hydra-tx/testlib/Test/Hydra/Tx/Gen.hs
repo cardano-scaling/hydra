@@ -261,7 +261,7 @@ genScriptRegistry = do
           )
       , depositReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef depositValidatorScript}
+          , txOut{txOutReferenceScript = mkScriptRefV3 depositValidatorScript}
           )
       }
 

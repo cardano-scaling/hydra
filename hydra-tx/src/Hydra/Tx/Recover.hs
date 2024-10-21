@@ -13,6 +13,7 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (HeadId, mkHeadId)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
@@ -45,7 +46,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
   depositOutputs =
     toTxContext <$> toList deposited
 
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
@@ -80,4 +81,4 @@ observeRecoverTx networkId utxo tx = do
         )
     else Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
+  depositScript = fromPlutusScript depositValidatorScript

@@ -37,7 +37,7 @@ commitValidatorScript =
 depositValidatorScript :: SerialisedScript
 depositValidatorScript =
   case Base16.decode depositBase16Bytes of
-    Left e -> error $ "Failed to decode commit validator: " <> show e
+    Left e -> error $ "Failed to decode deposit validator: " <> show e
     Right bytes -> toShort bytes
  where
   depositBase16Bytes = encodeUtf8 depositBase16Text

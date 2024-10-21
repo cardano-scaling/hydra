@@ -17,13 +17,14 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityUpperBound,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, depositReference, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 import PlutusLedgerApi.V2 (toBuiltin)
@@ -52,7 +53,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
-      & addReferenceInputs [headScriptRef]
+      & addReferenceInputs [headScriptRef, depositScriptRef]
       & addOutputs [headOutput']
       & addExtraRequiredSigners [verificationKeyHash vk]
       & setValidityUpperBound upperValiditySlot
@@ -71,6 +72,10 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
   headScriptRef = fst (headReference scriptRegistry)
+
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
+
+  depositScriptRef = fst (depositReference scriptRegistry)
 
   headWitness =
     BuildTxWith $
@@ -92,8 +97,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   depositedValue = foldMap (txOutValue . snd) (UTxO.pairs (fromMaybe mempty utxoToCommit))
 
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
-
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
@@ -102,6 +105,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   depositWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptWitness depositScript InlineScriptDatum depositRedeemer
+        mkScriptReference depositScriptRef depositScript InlineScriptDatum depositRedeemer
 
   Snapshot{utxo, utxoToCommit, version, number} = snapshot
