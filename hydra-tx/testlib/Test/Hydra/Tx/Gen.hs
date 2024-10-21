@@ -21,7 +21,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Contest (ClosedThreadOutput)
@@ -258,6 +258,10 @@ genScriptRegistry = do
       , headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      , depositReference =
+          ( TxIn txId' (TxIx 3)
+          , txOut{txOutReferenceScript = mkScriptRef depositValidatorScript}
           )
       }
 
