@@ -9,7 +9,6 @@ import Data.ByteString.Lazy qualified as BL
 import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
-import Hydra.Contract.Hash qualified as Hash
 import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -84,14 +83,11 @@ main = do
   scripts =
     [ (headScript, "headScript")
     , (initialScript, "initialScript")
-    , (hashPlutusScript, "hashScript")
     ]
 
   headScript = Head.validatorScript
 
   initialScript = Initial.validatorScript
-
-  hashPlutusScript = Hash.validatorScript
 
   compiledScripts =
     [ (Compiled Head.compiledValidator, "headScript")
