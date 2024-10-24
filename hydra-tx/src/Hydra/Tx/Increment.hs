@@ -96,12 +96,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = foldMap (txOutValue . snd) (UTxO.pairs (fromMaybe mempty utxoToCommit))
+  depositedValue = txOutValue depositOut
 
   depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
 
@@ -110,4 +110,4 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version, number} = snapshot
+  Snapshot{utxo, version, number} = snapshot
