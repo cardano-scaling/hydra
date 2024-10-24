@@ -153,12 +153,14 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
   pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   let collateralTxIns = mempty
   let output =
-        mkTxOutAutoBalance
-          pparams
-          atAddress
-          val
-          datum
-          ReferenceScriptNone
+        -- TODO: improve this so we don't autobalance and then reset the value
+        modifyTxOutValue (const val) $
+          mkTxOutAutoBalance
+            pparams
+            atAddress
+            val
+            datum
+            ReferenceScriptNone
   buildTransaction
     networkId
     nodeSocket

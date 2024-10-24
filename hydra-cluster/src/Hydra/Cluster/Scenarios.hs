@@ -397,7 +397,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      (clientPayload, scriptUTxO) <- prepareScriptPayload
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
 
       res <-
         runReq defaultHttpConfig $
@@ -417,7 +417,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
       -- incrementally commit script to a running Head
-      (clientPayload', scriptUTxO') <- prepareScriptPayload
+      (clientPayload', scriptUTxO') <- prepareScriptPayload 2_000_000
 
       res' <-
         runReq defaultHttpConfig $
@@ -448,7 +448,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let serializedScript = PlutusScriptSerialised script
     let scriptAddress = mkScriptAddress networkId serializedScript
     let datumHash = mkTxOutDatumHash ()
-    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue val)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
 
     let scriptWitness =
@@ -841,7 +841,8 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-        threadDelay $ fromIntegral (deadline * 2)
+        -- NOTE: for some reason threadDelay on MacOS behaves differently than on Linux so we need + 1 here
+        threadDelay $ fromIntegral (deadline * 2 + 1)
 
         recoverResp <-
           parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
