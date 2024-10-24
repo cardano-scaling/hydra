@@ -398,7 +398,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      (clientPayload, scriptUTxO) <- prepareScriptPayload
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
 
       res <-
         runReq defaultHttpConfig $
@@ -418,7 +418,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
       -- incrementally commit script to a running Head
-      (clientPayload', scriptUTxO') <- prepareScriptPayload
+      (clientPayload', scriptUTxO') <- prepareScriptPayload 2_000_000
 
       res' <-
         runReq defaultHttpConfig $
@@ -444,12 +444,12 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
-  prepareScriptPayload = do
+  prepareScriptPayload val = do
     let script = alwaysSucceedingNAryFunction 3
     let serializedScript = PlutusScriptSerialised script
     let scriptAddress = mkScriptAddress networkId serializedScript
     let datumHash = mkTxOutDatumHash ()
-    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue val)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
 
     let scriptWitness =
