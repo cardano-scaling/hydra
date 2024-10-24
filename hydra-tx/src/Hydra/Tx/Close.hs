@@ -103,26 +103,27 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}}
         | version == openVersion
         , isJust utxoToCommit ->
-            Head.CloseUnusedInc{signature = toPlutusSignatures signatures, alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit}
+            Head.CloseUnusedInc
+              { signature = toPlutusSignatures signatures
+              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+              }
         | version == openVersion
         , isJust utxoToDecommit ->
             Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
         | otherwise ->
             -- NOTE: This will only work for version == openVersion - 1
-            if isJust utxoToCommit
-              then
+            case (utxoToCommit, utxoToDecommit) of
+              (Just _, Nothing) ->
                 Head.CloseUsedInc
                   { signature = toPlutusSignatures signatures
                   }
-              else
-                if isJust utxoToDecommit
-                  then
-                    Head.CloseUsedDec
-                      { signature = toPlutusSignatures signatures
-                      , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-                      }
-                  else
-                    error "closeTx: unexpected snapshot"
+              (Nothing, Just _) ->
+                Head.CloseUsedDec
+                  { signature = toPlutusSignatures signatures
+                  , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+                  }
+              (Nothing, Nothing) -> Head.CloseInitial
+              _ -> error "closeTx: unexpected snapshot"
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
