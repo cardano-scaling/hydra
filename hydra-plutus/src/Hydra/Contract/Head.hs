@@ -260,8 +260,6 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   depositHash = hashPreSerializedCommits commits
 
-  depositRef = txInInfoOutRef depositInput
-
   depositValue = txOutValue $ txInInfoResolved depositInput
 
   headInValue =
@@ -275,7 +273,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
-      depositRef == increment
+      increment `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
@@ -286,7 +284,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
 
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> depositValue == headOutValue
+      headInValue <> depositValue === headOutValue
 
   OpenDatum
     { parties = prevParties
