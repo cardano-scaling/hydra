@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.State (
   genDepositTx,
   genFanoutTx,
   genHydraContext,
+  genIncrementTx,
   genInitTx,
   genRecoverTx,
   genStInitial,
@@ -347,6 +348,10 @@ spec = parallel $ do
           Just RecoverObservation{} -> property True
           Nothing ->
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
+  describe "increment" $ do
+    propBelowSizeLimit maxTxSize forAllIncrement
+    propIsValid forAllIncrement
 
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
@@ -654,6 +659,23 @@ forAllRecover ::
   Property
 forAllRecover action = do
   forAllShrink genRecoverTx shrink $ uncurry action
+
+forAllIncrement ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllIncrement action = do
+  forAllIncrement' $ \_ utxo tx ->
+    action utxo tx
+
+forAllIncrement' ::
+  Testable property =>
+  ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
+  Property
+forAllIncrement' action = do
+  forAllShrink (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, committed, st, incrementUTxO, tx) ->
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> incrementUTxO
+     in action committed utxo tx
 
 forAllDecrement ::
   Testable property =>
