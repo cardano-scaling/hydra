@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
 -- Plutus core version to compile to. In babbage era, that is Cardano protocol
 -- version 7 and 8, only plutus-core version 1.0.0 is available.
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -14,9 +15,10 @@ import PlutusTx.Prelude
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer, Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
-import Hydra.Contract.Util (hasST, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
+import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer (..), Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -40,11 +42,10 @@ import PlutusLedgerApi.V2 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef (..),
   UpperBound (..),
   Value (Value),
  )
-import PlutusLedgerApi.V2.Contexts (findOwnInput)
+import PlutusLedgerApi.V2.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -220,16 +221,85 @@ commitDatum input = do
     Nothing -> []
 {-# INLINEABLE commitDatum #-}
 
+-- | Try to find the deposit datum in the input and
+-- if it is there return the committed utxo
+depositDatum :: TxOut -> [Commit]
+depositDatum input = do
+  let datum = getTxOutDatum input
+  case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
+    Just (Deposit.DepositDatum (_headId, _deadline, commits)) ->
+      commits
+    Nothing -> []
+{-# INLINEABLE depositDatum #-}
+
 -- | Verify a increment transaction.
 checkIncrement ::
   ScriptContext ->
-  -- | Open state before the decrement
+  -- | Open state before the increment
   OpenDatum ->
   IncrementRedeemer ->
   Bool
-checkIncrement _ctx _openBefore _redeemer =
-  -- FIXME: Implement checkIncrement
-  True
+checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
+  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here? utxo hash?
+  -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
+  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+    && mustIncreaseVersion
+    && mustIncreaseValue
+    && mustBeSignedByParticipant ctx prevHeadId
+    && checkSnapshotSignature
+    && claimedDepositIsSpent
+ where
+  inputs = txInfoInputs txInfo
+
+  depositInput =
+    case findTxInByTxOutRef increment txInfo of
+      Nothing -> traceError $(errorCode DepositInputNotFound)
+      Just i -> i
+
+  commits = depositDatum $ txInInfoResolved depositInput
+
+  depositHash = hashPreSerializedCommits commits
+
+  depositValue = txOutValue $ txInInfoResolved depositInput
+
+  headInValue =
+    case find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
+      Nothing -> traceError $(errorCode HeadInputNotFound)
+      Just i -> i
+
+  headOutValue = txOutValue $ head $ txInfoOutputs txInfo
+
+  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
+
+  claimedDepositIsSpent =
+    traceIfFalse $(errorCode DepositNotSpent) $
+      increment `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
+
+  checkSnapshotSignature =
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
+
+  mustIncreaseVersion =
+    traceIfFalse $(errorCode VersionNotIncremented) $
+      nextVersion == prevVersion + 1
+
+  mustIncreaseValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue <> depositValue === headOutValue
+
+  OpenDatum
+    { parties = prevParties
+    , contestationPeriod = prevCperiod
+    , headId = prevHeadId
+    , version = prevVersion
+    } = openBefore
+
+  OpenDatum
+    { utxoHash = nextUtxoHash
+    , parties = nextParties
+    , contestationPeriod = nextCperiod
+    , headId = nextHeadId
+    , version = nextVersion
+    } = decodeHeadOutputOpenDatum ctx
 {-# INLINEABLE checkIncrement #-}
 
 -- | Verify a decrement transaction.
@@ -351,18 +421,31 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseUnused{signature} ->
+      CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
-      CloseUsed{signature, alreadyDecommittedUTxOHash} ->
+      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseOutdated) $
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
+              signature
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
+        traceIfFalse $(errorCode FailedCloseCurrent) $
+          verifySnapshotSignature
+            parties
+            (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+            signature
+      CloseUsedInc{signature} ->
+        traceIfFalse $(errorCode FailedCloseOutdated) $
+          deltaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version - 1, snapshotNumber', utxoHash', deltaUTxOHash', emptyHash)
               signature
 
   checkDeadline =
@@ -546,6 +629,7 @@ makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
     _ -> traceError $(errorCode CloseNoUpperBoundDefined)
 {-# INLINEABLE makeContestationDeadline #-}
 
+-- | This is safe only because usually Head transaction only consume one input.
 getHeadInput :: ScriptContext -> TxInInfo
 getHeadInput ctx = case findOwnInput ctx of
   Nothing -> traceError $(errorCode ScriptNotSpendingAHeadInput)
@@ -619,31 +703,6 @@ getTxOutDatum o =
     OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
 
--- | Hash a potentially unordered list of commits by sorting them, concatenating
--- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
---
--- NOTE: See note from `hashTxOuts`.
-hashPreSerializedCommits :: [Commit] -> BuiltinByteString
-hashPreSerializedCommits commits =
-  sha2_256 . foldMap preSerializedOutput $
-    sortBy (\a b -> compareRef (input a) (input b)) commits
-{-# INLINEABLE hashPreSerializedCommits #-}
-
--- | Hash a pre-ordered list of transaction outputs by serializing each
--- individual 'TxOut', concatenating all bytes together and creating a SHA2_256
--- digest over that.
---
--- NOTE: In general, from asserting that `hash(x || y) = hash (x' || y')` it is
--- not safe to conclude that `(x,y) = (x', y')` as the same hash could be
--- obtained by moving one or more bytes from the end of `x` to the beginning of
--- `y`, but in the context of Hydra validators it seems impossible to exploit
--- this property without breaking other logic or verification (eg. producing a
--- valid and meaningful `TxOut`).
-hashTxOuts :: [TxOut] -> BuiltinByteString
-hashTxOuts =
-  sha2_256 . foldMap (Builtins.serialiseData . toBuiltinData)
-{-# INLINEABLE hashTxOuts #-}
-
 -- | Check if 'TxOut' contains the PT token.
 hasPT :: CurrencySymbol -> TxOut -> Bool
 hasPT headCurrencySymbol txOut =
@@ -675,13 +734,6 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
-
-compareRef :: TxOutRef -> TxOutRef -> Ordering
-TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
-  case compare txOutRefId id' of
-    EQ -> compare txOutRefIdx idx'
-    ord -> ord
-{-# INLINEABLE compareRef #-}
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =

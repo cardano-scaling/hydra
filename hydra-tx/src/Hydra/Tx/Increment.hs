@@ -18,6 +18,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
@@ -45,8 +46,9 @@ incrementTx ::
   -- | Deposit output UTxO to be spent in increment transaction
   UTxO ->
   SlotNo ->
+  MultiSignature (Snapshot Tx) ->
   Tx
-incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot =
+incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
@@ -57,9 +59,13 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
-    toScriptData $ Head.Increment Head.IncrementRedeemer
-
-  utxoHash = toBuiltin $ hashUTxO @Tx (utxo <> fromMaybe mempty utxoToCommit)
+    toScriptData $
+      Head.Increment
+        Head.IncrementRedeemer
+          { signature = toPlutusSignatures sigs
+          , snapshotNumber = fromIntegral number
+          , increment = toPlutusTxOutRef depositIn
+          }
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
@@ -77,6 +83,8 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
 
+  utxoHash = toBuiltin $ hashUTxO @Tx utxo
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Open
@@ -88,12 +96,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = txOutValue depositOut
+  depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
 
   depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
 
@@ -102,4 +110,4 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version} = snapshot
+  Snapshot{utxo, utxoToCommit, version, number} = snapshot

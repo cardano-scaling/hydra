@@ -398,7 +398,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      (clientPayload, scriptUTxO) <- prepareScriptPayload
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
 
       res <-
         runReq defaultHttpConfig $
@@ -418,7 +418,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         pure $ v ^? key "utxo"
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
       -- incrementally commit script to a running Head
-      (clientPayload', scriptUTxO') <- prepareScriptPayload
+      (clientPayload', scriptUTxO') <- prepareScriptPayload 2_000_000
 
       res' <-
         runReq defaultHttpConfig $
@@ -444,12 +444,12 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
-  prepareScriptPayload = do
+  prepareScriptPayload val = do
     let script = alwaysSucceedingNAryFunction 3
     let serializedScript = PlutusScriptSerialised script
     let scriptAddress = mkScriptAddress networkId serializedScript
     let datumHash = mkTxOutDatumHash ()
-    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue 0)
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue val)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
 
     let scriptWitness =
@@ -701,7 +701,9 @@ canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
 canCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
-    let contestationPeriod = UnsafeContestationPeriod 1
+    -- NOTE: it is important to provide _large_ enough contestation period so that
+    -- increment tx can be submitted before the deadline
+    let contestationPeriod = UnsafeContestationPeriod 5
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
@@ -752,7 +754,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
       refuelIfNeeded tracer node Alice 30_000_000
       refuelIfNeeded tracer node Bob 30_000_000
       -- NOTE: this value is also used to determine the deposit deadline
-      let deadline = 1
+      let deadline = 5
       let contestationPeriod = UnsafeContestationPeriod deadline
       aliceChainConfig <-
         chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod

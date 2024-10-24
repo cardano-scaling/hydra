@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
-import Hydra.Contract.Head qualified as OnChain
+import Hydra.Contract.Util qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -132,12 +132,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseUnused" $ do
+  describe "CloseUnusedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseUsed" $ do
+  describe "CloseUsedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $

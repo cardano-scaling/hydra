@@ -100,15 +100,30 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   closeRedeemer =
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
-        | version == openVersion ->
-            Head.CloseUnused{signature = toPlutusSignatures signatures}
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}}
+        | version == openVersion
+        , isJust utxoToCommit ->
+            Head.CloseUnusedInc
+              { signature = toPlutusSignatures signatures
+              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+              }
+        | version == openVersion
+        , isJust utxoToDecommit ->
+            Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
         | otherwise ->
             -- NOTE: This will only work for version == openVersion - 1
-            Head.CloseUsed
-              { signature = toPlutusSignatures signatures
-              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-              }
+            case (utxoToCommit, utxoToDecommit) of
+              (Just _, Nothing) ->
+                Head.CloseUsedInc
+                  { signature = toPlutusSignatures signatures
+                  }
+              (Nothing, Just _) ->
+                Head.CloseUsedDec
+                  { signature = toPlutusSignatures signatures
+                  , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+                  }
+              (Nothing, Nothing) -> Head.CloseInitial
+              _ -> error "closeTx: unexpected snapshot"
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -123,8 +138,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
           , deltaUTxOHash =
               case closeRedeemer of
-                Head.CloseUnused{} ->
+                Head.CloseUnusedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
+                Head.CloseUsedInc{} ->
+                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
           , contestationDeadline
