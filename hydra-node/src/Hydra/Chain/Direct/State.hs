@@ -10,10 +10,8 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Fixed (Milli)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
@@ -121,7 +119,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
@@ -985,7 +983,7 @@ genChainStateWithTx =
 
   genIncrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genIncrementWithState = do
-    (ctx, _, st, utxo, tx) <- genIncrementTx maxGenParties
+    (ctx, st, utxo, tx) <- genIncrementTx maxGenParties
     pure (ctx, Open st, utxo, tx, Increment)
 
   genDecrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
@@ -1065,6 +1063,9 @@ genHydraContextFor n = do
       , ctxContestationPeriod
       , ctxScriptRegistry
       }
+
+instance Arbitrary HydraContext where
+  arbitrary = genHydraContext maxGenParties
 
 -- | Get all peer-specific 'ChainContext's from a 'HydraContext'. NOTE: This
 -- assumes that 'HydraContext' has same length 'ctxVerificationKeys' and
@@ -1174,43 +1175,38 @@ genCollectComTx = do
   let spendableUTxO = getKnownUTxO stInitialized
   pure (cctx, committedUTxO, stInitialized, mempty, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO)
 
-genDepositTx :: Gen (UTxO, Tx)
-genDepositTx = do
-  ctx <- genHydraContextFor 1
+genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
+genDepositTx numParties = do
+  ctx <- genHydraContextFor numParties
   utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . null)
-  (_, OpenState{headId}) <- genStOpen ctx
-  deadline <- posixSecondsToUTCTime . realToFrac <$> (arbitrary :: Gen Milli)
-  let tx = depositTx (ctxNetworkId ctx) headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxo, lookupUTxO = utxo} deadline
-  pure (utxo, tx)
+  (_, st@OpenState{headId}) <- genStOpen ctx
+  let tx = depositTx (ctxNetworkId ctx) headId CommitBlueprintTx{blueprintTx = txSpendingUTxO utxo, lookupUTxO = utxo} depositDeadline
+  pure (ctx, st, utxo <> utxoFromTx tx, tx)
 
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (_depositedUTxO, txDeposit) <- genDepositTx
+  (_, _, depositedUTxO, txDeposit) <- genDepositTx 1
   let DepositObservation{deposited} =
         fromJust $ observeDepositTx testNetworkId txDeposit
   -- TODO: generate multiple various slots after deadline
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited 100
-  pure (utxoFromTx txDeposit, tx)
+  pure (depositedUTxO, tx)
 
-genIncrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
+genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genIncrementTx numParties = do
-  (_utxo, txDeposit) <- genDepositTx
-  ctx <- genHydraContextFor numParties
+  (ctx, st@OpenState{headId}, utxo, txDeposit) <- genDepositTx numParties
   cctx <- pickChainContext ctx
-  let DepositObservation{deposited, depositTxId} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
-  (_, st@OpenState{headId}) <- genStOpen ctx
+  let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st
-  let version = 1
-  snapshot <- genConfirmedSnapshot headId 2 version openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
-  let depositUTxO = utxoFromTx txDeposit
-  slotNo <- arbitrary
+  let version = 0
+  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
+  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
   pure
     ( cctx
-    , maybe mempty toList (utxoToCommit $ getSnapshot snapshot)
     , st
-    , depositUTxO
-    , unsafeIncrement cctx (openUTxO <> depositUTxO) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
+    , utxo
+    , unsafeIncrement cctx (openUTxO <> utxo) headId (ctxHeadParameters ctx) snapshot depositTxId slotNo
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, [TxOut CtxUTxO], OpenState, UTxO, Tx)
