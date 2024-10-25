@@ -10,9 +10,9 @@ TARGETDIR=${TARGETDIR:-devnet}
 [ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; rm -rf $TARGETDIR ; }
 
 cp -af "$BASEDIR/hydra-cluster/config/devnet" "$TARGETDIR"
-chmod u+w -R "$TARGETDIR"
+chmod -R u+w  "$TARGETDIR"
 cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
-chmod u+w -R "$TARGETDIR"
+chmod -R u+w "$TARGETDIR"
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"
 sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
