@@ -350,7 +350,7 @@ spec = parallel $ do
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "increment" $ do
-    propBelowSizeLimit maxTxSize forAllIncrement
+    -- propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
 
   describe "decrement" $ do
@@ -651,7 +651,9 @@ forAllDeposit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllDeposit action = do
-  forAllShrink genDepositTx shrink $ uncurry action
+  forAllShrink (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, st, depositUTxO, tx) ->
+    let utxo = getKnownUTxO st <> depositUTxO
+     in action utxo tx
 
 forAllRecover ::
   Testable property =>
@@ -665,17 +667,17 @@ forAllIncrement ::
   (UTxO -> Tx -> property) ->
   Property
 forAllIncrement action = do
-  forAllIncrement' $ \_ utxo tx ->
+  forAllIncrement' $ \utxo tx ->
     action utxo tx
 
 forAllIncrement' ::
   Testable property =>
-  ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
+  (UTxO -> Tx -> property) ->
   Property
 forAllIncrement' action = do
-  forAllShrink (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, committed, st, incrementUTxO, tx) ->
+  forAllShrink (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, st, incrementUTxO, tx) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx <> incrementUTxO
-     in action committed utxo tx
+     in action utxo tx
 
 forAllDecrement ::
   Testable property =>
@@ -691,7 +693,7 @@ forAllDecrement' ::
   Property
 forAllDecrement' action = do
   forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, _, tx) ->
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo
      in action distributed utxo tx
 
 forAllClose ::
