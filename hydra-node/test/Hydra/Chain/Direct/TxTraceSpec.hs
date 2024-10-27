@@ -10,8 +10,9 @@
 -- Given an initial UTxO, the model generates a plausible sequence of snapshots
 -- that an honest node would approve. That is, the total balance of UTxO remains
 -- constant and utxoToDecommit is only allowed to clear if the version is
--- incremented. All snapshots are correctly signed and UTxOs are simplified such
--- that their identity is A-E and value is just a number.
+-- incremented. Consequently, also all snapshots are correctly signed (we don't
+-- test handling of adverarial signatures). UTxOs are simplified such that they
+-- are A-E items, where each maps to an arbitrary real UTxO.
 --
 -- From this sequence of valid snapshots, possible Decrement and Close actions
 -- are generated, along with occasional Contest and consequential Fanout.
@@ -22,11 +23,9 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Coin (Coin (..))
-import Data.Map (differenceWith)
+import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.Natural (naturalFromInteger, naturalToInteger)
 import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo (..),
@@ -78,7 +77,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, choose, cover, elements, frequency, ioProperty, sublistOf, (===))
+import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, cover, elements, frequency, ioProperty, shuffle, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -184,7 +183,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      print actions
+      -- print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -201,12 +200,7 @@ instance Arbitrary SingleUTxO where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-type ModelUTxO = Map SingleUTxO Natural
-
--- | Reduce left hand side by right hand side.
-remove :: ModelUTxO -> ModelUTxO -> ModelUTxO
-remove =
-  differenceWith $ \a b -> if a > b then Just $ a - b else Nothing
+type ModelUTxO = [SingleUTxO]
 
 data Model = Model
   { headState :: State
@@ -299,8 +293,8 @@ instance StateModel Model where
       , currentVersion = 0
       , closedSnapshotNumber = 0
       , alreadyContested = []
-      , utxoInHead = fromList $ map (,10) [A, B, C]
-      , pendingDecommit = Map.empty
+      , utxoInHead = fromList [A, B, C]
+      , pendingDecommit = mempty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
@@ -347,20 +341,18 @@ instance StateModel Model where
               ]
       Final -> pure $ Some Stop
    where
-    -- TODO: Generate a snapshot an honest node would sign given the current model state.
     genSnapshot = do
       -- Only decommit if not already pending
-      -- TODO: prevent 0 quantity decommit
       toDecommit <-
         if null pendingDecommit
-          then submapOf utxoInHead >>= reduceValues
+          then sublistOf utxoInHead
           else pure pendingDecommit
+      inHead <- shuffle $ utxoInHead \\ toDecommit
       let validSnapshot =
             ModelSnapshot
               { version = currentVersion
               , number = latestSnapshotNumber knownSnapshots + 1
-              , -- TODO: could shuffle UTxO in head (retaining balance)
-                inHead = utxoInHead `remove` toDecommit
+              , inHead
               , toDecommit
               }
       -- FIXME: check whether these cases are met
@@ -397,19 +389,6 @@ instance StateModel Model where
       --   , arbitrary
       --   ]
       pure validSnapshot
-
-    submapOf :: Ord k => Map k v -> Gen (Map k v)
-    submapOf model = do
-      subset <- sublistOf (Map.toList model)
-      return $ Map.fromList subset
-
-    reduceValues :: ModelUTxO -> Gen ModelUTxO
-    reduceValues = traverse reduceValue
-     where
-      reduceValue n = do
-        let i = naturalToInteger n
-        reduction <- choose (1, i)
-        pure . naturalFromInteger $ i - reduction
 
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
@@ -482,7 +461,7 @@ instance StateModel Model where
         m
           { headState = Open
           , currentVersion = m.currentVersion + 1
-          , utxoInHead = m.utxoInHead `remove` snapshot.toDecommit
+          , utxoInHead = m.utxoInHead \\ snapshot.toDecommit
           , pendingDecommit = mempty
           }
       Close{snapshot} ->
@@ -648,13 +627,11 @@ allActors = [Alice, Bob, Carol]
 -- | Map a 'ModelUTxO' to a real-world 'UTxO'.
 realWorldModelUTxO :: ModelUTxO -> UTxO
 realWorldModelUTxO =
-  Map.foldMapWithKey
-    ( \k balance ->
-        genUTxOWithBalance balance `generateWith` fromEnum k
-    )
+  foldMap (\a -> gen `generateWith` fromEnum a)
  where
-  genUTxOWithBalance b =
-    genUTxO1 (modifyTxOutValue (const $ lovelaceToValue (Coin $ naturalToInteger b)) <$> genTxOut)
+  gen = do
+    lovelace <- arbitrary
+    genUTxO1 (modifyTxOutValue (const $ lovelaceToValue lovelace) <$> genTxOut)
 
 -- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
 -- all participants (alice, bob and carol) with some UTxO contained is produced.
@@ -873,7 +850,7 @@ expectInvalid = \case
         fail "But it did not fail"
   _ -> pure ()
 
--- | Generate sometimes a value with given generator, bur more often just use
+-- | Generate sometimes a value with given generator, but more often just use
 -- the given value.
 orSometimes :: a -> Gen a -> Gen a
 orSometimes a gen = frequency [(1, pure a), (2, gen)]
