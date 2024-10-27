@@ -355,39 +355,6 @@ instance StateModel Model where
               , inHead
               , toDecommit
               }
-      -- FIXME: check whether these cases are met
-      -- oneof
-      --   [ -- valid
-      --     pure validSnapshot
-      --   , -- unbalanced
-      --     pure validSnapshot{inHead = utxoInHead}
-      --   , do
-      --       -- old
-      --       let number' = if closedSnapshotNumber == 0 then 0 else closedSnapshotNumber - 1
-      --       pure (validSnapshot :: ModelSnapshot){number = number'}
-      --   , -- new
-      --     pure (validSnapshot :: ModelSnapshot){number = closedSnapshotNumber + 1}
-      --   , do
-      --       -- shuffled
-      --       someUTxOToDecrement' <- shuffleValues filteredSomeUTxOToDecrement
-      --       pure validSnapshot{toDecommit = someUTxOToDecrement'}
-      --   , do
-      --       -- more in head
-      --       utxoInHead' <- increaseValues utxoInHead
-      --       pure validSnapshot{inHead = utxoInHead'}
-      --   , do
-      --       -- more in decommit
-      --       someUTxOToDecrement' <- increaseValues =<< submapOf utxoInHead
-      --       let balancedUTxOInHead' = balanceUTxOInHead utxoInHead someUTxOToDecrement'
-      --       pure
-      --         validSnapshot
-      --           { inHead = balancedUTxOInHead'
-      --           , toDecommit = someUTxOToDecrement'
-      --           }
-      --   , -- decommit all
-      --     pure validSnapshot{inHead = mempty, toDecommit = utxoInHead}
-      --   , arbitrary
-      --   ]
       pure validSnapshot
 
   -- Determine actions we want to perform and expect to work. If this is False,
