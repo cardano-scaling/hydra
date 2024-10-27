@@ -350,6 +350,7 @@ instance StateModel Model where
     -- TODO: Generate a snapshot an honest node would sign given the current model state.
     genSnapshot = do
       -- Only decommit if not already pending
+      -- TODO: prevent 0 quantity decommit
       toDecommit <-
         if null pendingDecommit
           then submapOf utxoInHead >>= reduceValues
@@ -489,6 +490,7 @@ instance StateModel Model where
           { headState = Closed
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = []
+          , utxoInHead = snapshot.inHead
           , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Contest{actor, snapshot} ->
@@ -496,6 +498,7 @@ instance StateModel Model where
           { headState = Closed
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = actor : alreadyContested m
+          , utxoInHead = snapshot.inHead
           , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Fanout{} -> m{headState = Final}
