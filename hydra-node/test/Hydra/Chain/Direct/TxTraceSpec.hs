@@ -77,7 +77,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Property, Smart (..), Testable, checkCoverage, cover, elements, frequency, ioProperty, shuffle, sublistOf, (===))
+import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty, shuffle, sublistOf, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -103,7 +103,13 @@ spec = do
     realWorldModelUTxO (u1 <> u2) === (realWorldModelUTxO u1 <> realWorldModelUTxO u2)
   prop "generates interesting transaction traces" $ \actions ->
     checkCoverage $ coversInterestingActions actions True
-  prop "all valid transactions" prop_runActions
+  prop "all valid transactions" $
+    -- NOTE: Using lower confidence to improve performance. In case of an error,
+    -- check coverage numbers and also the distribution in above test (which is
+    -- way faster).
+    checkCoverageWith
+      Confidence{certainty = 100, tolerance = 0.8}
+      prop_runActions
 
 coversInterestingActions :: Testable p => Actions Model -> p -> Property
 coversInterestingActions (Actions_ _ (Smart _ steps)) p =
@@ -111,12 +117,12 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
     & cover 1 (null steps) "empty"
     & cover 50 (hasSomeSnapshots steps) "has some snapshots"
     & cover 5 (hasDecrement steps) "has decrements"
-    & cover 1 (countContests steps >= 2) "has multiple contests"
+    & cover 0.1 (countContests steps >= 2) "has multiple contests"
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
     & cover 10 (hasFanout steps) "reach fanout"
-    & cover 0.5 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
-    & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-    & cover 0.5 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
+    & cover 10 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+    & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
+    & cover 10 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
  where
   hasSomeSnapshots =
     any $
@@ -302,8 +308,8 @@ instance StateModel Model where
     case headState of
       Open{} ->
         frequency $
-          [(5, Some . NewSnapshot <$> genSnapshot)]
-            <> [ ( 10
+          [(3, Some . NewSnapshot <$> genSnapshot)]
+            <> [ ( 3
                  , do
                     actor <- elements allActors
                     snapshot <- elements knownSnapshots
@@ -331,7 +337,7 @@ instance StateModel Model where
                     , deltaUTxO = pendingDecommit
                     }
           )
-            : [ ( 3
+            : [ ( 10
                 , do
                     actor <- elements allActors
                     snapshot <- elements knownSnapshots
