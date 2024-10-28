@@ -110,20 +110,28 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
         | version == openVersion
         , isJust utxoToDecommit ->
             Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+        | version == openVersion
+        , isNothing utxoToCommit
+        , isNothing utxoToDecommit ->
+            Head.CloseAny{signature = toPlutusSignatures signatures}
         | otherwise ->
             -- NOTE: This will only work for version == openVersion - 1
-            case (utxoToCommit, utxoToDecommit) of
-              (Just _, Nothing) ->
+            case (isJust utxoToCommit, isJust utxoToDecommit) of
+              (True, False) ->
                 Head.CloseUsedInc
                   { signature = toPlutusSignatures signatures
                   }
-              (Nothing, Just _) ->
+              (False, True) ->
                 Head.CloseUsedDec
                   { signature = toPlutusSignatures signatures
                   , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
                   }
-              (Nothing, Nothing) -> Head.CloseInitial
-              _ -> error "closeTx: unexpected snapshot"
+              (False, False) ->
+                if version == openVersion
+                  then Head.CloseAny{signature = toPlutusSignatures signatures}
+                  else error "closeTx: unexpected version."
+              -- TODO: can we get rid of these errors by modelling what we expect differently?
+              (True, True) -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
