@@ -22,7 +22,7 @@ import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genAddressInEra, genMintedOrBurnedValue, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genMintedOrBurnedValue, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -30,7 +30,7 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replacePolicyIdWith,
  )
-import Test.QuickCheck (elements, oneof, scale, suchThat)
+import Test.QuickCheck (oneof, scale, suchThat)
 
 --
 -- CommitTx
@@ -98,12 +98,6 @@ data CommitMutation
   | -- | Invalidates the transaction by changing the value of the committed utxo
     -- on the input side of the transaction.
     MutateCommittedValue
-  | -- | Ensures the datum recording the commit is consistent with the UTxO
-    -- being committed.
-    MutateCommittedAddress
-  | -- | Ensures a commit cannot be left out when "declared" in the commit
-    -- transaction output datum.
-    RecordAllCommittedUTxO
   | -- | Ensures commit is authenticated by a Head party by changing the signer
     -- used on the transaction to be the one in the PT.
     MutateRequiredSigner
@@ -133,23 +127,6 @@ genCommitMutation (tx, _utxo) =
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) aCommittedTxOut
         pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
-    , SomeMutation (pure $ toErrorCode MismatchCommittedTxOutInDatum) MutateCommittedAddress <$> do
-        mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= aCommittedAddress)
-        let mutatedOutput = modifyTxOutAddress (const mutatedAddress) aCommittedTxOut
-        pure $ ChangeInput aCommittedTxIn mutatedOutput Nothing
-    , SomeMutation (map toErrorCode [MismatchCommittedTxOutInDatum, MissingCommittedTxOutInOutputDatum]) RecordAllCommittedUTxO <$> do
-        (removedTxIn, removedTxOut) <- elements $ UTxO.pairs healthyCommittedUTxO
-        -- Leave out not-committed value
-        let mutatedCommitTxOut = modifyTxOutValue (\v -> negateValue (txOutValue removedTxOut) <> v) commitTxOut
-        pure $
-          Changes
-            [ RemoveInput removedTxIn
-            , ChangeOutput 0 mutatedCommitTxOut
-            , ChangeInput
-                healthyInitialTxIn
-                (toUTxOContext healthyInitialTxOut)
-                (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
-            ]
     , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
@@ -176,7 +153,5 @@ genCommitMutation (tx, _utxo) =
   allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList
 
   (aCommittedTxIn, aCommittedTxOut) = List.head $ UTxO.pairs healthyCommittedUTxO
-
-  aCommittedAddress = txOutAddress aCommittedTxOut
 
   aCommittedOutputValue = txOutValue aCommittedTxOut

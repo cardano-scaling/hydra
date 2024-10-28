@@ -12,7 +12,6 @@ module Hydra.Contract.Initial where
 import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
-import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
@@ -47,7 +46,6 @@ import PlutusLedgerApi.V2 (
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Builtins qualified as Builtins
 
 data InitialRedeemer
   = ViaAbort
@@ -98,7 +96,6 @@ checkCommit ::
   Bool
 checkCommit commitValidator headId committedRefs context =
   checkCommittedValue
-    && checkLockedCommit
     && checkHeadId
     && mustBeSignedByParticipant
     && mustNotMintOrBurn
@@ -108,22 +105,6 @@ checkCommit commitValidator headId committedRefs context =
       -- NOTE: Ada in initialValue is usually lower than in the locked ADA due
       -- to higher deposit needed for commit output than for initial output
       lockedValue `geq` (initialValue + committedValue)
-
-  checkLockedCommit =
-    traceIfFalse $(errorCode MismatchCommittedTxOutInDatum) $
-      go (committedUTxO, lockedCommits)
-   where
-    go = \case
-      ([], []) ->
-        True
-      ([], _ : _) ->
-        traceError $(errorCode MissingCommittedTxOutInOutputDatum)
-      (_ : _, []) ->
-        traceError $(errorCode CommittedTxOutMissingInOutputDatum)
-      (TxInInfo{txInInfoOutRef, txInInfoResolved} : restCommitted, Commit{input, preSerializedOutput} : restCommits) ->
-        Builtins.serialiseData (toBuiltinData txInInfoResolved) == preSerializedOutput
-          && txInInfoOutRef == input
-          && go (restCommitted, restCommits)
 
   checkHeadId =
     traceIfFalse $(errorCode WrongHeadIdInCommitDatum) $
@@ -160,7 +141,7 @@ checkCommit commitValidator headId committedRefs context =
 
   lockedValue = valueLockedBy txInfo commitValidator
 
-  (lockedCommits, headId') =
+  headId' =
     case scriptOutputsAt commitValidator txInfo of
       [(dat, _)] ->
         case dat of
@@ -170,8 +151,8 @@ checkCommit commitValidator headId committedRefs context =
           OutputDatum da ->
             case fromBuiltinData @Commit.DatumType $ getDatum da of
               Nothing -> traceError $(errorCode ExpectedCommitDatumTypeGotSomethingElse)
-              Just (_party, commits, hid) ->
-                (commits, hid)
+              Just (_party, _commits, hid) ->
+                hid
       _ -> traceError $(errorCode ExpectedSingleCommitOutput)
 
   ScriptContext{scriptContextTxInfo = txInfo} = context

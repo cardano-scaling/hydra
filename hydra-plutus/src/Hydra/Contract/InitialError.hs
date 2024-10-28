@@ -10,7 +10,6 @@ data InitialError
   = STNotBurned
   | MissingOrInvalidCommitAuthor
   | LockedValueDoesNotMatch
-  | MismatchCommittedTxOutInDatum
   | CouldNotFindTheCorrectCurrencySymbolInTokens
   | MultipleHeadTokensOrMoreThan1PTsFound
   | MissingCommittedTxOutInOutputDatum
@@ -29,7 +28,6 @@ instance ToErrorCode InitialError where
     STNotBurned -> "I01"
     MissingOrInvalidCommitAuthor -> "I02"
     LockedValueDoesNotMatch -> "I03"
-    MismatchCommittedTxOutInDatum -> "I04"
     CouldNotFindTheCorrectCurrencySymbolInTokens -> "I05"
     MultipleHeadTokensOrMoreThan1PTsFound -> "I06"
     MissingCommittedTxOutInOutputDatum -> "I07"
