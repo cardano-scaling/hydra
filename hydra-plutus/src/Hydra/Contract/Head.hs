@@ -422,6 +422,14 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
+      -- FIXME: reflect the new CloseAny redeemer in the spec as well
+      CloseAny{signature} ->
+        traceIfFalse $(errorCode FailedCloseAny) $
+          snapshotNumber' > 0
+            && verifySnapshotSignature
+              parties
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              signature
       CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseCurrent) $
           verifySnapshotSignature

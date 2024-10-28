@@ -81,6 +81,9 @@ PlutusTx.unstableMakeIsData ''State
 data CloseRedeemer
   = -- | Intial snapshot is used to close.
     CloseInitial
+  | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
+    CloseAny
+      {signature :: [Signature]}
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]

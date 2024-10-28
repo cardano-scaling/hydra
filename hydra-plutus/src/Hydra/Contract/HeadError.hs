@@ -34,6 +34,7 @@ data HeadError
   | ContestersNonEmpty
   | CloseNoUpperBoundDefined
   | FailedCloseInitial
+  | FailedCloseAny
   | FailedCloseCurrent
   | FailedCloseOutdated
   | TooOldSnapshot
@@ -110,3 +111,4 @@ instance ToErrorCode HeadError where
     DepositNotSpent -> "H45"
     DepositInputNotFound -> "H46"
     HeadInputNotFound -> "H47"
+    FailedCloseAny -> "H48"
