@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern PlutusScript,
  )
-import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)

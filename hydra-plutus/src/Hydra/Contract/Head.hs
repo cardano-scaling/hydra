@@ -228,7 +228,7 @@ depositDatum :: TxOut -> [Commit]
 depositDatum input = do
   let datum = getTxOutDatum input
   case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
-    Just (Deposit.DepositDatum (_headId, _deadline, commits)) ->
+    Just (_headId, _deadline, commits) ->
       commits
     Nothing -> []
 {-# INLINEABLE depositDatum #-}

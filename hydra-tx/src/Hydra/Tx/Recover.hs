@@ -13,8 +13,10 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (HeadId, mkHeadId)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import PlutusLedgerApi.V1 (CurrencySymbol, POSIXTime)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
@@ -35,7 +37,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
  where
   recoverInputs = (,depositWitness) <$> [TxIn depositTxId (TxIx 0)]
 
-  redeemer = toScriptData $ Deposit.Recover $ fromIntegral $ length depositOutputs
+  redeemer = toScriptData $ Deposit.redeemer $ Deposit.Recover $ fromIntegral $ length depositOutputs
 
   depositWitness =
     BuildTxWith $
@@ -45,7 +47,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
   depositOutputs =
     toTxContext <$> toList deposited
 
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
@@ -62,7 +64,7 @@ observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV3 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
-  Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
+  (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe (CurrencySymbol, POSIXTime, [Commit.Commit])
   deposits <- do
     depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
     pure $ UTxO.fromPairs depositedUTxO
@@ -80,4 +82,4 @@ observeRecoverTx networkId utxo tx = do
         )
     else Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
+  depositScript = fromPlutusScript depositValidatorScript
