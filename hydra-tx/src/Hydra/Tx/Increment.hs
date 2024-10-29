@@ -17,6 +17,7 @@ import Hydra.Ledger.Cardano.Builder (
   setValidityUpperBound,
   unsafeBuildTransaction,
  )
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -98,12 +99,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
 
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
-  depositRedeemer = toScriptData $ Deposit.Claim $ headIdToCurrencySymbol headId
+  depositRedeemer = toScriptData $ Deposit.redeemer $ Deposit.Claim $ headIdToCurrencySymbol headId
 
   depositWitness =
     BuildTxWith $
