@@ -17,7 +17,7 @@ docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 
 ### Prebuilt binaries
 
-We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [github releases](https://github.com/cardano-scaling/hydra/releases).
+We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [GitHub releases](https://github.com/cardano-scaling/hydra/releases).
 
 
 ### Build from source
