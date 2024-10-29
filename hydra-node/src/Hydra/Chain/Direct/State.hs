@@ -1185,11 +1185,12 @@ genDepositTx numParties = do
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (_, _, depositedUTxO, txDeposit) <- genDepositTx 1
-  let DepositObservation{deposited} =
+  (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
+  let DepositObservation{deposited, deadline} =
         fromJust $ observeDepositTx testNetworkId txDeposit
-  -- TODO: generate multiple various slots after deadline
-  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited 100
+  let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
+  slotNo' <- arbitrary
+  let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited (slotNo + slotNo')
   pure (depositedUTxO, tx)
 
 genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
