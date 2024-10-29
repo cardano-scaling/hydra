@@ -2,7 +2,7 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
-### Incremental Decommits
+### Incremental decommits
 
 ```mermaid
 sequenceDiagram
