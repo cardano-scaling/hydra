@@ -5,14 +5,18 @@ use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/primitive/bytearray
 use cardano/assets.{PolicyId}
 use cardano/transaction.{Output, OutputReference, Transaction, ValidityRange}
-use cardano/transaction/output_reference
+
+pub type Commit {
+  Commit {
+     input: OutputReference,
+     preSerializedOutput: ByteArray
+  }
+}
 
 pub type Datum {
-  Datum {
-    currencySymbol: ByteArray,
-    deadline: Int,
-    commits: List<OutputReference>,
-  }
+  head_id: PolicyId,
+  deadline: Int,
+  commits: Data,
 }
 
 pub type Redeemer {
@@ -50,10 +54,11 @@ validator deposit {
     expect Some(datum) = datum
     when redeemer is {
       Claim(currencySymbol) ->
-        traceIfFalse(
-          toErrorCode(WrongHeadIdInDepositDatum),
-          check_head_id(datum.currencySymbol, currencySymbol),
-        ) && traceIfFalse(
+       traceIfFalse(
+         toErrorCode(WrongHeadIdInDepositDatum),
+         check_head_id(datum.head_id, currencySymbol),
+       ) &&
+       traceIfFalse(
           toErrorCode(DepositDeadlineSurpassed),
           before_deadline(self.validity_range, datum.deadline),
         )
@@ -72,7 +77,7 @@ validator deposit {
 
 // Helpers
 
-fn check_head_id(datumCS, redeemerCS) {
+fn check_head_id(datumCS: ByteArray, redeemerCS: ByteArray) {
   datumCS == redeemerCS
 }
 
@@ -92,7 +97,7 @@ fn after_deadline(range: ValidityRange, dl) {
 
 fn recover_outputs(
   n: Int,
-  commits: List<OutputReference>,
+  commits: Data,
   outputs: List<Output>,
 ) {
   let hashOfOutputs = outputs |> list.take(n) |> hash_tx_outs
@@ -103,7 +108,7 @@ fn recover_outputs(
 }
 
 // Hash a potentially unordered list of commits
-fn hashPreSerializedCommits(commits: List<OutputReference>) -> Hash<Sha2_256, a> {
+fn hashPreSerializedCommits(commits: Data) -> Hash<Sha2_256, a> {
   commits
     |> list.sort(output_reference.compare)
     |> list.map(fn(commit) { builtin.serialise_data(commit) })
