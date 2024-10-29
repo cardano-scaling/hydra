@@ -78,13 +78,12 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   txInToHeadSeed,
  )
-import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -516,8 +515,8 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
           Left SnapshotIncrementUTxOIsNull
       | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
  where
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
   Snapshot{utxoToCommit} = sn
 
@@ -609,7 +608,7 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
     then Left InvalidHeadIdInRecover{headId}
     else Right $ recoverTx depositedTxId deposited lowerValiditySlot
  where
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
   ChainContext{networkId} = ctx
 
 -- | Construct a close transaction spending the head output in given 'UTxO',

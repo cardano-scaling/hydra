@@ -13,6 +13,7 @@ import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
@@ -51,7 +52,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
-  depositPlutusDatum = Deposit.datum $ Deposit.DepositDatum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
+  depositPlutusDatum = Deposit.datum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
 
   depositDatum = mkTxOutDatumInline depositPlutusDatum
 
@@ -62,11 +63,8 @@ depositTx networkId headId commitBlueprintTx deadline =
       depositDatum
       ReferenceScriptNone
 
-depositScript :: PlutusScript
-depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
-
 depositAddress :: NetworkId -> AddressInEra
-depositAddress networkId = mkScriptAddress @PlutusScriptV2 networkId depositScript
+depositAddress networkId = mkScriptAddress @PlutusScriptV3 networkId (fromPlutusScript @PlutusScriptV3 depositValidatorScript)
 
 -- * Observation
 
@@ -102,7 +100,7 @@ observeDepositTxOut network depositOut = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d
     _ -> Nothing
-  Deposit.DepositDatum (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
+  (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   deposit <- do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
     pure . UTxO.fromPairs $ depositedUTxO

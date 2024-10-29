@@ -20,13 +20,12 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript, depositValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -364,7 +363,7 @@ observeIncrementTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV3 utxo depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
-  Deposit.DepositDatum _ <- fromScriptData dat
+  _ <- fromScriptData dat :: Maybe (CurrencySymbol, Plutus.POSIXTime, [Commit.Commit])
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -384,7 +383,7 @@ observeIncrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
+  depositScript = fromPlutusScript depositValidatorScript
   headScript = fromPlutusScript Head.validatorScript
 
 data DecrementObservation = DecrementObservation
