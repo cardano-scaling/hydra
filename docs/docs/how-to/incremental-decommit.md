@@ -4,9 +4,9 @@ sidebar_position: 3
 
 # Decommit funds
 
-To take out some `UTXO` present in an open head and send it back to the layer one, you need to do a so-called `decommit`.
+To take out some `UTXO` present in an open head and send it back to layer 1, you need to do a so-called `decommit`.
 
-This how-to assumes that we are in a similar situation as in the [Getting Started](../getting-started) or [Testnet tutorial](../tutorial). Depending on who owns something in your head, you might need to update the instructions of this tutorial. In our example we decommit funds owned by Alice from their address:
+This how-to assumes that we are in a similar situation as in the [Getting started](../getting-started) or [Testnet tutorial](../tutorial). Depending on who owns something in your head, you might need to update the instructions of this tutorial. In our example, we decommit funds owned by Alice from their address:
 
 ```shell
 export WALLET_SK=credentials/alice-funds.sk
@@ -53,7 +53,7 @@ curl localhost:4001/snapshot/utxo \
 
 Now, the `decommit` command requires us to build a transaction that proves we can spend what we want to decommit. The outputs of this transaction will be the outputs that are also going to be made available on the main chain.
 
-For example, to spend the first UTXO queried above in a transaction sending the same value to Alice's key (so she can spend it on the layer one later):
+For example, to spend the first UTXO queried above in a transaction sending the same value to Alice's key (so she can spend it on layer 1 later):
 
 ```shell
 LOVELACE=$(jq -r 'to_entries[0].value.value.lovelace' < utxo.json)
@@ -70,7 +70,7 @@ You can inspect the transaction with
 cardano-cli transaction view --tx-file decommit.json
 ```
 
-As the transaction spends from Alices funds in the Hydra head, we also need to
+As the transaction spends from Alice's funds in the Hydra head, we also need to
 sign it with her key:
 
 ```shell
@@ -80,7 +80,7 @@ cardano-cli transaction sign \
   --out-file alice-decommit-tx-signed.json
 ```
 
-With the signed decommit transaction, now we can submit it to the `/decommit` endpoint:
+With the signed decommit transaction, we can submit it to the `/decommit` endpoint:
 
 ```shell
 curl -X POST 127.0.0.1:4001/decommit \
@@ -90,7 +90,7 @@ curl -X POST 127.0.0.1:4001/decommit \
 <details>
 <summary>Alternative using websocket</summary>
 
-We can also submit a `Decommit` client input using a websocket:
+We can also submit a `Decommit` client input using a WebSocket:
 ```shell
 cat alice-decommit-tx-signed.json \
   | jq -c '{tag: "Decommit", decommitTx: .}' \
@@ -99,14 +99,14 @@ cat alice-decommit-tx-signed.json \
 
 </details>
 
-If you haven't already, open a websocket session using `websocat ws://0.0.0.0:4001` now.
+If you haven't already, open a WebSocket session using `websocat ws://0.0.0.0:4001` now.
 
-In the message history you will see a `DecommitRequested` message which
+In the message history, you will see a `DecommitRequested` message which
 indicates a decommit is requested.
 
-After some time, a `DecommitFinalized` can be observed which concludes the decommit process and after which the funds are available on the layer one.
+After some time, a `DecommitFinalized` can be observed, which concludes the decommit process and makes the funds available on layer 1.
 
-To confirm, you can query the funds of the wallet on the layer one from a `cardano-node`:
+To confirm, you can query the funds of the wallet on layer 1 from a `cardano-node`:
 
 ```shell
 cardano-cli query utxo \
