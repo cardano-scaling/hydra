@@ -1,7 +1,7 @@
 ---
 slug: 6
 title: | 
-  6. Network Broadcasts all messages
+  6. Network broadcasts all messages
 authors: []
 tags: [Accepted]
 ---
@@ -25,17 +25,17 @@ protocol of `ouroroboros-network`.
 
 If the network connects only to interested peers, _broadcast_ is essentially the
 _multicast_ required by the protocol. If this is not the case, some addressing
-scheme is required and _broadcast_ would be a waste of resources.
+scheme is required, and _broadcast_ would be a waste of resources.
 
 ## Decision
 
-* All messages emitted by a Hydra node through the Network component are _broadcasted_ to _all_ nodes in the network
-* This implies the emitter shall itself receive the message
+* All messages emitted by a Hydra node through the network component are _broadcasted_ to _all_ nodes in the network
+* This implies the emitter shall itself receive the message.
 
 ## Consequences
 
-* The network layer is responsible for ensuring sent messages effectively
-  reaches all nodes in the network. How this is achieved is left as an
-  implementation detail, i.e. whether it uses relaying or not.
+* The network layer is responsible for ensuring that sent messages effectively
+  reach all nodes in the network. How this is achieved is left as an
+  implementation detail, ie, whether or not it uses relaying.
 * We need to make sure all head participants are connected to the same network.
 
