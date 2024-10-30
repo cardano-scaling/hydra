@@ -40,7 +40,7 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, depositDeadline)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -164,8 +164,8 @@ genIncrementMutation (tx, utxo) =
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
-                  DepositDatum (headCS', depositDatumDeadline, commits) ->
-                    DepositDatum (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
+                  ((headCS', depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
+                    (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
     , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
@@ -173,8 +173,8 @@ genIncrementMutation (tx, utxo) =
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
-                  DepositDatum (_headCS, depositDatumDeadline, commits) ->
-                    DepositDatum (otherHeadId, depositDatumDeadline, commits)
+                  ((_headCS, depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
+                    (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
     , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
