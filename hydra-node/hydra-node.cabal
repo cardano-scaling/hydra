@@ -259,15 +259,18 @@ benchmark micro
   build-depends:
     , aeson
     , base
-    , criterion
     , hydra-cardano-api
     , hydra-node
     , hydra-node:testlib
     , hydra-prelude
     , hydra-tx
     , QuickCheck
+    , tasty-bench
 
-  ghc-options:    -threaded -rtsopts
+  mixins:
+    tasty-bench (Test.Tasty.Bench as Criterion, Test.Tasty.Bench as Criterion.Main)
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
 test-suite tests
   import:             project-config
