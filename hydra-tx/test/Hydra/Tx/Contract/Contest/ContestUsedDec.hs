@@ -12,19 +12,25 @@ import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Tx.Crypto (toPlutusSignatures)
 
-import Hydra.Tx.Contract.Contest.Healthy (healthyContestSnapshotNumber, healthySignature)
+import Hydra.Tx.Contract.Contest.Healthy (
+  healthyCloseSnapshotVersion,
+  healthyContestSnapshotNumber,
+  healthySignature,
+ )
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   modifyInlineDatum,
   replaceDeltaUTxOHash,
+  replaceSnapshotVersion,
  )
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 data ContestUsedDecMutation
   = AlterRedeemerDecommitHash
   | AlterDatumDeltaUTxOHash
+  | MutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestUsedDecMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -50,6 +56,9 @@ genContestUsedDecMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) AlterDatumDeltaUTxOHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
         pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+        mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
