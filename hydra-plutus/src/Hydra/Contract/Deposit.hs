@@ -48,7 +48,6 @@ PlutusTx.unstableMakeIsData ''DepositRedeemer
 -- | Deposit datum containing HeadId, deadline and a list of deposits.
 type DepositDatum = (CurrencySymbol, POSIXTime, [Commit])
 
-
 datum :: DepositDatum -> PlutusV3.Datum
 datum a = Datum (toBuiltinData a)
 
