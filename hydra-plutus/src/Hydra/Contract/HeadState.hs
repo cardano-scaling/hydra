@@ -126,6 +126,11 @@ data ContestRedeemer
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
       }
+  | -- | Redeemer to use when the decommit was not yet observed but we closed the Head.
+    ContestUnusedDec
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      }
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
