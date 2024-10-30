@@ -37,7 +37,7 @@ main = do
 
 prepareTx :: IO (UTxO, Tx)
 prepareTx =
-  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions 1)
+  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions 4_000_000)
 
 benchApplyTxs :: (UTxO, Tx) -> Either (Tx, ValidationError) UTxO
 benchApplyTxs (utxo, tx) = applyTransactions defaultLedger (ChainSlot 1) utxo [tx]
