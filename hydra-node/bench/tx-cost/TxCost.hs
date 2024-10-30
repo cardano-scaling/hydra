@@ -31,6 +31,7 @@ import Hydra.Chain.Direct.State (
   genCommits',
   genDecrementTx,
   genHydraContextFor,
+  genIncrementTx,
   genInitTx,
   genStClosed,
   genStInitial,
@@ -134,6 +135,21 @@ computeCollectComCost =
     let utxoToCollect = fold committedUTxOs
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
+
+computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
+computeIncrementCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  pure $ interesting <> limit
+ where
+  compute numParties = do
+    (ctx, st, utxo', tx) <- genIncrementTx numParties
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
+    case checkSizeAndEvaluate tx utxo of
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
+      Nothing ->
+        pure Nothing
 
 computeDecrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeDecrementCost = do
