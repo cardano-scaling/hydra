@@ -46,7 +46,7 @@ data HeadError
   | WrongNumberOfSigners
   | SignerAlreadyContested
   | FailedContestCurrent
-  | FailedContestOutdated
+  | FailedContestUsedDec
   | FanoutUTxOHashMismatch
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
@@ -54,6 +54,7 @@ data HeadError
   | DepositNotSpent
   | DepositInputNotFound
   | HeadInputNotFound
+  | FailedContestUnusedDec
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -102,7 +103,7 @@ instance ToErrorCode HeadError where
     WrongNumberOfSigners -> "H37"
     SignerAlreadyContested -> "H38"
     FailedContestCurrent -> "H39"
-    FailedContestOutdated -> "H40"
+    FailedContestUsedDec -> "H40"
     -- Fanout
     FanoutUTxOHashMismatch -> "H41"
     FanoutUTxOToDecommitHashMismatch -> "H42"
@@ -112,3 +113,4 @@ instance ToErrorCode HeadError where
     DepositInputNotFound -> "H46"
     HeadInputNotFound -> "H47"
     FailedCloseAny -> "H48"
+    FailedContestUnusedDec -> "H49"

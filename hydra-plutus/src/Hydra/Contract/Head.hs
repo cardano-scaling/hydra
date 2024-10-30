@@ -17,7 +17,20 @@ import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
-import Hydra.Contract.HeadState (CloseRedeemer (..), ClosedDatum (..), ContestRedeemer (..), DecrementRedeemer (..), Hash, IncrementRedeemer (..), Input (..), OpenDatum (..), Signature, SnapshotNumber, SnapshotVersion, State (..))
+import Hydra.Contract.HeadState (
+  CloseRedeemer (..),
+  ClosedDatum (..),
+  ContestRedeemer (..),
+  DecrementRedeemer (..),
+  Hash,
+  IncrementRedeemer (..),
+  Input (..),
+  OpenDatum (..),
+  Signature,
+  SnapshotNumber,
+  SnapshotVersion,
+  State (..),
+ )
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -523,8 +536,8 @@ checkContest ctx closedDatum redeemer =
             parties
             (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
-      ContestOutdated{signature, alreadyDecommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedContestOutdated) $
+      ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
+        traceIfFalse $(errorCode FailedContestUsedDec) $
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties

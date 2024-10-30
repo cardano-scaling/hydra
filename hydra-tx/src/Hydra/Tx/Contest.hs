@@ -97,7 +97,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
           }
     | otherwise =
         -- NOTE: This will only work for version == openVersion - 1
-        Head.ContestOutdated
+        Head.ContestUsedDec
           { signature = toPlutusSignatures sig
           , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
           }

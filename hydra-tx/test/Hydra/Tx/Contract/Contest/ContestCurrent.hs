@@ -23,6 +23,23 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
+import Hydra.Tx.Contract.Contest.Healthy (
+  healthyCloseSnapshotVersion,
+  healthyClosedHeadTxIn,
+  healthyClosedHeadTxOut,
+  healthyClosedState,
+  healthyContestSnapshotNumber,
+  healthyContestUTxOHash,
+  healthyContestUTxOToDecommitHash,
+  healthyContestationDeadline,
+  healthyContesterVerificationKey,
+  healthyOnChainContestationPeriod,
+  healthyOnChainParties,
+  healthyParticipants,
+  healthyParties,
+  healthySignature,
+  healthyContestTx,
+ )
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
@@ -66,160 +83,6 @@ import Test.Hydra.Tx.Mutation (
 import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
-
---
--- ContestTx
---
-
--- | Healthy contest tx where the contester is the first one to contest and
--- correctly pushing out the deadline by the contestation period.
-healthyContestTx :: (Tx, UTxO)
-healthyContestTx =
-  (tx, lookupUTxO)
- where
-  lookupUTxO =
-    UTxO.singleton (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
-      <> registryUTxO scriptRegistry
-
-  tx =
-    contestTx
-      scriptRegistry
-      healthyContesterVerificationKey
-      (mkHeadId testPolicyId)
-      healthyContestationPeriod
-      healthyCloseSnapshotVersion
-      healthyContestSnapshot
-      (healthySignature healthyContestSnapshotNumber)
-      (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
-      closedThreadOutput
-
-  scriptRegistry = genScriptRegistry `generateWith` 42
-
-  closedThreadOutput =
-    ClosedThreadOutput
-      { closedThreadUTxO = (healthyClosedHeadTxIn, healthyClosedHeadTxOut)
-      , closedParties =
-          healthyOnChainParties
-      , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
-      , closedContesters = []
-      }
-
-healthyContestSnapshotNumber :: SnapshotNumber
-healthyContestSnapshotNumber = 4
-
-healthyCloseSnapshotVersion :: SnapshotVersion
-healthyCloseSnapshotVersion = 4
-
-healthyClosedUTxO :: UTxO
-healthyClosedUTxO =
-  genOneUTxOFor healthyContesterVerificationKey `generateWith` 42
-
-healthyContestUTxO :: UTxO
-healthyContestUTxO =
-  (genOneUTxOFor healthyContesterVerificationKey `suchThat` (/= healthyClosedUTxO))
-    `generateWith` 42
-
-splittedContestUTxO :: (UTxO, UTxO)
-splittedContestUTxO = splitUTxO healthyContestUTxO
-
-splitUTxOInHead :: UTxO
-splitUTxOInHead = fst splittedContestUTxO
-
-splitUTxOToDecommit :: UTxO
-splitUTxOToDecommit = snd splittedContestUTxO
-
-healthyContestSnapshot :: Snapshot Tx
-healthyContestSnapshot =
-  Snapshot
-    { headId = mkHeadId testPolicyId
-    , number = healthyContestSnapshotNumber
-    , utxo = splitUTxOInHead
-    , confirmed = []
-    , utxoToCommit = Nothing
-    , utxoToDecommit = Just splitUTxOToDecommit
-    , version = healthyCloseSnapshotVersion
-    }
-
-healthyClosedState :: Head.State
-healthyClosedState =
-  Head.Closed
-    Head.ClosedDatum
-      { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-      , utxoHash = healthyClosedUTxOHash
-      , deltaUTxOHash = mempty
-      , parties = healthyOnChainParties
-      , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-      , contestationPeriod = healthyOnChainContestationPeriod
-      , headId = toPlutusCurrencySymbol testPolicyId
-      , contesters = []
-      , version = toInteger healthyCloseSnapshotVersion
-      }
-
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOInHead
-
-healthyContestUTxOToDecommitHash :: BuiltinByteString
-healthyContestUTxOToDecommitHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
-
-healthyClosedSnapshotNumber :: SnapshotNumber
-healthyClosedSnapshotNumber = 3
-
-healthySlotNo :: SlotNo
-healthySlotNo = arbitrary `generateWith` 42
-
-healthyClosedHeadTxIn :: TxIn
-healthyClosedHeadTxIn = generateWith arbitrary 42
-
-healthyClosedHeadTxOut :: TxOut CtxUTxO
-healthyClosedHeadTxOut =
-  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
- where
-  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
-
-healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
-healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
-
-healthyContestationPeriod :: ContestationPeriod
-healthyContestationPeriod = fromChain healthyOnChainContestationPeriod
-
-healthyContestationPeriodSeconds :: Integer
-healthyContestationPeriodSeconds = 10
-
-healthyParticipants :: [VerificationKey PaymentKey]
-healthyParticipants =
-  genForParty genVerificationKey <$> healthyParties
-
-healthyContesterVerificationKey :: VerificationKey PaymentKey
-healthyContesterVerificationKey =
-  elements healthyParticipants `generateWith` 42
-
-healthySigningKeys :: [SigningKey HydraKey]
-healthySigningKeys = [aliceSk, bobSk, carolSk]
-
-healthyParties :: [Party]
-healthyParties = deriveParty <$> healthySigningKeys
-
-healthyOnChainParties :: [OnChain.Party]
-healthyOnChainParties = partyToChain <$> healthyParties
-
-healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
-healthySignature number =
-  aggregate [sign sk snapshot | sk <- healthySigningKeys]
- where
-  snapshot = healthyContestSnapshot{number}
-
-healthyContestationDeadline :: UTCTime
-healthyContestationDeadline =
-  addUTCTime
-    (fromInteger healthyContestationPeriodSeconds)
-    (slotNoToUTCTime systemStart slotLength healthySlotNo)
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation

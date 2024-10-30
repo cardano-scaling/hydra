@@ -120,7 +120,7 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       }
   | -- | Contesting snapshot refers to the previous state version
-    ContestOutdated
+    ContestUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
