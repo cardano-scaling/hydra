@@ -7,7 +7,8 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)
 import Data.List qualified as List
 import Data.Time.Clock.POSIX qualified as POSIX
-import Hydra.Contract.Deposit (DepositDatum (..), DepositRedeemer (Recover))
+import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Deposit (DepositRedeemer (Recover))
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
@@ -88,8 +89,8 @@ genRecoverMutation (tx, utxo) =
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
-                  DepositDatum (headCS', depositDatumDeadline, commits) ->
-                    DepositDatum (headCS', depositDatumDeadline + posixFromUTCTime n, commits)
+                  ((headCS', depositDatumDeadline, commits) :: (CurrencySymbol, POSIXTime, [Commit])) ->
+                    (headCS', depositDatumDeadline + posixFromUTCTime n, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Recover 1)
     , SomeMutation (pure $ toErrorCode IncorrectDepositHash) MutateRecoverOutput <$> do
