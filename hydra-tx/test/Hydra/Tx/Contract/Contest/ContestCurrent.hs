@@ -8,21 +8,15 @@ import Hydra.Prelude hiding (label)
 
 import Data.Maybe (fromJust)
 
-import Cardano.Api.UTxO as UTxO
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
-import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (registryUTxO)
-import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
@@ -38,7 +32,6 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyParticipants,
   healthyParties,
   healthySignature,
-  healthyContestTx,
  )
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.HeadId (mkHeadId)
@@ -55,18 +48,14 @@ import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, 
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
-  genForParty,
   genHash,
   genMintedOrBurnedValue,
-  genOneUTxOFor,
-  genScriptRegistry,
   genValue,
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
-  addParticipationTokens,
   changeMintedTokens,
   modifyInlineDatum,
   replaceContestationDeadline,
@@ -80,7 +69,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
   replaceUTxOHash,
  )
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
+import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Instances ()
 

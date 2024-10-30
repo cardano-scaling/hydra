@@ -1,21 +1,13 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.Contract.Contest.Healthy where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Data.Maybe (fromJust)
-
 import Cardano.Api.UTxO as UTxO
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
@@ -23,7 +15,7 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO)
@@ -33,38 +25,17 @@ import Hydra.Tx.Utils (
   splitUTxO,
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
-import PlutusLedgerApi.V2 qualified as Plutus
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
-  genAddressInEra,
   genForParty,
-  genHash,
-  genMintedOrBurnedValue,
   genOneUTxOFor,
   genScriptRegistry,
-  genValue,
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (
-  Mutation (..),
-  SomeMutation (..),
   addParticipationTokens,
-  changeMintedTokens,
-  modifyInlineDatum,
-  replaceContestationDeadline,
-  replaceContestationPeriod,
-  replaceContesters,
-  replaceDeltaUTxOHash,
-  replaceHeadId,
-  replaceParties,
-  replacePolicyIdWith,
-  replaceSnapshotNumber,
-  replaceSnapshotVersion,
-  replaceUTxOHash,
  )
-import Test.QuickCheck (arbitrarySizedNatural, elements, listOf, listOf1, oneof, resize, suchThat, vectorOf)
-import Test.QuickCheck.Gen (choose)
+import Test.QuickCheck (elements, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
