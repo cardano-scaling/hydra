@@ -1,6 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Hydra.Tx.Contract.Contest.ContestUsedDec where
+module Hydra.Tx.Contract.Contest.ContestDec where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
@@ -27,16 +27,16 @@ import Test.Hydra.Tx.Mutation (
 import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
-data ContestUsedDecMutation
-  = AlterRedeemerDecommitHash
-  | AlterDatumDeltaUTxOHash
-  | MutateSnapshotVersion
+data ContestDecMutation
+  = ContestUsedDecAlterRedeemerDecommitHash
+  | ContestUsedDecAlterDatumDeltaUTxOHash
+  | ContestUsedDecMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
 
-genContestUsedDecMutation :: (Tx, UTxO) -> Gen SomeMutation
-genContestUsedDecMutation (tx, _utxo) =
+genContestDecMutation :: (Tx, UTxO) -> Gen SomeMutation
+genContestDecMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode FailedContestUsedDec) AlterRedeemerDecommitHash <$> do
+    [ SomeMutation (pure $ toErrorCode FailedContestUsedDec) ContestUsedDecAlterRedeemerDecommitHash <$> do
         pure $
           ChangeHeadRedeemer $
             Head.Contest
@@ -44,7 +44,7 @@ genContestUsedDecMutation (tx, _utxo) =
                 { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
                 , alreadyDecommittedUTxOHash = mempty
                 }
-    , SomeMutation (pure $ toErrorCode FailedContestUsedDec) AlterRedeemerDecommitHash <$> do
+    , SomeMutation (pure $ toErrorCode FailedContestUsedDec) ContestUsedDecAlterRedeemerDecommitHash <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
         pure $
           ChangeHeadRedeemer $
@@ -53,10 +53,10 @@ genContestUsedDecMutation (tx, _utxo) =
                 { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
                 , alreadyDecommittedUTxOHash = mutatedHash
                 }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) AlterDatumDeltaUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUsedDecAlterDatumDeltaUTxOHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
         pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
-    , SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
+    , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedDecMutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     ]
