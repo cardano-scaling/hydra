@@ -42,6 +42,8 @@ changes.
 
 - Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
 
+- Update mithril to `2442.0`
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
