@@ -22,7 +22,6 @@ import Hydra.Cardano.Api (
   makeShelleyKeyWitness,
   makeSignedTransaction,
   mkScriptAddress,
-  mkScriptRef,
   mkScriptRefV3,
   mkTxOutAutoBalance,
   mkVkAddress,
@@ -41,8 +40,7 @@ import Hydra.Chain.CardanoClient (
   submitTransaction,
  )
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -87,7 +85,7 @@ publishHydraScripts networkId socketPath sk = do
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
-          <$> [ mkScriptRefV3 Initial.validatorScript
+          <$> [ mkScriptRefV3 initialValidatorScript
               , mkScriptRefV3 commitValidatorScript
               , mkScriptRefV3 Head.validatorScript
               ]

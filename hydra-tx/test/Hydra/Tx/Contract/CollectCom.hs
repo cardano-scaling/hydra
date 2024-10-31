@@ -20,7 +20,7 @@ import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (HeadParameters (..), Party, partyToChain)
 import Hydra.Tx.CollectCom (
   collectComTx,
@@ -253,7 +253,7 @@ genCollectComMutation (tx, _utxo) =
                 txIn
                 (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput participant)
                 (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
-            , AddScript $ fromPlutusScript Initial.validatorScript
+            , AddScript $ fromPlutusScript initialValidatorScript
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)

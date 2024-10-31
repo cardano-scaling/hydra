@@ -23,6 +23,7 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
  )
 import Hydra.Cardano.Api qualified as Api
+
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState (seed)
 import Hydra.Contract.HeadState qualified as Head
@@ -30,8 +31,9 @@ import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST, scriptOutputsAt)
-import Hydra.Plutus.Extras (MintingPolicyType, wrapMintingPolicy)
-import PlutusCore.Core (plcVersion110)
+import Hydra.Plutus (initialValidatorScript)
+import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
+import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
   Datum (getDatum),
   FromData (fromBuiltinData),
@@ -182,7 +184,7 @@ validateTokensBurning context =
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 Initial.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Api.PlutusScriptV3 initialValidatorScript)
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 Head.validatorHash
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
