@@ -13,7 +13,7 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId (Mainnet),
-  PlutusScriptV2,
+  PlutusScriptV3,
   Tx,
   TxIn,
   TxOut,
@@ -118,7 +118,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (splitUTxO)
 import PlutusLedgerApi.Test.Examples qualified as Plutus
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genOutput, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
@@ -413,7 +413,7 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+      UTxO.find (isScriptTxOut @PlutusScriptV3 initialScript) resolvedInputs
 
   resolvedInputs =
     UTxO.fromPairs $
@@ -425,7 +425,7 @@ genCommitTxMutation utxo tx =
 
   initialScript = fromPlutusScript Initial.validatorScript
 
-  fakeScriptAddress = mkScriptAddress @PlutusScriptV2 testNetworkId fakeScript
+  fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 
   fakeScript = fromPlutusScript $ Plutus.alwaysSucceedingNAryFunction 3
 

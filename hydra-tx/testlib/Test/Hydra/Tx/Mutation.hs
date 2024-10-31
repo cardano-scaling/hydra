@@ -154,8 +154,8 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime, toData)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
+import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
@@ -537,7 +537,7 @@ instance Arbitrary Head.State where
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
  where
-  headAddress = mkScriptAddress @PlutusScriptV2 Fixture.testNetworkId headScript
+  headAddress = mkScriptAddress @PlutusScriptV3 Fixture.testNetworkId headScript
   headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.

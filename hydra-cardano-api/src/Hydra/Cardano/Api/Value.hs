@@ -11,8 +11,8 @@ import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)
-import PlutusLedgerApi.V2 (adaSymbol, adaToken, fromBuiltin, unTokenName)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (adaSymbol, adaToken, fromBuiltin, unTokenName)
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

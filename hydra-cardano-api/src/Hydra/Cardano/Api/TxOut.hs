@@ -14,8 +14,8 @@ import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
-import PlutusLedgerApi.V2 (OutputDatum (..), fromBuiltin)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (OutputDatum (..), fromBuiltin)
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

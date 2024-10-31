@@ -122,7 +122,7 @@ propHasInitial (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Initial.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV3 testNetworkId (fromPlutusScript Initial.validatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == addr
 
@@ -293,7 +293,7 @@ genAbortableOutputs parties =
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 
-  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 Initial.validatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 

@@ -25,7 +25,7 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (toBuiltin)
+import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | Construct a _increment_ transaction which takes as input some 'UTxO'
 -- locked at v_deposit and make it available on L2.
@@ -68,7 +68,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & modifyTxOutDatum (const headDatumAfter)
       & modifyTxOutValue (<> depositedValue)
 
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   headScriptRef = fst (headReference scriptRegistry)
 
@@ -90,7 +90,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   depositedValue = txOutValue depositOut
 
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, depositOut) = List.head $ UTxO.pairs depositScriptUTxO

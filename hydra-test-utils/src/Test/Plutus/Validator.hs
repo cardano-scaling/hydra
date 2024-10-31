@@ -36,7 +36,7 @@ import Hydra.Cardano.Api (
   LedgerProtocolParameters (LedgerProtocolParameters),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
-  PlutusScriptV2,
+  PlutusScriptV3,
   SystemStart (SystemStart),
   ToScriptData,
   TxBody,
@@ -152,11 +152,11 @@ transactionBodyFromScript validatorScript redeemer =
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness script (mkScriptDatum defaultDatum) (toScriptData redeemer)
 
-  script = fromPlutusScript @PlutusScriptV2 validatorScript
+  script = fromPlutusScript @PlutusScriptV3 validatorScript
 
   txOutFromScript =
     TxOut
-      (mkScriptAddress @PlutusScriptV2 networkId script)
+      (mkScriptAddress @PlutusScriptV3 networkId script)
       mempty
       (mkTxOutDatumHash defaultDatum)
       ReferenceScriptNone

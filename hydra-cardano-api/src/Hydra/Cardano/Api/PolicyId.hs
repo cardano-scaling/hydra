@@ -8,7 +8,7 @@ import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Hashes qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Hydra.Cardano.Api.ScriptHash ()
-import PlutusLedgerApi.V2 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
+import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
 
 -- * Orphans
 

@@ -6,11 +6,11 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
-import Cardano.Ledger.Plutus (transTxIn)
+import Cardano.Ledger.Plutus (transSafeHash)
 import Cardano.Ledger.TxIn qualified as Ledger
 import Data.ByteString qualified as BS
 import Data.Set qualified as Set
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.QuickCheck (choose, vectorOf)
 
 -- * Extras
@@ -54,7 +54,11 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
 
 -- | Convert a cardano-api 'TxIn' into a plutus 'TxOutRef'.
 toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
-toPlutusTxOutRef = transTxIn . toLedgerTxIn
+toPlutusTxOutRef txIn =
+  -- XXX: The upstream 'transTxIn' works only with the the PlutusV1 type, so we
+  -- needed to vendor its definition here.
+  let (Ledger.TxIn (Ledger.TxId safe) txIx) = toLedgerTxIn txIn
+   in Plutus.TxOutRef (Plutus.TxId $ transSafeHash safe) (toInteger $ Ledger.txIxToInt txIx)
 
 -- * Arbitrary values
 

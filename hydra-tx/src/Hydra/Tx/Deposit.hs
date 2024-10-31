@@ -14,7 +14,7 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (POSIXTime)
+import PlutusLedgerApi.V3 (POSIXTime)
 
 -- * Construction
 
@@ -45,7 +45,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositValue = foldMap txOutValue depositUTxO
 
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
@@ -55,7 +55,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositOutput =
     TxOut
-      (mkScriptAddress @PlutusScriptV2 networkId depositScript)
+      (mkScriptAddress @PlutusScriptV3 networkId depositScript)
       depositValue
       depositDatum
       ReferenceScriptNone
@@ -91,7 +91,7 @@ observeDepositTx networkId tx = do
  where
   depositScript = fromPlutusScript Deposit.validatorScript
 
-  depositAddress = mkScriptAddress @PlutusScriptV2 networkId depositScript
+  depositAddress = mkScriptAddress @PlutusScriptV3 networkId depositScript
 
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut network depositOut = do

@@ -87,9 +87,9 @@ publishHydraScripts networkId socketPath sk = do
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
-          <$> [ mkScriptRef Initial.validatorScript
+          <$> [ mkScriptRefV3 Initial.validatorScript
               , mkScriptRefV3 commitValidatorScript
-              , mkScriptRef Head.validatorScript
+              , mkScriptRefV3 Head.validatorScript
               ]
       totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
       someUTxO =

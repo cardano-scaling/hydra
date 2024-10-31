@@ -13,7 +13,7 @@ import GHC.IsList (IsList (..))
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
-import PlutusLedgerApi.V2 (fromBuiltin, getPubKeyHash)
+import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
