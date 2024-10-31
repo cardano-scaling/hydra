@@ -16,17 +16,9 @@ import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (errorCode)
 import Hydra.Contract.InitialError (InitialError (..))
-import Hydra.Contract.Util (mustBurnST)
+import Hydra.Contract.Util (findOwnInput, findTxInByTxOutRef, mustBurnST, scriptOutputsAt, valueLockedBy)
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Hydra.ScriptContext (
-  ScriptContext (..),
-  TxInfo (txInfoMint, txInfoSignatories),
-  findOwnInput,
-  findTxInByTxOutRef,
-  scriptOutputsAt,
-  valueLockedBy,
- )
 import PlutusCore.Core (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Value (geq, isZero)
@@ -37,10 +29,12 @@ import PlutusLedgerApi.V2 (
   OutputDatum (..),
   PubKeyHash (getPubKeyHash),
   Redeemer (Redeemer),
+  ScriptContext (..),
   ScriptHash,
   ToData (toBuiltinData),
   TokenName (unTokenName),
   TxInInfo (..),
+  TxInfo (..),
   TxOut (txOutValue),
   TxOutRef,
   Value (getValue),
