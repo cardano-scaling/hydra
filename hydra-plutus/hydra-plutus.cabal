@@ -61,7 +61,6 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Plutus
-    Hydra.ScriptContext
 
   hs-source-dirs:  src
   build-depends:

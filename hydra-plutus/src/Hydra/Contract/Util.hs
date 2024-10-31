@@ -9,9 +9,18 @@ import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V2 (
+  Address (..),
+  Credential (..),
   CurrencySymbol,
+  OutputDatum (..),
+  ScriptContext (..),
+  ScriptHash (..),
+  ScriptPurpose (..),
   TokenName (..),
-  TxInfo (TxInfo, txInfoMint),
+  TxInInfo (..),
+  TxInfo (..),
+  TxOut (..),
+  TxOutRef (..),
   Value (getValue),
   toBuiltinData,
  )
@@ -84,3 +93,38 @@ data UtilError
 instance ToErrorCode UtilError where
   toErrorCode = \case
     MintingOrBurningIsForbidden -> "U01"
+
+-- | Get the list of 'TxOut' outputs of the pending transaction at
+-- a given script address.
+scriptOutputsAt :: ScriptHash -> TxInfo -> [(OutputDatum, Value)]
+scriptOutputsAt h p =
+  let flt TxOut{txOutDatum = d, txOutAddress = Address (ScriptCredential s) _, txOutValue} | s == h = Just (d, txOutValue)
+      flt _ = Nothing
+   in mapMaybe flt (txInfoOutputs p)
+{-# INLINEABLE scriptOutputsAt #-}
+
+-- | Get the total value locked by the given validator in this transaction.
+valueLockedBy :: TxInfo -> ScriptHash -> Value
+valueLockedBy ptx h =
+  let outputs = map snd (scriptOutputsAt h ptx)
+   in mconcat outputs
+{-# INLINEABLE valueLockedBy #-}
+
+-- | Find the input currently being validated.
+findOwnInput :: ScriptContext -> Maybe TxInInfo
+findOwnInput ScriptContext{scriptContextTxInfo = TxInfo{txInfoInputs}, scriptContextPurpose = Spending txOutRef} =
+  find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == txOutRef) txInfoInputs
+findOwnInput _ = Nothing
+{-# INLINEABLE findOwnInput #-}
+
+-- | Given a UTXO reference and a transaction (`TxInfo`), resolve it to one of the transaction's inputs (`TxInInfo`).
+findTxInByTxOutRef :: TxOutRef -> TxInfo -> Maybe TxInInfo
+findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
+  find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == outRef) txInfoInputs
+{-# INLINEABLE findTxInByTxOutRef #-}
+
+-- | The 'CurrencySymbol' of the current validator script.
+ownCurrencySymbol :: ScriptContext -> CurrencySymbol
+ownCurrencySymbol ScriptContext{scriptContextPurpose = Minting cs} = cs
+ownCurrencySymbol _ = traceError "Lh" -- "Can't get currency symbol of the current validator script"
+{-# INLINEABLE ownCurrencySymbol #-}
