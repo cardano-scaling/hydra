@@ -41,8 +41,7 @@ import Hydra.Chain.CardanoClient (
   submitTransaction,
  )
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -87,7 +86,7 @@ publishHydraScripts networkId socketPath sk = do
   utxo <- queryUTxOFor networkId socketPath QueryTip vk
   let outputs =
         mkScriptTxOut pparams
-          <$> [ mkScriptRef Initial.validatorScript
+          <$> [ mkScriptRefV3 initialValidatorScript
               , mkScriptRefV3 commitValidatorScript
               , mkScriptRef Head.validatorScript
               ]

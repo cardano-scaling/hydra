@@ -18,7 +18,7 @@ import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.InitialError (InitialError (STNotBurned))
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (
   HeadParameters (..),
   Party,
@@ -122,7 +122,7 @@ propHasInitial (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  addr = mkScriptAddress @PlutusScriptV2 testNetworkId (fromPlutusScript Initial.validatorScript)
+  addr = mkScriptAddress testNetworkId (fromPlutusScript @PlutusScriptV3 initialValidatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == addr
 
@@ -293,7 +293,7 @@ genAbortableOutputs parties =
         (mkTxOutDatumInline initialDatum)
         ReferenceScriptNone
 
-  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 

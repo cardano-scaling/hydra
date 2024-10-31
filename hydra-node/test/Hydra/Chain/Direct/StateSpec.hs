@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId (Mainnet),
   PlutusScriptV2,
+  PlutusScriptV3,
   Tx,
   TxIn,
   TxOut,
@@ -110,6 +111,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -413,7 +415,7 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+      UTxO.find (isScriptTxOut @PlutusScriptV3 initialScript) resolvedInputs
 
   resolvedInputs =
     UTxO.fromPairs $
@@ -423,7 +425,7 @@ genCommitTxMutation utxo tx =
     fromMaybe (error "not found redeemer") $
       findRedeemerSpending @Initial.RedeemerType tx initialTxIn
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   fakeScriptAddress = mkScriptAddress @PlutusScriptV2 testNetworkId fakeScript
 

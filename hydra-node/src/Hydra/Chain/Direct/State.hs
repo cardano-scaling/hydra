@@ -85,10 +85,9 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -441,7 +440,7 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
 
   headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
 
-  initialScript = fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   headTokenScript = mkHeadTokenScript seedTxIn
 

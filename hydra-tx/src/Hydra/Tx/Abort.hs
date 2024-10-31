@@ -19,7 +19,7 @@ import Hydra.Ledger.Cardano.Builder (
   emptyTxBody,
   unsafeBuildTransaction,
  )
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Utils (headTokensFromValue)
 
@@ -92,7 +92,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   initialScriptRef =
     fst (initialReference scriptRegistry)
   initialScript =
-    fromPlutusScript @PlutusScriptV2 Initial.validatorScript
+    fromPlutusScript @PlutusScriptV3 initialValidatorScript
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 

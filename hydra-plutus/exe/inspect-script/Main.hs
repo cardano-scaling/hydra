@@ -13,7 +13,8 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial as Initial
-import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
+import Hydra.Plutus (initialValidatorScript)
+import PlutusLedgerApi.V3 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
@@ -87,7 +88,7 @@ main = do
 
   headScript = Head.validatorScript
 
-  initialScript = Initial.validatorScript
+  initialScript = initialValidatorScript
 
   compiledScripts =
     [ (Compiled Head.compiledValidator, "headScript")
