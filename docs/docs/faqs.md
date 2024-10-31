@@ -25,7 +25,7 @@ Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, an
 
 <details>
 <summary>So what’s this I have heard about ‘1M TPS’?</summary>
-This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
+This has been previously referenced as a theoretical maximum, but the reality is more nuanced. For a start, with Cardano’s ‘transactions within transactions’ EUTXO model, TPS itself isn’t a useful metric. A Hydra Head is like a small community within a larger group. Initially, these communities operate independently. So, adding up their metrics to get a total picture isn't accurate. Since Hydra heads use the EUTXO model, they can process transactions simultaneously without conflicts, especially with good networking, which optimizes resource usage. As the project progresses, we're constantly evaluating its real-world performance in terms of throughput and finality. For more details, read <a href="https://example.com/more-info">this</a> blog post and see the latest benchmarking data <a href="https://example.com/latest-data">here</a>.
 </details>
 
 <details>
@@ -76,7 +76,7 @@ No, it isn't. There are two crucial reasons why Hydra heads are not considered s
 <details>
 <summary>If the Hydra Head ledger is configured with a non-zero transaction fee, where do the paid fees go?</summary>
 
-Setting protocol parameters with `fee > 0` ensures that Hydra head (layer 2) transactions consume more than they produce. On layer 1, the UTXO remains unchanged, and the difference accrues. Currently, when settling an agreed state from layer 2 on layer 1 during fanout, this difference becomes spendable by the head participant who posts the `fanoutTx`.
+Setting protocol parameters with `fee > 0` ensures that Hydra Head (layer 2) transactions consume more than they produce. On layer 1, the UTXO remains unchanged, and the difference accrues. Currently, when settling an agreed state from layer 2 on layer 1 during fanout, this difference becomes spendable by the head participant who posts the `fanoutTx`.
 
 </details>
 

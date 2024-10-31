@@ -14,10 +14,10 @@ Accepted
 
 * On-chain validation is a critical part of the Hydra protocol. It requires both the ability to _submit_ transactions to the _layer 1_ chain, advancing the state of a head, and _observing_ those transactions as the [Plutus](https://github.com/input-output-hk/plutus) contracts are validated.
 * The [Plutus Application Framework](https://github.com/input-output-hk/plutus-apps) is expected to provide the necessary machinery to allow 'smart contract' applications to interact with the chain, but it's still under active development and not ready for deployment on-chain.
-* We want to gather feedback as early as possible and deliver a fully functional Hydra head node for early adopters to test on a 'real' chain (testnet).
+* We want to gather feedback as early as possible and deliver a fully functional Hydra Head node for early adopters to test on a 'real' chain (testnet).
 * Our experiment connecting directly to a Cardano node has been conclusive. We can:
   * Connect to a node using local protocols
-  * Build and submit head transactions triggering smart contracts validation
+  * Build and submit Head transactions triggering smart contracts validation
   * Observe transactions using chain-sync protocol.
 
 ## Decision
