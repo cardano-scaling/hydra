@@ -371,15 +371,6 @@ jobs:
     steps:
     - name: "Checkout the PR as the 'new' source"
       uses: actions/checkout@v4
-      with:
-        path: ./new
-        ref: ${{ github.event.pull_request.head.sha }}
-
-    - name: "Checkout `master` as the 'old' source"
-      uses: actions/checkout@v4
-      with:
-        path: ./old
-        ref: master
 
     - name: ❄ Prepare nix
       uses: cachix/install-nix-action@v30
@@ -397,33 +388,11 @@ jobs:
     - name: Set up and use the "ci" devShell
       uses: nicknovitski/nix-develop@v1
       with:
-        arguments: "./new#costDifferences"
-
-    - name: "Compute costs on both old and new"
-      run: |
-        SEED=$RANDOM
-        echo "Using random seed $SEED"
-        nix run ./new/#tx-cost -- --seed $SEED >new.md
-        nix run ./old/#tx-cost -- --seed $SEED >old.md
+        arguments: ".#costDifferences"
 
     - name: "Compute the difference markdown"
       run: |
-        # Convert to HTML, as that's the easiest way to read the markdown
-        # tables via pandas (!!!)
-        pandoc -i new.md -o new.html
-        pandoc -i old.md -o old.html
-
-        cat new.md | grep '##' >new-headers.txt
-        cat old.md | grep '##' >old-headers.txt
-
-        # Stop if the heading columns aren't the same.
-        cmp old-headers.txt new-headers.txt
-
-        # Run the diff script; note that it's located in the "new" folder.
-        ./new/.github/workflows/cost-differences/diff.py \
-          old-headers.txt \
-          old.html \
-          new.html >diff.md
+        nix run ".#tx-cost-diff"
 
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v3

@@ -127,6 +127,19 @@
                     value = addWerror v;
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+
+          tx-cost-diff =
+            let
+              pyEnv = (pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]));
+            in
+            pkgs.writers.writeHaskellBin
+              "tx-cost-diff"
+              {
+                libraries =
+                  with pkgs.haskellPackages;
+                  [ aeson text bytestring lens lens-aeson shh ];
+              } ''${builtins.readFile scripts/tx-cost-diff.hs}'';
+
         in
         {
           legacyPackages = pkgs // hsPkgs;
@@ -135,6 +148,7 @@
             hydraPackages //
             (if pkgs.stdenv.isLinux then (prefixAttrs "docker-" hydraImages) else { }) // {
               spec = inputs.hydra-spec.packages.${system}.default;
+              inherit tx-cost-diff;
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
