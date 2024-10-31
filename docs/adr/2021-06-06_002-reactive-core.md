@@ -12,7 +12,7 @@ Accepted
 
 ## Context
 
-We are looking for a way of expressing the Hydra head protocol logic in a Hydra node.
+We are looking for a way of expressing the Hydra Head protocol logic in a Hydra node.
 
 The Hydra head protocol is defined as a _State machine_ in the paper, whose transitions are inputs that come from different sources which can emit outputs to other instances of the state machine or the mainchain. See the [FC2021](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/) paper for details.
 

@@ -12,7 +12,7 @@ Accepted
 
 ## Context
 
-The simplified head protocol in the [Hydra
+The simplified Head protocol in the [Hydra
 paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/)
 requires _unicast_ and _multicast_ messaging between participants. However, this
 can be simplified to only _multicast_ by also sending `AckTx` messages to all
