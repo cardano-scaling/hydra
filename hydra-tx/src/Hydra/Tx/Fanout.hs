@@ -52,7 +52,7 @@ fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlot
   headScriptRef =
     fst (headReference scriptRegistry)
   headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
+    fromPlutusScript @PlutusScriptV3 Head.validatorScript
   headRedeemer =
     toScriptData $
       Head.Fanout

@@ -13,7 +13,7 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial as Initial
-import PlutusLedgerApi.V2 (Data, SerialisedScript, toData)
+import PlutusLedgerApi.V3 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
@@ -54,7 +54,7 @@ main = do
           serialised =
             Aeson.encode $
               serialiseToTextEnvelope (Just $ fromString itemName) $
-                fromPlutusScript @PlutusScriptV2 item
+                fromPlutusScript @PlutusScriptV3 item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
 

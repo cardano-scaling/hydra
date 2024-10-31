@@ -34,7 +34,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyUTxO,
   somePartyCardanoVerificationKey,
  )
-import PlutusLedgerApi.V2 (POSIXTime, toBuiltin)
+import PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genScriptRegistry)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)

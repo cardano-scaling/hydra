@@ -10,7 +10,7 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
-import PlutusLedgerApi.V2 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Prelude (BuiltinByteString, Eq, fromBuiltin, toBuiltin)
 import Test.QuickCheck (choose, vectorOf)

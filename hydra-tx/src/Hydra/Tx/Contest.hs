@@ -24,8 +24,8 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (toBuiltin)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusLedgerApi.V3 qualified as Plutus
 
 type PointInTime = (SlotNo, UTCTime)
 
@@ -86,7 +86,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
     fst (headReference scriptRegistry)
 
   headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
+    fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 

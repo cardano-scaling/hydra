@@ -8,14 +8,12 @@ import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol,
   OutputDatum (..),
-  ScriptContext (..),
   ScriptHash (..),
-  ScriptPurpose (..),
   TokenName (..),
   TxInInfo (..),
   TxInfo (..),
@@ -110,21 +108,8 @@ valueLockedBy ptx h =
    in mconcat outputs
 {-# INLINEABLE valueLockedBy #-}
 
--- | Find the input currently being validated.
-findOwnInput :: ScriptContext -> Maybe TxInInfo
-findOwnInput ScriptContext{scriptContextTxInfo = TxInfo{txInfoInputs}, scriptContextPurpose = Spending txOutRef} =
-  find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == txOutRef) txInfoInputs
-findOwnInput _ = Nothing
-{-# INLINEABLE findOwnInput #-}
-
 -- | Given a UTXO reference and a transaction (`TxInfo`), resolve it to one of the transaction's inputs (`TxInInfo`).
 findTxInByTxOutRef :: TxOutRef -> TxInfo -> Maybe TxInInfo
 findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
   find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == outRef) txInfoInputs
 {-# INLINEABLE findTxInByTxOutRef #-}
-
--- | The 'CurrencySymbol' of the current validator script.
-ownCurrencySymbol :: ScriptContext -> CurrencySymbol
-ownCurrencySymbol ScriptContext{scriptContextPurpose = Minting cs} = cs
-ownCurrencySymbol _ = traceError "Lh" -- "Can't get currency symbol of the current validator script"
-{-# INLINEABLE ownCurrencySymbol #-}
