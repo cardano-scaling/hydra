@@ -386,23 +386,16 @@
       }
     },
     "crane": {
-      "inputs": {
-        "nixpkgs": [
-          "mithril",
-          "nixpkgs"
-        ]
-      },
       "locked": {
-        "lastModified": 1720226507,
-        "narHash": "sha256-yHVvNsgrpyNTXZBEokL8uyB2J6gB1wEx0KOJzoeZi1A=",
+        "lastModified": 1730060262,
+        "narHash": "sha256-RMgSVkZ9H03sxC+Vh4jxtLTCzSjPq18UWpiM0gq6shQ=",
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "0aed560c5c0a61c9385bddff471a13036203e11c",
+        "rev": "498d9f122c413ee1154e8131ace5a35a80d8fa76",
         "type": "github"
       },
       "original": {
         "owner": "ipetkov",
-        "ref": "v0.18.0",
         "repo": "crane",
         "type": "github"
       }
@@ -1682,16 +1675,16 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1726664888,
-        "narHash": "sha256-+ZX4SHcTYc6oKTfMpqZAueS7LdK7dpApc76LQjpPeJA=",
+        "lastModified": 1728992615,
+        "narHash": "sha256-L6zMN2A1e05ZK+5NLeXXIfdl1ZxWxqVw0AU50U84y5s=",
         "owner": "input-output-hk",
         "repo": "mithril",
-        "rev": "9fd9ae8ff3e9c37168489fddb67c132ae67387f3",
+        "rev": "0d4d6bc2ac1b2f5e7fe6e57d905bd8542e6b87b1",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "ref": "2437.1",
+        "ref": "2442.0",
         "repo": "mithril",
         "type": "github"
       }
