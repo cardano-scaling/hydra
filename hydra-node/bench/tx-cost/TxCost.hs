@@ -60,7 +60,7 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import PlutusLedgerApi.V2 (toBuiltinData)
+import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Tx.Gen (genOutput, genUTxOAdaOnlyOfSize)
 

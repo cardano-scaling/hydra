@@ -45,7 +45,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
   depositOutputs =
     toTxContext <$> toList deposited
 
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
@@ -60,7 +60,7 @@ observeRecoverTx ::
   Maybe RecoverObservation
 observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV2 inputUTxO depositScript
+  (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV3 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
   Deposit.DepositDatum (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat
   deposits <- do

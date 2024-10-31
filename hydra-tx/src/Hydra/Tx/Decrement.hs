@@ -22,7 +22,7 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (toBuiltin)
+import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
 -- in the L2 ledger state and makes it available on L1.
@@ -73,7 +73,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   decommitOutputs = maybe [] toList utxoToDecommit
 
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   headScriptRef = fst (headReference scriptRegistry)
 

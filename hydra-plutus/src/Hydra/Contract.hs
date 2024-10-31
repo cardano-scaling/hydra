@@ -19,7 +19,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Plutus (commitValidatorScript)
-import PlutusLedgerApi.V2 (TxId (..), TxOutRef (..), toBuiltin)
+import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
 data ScriptInfo = ScriptInfo

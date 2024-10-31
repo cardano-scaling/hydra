@@ -36,7 +36,7 @@ import Hydra.Tx (
 import Hydra.Tx.Contest (PointInTime)
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (toBuiltin)
+import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | Representation of the Head output after a CollectCom transaction.
 data OpenThreadOutput = OpenThreadOutput
@@ -93,7 +93,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     fst (headReference scriptRegistry)
 
   headScript =
-    fromPlutusScript @PlutusScriptV2 Head.validatorScript
+    fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   headRedeemer = toScriptData $ Head.Close closeRedeemer
 

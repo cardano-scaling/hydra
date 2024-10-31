@@ -35,7 +35,7 @@ import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
@@ -175,9 +175,9 @@ genIncrementMutation (tx, utxo) =
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
     ]
  where
-  depositScript = fromPlutusScript @PlutusScriptV2 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
 
-  depositAddress = mkScriptAddress @PlutusScriptV2 testNetworkId depositScript
+  depositAddress = mkScriptAddress @PlutusScriptV3 testNetworkId depositScript
 
   (depositIn, depositOut@(TxOut addr val _ rscript)) =
     fromJust $

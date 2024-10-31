@@ -17,44 +17,60 @@ import Cardano.Api (
  )
 import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
 import PlutusLedgerApi.Common (SerialisedScript)
-import PlutusLedgerApi.V2 (ScriptHash (..))
+import PlutusLedgerApi.V3 (
+  Datum (..),
+  ScriptContext (..),
+  ScriptHash (..),
+  ScriptInfo (..),
+  getRedeemer,
+  scriptContextRedeemer,
+  scriptContextScriptInfo,
+ )
 import PlutusTx (BuiltinData, UnsafeFromData (..))
 import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 
 -- | Signature of an untyped validator script.
-type ValidatorType = BuiltinData -> BuiltinData -> BuiltinData -> BuiltinUnit
+type ValidatorType = BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed validator to get the basic `ValidatorType` signature which can
 -- be passed to `PlutusTx.compile`.
 -- REVIEW: There might be better ways to name this than "wrap"
 wrapValidator ::
-  (UnsafeFromData datum, UnsafeFromData redeemer, UnsafeFromData context) =>
-  (datum -> redeemer -> context -> Bool) ->
+  (UnsafeFromData datum, UnsafeFromData redeemer) =>
+  (datum -> redeemer -> ScriptContext -> Bool) ->
   ValidatorType
-wrapValidator f d r c =
-  check $ f datum redeemer context
- where
-  datum = unsafeFromBuiltinData d
-  redeemer = unsafeFromBuiltinData r
-  context = unsafeFromBuiltinData c
+wrapValidator f c =
+  let
+    context = unsafeFromBuiltinData c
+   in
+    check $ case scriptContextScriptInfo context of
+      SpendingScript _ (Just d) ->
+        let datum = unsafeFromBuiltinData $ getDatum d
+            redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
+         in f datum redeemer context
+      _ -> False
 {-# INLINEABLE wrapValidator #-}
 
 -- | Signature of an untyped minting policy script.
-type MintingPolicyType = BuiltinData -> BuiltinData -> BuiltinUnit
+type MintingPolicyType = BuiltinData -> BuiltinUnit
 
 -- | Wrap a typed minting policy to get the basic `MintingPolicyType` signature
 -- which can be passed to `PlutusTx.compile`.
 wrapMintingPolicy ::
-  (UnsafeFromData redeemer, UnsafeFromData context) =>
-  (redeemer -> context -> Bool) ->
+  UnsafeFromData redeemer =>
+  (redeemer -> ScriptContext -> Bool) ->
   MintingPolicyType
-wrapMintingPolicy f r c =
-  check $ f redeemer context
- where
-  redeemer = unsafeFromBuiltinData r
-  context = unsafeFromBuiltinData c
+wrapMintingPolicy f c =
+  let
+    context = unsafeFromBuiltinData c
+   in
+    check $ case scriptContextScriptInfo context of
+      MintingScript _ ->
+        let redeemer = unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer context
+         in f redeemer context
+      _ -> False
 {-# INLINEABLE wrapMintingPolicy #-}
 
 -- * Similar utilities as plutus-ledger

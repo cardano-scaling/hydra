@@ -13,7 +13,7 @@ import Data.Aeson (Value (String), withText)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
 -- * Extras

@@ -9,7 +9,7 @@ import PlutusTx.Prelude qualified as Plutus
 import Data.Ratio ((%))
 import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
-import PlutusLedgerApi.V2 (POSIXTime (..))
+import PlutusLedgerApi.V3 (POSIXTime (..))
 import PlutusTx qualified
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}

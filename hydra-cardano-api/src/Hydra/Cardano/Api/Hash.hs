@@ -7,7 +7,7 @@ import Cardano.Ledger.Plutus.TxInfo (transKeyHash)
 import Cardano.Ledger.SafeHash (unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley.Scripts qualified as Ledger
 import Data.ByteString qualified as BS
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Type conversions
 
