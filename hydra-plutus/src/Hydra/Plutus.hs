@@ -27,9 +27,23 @@ commitValidatorScript =
     Right bytes -> toShort bytes
  where
   base16Bytes = encodeUtf8 base16Text
-
   -- NOTE: we are using a hardcoded index to access the commit validator.
   -- This is fragile and will raise problems when we move another plutus validator
   -- to Aiken.
   -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
   base16Text = blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
+
+-- | Access the initial validator script from the 'blueprintJSON'.
+initialValidatorScript :: SerialisedScript
+initialValidatorScript =
+  case Base16.decode base16Bytes of
+    Left e -> error $ "Failed to decode initial validator: " <> show e
+    Right bytes -> toShort bytes
+ where
+  base16Bytes = encodeUtf8 base16Text
+
+  -- NOTE: we are using a hardcoded index to access the commit validator.
+  -- This is fragile and will raise problems when we move another plutus validator
+  -- to Aiken.
+  -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
+  base16Text = blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String

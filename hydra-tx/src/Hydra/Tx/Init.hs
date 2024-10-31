@@ -9,6 +9,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addOutputs, addVkInputs, emptyTxBody, mintTokens, unsafeBuildTransaction)
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
@@ -73,6 +74,6 @@ mkInitialOutput networkId seedTxIn participant =
   initialAddress =
     mkScriptAddress @PlutusScriptV3 networkId initialScript
   initialScript =
-    fromPlutusScript Initial.validatorScript
+    fromPlutusScript @PlutusScriptV3 initialValidatorScript
   initialDatum =
     mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)

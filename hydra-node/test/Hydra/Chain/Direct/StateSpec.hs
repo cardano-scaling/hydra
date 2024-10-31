@@ -110,6 +110,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -423,7 +424,7 @@ genCommitTxMutation utxo tx =
     fromMaybe (error "not found redeemer") $
       findRedeemerSpending @Initial.RedeemerType tx initialTxIn
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 

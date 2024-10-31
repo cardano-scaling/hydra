@@ -19,9 +19,8 @@ import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
 import Hydra.Tx.Contest (ClosedThreadOutput)
@@ -249,7 +248,7 @@ genScriptRegistry = do
     ScriptRegistry
       { initialReference =
           ( TxIn txId' (TxIx 0)
-          , txOut{txOutReferenceScript = mkScriptRef Initial.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRefV3 initialValidatorScript}
           )
       , commitReference =
           ( TxIn txId' (TxIx 1)

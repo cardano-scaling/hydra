@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -42,7 +42,7 @@ spec = do
     regenerated <- readFileBS "plutus.json"
     regenerated `shouldBe` original
   it "Initial validator script" $
-    goldenScript "vInitial" Initial.validatorScript
+    goldenScript "vInitial" initialValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $

@@ -25,10 +25,9 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -225,7 +224,7 @@ observeInitTx tx = do
 
   isInitial = isScriptTxOut initialScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   mintedTokenNames pid =
     [ assetName
@@ -306,7 +305,7 @@ observeCommitTx networkId utxo tx = do
 
   initialAddress = mkScriptAddress @PlutusScriptV3 networkId initialScript
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
   commitAddress = mkScriptAddress networkId commitScript
 

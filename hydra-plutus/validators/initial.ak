@@ -1,53 +1,48 @@
 use aiken/builtin
-use aiken/collection/list
 use aiken/collection/dict
+use aiken/collection/list
 use aiken/collection/pairs
-use aiken/option
 use aiken/crypto.{ScriptHash}
+use aiken/option
 use cardano/assets.{PolicyId, Value}
 use cardano/transaction.{
-  Input,
-  OutputReference,
-  Transaction,
-  NoDatum,
-  DatumHash,
-  InlineDatum
+  DatumHash, InlineDatum, Input, NoDatum, OutputReference, Transaction,
 }
 use commit
 
-pub type Datum = PolicyId
+pub type Datum =
+  PolicyId
 
 pub type CommitDatum {
   input: OutputReference,
-  pre_serialized_output: ByteArray
+  pre_serialized_output: ByteArray,
 }
 
 pub type Redeemer {
   ViaAbort
-  ViaCommit {
-    committed_refs: List<OutputReference>
-    // ^ Points to the committed Utxo.
-  }
+  ViaCommit { committed_refs: List<OutputReference> }
 }
+
+// ^ Points to the committed Utxo.
 
 const hydra_head_v1: ByteArray = "HydraHeadV1"
 
 type InitialError {
-    STNotBurned
-    MissingOrInvalidCommitAuthor
-    LockedValueDoesNotMatch
-    MismatchCommittedTxOutInDatum
-    CouldNotFindTheCorrectCurrencySymbolInTokens
-    MultipleHeadTokensOrMoreThan1PTsFound
-    MissingCommittedTxOutInOutputDatum
-    CommittedTxOutMissingInOutputDatum
-    MissingDatum
-    UnexpectedNonInlineDatum
-    ExpectedCommitDatumTypeGotSomethingElse
-    ExpectedSingleCommitOutput
-    WrongHeadIdInCommitDatum
-    MintingOrBurningIsForbidden
-    OutRefNotFound
+  STNotBurned
+  MissingOrInvalidCommitAuthor
+  LockedValueDoesNotMatch
+  MismatchCommittedTxOutInDatum
+  CouldNotFindTheCorrectCurrencySymbolInTokens
+  MultipleHeadTokensOrMoreThan1PTsFound
+  MissingCommittedTxOutInOutputDatum
+  CommittedTxOutMissingInOutputDatum
+  MissingDatum
+  UnexpectedNonInlineDatum
+  ExpectedCommitDatumTypeGotSomethingElse
+  ExpectedSingleCommitOutput
+  WrongHeadIdInCommitDatum
+  MintingOrBurningIsForbidden
+  OutRefNotFound
 }
 
 fn to_error_code(err: InitialError) -> String {
@@ -86,15 +81,18 @@ validator initial(commit_validator: ScriptHash) {
     datum: Option<Datum>,
     redeemer: Redeemer,
     utxo: OutputReference,
-    self: Transaction
-  ) -> Bool {
+    self: Transaction,
+  ) {
     expect Some(head_id) = datum
     when redeemer is {
-      ViaAbort ->
-        must_burn_st(head_id, self.mint)?
-      ViaCommit(committed_refs) -> 
+      ViaAbort -> must_burn_st(head_id, self.mint)?
+      ViaCommit(committed_refs) ->
         check_commit(head_id, commit_validator, committed_refs, utxo, self)?
     }
+  }
+
+  else(_) {
+    fail
   }
 }
 
@@ -102,10 +100,7 @@ fn must_burn_st(head_id: PolicyId, mint: Value) -> Bool {
   let quantity =
     mint
       |> assets.quantity_of(head_id, hydra_head_v1)
-  trace_if_false(
-    to_error_code(STNotBurned),
-    quantity == -1
-  )
+  trace_if_false(to_error_code(STNotBurned), quantity == -1)
 }
 
 fn check_commit(
@@ -115,67 +110,67 @@ fn check_commit(
   utxo: OutputReference,
   self: Transaction,
 ) -> Bool {
-  let committed_utxo = 
+  let committed_utxo =
     committed_refs
-      |> list.map(fn(ref) {  
-        self.inputs 
-          |> transaction.find_input(ref)
-          |> option.or_else(
-            trace_fail(to_error_code(OutRefNotFound))
-          )
-      })
+      |> list.map(
+          fn(ref) {
+            self.inputs
+              |> transaction.find_input(ref)
+              |> option.or_else(trace_fail(to_error_code(OutRefNotFound)))
+          },
+        )
   let locked_datums =
-    self.outputs 
-        |> transaction.find_script_outputs(commit_validator) 
-        |> list.map(fn(out) { out.datum })
+    self.outputs
+      |> transaction.find_script_outputs(commit_validator)
+      |> list.map(fn(out) { out.datum })
   let commit_datum =
     when locked_datums is {
       [dat] ->
         when dat is {
-          NoDatum ->
-            trace_fail(to_error_code(MissingDatum))
+          NoDatum -> trace_fail(to_error_code(MissingDatum))
           DatumHash(_dataHash) ->
             trace_fail(to_error_code(UnexpectedNonInlineDatum))
-          InlineDatum(data) -> {
+          InlineDatum(data) ->
             if data is commit.Datum {
               data
             } else {
               trace_fail(to_error_code(ExpectedCommitDatumTypeGotSomethingElse))
             }
-          }
         }
-      _otherwise ->
-        trace_fail(to_error_code(ExpectedSingleCommitOutput))
+      _otherwise -> trace_fail(to_error_code(ExpectedSingleCommitOutput))
     }
-  let initial_value = 
+  let initial_value =
     self.inputs
       |> transaction.find_input(utxo)
       |> option.map(fn(i) { i.output.value })
       |> option.or_else(assets.zero)
   expect locked_commits: List<CommitDatum> = commit_datum.commits
-  check_committed_value(commit_validator, committed_utxo, initial_value, self) &&
-  check_locked_commit(committed_utxo, locked_commits) &&
-  check_head_id(head_id, commit_datum.head_id) &&
-  must_be_signed_by_participant(head_id, initial_value, self) &&
-  must_not_mint_or_burn(self.mint)
+  check_committed_value(commit_validator, committed_utxo, initial_value, self) && check_locked_commit(
+    committed_utxo,
+    locked_commits,
+  ) && check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
+    head_id,
+    initial_value,
+    self,
+  ) && must_not_mint_or_burn(self.mint)
 }
 
 fn check_committed_value(
   commit_validator: ScriptHash,
   committed_utxo: List<Input>,
   initial_value: Value,
-  self: Transaction
+  self: Transaction,
 ) -> Bool {
-  let initial_lovelace = 
-    initial_value 
+  let initial_lovelace =
+    initial_value
       |> assets.lovelace_of
-  let locked_value = 
+  let locked_value =
     self.outputs
       |> transaction.find_script_outputs(commit_validator)
       |> list.map(fn(output) { output.value })
       |> list.reduce(assets.zero, assets.merge)
       |> assets.lovelace_of
-  let committed_value = 
+  let committed_value =
     committed_utxo
       |> list.map(fn(i) { i.output.value })
       |> list.reduce(assets.zero, assets.merge)
@@ -184,45 +179,40 @@ fn check_committed_value(
     to_error_code(LockedValueDoesNotMatch),
     // NOTE: Ada in initialValue is usually lower than in the locked ADA due
     // to higher deposit needed for commit output than for initial output
-    locked_value >= initial_lovelace + committed_value
+    locked_value >= initial_lovelace + committed_value,
   )
 }
 
 fn check_locked_commit(
   committed_utxo: List<Input>,
-  locked_commits: List<CommitDatum>
+  locked_commits: List<CommitDatum>,
 ) -> Bool {
-  when(committed_utxo, locked_commits) is {
+  when (committed_utxo, locked_commits) is {
     ([], []) -> True
-    ([], _) ->
-      trace_false(to_error_code(MissingCommittedTxOutInOutputDatum))
-    (_, []) ->
-      trace_false(to_error_code(CommittedTxOutMissingInOutputDatum))
-    ([i, ..rest_committed], [c, ..rest_commits]) -> {
+    ([], _) -> trace_false(to_error_code(MissingCommittedTxOutInOutputDatum))
+    (_, []) -> trace_false(to_error_code(CommittedTxOutMissingInOutputDatum))
+    ([i, ..rest_committed], [c, ..rest_commits]) ->
       trace_if_false(
         to_error_code(MismatchCommittedTxOutInDatum),
-        builtin.serialise_data(i.output) == c.pre_serialized_output && 
-        i.output_reference == c.input && 
-        check_locked_commit(rest_committed, rest_commits)
+        builtin.serialise_data(i.output) == c.pre_serialized_output && i.output_reference == c.input && check_locked_commit(
+          rest_committed,
+          rest_commits,
+        ),
       )
-    }
   }
 }
 
-fn check_head_id(
-  self_head_id: PolicyId,
-  committed_head_id: PolicyId,
-) -> Bool {
+fn check_head_id(self_head_id: PolicyId, committed_head_id: PolicyId) -> Bool {
   trace_if_false(
     to_error_code(WrongHeadIdInCommitDatum),
-    self_head_id == committed_head_id
+    self_head_id == committed_head_id,
   )
 }
 
 fn must_be_signed_by_participant(
   head_id: PolicyId,
   initial_value: Value,
-  self: Transaction
+  self: Transaction,
 ) -> Bool {
   let token_map =
     initial_value
@@ -236,15 +226,12 @@ fn must_be_signed_by_participant(
           |> dict.to_pairs
           |> pairs.find_all(1)
       when participation_tokens is {
-        [our_participation_token_name] -> {
-            trace_if_false(
-              to_error_code(MissingOrInvalidCommitAuthor),
-              self.extra_signatories
-                |> list.has(
-                  crypto.blake2b_224(our_participation_token_name)
-                )    
-            )
-        }
+        [our_participation_token_name] ->
+          trace_if_false(
+            to_error_code(MissingOrInvalidCommitAuthor),
+            self.extra_signatories
+              |> list.has(crypto.blake2b_224(our_participation_token_name)),
+          )
         _more_than_one_token ->
           trace_false(to_error_code(MultipleHeadTokensOrMoreThan1PTsFound))
       }
@@ -257,7 +244,7 @@ fn must_be_signed_by_participant(
 fn must_not_mint_or_burn(mint: Value) -> Bool {
   trace_if_false(
     to_error_code(MintingOrBurningIsForbidden),
-    assets.is_zero(mint)
+    assets.is_zero(mint),
   )
 }
 
