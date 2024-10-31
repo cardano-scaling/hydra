@@ -10,7 +10,7 @@ The `hydra-node` interfaces with the Cardano blockchain, connects to other `hydr
 
 :::warning Mainnet availability disclaimer
 
-The Hydra head protocol version 0.10.0 or newer is compatible with the Cardano
+The Hydra Head protocol version 0.10.0 or newer is compatible with the Cardano
 mainnet, which means it is possible to run a `hydra-node` on mainnet using real
 funds.
 
