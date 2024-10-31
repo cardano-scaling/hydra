@@ -37,5 +37,5 @@ scheme is required, and _broadcast_ would be a waste of resources.
 * The network layer is responsible for ensuring that sent messages effectively
   reach all nodes in the network. How this is achieved is left as an
   implementation detail, ie, whether or not it uses relaying.
-* We need to make sure all head participants are connected to the same network.
+* We need to make sure all Head participants are connected to the same network.
 
