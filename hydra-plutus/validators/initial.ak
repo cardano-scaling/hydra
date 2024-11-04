@@ -114,8 +114,13 @@ fn check_commit(
     committed_refs
       |> list.map(
           fn(ref) {
-            self.inputs
-              |> transaction.find_input(ref)
+            when
+              self.inputs
+                |> transaction.find_input(ref)
+            is {
+              Some(i) -> Some(i)
+              None -> trace_fail(to_error_code(OutRefNotFound))
+            }
           },
         )
   let locked_datums =
@@ -144,14 +149,17 @@ fn check_commit(
       |> option.map(fn(i) { i.output.value })
       |> option.or_else(assets.zero)
   if commit_datum.commits is locked_commits: List<CommitDatum> {
-     check_committed_value(commit_validator, committed_utxo, initial_value, self)
-     && check_locked_commit( committed_utxo, locked_commits,)
-     && check_head_id(head_id, commit_datum.head_id)
-     && must_be_signed_by_participant( head_id, initial_value, self,)
-     && must_not_mint_or_burn(self.mint)
-   } else {
-     trace_false(@"Failed to decode locked_commits")
-   }
+    check_committed_value(commit_validator, committed_utxo, initial_value, self) && check_locked_commit(
+      committed_utxo,
+      locked_commits,
+    ) && check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
+      head_id,
+      initial_value,
+      self,
+    ) && must_not_mint_or_burn(self.mint)
+  } else {
+    trace_false(@"Failed to decode locked_commits")
+  }
 }
 
 fn check_committed_value(
@@ -171,12 +179,14 @@ fn check_committed_value(
       |> assets.lovelace_of
   let committed_value =
     committed_utxo
-      |> list.map(fn(i) {
-           when i is {
-             Some(input) -> input.output.value
-             None -> assets.zero
-           }
-         })
+      |> list.map(
+          fn(i) {
+            when i is {
+              Some(input) -> input.output.value
+              None -> assets.zero
+            }
+          },
+        )
       |> list.reduce(assets.zero, assets.merge)
       |> assets.lovelace_of
   trace_if_false(
@@ -206,7 +216,7 @@ fn check_locked_commit(
             ),
           )
         None -> False
-     }
+      }
   }
 }
 
