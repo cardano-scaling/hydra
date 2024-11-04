@@ -85,9 +85,9 @@ validator initial(commit_validator: ScriptHash) {
   ) {
     expect Some(head_id) = datum
     when redeemer is {
-      ViaAbort -> must_burn_st(head_id, self.mint)?
+      ViaAbort -> must_burn_st(head_id, self.mint)
       ViaCommit(committed_refs) ->
-        check_commit(head_id, commit_validator, committed_refs, utxo, self)?
+        check_commit(head_id, commit_validator, committed_refs, utxo, self)
     }
   }
 
@@ -116,7 +116,7 @@ fn check_commit(
           fn(ref) {
             self.inputs
               |> transaction.find_input(ref)
-              |> option.or_else(trace_fail(to_error_code(OutRefNotFound)))
+            //  |> option.(trace_fail(to_error_code(OutRefNotFound)))
           },
         )
   let locked_datums =
@@ -145,22 +145,19 @@ fn check_commit(
       |> option.map(fn(i) { i.output.value })
       |> option.or_else(assets.zero)
   if commit_datum.commits is locked_commits: List<CommitDatum> {
-    check_committed_value(commit_validator, committed_utxo, initial_value, self) && check_locked_commit(
-      committed_utxo,
-      locked_commits,
-    ) && check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
-      head_id,
-      initial_value,
-      self,
-    ) && must_not_mint_or_burn(self.mint)
-  } else {
-    trace_false(@"Failed to decode locked_commits")
-  }
+     check_committed_value(commit_validator, committed_utxo, initial_value, self)
+     && check_locked_commit( committed_utxo, locked_commits,)
+     && check_head_id(head_id, commit_datum.head_id)
+     && must_be_signed_by_participant( head_id, initial_value, self,)
+     && must_not_mint_or_burn(self.mint)
+   } else {
+     trace_false(@"Failed to decode locked_commits")
+   }
 }
 
 fn check_committed_value(
   commit_validator: ScriptHash,
-  committed_utxo: List<Input>,
+  committed_utxo: List<Option<Input>>,
   initial_value: Value,
   self: Transaction,
 ) -> Bool {
@@ -175,7 +172,12 @@ fn check_committed_value(
       |> assets.lovelace_of
   let committed_value =
     committed_utxo
-      |> list.map(fn(i) { i.output.value })
+      |> list.map(fn(i) {
+           when i is {
+             Some(input) -> input.output.value
+             None -> assets.zero
+           }
+         })
       |> list.reduce(assets.zero, assets.merge)
       |> assets.lovelace_of
   trace_if_false(
@@ -187,7 +189,7 @@ fn check_committed_value(
 }
 
 fn check_locked_commit(
-  committed_utxo: List<Input>,
+  committed_utxo: List<Option<Input>>,
   locked_commits: List<CommitDatum>,
 ) -> Bool {
   when (committed_utxo, locked_commits) is {
@@ -195,13 +197,17 @@ fn check_locked_commit(
     ([], _) -> trace_false(to_error_code(MissingCommittedTxOutInOutputDatum))
     (_, []) -> trace_false(to_error_code(CommittedTxOutMissingInOutputDatum))
     ([i, ..rest_committed], [c, ..rest_commits]) ->
-      trace_if_false(
-        to_error_code(MismatchCommittedTxOutInDatum),
-        builtin.serialise_data(i.output) == c.pre_serialized_output && i.output_reference == c.input && check_locked_commit(
-          rest_committed,
-          rest_commits,
-        ),
-      )
+      when i is {
+        Some(input) ->
+          trace_if_false(
+            to_error_code(MismatchCommittedTxOutInDatum),
+            builtin.serialise_data(input.output) == c.pre_serialized_output && input.output_reference == c.input && check_locked_commit(
+              rest_committed,
+              rest_commits,
+            ),
+          )
+        None -> False
+     }
   }
 }
 
@@ -233,7 +239,7 @@ fn must_be_signed_by_participant(
           trace_if_false(
             to_error_code(MissingOrInvalidCommitAuthor),
             self.extra_signatories
-              |> list.has(crypto.blake2b_224(our_participation_token_name)),
+              |> list.has(our_participation_token_name),
           )
         _more_than_one_token ->
           trace_false(to_error_code(MultipleHeadTokensOrMoreThan1PTsFound))
