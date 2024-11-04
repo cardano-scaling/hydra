@@ -144,15 +144,18 @@ fn check_commit(
       |> transaction.find_input(utxo)
       |> option.map(fn(i) { i.output.value })
       |> option.or_else(assets.zero)
-  expect locked_commits: List<CommitDatum> = commit_datum.commits
-  check_committed_value(commit_validator, committed_utxo, initial_value, self) && check_locked_commit(
-    committed_utxo,
-    locked_commits,
-  ) && check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
-    head_id,
-    initial_value,
-    self,
-  ) && must_not_mint_or_burn(self.mint)
+  if commit_datum.commits is locked_commits: List<CommitDatum> {
+    check_committed_value(commit_validator, committed_utxo, initial_value, self) && check_locked_commit(
+      committed_utxo,
+      locked_commits,
+    ) && check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
+      head_id,
+      initial_value,
+      self,
+    ) && must_not_mint_or_burn(self.mint)
+  } else {
+    trace_false(@"Failed to decode locked_commits")
+  }
 }
 
 fn check_committed_value(
@@ -249,18 +252,17 @@ fn must_not_mint_or_burn(mint: Value) -> Bool {
 }
 
 // Helpers
+fn trace_false(trace_log: String) -> Bool {
+  trace trace_log
+  False
+}
+
 fn trace_if_false(trace_log: String, predicate: Bool) -> Bool {
   if predicate {
     True
   } else {
-    trace trace_log
-    False
+    trace_false(trace_log)
   }
-}
-
-fn trace_false(trace_log: String) -> Bool {
-  trace trace_log
-  False
 }
 
 fn trace_fail(trace_log: String) -> a {
