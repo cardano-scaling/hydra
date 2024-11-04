@@ -128,7 +128,7 @@ genCommitMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
-        pure $ commitTxOut{txOutValue = mutatedValue}
+        pure $ commitTxOut{txOutValue = mutatedValue <> negateValue mutatedValue}
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) aCommittedTxOut
