@@ -116,7 +116,6 @@ fn check_commit(
           fn(ref) {
             self.inputs
               |> transaction.find_input(ref)
-            //  |> option.(trace_fail(to_error_code(OutRefNotFound)))
           },
         )
   let locked_datums =
