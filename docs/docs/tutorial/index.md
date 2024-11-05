@@ -1,6 +1,6 @@
 # Open a head on testnet
 
-This tutorial demonstrates how to use `hydra-node` on Cardano's `pre-production` testing environment to open a layer 2 state channel between two participants using the Hydra Head protocol. We'll also use [Mithril](https://mithril.network) for fast node bootstrapping.
+This tutorial demonstrates how to use `hydra-node` on Cardano's `preprod` testing environment to open a layer 2 state channel between two participants using the Hydra Head protocol. We'll also use [Mithril](https://mithril.network) for fast node bootstrapping.
 
 This setup follows the [basic Hydra head](/topologies/basic) topology, establishing the 'green' Hydra head between `X` and `Y` as shown below:
 
