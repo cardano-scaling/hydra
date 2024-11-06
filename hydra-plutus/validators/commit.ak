@@ -1,6 +1,7 @@
 use aiken/collection/list
 use cardano/assets.{PolicyId, Value}
 use cardano/transaction.{OutputReference, Transaction}
+use util.{trace_if_false, must_burn_st, hydra_head_v1}
 
 // TODO: Party is not used on-chain but is needed off-chain while it's still
 // based on mock crypto. When we move to real crypto we could simply use
@@ -15,8 +16,6 @@ pub type Redeemer {
   ViaCollectCom
   ViaAbort
 }
-
-const hydra_head_v1: ByteArray = "HydraHeadV1"
 
 type CommitError {
   STNotBurnedError
@@ -45,13 +44,13 @@ validator commit {
       // NOTE: The reimbursement of the committed output 'commit' is
       // delegated to the 'head' script who has more information to do it.
       ViaAbort ->
-        traceIfFalse(
+        trace_if_false(
           toErrorCode(STNotBurnedError),
           must_burn_st(datum.head_id, self.mint)?
         )
       ViaCollectCom -> {
         expect Some(head_output) = self.outputs |> list.head
-        traceIfFalse(
+        trace_if_false(
           toErrorCode(STIsMissingInTheOutput),
           has_st(datum.head_id, head_output.value)?,
         )
@@ -64,21 +63,3 @@ fn has_st(head_id: PolicyId, value: Value) -> Bool {
   assets.quantity_of(value, head_id, hydra_head_v1) == 1
 }
 
-fn must_burn_st(head_id: PolicyId, mint: Value) -> Bool {
-  let quantity =
-    mint
-      |> assets.quantity_of(head_id, hydra_head_v1)
-
-  quantity == -1
-}
-
-// Helpers
-
-fn traceIfFalse(traceLog: String, predicate: Bool) -> Bool {
-  if predicate {
-    True
-  } else {
-    trace traceLog
-    False
-  }
-}
