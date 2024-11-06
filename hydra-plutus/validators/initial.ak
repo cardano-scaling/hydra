@@ -20,10 +20,11 @@ pub type CommitDatum {
 
 pub type Redeemer {
   ViaAbort
-  ViaCommit { committed_refs: List<OutputReference> }
+  ViaCommit {
+    // Points to the committed Utxo.
+    committed_refs: List<OutputReference>,
+  }
 }
-
-// ^ Points to the committed Utxo.
 
 const hydra_head_v1: ByteArray = "HydraHeadV1"
 
