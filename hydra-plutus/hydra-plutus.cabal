@@ -105,6 +105,7 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , io-streams
     , lens
     , lens-aeson
     , plutus-ledger-api

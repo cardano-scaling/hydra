@@ -13,6 +13,8 @@ module Hydra.Plutus.GoldenSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Lens ((^?!))
+import Data.Aeson.Lens (key, nth, _String)
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV3, AsScript),
   File (..),
@@ -26,23 +28,26 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (initialValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus
+import System.IO.Streams qualified as Stream
 import System.Process (readProcess)
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
-  it "Commit validator script" $ do
+  it "Commit and initial validator scripts" $ do
     original <- readFileBS "plutus.json"
     -- This re-generate plutus.json
+    let commitHash = encodeUtf8 $ original ^?! key "validators" . nth 0 . key "hash" . _String
     void $ readProcess "aiken" ["build", "-t", "compact"] ""
+    (outStream, _, _, _) <- Stream.runInteractiveProcess "aiken" ["blueprint", "apply", "-v", "initial.initial.spend", "-o", "plutus.json"] Nothing Nothing
+    Stream.write (Just commitHash) outStream
+    (outStream2, _, _, _) <- Stream.runInteractiveProcess "aiken" ["blueprint", "apply", "-v", "initial.initial.else", "-o", "plutus.json"] Nothing Nothing
+    Stream.write (Just commitHash) outStream2
     regenerated <- readFileBS "plutus.json"
     regenerated `shouldBe` original
-  it "Initial validator script" $
-    goldenScript "vInitial" initialValidatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $

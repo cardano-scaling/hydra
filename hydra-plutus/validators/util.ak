@@ -1,4 +1,3 @@
-
 use cardano/assets.{PolicyId, Value}
 
 pub const hydra_head_v1: ByteArray = "HydraHeadV1"

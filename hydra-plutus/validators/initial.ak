@@ -6,10 +6,10 @@ use aiken/crypto.{ScriptHash, VerificationKeyHash}
 use aiken/option
 use cardano/assets.{PolicyId, Value}
 use cardano/transaction.{
-  DatumHash, InlineDatum, Input, Output, NoDatum, OutputReference, Transaction,
+  DatumHash, InlineDatum, Input, NoDatum, Output, OutputReference, Transaction,
 }
 use commit
-use util.{trace_if_false, trace_fail, must_burn_st}
+use util.{must_burn_st, trace_fail, trace_if_false}
 
 pub type Datum =
   PolicyId
@@ -41,7 +41,6 @@ pub type Redeemer {
 //  MintingOrBurningIsForbidden -> @"I14"
 //  OutRefNotFound -> @"I15"
 
-
 // | The v_initial validator verifies that:
 //
 //   * spent in a transaction also consuming a v_head output
@@ -62,11 +61,7 @@ validator initial(commit_validator: ScriptHash) {
   ) {
     expect Some(head_id) = datum
     when redeemer is {
-      ViaAbort ->
-        trace_if_false(
-          @"I01" ,
-          must_burn_st(head_id, self.mint)?
-        )
+      ViaAbort -> trace_if_false(@"I01", must_burn_st(head_id, self.mint)?)
       ViaCommit(committed_refs) ->
         check_commit(head_id, commit_validator, committed_refs, utxo, self)
     }
@@ -91,8 +86,7 @@ fn check_commit(
       [dat] ->
         when dat is {
           NoDatum -> trace_fail(@"I09")
-          DatumHash(_dataHash) ->
-            trace_fail(@"I10")
+          DatumHash(_dataHash) -> trace_fail(@"I10")
           InlineDatum(data) ->
             if data is commit.Datum {
               data
@@ -103,7 +97,6 @@ fn check_commit(
       _otherwise -> trace_fail(@"I12")
     }
   if commit_datum.commits is locked_commits: List<CommitDatum> {
-
     let committed_utxo =
       committed_refs
         |> list.map(
@@ -122,19 +115,23 @@ fn check_commit(
         |> transaction.find_input(utxo)
         |> option.map(fn(i) { i.output.value })
         |> option.or_else(assets.zero)
-    check_head_id(head_id, commit_datum.head_id)
-    && must_be_signed_by_participant( head_id, initial_value, self.extra_signatories)
-    && must_not_mint_or_burn(self.mint)
-    && check_committed_value(committed_utxo, initial_value, tx_outputs)
-    && check_locked_commit(committed_utxo, locked_commits)
+    check_head_id(head_id, commit_datum.head_id) && must_be_signed_by_participant(
+      head_id,
+      initial_value,
+      self.extra_signatories,
+    ) && must_not_mint_or_burn(self.mint) && check_committed_value(
+      committed_utxo,
+      initial_value,
+      tx_outputs,
+    ) && check_locked_commit(committed_utxo, locked_commits)
   } else {
     trace_fail(@"Failed to decode locked_commits")
   }
 }
 
-fn get_script_outputs (commit_validator: ScriptHash, self : Transaction){
-    self.outputs
-      |> transaction.find_script_outputs(commit_validator)
+fn get_script_outputs(commit_validator: ScriptHash, self: Transaction) {
+  self.outputs
+    |> transaction.find_script_outputs(commit_validator)
 }
 
 fn check_committed_value(
@@ -145,7 +142,8 @@ fn check_committed_value(
   let initial_lovelace =
     initial_value
       |> assets.lovelace_of
-  let locked_value = commit_outputs
+  let locked_value =
+    commit_outputs
       |> list.map(fn(output) { output.value })
       |> list.reduce(assets.zero, assets.merge)
       |> assets.lovelace_of
@@ -193,10 +191,7 @@ fn check_locked_commit(
 }
 
 fn check_head_id(self_head_id: PolicyId, committed_head_id: PolicyId) -> Bool {
-  trace_if_false(
-    @"I13",
-    self_head_id == committed_head_id,
-  )
+  trace_if_false(@"I13", self_head_id == committed_head_id)
 }
 
 fn must_be_signed_by_participant(
@@ -208,8 +203,7 @@ fn must_be_signed_by_participant(
     initial_value
       |> assets.tokens(head_id)
   when dict.size(token_map) is {
-    0 ->
-      trace_fail(@"I05")
+    0 -> trace_fail(@"I05")
     1 -> {
       let participation_tokens =
         token_map
@@ -222,19 +216,13 @@ fn must_be_signed_by_participant(
             signatories
               |> list.has(our_participation_token_name),
           )
-        _more_than_one_token ->
-          trace_fail(@"I06")
+        _more_than_one_token -> trace_fail(@"I06")
       }
     }
-    _more_than_one_token ->
-      trace_fail(@"I06")
+    _more_than_one_token -> trace_fail(@"I06")
   }
 }
 
 fn must_not_mint_or_burn(mint: Value) -> Bool {
-  trace_if_false(
-    @"I14" ,
-    assets.is_zero(mint),
-  )
+  trace_if_false(@"I14", assets.is_zero(mint))
 }
-
