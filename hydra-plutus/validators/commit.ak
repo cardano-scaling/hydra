@@ -1,7 +1,7 @@
 use aiken/collection/list
 use cardano/assets.{PolicyId, Value}
 use cardano/transaction.{OutputReference, Transaction}
-use util.{trace_if_false, must_burn_st, hydra_head_v1}
+use util.{hydra_head_v1, must_burn_st, trace_if_false}
 
 // TODO: Party is not used on-chain but is needed off-chain while it's still
 // based on mock crypto. When we move to real crypto we could simply use
@@ -9,7 +9,7 @@ use util.{trace_if_false, must_burn_st, hydra_head_v1}
 pub type Datum {
   party: Data,
   commits: Data,
-  head_id: PolicyId
+  head_id: PolicyId,
 }
 
 pub type Redeemer {
@@ -38,7 +38,12 @@ fn toErrorCode(err: CommitError) -> String {
 //
 //   * ST is present in the output if the redeemer is 'ViaCollectCom'
 validator commit {
-  spend(datum: Option<Datum>, redeemer: Redeemer, _utxo: OutputReference, self: Transaction) -> Bool {
+  spend(
+    datum: Option<Datum>,
+    redeemer: Redeemer,
+    _utxo: OutputReference,
+    self: Transaction,
+  ) {
     expect Some(datum) = datum
     when redeemer is {
       // NOTE: The reimbursement of the committed output 'commit' is
@@ -46,7 +51,7 @@ validator commit {
       ViaAbort ->
         trace_if_false(
           toErrorCode(STNotBurnedError),
-          must_burn_st(datum.head_id, self.mint)?
+          must_burn_st(datum.head_id, self.mint)?,
         )
       ViaCollectCom -> {
         expect Some(head_output) = self.outputs |> list.head
@@ -57,9 +62,12 @@ validator commit {
       }
     }
   }
+
+  else(_) {
+    fail
+  }
 }
 
 fn has_st(head_id: PolicyId, value: Value) -> Bool {
   assets.quantity_of(value, head_id, hydra_head_v1) == 1
 }
-
