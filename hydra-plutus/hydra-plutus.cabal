@@ -111,6 +111,7 @@ test-suite tests
     , plutus-ledger-api
     , process
     , QuickCheck
+    , text
 
   build-tool-depends: hspec-discover:hspec-discover
 
