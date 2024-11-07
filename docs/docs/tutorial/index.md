@@ -275,7 +275,7 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 :::info Where to get funds
 
-In case you don't have test ada on `pre-production`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
+In case you don't have test ada on `preprod`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
 Something like the following (if you used the faucet to give funds only to `alice-funds.addr`):
 
