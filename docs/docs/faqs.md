@@ -19,7 +19,7 @@ Layer 1 solutions provide the foundational infrastructure of a blockchain networ
 </details>
 
 <details>
-<summary>Is Hydra Head secure?</summary>
+<summary>Is the Hydra Head protocol secure?</summary>
 Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed, and are implemented using test-driven development. The Hydra Head protocol is a true layer 2 and can fall back directly onto the Cardano layer 1 – hence inheriting the security model of the Cardano blockchain.
 </details>
 
@@ -30,7 +30,7 @@ This has been previously referenced as a theoretical maximum, but the reality is
 
 <details>
 <summary>Can anyone use the Hydra Head protocol?</summary>
-Yes, it's designed to be accessible for developers and end users alike, requiring minimal changes to existing applications to integrate with Hydra Head. However, it is important to note that Hydra is not a network upgrade and it's not like flipping a switch on Cardano to make it fast - instead, applications need to adopt and build on Hydra heads to benefit from it.
+Yes, it's designed to be accessible for developers and end users alike, requiring minimal changes to existing applications to integrate with the protocol. However, it is important to note that Hydra is not a network upgrade, and it's not like flipping a switch on Cardano to make it fast - instead, applications need to adopt and build on Hydra heads to benefit from it.
 </details>
 
 <details>

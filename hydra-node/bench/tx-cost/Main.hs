@@ -364,7 +364,7 @@ costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
   markdownFanOutCost stats =
     unlines $
       [ "## `FanOut` transaction costs"
-      , "Involves spending head output and burning head tokens. Uses ada-only UTxO for better comparability."
+      , "Involves spending head output and burning head tokens. Uses ada-only UTXO for better comparability."
       , ""
       , "| Parties | UTxO  | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | :---- | :----------- | ------: | --------: | --------: | --------: |"

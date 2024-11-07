@@ -1,7 +1,7 @@
 ---
 slug: 10
 title: |
-  10. Use Direct Connection to `cardano-node`
+  10. Use direct connection to `cardano-node`
 authors: []
 tags: [Accepted]
 ---
@@ -12,12 +12,12 @@ Accepted
 
 ## Context
 
-* On-Chain Validation is a critical part of the Hydra protocol, it requires both the ability to _submit_ transactions to the _Layer 1_ chain advancing the state of a Head, and _observing_ those transactions as the [Plutus](https://github.com/input-output-hk/plutus) contracts are validated
-* The [Plutus Application Framework](https://github.com/input-output-hk/plutus-apps) is expected to provide the necessary machinery to allow "Smart Contracts" applications to interact with the chain but it's still under active development and not ready for deployment on-chain
-* We want to gather feedback as early as possible and deliver a fully functional Hydra Head node for early adopters to test on a "real" chain (testnet)
+* On-chain validation is a critical part of the Hydra protocol. It requires both the ability to _submit_ transactions to the _layer 1_ chain, advancing the state of a head, and _observing_ those transactions as the [Plutus](https://github.com/input-output-hk/plutus) contracts are validated.
+* The [Plutus Application Framework](https://github.com/input-output-hk/plutus-apps) is expected to provide the necessary machinery to allow 'smart contract' applications to interact with the chain, but it's still under active development and not ready for deployment on-chain.
+* We want to gather feedback as early as possible and deliver a fully functional Hydra Head node for early adopters to test on a 'real' chain (testnet).
 * Our experiment connecting directly to a Cardano node has been conclusive. We can:
-  * Connect to a node using local protocols,
-  * Build and submit Head transactions triggering smart contracts validation, and
+  * Connect to a node using local protocols
+  * Build and submit Head transactions triggering smart contracts validation
   * Observe transactions using chain-sync protocol.
 
 ## Decision
@@ -28,5 +28,5 @@ For the time being, until _Plutus Application Framework_ is released, we will im
 
 ## Consequences
 
-* Limit Hydra dependencies to [plutus](https://github.com/input-output-hk/plutus) repository
-* Remove all PAB-related code as well as off-chain `Contract`s code and related dependencies
+* Limit Hydra dependencies to the [Plutus](https://github.com/input-output-hk/plutus) repository
+* Remove all PAB-related code as well as off-chain `contract`s code and related dependencies.

@@ -25,7 +25,7 @@ Read more about layer 2 solutions and their types in the next section.
 
 ## State channels and the Hydra Head protocol
 
-The Hydra Head protocol is a form of state channel and can be classified as a horizontal scaling solution. Multiple instances can be deployed to offload transactions and enhance the overall scalability of the system. It provides a flexible way to determine the level of decentralization for each instance and offers a mostly frictionless method to transfer state between the main chain and individual Hydra heads due to its isomorphic nature. 
+The Hydra Head protocol is a form of state channel and can be classified as a horizontal scaling solution. Multiple instances can be deployed to offload transactions and enhance the overall scalability of the system. Due to its isomorphic nature, it provides a flexible way to determine the level of decentralization for each instance and offers a mostly frictionless method to transfer state between the main chain and individual Hydra heads. 
 
 ![State Channel](./state-channel.png)
 
