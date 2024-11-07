@@ -246,7 +246,7 @@ cardano-cli address build \
 </TabItem>
 </Tabs>
 
-Next, fund these addresses. If you have test ada on the `pre-production` network, distribute it to the newly created addresses:
+Next, fund these addresses. If you have test ada on the `preprod` network, distribute it to the newly created addresses:
 
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
