@@ -288,7 +288,7 @@ genBlueprintTxWithUTxO =
       [ pure (utxo, txbody)
       , do
           lovelace <- arbitrary
-          let redeemer = toScriptData ()
+          let redeemer = arbitrary `generateWith` 42
               alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
               scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
