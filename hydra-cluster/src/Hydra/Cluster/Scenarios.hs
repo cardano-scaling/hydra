@@ -110,7 +110,6 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
-import PlutusLedgerApi.Test.Examples (alwaysSucceedingNAryFunction)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
