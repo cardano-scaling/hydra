@@ -106,13 +106,11 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , io-streams
     , lens
     , lens-aeson
     , plutus-ledger-api
     , process
     , QuickCheck
-    , text
 
   build-tool-depends: hspec-discover:hspec-discover
 

@@ -360,7 +360,6 @@ test-suite tests
     , lens-aeson
     , network-simple-wss
     , plutus-ledger-api                            >=1.1.1.0
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-dynamic                           >=3.4     && <3.5

@@ -42,7 +42,7 @@ import Hydra.Chain.Direct.Tx (
   observeHeadTx,
   txInToHeadSeed,
  )
-import Hydra.Contract.Dummy (dummyStakeValidatorScript, dummyValidatorScript)
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Builder (addInputs, addReferenceInputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
@@ -239,8 +239,8 @@ genBlueprintTxWithUTxO =
 
   spendSomeScriptInputs (utxo, txbody) = do
     let alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
-    let datum = toScriptData ()
-    let redeemer = toScriptData ()
+    datum <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
+    redeemer <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     let genTxOut = do
           value <- genValue
           let scriptAddress = mkScriptAddress testNetworkId alwaysSucceedingScript
@@ -289,7 +289,7 @@ genBlueprintTxWithUTxO =
       , do
           lovelace <- arbitrary
           let redeemer = toScriptData ()
-              alwaysSucceedingScript = PlutusScriptSerialised dummyStakeValidatorScript
+              alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
               scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
           pure
