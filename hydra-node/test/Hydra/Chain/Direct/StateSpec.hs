@@ -117,8 +117,7 @@ import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
-import Hydra.Tx.Utils (splitUTxO)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
+import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
@@ -384,17 +383,17 @@ genInitTxMutation seedInput tx =
   genChangeMintingPolicy =
     pure
       ( Changes $
-          ChangeMintingPolicy alwaysSucceedsV2
+          ChangeMintingPolicy alwaysSucceedsV3
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
-      , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
+      , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV3)
       , NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to
   -- simulate a faked init transaction.
-  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+  alwaysSucceedsV3 = PlutusScriptSerialised dummyValidatorScript
   originalPolicyId = HeadTokens.headPolicyId seedInput
-  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
+  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV3
   changeMintingPolicy (out, idx)
     | idx == 0 = ChangeOutput idx $ modifyInlineDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
     | otherwise = ChangeOutput idx out
@@ -428,7 +427,7 @@ genCommitTxMutation utxo tx =
 
   fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 
-  fakeScript = fromPlutusScript $ Plutus.alwaysSucceedingNAryFunction 3
+  fakeScript = fromPlutusScript dummyValidatorScript
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
