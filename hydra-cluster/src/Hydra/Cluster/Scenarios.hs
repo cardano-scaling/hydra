@@ -76,7 +76,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.Utils (verificationKeyToOnChainId, dummyValidatorScript)
+import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
