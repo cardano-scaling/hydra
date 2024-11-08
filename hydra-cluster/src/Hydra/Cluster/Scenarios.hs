@@ -76,7 +76,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId, dummyValidatorScript)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -445,7 +445,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
   prepareScriptPayload = do
-    let script = alwaysSucceedingNAryFunction 3
+    let script = dummyValidatorScript
     let serializedScript = PlutusScriptSerialised script
     let scriptAddress = mkScriptAddress networkId serializedScript
     let datumHash = mkTxOutDatumHash ()
