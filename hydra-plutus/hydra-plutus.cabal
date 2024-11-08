@@ -47,6 +47,7 @@ library
     Hydra.Contract.Commit
     Hydra.Contract.CommitError
     Hydra.Contract.Deposit
+    Hydra.Contract.Dummy
     Hydra.Contract.DepositError
     Hydra.Contract.Error
     Hydra.Contract.Head
