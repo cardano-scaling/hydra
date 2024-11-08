@@ -91,19 +91,10 @@ rec {
   hydra-chain-observer-static =
     musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
 
-  hydra-explorer =
-    nativePkgs.hydra-explorer.components.exes.hydra-explorer;
-
-  hydra-explorer-static =
-    musl64Pkgs.hydra-explorer.components.exes.hydra-explorer;
-
   hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
     export PATH=$PATH:${hydra-node}/bin
     ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
   '';
-
-  hydra-explorer-web =
-    import "${self}/hydra-explorer/web/hydra-explorer.nix" { inherit pkgs; };
 
   tx-cost =
     nativePkgs.hydra-node.components.benchmarks.tx-cost;
@@ -155,7 +146,6 @@ rec {
         inputs.cardano-node.packages.${system}.cardano-cli
         inputs.mithril.packages.${system}.mithril-client-cli
         pkgs.check-jsonschema
-        hydra-explorer
       ];
   };
   hydra-tui-tests = pkgs.mkShellNoCC {

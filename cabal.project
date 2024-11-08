@@ -27,7 +27,6 @@ packages:
   hydra-tui
   hydraw
   hydra-chain-observer
-  hydra-explorer
 
 -- Compile more things in parallel
 package *

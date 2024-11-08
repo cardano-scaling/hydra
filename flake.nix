@@ -172,7 +172,6 @@
             "hydra-cardano-api"
             "hydra-chain-observer"
             "hydra-cluster"
-            "hydra-explorer"
             "hydra-node"
             "hydra-tx"
             "hydra-plutus"

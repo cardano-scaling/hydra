@@ -40,23 +40,6 @@ in
     };
   };
 
-  hydra-explorer = pkgs.dockerTools.streamLayeredImage {
-    name = "hydra-explorer";
-    tag = "latest";
-    created = "now";
-    config = {
-      Entrypoint = [ "${hydraPackages.hydra-explorer-static}/bin/hydra-explorer" ];
-      WorkingDir = "/";
-    };
-    # Copy the static files to the /static in the docker image
-    contents = [
-      (pkgs.runCommand "hydra-explorer-static-files" { } ''
-        mkdir $out
-        ln -s ${hydraPackages.hydra-explorer-web} $out/static
-      '')
-    ];
-  };
-
   hydraw = pkgs.dockerTools.streamLayeredImage {
     name = "hydraw";
     tag = "latest";
