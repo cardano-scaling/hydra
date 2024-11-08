@@ -1,7 +1,7 @@
-module Hydra.Tx.Utils
-  ( module Hydra.Tx.Utils
-  , dummyValidatorScript
-  ) where
+module Hydra.Tx.Utils (
+  module Hydra.Tx.Utils,
+  dummyValidatorScript,
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
