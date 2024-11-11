@@ -3,10 +3,10 @@
 
 module Hydra.API.ServerOutput where
 
-import Control.Lens ((.~))
+import Control.Lens ((%~), (.~), (^?))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key)
+import Data.Aeson.Lens (atKey, key, _String)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
@@ -210,8 +210,13 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
 
-newtype ServerOutputConfig = ServerOutputConfig
+-- | Whether or not to include UTxO with all addresses in server outputs.
+data WithAddressedUTxO = WithAddressedUTxO Text | WithoutAddressedUTxO
+  deriving stock (Eq, Show)
+
+data ServerOutputConfig = ServerOutputConfig
   { utxoInSnapshot :: WithUTxO
+  , addressInSnapshot :: WithAddressedUTxO
   }
   deriving stock (Eq, Show)
 
@@ -228,7 +233,7 @@ prepareServerOutput ::
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
+prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -245,7 +250,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
-      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
+      handleAddressInclusion filterUTxOByAddress $
+        handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
@@ -264,6 +270,23 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     case utxoInSnapshot of
       WithUTxO -> bs
       WithoutUTxO -> bs & f
+
+  handleAddressInclusion f bs =
+    case addressInSnapshot of
+      WithAddressedUTxO addr -> bs & f addr
+      WithoutAddressedUTxO -> bs
+
+  filterUTxOByAddress addr =
+    key "snapshot" . key "utxo" %~ filterEntries
+   where
+    filterEntries = \case
+      Object utxoMap -> Object $ KeyMap.filter matchingAddress utxoMap
+      other -> other
+
+    matchingAddress obj =
+      case obj ^? key "address" . _String of
+        Just address -> address == addr
+        _ -> False
 
   encodedResponse = encode response
 

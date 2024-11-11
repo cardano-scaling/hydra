@@ -18,6 +18,7 @@ import Hydra.API.ServerOutput (
   ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
+  WithAddressedUTxO (..),
   WithUTxO (..),
   headStatus,
   me,
@@ -111,6 +112,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
+      , addressInSnapshot = decideOnAddressDisplay qp
       }
 
   decideOnUTxODisplay qp =
@@ -118,6 +120,15 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         v = [queryValue|no|]
         queryP = QueryParam k v
      in if queryP `elem` qp then WithoutUTxO else WithUTxO
+
+  decideOnAddressDisplay qp =
+    case find queryByAddress qp of
+      Just (QueryParam _ v) -> WithAddressedUTxO (unRText v)
+      _ -> WithoutAddressedUTxO
+   where
+    queryByAddress = \case
+      (QueryParam key _) | key == [queryKey|address|] -> True
+      _other -> False
 
   shouldNotServeHistory qp =
     flip any qp $ \case
