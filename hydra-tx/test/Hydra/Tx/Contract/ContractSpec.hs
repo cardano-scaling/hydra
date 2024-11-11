@@ -47,7 +47,7 @@ import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
-import PlutusLedgerApi.V2 (fromBuiltin, toBuiltin)
+import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,

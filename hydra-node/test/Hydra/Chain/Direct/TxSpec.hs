@@ -42,6 +42,7 @@ import Hydra.Chain.Direct.Tx (
   observeHeadTx,
   txInToHeadSeed,
  )
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Builder (addInputs, addReferenceInputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
@@ -51,7 +52,6 @@ import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (
@@ -238,7 +238,7 @@ genBlueprintTxWithUTxO =
       )
 
   spendSomeScriptInputs (utxo, txbody) = do
-    let alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 3
+    let alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
     datum <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     redeemer <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     let genTxOut = do
@@ -288,9 +288,9 @@ genBlueprintTxWithUTxO =
       [ pure (utxo, txbody)
       , do
           lovelace <- arbitrary
-          let scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
-              alwaysSucceedingScript = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
-              redeemer = toScriptData (123 :: Integer)
+          let redeemer = arbitrary `generateWith` 42
+              alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
+              scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
           pure
             ( utxo

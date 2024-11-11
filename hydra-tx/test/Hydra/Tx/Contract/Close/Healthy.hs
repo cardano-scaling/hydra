@@ -23,7 +23,7 @@ import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Utils (splitUTxO)
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genVerificationKey)

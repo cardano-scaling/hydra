@@ -127,8 +127,8 @@ genCommitMutation (tx, _utxo) =
                   (party, mCommit, toPlutusCurrencySymbol otherHeadId)
         pure $ ChangeOutput 0 $ mutateHeadId commitTxOut
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommitOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- scale (`div` 2) genValue `suchThat` (/= commitOutputValue)
-        pure $ commitTxOut{txOutValue = mutatedValue}
+        let totalValueMinusOneLovelace = negateValue (lovelaceToValue 1) <> txOutValue healthyInitialTxOut <> foldMap (txOutValue . snd) (UTxO.pairs healthyCommittedUTxO)
+        pure $ commitTxOut{txOutValue = totalValueMinusOneLovelace}
     , SomeMutation (pure $ toErrorCode LockedValueDoesNotMatch) MutateCommittedValue <$> do
         mutatedValue <- scale (`div` 2) genValue `suchThat` (/= aCommittedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) aCommittedTxOut
@@ -169,8 +169,6 @@ genCommitMutation (tx, _utxo) =
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
-  TxOut{txOutValue = commitOutputValue} = commitTxOut
-
   commitTxOut = fromJust $ txOuts' tx !!? 0
 
   allComittedTxIn = UTxO.inputSet healthyCommittedUTxO & toList

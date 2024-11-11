@@ -11,7 +11,7 @@ import Hydra.Cardano.Api (CtxUTxO, fromPlutusTxOut, fromPlutusTxOutRef, toPlutus
 import Hydra.Cardano.Api qualified as OffChain
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Data.Party (Party)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),

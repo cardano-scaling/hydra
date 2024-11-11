@@ -359,11 +359,10 @@ test-suite tests
     , lens
     , lens-aeson
     , network-simple-wss
-    , plutus-ledger-api                            >=1.1.1.0
-    , plutus-ledger-api:plutus-ledger-api-testlib
+    , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck
-    , quickcheck-dynamic                           >=3.4     && <3.5
+    , quickcheck-dynamic              >=3.4     && <3.5
     , quickcheck-instances
     , random
     , regex-tdfa
@@ -373,7 +372,7 @@ test-suite tests
     , text
     , time
     , tls
-    , typed-protocols-examples                     >=0.1.0.0
+    , typed-protocols-examples        >=0.1.0.0
     , vector
     , websockets
 

@@ -1,4 +1,7 @@
-module Hydra.Tx.Utils where
+module Hydra.Tx.Utils (
+  module Hydra.Tx.Utils,
+  dummyValidatorScript,
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
@@ -10,10 +13,11 @@ import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
-import PlutusLedgerApi.V2 (fromBuiltin, getPubKeyHash)
+import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)

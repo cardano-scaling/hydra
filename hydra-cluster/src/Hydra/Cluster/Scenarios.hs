@@ -76,7 +76,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -110,7 +110,6 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
-import PlutusLedgerApi.Test.Examples (alwaysSucceedingNAryFunction)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -445,7 +444,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
   prepareScriptPayload = do
-    let script = alwaysSucceedingNAryFunction 3
+    let script = dummyValidatorScript
     let serializedScript = PlutusScriptSerialised script
     let scriptAddress = mkScriptAddress networkId serializedScript
     let datumHash = mkTxOutDatumHash ()

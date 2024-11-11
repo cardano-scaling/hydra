@@ -26,7 +26,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V2 (toBuiltin)
+import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -64,12 +64,12 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
   headScriptRef = fst (headReference scriptRegistry)
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
-      (mkScriptAddress @PlutusScriptV2 networkId headScript)
+      (mkScriptAddress @PlutusScriptV3 networkId headScript)
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
       ReferenceScriptNone

@@ -14,7 +14,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
-  AsType (AsPlutusScriptV2, AsScript),
+  AsType (AsPlutusScriptV3, AsScript),
   File (..),
   Script,
   fromPlutusScript,
@@ -26,29 +26,24 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Version (gitDescribe)
-import PlutusLedgerApi.V2 (serialiseCompiledCode)
-import PlutusLedgerApi.V2 qualified as Plutus
-import System.Process (readProcess)
+import PlutusLedgerApi.V3 (serialiseCompiledCode)
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
-  it "Commit validator script" $ do
-    original <- readFileBS "plutus.json"
-    -- This re-generate plutus.json
-    void $ readProcess "aiken" ["build", "-t", "compact"] ""
-    regenerated <- readFileBS "plutus.json"
-    regenerated `shouldBe` original
-  it "Initial validator script" $
-    goldenScript "vInitial" Initial.validatorScript
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
   it "Deposit validator script" $
     goldenScript "vDeposit" Deposit.validatorScript
+  it "Initial validator script" $
+    goldenScript "vInitial" initialValidatorScript
+  it "Commit validator script" $
+    goldenScript "vCommit" commitValidatorScript
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
@@ -71,4 +66,4 @@ goldenScript name plutusScript =
 
   readFromFile fp =
     either (die . show) pure
-      =<< readFileTextEnvelope (AsScript AsPlutusScriptV2) (File fp)
+      =<< readFileTextEnvelope (AsScript AsPlutusScriptV3) (File fp)

@@ -11,7 +11,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV2))
+import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
@@ -22,7 +22,8 @@ import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V2 (
+import PlutusLedgerApi.V1.Value (lovelaceValue)
+import PlutusLedgerApi.V3 (
   Address,
   CurrencySymbol,
   Datum (..),
@@ -44,7 +45,7 @@ import PlutusLedgerApi.V2 (
   UpperBound (..),
   Value (Value),
  )
-import PlutusLedgerApi.V2.Contexts (findOwnInput)
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -166,7 +167,7 @@ checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPer
       -- value, we do ensure the output value is all non collected value - fees.
       -- This makes the script not scale badly with number of participants as it
       -- would commonly only be a small number of inputs/outputs to pay fees.
-      otherValueOut == notCollectedValueIn - txInfoFee txInfo
+      otherValueOut == notCollectedValueIn - lovelaceValue (txInfoFee txInfo)
 
   OpenDatum
     { utxoHash
@@ -693,7 +694,7 @@ validatorScript :: SerialisedScript
 validatorScript = serialiseCompiledCode compiledValidator
 
 validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash PlutusScriptV2 validatorScript
+validatorHash = scriptValidatorHash PlutusScriptV3 validatorScript
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =

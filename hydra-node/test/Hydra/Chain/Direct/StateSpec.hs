@@ -13,7 +13,7 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId (Mainnet),
-  PlutusScriptV2,
+  PlutusScriptV3,
   Tx,
   TxIn,
   TxOut,
@@ -110,15 +110,15 @@ import Hydra.Ledger.Cardano.Evaluate (
   propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
-import Hydra.Tx.Utils (splitUTxO)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
-import PlutusLedgerApi.V2 qualified as Plutus
+import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
+import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genOutput, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
@@ -383,17 +383,17 @@ genInitTxMutation seedInput tx =
   genChangeMintingPolicy =
     pure
       ( Changes $
-          ChangeMintingPolicy alwaysSucceedsV2
+          ChangeMintingPolicy alwaysSucceedsV3
             : fmap changeMintingPolicy (zip changedOutputsValue [0 ..])
-      , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV2)
+      , "new minting policy: " <> show (hashScript $ PlutusScript alwaysSucceedsV3)
       , NotAHeadPolicy
       )
 
   -- We do replace the minting policy of all tokens and datum of a head output to
   -- simulate a faked init transaction.
-  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
+  alwaysSucceedsV3 = PlutusScriptSerialised dummyValidatorScript
   originalPolicyId = HeadTokens.headPolicyId seedInput
-  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
+  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV3
   changeMintingPolicy (out, idx)
     | idx == 0 = ChangeOutput idx $ modifyInlineDatum (replaceHeadId $ toPlutusCurrencySymbol fakePolicyId) out
     | otherwise = ChangeOutput idx out
@@ -413,7 +413,7 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      UTxO.find (isScriptTxOut @PlutusScriptV2 initialScript) resolvedInputs
+      UTxO.find (isScriptTxOut @PlutusScriptV3 initialScript) resolvedInputs
 
   resolvedInputs =
     UTxO.fromPairs $
@@ -423,11 +423,11 @@ genCommitTxMutation utxo tx =
     fromMaybe (error "not found redeemer") $
       findRedeemerSpending @Initial.RedeemerType tx initialTxIn
 
-  initialScript = fromPlutusScript Initial.validatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
-  fakeScriptAddress = mkScriptAddress @PlutusScriptV2 testNetworkId fakeScript
+  fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 
-  fakeScript = fromPlutusScript $ Plutus.alwaysSucceedingNAryFunction 3
+  fakeScript = fromPlutusScript dummyValidatorScript
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
@@ -735,7 +735,7 @@ forAllFanout action =
        in action utxo tx
             & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
-  maxSupported = 58
+  maxSupported = 44
 
   countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
 

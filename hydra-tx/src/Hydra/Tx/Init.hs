@@ -9,6 +9,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addOutputs, addVkInputs, emptyTxBody, mintTokens, unsafeBuildTransaction)
+import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
@@ -42,7 +43,7 @@ initTx networkId seedTxIn participants parameters =
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
   TxOut
-    (mkScriptAddress @PlutusScriptV2 networkId headScript)
+    (mkScriptAddress @PlutusScriptV3 networkId headScript)
     (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
@@ -71,8 +72,8 @@ mkInitialOutput networkId seedTxIn participant =
   initialValue =
     fromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
   initialAddress =
-    mkScriptAddress @PlutusScriptV2 networkId initialScript
+    mkScriptAddress @PlutusScriptV3 networkId initialScript
   initialScript =
-    fromPlutusScript Initial.validatorScript
+    fromPlutusScript @PlutusScriptV3 initialValidatorScript
   initialDatum =
     mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)

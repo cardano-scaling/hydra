@@ -12,8 +12,9 @@ import Test.Hydra.Tx.Mutation (
  )
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
+import Data.Maybe (fromJust)
 import Hydra.Contract.Deposit (DepositDatum (..), DepositRedeemer (Claim))
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState qualified as Head
@@ -34,7 +35,7 @@ import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusLedgerApi.V2 qualified as Plutus
+import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testHeadId, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genVerificationKey)
@@ -156,7 +157,6 @@ genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 genIncrementMutation (tx, utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode DepositDeadlineSurpassed) DepositMutateDepositDeadline <$> do
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = UTxO.pairs (resolveInputsUTxO utxo tx) List.!! 1
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
@@ -166,7 +166,6 @@ genIncrementMutation (tx, utxo) =
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
     , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
         otherHeadId <- arbitrary
-        let (depositIn, depositOut@(TxOut addr val _ rscript)) = UTxO.pairs (resolveInputsUTxO utxo tx) List.!! 1
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (toTxContext depositOut) $ \case
@@ -175,3 +174,13 @@ genIncrementMutation (tx, utxo) =
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (headIdToCurrencySymbol testHeadId))
     ]
+ where
+  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+
+  depositAddress = mkScriptAddress @PlutusScriptV3 testNetworkId depositScript
+
+  (depositIn, depositOut@(TxOut addr val _ rscript)) =
+    fromJust $
+      find
+        (\(_, TxOut address _ _ _) -> address == depositAddress)
+        (UTxO.pairs (resolveInputsUTxO utxo tx))

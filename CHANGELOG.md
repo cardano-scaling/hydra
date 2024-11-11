@@ -24,6 +24,10 @@ changes.
     in a new maximum number of head participants being `8`.
   - Changes script hashes in `hydra-plutus`
 
+- **BREAKING** Rewrite of the initial script in aiken and update to Plutus V3:
+  - This makes the initial script smaller by 1337 bytes
+  - Changes script hashes in `hydra-plutus`
+
 - Fix the bug where commit endpoint drops withdraw redeemers [#1643](https://github.com/cardano-scaling/hydra/issues/1643)
 
 - **BREAKING** Change to `SnapshotConfirmed` and `TxValid` server outputs, as
@@ -43,6 +47,8 @@ changes.
 - Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
 
 - Update mithril to `2442.0`
+
+
 
 ## [0.19.0] - 2024-09-13
 
