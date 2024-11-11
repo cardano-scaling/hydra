@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
+{-# OPTIONS_GHC -fplugin PlutusTx.Plugin #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.1.0 #-}
 
 module Hydra.Contract.Dummy where
 
