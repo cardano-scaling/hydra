@@ -85,7 +85,7 @@ library
   build-depends:
     , aeson
     , async
-    , base                                         >=4.7 && <5
+    , base                  >=4.7 && <5
     , bytestring
     , cardano-slotting
     , containers
@@ -106,7 +106,6 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , process
     , QuickCheck
     , req
