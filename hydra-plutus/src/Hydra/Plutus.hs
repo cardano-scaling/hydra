@@ -41,7 +41,7 @@ initialValidatorScript =
     Right bytes -> toShort bytes
  where
   base16Bytes = encodeUtf8 initialBase16Text
-  initialBase16Text = blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String
+  initialBase16Text = blueprintJSON ^. key "validators" . nth 4 . key "compiledCode" . _String
 
 depositValidatorScript :: SerialisedScript
 depositValidatorScript =
@@ -50,4 +50,4 @@ depositValidatorScript =
     Right bytes -> toShort bytes
  where
   depositBase16Bytes = encodeUtf8 depositBase16Text
-  depositBase16Text = blueprintJSON ^. key "validators" . nth 4 . key "compiledCode" . _String
+  depositBase16Text = blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String

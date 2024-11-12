@@ -14,9 +14,10 @@ import Test.Hydra.Tx.Mutation (
  )
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Maybe (fromJust)
-import Hydra.Contract.Deposit (DepositDatum (..), DepositRedeemer (Claim))
-import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -37,8 +38,8 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusLedgerApi.V3 qualified as Plutus
+import Hydra.Tx.Utils (adaOnly)
+import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, depositDeadline, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
@@ -209,12 +210,10 @@ genIncrementMutation (tx, utxo) =
               }
     ]
  where
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
-
-  depositAddress = mkScriptAddress @PlutusScriptV3 testNetworkId depositScript
+  headTxOut = fromJust $ txOuts' tx !!? 0
 
   (depositIn, depositOut@(TxOut addr val _ rscript)) =
     fromJust $
       find
-        (\(_, TxOut address _ _ _) -> address == depositAddress)
+        (\(_, TxOut address _ _ _) -> address == Deposit.depositAddress testNetworkId)
         (UTxO.pairs (resolveInputsUTxO utxo tx))

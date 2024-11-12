@@ -515,7 +515,7 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
           Left SnapshotIncrementUTxOIsNull
       | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
  where
-  headScript = fromPlutusScript @PlutusScriptV2 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
   depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
   Snapshot{utxoToCommit} = sn

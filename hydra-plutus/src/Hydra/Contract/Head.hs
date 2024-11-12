@@ -59,7 +59,7 @@ import PlutusLedgerApi.V3 (
   UpperBound (..),
   Value (Value),
  )
-import PlutusLedgerApi.V3.Contexts (findOwnInput)
+import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
