@@ -157,7 +157,6 @@ newGlobals genesisParameters = do
           , epochInfo
           , maxKESEvo = fromIntegral protocolParamMaxKESEvolutions
           , maxLovelaceSupply = fromIntegral protocolParamMaxLovelaceSupply
-          , maxMajorPV
           , networkId = toShelleyNetwork protocolParamNetworkId
           , quorum = fromIntegral protocolParamUpdateQuorum
           , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
@@ -179,9 +178,6 @@ newGlobals genesisParameters = do
     , protocolParamEpochLength
     , protocolParamSlotLength
     } = genesisParameters
-  -- NOTE: This is used by the ledger to discard blocks that have a version
-  -- beyond a known limit. Or said differently, unused and irrelevant for Hydra.
-  maxMajorPV = minBound
   -- NOTE: uses fixed epoch info for our L2 ledger
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength

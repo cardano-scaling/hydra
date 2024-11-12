@@ -28,7 +28,6 @@ defaultGlobals =
     , Ledger.securityParameter = 10
     , Ledger.maxKESEvo = 10
     , Ledger.quorum = 5
-    , Ledger.maxMajorPV = maxBound
     , Ledger.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , Ledger.activeSlotCoeff = Ledger.mkActiveSlotCoeff . unsafeBoundRational $ 0.9
     , Ledger.networkId = Ledger.Testnet
