@@ -58,7 +58,7 @@ let
   libs = [
     pkgs.glibcLocales
     pkgs.libsodium-vrf # from iohk-nix overlay
-    pkgs.lzma
+    pkgs.xz
     pkgs.secp256k1
     pkgs.zlib
   ]
