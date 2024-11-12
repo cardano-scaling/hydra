@@ -11,21 +11,7 @@ module Hydra.Contract.Deposit where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
 import Hydra.Contract.Commit (Commit)
-import Hydra.Contract.DepositError (
-  DepositError (
-    DepositDeadlineNotReached,
-    DepositDeadlineSurpassed,
-    DepositNoLowerBoundDefined,
-    DepositNoUpperBoundDefined,
-    IncorrectDepositHash,
-    WrongHeadIdInDepositDatum
-  ),
- )
-import Hydra.Contract.Error (errorCode)
-import Hydra.Contract.Util (hashPreSerializedCommits, hashTxOuts)
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (Datum),
