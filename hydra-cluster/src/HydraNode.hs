@@ -406,7 +406,7 @@ withConnectionToNode tracer hydraNodeId =
   port = fromInteger $ 4_000 + toInteger hydraNodeId
 
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryParams action = do
+withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
   tryConnect connectedOnce (200 :: Int)
  where
@@ -424,9 +424,9 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} queryPa
                     , Handler $ retryOrThrow (Proxy @HandshakeException)
                     ]
 
-  historyMode = fromMaybe "/" queryParams
+  queryParams = fromMaybe "/" mQueryParams
 
-  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) historyMode $
+  doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) queryParams $
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
