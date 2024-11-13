@@ -555,7 +555,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
         ]
           <> logs
 
-timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
@@ -619,7 +619,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
       v ^? key "snapshot" . key "confirmed"
     confirmedTransactions ^.. values `shouldBe` [toJSON tx]
 
-initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
+initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> [TxId] -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair

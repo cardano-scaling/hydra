@@ -67,7 +67,7 @@ chainConfigFor ::
   FilePath ->
   SocketPath ->
   -- | Transaction id at which Hydra scripts should have been published.
-  TxId ->
+  [TxId] ->
   [Actor] ->
   ContestationPeriod ->
   IO ChainConfig

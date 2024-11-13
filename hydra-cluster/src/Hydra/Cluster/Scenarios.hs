@@ -125,13 +125,13 @@ data EndToEndLog
   | StartingFunds {actor :: String, utxo :: UTxO}
   | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
   | RemainingFunds {actor :: String, utxo :: UTxO}
-  | PublishedHydraScriptsAt {hydraScriptsTxId :: TxId}
-  | UsingHydraScriptsAt {hydraScriptsTxId :: TxId}
+  | PublishedHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
   | CreatedKey {keyPath :: FilePath}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
@@ -166,7 +166,7 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
-testPreventResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+testPreventResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
   let contestationPeriod = UnsafeContestationPeriod 1
   aliceChainConfig <-
@@ -210,7 +210,7 @@ testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = 
 
   failToConnect tr nodes = waitForNodesConnected tr 10 nodes `shouldThrow` anyException
 
-restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
   let contestationPeriod = UnsafeContestationPeriod 2
@@ -243,7 +243,7 @@ singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 singlePartyHeadFullLifeCycle tracer workDir node hydraScriptsTxId =
   ( `finally`
@@ -302,7 +302,7 @@ singlePartyOpenAHead ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> IO ()) ->
   IO ()
@@ -341,7 +341,7 @@ singlePartyCommitsFromExternal ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
   ( `finally`
@@ -384,7 +384,7 @@ singlePartyCommitsScriptBlueprint ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
@@ -513,7 +513,7 @@ singlePartyCommitsFromExternalTxBlueprint ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 singlePartyCommitsFromExternalTxBlueprint tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
@@ -572,7 +572,7 @@ canCloseWithLongContestationPeriod ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 canCloseWithLongContestationPeriod tracer workDir node hydraScriptsTxId = do
   refuelIfNeeded tracer node Alice 100_000_000
@@ -609,7 +609,7 @@ canSubmitTransactionThroughAPI ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
@@ -658,7 +658,7 @@ canSubmitTransactionThroughAPI tracer workDir node hydraScriptsTxId =
 -- | Three hydra nodes open a head and we assert that none of them sees errors.
 -- This was particularly misleading when everyone tries to post the collect
 -- transaction concurrently.
-threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
@@ -702,7 +702,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
 -- cardano keys instead of Bob's which will prevent him to be notified the
 -- `HeadIsInitializing` but he should still receive some notification.
-initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   (carolCardanoVk, _) <- keysFor Carol
@@ -734,7 +734,7 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
       participants `shouldMatchList` expectedParticipants
 
 -- | Open a a single participant head and incrementally commit to it.
-canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
@@ -784,7 +784,7 @@ canCommit tracer workDir node hydraScriptsTxId =
   hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head, deposit and then recover it.
-canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canRecoverDeposit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $
     (`finally` returnFundsToFaucet tracer node Bob) $ do
@@ -863,7 +863,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
   hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Make sure to be able to see pending deposits.
-canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canSeePendingDeposits tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $
     (`finally` returnFundsToFaucet tracer node Bob) $ do
@@ -950,7 +950,7 @@ canSeePendingDeposits tracer workDir node hydraScriptsTxId =
   hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
-canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canDecommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000

@@ -25,7 +25,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript, depositValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus

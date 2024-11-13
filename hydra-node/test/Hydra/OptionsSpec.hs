@@ -265,11 +265,11 @@ spec = parallel $
             { chainConfig = Direct defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
-    prop "parses --hydra-scripts-tx-id as a tx id" $ \txId ->
-      ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]
+    prop "parses --hydra-scripts-tx-id as a tx id" $ \txIds ->
+      concatMap (\txid -> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txid]) txIds
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = txId}
+            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = txIds}
             }
 
     it "switches to offline chain when using --initial-utxo" $

@@ -25,7 +25,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript, depositValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (

@@ -362,7 +362,7 @@ data DirectChainConfig = DirectChainConfig
   -- ^ Network identifer to which we expect to connect.
   , nodeSocket :: SocketPath
   -- ^ Path to a domain socket used to connect to the server.
-  , hydraScriptsTxId :: TxId
+  , hydraScriptsTxId :: [TxId]
   -- ^ Identifier of transaction holding the hydra scripts to use.
   , cardanoSigningKey :: FilePath
   -- ^ Path to the cardano signing key of the internal wallet.
@@ -380,7 +380,7 @@ defaultDirectChainConfig =
   DirectChainConfig
     { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
-    , hydraScriptsTxId = TxId "0101010101010101010101010101010101010101010101010101010101010101"
+    , hydraScriptsTxId = []
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
     , startChainFrom = Nothing
@@ -455,7 +455,7 @@ directChainConfigParser =
   DirectChainConfig
     <$> networkIdParser
     <*> nodeSocketParser
-    <*> hydraScriptsTxIdParser
+    <*> many hydraScriptsTxIdParser
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -706,7 +706,6 @@ hydraScriptsTxIdParser =
     (eitherReader $ left show . deserialiseFromRawBytesHex AsTxId . BSC.pack)
     ( long "hydra-scripts-tx-id"
         <> metavar "TXID"
-        <> value "0101010101010101010101010101010101010101010101010101010101010101"
         <> help
           "The transaction which is expected to have published Hydra scripts as \
           \reference scripts in its outputs. Note: All scripts need to be in the \
@@ -889,7 +888,7 @@ toArgs
           } ->
           toArgNetworkId networkId
             <> toArgNodeSocket nodeSocket
-            <> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText hydraScriptsTxId]
+            <> concatMap (\txId -> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]) hydraScriptsTxId
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys

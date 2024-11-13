@@ -33,18 +33,11 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyParties,
   healthySignature,
  )
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
-import Hydra.Tx.Party (Party, deriveParty, partyToChain)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (
-  splitUTxO,
- )
-import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
+import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Snapshot (Snapshot (..))
+import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
