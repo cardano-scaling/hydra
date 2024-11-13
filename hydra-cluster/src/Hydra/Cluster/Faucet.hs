@@ -207,7 +207,7 @@ retryOnExceptions tracer action =
 --
 -- The key of the given Actor is used to pay for fees in required transactions,
 -- it is expected to have sufficient funds.
-publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
+publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk
