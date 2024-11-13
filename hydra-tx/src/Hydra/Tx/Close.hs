@@ -127,9 +127,16 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                   , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
                   }
               (False, False) ->
-                if version == openVersion
-                  then Head.CloseAny{signature = toPlutusSignatures signatures}
-                  else error "closeTx: unexpected version."
+                if version /= openVersion
+                  then
+                    -- TODO: why CloseUnusedDec? we could also put CloseUsedInc
+                    -- since there is no logic. We would have to know what
+                    -- happened base on version and what else?
+                    Head.CloseUsedDec
+                      { signature = toPlutusSignatures signatures
+                      , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+                      }
+                  else Head.CloseAny{signature = toPlutusSignatures signatures}
               -- TODO: can we get rid of these errors by modelling what we expect differently?
               (True, True) -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
 
