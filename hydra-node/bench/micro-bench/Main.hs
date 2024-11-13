@@ -20,7 +20,12 @@ import Test.QuickCheck (generate)
 
 main :: IO ()
 main = do
-  (utxo, tx) <- prepareTx
+  -- Use this env var to run benchmarks for more transations:
+  --
+  -- > N_TXNS=100000 cabal bench micro --benchmark-options '+RTS -T'
+  --
+  nTxns <- fromMaybe 1 . (>>= readMaybe) <$> lookupEnv "N_TXNS"
+  (utxo, tx) <- prepareTx nTxns
   let jsonNewTx = (Aeson.encode . NewTx) tx
       toNewTx bs = object ["tag" .= ("NewTx" :: Text), "transaction" .= String (decodeUtf8 bs)]
       cborNewTx = (Aeson.encode . toNewTx . serialiseToCBOR) tx
@@ -35,9 +40,9 @@ main = do
         ]
     ]
 
-prepareTx :: IO (UTxO, Tx)
-prepareTx =
-  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions 4_000_000)
+prepareTx :: Int -> IO (UTxO, Tx)
+prepareTx n =
+  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions n)
 
 benchApplyTxs :: (UTxO, Tx) -> Either (Tx, ValidationError) UTxO
 benchApplyTxs (utxo, tx) = applyTransactions defaultLedger (ChainSlot 1) utxo [tx]
