@@ -22,7 +22,11 @@ main :: IO ()
 main = do
   -- Use this env var to run benchmarks for more transations:
   --
-  -- > N_TXNS=100000 cabal bench micro --benchmark-options '+RTS -T'
+  -- > N_TXNS=1 cabal bench micro --benchmark-options '--json output.json +RTS -T'
+  --
+  -- You can then find the `peakMbAllocated` field in the resulting json file.
+  -- (Sorry, criterion makes it very hard to find this with a simple jq
+  -- command.)
   --
   nTxns <- fromMaybe 1 . (>>= readMaybe) <$> lookupEnv "N_TXNS"
   (utxo, tx) <- prepareTx nTxns
