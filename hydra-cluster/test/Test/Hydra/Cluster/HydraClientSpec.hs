@@ -14,10 +14,9 @@ import CardanoClient (
 import CardanoNode (
   withCardanoNodeDevnet,
  )
-import Control.Lens ((^..), (^?))
+import Control.Lens ((^?))
 import Data.Aeson (Value (..), object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
+import Data.Aeson.Lens (key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
@@ -104,6 +103,7 @@ filterConfirmedUTxOByAddressScenario tracer tmpDir = do
 
       -- Create an arbitrary transaction using some input.
       -- XXX: This makes a scenario where bob has more than 1 output, alice a small one and carol none.
+      -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
       let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
       let Right tx =
             mkSimpleTx
@@ -111,67 +111,43 @@ filterConfirmedUTxOByAddressScenario tracer tmpDir = do
               (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
               aliceExternalSk
       send n1 $ input "NewTx" ["transaction" .= tx]
-
       waitFor hydraTracer 10 [n1, n2, n3] $
         output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
+      let expectedSnapshotNumber :: Int = 1
 
       -- 1/ query alice address from alice node
-      runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
-        confirmedSnapshot <- waitMatch 3 con $ \v -> do
+      confirmedUTxO1 <- runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
+        waitMatch 3 con $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          Just v
-        traceShowM $ "Scenario-1: " <> textAddrOf aliceExternalVk
-        traceShowM confirmedSnapshot
+          snapshotNumber <- v ^? key "snapshot" . key "number"
+          guard $ snapshotNumber == toJSON expectedSnapshotNumber
+          utxo <- v ^? key "snapshot" . key "utxo"
+          guard $ utxo /= toJSON (mempty :: Map TxIn Value)
+          Just utxo
 
       -- 2/ query bob address from bob node
-      runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
-        confirmedSnapshot <- waitMatch 3 con $ \v -> do
+      confirmedUTxO2 <- runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
+        waitMatch 3 con $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          Just v
-        traceShowM $ "Scenario-2: " <> textAddrOf bobExternalVk
-        traceShowM confirmedSnapshot
+          snapshotNumber <- v ^? key "snapshot" . key "number"
+          guard $ snapshotNumber == toJSON expectedSnapshotNumber
+          utxo <- v ^? key "snapshot" . key "utxo"
+          guard $ utxo /= toJSON (mempty :: Map TxIn Value)
+          Just utxo
+
+      confirmedUTxO1 `shouldNotBe` confirmedUTxO2
 
       -- 3/ query bob address from alice node
-      runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
-        confirmedSnapshot <- waitMatch 3 con $ \v -> do
+      confirmedUTxO3 <- runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
+        waitMatch 3 con $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          Just v
-        traceShowM $ "Scenario-3: " <> textAddrOf bobExternalVk
-        traceShowM confirmedSnapshot
+          snapshotNumber <- v ^? key "snapshot" . key "number"
+          guard $ snapshotNumber == toJSON expectedSnapshotNumber
+          utxo <- v ^? key "snapshot" . key "utxo"
+          guard $ utxo /= toJSON (mempty :: Map TxIn Value)
+          Just utxo
 
-      -- 4/ query random address
-      (randomVk, _) <- generate genKeyPair
-      runScenario hydraTracer n1 (textAddrOf randomVk) $ \con -> do
-        confirmedSnapshot <- waitMatch 3 con $ \v -> do
-          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          Just v
-        traceShowM $ "Scenario-4: " <> textAddrOf randomVk
-        traceShowM confirmedSnapshot
-
-      -- 5/ query wrong address
-      runScenario hydraTracer n3 "pepe" $ \con -> do
-        confirmedSnapshot <- waitMatch 3 con $ \v -> do
-          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          Just v
-        traceShowM $ "Scenario-5: " <> "pepe"
-        traceShowM confirmedSnapshot
-
-      send n1 $ input "Close" []
-      deadline <- waitMatch 3 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "HeadIsClosed"
-        guard $ v ^? key "headId" == Just (toJSON headId)
-        snapshotNumber <- v ^? key "snapshotNumber"
-        guard $ snapshotNumber == Aeson.Number 0
-        v ^? key "contestationDeadline" . _JSON
-
-      -- Expect to see ReadyToFanout within 3 seconds after deadline
-      remainingTime <- diffUTCTime deadline <$> getCurrentTime
-      waitFor hydraTracer (remainingTime + 3) [n1] $
-        output "ReadyToFanout" ["headId" .= headId]
-
-      send n1 $ input "Fanout" []
-      waitFor hydraTracer 3 [n1] $
-        output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
+      confirmedUTxO2 `shouldBe` confirmedUTxO3
  where
   unwrapAddress :: AddressInEra -> Text
   unwrapAddress = \case
