@@ -129,7 +129,6 @@ import Test.Hydra.Tx.Gen (
  )
 import Test.QuickCheck (choose, frequency, oneof, suchThat, vector)
 import Test.QuickCheck.Gen (elements)
-import Test.QuickCheck.Modifiers (Positive (Positive))
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -306,7 +305,7 @@ data ClosedState = ClosedState
 instance Arbitrary ClosedState where
   arbitrary = do
     -- XXX: Untangle the whole generator mess here
-    (_, st, _, _) <- genFanoutTx maxGenParties maxGenAssets
+    (_, st, _, _) <- genFanoutTx maxGenParties
     pure st
 
   shrink = genericShrink
@@ -1003,10 +1002,7 @@ genChainStateWithTx =
 
   genFanoutWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genFanoutWithState = do
-    Positive numParties <- arbitrary
-    Positive numOutputs <- arbitrary
-    (hctx, st, utxo, tx) <- genFanoutTx numParties numOutputs
-    ctx <- pickChainContext hctx
+    (ctx, st, utxo, tx) <- genFanoutTx maxGenParties
     pure (ctx, Closed st, utxo, tx, Fanout)
 
 -- ** Warning zone
@@ -1237,7 +1233,7 @@ genCloseTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo = getKnownUTxO stOpen
-  pure (cctx, stOpen, mempty, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, utxo, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
 genContestTx = do
@@ -1259,16 +1255,15 @@ genContestTx = do
   contestPointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
-genFanoutTx :: Int -> Int -> Gen (HydraContext, ClosedState, UTxO, Tx)
-genFanoutTx numParties numOutputs = do
-  ctx <- genHydraContext numParties
-  utxo <- genUTxOAdaOnlyOfSize numOutputs
-  let (inHead', toDecommit') = splitUTxO utxo
-  (_, toFanout, toDecommit, stClosed@ClosedState{seedTxIn}) <- genStClosed ctx inHead' (Just toDecommit')
-  cctx <- pickChainContext ctx
+genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
+genFanoutTx numParties = do
+  (cctx, stOpen, _utxo, txClose, snapshot) <- genCloseTx numParties
+  let toDecommit = utxoToDecommit $ getSnapshot snapshot
+  let toFanout = utxo $ getSnapshot snapshot
+  let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
       spendableUTxO = getKnownUTxO stClosed
-  pure (ctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
+  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline

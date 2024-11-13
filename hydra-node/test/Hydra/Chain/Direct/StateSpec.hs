@@ -144,7 +144,6 @@ import Test.QuickCheck (
   forAllShrink,
   getPositive,
   label,
-  sized,
   sublistOf,
   tabulate,
   (.&&.),
@@ -350,20 +349,20 @@ spec = parallel $ do
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "increment" $ do
-    -- propBelowSizeLimit maxTxSize forAllIncrement
+    propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
 
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
 
-    prop "observes distributed outputs" $
-      forAllDecrement' $ \toDistribute utxo tx ->
-        case observeDecrementTx utxo tx of
-          Just DecrementObservation{distributedOutputs} ->
-            distributedOutputs === toDistribute
-          Nothing ->
-            False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+  prop "observes distributed outputs" $
+    forAllDecrement' $ \toDistribute utxo tx ->
+      case observeDecrementTx utxo tx of
+        Just DecrementObservation{distributedOutputs} ->
+          distributedOutputs === toDistribute
+        Nothing ->
+          False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
@@ -692,8 +691,8 @@ forAllDecrement' ::
   ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
   Property
 forAllDecrement' action = do
-  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, _, tx) ->
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, utxo', tx) ->
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
      in action distributed utxo tx
 
 forAllClose ::
@@ -753,11 +752,10 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, _, tx) ->
-    forAllBlind (pickChainContext hctx) $ \ctx ->
-      let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
-       in action utxo tx
-            & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
+  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, stClosed, _, tx) ->
+    let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
+     in action utxo tx
+          & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
   maxSupported = 44
 
