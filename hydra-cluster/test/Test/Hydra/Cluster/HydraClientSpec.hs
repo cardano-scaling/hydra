@@ -16,7 +16,7 @@ import CardanoNode (
  )
 import Control.Lens ((^?))
 import Data.Aeson (Value (..), (.=))
-import Data.Aeson.Lens (key)
+import Data.Aeson.Lens (atKey, key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
@@ -65,6 +65,10 @@ spec = around (showLogsOnFailure "HydraClientSpec") $ do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterConfirmedUTxOByWrongAddressScenario tracer tmpDir
+      it "should filter ALL in confirmed UTxO when given an address but using snapshot exclusion option" $ \tracer -> do
+        failAfter 60 $
+          withTempDir "hydra-client" $ \tmpDir ->
+            filterConfirmedUTxOByAddressWithExclusionScenario tracer tmpDir
 
 filterConfirmedUTxOByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterConfirmedUTxOByAddressScenario tracer tmpDir = do
@@ -134,6 +138,20 @@ filterConfirmedUTxOByWrongAddressScenario tracer tmpDir = do
         guard $ snapshotNumber == toJSON expectedSnapshotNumber
         utxo <- v ^? key "snapshot" . key "utxo"
         guard $ utxo == toJSON (mempty :: Map TxIn Value)
+
+filterConfirmedUTxOByAddressWithExclusionScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
+filterConfirmedUTxOByAddressWithExclusionScenario tracer tmpDir = do
+  scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
+    (expectedSnapshotNumber, (aliceExternalVk, _)) <- prepareScenario node nodes tracer
+    let [n1, _, _] = toList nodes
+
+    runScenario hydraTracer n1 (textAddrOf aliceExternalVk <> "&snapshot-utxo=no") $ \con -> do
+      waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        snapshotNumber <- v ^? key "snapshot" . key "number"
+        guard $ snapshotNumber == toJSON expectedSnapshotNumber
+        utxo <- v ^? key "snapshot" . atKey "utxo"
+        guard $ isNothing utxo
 
 -- * Helpers
 unwrapAddress :: AddressInEra -> Text
