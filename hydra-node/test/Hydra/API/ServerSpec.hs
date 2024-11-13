@@ -216,27 +216,6 @@ spec =
               waitMatch 5 conn $ \v ->
                 guard $ isNothing $ v ^? key "utxo"
 
-    it "filters UTXO by given address when clients request it" $
-      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-        withFreePort $ \port ->
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
-            -- TODO! generate messages for diff addresses
-            snapshot <- generate arbitrary
-            let snapshotConfirmedMessage =
-                  SnapshotConfirmed
-                    { headId = testHeadId
-                    , Hydra.API.ServerOutput.snapshot
-                    , Hydra.API.ServerOutput.signatures = mempty
-                    }
-
-            -- FIXME! select one address
-            withClient port "/?address=xyz" $ \conn -> do
-              sendOutput snapshotConfirmedMessage
-
-              -- TODO! check utxo is filtered
-              waitMatch 5 conn $ \v ->
-                guard $ isNothing $ v ^? key "utxo"
-
     it "sequence numbers are continuous" $
       monadicIO $ do
         outputs :: [ServerOutput SimpleTx] <- pick arbitrary
