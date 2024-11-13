@@ -104,7 +104,7 @@ data ServerOutput tx
   | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
-    TxValid {headId :: HeadId, transactionId :: TxIdType tx}
+    TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -181,7 +181,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
-    TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
+    TxValid headId txId tx -> TxValid <$> shrink headId <*> shrink txId <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
