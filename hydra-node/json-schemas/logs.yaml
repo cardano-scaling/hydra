@@ -2590,7 +2590,9 @@ definitions:
           nodeSocket:
             type: string
           hydraScriptsTxId:
-            $ref: "api.yaml#/components/schemas/TxId"
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
           cardanoSigningKey:
             type: string
           cardanoVerificationKeys:
