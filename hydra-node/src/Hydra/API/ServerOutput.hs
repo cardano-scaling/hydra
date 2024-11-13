@@ -250,8 +250,9 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} respon
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
-      handleAddressInclusion filterUTxOByAddress $
-        handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
+      encodedResponse
+        & handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing)
+        & handleAddressInclusion (\addr -> key "snapshot" . key "utxo" %~ filterEntries addr)
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
@@ -276,13 +277,10 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} respon
       WithAddressedUTxO addr -> bs & f addr
       WithoutAddressedUTxO -> bs
 
-  filterUTxOByAddress addr =
-    key "snapshot" . key "utxo" %~ filterEntries
+  filterEntries addr = \case
+    Object utxoMap -> Object $ KeyMap.filter matchingAddress utxoMap
+    other -> other
    where
-    filterEntries = \case
-      Object utxoMap -> Object $ KeyMap.filter matchingAddress utxoMap
-      other -> other
-
     matchingAddress obj =
       case obj ^? key "address" . _String of
         Just address -> address == addr
