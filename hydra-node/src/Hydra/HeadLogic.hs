@@ -322,7 +322,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx)) <>) $
+      (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
