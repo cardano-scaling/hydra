@@ -151,6 +151,7 @@ test-suite tests
     Test.GeneratorSpec
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
+    Test.Hydra.Cluster.HydraClientSpec
     Test.Hydra.Cluster.MithrilSpec
     Test.Hydra.Cluster.Utils
     Test.OfflineChainSpec
