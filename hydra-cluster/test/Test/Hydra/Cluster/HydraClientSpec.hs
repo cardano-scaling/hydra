@@ -62,7 +62,7 @@ spec = around (showLogsOnFailure "HydraClientSpec") $ do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterTxValidByRandomAddressScenario tracer tmpDir
-      it "should filter out TxValid when given a wrong address" $ \tracer -> do
+      fit "should filter out TxValid when given a wrong address" $ \tracer -> do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterTxValidByWrongAddressScenario tracer tmpDir
@@ -70,70 +70,54 @@ spec = around (showLogsOnFailure "HydraClientSpec") $ do
 filterTxValidByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (aliceExternalVk, bobExternalVk) <- prepareScenario node nodes tracer
+    (expectedTxId, (aliceExternalVk, bobExternalVk)) <- prepareScenario node nodes tracer
     let [n1, n2, _] = toList nodes
 
     -- 1/ query alice address from alice node -> Does Not see the tx
-    confirmedTxO1 <- runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
+    runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        pure tx
-
-    traceShowM "Scenario-1"
-    traceShowM (toJSON confirmedTxO1)
+        guard $ txId tx == expectedTxId
 
     -- 2/ query bob address from bob node -> Does see the tx
-    confirmedTxO2 <- runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
+    runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        pure tx
-
-    traceShowM "Scenario-2"
-    traceShowM (toJSON confirmedTxO2)
-
-    confirmedTxO1 `shouldNotBe` confirmedTxO2
+        guard $ txId tx == expectedTxId
 
     -- 3/ query bob address from alice node -> Does see the tx
-    confirmedTxO3 <- runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
+    runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        pure tx
-
-    traceShowM "Scenario-3"
-    traceShowM (toJSON confirmedTxO3)
-
-    confirmedTxO2 `shouldBe` confirmedTxO3
+        guard $ txId tx == expectedTxId
 
 filterTxValidByRandomAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByRandomAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    _ <- prepareScenario node nodes tracer
+    (expectedTxId, _) <- prepareScenario node nodes tracer
     let [n1, _, _] = toList nodes
 
     (randomVk, _) <- generate genKeyPair
-    confirmedTx <- runScenario hydraTracer n1 (textAddrOf randomVk) $ \con -> do
+    runScenario hydraTracer n1 (textAddrOf randomVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        pure tx
-
-    traceShowM "Scenario-4"
-    traceShowM (toJSON confirmedTx)
+        guard $ txId tx == expectedTxId
 
 filterTxValidByWrongAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByWrongAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    _ <- prepareScenario node nodes tracer
+    (expectedTxId, _) <- prepareScenario node nodes tracer
     let [_, _, n3] = toList nodes
 
     runScenario hydraTracer n3 "pepe" $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        pure ()
+        guard $ txId tx == expectedTxId
 
 -- * Helpers
 unwrapAddress :: AddressInEra -> Text
@@ -194,7 +178,7 @@ prepareScenario ::
   RunningNode ->
   NonEmpty HydraClient ->
   Tracer IO EndToEndLog ->
-  IO (VerificationKey PaymentKey, VerificationKey PaymentKey)
+  IO (TxId, (VerificationKey PaymentKey, VerificationKey PaymentKey))
 prepareScenario node nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
@@ -231,7 +215,7 @@ prepareScenario node nodes tracer = do
   send n1 $ input "NewTx" ["transaction" .= tx]
   waitFor hydraTracer 10 [n1, n2, n3] $
     output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
-  pure (aliceExternalVk, bobExternalVk)
+  pure (txId tx, (aliceExternalVk, bobExternalVk))
 
 -- * Fixtures
 

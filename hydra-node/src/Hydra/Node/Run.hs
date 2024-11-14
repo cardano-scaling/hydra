@@ -7,7 +7,7 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutputFilter (..))
+import Hydra.API.ServerOutput (ServerOutput (..), ServerOutputFilter (..), output)
 import Hydra.Cardano.Api (
   AddressInEra,
   GenesisParameters (..),
@@ -111,10 +111,19 @@ run opts = do
   -- TODO! move somewhere else
   serverOutputFilter :: ServerOutputFilter Tx =
     ServerOutputFilter
-      { txContainsAddr = \tx address ->
-          not . null $ flip filter (txOuts' tx) $ \(TxOut addr _ _ _) ->
-            unwrapAddress addr == address
+      { txContainsAddr = \response address ->
+          case output response of
+            TxValid{transaction} -> matchingAddr transaction address
+            TxInvalid{transaction} -> matchingAddr transaction address
+            _ -> True
       }
+
+  -- TODO! move somewhere else
+  matchingAddr tx address =
+    not . null $ flip filter (txOuts' tx) $ \(TxOut addr _ _ _) ->
+      spy' "pepe - unwrapAddress addr" $
+        unwrapAddress addr == address
+
   -- TODO! move somewhere else
   unwrapAddress :: AddressInEra -> Text
   unwrapAddress = \case
