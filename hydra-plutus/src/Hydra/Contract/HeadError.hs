@@ -55,6 +55,8 @@ data HeadError
   | DepositInputNotFound
   | HeadInputNotFound
   | FailedContestUnusedDec
+  | FailedContestUnusedInc
+  | FailedContestUsedInc
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -114,3 +116,5 @@ instance ToErrorCode HeadError where
     HeadInputNotFound -> "H47"
     FailedCloseAny -> "H48"
     FailedContestUnusedDec -> "H49"
+    FailedContestUnusedInc -> "H50"
+    FailedContestUsedInc -> "H51"
