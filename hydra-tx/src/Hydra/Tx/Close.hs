@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Tx.Close where
@@ -100,21 +99,22 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   closeRedeemer =
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}}
-        | version == openVersion
-        , isJust utxoToCommit ->
-            Head.CloseUnusedInc
-              { signature = toPlutusSignatures signatures
-              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-              }
-        | version == openVersion
-        , isJust utxoToDecommit ->
-            Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
-        | version == openVersion
-        , isNothing utxoToCommit
-        , isNothing utxoToDecommit ->
-            Head.CloseAny{signature = toPlutusSignatures signatures}
-        | otherwise ->
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}} ->
+        if version == openVersion
+          then
+            if
+              | isJust utxoToCommit ->
+                  Head.CloseUnusedInc
+                    { signature = toPlutusSignatures signatures
+                    , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+                    }
+              | isJust utxoToDecommit ->
+                  Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+              | isNothing utxoToCommit
+              , isNothing utxoToDecommit ->
+                  Head.CloseAny{signature = toPlutusSignatures signatures}
+              | otherwise -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+          else
             -- NOTE: This will only work for version == openVersion - 1
             case (isJust utxoToCommit, isJust utxoToDecommit) of
               (True, False) ->
@@ -127,16 +127,13 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                   , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
                   }
               (False, False) ->
-                if version /= openVersion
-                  then
-                    -- TODO: why CloseUnusedDec? we could also put CloseUsedInc
-                    -- since there is no logic. We would have to know what
-                    -- happened base on version and what else?
-                    Head.CloseUsedDec
-                      { signature = toPlutusSignatures signatures
-                      , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-                      }
-                  else Head.CloseAny{signature = toPlutusSignatures signatures}
+                -- NOTE: here the assumption is: if your snapshot doesn't
+                -- contain anything to de/commit then it must mean that we
+                -- either already have seen it happen (which would even out the
+                -- two versions) or this is a _normal_ snapshot so the version
+                -- is not _bumped_ further anyway and it needs to be the same
+                -- between snapshot and the open state version.
+                error $ "closeTx: both commit and decommit utxo empty but version not matching! snapshot version: " <> show version <> " open version: " <> show openVersion
               -- TODO: can we get rid of these errors by modelling what we expect differently?
               (True, True) -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
 
