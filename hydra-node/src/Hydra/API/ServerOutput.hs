@@ -219,7 +219,7 @@ data ServerOutputConfig = ServerOutputConfig
   deriving stock (Eq, Show)
 
 newtype ServerOutputFilter tx = ServerOutputFilter
-  { txContainsAddr :: tx -> Text -> Bool
+  { txContainsAddr :: TimedServerOutput tx -> Text -> Bool
   }
 
 -- | Replaces the json encoded tx field with it's cbor representation.
@@ -231,12 +231,11 @@ prepareServerOutput ::
   IsChainState tx =>
   -- | Decide on tx representation
   ServerOutputConfig ->
-  ServerOutputFilter tx ->
   -- | Server output
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInTx} ServerOutputFilter{txContainsAddr} response =
+prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -250,10 +249,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInTx} ServerOutput
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     CommandFailed{} -> encodedResponse
-    TxValid{transaction} ->
-      handleAddressInclusion transaction encodedResponse
-    TxInvalid{transaction} ->
-      handleAddressInclusion transaction encodedResponse
+    TxValid{} -> encodedResponse
+    TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
@@ -274,14 +271,6 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInTx} ServerOutput
     case utxoInSnapshot of
       WithUTxO -> bs
       WithoutUTxO -> bs & f
-
-  handleAddressInclusion transaction bs =
-    case addressInTx of
-      WithAddressedTx addr ->
-        if txContainsAddr transaction addr
-          then bs
-          else LBS.empty
-      WithoutAddressedTx -> bs
 
   encodedResponse = encode response
 
