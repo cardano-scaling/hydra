@@ -3,10 +3,10 @@
 
 module Hydra.API.ServerOutput where
 
-import Control.Lens ((%~), (.~), (^?))
+import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key, _String)
+import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
@@ -20,13 +20,11 @@ import Hydra.Tx (
   Party,
   Snapshot,
   SnapshotNumber,
-  TxIdType,
-  UTxOType,
  )
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -181,7 +179,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
-    TxValid headId txId tx -> TxValid <$> shrink headId <*> shrink txId <*> shrink tx
+    TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
@@ -197,7 +195,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
-    CommitRecorded headId u txId d -> CommitRecorded headId <$> shrink u <*> shrink txId <*> shrink d
+    CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
@@ -210,15 +208,19 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
 
--- | Whether or not to include UTxO with all addresses in server outputs.
-data WithAddressedUTxO = WithAddressedUTxO Text | WithoutAddressedUTxO
+-- | Whether or not to filter transaction server outputs by given address.
+data WithAddressedTx = WithAddressedTx Text | WithoutAddressedTx
   deriving stock (Eq, Show)
 
 data ServerOutputConfig = ServerOutputConfig
   { utxoInSnapshot :: WithUTxO
-  , addressInSnapshot :: WithAddressedUTxO
+  , addressInTx :: WithAddressedTx
   }
   deriving stock (Eq, Show)
+
+newtype ServerOutputFilter tx = ServerOutputFilter
+  { txContainsAddr :: tx -> Text -> Bool
+  }
 
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
@@ -229,11 +231,12 @@ prepareServerOutput ::
   IsChainState tx =>
   -- | Decide on tx representation
   ServerOutputConfig ->
+  ServerOutputFilter tx ->
   -- | Server output
   TimedServerOutput tx ->
   -- | Final output
   LBS.ByteString
-prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} response =
+prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInTx} ServerOutputFilter{txContainsAddr} response =
   case output response of
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
@@ -247,12 +250,12 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} respon
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     CommandFailed{} -> encodedResponse
-    TxValid{} -> encodedResponse
-    TxInvalid{} -> encodedResponse
+    TxValid{transaction} ->
+      handleAddressInclusion transaction encodedResponse
+    TxInvalid{transaction} ->
+      handleAddressInclusion transaction encodedResponse
     SnapshotConfirmed{} ->
-      encodedResponse
-        & handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing)
-        & handleAddressInclusion (\addr -> key "snapshot" . atKey "utxo" %~ filterEntries addr)
+      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
     GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
@@ -272,19 +275,13 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot, addressInSnapshot} respon
       WithUTxO -> bs
       WithoutUTxO -> bs & f
 
-  handleAddressInclusion f bs =
-    case addressInSnapshot of
-      WithAddressedUTxO addr -> bs & f addr
-      WithoutAddressedUTxO -> bs
-
-  filterEntries addr = \case
-    Just (Object utxoMap) -> Just . Object $ KeyMap.filter matchingAddress utxoMap
-    other -> other
-   where
-    matchingAddress obj =
-      case obj ^? key "address" . _String of
-        Just address -> address == addr
-        _ -> False
+  handleAddressInclusion transaction bs =
+    case addressInTx of
+      WithAddressedTx addr ->
+        if txContainsAddr transaction addr
+          then bs
+          else LBS.empty
+      WithoutAddressedTx -> bs
 
   encodedResponse = encode response
 

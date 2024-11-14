@@ -7,12 +7,20 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
+import Hydra.API.ServerOutput (ServerOutputFilter (..))
 import Hydra.Cardano.Api (
+  AddressInEra,
   GenesisParameters (..),
   ProtocolParametersConversionError,
   ShelleyEra,
   SystemStart (..),
+  Tx,
+  serialiseToBech32,
   toShelleyNetwork,
+  txOuts',
+  pattern ByronAddressInEra,
+  pattern ShelleyAddressInEra,
+  pattern TxOut,
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
@@ -92,7 +100,7 @@ run opts = do
           -- API
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
+          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
@@ -100,6 +108,19 @@ run opts = do
               connect chain network server wetHydraNode
                 >>= runHydraNode
  where
+  -- TODO! move somewhere else
+  serverOutputFilter :: ServerOutputFilter Tx =
+    ServerOutputFilter
+      { txContainsAddr = \tx address ->
+          not . null $ flip filter (txOuts' tx) $ \(TxOut addr _ _ _) ->
+            unwrapAddress addr == address
+      }
+  -- TODO! move somewhere else
+  unwrapAddress :: AddressInEra -> Text
+  unwrapAddress = \case
+    ShelleyAddressInEra addr -> serialiseToBech32 addr
+    ByronAddressInEra{} -> error "Byron."
+
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
      in action (cardanoLedger globals ledgerEnv)

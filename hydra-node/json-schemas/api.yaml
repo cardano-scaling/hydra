@@ -63,7 +63,7 @@ channels:
               type: string
               enum: ["yes", "no"]
           address:
-            description: Specify weather the client wants see the snapshot utxo filtered by given address.
+            description: Specify weather the client wants see the transaction server outputs filtered by given address.
             schema:
               type: string
 
