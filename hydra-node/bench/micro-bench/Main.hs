@@ -20,7 +20,16 @@ import Test.QuickCheck (generate)
 
 main :: IO ()
 main = do
-  (utxo, tx) <- prepareTx
+  -- Use this env var to run benchmarks for more transations:
+  --
+  -- > N_TXNS=1 cabal bench micro --benchmark-options '--json output.json +RTS -T'
+  --
+  -- You can then find the `peakMbAllocated` field in the resulting json file.
+  -- (Sorry, criterion makes it very hard to find this with a simple jq
+  -- command.)
+  --
+  nTxns <- fromMaybe 1 . (>>= readMaybe) <$> lookupEnv "N_TXNS"
+  (utxo, tx) <- prepareTx nTxns
   let jsonNewTx = (Aeson.encode . NewTx) tx
       toNewTx bs = object ["tag" .= ("NewTx" :: Text), "transaction" .= String (decodeUtf8 bs)]
       cborNewTx = (Aeson.encode . toNewTx . serialiseToCBOR) tx
@@ -35,9 +44,9 @@ main = do
         ]
     ]
 
-prepareTx :: IO (UTxO, Tx)
-prepareTx =
-  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions 1)
+prepareTx :: Int -> IO (UTxO, Tx)
+prepareTx n =
+  second List.head <$> generate (genFixedSizeSequenceOfSimplePaymentTransactions n)
 
 benchApplyTxs :: (UTxO, Tx) -> Either (Tx, ValidationError) UTxO
 benchApplyTxs (utxo, tx) = applyTransactions defaultLedger (ChainSlot 1) utxo [tx]
