@@ -9,6 +9,7 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Control.Concurrent.STM.TVar (TVar, readTVar)
 import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as LBS
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -17,8 +18,9 @@ import Hydra.API.ServerOutput (
   HeadStatus,
   ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
+  ServerOutputFilter,
   TimedServerOutput (..),
-  WithAddressedUTxO (..),
+  WithAddressedTx (..),
   WithUTxO (..),
   headStatus,
   me,
@@ -59,9 +61,10 @@ wsApp ::
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
+  ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel pending = do
+wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -112,7 +115,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
-      , addressInSnapshot = decideOnAddressDisplay qp
+      , addressInTx = decideOnAddressDisplay qp
       }
 
   decideOnUTxODisplay qp =
@@ -123,8 +126,8 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
 
   decideOnAddressDisplay qp =
     case find queryByAddress qp of
-      Just (QueryParam _ v) -> WithAddressedUTxO (unRText v)
-      _ -> WithoutAddressedUTxO
+      Just (QueryParam _ v) -> WithAddressedTx (unRText v)
+      _ -> WithoutAddressedTx
    where
     queryByAddress = \case
       (QueryParam key _) | key == [queryKey|address|] -> True
@@ -138,11 +141,12 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
 
   sendOutputs chan con outConfig = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse =
-          prepareServerOutput outConfig response
-
-    sendTextData con sentResponse
-    traceWith tracer (APIOutputSent $ toJSON response)
+    let sentResponse = prepareServerOutput outConfig serverOutputFilter response
+    if LBS.null sentResponse
+      then pure ()
+      else do
+        sendTextData con sentResponse
+        traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con

@@ -25,7 +25,7 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
+import Hydra.API.ServerOutput (ServerOutput (..), ServerOutputFilter (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.Chain (
   Chain (Chain),
   draftCommitTx,
@@ -320,7 +320,7 @@ spec =
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
                     }
-            withAPIServer @SimpleTx config testEnvironment alice mockPersistence tracer dummyChainHandle defaultPParams noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment alice mockPersistence tracer dummyChainHandle defaultPParams dummyServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -377,6 +377,12 @@ dummyChainHandle =
     , submitTx = \_ -> error "unexpected call to submitTx"
     }
 
+dummyServerOutputFilter :: ServerOutputFilter tx
+dummyServerOutputFilter =
+  ServerOutputFilter
+    { txContainsAddr = \_ _ -> True
+    }
+
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
@@ -388,7 +394,7 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx config testEnvironment actor persistence tracer dummyChainHandle defaultPParams noop action
+  withAPIServer @SimpleTx config testEnvironment actor persistence tracer dummyChainHandle defaultPParams dummyServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
 

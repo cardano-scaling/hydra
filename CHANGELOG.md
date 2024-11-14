@@ -48,7 +48,7 @@ changes.
 
 - Update mithril to `2442.0`
 
-- Filter utxo display in `SnapshotConfirmed` server outputs by address.
+- Filter `TxValid` and `TxInvalid` server outputs by address.
 
 ## [0.19.0] - 2024-09-13
 
