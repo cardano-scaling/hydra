@@ -549,6 +549,19 @@ checkContest ctx closedDatum redeemer =
             parties
             (headId, version - 1, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
+      ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
+        traceIfFalse $(errorCode FailedContestUnusedInc) $
+          deltaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyCommittedUTxOHash)
+              signature
+      ContestUsedInc{signature} ->
+        traceIfFalse $(errorCode FailedContestUsedInc) $
+          verifySnapshotSignature
+            parties
+            (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
+            signature
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
