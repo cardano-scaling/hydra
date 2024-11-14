@@ -131,6 +131,17 @@ data ContestRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       }
+  | -- | Redeemer to use when the commit was not yet observed but we closed the Head.
+    ContestUnusedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was already committed ηα
+      }
+  | ContestUsedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      }
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
