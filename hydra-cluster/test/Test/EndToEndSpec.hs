@@ -64,6 +64,7 @@ import Hydra.Cluster.Scenarios (
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
+  persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
@@ -217,6 +218,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsScriptBlueprint tracer tmpDir node
+      it "persistence can load with empty commit" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= persistenceCanLoadWithEmptyCommit tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->

@@ -21,7 +21,7 @@ import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON)
+import Data.Aeson.Lens (key, values, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -468,6 +468,44 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       )
 
   RunningNode{networkId, nodeSocket, blockTime} = node
+
+persistenceCanLoadWithEmptyCommit ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 20_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    headId <- withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      requestCommitTx n1 mempty >>= submitTx node
+      waitFor hydraTracer (10 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+      pure headId
+    let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state"
+    stateContents <- readFileBS persistenceState
+    let headOpened = BSC.pack $ List.last (List.lines $ BSC.unpack stateContents)
+    case headOpened ^? key "stateChanged" . key "tag" . _String of
+      Nothing -> error "Failed to find HeadIsOpened in the state file"
+      Just headIsOpen -> do
+        headIsOpen `shouldBe` "HeadOpened"
+        withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+          waitFor hydraTracer (10 * blockTime) [n1] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+
+          send n1 $ input "GetUTxO" []
+
+          waitFor hydraTracer 10 [n1] $
+            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (mempty :: UTxO)]
+ where
+  RunningNode{nodeSocket, blockTime} = node
 
 -- | Single hydra-node where the commit is done from a raw transaction
 -- blueprint.
