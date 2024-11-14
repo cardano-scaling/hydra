@@ -383,6 +383,7 @@ instance StateModel Model where
               else
                 snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
+        && (not (null snapshot.toDecommit) || (snapshot.version == currentVersion))
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
@@ -391,6 +392,9 @@ instance StateModel Model where
         && actor `notElem` alreadyContested
         && snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
         && snapshot.number > closedSnapshotNumber
+        && ( not (null snapshot.toDecommit)
+              || (snapshot.version == currentVersion)
+           )
     Fanout{utxo, deltaUTxO} ->
       headState == Closed
         && utxo == utxoInHead
@@ -415,9 +419,13 @@ instance StateModel Model where
         && ( snapshot.number == 0
               || snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
+        && (not (null snapshot.toDecommit) || (snapshot.version == currentVersion))
     Contest{snapshot} ->
       headState == Closed
         && snapshot `elem` knownSnapshots
+        && ( not (null snapshot.toDecommit)
+              || (snapshot.version == currentVersion)
+           )
     Fanout{} ->
       headState == Closed
 

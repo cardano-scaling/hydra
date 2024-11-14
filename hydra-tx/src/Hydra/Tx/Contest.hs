@@ -130,44 +130,40 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
 setContestRedeemer :: Snapshot Tx -> SnapshotVersion -> MultiSignature (Snapshot Tx) -> Head.ContestRedeemer
 setContestRedeemer Snapshot{version, utxoToCommit, utxoToDecommit} openVersion sig =
-  if
-    | version == openVersion
-    , isJust utxoToDecommit ->
-        Head.ContestUnusedDec
-          { signature = toPlutusSignatures sig
-          }
-    | version == openVersion
-    , isJust utxoToCommit ->
-        Head.ContestUnusedInc
-          { signature = toPlutusSignatures sig
-          , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-          }
-    | version == openVersion
-    , isNothing utxoToCommit
-    , isNothing utxoToDecommit ->
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
-          }
-    | otherwise ->
-        case (isJust utxoToCommit, isJust utxoToDecommit) of
-          (True, False) ->
-            Head.ContestUsedInc
+  if version == openVersion
+    then
+      if
+        | isJust utxoToDecommit ->
+            Head.ContestUnusedDec
               { signature = toPlutusSignatures sig
               }
-          (False, True) ->
-            Head.ContestUsedDec
+        | isJust utxoToCommit ->
+            Head.ContestUnusedInc
               { signature = toPlutusSignatures sig
-              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
               }
-          (False, False) ->
-            if version /= openVersion
-              then
-                -- TODO: why ContestUnusedDec? we could also put ContestUsedInc
-                -- since there is no logic. We would have to know what
-                -- happened base on version and what else?
-                Head.ContestUsedDec
-                  { signature = toPlutusSignatures sig
-                  , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-                  }
-              else Head.ContestCurrent{signature = toPlutusSignatures sig}
-          (True, True) -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+        | isNothing utxoToCommit
+        , isNothing utxoToDecommit ->
+            Head.ContestCurrent
+              { signature = toPlutusSignatures sig
+              }
+        | otherwise -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+    else case (isJust utxoToCommit, isJust utxoToDecommit) of
+      (True, False) ->
+        Head.ContestUsedInc
+          { signature = toPlutusSignatures sig
+          }
+      (False, True) ->
+        Head.ContestUsedDec
+          { signature = toPlutusSignatures sig
+          , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+          }
+      (False, False) ->
+        -- NOTE: here the assumption is: if your snapshot doesn't
+        -- contain anything to de/commit then it must mean that we
+        -- either already have seen it happen (which would even out the
+        -- two versions) or this is a _normal_ snapshot so the version
+        -- is not _bumped_ further anyway and it needs to be the same
+        -- between snapshot and the open state version.
+        error $ "contestTx: both commit and decommit utxo empty but version not the same! snapshot version: " <> show version <> " open version: " <> show openVersion
+      (True, True) -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."

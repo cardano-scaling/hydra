@@ -547,7 +547,7 @@ checkContest ctx closedDatum redeemer =
         traceIfFalse $(errorCode FailedContestUnusedDec) $
           verifySnapshotSignature
             parties
-            (headId, version - 1, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
             signature
       ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUnusedInc) $
