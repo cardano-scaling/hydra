@@ -40,9 +40,9 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsInitializingWith,
  )
-import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Tx (IsTx (..))
+import Hydra.Tx (HeadId, IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import HydraNode (HydraClient (..), HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -54,15 +54,15 @@ spec :: Spec
 spec = around (showLogsOnFailure "HydraClientSpec") $ do
   describe "HydraClient on Cardano devnet" $ do
     describe "hydra-client" $ do
-      fit "should filter TxValid by provided address" $ \tracer -> do
+      it "should filter TxValid by provided address" $ \tracer -> do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterTxValidByAddressScenario tracer tmpDir
-      fit "should filter out TxValid when given a random address" $ \tracer -> do
+      it "should filter out TxValid when given a random address" $ \tracer -> do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterTxValidByRandomAddressScenario tracer tmpDir
-      fit "should filter out TxValid when given a wrong address" $ \tracer -> do
+      it "should filter out TxValid when given a wrong address" $ \tracer -> do
         failAfter 60 $
           withTempDir "hydra-client" $ \tmpDir ->
             filterTxValidByWrongAddressScenario tracer tmpDir
@@ -70,34 +70,83 @@ spec = around (showLogsOnFailure "HydraClientSpec") $ do
 filterTxValidByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (expectedTxId, (aliceExternalVk, bobExternalVk)) <- prepareScenario node nodes tracer
-    let [n1, n2, n3] = toList nodes
+    (initialTxId, headId, (aliceExternalVk, _), (bobExternalVk, bobExternalSk)) <-
+      prepareScenario node nodes tracer
+    let [n1, n2, _] = toList nodes
 
     -- 1/ query alice address from alice node -> Does see the tx
     runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == expectedTxId
+        guard $ txId tx == initialTxId
 
     -- 2/ query bob address from bob node -> Does see the tx
     runScenario hydraTracer n2 (textAddrOf bobExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == expectedTxId
+        guard $ txId tx == initialTxId
 
-    -- 3/ query bob address from carol node -> Does see the tx
-    runScenario hydraTracer n3 (textAddrOf bobExternalVk) $ \con -> do
+    -- 3/ query bob address from alice node -> Does see the tx
+    runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == expectedTxId
+        guard $ txId tx == initialTxId
+
+    -- 4/ query alice address from alice node -> Does not see the bob-self tx
+    newTxId <- runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
+      send n1 $ input "GetUTxO" []
+      utxo <- waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "GetUTxOResponse"
+        headId' :: HeadId <- v ^? key "headId" >>= parseMaybe parseJSON
+        guard $ headId == headId'
+        v ^? key "utxo" >>= parseMaybe parseJSON
+
+      newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+      waitFor hydraTracer 10 (toList nodes) $
+        output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId, "transaction" .= newTx]
+
+      waitNoMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
+        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
+        guard $ txId tx == txId newTx
+
+      pure (txId newTx)
+
+    -- 5/ query bob address from alice node -> Does see the both tx from history.
+    runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
+      waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
+        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
+        guard $ txId tx == initialTxId
+
+      waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
+        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
+        guard $ txId tx == newTxId
+
+    -- 6/ query bob address from alice node -> Does not see new bob-self tx
+    runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
+      send n1 $ input "GetUTxO" []
+      utxo <- waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "GetUTxOResponse"
+        headId' :: HeadId <- v ^? key "headId" >>= parseMaybe parseJSON
+        guard $ headId == headId'
+        v ^? key "utxo" >>= parseMaybe parseJSON
+
+      newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+
+      waitMatch 3 con $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
+        tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
+        guard $ txId tx == txId newTx
 
 filterTxValidByRandomAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByRandomAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (expectedTxId, _) <- prepareScenario node nodes tracer
+    (initialTxId, _, _, _) <- prepareScenario node nodes tracer
     let [n1, _, _] = toList nodes
 
     (randomVk, _) <- generate genKeyPair
@@ -105,19 +154,19 @@ filterTxValidByRandomAddressScenario tracer tmpDir = do
       waitNoMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == expectedTxId
+        guard $ txId tx == initialTxId
 
 filterTxValidByWrongAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByWrongAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
-    (expectedTxId, _) <- prepareScenario node nodes tracer
+    (initialTxId, _, _, _) <- prepareScenario node nodes tracer
     let [_, _, n3] = toList nodes
 
     runScenario hydraTracer n3 "invalid" $ \con -> do
       waitNoMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
-        guard $ txId tx == expectedTxId
+        guard $ txId tx == initialTxId
 
 -- * Helpers
 unwrapAddress :: AddressInEra -> Text
@@ -178,7 +227,7 @@ prepareScenario ::
   RunningNode ->
   NonEmpty HydraClient ->
   Tracer IO EndToEndLog ->
-  IO (TxId, (VerificationKey PaymentKey, VerificationKey PaymentKey))
+  IO (TxId, HeadId, (VerificationKey PaymentKey, SigningKey PaymentKey), (VerificationKey PaymentKey, SigningKey PaymentKey))
 prepareScenario node nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
@@ -189,11 +238,11 @@ prepareScenario node nodes tracer = do
       headIsInitializingWith (Set.fromList [alice, bob, carol])
 
   -- Get some UTXOs to commit to a head
-  (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+  aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
   committedUTxOByAlice <- seedFromFaucet node aliceExternalVk aliceCommittedToHead (contramap FromFaucet tracer)
   requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= submitTx node
 
-  (bobExternalVk, bobExternalSk) <- generate genKeyPair
+  bobKeys@(bobExternalVk, bobExternalSk) <- generate genKeyPair
   committedUTxOByBob <- seedFromFaucet node bobExternalVk bobCommittedToHead (contramap FromFaucet tracer)
   requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= submitTx node
 
@@ -203,19 +252,29 @@ prepareScenario node nodes tracer = do
 
   waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
 
-  -- Create an arbitrary transaction using some input.
-  -- XXX: This makes a scenario where bob has more than 1 output, alice a small one and carol none.
-  -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
-  let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+  -- Create an arbitrary transaction using some input to have history.
+  tx <- sendTx nodes committedUTxOByAlice aliceExternalSk bobExternalVk paymentFromAliceToBob
+  waitFor hydraTracer 10 (toList nodes) $
+    output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
+  pure (txId tx, headId, aliceKeys, bobKeys)
+
+-- NOTE(AB): this is partial and will fail if we are not able to generate a payment
+sendTx :: NonEmpty HydraClient -> UTxO' (TxOut CtxUTxO) -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
+sendTx nodes senderUTxO sender receiver amount = do
+  let utxo = Prelude.head $ UTxO.pairs senderUTxO
   let Right tx =
         mkSimpleTx
-          firstCommittedUTxO
-          (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
-          aliceExternalSk
-  send n1 $ input "NewTx" ["transaction" .= tx]
-  waitFor hydraTracer 10 [n1, n2, n3] $
-    output "TxValid" ["transactionId" .= txId tx, "headId" .= headId, "transaction" .= tx]
-  pure (txId tx, (aliceExternalVk, bobExternalVk))
+          utxo
+          (inHeadAddress receiver, lovelaceToValue amount)
+          sender
+  send (head nodes) $ input "NewTx" ["transaction" .= tx]
+  pure tx
+
+sendTransferTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> IO Tx
+sendTransferTx nodes utxo sender receiver = do
+  tx <- mkTransferTx testNetworkId utxo sender receiver
+  send (head nodes) $ input "NewTx" ["transaction" .= tx]
+  pure tx
 
 -- * Fixtures
 
