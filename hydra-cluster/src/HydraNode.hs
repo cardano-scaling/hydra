@@ -88,6 +88,14 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
+-- | Wait up to some time and succeed if no API server output matches the given predicate.
+waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO ()
+waitNoMatch delay client match = do
+  result <- try (void $ waitMatch delay client match) :: IO (Either SomeException ())
+  case result of
+    Left _ -> pure () -- Success: waitMatch failed to find a match
+    Right _ -> failure "waitNoMatch: A match was found when none was expected"
+
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do

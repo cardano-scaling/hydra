@@ -121,8 +121,7 @@ run opts = do
   -- TODO! move somewhere else
   matchingAddr tx address =
     not . null $ flip filter (txOuts' tx) $ \(TxOut addr _ _ _) ->
-      spy' "pepe - unwrapAddress addr" $
-        unwrapAddress addr == address
+      unwrapAddress addr == address
 
   -- TODO! move somewhere else
   unwrapAddress :: AddressInEra -> Text
