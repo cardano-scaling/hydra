@@ -1,7 +1,7 @@
-asyncapi: "2.3.0"
+asyncapi: '2.3.0'
 info:
   title: Hydra Node API
-  version: "0.19.0"
+  version: '0.19.0'
   description: |
     WebSocket/HTTP API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
 
@@ -27,7 +27,7 @@ servers:
     variables:
       host:
         description: Address the Hydra node is listening for client connections.
-        default: "127.0.0.1"
+        default: '127.0.0.1'
       port:
         description: Port the Hydra node is listening for client connections.
         default: "4001"
@@ -38,7 +38,7 @@ servers:
     variables:
       host:
         description: Address at which the Hydra node is accepting the client requests.
-        default: "127.0.0.1"
+        default: '127.0.0.1'
       port:
         description: Port at which the Hydra node is accepting the client requests.
         default: "4001"
@@ -128,7 +128,7 @@ channels:
         http:
           type: request
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: draftCommitTxResponse
       description: |
@@ -142,7 +142,7 @@ channels:
         http:
           type: response
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 
   /commits:
     servers:
@@ -157,7 +157,7 @@ channels:
         http:
           type: request
           method: GET
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: pendingDepositsResponse
       description: |
@@ -173,7 +173,7 @@ channels:
         http:
           type: response
           method: GET
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 
   /commits/tx-id:
     servers:
@@ -188,7 +188,7 @@ channels:
         http:
           type: request
           method: DELETE
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: recoverDepositResponse
       description: |
@@ -202,7 +202,7 @@ channels:
         http:
           type: response
           method: DELETE
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 
   /snapshot/utxo:
     servers:
@@ -222,7 +222,7 @@ channels:
         http:
           type: response
           method: GET
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 
   /decommit:
     servers:
@@ -240,7 +240,7 @@ channels:
         http:
           type: request
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: decommitResponse
       description: |
@@ -249,12 +249,12 @@ channels:
           * String - 400 bad request
       message:
         payload:
-          $ref: "api.yaml#/components/messages/DecommitResponse"
+            $ref: "api.yaml#/components/messages/DecommitResponse"
       bindings:
         http:
           type: response
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 
   /protocol-parameters:
     servers:
@@ -268,7 +268,7 @@ channels:
         http:
           type: response
           method: GET
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
   /cardano-transaction:
     servers:
       - localhost-http
@@ -284,30 +284,30 @@ channels:
         http:
           type: response
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
     subscribe:
       operationId: submitTxResponse
       message:
         oneOf:
-          - name: TransactionSubmitted
-            summary: 200 OK
-            description: Successfully submitted a cardano transaction to the L1 network.
-            payload:
-              type: object
-              additionalProperties: false
-              properties:
-                tag:
-                  type: string
-                  enum: ["TransactionSubmitted"]
-          - name: PostTxError
-            summary: 400 Bad Request
-            payload:
-              $ref: "api.yaml#/components/schemas/PostTxError"
+        - name: TransactionSubmitted
+          summary: 200 OK
+          description: Successfully submitted a cardano transaction to the L1 network.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["TransactionSubmitted"]
+        - name: PostTxError
+          summary: 400 Bad Request
+          payload:
+            $ref: "api.yaml#/components/schemas/PostTxError"
       bindings:
         http:
           type: request
           method: POST
-          bindingVersion: "0.1.0"
+          bindingVersion: '0.1.0'
 components:
   messages:
     ########
@@ -636,7 +636,7 @@ components:
     CommitRecorded:
       title: CommitRecorded
       description: |
-        Deposit is detected and recorded in the local state.
+         Deposit is detected and recorded in the local state.
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecorded"
 
@@ -661,6 +661,7 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecovered"
 
+
     # END OF SERVER OUTPUT MESSAGES
 
     DraftCommitTxRequest:
@@ -674,14 +675,14 @@ components:
     DraftCommitTxResponse:
       title: DraftCommitTxResponse
       description: |
-        Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
       payload:
         $ref: "api.yaml#/components/schemas/Transaction"
 
     DecommitResponse:
       title: DecommitResponse
       description: |
-        Emitted by the server after drafting a decommit transaction.
+          Emitted by the server after drafting a decommit transaction.
       payload:
         type: string
 
@@ -997,7 +998,7 @@ components:
         - tag
         - headId
         - transactionId
-        - tx
+        - transaction
         - seq
         - timestamp
       properties:
@@ -1008,7 +1009,7 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         transactionId:
           $ref: "api.yaml#/components/schemas/TxId"
-        tx:
+        transaction:
           $ref: "api.yaml#/components/schemas/Transaction"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
@@ -1018,13 +1019,13 @@ components:
     TxInvalid:
       type: object
       required:
-        - tag
-        - headId
-        - utxo
-        - transaction
-        - validationError
-        - seq
-        - timestamp
+      - tag
+      - headId
+      - utxo
+      - transaction
+      - validationError
+      - seq
+      - timestamp
       properties:
         tag:
           type: string
@@ -1069,11 +1070,11 @@ components:
     GetUTxOResponse:
       type: object
       required:
-        - tag
-        - headId
-        - utxo
-        - seq
-        - timestamp
+      - tag
+      - headId
+      - utxo
+      - seq
+      - timestamp
       properties:
         tag:
           type: string
@@ -1090,11 +1091,11 @@ components:
     InvalidInput:
       type: object
       required:
-        - tag
-        - reason
-        - input
-        - seq
-        - timestamp
+      - tag
+      - reason
+      - input
+      - seq
+      - timestamp
       properties:
         tag:
           type: string
@@ -1112,11 +1113,11 @@ components:
       type: object
       additionalProperties: false
       required:
-        - tag
-        - postChainTx
-        - postTxError
-        - seq
-        - timestamp
+      - tag
+      - postChainTx
+      - postTxError
+      - seq
+      - timestamp
       properties:
         tag:
           type: string
@@ -1133,10 +1134,10 @@ components:
     CommandFailed:
       type: object
       required:
-        - tag
-        - clientInput
-        - seq
-        - timestamp
+      - tag
+      - clientInput
+      - seq
+      - timestamp
       properties:
         tag:
           type: string
@@ -1454,40 +1455,41 @@ components:
       description: |
         The base16-encoding of the CBOR encoding of some binary data
       contentEncoding: base16
-      example: "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
+      example:
+        "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
 
     ConfirmedSnapshot:
       oneOf:
-        - title: "InitialSnapshot"
-          type: object
-          additionalProperties: false
-          required:
-            - headId
-            - initialUTxO
-            - tag
-          properties:
-            headId:
-              $ref: "api.yaml#/components/schemas/HeadId"
-            initialUTxO:
-              $ref: "api.yaml#/components/schemas/UTxO"
-            tag:
-              type: string
-              enum: ["InitialSnapshot"]
+      - title: "InitialSnapshot"
+        type: object
+        additionalProperties: false
+        required:
+          - headId
+          - initialUTxO
+          - tag
+        properties:
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          initialUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          tag:
+            type: string
+            enum: ["InitialSnapshot"]
 
-        - title: "ConfirmedSnapshot"
-          type: object
-          additionalProperties: false
-          required:
-            - snapshot
-            - signatures
-          properties:
-            snapshot:
-              $ref: "api.yaml#/components/schemas/Snapshot"
-            signatures:
-              $ref: "api.yaml#/components/schemas/MultiSignature"
-            tag:
-              type: string
-              enum: ["ConfirmedSnapshot"]
+      - title: "ConfirmedSnapshot"
+        type: object
+        additionalProperties: false
+        required:
+          - snapshot
+          - signatures
+        properties:
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatures:
+            $ref: "api.yaml#/components/schemas/MultiSignature"
+          tag:
+            type: string
+            enum: ["ConfirmedSnapshot"]
 
     ContestationPeriod:
       type: number
@@ -1500,14 +1502,16 @@ components:
       description: |
         A unique identifier for a Head, represented by a hex-encoded 16 bytes string.
       contentEncoding: base16
-      example: "820082582089ff4f3ff4a6052ec9d073"
+      example:
+        "820082582089ff4f3ff4a6052ec9d073"
 
     HeadSeed:
       type: string
       description: |
         A unique seed identifier to create a 'HeadId', represented by a hex-encoded 16 bytes string.
       contentEncoding: base16
-      example: "111206190b110f1417181e0120141e05"
+      example:
+        "111206190b110f1417181e0120141e05"
 
     HeadParameters:
       type: object
@@ -1545,7 +1549,7 @@ components:
         Aggregated signature produced by Head protocol when a Snapshot is confirmed by all parties.
       additionalProperties: false
       required:
-        - multiSignature
+      - multiSignature
       properties:
         multiSignature:
           type: array
@@ -1565,7 +1569,7 @@ components:
           contentEncoding: base16
       example:
         {
-          "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043",
+            "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043"
         }
 
     Peer:
@@ -1578,7 +1582,11 @@ components:
           format: hostname
         port:
           type: number
-      example: { "hostname": "10.0.0.10", "port": 5001 }
+      example:
+        {
+            "hostname": "10.0.0.10",
+            "port": 5001
+        }
 
     # NOTE: We are not using the cardanonical/cardano.json#ProtocolParameters as
     # we need to be compatible with what the cardano-cli provides us
@@ -1902,9 +1910,9 @@ components:
               $ref: "api.yaml#/components/schemas/UTxO"
 
             utxoToDecommit:
-              oneOf:
-                - $ref: "api.yaml#/components/schemas/UTxO"
-                - type: "null"
+             oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
@@ -1918,9 +1926,9 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - redeemerPtr
-            - failureReason
+          - tag
+          - redeemerPtr
+          - failureReason
           description: >-
             Script execution failed when finalizing a transaction in the wallet.
             The redeemer pointer should give an indication which script failed
@@ -1970,7 +1978,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -1982,7 +1990,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -1991,8 +1999,8 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - knownUTxO
+          - tag
+          - knownUTxO
           description: >-
             The DirectChain was unable to find the output paying to Initial script corresponding
             to this node's Party, with the relevant _Participation Token_.
@@ -2008,8 +2016,8 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - byronAddress
+          - tag
+          - byronAddress
           description: >-
             The UTxO provided to commit is locked by a (legacy) Byron address, which is not supported.
           properties:
@@ -2022,7 +2030,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           description: >-
             Initialising a new Head failed because the DirectChain component was unable to find
             a "seed" UTxO to consume. This can happen if no UTxO has been assigned to the internal wallet's address
@@ -2036,9 +2044,9 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - chainState
-            - txTried
+          - tag
+          - chainState
+          - txTried
           description: >-
             Attempted to post a transaction that's invalid given current protocol's state. This is definitely a **BUG**.
           properties:
@@ -2053,9 +2061,9 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - plutusFailure
-            - plutusDebugInfo
+          - tag
+          - plutusFailure
+          - plutusDebugInfo
           description: >-
             An internal transaction created by the Hydra node failed with Plutus errors. This should not happen in principle
             and may disappear in the final version but is currently useful as a debugging mean.
@@ -2071,8 +2079,8 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - failureReason
+          - tag
+          - failureReason
           description: >-
             A generic error case. Some transaction that wasn't expected to fail still failed... somehow.
           properties:
@@ -2087,9 +2095,9 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - userCommittedLovelace
-            - mainnetLimitLovelace
+          - tag
+          - userCommittedLovelace
+          - mainnetLimitLovelace
           properties:
             userCommittedLovelace:
               type: number
@@ -2104,7 +2112,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2115,8 +2123,8 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - headSeed
+          - tag
+          - headSeed
           properties:
             tag:
               type: string
@@ -2129,8 +2137,8 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
-            - headId
+          - tag
+          - headId
           properties:
             tag:
               type: string
@@ -2143,7 +2151,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2154,7 +2162,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2165,7 +2173,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2176,7 +2184,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2187,7 +2195,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2198,7 +2206,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2209,7 +2217,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2220,7 +2228,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2231,7 +2239,7 @@ components:
           type: object
           additionalProperties: false
           required:
-            - tag
+          - tag
           properties:
             tag:
               type: string
@@ -2246,11 +2254,11 @@ components:
     Snapshot:
       type: object
       required:
-        - headId
-        - number
-        - utxo
-        - confirmed
-        - version
+      - headId
+      - number
+      - utxo
+      - confirmed
+      - version
       properties:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
@@ -2302,12 +2310,7 @@ components:
       properties:
         type:
           type: string
-          enum:
-            [
-              "Tx ConwayEra",
-              "Unwitnessed Tx ConwayEra",
-              "Witnessed Tx ConwayEra",
-            ]
+          enum: ["Tx ConwayEra", "Unwitnessed Tx ConwayEra", "Witnessed Tx ConwayEra"]
         description:
           type: string
         cborHex:
@@ -2346,13 +2349,12 @@ components:
                 - PlutusScriptV3
       example:
         {
-          "script":
-            {
+          "script": {
               "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
               "description": "",
-              "type": "SimpleScript",
-            },
-          "scriptLanguage": "SimpleScriptLanguage",
+              "type": "SimpleScript"
+          },
+          "scriptLanguage": "SimpleScriptLanguage"
         }
 
     TxId:
@@ -2377,8 +2379,8 @@ components:
       description: |
         A single transaction output
       required:
-        - address
-        - value
+      - address
+      - value
       additionalProperties: false
       properties:
         address:
@@ -2484,36 +2486,36 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
       example:
         {
-          "blueprintTx": { "cborHex": "...", "type": "Tx BabbageEra" },
-          "utxo":
-            {
-              ? "e44bdebd6bd7f54f081b5945a5e30521833fd3944f4f4d13de309d36ac5f9615#80"
-              : {
-                  "address": "addr1zyhxu2ejxercjqwz3yzv3nx5qjup37n5x2eskf4kna2rpdcqdjxnpvxsxr0plavuw385mqg2ts0zlqkm9r879kgn5vysfkfu4t",
-                  "datum": null,
-                  "datumhash": "aa218e748e45df83c4fe14759280170edcce8f1c45d52d555b8038b50d6cd29e",
-                  "inlineDatum": null,
-                  "referenceScript":
-                    {
-                      "script":
-                        {
-                          "cborHex": "...",
-                          "description": "",
-                          "type": "SimpleScript",
-                        },
-                      "scriptLanguage": "SimpleScriptLanguage",
-                    },
-                  "value":
-                    {
-                      ? "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1"
-                      : { "32": 2 },
-                      "lovelace": 1,
-                    },
+          "blueprintTx": {
+            "cborHex": "...",
+            "type": "Tx BabbageEra"
+          },
+          "utxo": {
+            "e44bdebd6bd7f54f081b5945a5e30521833fd3944f4f4d13de309d36ac5f9615#80": {
+              "address": "addr1zyhxu2ejxercjqwz3yzv3nx5qjup37n5x2eskf4kna2rpdcqdjxnpvxsxr0plavuw385mqg2ts0zlqkm9r879kgn5vysfkfu4t",
+              "datum": null,
+              "datumhash": "aa218e748e45df83c4fe14759280170edcce8f1c45d52d555b8038b50d6cd29e",
+              "inlineDatum": null,
+              "referenceScript": {
+                "script": {
+                  "cborHex": "...",
+                  "description": "",
+                  "type": "SimpleScript"
                 },
-            },
+                "scriptLanguage": "SimpleScriptLanguage"
+              },
+              "value": {
+                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                  "32": 2
+                },
+                "lovelace": 1
+              }
+            }
+          }
         }
 
     # END OF SERVER OUTPUT SCHEMAS
+
 
     PlutusV2Script:
       type: object
@@ -2521,9 +2523,9 @@ components:
         Plutus V2 Script wrapped in a text-envelope.
       additionalProperties: false
       required:
-        - cborHex
-        - description
-        - type
+      - cborHex
+      - description
+      - type
       properties:
         cborHex:
           $ref: "api.yaml#/components/schemas/Cbor"
@@ -2641,7 +2643,7 @@ components:
     MkHydraVersionedProtocolNumber:
       type: object
       required:
-        - hydraVersionedProtocolNumber
+      - hydraVersionedProtocolNumber
       properties:
         hydraVersionedProtocolNumber:
           type: integer
@@ -2659,8 +2661,8 @@ components:
         - title: KnownHydraVersions
           type: object
           required:
-            - tag
-            - fromKnownHydraVersions
+          - tag
+          - fromKnownHydraVersions
           properties:
             tag:
               type: string
