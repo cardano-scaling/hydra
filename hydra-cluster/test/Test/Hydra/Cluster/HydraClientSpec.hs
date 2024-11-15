@@ -44,7 +44,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
-import HydraNode (HydraClient (..), HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withConnectionToNodeHost, withHydraCluster)
+import HydraNode (HydraClient (..), HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, waitNoMatch, withConnectionToNodeHost, withHydraCluster)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
@@ -71,9 +71,9 @@ filterTxValidByAddressScenario :: Tracer IO EndToEndLog -> FilePath -> IO ()
 filterTxValidByAddressScenario tracer tmpDir = do
   scenarioSetup tracer tmpDir $ \node nodes hydraTracer -> do
     (expectedTxId, (aliceExternalVk, bobExternalVk)) <- prepareScenario node nodes tracer
-    let [n1, n2, _] = toList nodes
+    let [n1, n2, n3] = toList nodes
 
-    -- 1/ query alice address from alice node -> Does Not see the tx
+    -- 1/ query alice address from alice node -> Does see the tx
     runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
@@ -87,8 +87,8 @@ filterTxValidByAddressScenario tracer tmpDir = do
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
         guard $ txId tx == expectedTxId
 
-    -- 3/ query bob address from alice node -> Does see the tx
-    runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
+    -- 3/ query bob address from carol node -> Does see the tx
+    runScenario hydraTracer n3 (textAddrOf bobExternalVk) $ \con -> do
       waitMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
@@ -102,7 +102,7 @@ filterTxValidByRandomAddressScenario tracer tmpDir = do
 
     (randomVk, _) <- generate genKeyPair
     runScenario hydraTracer n1 (textAddrOf randomVk) $ \con -> do
-      waitMatch 3 con $ \v -> do
+      waitNoMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
         guard $ txId tx == expectedTxId
@@ -113,8 +113,8 @@ filterTxValidByWrongAddressScenario tracer tmpDir = do
     (expectedTxId, _) <- prepareScenario node nodes tracer
     let [_, _, n3] = toList nodes
 
-    runScenario hydraTracer n3 "pepe" $ \con -> do
-      waitMatch 3 con $ \v -> do
+    runScenario hydraTracer n3 "invalid" $ \con -> do
+      waitNoMatch 3 con $ \v -> do
         guard $ v ^? key "tag" == Just "TxValid"
         tx :: Tx <- v ^? key "transaction" >>= parseMaybe parseJSON
         guard $ txId tx == expectedTxId

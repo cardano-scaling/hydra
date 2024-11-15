@@ -65,14 +65,12 @@ wsApp ::
   IO ()
 wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
-  -- pepe - path: "/?history=yes&address=addr_test1vz3n9qpu38xuzfx7a8va72qml00mcg6vdre3mztlz0l24aqjgjfxp"
-  let path = (spy' "pepe - path" $ requestPath $ pendingRequest pending)
-  let aux = (spy' "pepe - aux" <$> mkURIBs path)
-  queryParams <- uriQuery <$> aux
+  let path = requestPath $ pendingRequest pending
+  queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
-  let outConfig = mkServerOutputConfig (spy' "pepe - queryParams" queryParams)
+  let outConfig = mkServerOutputConfig queryParams
 
   -- api client can decide if they want to see the past history of server outputs
   unless (shouldNotServeHistory queryParams) $
