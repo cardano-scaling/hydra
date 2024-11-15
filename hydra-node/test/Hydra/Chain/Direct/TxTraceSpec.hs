@@ -45,10 +45,12 @@ import Hydra.Chain.Direct.State (
   ContestTxError,
   DecrementTxError,
   FanoutTxError,
+  IncrementTxError,
   close,
   contest,
   decrement,
   fanout,
+  increment,
  )
 import Hydra.Chain.Direct.Tx (
   HeadObservation (NoHeadTx),
@@ -116,6 +118,7 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
   p
     & cover 1 (null steps) "empty"
     & cover 50 (hasSomeSnapshots steps) "has some snapshots"
+    & cover 5 (hasIncrement steps) "has increments"
     & cover 5 (hasDecrement steps) "has decrements"
     & cover 0.1 (countContests steps >= 2) "has multiple contests"
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
@@ -131,6 +134,7 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
           polarity == PosPolarity
         _ -> False
 
+  hasUTxOToCommit snapshot = not . null $ toCommit snapshot
   hasUTxOToDecommit snapshot = not . null $ toDecommit snapshot
 
   hasFanout =
@@ -176,6 +180,13 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
       Close{snapshot} -> snapshot > 0
       _ -> False
 
+  hasIncrement =
+    all $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Increment{snapshot} ->
+          polarity == PosPolarity
+            && hasUTxOToCommit snapshot
+        _ -> False
   hasDecrement =
     all $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
@@ -216,6 +227,7 @@ data Model = Model
   , closedSnapshotNumber :: SnapshotNumber
   , alreadyContested :: [Actor]
   , utxoInHead :: ModelUTxO
+  , pendingCommit :: ModelUTxO
   , -- XXX: This is used in two ways, to track pending decommits for generating
     -- snapshots and to remember the pending (delta) utxo during close/fanout
     pendingDecommit :: ModelUTxO
@@ -233,6 +245,7 @@ data ModelSnapshot = ModelSnapshot
   { version :: SnapshotVersion
   , number :: SnapshotNumber
   , inHead :: ModelUTxO
+  , toCommit :: ModelUTxO
   , toDecommit :: ModelUTxO
   }
   deriving (Show, Eq, Ord, Generic)
@@ -248,6 +261,7 @@ instance Num ModelSnapshot where
       { version = UnsafeSnapshotVersion 0
       , number = UnsafeSnapshotNumber $ fromMaybe 0 $ integerToNatural x
       , inHead = mempty
+      , toCommit = mempty
       , toDecommit = mempty
       }
 
@@ -279,6 +293,7 @@ data TxResult = TxResult
 instance StateModel Model where
   data Action Model a where
     NewSnapshot :: {newSnapshot :: ModelSnapshot} -> Action Model ()
+    Increment :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
@@ -295,11 +310,12 @@ instance StateModel Model where
       , closedSnapshotNumber = 0
       , alreadyContested = []
       , utxoInHead = fromList [A, B, C]
+      , pendingCommit = mempty
       , pendingDecommit = mempty
       }
 
   arbitraryAction :: VarContext -> Model -> Gen (Any (Action Model))
-  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingDecommit} =
+  arbitraryAction _lookup Model{headState, knownSnapshots, currentVersion, utxoInHead, pendingCommit, pendingDecommit} =
     case headState of
       Open{} ->
         frequency $
@@ -345,8 +361,12 @@ instance StateModel Model where
     genSnapshot = do
       -- Only decommit if not already pending
       toDecommit <-
-        if null pendingDecommit
+        if null pendingCommit && null pendingDecommit
           then sublistOf utxoInHead
+          else pure pendingDecommit
+      toCommit <-
+        if null pendingCommit && null pendingDecommit
+          then undefined -- TODO: generate some utxo
           else pure pendingDecommit
       inHead <- shuffle $ utxoInHead \\ toDecommit
       let validSnapshot =
@@ -354,6 +374,7 @@ instance StateModel Model where
               { version = currentVersion
               , number = latestSnapshotNumber knownSnapshots + 1
               , inHead
+              , toCommit
               , toDecommit
               }
       pure validSnapshot
@@ -366,6 +387,10 @@ instance StateModel Model where
     NewSnapshot{newSnapshot} ->
       newSnapshot.version == currentVersion
         && newSnapshot.number > latestSnapshotNumber knownSnapshots
+    Increment{snapshot} ->
+      headState == Open
+        && snapshot `elem` knownSnapshots
+        && snapshot.version == currentVersion
     Decrement{snapshot} ->
       headState == Open
         && snapshot `elem` knownSnapshots
@@ -402,6 +427,10 @@ instance StateModel Model where
   validFailingAction Model{headState, knownSnapshots, currentVersion} = \case
     Stop -> False
     NewSnapshot{} -> False
+    Increment{snapshot} ->
+      headState == Open
+        && snapshot `elem` knownSnapshots
+        && snapshot.version /= currentVersion
     -- Only filter non-matching states as we are not interested in these kind of
     -- verification failures.
     Decrement{snapshot} ->
@@ -432,6 +461,14 @@ instance StateModel Model where
         m
           { knownSnapshots = newSnapshot : m.knownSnapshots
           , pendingDecommit = newSnapshot.toDecommit
+          , pendingCommit = newSnapshot.toCommit
+          }
+      Increment{snapshot} ->
+        m
+          { headState = Open
+          , currentVersion = m.currentVersion + 1
+          , utxoInHead = m.utxoInHead <> snapshot.toCommit
+          , pendingCommit = mempty
           }
       Decrement{snapshot} ->
         m
@@ -446,6 +483,7 @@ instance StateModel Model where
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = []
           , utxoInHead = snapshot.inHead
+          , pendingCommit = if currentVersion == snapshot.version then toCommit snapshot else mempty
           , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Contest{actor, snapshot} ->
@@ -454,6 +492,7 @@ instance StateModel Model where
           , closedSnapshotNumber = snapshot.number
           , alreadyContested = actor : alreadyContested m
           , utxoInHead = snapshot.inHead
+          , pendingCommit = if currentVersion == snapshot.version then toCommit snapshot else mempty
           , pendingDecommit = if currentVersion == snapshot.version then toDecommit snapshot else mempty
           }
       Fanout{} -> m{headState = Final}
@@ -495,6 +534,9 @@ type instance Realized AppM a = a
 instance RunModel Model AppM where
   perform Model{currentVersion} action _lookupVar = do
     case action of
+      Increment{actor, snapshot} -> do
+        tx <- newIncrementTx actor (confirmedSnapshot snapshot)
+        performTx tx
       Decrement{actor, snapshot} -> do
         tx <- newDecrementTx actor (confirmedSnapshot snapshot)
         performTx tx
@@ -675,6 +717,22 @@ openHeadUTxO =
           }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
+
+-- | Creates a increment transaction using given utxo and given snapshot.
+newIncrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either IncrementTxError Tx)
+newIncrementTx actor snapshot = do
+  spendableUTxO <- get
+  let slotNo = SlotNo 0
+  let txId = undefined
+  pure $
+    increment
+      (actorChainContext actor)
+      spendableUTxO
+      (mkHeadId Fixture.testPolicyId)
+      Fixture.testHeadParameters
+      snapshot
+      txId
+      slotNo
 
 -- | Creates a decrement transaction using given utxo and given snapshot.
 newDecrementTx :: Actor -> ConfirmedSnapshot Tx -> AppM (Either DecrementTxError Tx)
