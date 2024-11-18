@@ -218,10 +218,6 @@ data ServerOutputConfig = ServerOutputConfig
   }
   deriving stock (Eq, Show)
 
-newtype ServerOutputFilter tx = ServerOutputFilter
-  { txContainsAddr :: TimedServerOutput tx -> Text -> Bool
-  }
-
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
 -- NOTE: we deliberately pattern match on all 'ServerOutput' constructors in

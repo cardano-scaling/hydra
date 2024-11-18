@@ -52,6 +52,7 @@ library
     Hydra.API.Projection
     Hydra.API.Server
     Hydra.API.ServerOutput
+    Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
     Hydra.Chain
     Hydra.Chain.CardanoClient
