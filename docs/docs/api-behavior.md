@@ -20,7 +20,7 @@ There are some options for API clients to control the server outputs. Server out
 
 + `history=no` -> Prevents historical outputs display. All server outputs are recorded and when a client re-connects these outputs are replayed unless `history=no` query param is used.
 + `snapshot-utxo=no` -> In case of a `SnapshotConfirmed` message the `utxo` field in the inner `Snapshot` will be omitted.
-+ `address=$address` -> In case of a `TxValid` or a `TxInvalid` message, it will be filtered if its `transaction` address does not contain a reference to the provided.
++ `address=$address` -> In the case of a `TxValid` or a `TxInvalid` message, it will be filtered if its `transaction` address does not contain a reference to the provided. In the case of a `SnapshotConfirmed` message, it will be filtered if its `confirmed` transactions do not contain an address that references the provided.
 
 ## Replay of past server outputs
 
