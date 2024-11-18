@@ -35,8 +35,6 @@ data HeadError
   | CloseNoUpperBoundDefined
   | FailedCloseInitial
   | FailedCloseAny
-  | FailedCloseCurrent
-  | FailedCloseOutdated
   | TooOldSnapshot
   | UpperBoundBeyondContestationDeadline
   | ContestNoUpperBoundDefined
@@ -57,6 +55,10 @@ data HeadError
   | FailedContestUnusedDec
   | FailedContestUnusedInc
   | FailedContestUsedInc
+  | FailedCloseUnusedDec
+  | FailedCloseUsedDec
+  | FailedCloseUnusedInc
+  | FailedCloseUsedInc
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -93,28 +95,30 @@ instance ToErrorCode HeadError where
     ContestersNonEmpty -> "H26"
     CloseNoUpperBoundDefined -> "H27"
     FailedCloseInitial -> "H28"
-    FailedCloseCurrent -> "H29"
-    FailedCloseOutdated -> "H30"
     -- Contest
-    TooOldSnapshot -> "H31"
-    UpperBoundBeyondContestationDeadline -> "H32"
-    ContestNoUpperBoundDefined -> "H33"
-    MustNotPushDeadline -> "H34"
-    MustPushDeadline -> "H35"
-    ContesterNotIncluded -> "H36"
-    WrongNumberOfSigners -> "H37"
-    SignerAlreadyContested -> "H38"
-    FailedContestCurrent -> "H39"
-    FailedContestUsedDec -> "H40"
+    TooOldSnapshot -> "H29"
+    UpperBoundBeyondContestationDeadline -> "H30"
+    ContestNoUpperBoundDefined -> "H31"
+    MustNotPushDeadline -> "H32"
+    MustPushDeadline -> "H33"
+    ContesterNotIncluded -> "H34"
+    WrongNumberOfSigners -> "H35"
+    SignerAlreadyContested -> "H36"
+    FailedContestCurrent -> "H37"
+    FailedContestUsedDec -> "H38"
     -- Fanout
-    FanoutUTxOHashMismatch -> "H41"
-    FanoutUTxOToDecommitHashMismatch -> "H42"
-    LowerBoundBeforeContestationDeadline -> "H43"
-    FanoutNoLowerBoundDefined -> "H44"
-    DepositNotSpent -> "H45"
-    DepositInputNotFound -> "H46"
-    HeadInputNotFound -> "H47"
-    FailedCloseAny -> "H48"
-    FailedContestUnusedDec -> "H49"
-    FailedContestUnusedInc -> "H50"
-    FailedContestUsedInc -> "H51"
+    FanoutUTxOHashMismatch -> "H39"
+    FanoutUTxOToDecommitHashMismatch -> "H40"
+    LowerBoundBeforeContestationDeadline -> "H41"
+    FanoutNoLowerBoundDefined -> "H42"
+    DepositNotSpent -> "H43"
+    DepositInputNotFound -> "H44"
+    HeadInputNotFound -> "H45"
+    FailedCloseAny -> "H46"
+    FailedContestUnusedDec -> "H47"
+    FailedContestUnusedInc -> "H48"
+    FailedContestUsedInc -> "H49"
+    FailedCloseUnusedDec -> "H50"
+    FailedCloseUsedDec -> "H51"
+    FailedCloseUnusedInc -> "H52"
+    FailedCloseUsedInc -> "H53"
