@@ -67,6 +67,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
   singlePartyHeadFullLifeCycle,
+  singlePartyUsesSchnorrkelScriptOnL2,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
  )
@@ -178,6 +179,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= singlePartyCommitsFromExternal tracer tmpDir node
+      it "can use a schnorrkel script on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= singlePartyUsesSchnorrkelScriptOnL2 tracer tmpDir node
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->

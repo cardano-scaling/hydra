@@ -38,6 +38,10 @@ addTxInsSpending :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addTxInsSpending ins =
   addTxIns ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
 
+changePParams :: PParams (ShelleyLedgerEra Era) -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+changePParams pparams tx =
+  tx{txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams}
+
 -- | Mint tokens with given plutus minting script and redeemer.
 mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 mintTokens script redeemer assets = addTxMintValue newTokens
