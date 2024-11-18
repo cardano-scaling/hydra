@@ -17,13 +17,15 @@ import Hydra.API.ServerOutput (
   CommitInfo (CannotCommit),
   HeadStatus (Idle),
   ServerOutput,
-  ServerOutputFilter,
   TimedServerOutput (..),
   projectCommitInfo,
   projectHeadStatus,
   projectInitializingHeadId,
   projectPendingDeposits,
   projectSnapshotUtxo,
+ )
+import Hydra.API.ServerOutputFilter (
+  ServerOutputFilter,
  )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
 import Hydra.Cardano.Api (LedgerEra)

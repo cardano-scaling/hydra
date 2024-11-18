@@ -17,7 +17,6 @@ import Hydra.API.ServerOutput (
   HeadStatus,
   ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
-  ServerOutputFilter (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
   WithUTxO (..),
@@ -25,6 +24,9 @@ import Hydra.API.ServerOutput (
   me,
   prepareServerOutput,
   snapshotUtxo,
+ )
+import Hydra.API.ServerOutputFilter (
+  ServerOutputFilter (..),
  )
 import Hydra.Chain.ChainState (
   IsChainState,
