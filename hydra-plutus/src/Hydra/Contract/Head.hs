@@ -444,30 +444,30 @@ checkClose ctx openBefore redeemer =
               (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
       CloseUnusedDec{signature} ->
-        traceIfFalse $(errorCode FailedCloseCurrent) $
+        traceIfFalse $(errorCode FailedCloseUnusedDec) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', emptyHash, deltaUTxOHash')
+            (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
             signature
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedCloseOutdated) $
+        traceIfFalse $(errorCode FailedCloseUsedDec) $
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
       CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedCloseCurrent) $
+        traceIfFalse $(errorCode FailedCloseUnusedInc) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
             signature
       CloseUsedInc{signature} ->
-        traceIfFalse $(errorCode FailedCloseOutdated) $
+        traceIfFalse $(errorCode FailedCloseUsedInc) $
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', deltaUTxOHash', emptyHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
 
   checkDeadline =
@@ -554,7 +554,7 @@ checkContest ctx closedDatum redeemer =
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyCommittedUTxOHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
       ContestUsedInc{signature} ->
         traceIfFalse $(errorCode FailedContestUsedInc) $

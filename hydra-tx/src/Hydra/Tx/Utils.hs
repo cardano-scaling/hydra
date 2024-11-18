@@ -86,3 +86,8 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
     tx
       & auxDataTxL .~ SJust newAuxData
       & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
+
+parseDatum :: FromScriptData a => TxOut CtxUTxO -> Maybe a
+parseDatum out = do
+  headDatum <- txOutScriptData (toTxContext out)
+  fromScriptData headDatum

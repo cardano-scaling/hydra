@@ -473,7 +473,7 @@ persistenceCanLoadWithEmptyCommit ::
   Tracer IO EndToEndLog ->
   FilePath ->
   RunningNode ->
-  TxId ->
+  [TxId] ->
   IO ()
 persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
