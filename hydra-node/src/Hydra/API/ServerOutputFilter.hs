@@ -2,11 +2,9 @@ module Hydra.API.ServerOutputFilter where
 
 import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
 import Hydra.Cardano.Api (
-  AddressInEra,
   Tx,
   serialiseToBech32,
   txOuts',
-  pattern ByronAddressInEra,
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
@@ -32,10 +30,7 @@ serverOutputFilter :: ServerOutputFilter Tx =
 
 matchingAddr :: Text -> Tx -> Bool
 matchingAddr address tx =
-  not . null $ flip filter (txOuts' tx) $ \(TxOut addr _ _ _) ->
-    unwrapAddress addr == address
-
-unwrapAddress :: AddressInEra -> Text
-unwrapAddress = \case
-  ShelleyAddressInEra addr -> serialiseToBech32 addr
-  ByronAddressInEra{} -> error "Byron."
+  not . null $ flip filter (txOuts' tx) $ \(TxOut outAddr _ _ _) ->
+    case outAddr of
+      ShelleyAddressInEra addr -> serialiseToBech32 addr == address
+      _ -> False
