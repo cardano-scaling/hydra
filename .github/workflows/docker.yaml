@@ -21,7 +21,7 @@ jobs:
   docker:
     strategy:
       matrix:
-        target: [ hydra-node, hydra-tui, hydraw, hydra-explorer ]
+        target: [ hydra-node, hydra-tui, hydraw ]
 
     runs-on: ubuntu-latest
     steps:
