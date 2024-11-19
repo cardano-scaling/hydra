@@ -142,11 +142,8 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
 
   sendOutputs chan con outConfig@ServerOutputConfig{addressInTx} = forever $ do
     response <- STM.atomically $ readTChan chan
-    case addressInTx of
-      WithAddressedTx addr ->
-        when (txContainsAddr response addr) $
-          sendResponse response
-      WithoutAddressedTx -> sendResponse response
+    when (isAddressInTx addressInTx response) $
+      sendResponse response
    where
     sendResponse response = do
       let sentResponse = prepareServerOutput outConfig response
@@ -171,12 +168,14 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
     rawHist <- STM.atomically (readTVar history)
-    let hist = flip filter rawHist $ \response ->
-          case addressInTx of
-            WithAddressedTx addr -> txContainsAddr response addr
-            WithoutAddressedTx -> True
+    let hist = filter (isAddressInTx addressInTx) rawHist
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
+
+  isAddressInTx addressInTx tx =
+    case addressInTx of
+      WithAddressedTx addr -> txContainsAddr tx addr
+      WithoutAddressedTx -> True
 
 nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
 nextSequenceNumber historyList =
