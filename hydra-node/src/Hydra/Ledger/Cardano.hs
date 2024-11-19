@@ -95,6 +95,7 @@ newLedgerEnv protocolParams =
       -- future with these two but for now, we'll consider them empty.
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
     , Ledger.ledgerPp = protocolParams
+    , Ledger.ledgerMempool = False
     }
 
 -- * Conversions and utilities

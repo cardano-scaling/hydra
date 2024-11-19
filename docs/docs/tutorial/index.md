@@ -47,7 +47,7 @@ that you have a good version of jq with this command:
 mkdir -p bin
 hydra_version=0.19.0
 mithril_version=2437.1
-cardano_node_version=9.2.0
+cardano_node_version=10.1.2
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
@@ -65,7 +65,7 @@ chmod +x bin/*
 mkdir -p bin
 hydra_version=0.19.0
 mithril_version=2437.1
-cardano_node_version=9.2.0
+cardano_node_version=10.1.2
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz

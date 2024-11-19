@@ -111,10 +111,10 @@ type ArbitraryIsTx tx =
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
   toJSON tx =
     -- XXX: This is a deprecated function, but the only one that produces the
-    -- right 'Witnessed Tx ConwayEra' in the envelope type. Cardano-api will be
+    -- right 'Tx ConwayEra' in the envelope type. Cardano-api will be
     -- fixing the 'HasTextEnvelope' instance for 'Tx era' and then we can use
     -- 'serialiseToTextEnvelope' here.
-    case toJSON $ serialiseTxLedgerCddl shelleyBasedEra tx of
+    case toJSON $ serialiseToTextEnvelope Nothing tx of
       Aeson.Object km ->
         Aeson.Object $ KeyMap.insert "txId" (toJSON $ getTxId $ getTxBody tx) km
       v -> v

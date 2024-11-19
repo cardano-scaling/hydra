@@ -6,7 +6,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    cardano-node.url = "github:IntersectMBO/cardano-node/9.2.0";
+    cardano-node.url = "github:IntersectMBO/cardano-node/10.1.2";
     hydra.url = "github:cardano-scaling/hydra/209de1dd8c5ae484a45a4db3af043c4a9d271306";
     mithril.url = "github:input-output-hk/mithril/2423.0";
   };

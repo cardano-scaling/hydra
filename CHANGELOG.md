@@ -17,7 +17,7 @@ changes.
      Missing off-chain items to implement as a series of next PR's:
       - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
 
-- Tested with `cardano-node 9.2.0` and `cardano-cli 9.4.1.0`.
+- Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 
 - **BREAKING** Rewrite of the commit script in aiken:
   - This makes `abort` and `collectCom` transactions more efficient and results
