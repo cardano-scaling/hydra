@@ -58,6 +58,7 @@ data OpenScreen
   = OpenHome
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
+  | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
   | SelectingRecipient
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
@@ -108,6 +109,7 @@ type Name = Text
 makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
+  , ("selectingUTxOToIncrementForm", "selectingUTxOToIncrementFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
   , ("enteringRecipientAddressForm", "enteringRecipientAddressFormL")

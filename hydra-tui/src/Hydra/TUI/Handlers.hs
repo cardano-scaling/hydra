@@ -117,6 +117,11 @@ handleHydraEventsActiveLink e = do
       pendingUTxOToDecommitL .= utxoToDecommit
     Update TimedServerOutput{time, output = DecommitFinalized{}} ->
       pendingUTxOToDecommitL .= mempty
+    -- TODO! handle pendingDeposit + deadline
+    Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit}} ->
+      pendingUTxOToCommitL .= utxoToCommit
+    Update TimedServerOutput{time, output = CommitFinalized{}} ->
+      pendingUTxOToCommitL .= mempty
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
@@ -145,6 +150,9 @@ handleHydraEventsInfo = \case
     report Success time "Decommit approved and submitted to Cardano"
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
+  Update TimedServerOutput{time, output = CommitApproved{}} ->
+    report Success time "Commit approved and submitted to Cardano"
+  -- TODO! handle CommitRecovered
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = InvalidInput{reason}} ->
@@ -236,6 +244,9 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e =
         EvKey (KChar 'd') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
           put $ SelectingUTxOToDecommit (utxoRadioField utxo')
+        EvKey (KChar 'i') [] -> do
+          utxo' <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
+          put $ SelectingUTxOToIncrement (utxoRadioField $ UTxO.toMap utxo')
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -271,6 +282,15 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e =
               liftIO (sendInput hydraClient (Decommit tx))
           put OpenHome
         _ -> zoom selectingUTxOToDecommitFormL $ handleFormEvent (VtyEvent e)
+    SelectingUTxOToIncrement i -> do
+      case e of
+        EvKey KEsc [] -> put OpenHome
+        EvKey KEnter [] -> do
+          let utxoSelected = formState i
+          let commitUTxO = UTxO.singleton utxoSelected
+          liftIO $ externalCommit hydraClient commitUTxO
+          put OpenHome
+        _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
       case e of
         EvKey KEsc [] -> put OpenHome
