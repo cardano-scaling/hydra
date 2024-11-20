@@ -62,6 +62,10 @@ channels:
             schema:
               type: string
               enum: ["yes", "no"]
+          address:
+            description: Specify whether the client wants see the transaction server outputs filtered by given address.
+            schema:
+              type: string
 
     subscribe:
       summary: Events emitted by the Hydra node.
@@ -994,6 +998,7 @@ components:
         - tag
         - headId
         - transactionId
+        - transaction
         - seq
         - timestamp
       properties:
@@ -1004,6 +1009,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         transactionId:
           $ref: "api.yaml#/components/schemas/TxId"
+        transaction:
+          $ref: "api.yaml#/components/schemas/Transaction"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

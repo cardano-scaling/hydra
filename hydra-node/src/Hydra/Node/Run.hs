@@ -7,6 +7,7 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
+import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
   GenesisParameters (..),
   ProtocolParametersConversionError,
@@ -92,7 +93,7 @@ run opts = do
           -- API
           apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams (wireClientInput wetHydraNode) $ \server -> do
+          withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do

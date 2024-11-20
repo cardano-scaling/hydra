@@ -20,13 +20,11 @@ import Hydra.Tx (
   Party,
   Snapshot,
   SnapshotNumber,
-  TxIdType,
-  UTxOType,
  )
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx)
+import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -104,7 +102,7 @@ data ServerOutput tx
   | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
-    TxValid {headId :: HeadId, transactionId :: TxIdType tx}
+    TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
@@ -181,7 +179,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
     CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
-    TxValid headId tx -> TxValid <$> shrink headId <*> shrink tx
+    TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
     GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
@@ -197,7 +195,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid{} -> []
-    CommitRecorded headId u txId d -> CommitRecorded headId <$> shrink u <*> shrink txId <*> shrink d
+    CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
@@ -210,8 +208,13 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
 
-newtype ServerOutputConfig = ServerOutputConfig
+-- | Whether or not to filter transaction server outputs by given address.
+data WithAddressedTx = WithAddressedTx Text | WithoutAddressedTx
+  deriving stock (Eq, Show)
+
+data ServerOutputConfig = ServerOutputConfig
   { utxoInSnapshot :: WithUTxO
+  , addressInTx :: WithAddressedTx
   }
   deriving stock (Eq, Show)
 

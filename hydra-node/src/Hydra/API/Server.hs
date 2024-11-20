@@ -24,6 +24,9 @@ import Hydra.API.ServerOutput (
   projectPendingDeposits,
   projectSnapshotUtxo,
  )
+import Hydra.API.ServerOutputFilter (
+  ServerOutputFilter,
+ )
 import Hydra.API.WSServer (nextSequenceNumber, wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
@@ -81,8 +84,9 @@ withAPIServer ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
+  ServerOutputFilter tx ->
   ServerComponent tx IO ()
-withAPIServer config env party persistence tracer chain pparams callback action =
+withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     timedOutputEvents <- loadAll
@@ -113,7 +117,7 @@ withAPIServer config env party persistence tracer chain pparams callback action 
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel)
+              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
               (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do

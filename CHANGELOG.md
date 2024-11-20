@@ -48,7 +48,7 @@ changes.
 
 - Update mithril to `2442.0`
 
-
+- New websocket URL parameter `?address=...` to filter `SnapshotConfirmed`, `TxValid` and `TxInvalid` server outputs by address.
 
 ## [0.19.0] - 2024-09-13
 

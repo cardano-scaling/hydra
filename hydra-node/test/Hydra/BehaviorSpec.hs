@@ -231,8 +231,9 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
 
-                send n1 (NewTx (aValidTx 42))
-                waitUntil [n1, n2] $ TxValid testHeadId 42
+                let tx = aValidTx 42
+                send n1 (NewTx tx)
+                waitUntil [n1, n2] $ TxValid testHeadId 42 tx
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -243,7 +244,7 @@ spec = parallel $ do
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
-                waitUntil [n1, n2] $ TxValid testHeadId 42
+                waitUntil [n1, n2] $ TxValid testHeadId 42 tx
 
                 let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -303,14 +304,14 @@ spec = parallel $ do
                 send n1 (NewTx firstTx)
 
                 -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxValid testHeadId 1
+                waitUntil [n1, n2] $ TxValid testHeadId 1 firstTx
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
-                waitUntil [n1, n2] $ TxValid testHeadId 2
+                waitUntil [n1, n2] $ TxValid testHeadId 2 secondTx
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -333,7 +334,7 @@ spec = parallel $ do
                   _ -> False
 
                 send n1 (NewTx firstTx)
-                waitUntil [n1, n2] $ TxValid testHeadId 1
+                waitUntil [n1, n2] $ TxValid testHeadId 1 firstTx
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
@@ -434,7 +435,7 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
-                  waitUntil [n1, n2] $ TxValid testHeadId 3
+                  waitUntil [n1, n2] $ TxValid testHeadId 3 normalTx
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -809,8 +810,9 @@ spec = parallel $ do
             -- forward again
             rollbackAndForward chain 2
             -- We expect the node to still work and let us post L2 transactions
-            send n1 (NewTx (aValidTx 42))
-            waitUntil [n1] $ TxValid testHeadId 42
+            let tx = aValidTx 42
+            send n1 (NewTx tx)
+            waitUntil [n1] $ TxValid testHeadId 42 tx
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.

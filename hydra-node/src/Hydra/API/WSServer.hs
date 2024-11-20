@@ -18,11 +18,15 @@ import Hydra.API.ServerOutput (
   ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
+  WithAddressedTx (..),
   WithUTxO (..),
   headStatus,
   me,
   prepareServerOutput,
   snapshotUtxo,
+ )
+import Hydra.API.ServerOutputFilter (
+  ServerOutputFilter (..),
  )
 import Hydra.Chain.ChainState (
   IsChainState,
@@ -58,22 +62,23 @@ wsApp ::
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
+  ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel pending = do
+wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
+  let outConfig = mkServerOutputConfig queryParams
+
   -- api client can decide if they want to see the past history of server outputs
   unless (shouldNotServeHistory queryParams) $
-    forwardHistory con
+    forwardHistory con outConfig
 
   forwardGreetingOnly con
-
-  let outConfig = mkServerOutputConfig queryParams
 
   withPingThread con 30 (pure ()) $
     race_ (receiveInputs con) (sendOutputs chan con outConfig)
@@ -111,6 +116,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
+      , addressInTx = decideOnAddressDisplay qp
       }
 
   decideOnUTxODisplay qp =
@@ -119,19 +125,30 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         queryP = QueryParam k v
      in if queryP `elem` qp then WithoutUTxO else WithUTxO
 
+  decideOnAddressDisplay qp =
+    case find queryByAddress qp of
+      Just (QueryParam _ v) -> WithAddressedTx (unRText v)
+      _ -> WithoutAddressedTx
+   where
+    queryByAddress = \case
+      (QueryParam key _) | key == [queryKey|address|] -> True
+      _other -> False
+
   shouldNotServeHistory qp =
     flip any qp $ \case
       (QueryParam key val)
         | key == [queryKey|history|] -> val == [queryValue|no|]
       _other -> False
 
-  sendOutputs chan con outConfig = forever $ do
+  sendOutputs chan con outConfig@ServerOutputConfig{addressInTx} = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse =
-          prepareServerOutput outConfig response
-
-    sendTextData con sentResponse
-    traceWith tracer (APIOutputSent $ toJSON response)
+    when (isAddressInTx addressInTx response) $
+      sendResponse response
+   where
+    sendResponse response = do
+      let sentResponse = prepareServerOutput outConfig response
+      sendTextData con sentResponse
+      traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con
@@ -149,10 +166,16 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
-  forwardHistory con = do
-    hist <- STM.atomically (readTVar history)
+  forwardHistory con ServerOutputConfig{addressInTx} = do
+    rawHist <- STM.atomically (readTVar history)
+    let hist = filter (isAddressInTx addressInTx) rawHist
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
+
+  isAddressInTx addressInTx tx =
+    case addressInTx of
+      WithAddressedTx addr -> txContainsAddr tx addr
+      WithoutAddressedTx -> True
 
 nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
 nextSequenceNumber historyList =

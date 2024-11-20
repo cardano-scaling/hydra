@@ -117,7 +117,7 @@ mkTransferTx networkId utxo sender recipient =
   case UTxO.find (isVkTxOut $ getVerificationKey sender) utxo of
     Nothing -> fail "no utxo left to spend"
     Just (txIn, txOut) ->
-      case mkSimpleTx (txIn, txOut) (mkVkAddress networkId recipient, foldMap txOutValue utxo) sender of
+      case mkSimpleTx (txIn, txOut) (mkVkAddress networkId recipient, txOutValue txOut) sender of
         Left err ->
           fail $ "mkSimpleTx failed: " <> show err
         Right tx ->
