@@ -90,6 +90,7 @@ data HeadState
 data ActiveLink = ActiveLink
   { utxo :: UTxO
   , pendingUTxOToDecommit :: UTxO
+  , pendingUTxOToCommit :: UTxO
   , parties :: [Party]
   , headId :: HeadId
   , activeHeadState :: ActiveHeadState
@@ -161,6 +162,7 @@ makeLensesFor
 makeLensesFor
   [ ("utxo", "utxoL")
   , ("pendingUTxOToDecommit", "pendingUTxOToDecommitL")
+  , ("pendingUTxOToCommit", "pendingUTxOToCommitL")
   , ("parties", "partiesL")
   , ("activeHeadState", "activeHeadStateL")
   , ("headId", "headIdL")
@@ -195,6 +197,7 @@ newActiveLink parties headId =
           }
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
+    , pendingUTxOToCommit = mempty
     , headId
     }
 
