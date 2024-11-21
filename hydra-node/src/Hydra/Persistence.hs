@@ -12,7 +12,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
+import UnliftIO.IO.File (withBinaryFile, writeBinaryFile)
 
 data PersistenceException
   = PersistenceException String
@@ -37,7 +37,8 @@ createPersistence fp = do
   pure $
     Persistence
       { save = \a -> do
-          writeBinaryFileDurableAtomic fp . toStrict $ Aeson.encode a
+          -- FIXME: this is not atomic / durable
+          writeBinaryFile fp . toStrict $ Aeson.encode a
       , load =
           liftIO (doesFileExist fp) >>= \case
             False -> pure Nothing
