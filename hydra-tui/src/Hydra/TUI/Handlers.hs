@@ -117,11 +117,12 @@ handleHydraEventsActiveLink e = do
       pendingUTxOToDecommitL .= utxoToDecommit
     Update TimedServerOutput{time, output = DecommitFinalized{}} ->
       pendingUTxOToDecommitL .= mempty
-    -- TODO! handle pendingDeposit + deadline
-    Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit}} ->
-      pendingUTxOToCommitL .= utxoToCommit
-    Update TimedServerOutput{time, output = CommitFinalized{}} ->
-      pendingUTxOToCommitL .= mempty
+    Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
+      pendingIncrementL .= Just (PendingDeposit utxoToCommit pendingDeposit deadline)
+    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} -> do
+      pendingIncrementL .= Just (PendingIncrement utxoToCommit)
+    Update TimedServerOutput{time, output = CommitFinalized{}} -> do
+      pendingIncrementL .= Nothing
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
@@ -150,9 +151,10 @@ handleHydraEventsInfo = \case
     report Success time "Decommit approved and submitted to Cardano"
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
+  Update TimedServerOutput{time, output = CommitRecorded{}} ->
+    report Success time "Commit deposit recorded and pending for approval"
   Update TimedServerOutput{time, output = CommitApproved{}} ->
     report Success time "Commit approved and submitted to Cardano"
-  -- TODO! handle CommitRecovered
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = InvalidInput{reason}} ->
