@@ -316,6 +316,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistenceSpec
+    Hydra.SqlLitePersistenceSpec
     Hydra.UtilsSpec
     Paths_hydra_node
     Spec

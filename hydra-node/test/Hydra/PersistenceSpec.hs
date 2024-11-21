@@ -8,8 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Persistence (PersistenceException (..), PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.SqlLitePersistence (Persistence (..), createPersistence)
+import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -28,11 +27,11 @@ spec = do
       checkCoverage $
         monadicIO $ do
           item <- pick genPersistenceItem
-          actualResult <- run $ do
-            -- withTempDir "hydra-persistence" $ \tmpDir -> do
-            Persistence{save, load} <- createPersistence "acks"
-            save item
-            load
+          actualResult <- run $
+            withTempDir "hydra-persistence" $ \tmpDir -> do
+              Persistence{save, load} <- createPersistence $ tmpDir <> "/data"
+              save item
+              load
           pure $ actualResult === Just item
 
   describe "PersistenceIncremental" $ do

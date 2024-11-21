@@ -6,18 +6,11 @@ module Hydra.SqlLitePersistence where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
-import Control.Lens.Combinators (iforM)
-import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
 import Data.ByteString.Lazy qualified as BSL
 import Data.Text qualified as T
 import Database.SQLite.Simple (FromRow, Only (..), Query (..), execute, execute_, field, fromRow, open, query_)
-import System.Directory (createDirectoryIfMissing, doesFileExist)
-import System.FilePath (takeDirectory)
-import UnliftIO.IO.File (withBinaryFile)
+import System.Directory (removeFile)
 
 data PersistenceException
   = PersistenceException String
@@ -26,24 +19,24 @@ data PersistenceException
 
 instance Exception PersistenceException
 
--- | Handle to save and load files to/from disk using JSON encoding.
+-- | Handle to save and load files to/from db using JSON encoding.
 data Persistence a m = Persistence
   { save :: ToJSON a => a -> m ()
   , load :: FromJSON a => m (Maybe a)
+  , dropDb :: m ()
   }
 
-newtype Acks = Acks BSL.ByteString
+-- | A carrier type that wraps the JSON string. Needed just to specify the sql instances we need.
+newtype Record = Record BSL.ByteString deriving newtype (Eq, Show)
 
-instance FromRow Acks where
-  fromRow = Acks <$> field
+instance FromRow Record where
+  fromRow = Record <$> field
 
--- | Initialize persistence handle for given type 'a' at given file path.
 createPersistence ::
   MonadIO m =>
   FilePath ->
   m (Persistence a m)
 createPersistence fp = do
-  liftIO . createDirectoryIfMissing True $ takeDirectory fp
   let dbName = Query (T.pack fp)
   conn <- liftIO $ open fp
   _ <- liftIO $ execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
@@ -52,55 +45,38 @@ createPersistence fp = do
       { save = \a -> do
           liftIO $ execute conn ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
       , load = do
-          r <- liftIO $ query_ conn ("SELECT msg from " <> dbName <> " order by id desc limit 1")
+          r <- liftIO $ query_ conn ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC LIMIT 1")
           case r of
             [] -> pure Nothing
-            (Acks result : _) -> pure $ Aeson.decode result
+            (Record result : _) -> pure $ Aeson.decode result
+      , dropDb = liftIO $ removeFile fp
       }
 
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , loadAll :: FromJSON a => m [a]
+  , dropDb :: m ()
   }
 
--- | Initialize persistence handle for given type 'a' at given file path.
---
--- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
--- it prevents loading from a different thread once one starts `append`ing
--- through the handle. If another thread attempts to `loadAll` after this point,
--- an `IncorrectAccessException` will be raised.
 createPersistenceIncremental ::
   forall a m.
-  (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
+  (MonadIO m, MonadThrow m) =>
   FilePath ->
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
-  liftIO . createDirectoryIfMissing True $ takeDirectory fp
-  authorizedThread <- newTVarIO Nothing
+  let dbName = Query (T.pack fp)
+  conn <- liftIO $ open fp
+  _ <- liftIO $ execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
   pure $
     PersistenceIncremental
       { append = \a -> do
-          tid <- myThreadId
-          atomically $ writeTVar authorizedThread $ Just tid
-          let bytes = toStrict $ Aeson.encode a <> "\n"
-          liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
+          liftIO $ execute conn ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
       , loadAll = do
-          tid <- myThreadId
-          atomically $ do
-            authTid <- readTVar authorizedThread
-            when (isJust authTid && authTid /= Just tid) $
-              throwSTM (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
-
-          liftIO (doesFileExist fp) >>= \case
-            False -> pure []
-            True -> do
-              bs <- readFileBS fp
-              -- NOTE: We require the whole file to be loadable. It might
-              -- happen that the data written by 'append' is only there
-              -- partially and then this will fail (which we accept now).
-              iforM (C8.lines bs) $ \i o ->
-                case Aeson.eitherDecodeStrict' o of
-                  Left e -> throwIO $ PersistenceException ("Error at line: " <> show (i + 1) <> " in file " <> fp <> " - " <> e)
-                  Right decoded -> pure decoded
+          r <- liftIO $ query_ conn ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC")
+          forM r $ \(Record i) ->
+            case Aeson.decode i of
+              Nothing -> throwIO $ PersistenceException ("Error decoding a record " <> show i)
+              Just a -> pure a
+      , dropDb = liftIO $ removeFile fp
       }
