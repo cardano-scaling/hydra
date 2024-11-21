@@ -95,6 +95,7 @@ library
     Hydra.Node.Run
     Hydra.Options
     Hydra.Persistence
+    Hydra.SqlLitePersistence
     Hydra.Utils
 
   other-modules:   Paths_hydra_node
@@ -150,6 +151,7 @@ library
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , serialise
+    , sqlite-simple
     , stm
     , text
     , time
