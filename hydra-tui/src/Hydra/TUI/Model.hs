@@ -88,10 +88,20 @@ data HeadState
   = Idle
   | Active {activeLink :: ActiveLink}
 
+data PendingIncrement
+  = PendingDeposit
+      { utxoToCommit :: UTxO
+      , deposit :: TxId
+      , depositDeadline :: UTCTime
+      }
+  | PendingIncrement
+      { utxoToCommit :: UTxO
+      }
+
 data ActiveLink = ActiveLink
   { utxo :: UTxO
   , pendingUTxOToDecommit :: UTxO
-  , pendingUTxOToCommit :: UTxO
+  , pendingIncrement :: Maybe PendingIncrement
   , parties :: [Party]
   , headId :: HeadId
   , activeHeadState :: ActiveHeadState
@@ -164,7 +174,7 @@ makeLensesFor
 makeLensesFor
   [ ("utxo", "utxoL")
   , ("pendingUTxOToDecommit", "pendingUTxOToDecommitL")
-  , ("pendingUTxOToCommit", "pendingUTxOToCommitL")
+  , ("pendingIncrement", "pendingIncrementL")
   , ("parties", "partiesL")
   , ("activeHeadState", "activeHeadStateL")
   , ("headId", "headIdL")
@@ -199,7 +209,7 @@ newActiveLink parties headId =
           }
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
-    , pendingUTxOToCommit = mempty
+    , pendingIncrement = Nothing
     , headId
     }
 
