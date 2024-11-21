@@ -7,7 +7,7 @@ import Hydra.Prelude hiding (TVar, readTVar, seq)
 import Cardano.Ledger.Core (PParams)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
+import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVar)
 import Control.Exception (IOException)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -27,7 +27,7 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
  )
-import Hydra.API.WSServer (nextSequenceNumber, wsApp)
+import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
@@ -98,9 +98,12 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
     pendingDepositsP <- mkProjection [] (output <$> timedOutputEvents) projectPendingDeposits
 
-    -- NOTE: we need to reverse the list because we store history in a reversed
-    -- list in memory but in order on disk
-    history <- newTVarIO (reverse timedOutputEvents)
+    nextSeqVar <- newTVarIO 0
+    let nextSeq = do
+          seq <- readTVar nextSeqVar
+          modifyTVar' nextSeqVar (+ 1)
+          pure seq
+
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -117,7 +120,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (wsApp party tracer nextSeq callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
               (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do
@@ -125,7 +128,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
           action $
             Server
               { sendOutput = \output -> do
-                  timedOutput <- appendToHistory history output
+                  timedOutput <- persistOutput nextSeq output
                   atomically $ do
                     update headStatusP output
                     update commitInfoP output
@@ -152,13 +155,11 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
       _ ->
         runSettings settings app
 
-  appendToHistory history output = do
+  persistOutput nextSeq output = do
     time <- getCurrentTime
     timedOutput <- atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
+      seq <- nextSeq
+      pure TimedServerOutput{output, time, seq}
     append timedOutput
     pure timedOutput
 
