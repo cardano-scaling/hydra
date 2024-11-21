@@ -141,35 +141,40 @@ drawRemainingDepositDeadline deadline now =
         then padLeftRight 1 $ vBox [txt "Remaining time to deposit: ", str (renderTime remaining)]
         else txt "Deposit deadline passed, ready to recover."
 
+drawPendingIncrement :: AddressInEra -> Maybe PendingIncrement -> UTCTime -> Widget Name
+drawPendingIncrement ownAddress pendingIncrement now =
+  case pendingIncrement of
+    Nothing -> vBox []
+    Just PendingDeposit{utxoToCommit, deposit, depositDeadline} ->
+      vBox
+        [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
+        , padTop (Pad 1) $ txt "Pending deposit: "
+        , txt $ show deposit
+        , txt "Pending deposit deadline: "
+        , drawRemainingDepositDeadline depositDeadline now
+        ]
+    Just PendingIncrement{utxoToCommit} ->
+      vBox
+        [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
+        , padTop (Pad 1) $ txt "NO Pending deposit"
+        ]
+
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> Maybe PendingIncrement -> UTCTime -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrement now = \case
   OpenHome ->
     vBox
-      [ txt "Active UTxO: "
-      , drawUTxO (highlightOwnAddress ownAddress) utxo
-      , hBorder
-      , hBox
-          [ vBox
-              [ txt "Pending UTxO to decommit: " <+> drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
-              ]
-          , vBorder
-          , case pendingIncrement of
-              Nothing ->
-                vBox
-                  [ txt "NO Pending UTxO to commit"
-                  ]
-              Just PendingDeposit{utxoToCommit, deposit, depositDeadline} ->
-                vBox
-                  [ txt "Pending UTxO to commit: " <+> drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
-                  , txt $ "Pending deposit: " <> show deposit
-                  , txt "Pending deposit deadline: " <+> drawRemainingDepositDeadline depositDeadline now
-                  ]
-              Just PendingIncrement{utxoToCommit} ->
-                vBox
-                  [ txt "Pending UTxO to commit: " <+> drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
-                  , txt "NO Pending deposit: "
-                  ]
+      [ vBox
+          [ txt "Active UTxO: "
+          , drawUTxO (highlightOwnAddress ownAddress) utxo
           ]
+      , hBorder
+      , vBox
+          [ txt "Pending UTxO to decommit: "
+          , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
+          ]
+      , hBorder
+      , txt "Pending UTxO to commit: "
+      , drawPendingIncrement ownAddress pendingIncrement now
       ]
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
