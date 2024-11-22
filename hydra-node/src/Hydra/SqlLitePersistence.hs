@@ -73,13 +73,13 @@ createPersistenceIncremental fp = do
     execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
   pure $
     PersistenceIncremental
-      { append = \a -> liftIO $ withConnection fp $ \conn' ->
-          execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
+      { append =
+          -- TODO: try to batch insert here or use some other trick to make it faster
+          \a -> liftIO $ withConnection fp $ \conn' ->
+            execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
       , loadAll = liftIO $ withConnection fp $ \conn' -> do
-          let collectValues acc (Record i) =
-                case Aeson.decode i of
-                  Nothing -> pure acc
-                  Just a -> pure $ a : acc
-          fold_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC") [] collectValues
+          let collectValues acc (Record i) = pure $ i : acc
+          bsVals <- fold_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC") [] collectValues
+          pure $ mapMaybe Aeson.decode bsVals
       , dropDb = liftIO $ removeFile fp
       }
