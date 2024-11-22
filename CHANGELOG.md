@@ -39,6 +39,8 @@ changes.
   - Overall this results in transactions still to be submitted once per client,
     but requires signifanctly less book-keeping on the client-side.
 
+- Use sqlite database instead of file based storage
+
 - Add blockfrost support to `hydra-chain-observer`, to follow the chain via Blockfrost API.
 
 - Fix `bench-e2e single` benchmarks and only use `--output-directory` to keep

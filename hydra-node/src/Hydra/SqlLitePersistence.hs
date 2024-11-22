@@ -9,8 +9,9 @@ import Hydra.Prelude
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
 import Data.Text qualified as T
-import Database.SQLite.Simple (FromRow, Only (..), Query (..), execute, execute_, field, fromRow, open, query_)
-import System.Directory (removeFile)
+import Database.SQLite.Simple (FromRow, Only (..), Query (..), execute, execute_, field, fold_, fromRow, query_, withConnection)
+import System.Directory (createDirectoryIfMissing, removeFile)
+import System.FilePath (takeDirectory)
 
 data PersistenceException
   = PersistenceException String
@@ -37,15 +38,16 @@ createPersistence ::
   FilePath ->
   m (Persistence a m)
 createPersistence fp = do
-  let dbName = Query (T.pack fp)
-  conn <- liftIO $ open fp
-  _ <- liftIO $ execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  let dbName = Query (T.pack $ "\"" <> fp <> "\"")
+  liftIO $ withConnection fp $ \conn -> do
+    execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
   pure $
     Persistence
-      { save = \a -> do
-          liftIO $ execute conn ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
-      , load = do
-          r <- liftIO $ query_ conn ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC LIMIT 1")
+      { save = \a -> liftIO $ withConnection fp $ \conn' ->
+          execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
+      , load = liftIO $ withConnection fp $ \conn' -> do
+          r <- query_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC LIMIT 1")
           case r of
             [] -> pure Nothing
             (Record result : _) -> pure $ Aeson.decode result
@@ -61,22 +63,23 @@ data PersistenceIncremental a m = PersistenceIncremental
 
 createPersistenceIncremental ::
   forall a m.
-  (MonadIO m, MonadThrow m) =>
+  MonadIO m =>
   FilePath ->
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
-  let dbName = Query (T.pack fp)
-  conn <- liftIO $ open fp
-  _ <- liftIO $ execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
+  liftIO . createDirectoryIfMissing True $ takeDirectory fp
+  let dbName = Query (T.pack $ "\"" <> fp <> "\"")
+  liftIO $ withConnection fp $ \conn -> do
+    execute_ conn $ "CREATE TABLE IF NOT EXISTS " <> dbName <> " (id INTEGER PRIMARY KEY, msg SQLBlob)"
   pure $
     PersistenceIncremental
-      { append = \a -> do
-          liftIO $ execute conn ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
-      , loadAll = do
-          r <- liftIO $ query_ conn ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC")
-          forM r $ \(Record i) ->
-            case Aeson.decode i of
-              Nothing -> throwIO $ PersistenceException ("Error decoding a record " <> show i)
-              Just a -> pure a
+      { append = \a -> liftIO $ withConnection fp $ \conn' ->
+          execute conn' ("INSERT INTO " <> dbName <> " (msg) VALUES (?)") (Only $ Aeson.encode a)
+      , loadAll = liftIO $ withConnection fp $ \conn' -> do
+          let collectValues acc (Record i) =
+                case Aeson.decode i of
+                  Nothing -> pure acc
+                  Just a -> pure $ a : acc
+          fold_ conn' ("SELECT msg FROM " <> dbName <> " ORDER BY id DESC") [] collectValues
       , dropDb = liftIO $ removeFile fp
       }

@@ -1,61 +1,74 @@
 module Hydra.SqlLitePersistenceSpec where
 
-import Hydra.Prelude hiding (drop, label)
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
+import Database.SQLite.Simple (SQLError (..))
 import Hydra.SqlLitePersistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
-import Test.QuickCheck (checkCoverage, cover, elements, oneof, (===))
+import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
-dbName :: String
-dbName = "testdb"
-
-setupPersistence :: (Persistence a IO -> IO ()) -> IO ()
-setupPersistence action = do
-  persistence@Persistence{dropDb} <- createPersistence dbName
-  action persistence
-  dropDb
-
-setupPersistenceIncremental :: (PersistenceIncremental a IO -> IO ()) -> IO ()
-setupPersistenceIncremental action = do
-  persistence@PersistenceIncremental{dropDb} <- createPersistenceIncremental dbName
-  action persistence
-  dropDb
-
 spec :: Spec
 spec = do
-  describe "SqlLitePersistence" $ do
-    around setupPersistence $ do
-      it "can handle empty reads" $ \Persistence{load} ->
+  describe "Persistence" $ do
+    it "can handle empty files" $ do
+      withTempDir "hydra-persistence" $ \tmpDir -> do
+        let fp = tmpDir <> "/data"
+        writeFileBS fp ""
+        Persistence{load} <- createPersistence fp
         load `shouldReturn` (Nothing :: Maybe Aeson.Value)
 
-      it "is consistent after save/load roundtrip" $ \Persistence{save, load} ->
-        checkCoverage $
-          monadicIO $ do
-            item <- pick genPersistenceItem
-            actualResult <- run $ do
+    it "is consistent after save/load roundtrip" $
+      checkCoverage $
+        monadicIO $ do
+          item <- pick genPersistenceItem
+          actualResult <- run $
+            withTempDir "hydra-persistence" $ \tmpDir -> do
+              Persistence{save, load} <- createPersistence $ tmpDir <> "/data"
               save item
               load
-            pure $ actualResult === Just item
+          pure $ actualResult === Just item
 
-  describe "SqlLitePersistenceIncremental" $ do
-    around setupPersistenceIncremental $ do
-      it "can handle empty reads" $ \PersistenceIncremental{loadAll} ->
+  describe "PersistenceIncremental" $ do
+    it "can handle empty files" $ do
+      withTempDir "hydra-persistence" $ \tmpDir -> do
+        let fp = tmpDir <> "/data"
+        writeFileBS fp ""
+        PersistenceIncremental{loadAll} <- createPersistenceIncremental fp
         loadAll `shouldReturn` ([] :: [Aeson.Value])
 
-      it "is consistent after multiple append calls" $ \PersistenceIncremental{loadAll, append} ->
-        checkCoverage $
-          monadicIO $ do
-            items <- pick $ listOf genPersistenceItem
-            monitor (cover 1 (null items) "no items stored")
-            actualResult <- run $ do
+    it "is consistent after multiple append calls in presence of new-lines" $
+      checkCoverage $
+        monadicIO $ do
+          items <- pick $ listOf genPersistenceItem
+          monitor (cover 1 (null items) "no items stored")
+          monitor (cover 10 (containsNewLine items) "some item contains a new line")
+
+          actualResult <- run $
+            withTempDir "hydra-persistence" $ \tmpDir -> do
+              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
               forM_ items append
               loadAll
-            pure $ all (`elem` actualResult) items
+          pure $ actualResult === items
+
+    it "it cannot load from a different thread once having started appending" $
+      monadicIO $ do
+        items <- pick $ listOf genPersistenceItem
+        moreItems <- pick $ listOf genPersistenceItem `suchThat` ((> 2) . length)
+        pure $
+          withTempDir "hydra-persistence" $ \tmpDir -> do
+            PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
+            forM_ items append
+            loadAll `shouldReturn` items
+            race_
+              (forever $ threadDelay 0.01 >> loadAll)
+              (forM_ moreItems $ \item -> append item >> threadDelay 0.01)
+              `shouldThrow` \case
+                SQLError{} -> True
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =
@@ -66,5 +79,12 @@ genPersistenceItem =
 
 genSomeText :: Gen Text
 genSomeText = do
-  let t = ['A' .. 'z']
+  let t = ['A' .. 'z'] <> ['\n', '\t', '\r']
   Text.pack <$> listOf (elements t)
+
+containsNewLine :: [Aeson.Value] -> Bool
+containsNewLine = \case
+  [] -> False
+  (i : is) -> case i of
+    String t | "\n" `Text.isInfixOf` t -> True
+    _ -> containsNewLine is

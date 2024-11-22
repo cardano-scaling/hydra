@@ -22,7 +22,7 @@ import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Message (Connectivity)
 import Hydra.Network.Reliability (MessagePersistence (..), ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
-import Hydra.Persistence (
+import Hydra.SqlLitePersistence (
   Persistence (..),
   PersistenceIncremental (..),
   createPersistence,

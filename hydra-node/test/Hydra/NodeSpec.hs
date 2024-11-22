@@ -34,7 +34,7 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.SqlLitePersistence (PersistenceIncremental (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.Environment (Environment (..))
@@ -358,6 +358,7 @@ createPersistenceInMemory = do
     PersistenceIncremental
       { append = \x -> atomically $ modifyTVar tvar (<> [x])
       , loadAll = readTVarIO tvar
+      , dropDb = error "dropDb not implemented"
       }
 
 isReqSn :: Message tx -> Bool

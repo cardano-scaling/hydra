@@ -38,7 +38,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.SqlLitePersistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo))
 import Network.Simple.WSS qualified as WSS
@@ -425,6 +425,7 @@ mockPersistence' xs =
   PersistenceIncremental
     { append = \_ -> pure ()
     , loadAll = pure xs
+    , dropDb = pure ()
     }
 
 waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()

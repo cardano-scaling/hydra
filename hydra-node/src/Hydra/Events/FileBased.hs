@@ -1,4 +1,4 @@
--- | A file-based event source and sink using JSON encoding.
+-- | Event source and sink using JSON encoding.
 --
 -- This serves as an example of how to create an 'EventSource' and 'EventSink'.
 module Hydra.Events.FileBased where
@@ -9,9 +9,9 @@ import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.SqlLitePersistence (PersistenceIncremental (..))
 
--- | A basic file based event source and sink defined using an
+-- | A basic event source and sink defined using an
 -- 'PersistenceIncremental' handle.
 --
 -- The complexity in this implementation mostly stems from the fact that we want

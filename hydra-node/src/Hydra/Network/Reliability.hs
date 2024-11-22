@@ -110,7 +110,7 @@ import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
-import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
+import Hydra.SqlLitePersistence (Persistence (..), PersistenceIncremental (..))
 import Hydra.Tx (Party)
 import Test.QuickCheck.Instances.Vector ()
 

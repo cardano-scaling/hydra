@@ -89,7 +89,7 @@ import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, 
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
+import Hydra.SqlLitePersistence (Persistence (..), createPersistence, createPersistenceIncremental)
 import Hydra.Tx (IsTx, Party, deriveParty)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import System.FilePath ((</>))
@@ -174,7 +174,7 @@ withNetwork tracer configuration callback action = do
 --   * Some state already exists and is loaded,
 --   * The number of parties is not the same as the number of acknowledgments saved.
 configureMessagePersistence ::
-  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
+  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
   Tracer m (HydraNodeLog tx) ->
   FilePath ->
   Int ->

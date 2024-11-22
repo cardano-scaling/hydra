@@ -12,7 +12,7 @@ import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Hydra.SqlLitePersistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
