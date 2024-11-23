@@ -86,6 +86,7 @@
                 cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
                 cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
                 mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
+                sqlite3 = pkgs.sqlite;
               })
             ];
           };
