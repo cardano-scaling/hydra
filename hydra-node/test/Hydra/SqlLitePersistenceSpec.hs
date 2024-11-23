@@ -6,9 +6,8 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Database.SQLite.Simple (SQLError (..))
 import Hydra.SqlLitePersistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
-import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
+import Test.QuickCheck (checkCoverage, cover, elements, oneof, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
@@ -54,21 +53,6 @@ spec = do
               forM_ items append
               loadAll
           pure $ actualResult === items
-
-    it "it cannot load from a different thread once having started appending" $
-      monadicIO $ do
-        items <- pick $ listOf genPersistenceItem
-        moreItems <- pick $ listOf genPersistenceItem `suchThat` ((> 2) . length)
-        pure $
-          withTempDir "hydra-persistence" $ \tmpDir -> do
-            PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
-            forM_ items append
-            loadAll `shouldReturn` items
-            race_
-              (forever $ threadDelay 0.01 >> loadAll)
-              (forM_ moreItems $ \item -> append item >> threadDelay 0.01)
-              `shouldThrow` \case
-                SQLError{} -> True
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =

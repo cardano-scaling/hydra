@@ -372,7 +372,6 @@ test-suite tests
     , regex-tdfa
     , req
     , silently
-    , sqlite-simple
     , temporary
     , text
     , time
