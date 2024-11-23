@@ -72,6 +72,7 @@
                   pkgs.writeShellScriptBin "mithril-client-unstable" ''
                     exec ${inputs.mithril-unstable.packages.${system}.mithril-client-cli}/bin/mithril-client "$@"
                   '';
+                sqlite3 = pkgs.sqlite;
               })
             ];
           };
