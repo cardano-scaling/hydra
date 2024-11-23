@@ -21,7 +21,7 @@ import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON, _String)
+import Data.Aeson.Lens (key, values, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -71,9 +71,12 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
+import Hydra.Events (StateEvent (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
+import Hydra.SqlLitePersistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
@@ -489,13 +492,10 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
       pure headId
-    let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state"
-    stateContents <- readFileBS persistenceState
-    let headOpened = BSC.pack $ List.last (List.lines $ BSC.unpack stateContents)
-    case headOpened ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> error "Failed to find HeadIsOpened in the state file"
-      Just headIsOpen -> do
-        headIsOpen `shouldBe` "HeadOpened"
+    PersistenceIncremental{loadAll} <- createPersistenceIncremental @(StateEvent Tx) $ workDir </> "state-" <> show hydraNodeId </> "state"
+    stateContents <- loadAll
+    case List.last stateContents of
+      StateEvent{stateChanged = HeadOpened{}} -> do
         withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           waitFor hydraTracer (10 * blockTime) [n1] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
@@ -504,6 +504,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
 
           waitFor hydraTracer 10 [n1] $
             output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (mempty :: UTxO)]
+      _ -> expectationFailure "Failed to load HeadIsOpen from the db"
  where
   RunningNode{nodeSocket, blockTime} = node
 
