@@ -110,7 +110,7 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
     Idle -> ["[I]nit", "[Q]uit"]
     Active (ActiveLink{activeHeadState}) -> case activeHeadState of
       Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
-      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[C]lose", "[Q]uit"]
+      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[C]lose", "[Q]uit"]
       Closed{} -> ["[Q]uit"]
       FanoutPossible{} -> ["[F]anout", "[Q]uit"]
       Final{} -> ["[I]nit", "[Q]uit"]
@@ -134,18 +134,51 @@ drawFocusPanelInitializing me InitializingState{remainingParties, initializingSc
   CommitMenu x -> vBox [txt "Select UTxOs to commit:", renderForm x]
   ConfirmingAbort x -> vBox [txt "Confirm Abort action:", renderForm x]
 
-drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> OpenScreen -> Widget Name
-drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit = \case
+drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
+drawRemainingDepositDeadline deadline now =
+  let remaining = diffUTCTime deadline now
+   in if remaining > 0
+        then padLeftRight 1 $ vBox [txt "Remaining time to deposit: ", str (renderTime remaining)]
+        else txt "Deposit deadline passed, ready to recover."
+
+drawPendingIncrement :: AddressInEra -> Maybe PendingIncrement -> UTCTime -> Widget Name
+drawPendingIncrement ownAddress pendingIncrement now =
+  case pendingIncrement of
+    Nothing -> vBox []
+    Just PendingDeposit{utxoToCommit, deposit, depositDeadline} ->
+      vBox
+        [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
+        , padTop (Pad 1) $ txt "Pending deposit: "
+        , txt $ show deposit
+        , txt "Pending deposit deadline: "
+        , drawRemainingDepositDeadline depositDeadline now
+        ]
+    Just PendingIncrement{utxoToCommit} ->
+      vBox
+        [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
+        , padTop (Pad 1) $ txt "NO Pending deposit"
+        ]
+
+drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> Maybe PendingIncrement -> UTCTime -> OpenScreen -> Widget Name
+drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrement now = \case
   OpenHome ->
     vBox
-      [ txt "Active UTxO: "
-      , drawUTxO (highlightOwnAddress ownAddress) utxo
+      [ vBox
+          [ txt "Active UTxO: "
+          , drawUTxO (highlightOwnAddress ownAddress) utxo
+          ]
       , hBorder
-      , txt "Pending UTxO to decommit: "
-      , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
+      , vBox
+          [ txt "Pending UTxO to decommit: "
+          , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
+          ]
+      , hBorder
+      , txt "Pending UTxO to commit: "
+      , drawPendingIncrement ownAddress pendingIncrement now
       ]
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
+  SelectingUTxOToIncrement x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   EnteringRecipientAddress _ _ x -> renderForm x
@@ -173,9 +206,9 @@ highlightOwnAddress ownAddress a =
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
   Idle -> emptyWidget
-  Active (ActiveLink{utxo, pendingUTxOToDecommit, activeHeadState}) -> case activeHeadState of
+  Active (ActiveLink{utxo, pendingUTxOToDecommit, pendingIncrement, activeHeadState}) -> case activeHeadState of
     Initializing x -> drawFocusPanelInitializing me x
-    Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit x
+    Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrement now x
     Closed x -> drawFocusPanelClosed now x
     FanoutPossible -> txt "Ready to fanout!"
     Final -> drawFocusPanelFinal networkId vk utxo
