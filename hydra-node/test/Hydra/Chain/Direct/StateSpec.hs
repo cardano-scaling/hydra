@@ -511,7 +511,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     _ -> fail "not observed close"
   -- Fanout
   let fanoutUTxO = getKnownUTxO stClosed
-  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing (slotNoFromUTCTime systemStart slotLength deadline)
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing Nothing (slotNoFromUTCTime systemStart slotLength deadline)
 
   -- Properties
   let collectFails =

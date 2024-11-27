@@ -158,9 +158,9 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
   fanoutWithDelta =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{deltaUTxO} ->
+        Fanout{omegaUTxO} ->
           polarity == PosPolarity
-            && not (null deltaUTxO)
+            && not (null omegaUTxO)
         _ -> False
 
   countContests =
@@ -301,7 +301,7 @@ instance StateModel Model where
     Decrement :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Close :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
     Contest :: {actor :: Actor, snapshot :: ModelSnapshot} -> Action Model TxResult
-    Fanout :: {utxo :: ModelUTxO, deltaUTxO :: ModelUTxO} -> Action Model TxResult
+    Fanout :: {utxo :: ModelUTxO, alphaUTxO :: ModelUTxO, omegaUTxO :: ModelUTxO} -> Action Model TxResult
     -- \| Helper action to identify the terminal state 'Final' and shorten
     -- traces using the 'precondition'.
     Stop :: Action Model ()
@@ -369,12 +369,14 @@ instance StateModel Model where
           ( 2
           , do
               -- Fanout with the currently known model state.
-              deltaUTxO <- frequency [(1, pure pendingDecommit), (1, pure pendingDeposit), (1, pure mempty), (1, arbitrary)]
+              omegaUTxO <- frequency [(1, pure pendingDecommit), (1, pure pendingDeposit), (1, pure mempty), (1, arbitrary)]
               pure $
                 Some $
                   Fanout
                     { utxo = utxoInHead
-                    , deltaUTxO
+                    , -- TODO: revisit this and populate
+                      alphaUTxO = mempty
+                    , omegaUTxO
                     }
           )
             : [ ( 1
@@ -514,10 +516,10 @@ instance StateModel Model where
         && ((snapshot.version == currentVersion) && (snapshot.toCommit == mempty && snapshot.toDecommit == mempty))
         && actor `notElem` alreadyContested
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
-    Fanout{utxo, deltaUTxO} ->
+    Fanout{utxo, omegaUTxO} ->
       headState == Closed
         && utxo == utxoInHead
-        && (if pendingDeposit /= mempty then deltaUTxO == pendingDeposit else if pendingDecommit /= mempty then deltaUTxO == pendingDecommit else deltaUTxO == mempty)
+        && (if pendingDeposit /= mempty then omegaUTxO == pendingDeposit else if pendingDecommit /= mempty then omegaUTxO == pendingDecommit else omegaUTxO == mempty)
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m@Model{} t _result =
@@ -625,8 +627,8 @@ instance RunModel Model AppM where
       c@Contest{actor, snapshot} -> do
         tx <- newContestTx actor currentVersion (confirmedSnapshot snapshot)
         performTx c tx
-      f@Fanout{utxo, deltaUTxO} -> do
-        tx <- newFanoutTx Alice utxo deltaUTxO
+      f@Fanout{utxo, alphaUTxO, omegaUTxO} -> do
+        tx <- newFanoutTx Alice utxo alphaUTxO omegaUTxO
         performTx f tx
       NewSnapshot{} -> pure ()
       Stop -> pure ()
@@ -652,7 +654,7 @@ instance RunModel Model AppM where
           counterexample' $ "Wrong contesters: expected " <> show (alreadyContested modelAfter) <> ", got " <> show contesters
           guard $ length contesters == length (alreadyContested modelAfter)
         _ -> fail "Expected Contest"
-      Fanout{utxo, deltaUTxO} -> do
+      Fanout{utxo, omegaUTxO} -> do
         case result of
           TxResult{constructedTx = Left err} -> fail $ "Failed to construct transaction: " <> err
           TxResult{constructedTx = Right tx} -> do
@@ -661,7 +663,7 @@ instance RunModel Model AppM where
             -- exactly.
             let sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o))) . toList
             let fannedOut = utxoFromTx tx
-            guard $ sorted fannedOut == sorted (realWorldModelUTxO utxo <> realWorldModelUTxO deltaUTxO)
+            guard $ sorted fannedOut == sorted (realWorldModelUTxO utxo <> realWorldModelUTxO omegaUTxO)
 
         expectValid result $ \case
           Tx.Fanout{} -> pure ()
@@ -903,8 +905,8 @@ newContestTx actor openVersion snapshot = do
 -- | Creates a fanout transaction using given utxo. NOTE: This uses fixtures for
 -- seedTxIn and contestation period. Consequently, the lower bound used is
 -- precisely at the maximum deadline slot as if everyone contested.
-newFanoutTx :: Actor -> ModelUTxO -> ModelUTxO -> AppM (Either FanoutTxError Tx)
-newFanoutTx actor utxo pendingDecommit = do
+newFanoutTx :: Actor -> ModelUTxO -> ModelUTxO -> ModelUTxO -> AppM (Either FanoutTxError Tx)
+newFanoutTx actor utxo pendingCommit pendingDecommit = do
   (_, spendableUTxO) <- get
   pure $
     fanout
@@ -913,6 +915,7 @@ newFanoutTx actor utxo pendingDecommit = do
       Fixture.testSeedInput
       (realWorldModelUTxO utxo)
       -- Model world has no 'Maybe ModelUTxO', but real world does.
+      (if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit)
       (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
       deadline
  where

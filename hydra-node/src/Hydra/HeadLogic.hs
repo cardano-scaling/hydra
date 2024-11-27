@@ -428,6 +428,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u -> do
+                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
                 -- Spec: ŝ ← ̅S.s + 1
                 -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
@@ -436,7 +437,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                         , version = version
                         , number = sn
                         , confirmed = requestedTxs
-                        , utxo = u
+                        , utxo = snapshotUTxO
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         }
@@ -452,7 +453,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                   --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
                   --         T̂ ← T̂ ⋃ {tx}
                   --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                  let (newLocalTxs, newLocalUTxO) = pruneTransactions snapshotUTxO
                   newState
                     SnapshotRequested
                       { snapshot = nextSnapshot
@@ -1203,6 +1204,11 @@ onClosedClientFanout closedState =
       { postChainTx =
           FanoutTx
             { utxo
+            , utxoToCommit =
+                -- NOTE: note that logic is flipped in the commit and decommit case here.
+                if toInteger snapshotVersion == max (toInteger version - 1) 0
+                  then utxoToCommit
+                  else mempty
             , utxoToDecommit =
                 if toInteger snapshotVersion == max (toInteger version - 1) 0
                   then mempty
@@ -1212,7 +1218,7 @@ onClosedClientFanout closedState =
             }
       }
  where
-  Snapshot{utxo, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version} = closedState
 
@@ -1286,7 +1292,8 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
-    cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+    let snapshot' = getSnapshot confirmedSnapshot
+     in cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
