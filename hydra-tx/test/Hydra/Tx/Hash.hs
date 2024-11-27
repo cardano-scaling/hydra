@@ -1,11 +1,10 @@
-
 module Hydra.Tx.Hash where
 
 import Hydra.Prelude
 
+import Hydra.Contract.Util (hashTxOuts)
 import Test.Hspec (Spec, describe, it)
 import Test.QuickCheck ((===))
-import Hydra.Contract.Util (hashTxOuts)
 
 spec :: Spec
 spec = do

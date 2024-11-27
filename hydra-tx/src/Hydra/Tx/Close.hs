@@ -120,6 +120,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               (True, False) ->
                 Head.CloseUsedInc
                   { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
                   }
               (False, True) ->
                 Head.CloseUsedDec
@@ -147,13 +148,15 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           { snapshotNumber =
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
-              toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
+              toBuiltin . hashUTxO $ utxo (getSnapshot confirmedSnapshot)
+          , alphaUTxOHash =
+              toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
           , deltaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
-                Head.CloseUnusedInc{} ->
-                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
+                -- Head.CloseUnusedInc{} ->
+                --   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
           , contestationDeadline
