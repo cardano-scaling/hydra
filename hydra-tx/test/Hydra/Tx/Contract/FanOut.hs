@@ -41,6 +41,8 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       (fst healthyFanoutSnapshotUTxO)
+      -- TODO: revisit - use some commits also
+      Nothing
       (Just $ snd healthyFanoutSnapshotUTxO)
       (headInput, headOutput)
       healthySlotNo
@@ -84,6 +86,8 @@ healthyFanoutDatum =
     Head.ClosedDatum
       { snapshotNumber = 1
       , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
+      , -- TODO: revisit
+        alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
       , deltaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties

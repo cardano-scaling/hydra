@@ -776,6 +776,23 @@ canCommit tracer workDir node hydraScriptsTxId =
 
       waitFor hydraTracer 10 [n1] $
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= commitUTxO]
+
+      send n1 $ input "Close" []
+
+      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        v ^? key "contestationDeadline" . _JSON
+
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitMatch (20 * blockTime) n1 $ \v ->
+        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+      -- Assert final wallet balance
+      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+        `shouldReturn` balance commitUTxO
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
