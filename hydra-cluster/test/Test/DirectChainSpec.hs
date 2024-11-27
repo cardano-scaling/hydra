@@ -351,6 +351,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $
               FanoutTx
                 { utxo = inHead
+                , utxoToCommit = Nothing
                 , utxoToDecommit = Just toDecommit
                 , headSeed
                 , contestationDeadline = deadline

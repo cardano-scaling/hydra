@@ -419,13 +419,13 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> do
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       case headSeedToTxIn headSeed of
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlot of
+          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
             Right fanoutTx -> pure fanoutTx
  where

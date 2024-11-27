@@ -52,6 +52,8 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: s
   , utxoHash :: Hash
   -- ^ Spec: η. Digest of snapshotted UTxO
+  -- | TODO: add alphaUTxOHash to the spec
+  , alphaUTxOHash :: Hash
   , deltaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
@@ -106,6 +108,7 @@ data CloseRedeemer
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
       { signature :: [Signature]
+      , alreadyCommittedUTxOHash :: Hash
       -- ^ Multi-signature of a snapshot ξ
       }
   deriving stock (Show, Generic)
@@ -178,8 +181,10 @@ data Input
   | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
-      -- ^ Spec: m
-      , numberOfDecommitOutputs :: Integer
+      , numberOfCommitOutputs :: Integer
+      -- ^ TODO: add this to the spec
+      , -- \^ Spec: m
+        numberOfDecommitOutputs :: Integer
       -- ^ Spec: n
       }
   deriving stock (Generic, Show)

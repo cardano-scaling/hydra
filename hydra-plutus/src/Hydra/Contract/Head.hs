@@ -92,8 +92,8 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfDecommitOutputs}) ->
-      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
+      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -415,6 +415,7 @@ checkClose ctx openBefore redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
+     -- , alphaUTxOHash = alphaUTxOHash'
     , deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
@@ -449,6 +450,7 @@ checkClose ctx openBefore redeemer =
             parties
             (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
             signature
+      -- TODO: do we still need alreadyDecommittedUTxOHash if we have deltaUTxOHash?
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
           deltaUTxOHash' == emptyHash
@@ -456,18 +458,20 @@ checkClose ctx openBefore redeemer =
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
+      -- TODO: do we still need alreadyCommittedUTxOHash if we have alphaUTxOHash?
       CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
             signature
-      CloseUsedInc{signature} ->
+      -- TODO: do we still need alreadyCommittedUTxOHash if we have alphaUTxOHash?
+      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           deltaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
 
   checkDeadline =
@@ -596,7 +600,8 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
-    , deltaUTxOHash = deltaUTxOHash'
+    , -- , alphaUTxOHash = alphaUTxOHash'
+    deltaUTxOHash = deltaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'
     , contestationPeriod = contestationPeriod'
@@ -624,20 +629,27 @@ checkFanout ::
   ClosedDatum ->
   -- | Number of normal outputs to fanout
   Integer ->
+  -- | Number of alpha outputs to fanout
+  Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
   Bool
-checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfDecommitOutputs =
+checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
   mustBurnAllHeadTokens minted headId parties
-    && hasSameUTxOHash
+    && hasSameDecommitUTxOHash
+    && hasSameCommitUTxOHash
     && hasSameUTxOToDecommitHash
     && afterContestationDeadline
  where
   minted = txInfoMint txInfo
 
-  hasSameUTxOHash =
+  hasSameDecommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       fannedOutUtxoHash == utxoHash
+
+  hasSameCommitUTxOHash =
+    traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
+      alphaUTxOHash == commitUtxoHash
 
   hasSameUTxOToDecommitHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
@@ -645,9 +657,11 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
 
   fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
+  commitUtxoHash = hashTxOuts $ take numberOfCommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
+
   decommitUtxoHash = hashTxOuts $ take numberOfDecommitOutputs $ drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
+  ClosedDatum{utxoHash, alphaUTxOHash, deltaUTxOHash, parties, headId, contestationDeadline} = closedDatum
 
   TxInfo{txInfoOutputs} = txInfo
 

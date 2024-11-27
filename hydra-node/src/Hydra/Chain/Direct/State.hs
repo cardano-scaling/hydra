@@ -734,19 +734,21 @@ fanout ::
   TxIn ->
   -- | Snapshot UTxO to fanout
   UTxO ->
+  -- | Snapshot UTxO to commit to fanout
+  Maybe UTxO ->
   -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Either FanoutTxError Tx
-fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlotNo = do
+fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
 
   closedThreadUTxO <- checkHeadDatum headUTxO
 
-  pure $ fanoutTx scriptRegistry utxo utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
+  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -1259,11 +1261,12 @@ genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genFanoutTx numParties = do
   (cctx, stOpen, _utxo, txClose, snapshot) <- genCloseTx numParties
   let toDecommit = utxoToDecommit $ getSnapshot snapshot
+  let toCommit = utxoToCommit $ getSnapshot snapshot
   let toFanout = utxo $ getSnapshot snapshot
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
       spendableUTxO = getKnownUTxO stClosed
-  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout toDecommit deadlineSlotNo)
+  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout toCommit toDecommit deadlineSlotNo)
 
 getContestationDeadline :: ClosedState -> UTCTime
 getContestationDeadline
@@ -1423,13 +1426,15 @@ unsafeFanout ::
   TxIn ->
   -- | Snapshot UTxO to fanout
   UTxO ->
+  -- | Snapshot commit UTxO to fanout
+  Maybe UTxO ->
   -- | Snapshot decommit UTxO to fanout
   Maybe UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlotNo
+unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

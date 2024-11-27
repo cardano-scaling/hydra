@@ -117,6 +117,7 @@ healthyClosedState =
     Head.ClosedDatum
       { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
       , utxoHash = healthyClosedUTxOHash
+      , alphaUTxOHash = mempty
       , deltaUTxOHash = mempty
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
