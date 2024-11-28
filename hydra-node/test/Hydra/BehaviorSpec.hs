@@ -443,6 +443,10 @@ spec = parallel $ do
                       _ -> False
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
                   waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
+                  send n1 Close
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n2 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11, 22]}
 
         it "can process transactions while commit pending" $
           shouldRunInSim $ do
@@ -464,6 +468,10 @@ spec = parallel $ do
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  send n1 Close
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n2 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11]}
 
         it "can close with commit in flight" $
           shouldRunInSim $ do
@@ -545,6 +553,10 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
+                  send n1 Close
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n2 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11]}
         it "commit and decommit same utxo" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
