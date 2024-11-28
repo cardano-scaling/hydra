@@ -453,7 +453,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                   --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
                   --         T̂ ← T̂ ⋃ {tx}
                   --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions snapshotUTxO
+                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
                   newState
                     SnapshotRequested
                       { snapshot = nextSnapshot
@@ -573,7 +573,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{initialUTxO} -> initialUTxO
-    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
+    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
@@ -1227,15 +1227,16 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   newState HeadFannedOut{chainState = newChainState}
-    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo})
+    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = utxo <> fromMaybe mempty utxoToCommit})
  where
-  Snapshot{utxo} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit} = getSnapshot confirmedSnapshot
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
@@ -1603,16 +1604,19 @@ aggregate st = \case
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { coordinatedHeadState =
-                  coordinatedHeadState
-                    { pendingDeposits = Map.delete depositTxId existingDeposits
-                    , version = newVersion
-                    }
-              }
+          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+              pendingDeposits = Map.delete depositTxId existingDeposits
+           in Open
+                os
+                  { coordinatedHeadState =
+                      coordinatedHeadState
+                        { pendingDeposits
+                        , version = newVersion
+                        , localUTxO = localUTxO <> newLocalUTxO
+                        }
+                  }
          where
-          CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+          CoordinatedHeadState{pendingDeposits = existingDeposits, localUTxO} = coordinatedHeadState
       _otherState -> st
   DecommitFinalized{newVersion} ->
     case st of
