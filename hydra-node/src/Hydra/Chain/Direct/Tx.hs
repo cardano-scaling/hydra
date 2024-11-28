@@ -21,12 +21,10 @@ import Data.ByteString.Base16 qualified as Base16
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -47,7 +45,8 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
-import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName)
+import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry (..))
+import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, hydraMetadataLabel)
 import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hydra.Tx.Gen ()
@@ -107,20 +106,20 @@ instance Arbitrary HeadObservation where
   arbitrary = genericArbitrary
 
 -- | Observe any Hydra head transaction.
-observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
-observeHeadTx networkId utxo tx =
+observeHeadTx :: NetworkId -> SerialisedScriptRegistry -> UTxO -> Tx -> HeadObservation
+observeHeadTx networkId serializedScripts utxo tx =
   fromMaybe NoHeadTx $
-    either (const Nothing) (Just . Init) (observeInitTx tx)
-      <|> Abort <$> observeAbortTx utxo tx
-      <|> Commit <$> observeCommitTx networkId utxo tx
-      <|> CollectCom <$> observeCollectComTx utxo tx
-      <|> Deposit <$> observeDepositTx networkId tx
-      <|> Recover <$> observeRecoverTx networkId utxo tx
-      <|> Increment <$> observeIncrementTx utxo tx
-      <|> Decrement <$> observeDecrementTx utxo tx
-      <|> Close <$> observeCloseTx utxo tx
-      <|> Contest <$> observeContestTx utxo tx
-      <|> Fanout <$> observeFanoutTx utxo tx
+    either (const Nothing) (Just . Init) (observeInitTx serializedScripts tx)
+      <|> Abort <$> observeAbortTx serializedScripts utxo tx
+      <|> Commit <$> observeCommitTx networkId serializedScripts utxo tx
+      <|> CollectCom <$> observeCollectComTx serializedScripts utxo tx
+      <|> Deposit <$> observeDepositTx networkId serializedScripts tx
+      <|> Recover <$> observeRecoverTx networkId serializedScripts utxo tx
+      <|> Increment <$> observeIncrementTx serializedScripts utxo tx
+      <|> Decrement <$> observeDecrementTx serializedScripts utxo tx
+      <|> Close <$> observeCloseTx serializedScripts utxo tx
+      <|> Contest <$> observeContestTx serializedScripts utxo tx
+      <|> Fanout <$> observeFanoutTx serializedScripts utxo tx
 
 -- | Data which can be observed from an `initTx`.
 data InitObservation = InitObservation
@@ -155,9 +154,10 @@ instance Arbitrary NotAnInitReason where
 -- | Identify a init tx by checking the output value for holding tokens that are
 -- valid head tokens (checked by seed + policy).
 observeInitTx ::
+  SerialisedScriptRegistry ->
   Tx ->
   Either NotAnInitReason InitObservation
-observeInitTx tx = do
+observeInitTx SerialisedScriptRegistry{initialScriptValidator, headScriptValidator} tx = do
   -- XXX: Lots of redundant information here
   (ix, headOut, headState) <-
     maybeLeft NoHeadOutput $
@@ -197,7 +197,7 @@ observeInitTx tx = do
     guard $ isScriptTxOut headScript out
     (ix,out,) <$> (fromScriptData =<< txOutScriptData out)
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = fromPlutusScript @PlutusScriptV3 headScriptValidator
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
@@ -210,7 +210,7 @@ observeInitTx tx = do
 
   isInitial = isScriptTxOut initialScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialScriptValidator
 
   mintedTokenNames pid =
     [ assetName
@@ -241,12 +241,13 @@ instance Arbitrary CommitObservation where
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs. Should at least contain the input
   -- spending from νInitial.
   UTxO ->
   Tx ->
   Maybe CommitObservation
-observeCommitTx networkId utxo tx = do
+observeCommitTx networkId SerialisedScriptRegistry{initialScriptValidator, commitScriptValidator} utxo tx = do
   -- NOTE: Instead checking to spend from initial we could be looking at the
   -- seed:
   --
@@ -291,11 +292,11 @@ observeCommitTx networkId utxo tx = do
 
   initialAddress = mkScriptAddress @PlutusScriptV3 networkId initialScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = fromPlutusScript @PlutusScriptV3 initialScriptValidator
 
   commitAddress = mkScriptAddress networkId commitScript
 
-  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
+  commitScript = fromPlutusScript @PlutusScriptV3 commitScriptValidator
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
@@ -310,11 +311,12 @@ instance Arbitrary CollectComObservation where
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
 observeCollectComTx ::
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
   Maybe CollectComObservation
-observeCollectComTx utxo tx = do
+observeCollectComTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -339,7 +341,7 @@ observeCollectComTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
   decodeUtxoHash datum =
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
@@ -356,10 +358,11 @@ instance Arbitrary IncrementObservation where
   arbitrary = genericArbitrary
 
 observeIncrementTx ::
+  SerialisedScriptRegistry ->
   UTxO ->
   Tx ->
   Maybe IncrementObservation
-observeIncrementTx utxo tx = do
+observeIncrementTx SerialisedScriptRegistry{headScriptValidator, depositScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV3 utxo depositScript
@@ -384,8 +387,8 @@ observeIncrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
-  headScript = fromPlutusScript Head.validatorScript
+  depositScript = fromPlutusScript depositScriptValidator
+  headScript = fromPlutusScript headScriptValidator
 
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
@@ -398,10 +401,11 @@ instance Arbitrary DecrementObservation where
   arbitrary = genericArbitrary
 
 observeDecrementTx ::
+  SerialisedScriptRegistry ->
   UTxO ->
   Tx ->
   Maybe DecrementObservation
-observeDecrementTx utxo tx = do
+observeDecrementTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -426,7 +430,7 @@ observeDecrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput
@@ -441,11 +445,12 @@ instance Arbitrary CloseObservation where
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeCloseTx ::
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
   Maybe CloseObservation
-observeCloseTx utxo tx = do
+observeCloseTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -474,7 +479,7 @@ observeCloseTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
 
 data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
@@ -491,11 +496,12 @@ instance Arbitrary ContestObservation where
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeContestTx ::
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
   Maybe ContestObservation
-observeContestTx utxo tx = do
+observeContestTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -517,7 +523,7 @@ observeContestTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
 
   decodeDatum headDatum =
     case fromScriptData headDatum of
@@ -533,11 +539,12 @@ instance Arbitrary FanoutObservation where
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeFanoutTx ::
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
   Maybe FanoutObservation
-observeFanoutTx utxo tx = do
+observeFanoutTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   headId <- findStateToken headOutput
@@ -546,7 +553,7 @@ observeFanoutTx utxo tx = do
       Head.Fanout{} -> pure FanoutObservation{headId}
       _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
 
 newtype AbortObservation = AbortObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
 
@@ -556,11 +563,12 @@ instance Arbitrary AbortObservation where
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
 observeAbortTx ::
+  SerialisedScriptRegistry ->
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
   Maybe AbortObservation
-observeAbortTx utxo tx = do
+observeAbortTx SerialisedScriptRegistry{headScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   headId <- findStateToken headOutput
@@ -568,7 +576,7 @@ observeAbortTx utxo tx = do
     Head.Abort -> pure $ AbortObservation headId
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = fromPlutusScript headScriptValidator
 
 -- * Cardano specific identifiers
 
