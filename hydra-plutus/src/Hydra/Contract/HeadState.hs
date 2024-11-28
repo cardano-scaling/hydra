@@ -54,7 +54,7 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: η. Digest of snapshotted UTxO
   -- | TODO: add alphaUTxOHash to the spec
   , alphaUTxOHash :: Hash
-  , deltaUTxOHash :: Hash
+  , omegaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
   -- ^ Spec: C

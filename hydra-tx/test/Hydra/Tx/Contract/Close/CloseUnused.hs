@@ -53,8 +53,8 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
-  replaceDeltaUTxOHash,
   replaceHeadId,
+  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -296,7 +296,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
-        pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
+        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
     ]
  where
   genOversizedTransactionValidity = do

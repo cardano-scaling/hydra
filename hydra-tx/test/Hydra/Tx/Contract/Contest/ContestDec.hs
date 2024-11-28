@@ -22,7 +22,7 @@ import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   modifyInlineDatum,
-  replaceDeltaUTxOHash,
+  replaceOmegaUTxOHash,
   replaceSnapshotVersion,
  )
 import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
@@ -31,8 +31,8 @@ import Test.QuickCheck.Instances ()
 data ContestDecMutation
   = ContestUsedDecAlterRedeemerDecommitHash
   | ContestUnusedDecAlterRedeemerDecommitHash
-  | ContestUsedDecAlterDatumDeltaUTxOHash
-  | ContestUnusedDecAlterDatumDeltaUTxOHash
+  | ContestUsedDecAlterDatumomegaUTxOHash
+  | ContestUnusedDecAlterDatumomegaUTxOHash
   | ContestUsedDecMutateSnapshotVersion
   | ContestUnusedDecMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
@@ -64,12 +64,12 @@ genContestDecMutation (tx, _utxo) =
                 { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
                 , alreadyDecommittedUTxOHash = mutatedHash
                 }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUsedDecAlterDatumDeltaUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUsedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
-        pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterDatumDeltaUTxOHash . ChangeOutput 0 <$> do
+        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
-        pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
+        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
     , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedDecMutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut

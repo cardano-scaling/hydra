@@ -113,15 +113,19 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
         Head.ClosedDatum
           { snapshotNumber = toInteger number
           , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , alphaUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-          , deltaUTxOHash =
+          , alphaUTxOHash =
               case contestRedeemer of
-                Head.ContestUnusedDec{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-                Head.ContestUnusedInc{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
                 Head.ContestUsedInc{} ->
                   toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
+                Head.ContestUnusedInc{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
+              case contestRedeemer of
+                Head.ContestUsedDec{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                Head.ContestUnusedDec{} ->
+                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties
           , contestationDeadline = newContestationDeadline

@@ -54,8 +54,8 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
-  replaceDeltaUTxOHash,
   replaceHeadId,
+  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -198,7 +198,7 @@ genContestMutation (tx, _utxo) =
         mutatedUTxOHash <- arbitrary `suchThat` (/= healthyContestUTxOToDecommitHash)
         pure $
           modifyInlineDatum
-            (replaceDeltaUTxOHash mutatedUTxOHash)
+            (replaceOmegaUTxOHash mutatedUTxOHash)
             headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)

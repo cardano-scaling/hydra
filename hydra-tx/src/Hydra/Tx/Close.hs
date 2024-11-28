@@ -150,13 +150,18 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , utxoHash =
               toBuiltin . hashUTxO $ utxo (getSnapshot confirmedSnapshot)
           , alphaUTxOHash =
-              toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
-          , deltaUTxOHash =
+              case closeRedeemer of
+                Head.CloseUsedInc{} ->
+                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
+                Head.CloseUnusedInc{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedDec{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                Head.CloseUnusedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
-                -- Head.CloseUnusedInc{} ->
-                --   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
           , contestationDeadline

@@ -88,7 +88,7 @@ healthyFanoutDatum =
       , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
       , -- TODO: revisit
         alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
-      , deltaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
+      , omegaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
