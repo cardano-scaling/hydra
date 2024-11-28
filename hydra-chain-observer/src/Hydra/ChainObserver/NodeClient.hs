@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx.ScriptRegistry (serialisedScriptRegistry)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
@@ -85,7 +86,7 @@ logOnChainTx = \case
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =
   let utxo' = adjustUTxO tx utxo
-   in case observeHeadTx networkId utxo tx of
+   in case observeHeadTx networkId serialisedScriptRegistry utxo tx of
         NoHeadTx -> (utxo, Nothing)
         observation -> (utxo', pure observation)
 
