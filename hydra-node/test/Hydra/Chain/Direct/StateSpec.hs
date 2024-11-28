@@ -116,6 +116,7 @@ import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import Hydra.Tx.ScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
@@ -183,7 +184,7 @@ spec = parallel $ do
         let utxo = UTxO.singleton (seedInput, seedTxOut)
         let (tx', utxo') = applyMutation mutation (tx, utxo)
 
-            originalIsObserved = property $ isRight (observeInitTx tx)
+            originalIsObserved = property $ isRight (observeInitTx serialisedScriptRegistry tx)
 
             -- We expected mutated transaction to still be valid, but not observed.
             mutatedIsValid = property $
@@ -194,7 +195,7 @@ spec = parallel $ do
                   | otherwise -> False
 
             mutatedIsNotObserved =
-              observeInitTx tx' === Left expected
+              observeInitTx serialisedScriptRegistry tx' === Left expected
 
         pure $
           conjoin
@@ -224,7 +225,7 @@ spec = parallel $ do
           mutation <- pick $ genCommitTxMutation utxo tx
           let (tx', utxo') = applyMutation mutation (tx, utxo)
 
-              originalIsObserved = property $ isJust $ observeCommitTx testNetworkId utxo tx
+              originalIsObserved = property $ isJust $ observeCommitTx testNetworkId serialisedScriptRegistry utxo tx
 
               -- We expected mutated transaction to still be valid, but not observed.
               mutatedIsValid =
@@ -235,7 +236,7 @@ spec = parallel $ do
                     | otherwise -> property False & counterexample (show ok)
 
               mutatedIsNotObserved =
-                isNothing $ observeCommitTx testNetworkId utxo' tx'
+                isNothing $ observeCommitTx testNetworkId serialisedScriptRegistry utxo' tx'
 
           pure $
             conjoin
@@ -332,7 +333,7 @@ spec = parallel $ do
 
     prop "observes deposit" $
       forAllDeposit $ \utxo tx ->
-        case observeDepositTx testNetworkId tx of
+        case observeDepositTx testNetworkId serialisedScriptRegistry tx of
           Just DepositObservation{} -> property True
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
@@ -343,7 +344,7 @@ spec = parallel $ do
 
     prop "observes recover" $
       forAllRecover $ \utxo tx ->
-        case observeRecoverTx testNetworkId utxo tx of
+        case observeRecoverTx testNetworkId serialisedScriptRegistry utxo tx of
           Just RecoverObservation{} -> property True
           Nothing ->
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
@@ -358,7 +359,7 @@ spec = parallel $ do
 
   prop "observes distributed outputs" $
     forAllDecrement' $ \toDistribute utxo tx ->
-      case observeDecrementTx utxo tx of
+      case observeDecrementTx serialisedScriptRegistry utxo tx of
         Just DecrementObservation{distributedOutputs} ->
           distributedOutputs === toDistribute
         Nothing ->
@@ -451,7 +452,7 @@ prop_observeAnyTx =
         genericCoverTable [transition] $ do
           let expectedHeadId = chainStateHeadId st
               utxo = getKnownUTxO st <> getKnownUTxO otherSt <> additionalUTxO <> additionalUTxO'
-          case observeHeadTx (networkId ctx) utxo tx of
+          case observeHeadTx (networkId ctx) serialisedScriptRegistry utxo tx of
             NoHeadTx ->
               False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
             -- NOTE: we don't have the generated headId easily accessible in the initial state
