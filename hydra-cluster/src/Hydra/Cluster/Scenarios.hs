@@ -817,7 +817,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
         chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+        headId <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -829,7 +829,7 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
           -- stop the second node here
-          pure ()
+          pure headId
 
         -- Get some L1 funds
         (walletVk, walletSk) <- generate genKeyPair
@@ -872,6 +872,22 @@ canRecoverDeposit tracer workDir node hydraScriptsTxId =
 
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
           `shouldReturn` lovelaceToValue commitAmount
+        send n1 $ input "Close" []
+
+        deadline' <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+
+        remainingTime <- diffUTCTime deadline' <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+        waitMatch (20 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+        -- Assert final wallet balance
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` balance commitUTxO
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
