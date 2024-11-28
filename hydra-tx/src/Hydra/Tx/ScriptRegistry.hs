@@ -18,6 +18,10 @@ import Hydra.Cardano.Api (
   pattern ReferenceScriptNone,
  )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
+import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import PlutusLedgerApi.Common (SerialisedScript)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -71,6 +75,22 @@ newScriptRegistry =
     , commitScriptHash
     , headScriptHash
     } = scriptInfo
+
+data SerialisedScriptRegistry = SerialisedScriptRegistry
+  { initialScriptValidator :: SerialisedScript
+  , commitScriptValidator :: SerialisedScript
+  , headScriptValidator :: SerialisedScript
+  , depositScriptValidator :: SerialisedScript
+  }
+
+serialisedScriptRegistry :: SerialisedScriptRegistry
+serialisedScriptRegistry =
+  SerialisedScriptRegistry
+    { initialScriptValidator = initialValidatorScript
+    , commitScriptValidator = commitValidatorScript
+    , headScriptValidator = Head.validatorScript
+    , depositScriptValidator = Deposit.validatorScript
+    }
 
 -- | Get the UTxO that corresponds to a script registry.
 --

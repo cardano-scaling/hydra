@@ -84,6 +84,7 @@ import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
+  serialisedScriptRegistry,
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
@@ -305,7 +306,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
-    let observation = observeHeadTx networkId spendableUTxO tx
+    let observation = observeHeadTx networkId serialisedScriptRegistry spendableUTxO tx
     case convertObservation observation of
       Nothing -> pure Nothing
       Just observedTx -> do

@@ -50,7 +50,7 @@ import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkInitialOutput)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.ScriptRegistry (registryUTxO, serialisedScriptRegistry)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
@@ -114,7 +114,7 @@ spec =
             genericCoverTable [transition] $
               counterexample (show transition) $
                 let utxo = getKnownUTxO st <> additionalUTxO
-                 in case observeHeadTx testNetworkId utxo tx of
+                 in case observeHeadTx testNetworkId serialisedScriptRegistry utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
                       Abort{} -> transition === Transition.Abort

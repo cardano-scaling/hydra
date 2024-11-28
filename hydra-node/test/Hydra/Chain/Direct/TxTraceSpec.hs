@@ -60,7 +60,7 @@ import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
 import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO, serialisedScriptRegistry)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
@@ -458,8 +458,7 @@ instance StateModel Model where
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
               then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+              else snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -508,8 +507,7 @@ instance StateModel Model where
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
               then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+              else snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -701,14 +699,14 @@ performTx action result =
                 Deposit{} -> (Just . getTxId . getTxBody $ tx, adjustUTxO tx utxo)
                 _ -> (depositTxId, adjustUTxO tx utxo)
         put adjusted
-      let observation = observeHeadTx Fixture.testNetworkId utxo tx
-      pure
-        TxResult
-          { constructedTx = Right tx
-          , spendableUTxO = utxo
-          , validationError
-          , observation
-          }
+        let observation = observeHeadTx Fixture.testNetworkId serialisedScriptRegistry utxo tx
+        pure
+          TxResult
+            { constructedTx = Right tx
+            , spendableUTxO = utxo
+            , validationError
+            , observation
+            }
 
 getValidationError :: Tx -> UTxO -> Maybe String
 getValidationError tx utxo =

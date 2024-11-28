@@ -99,6 +99,7 @@ import Hydra.Tx (
   getSnapshot,
   partyToChain,
   registryUTxO,
+  serialisedScriptRegistry,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
@@ -778,7 +779,7 @@ observeInit ::
   Tx ->
   Either NotAnInitReason (OnChainTx Tx, InitialState)
 observeInit _ctx _allVerificationKeys tx = do
-  observation <- observeInitTx tx
+  observation <- observeInitTx serialisedScriptRegistry tx
   pure (toEvent observation, toState observation)
  where
   toEvent InitObservation{contestationPeriod, parties, headId, seedTxIn, participants} =
@@ -813,7 +814,7 @@ observeCommit ::
   Maybe (OnChainTx Tx, InitialState)
 observeCommit ctx st tx = do
   let utxo = getKnownUTxO st
-  observation <- observeCommitTx networkId utxo tx
+  observation <- observeCommitTx networkId serialisedScriptRegistry utxo tx
   let CommitObservation{commitOutput, party, committed, headId = commitHeadId} = observation
   guard $ commitHeadId == headId
   let event = OnCommitTx{headId, party, committed}
@@ -844,7 +845,7 @@ observeCollect ::
   Maybe (OnChainTx Tx, OpenState)
 observeCollect st tx = do
   let utxo = getKnownUTxO st
-  observation <- observeCollectComTx utxo tx
+  observation <- observeCollectComTx serialisedScriptRegistry utxo tx
   let CollectComObservation{threadOutput = threadOutput, headId = collectComHeadId, utxoHash} = observation
   guard (headId == collectComHeadId)
   -- REVIEW: is it enough to pass here just the 'openThreadUTxO' or we need also
@@ -874,7 +875,7 @@ observeClose ::
   Maybe (OnChainTx Tx, ClosedState)
 observeClose st tx = do
   let utxo = getKnownUTxO st
-  observation <- observeCloseTx utxo tx
+  observation <- observeCloseTx serialisedScriptRegistry utxo tx
   let CloseObservation{threadOutput, headId = closeObservationHeadId, snapshotNumber} = observation
   guard (headId == closeObservationHeadId)
   let ClosedThreadOutput{closedContestationDeadline} = threadOutput
@@ -1155,7 +1156,7 @@ genRecoverTx ::
 genRecoverTx = do
   (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
   let DepositObservation{deposited, deadline} =
-        fromJust $ observeDepositTx testNetworkId txDeposit
+        fromJust $ observeDepositTx testNetworkId serialisedScriptRegistry txDeposit
   let slotNo = slotNoFromUTCTime systemStart slotLength (posixToUTCTime deadline)
   slotNo' <- arbitrary
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited (slotNo + slotNo')
@@ -1165,7 +1166,7 @@ genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
 genIncrementTx numParties = do
   (ctx, st@OpenState{headId}, utxo, txDeposit) <- genDepositTx numParties
   cctx <- pickChainContext ctx
-  let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
+  let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) serialisedScriptRegistry txDeposit
   let openUTxO = getKnownUTxO st
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)

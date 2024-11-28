@@ -11,6 +11,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (HeadId, mkHeadId)
+import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
@@ -52,10 +53,11 @@ data RecoverObservation = RecoverObservation
 
 observeRecoverTx ::
   NetworkId ->
+  SerialisedScriptRegistry ->
   UTxO ->
   Tx ->
   Maybe RecoverObservation
-observeRecoverTx networkId utxo tx = do
+observeRecoverTx networkId SerialisedScriptRegistry{} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV3 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
