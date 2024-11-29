@@ -91,6 +91,7 @@ executable hydra-chain-observer
   build-depends:
     , hydra-chain-observer
     , hydra-prelude
+    , hydra-tx
 
 test-suite tests
   import:             project-config
@@ -105,6 +106,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , hydra-tx:testlib
     , QuickCheck
 

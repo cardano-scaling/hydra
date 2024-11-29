@@ -36,6 +36,7 @@ import Hydra.ChainObserver.NodeClient (
   observeAll,
  )
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
@@ -47,8 +48,9 @@ ouroborusClient ::
   Tracer IO ChainObserverLog ->
   SocketPath ->
   NetworkId ->
+  SerialisedScriptRegistry ->
   NodeClient IO
-ouroborusClient tracer nodeSocket networkId =
+ouroborusClient tracer nodeSocket networkId serialisedScriptRegistry =
   NodeClient
     { follow = \startChainFrom observerHandler -> do
         traceWith tracer ConnectingToNode{nodeSocket, networkId}
@@ -58,7 +60,7 @@ ouroborusClient tracer nodeSocket networkId =
         traceWith tracer StartObservingFrom{chainPoint}
         connectToLocalNode
           (connectInfo nodeSocket networkId)
-          (clientProtocols tracer networkId chainPoint observerHandler)
+          (clientProtocols tracer networkId chainPoint serialisedScriptRegistry observerHandler)
     }
 
 type BlockType :: Type
@@ -79,11 +81,12 @@ clientProtocols ::
   Tracer IO ChainObserverLog ->
   NetworkId ->
   ChainPoint ->
+  SerialisedScriptRegistry ->
   ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId startingPoint observerHandler =
+clientProtocols tracer networkId startingPoint serialisedScriptRegistry observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint observerHandler
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint serialisedScriptRegistry observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
@@ -107,9 +110,10 @@ chainSyncClient ::
   Tracer m ChainObserverLog ->
   NetworkId ->
   ChainPoint ->
+  SerialisedScriptRegistry ->
   ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId startingPoint observerHandler =
+chainSyncClient tracer networkId startingPoint serialisedScriptRegistry observerHandler =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect [startingPoint] clientStIntersect
@@ -142,7 +146,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
                 BlockInMode ConwayEra (Block _ conwayTxs) -> conwayTxs
                 _ -> []
 
-              (utxo', observations) = observeAll networkId utxo txs
+              (utxo', observations) = observeAll networkId serialisedScriptRegistry utxo txs
               onChainTxs = mapMaybe convertObservation observations
 
           forM_ onChainTxs (traceWith tracer . logOnChainTx)

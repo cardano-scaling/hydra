@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.ScriptRegistry (serialisedScriptRegistry)
+import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
@@ -80,19 +80,19 @@ logOnChainTx = \case
   OnAbortTx{headId} -> HeadAbortTx{headId}
   OnContestTx{headId} -> HeadContestTx{headId}
 
-observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
-observeTx networkId utxo tx =
+observeTx :: NetworkId -> SerialisedScriptRegistry -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
+observeTx networkId serialisedScriptRegistry utxo tx =
   let utxo' = adjustUTxO tx utxo
    in case observeHeadTx networkId serialisedScriptRegistry utxo tx of
         NoHeadTx -> (utxo, Nothing)
         observation -> (utxo', pure observation)
 
-observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [HeadObservation])
-observeAll networkId utxo txs =
+observeAll :: NetworkId -> SerialisedScriptRegistry -> UTxO -> [Tx] -> (UTxO, [HeadObservation])
+observeAll networkId serialisedScriptRegistry utxo txs =
   second reverse $ foldr go (utxo, []) txs
  where
   go :: Tx -> (UTxO, [HeadObservation]) -> (UTxO, [HeadObservation])
   go tx (utxo'', observations) =
-    case observeTx networkId utxo'' tx of
+    case observeTx networkId serialisedScriptRegistry utxo'' tx of
       (utxo', Nothing) -> (utxo', observations)
       (utxo', Just observation) -> (utxo', observation : observations)
