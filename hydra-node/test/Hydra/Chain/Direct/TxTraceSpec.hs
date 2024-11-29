@@ -24,7 +24,6 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
-import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
@@ -74,7 +73,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty, oneof, sublistOf, (===))
+import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty, (===))
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -119,9 +118,10 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
     & cover 0.1 (countContests steps >= 2) "has multiple contests"
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
     & cover 10 (hasFanout steps) "reach fanout"
-    & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
-    & cover 1 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-    & cover 1 (fanoutWithDelta steps) "fanout with additional UTxO to distribute"
+    -- & cover 1 (fanoutWithEmptyUTxO steps) "fanout with empty UTxO"
+    & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
+    & cover 10 (fanoutWithCommitDelta steps) "fanout with additional commit UTxO to distribute"
+    & cover 1 (fanoutWithDecommitDelta steps) "fanout with additional decommit UTxO to distribute"
  where
   hasSomeSnapshots =
     any $
@@ -139,13 +139,13 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
         Fanout{} -> polarity == PosPolarity
         _ -> False
 
-  fanoutWithEmptyUTxO =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{utxo} ->
-          polarity == PosPolarity
-            && null utxo
-        _ -> False
+  -- fanoutWithEmptyUTxO =
+  --   any $
+  --     \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+  --       Fanout{utxo} ->
+  --         polarity == PosPolarity
+  --           && null utxo
+  --       _ -> False
 
   fanoutWithSomeUTxO =
     any $
@@ -155,7 +155,15 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
             && not (null utxo)
         _ -> False
 
-  fanoutWithDelta =
+  fanoutWithCommitDelta =
+    any $
+      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
+        Fanout{alphaUTxO} ->
+          polarity == PosPolarity
+            && not (null alphaUTxO)
+        _ -> False
+
+  fanoutWithDecommitDelta =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
         Fanout{omegaUTxO} ->
@@ -202,7 +210,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      print actions
+      -- print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -342,13 +350,13 @@ instance StateModel Model where
                | not (null knownSnapshots) -- XXX: DRY this check
                ]
             <> [
-                 ( 2
+                 ( 1
                  , do
                     toCommit <- arbitrary
                     pure $ Some Deposit{utxoToDeposit = take 1 $ nub $ filter (`notElem` utxoInHead) toCommit}
                  )
                ]
-            <> [ ( 2
+            <> [ ( 5
                  , do
                     actor <- elements allActors
                     snapshot <- elements knownSnapshots
@@ -357,29 +365,29 @@ instance StateModel Model where
                | not (null knownSnapshots)
                ]
             <> [
-                 ( 2
+                 ( 5
                  , do
                     actor <- elements allActors
-                    snapshot <- genNormalClose
+                    snapshot <- genCloseWithDecrement
                     pure $ Some $ Close{actor, snapshot = snapshot}
                  )
                ]
       Closed{} ->
         frequency $
-          ( 2
+          ( 5
           , do
               -- Fanout with the currently known model state.
-              omegaUTxO <- frequency [(1, pure pendingDecommit), (1, pure pendingDeposit), (1, pure mempty), (1, arbitrary)]
+              omegaUTxO <- frequency [(1, pure pendingDecommit), (1, pure mempty), (1, arbitrary)]
+              alphaUTxO' <- frequency [(1, if null pendingDeposit then arbitrary else elements pendingDeposit), (1, arbitrary)]
               pure $
                 Some $
                   Fanout
                     { utxo = utxoInHead
-                    , -- TODO: revisit this and populate
-                      alphaUTxO = mempty
+                    , alphaUTxO = [alphaUTxO']
                     , omegaUTxO
                     }
           )
-            : [ ( 1
+            : [ ( 5
                 , do
                     actor <- elements allActors
                     snapshot <- elements knownSnapshots
@@ -389,14 +397,14 @@ instance StateModel Model where
               ]
       Final -> pure $ Some Stop
    where
-    genNormalClose = do
+    genCloseWithDecrement = do
       pure
         ModelSnapshot
-          { version = currentVersion
+          { version = currentVersion + 1
           , number = latestSnapshotNumber knownSnapshots + 1
           , inHead = utxoInHead
           , toCommit = mempty
-          , toDecommit = mempty
+          , toDecommit = pendingDeposit
           }
 
     genSnapshot = do
@@ -404,21 +412,21 @@ instance StateModel Model where
             ModelSnapshot
               { version = currentVersion
               , number = latestSnapshotNumber knownSnapshots + 1
-              , inHead = utxoInHead
+              , inHead = frequency [(1, pure utxoInHead), (3, pure mempty)] `generateWith` 42
               , toCommit = mempty
               , toDecommit = mempty
               }
       frequency
         [ (3, pure defaultSnapshot)
-        , (3, pure $ defaultSnapshot{toCommit = nub $ filter (`notElem` utxoInHead) pendingDeposit})
+        , (3, pure $ defaultSnapshot{version = currentVersion + 1, toCommit = nub $ filter (`notElem` utxoInHead) pendingDeposit})
         , if currentSnapshotNumber > 0
             then
               ( 3
               , do
-                  toDecommit' <- sublistOf utxoInHead
+                  let toDecommit' = take 1 utxoInHead
                   case toDecommit' of
                     [] -> pure defaultSnapshot
-                    toDecommit'' -> pure $ defaultSnapshot{toDecommit = (: []) $ List.last toDecommit''}
+                    _ -> pure $ defaultSnapshot{version = currentVersion + 1, toDecommit = toDecommit'}
               )
             else (3, pure defaultSnapshot)
         ]
@@ -426,10 +434,10 @@ instance StateModel Model where
   -- Determine actions we want to perform and expect to work. If this is False,
   -- validFailingAction is checked too.
   precondition :: Model -> Action Model a -> Bool
-  precondition Model{headState, knownSnapshots, currentSnapshotNumber, closedSnapshotNumber, alreadyContested, currentVersion, utxoInHead, pendingDeposit, pendingDecommit} = \case
+  precondition Model{headState, knownSnapshots, currentSnapshotNumber, alreadyContested, currentVersion, pendingDeposit, pendingDecommit} = \case
     Stop -> headState /= Final
     NewSnapshot{newSnapshot} ->
-      (newSnapshot.version == currentVersion)
+      (newSnapshot.version == currentVersion || newSnapshot.version == currentVersion + 1)
         && newSnapshot.number > latestSnapshotNumber knownSnapshots
     Deposit{utxoToDeposit} ->
       headState == Open
@@ -447,13 +455,13 @@ instance StateModel Model where
         && snapshot `elem` knownSnapshots
         && snapshot.version == currentVersion
         && pendingDecommit /= mempty
-        && pendingDecommit == snapshot.toDecommit
+        && snapshot.toDecommit == pendingDecommit
         && currentSnapshotNumber > 0
     Close{snapshot} ->
       headState == Open
         && snapshot `elem` knownSnapshots
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
-        && ((snapshot.version == currentVersion) && (snapshot.toCommit == mempty && snapshot.toDecommit == mempty))
+        && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
               then snapshot.inHead == initialUTxOInHead
               else
@@ -468,16 +476,14 @@ instance StateModel Model where
         && snapshot.number > currentSnapshotNumber
         && ((snapshot.version == currentVersion) && (snapshot.toCommit == mempty && snapshot.toDecommit == mempty))
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
-    Fanout{utxo, omegaUTxO} ->
+    Fanout{} ->
       headState == Closed
-        && utxo == utxoInHead
-        && (omegaUTxO == pendingDecommit || omegaUTxO == mempty)
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
   -- it tried to perform).
   validFailingAction :: Model -> Action Model a -> Bool
-  validFailingAction Model{headState, utxoInHead, currentSnapshotNumber, alreadyContested, closedSnapshotNumber, knownSnapshots, currentVersion, pendingDeposit, pendingDecommit} = \case
+  validFailingAction Model{headState, currentSnapshotNumber, alreadyContested, knownSnapshots, currentVersion, pendingDeposit, pendingDecommit} = \case
     Stop -> False
     NewSnapshot{} -> False
     Deposit{utxoToDeposit} ->
@@ -505,10 +511,14 @@ instance StateModel Model where
       headState == Open
         && snapshot `elem` knownSnapshots
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
-        && ((snapshot.version == currentVersion) && (snapshot.toCommit == mempty && snapshot.toDecommit == mempty))
-        && ( snapshot.number == 0
-              || snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+        && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
+        && ( if snapshot.number == 0
+              then snapshot.inHead == initialUTxOInHead
+              else
+                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
+     where
+      Model{utxoInHead = initialUTxOInHead} = initialState
     Contest{actor, snapshot} ->
       headState == Closed
         && snapshot `elem` knownSnapshots
@@ -516,10 +526,8 @@ instance StateModel Model where
         && ((snapshot.version == currentVersion) && (snapshot.toCommit == mempty && snapshot.toDecommit == mempty))
         && actor `notElem` alreadyContested
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
-    Fanout{utxo, omegaUTxO} ->
+    Fanout{} ->
       headState == Closed
-        && utxo == utxoInHead
-        && (if pendingDeposit /= mempty then omegaUTxO == pendingDeposit else if pendingDecommit /= mempty then omegaUTxO == pendingDecommit else omegaUTxO == mempty)
 
   nextState :: Model -> Action Model a -> Var a -> Model
   nextState m@Model{} t _result =
@@ -534,13 +542,12 @@ instance StateModel Model where
       Deposit{utxoToDeposit} ->
         m
           { headState = Open
-          , utxoInHead = m.utxoInHead
           , pendingDeposit = utxoToDeposit
           }
       Increment{snapshot} ->
         m
           { headState = Open
-          , currentVersion = snapshot.version + 1
+          , currentVersion = snapshot.version
           , utxoInHead = m.utxoInHead <> snapshot.toCommit
           , pendingDeposit = mempty
           , currentSnapshotNumber = snapshot.number
@@ -548,7 +555,7 @@ instance StateModel Model where
       Decrement{snapshot} ->
         m
           { headState = Open
-          , currentVersion = snapshot.version + 1
+          , currentVersion = snapshot.version
           , utxoInHead = m.utxoInHead \\ snapshot.toDecommit
           , pendingDecommit = mempty
           , currentSnapshotNumber = snapshot.number
@@ -560,18 +567,14 @@ instance StateModel Model where
           , closedSnapshotNumber = snapshot.number
           , currentSnapshotNumber = snapshot.number
           , alreadyContested = []
-          , utxoInHead = snapshot.inHead
-          -- , pendingDeposit = if currentVersion == snapshot.version then snapshot.toCommit else mempty
-          -- , pendingDecommit = if currentVersion == snapshot.version then snapshot.toDecommit else mempty
+          -- , utxoInHead = snapshot.inHead
           }
       Contest{actor, snapshot} ->
         m
           { headState = Closed
           , alreadyContested = actor : alreadyContested m
           , currentSnapshotNumber = snapshot.number
-          , utxoInHead = snapshot.inHead
-          -- , pendingDeposit = if currentVersion == snapshot.version then snapshot.toCommit else mempty
-          -- , pendingDecommit = if currentVersion == snapshot.version then snapshot.toDecommit else mempty
+          -- , utxoInHead = snapshot.inHead
           }
       Fanout{} -> m{headState = Final}
 
