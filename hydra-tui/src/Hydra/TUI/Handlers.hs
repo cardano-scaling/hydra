@@ -115,14 +115,25 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Final
     Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} ->
       pendingUTxOToDecommitL .= utxoToDecommit
-    Update TimedServerOutput{time, output = DecommitFinalized{}} ->
+    Update TimedServerOutput{time, output = DecommitFinalized{}} -> do
+      ActiveLink{utxo, pendingUTxOToDecommit} <- get
+      utxoL .= utxo <> pendingUTxOToDecommit
       pendingUTxOToDecommitL .= mempty
     Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
       pendingIncrementL .= Just (PendingDeposit utxoToCommit pendingDeposit deadline)
     Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} -> do
       pendingIncrementL .= Just (PendingIncrement utxoToCommit)
     Update TimedServerOutput{time, output = CommitFinalized{}} -> do
-      pendingIncrementL .= Nothing
+      ActiveLink{utxo, pendingIncrement} <- get
+      case pendingIncrement of
+        Nothing ->
+          pendingIncrementL .= Nothing
+        Just (PendingIncrement utxoToCommit) -> do
+          utxoL .= utxo <> utxoToCommit
+          pendingIncrementL .= Nothing
+        Just PendingDeposit{} -> do
+          utxoL .= utxo
+          pendingIncrementL .= Nothing
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
@@ -149,12 +160,16 @@ handleHydraEventsInfo = \case
     warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
   Update TimedServerOutput{time, output = DecommitApproved{}} ->
     report Success time "Decommit approved and submitted to Cardano"
+  Update TimedServerOutput{time, output = DecommitFinalized{}} ->
+    report Success time "Decommit finalized"
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
   Update TimedServerOutput{time, output = CommitRecorded{}} ->
     report Success time "Commit deposit recorded and pending for approval"
   Update TimedServerOutput{time, output = CommitApproved{}} ->
     report Success time "Commit approved and submitted to Cardano"
+  Update TimedServerOutput{time, output = CommitFinalized{}} ->
+    report Success time "Commit finalized"
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = InvalidInput{reason}} ->
