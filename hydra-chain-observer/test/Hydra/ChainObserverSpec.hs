@@ -9,6 +9,7 @@ import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.Tx (HeadObservation (..))
 import Hydra.ChainObserver.NodeClient (observeAll, observeTx)
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Hydra.Tx.ScriptRegistry (serialisedScriptRegistry)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
@@ -22,7 +23,7 @@ spec =
           genericCoverTable [transition] $
             counterexample (show transition) $
               let utxo = getKnownUTxO st <> utxoFromTx tx <> additionalUTxO
-               in case snd $ observeTx testNetworkId utxo tx of
+               in case snd $ observeTx testNetworkId serialisedScriptRegistry utxo tx of
                     Just (Init{}) -> transition === Transition.Init
                     Just (Commit{}) -> transition === Transition.Commit
                     Just (CollectCom{}) -> transition === Transition.Collect
@@ -37,8 +38,8 @@ spec =
     prop "Updates UTxO state given transaction part of Head lifecycle" $
       forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, _transition) ->
         let utxo = getKnownUTxO st <> additionalUTxO
-         in fst (observeTx testNetworkId utxo tx) =/= utxo
+         in fst (observeTx testNetworkId serialisedScriptRegistry utxo tx) =/= utxo
 
     prop "Does not updates UTxO state given transactions outside of Head lifecycle" $
       forAll genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-        fst (observeAll testNetworkId utxo txs) === utxo
+        fst (observeAll testNetworkId serialisedScriptRegistry utxo txs) === utxo
