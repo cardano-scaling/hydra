@@ -75,10 +75,10 @@ library
   -- NOTE: We only use an upper bound on cardano-api and have the other
   -- dependencies on cardano-ledger* and plutus-ledger-api follow.
   build-depends:
-    , aeson                   >=2
-    , base                    >=4.16
+    , aeson                      >=2
+    , base                       >=4.16
     , bytestring
-    , cardano-api             ^>=10.5
+    , cardano-api                ^>=10.5
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
@@ -86,12 +86,13 @@ library
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-binary
-    , cardano-ledger-byron
+    , cardano-ledger-byron-test
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
     , containers
+    , hedgehog-quickcheck
     , lens
     , plutus-ledger-api
     , QuickCheck
-    , text                    >=2
+    , text                       >=2
