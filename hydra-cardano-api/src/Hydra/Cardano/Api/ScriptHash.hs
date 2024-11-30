@@ -12,9 +12,3 @@ import Hydra.Cardano.Api.PlutusScript ()
 hashScriptInAnyLang :: ScriptInAnyLang -> ScriptHash
 hashScriptInAnyLang (ScriptInAnyLang _ script) =
   hashScript script
-
--- * Orphans
-
-instance Arbitrary ScriptHash where
-  arbitrary = do
-    hashScript . PlutusScript PlutusScriptV3 <$> arbitrary

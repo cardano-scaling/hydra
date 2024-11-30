@@ -53,6 +53,7 @@ import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
+import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (
   pparams,
@@ -80,6 +81,7 @@ import Test.QuickCheck (
   (.&&.),
   (===),
  )
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Monadic (monadicIO)
 
@@ -288,7 +290,7 @@ genBlueprintTxWithUTxO =
       [ pure (utxo, txbody)
       , do
           lovelace <- arbitrary
-          let redeemer = arbitrary `generateWith` 42
+          let redeemer = hedgehog genHashableScriptData `generateWith` 42
               alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
               scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
