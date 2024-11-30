@@ -6,9 +6,7 @@ import Hydra.Cardano.Api.Prelude hiding (left)
 
 import Cardano.Ledger.Era qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Data.ByteString qualified as BS
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
 -- * Extras
 
@@ -51,24 +49,3 @@ fromLedgerData =
 toLedgerData :: Ledger.Era era => HashableScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData
-
--- * Orphans
-
-instance Arbitrary ScriptData where
-  arbitrary =
-    scale (`div` 2) $
-      oneof
-        [ ScriptDataConstructor <$> arbitrarySizedNatural <*> arbitrary
-        , ScriptDataNumber <$> arbitrary
-        , ScriptDataBytes <$> arbitraryBS
-        , ScriptDataList <$> arbitrary
-        , ScriptDataMap <$> arbitrary
-        ]
-   where
-    arbitraryBS = sized $ \n ->
-      BS.pack <$> (choose (0, min n 64) >>= vector)
-
-instance Arbitrary HashableScriptData where
-  arbitrary =
-    -- NOTE: Safe to use here as the data was not available in serialized form.
-    unsafeHashableScriptData <$> arbitrary
