@@ -10,11 +10,9 @@ import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
 import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)
-import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
 -- * Extras
 
@@ -101,20 +99,6 @@ instance FromJSON ScriptData where
       bytes <- Base16.decode (encodeUtf8 text)
       left show $ deserialiseOrFail $ fromStrict bytes
 
-instance Arbitrary ScriptData where
-  arbitrary =
-    scale (`div` 2) $
-      oneof
-        [ ScriptDataConstructor <$> arbitrarySizedNatural <*> arbitrary
-        , ScriptDataNumber <$> arbitrary
-        , ScriptDataBytes <$> arbitraryBS
-        , ScriptDataList <$> arbitrary
-        , ScriptDataMap <$> arbitrary
-        ]
-   where
-    arbitraryBS = sized $ \n ->
-      BS.pack <$> (choose (0, min n 64) >>= vector)
-
 instance ToJSON HashableScriptData where
   toJSON = String . decodeUtf8 . Base16.encode . serialiseToCBOR
 
@@ -123,8 +107,3 @@ instance FromJSON HashableScriptData where
     withText "HashableScriptData" $ \text -> do
       bytes <- either (fail . show) pure $ Base16.decode $ encodeUtf8 text
       either (fail . show) pure $ deserialiseFromCBOR (proxyToAsType Proxy) bytes
-
-instance Arbitrary HashableScriptData where
-  arbitrary =
-    -- NOTE: Safe to use here as the data was not available in serialized form.
-    unsafeHashableScriptData <$> arbitrary
