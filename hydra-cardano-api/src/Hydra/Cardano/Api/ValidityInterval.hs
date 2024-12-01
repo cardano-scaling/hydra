@@ -6,7 +6,8 @@ import Hydra.Cardano.Api.Prelude
 
 import Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
-import Test.QuickCheck (oneof)
+import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound, genTxValidityUpperBound)
+import Test.QuickCheck.Hedgehog (hedgehog)
 
 toLedgerValidityInterval ::
   (TxValidityLowerBound era, TxValidityUpperBound era) ->
@@ -35,11 +36,7 @@ fromLedgerValidityInterval validityInterval =
    in (lowerBound, upperBound)
 
 instance Arbitrary (TxValidityLowerBound Era) where
-  arbitrary =
-    oneof
-      [ pure TxValidityNoLowerBound
-      , TxValidityLowerBound allegraBasedEra . SlotNo <$> arbitrary
-      ]
+  arbitrary = hedgehog $ genTxValidityLowerBound cardanoEra
 
 instance Arbitrary (TxValidityUpperBound Era) where
-  arbitrary = TxValidityUpperBound (shelleyBasedEra @Era) . fmap SlotNo <$> arbitrary
+  arbitrary = hedgehog $ genTxValidityUpperBound shelleyBasedEra
