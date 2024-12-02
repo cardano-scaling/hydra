@@ -198,9 +198,9 @@ data PostTxError tx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
   | FailedToConstructDepositTx
-  | FailedToConstructRecoverTx
-  | FailedToConstructIncrementTx
-  | FailedToConstructDecrementTx
+  | FailedToConstructRecoverTx {failureReason :: Text}
+  | FailedToConstructIncrementTx {failureReason :: Text}
+  | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   deriving stock (Generic)
 
