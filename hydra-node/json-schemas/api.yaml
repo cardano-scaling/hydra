@@ -2210,10 +2210,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructRecoverTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructIncrementTx
           description: |
             Raised if the user fails to submit a increment tx.
@@ -2221,10 +2224,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructIncrementTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructDecrementTx
           description: |
             Raised if the user fails to submit a decrement tx.
@@ -2232,10 +2238,13 @@ components:
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructDecrementTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructFanoutTx
           description: |
             Raised if the user fails to submit a fanout tx.
