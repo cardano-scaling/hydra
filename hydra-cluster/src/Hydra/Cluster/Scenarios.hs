@@ -6,6 +6,9 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.Shelley        as C
+import qualified PlutusTx.Prelude           as PlutusTx
+import qualified PlutusLedgerApi.V1         as PV1
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
@@ -16,6 +19,7 @@ import CardanoClient (
   submitTx,
   waitForUTxO,
  )
+import Hydra.Contract.Dummy (dummyValidatorHash)
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^..), (^?))
@@ -38,7 +42,11 @@ import Hydra.Cardano.Api (
   File (File),
   Key (SigningKey),
   PaymentKey,
+  StakeAddressReference(..),
+  PaymentCredential(..),
   Tx,
+  shelleyBasedEra,
+  makeShelleyAddressInEra,
   TxId,
   UTxO,
   getTxBody,
@@ -379,6 +387,47 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
         lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
  where
   RunningNode{nodeSocket, blockTime} = node
+
+singlePartyUsesSchnorrkelScriptOnL2 ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  TxId ->
+  IO ()
+singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 20_000_000
+    aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    (walletVk, walletSk) <- keysFor AliceFunds
+    utxoToCommit <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+      requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= submitTx node
+      waitFor hydraTracer (10 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+      scriptHash <- unTransScriptHash dummyValidatorHash
+      let scriptAddress = makeShelleyAddressInEra shelleyBasedEra networkId (PaymentCredentialByScript scriptHash) NoStakeAddress
+      let i = undefined
+      let o = undefined
+      let tx = mkSimpleTx (i, o) (scriptAddress, txOutValue o) walletSk
+      send n1 $ input "NewTx" ["transaction" .= tx]
+      waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $
+          toJSON tx
+            `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+        v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+  where
+    RunningNode{networkId, nodeSocket, blockTime} = node
+    unTransScriptHash :: PV1.ScriptHash -> IO C.ScriptHash
+    unTransScriptHash (PV1.ScriptHash vh) =
+      case C.deserialiseFromRawBytes C.AsScriptHash $ PlutusTx.fromBuiltin vh of
+        Left e -> fail $ show e
+        Right x -> pure x
+
 
 singlePartyCommitsScriptBlueprint ::
   Tracer IO EndToEndLog ->

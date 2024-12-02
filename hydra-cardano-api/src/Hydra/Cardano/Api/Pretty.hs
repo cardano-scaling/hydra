@@ -30,27 +30,24 @@ renderTxs xs = intercalate "\n\n" (renderTx <$> xs)
 renderTxWithUTxO :: UTxO -> Api.Tx -> String
 renderTxWithUTxO utxo (Tx body _wits) =
   unlines $
-    [show (getTxId body)]
-      <> [""]
-      <> inputLines
-      <> [""]
-      <> referenceInputLines
-      <> [""]
-      <> outputLines
-      <> [""]
-      <> validityLines
-      <> [""]
-      <> mintLines
-      <> [""]
-      <> scriptLines
-      <> [""]
-      <> datumLines
-      <> [""]
-      <> redeemerLines
-      <> [""]
-      <> requiredSignersLines
-      <> [""]
-      <> metadataLines
+    intercalate
+      [""]
+      [ pure $ show (getTxId body)
+      , inputLines
+      , collateralInputLines
+      , referenceInputLines
+      , outputLines
+      , totalCollateralLines
+      , returnCollateralLines
+      , feeLines
+      , validityLines
+      , mintLines
+      , scriptLines
+      , datumLines
+      , redeemerLines
+      , requiredSignersLines
+      , metadataLines
+      ]
  where
   Api.ShelleyTxBody _lbody scripts scriptsData _auxData _validity = body
   outs = txOuts content
@@ -69,6 +66,15 @@ renderTxWithUTxO utxo (Tx body _wits) =
       Api.TxInsReferenceNone -> []
       Api.TxInsReference refInputs -> refInputs
 
+  collateralInputLines =
+    "== COLLATERAL INPUTS (" <> show (length collateralInputs) <> ")"
+      : (("- " <>) . prettyTxIn <$> sort collateralInputs)
+
+  collateralInputs =
+    case txInsCollateral content of
+      Api.TxInsCollateralNone -> []
+      Api.TxInsCollateral refInputs -> refInputs
+
   prettyTxIn i =
     case UTxO.resolve i utxo of
       Nothing -> T.unpack $ renderTxIn i
@@ -79,6 +85,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
           <> ("\n      " <> prettyDatumUtxo (Api.txOutDatum o))
           <> ("\n      " <> prettyReferenceScript (Api.txOutReferenceScript o))
 
+  outputLines :: [String]
   outputLines =
     [ "== OUTPUTS (" <> show (length outs) <> ")"
     , "Total number of assets: " <> show totalNumberOfAssets
@@ -100,6 +107,25 @@ renderTxWithUTxO utxo (Tx body _wits) =
     let totalValue = foldMap Api.txOutValue outs
      in length $ toList totalValue
 
+  totalCollateralLines :: [String]
+  totalCollateralLines =
+    [ "== TOTAL COLLATERAL"
+    , show $ txTotalCollateral content
+    ]
+
+  returnCollateralLines :: [String]
+  returnCollateralLines =
+    [ "== RETURN COLLATERAL"
+    , show $ txReturnCollateral content
+    ]
+
+  feeLines :: [String]
+  feeLines =
+    [ "== FEE"
+    , show $ txFee content
+    ]
+
+  validityLines :: [String]
   validityLines =
     [ "== VALIDITY"
     , show (txValidityLowerBound content)
