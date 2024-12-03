@@ -117,7 +117,7 @@ handleHydraEventsActiveLink e = do
       pendingUTxOToDecommitL .= utxoToDecommit
     Update TimedServerOutput{time, output = DecommitFinalized{}} -> do
       ActiveLink{utxo, pendingUTxOToDecommit} <- get
-      utxoL .= utxo <> pendingUTxOToDecommit
+      utxoL .= utxo
       pendingUTxOToDecommitL .= mempty
     Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
       pendingIncrementL .= Just (PendingDeposit utxoToCommit pendingDeposit deadline)
