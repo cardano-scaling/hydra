@@ -733,66 +733,94 @@ initWithWrongKeys workDir tracer node@RunningNode{nodeSocket} hydraScriptsTxId =
 
       participants `shouldMatchList` expectedParticipants
 
--- | Open a a single participant head and incrementally commit to it.
+-- | Open a a two participant head and incrementally commit to it.
 canCommit :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 canCommit tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
-    refuelIfNeeded tracer node Alice 30_000_000
-    -- NOTE: it is important to provide _large_ enough contestation period so that
-    -- increment tx can be submitted before the deadline
-    let contestationPeriod = UnsafeContestationPeriod 5
-    aliceChainConfig <-
-      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
-        <&> setNetworkId networkId
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-      send n1 $ input "Init" []
-      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+    (`finally` returnFundsToFaucet tracer node Bob) $ do
+      refuelIfNeeded tracer node Alice 30_000_000
+      refuelIfNeeded tracer node Bob 30_000_000
+      -- NOTE: it is important to provide _large_ enough contestation period so that
+      -- increment tx can be submitted before the deadline
+      let contestationPeriod = UnsafeContestationPeriod 20
+      aliceChainConfig <-
+        chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod
+          <&> setNetworkId networkId
+      bobChainConfig <-
+        chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+          <&> setNetworkId networkId
+      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+          send n1 $ input "Init" []
+          -- _ <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [bob])
+          headId <- waitMatch 20 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
-      -- Commit nothing
-      requestCommitTx n1 mempty >>= submitTx node
-      waitFor hydraTracer (10 * blockTime) [n1] $
-        output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+          -- Commit nothing
+          requestCommitTx n1 mempty >>= submitTx node
+          requestCommitTx n2 mempty >>= submitTx node
+          waitFor hydraTracer (20 * blockTime) [n1, n2] $
+            output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
-      -- Get some L1 funds
-      (walletVk, walletSk) <- generate genKeyPair
-      commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+          -- Get some L1 funds
+          (walletVk, walletSk) <- generate genKeyPair
+          commitUTxO <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet node walletVk 5_000_000 (contramap FromFaucet tracer)
 
-      resp <-
-        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-          <&> setRequestBodyJSON commitUTxO
-            >>= httpJSON
+          resp <-
+            parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
+              <&> setRequestBodyJSON commitUTxO
+                >>= httpJSON
 
-      let depositTransaction = getResponseBody resp :: Tx
-      let tx = signTx walletSk depositTransaction
+          let depositTransaction = getResponseBody resp :: Tx
+          let tx = signTx walletSk depositTransaction
 
-      submitTx node tx
+          submitTx node tx
 
-      waitFor hydraTracer 10 [n1] $
-        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
-      waitFor hydraTracer 10 [n1] $
-        output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx)]
+          waitFor hydraTracer 20 [n1, n2] $
+            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
+          waitFor hydraTracer 20 [n1, n2] $
+            output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx)]
 
-      send n1 $ input "GetUTxO" []
+          send n2 $ input "GetUTxO" []
 
-      waitFor hydraTracer 10 [n1] $
-        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= commitUTxO]
+          waitFor hydraTracer 20 [n2] $
+            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= commitUTxO]
+          resp2 <-
+            parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+              <&> setRequestBodyJSON commitUTxO2
+                >>= httpJSON
 
-      send n1 $ input "Close" []
+          let depositTransaction' = getResponseBody resp2 :: Tx
+          let tx' = signTx walletSk depositTransaction'
 
-      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "HeadIsClosed"
-        v ^? key "contestationDeadline" . _JSON
+          submitTx node tx'
 
-      remainingTime <- diffUTCTime deadline <$> getCurrentTime
-      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
-        output "ReadyToFanout" ["headId" .= headId]
-      send n1 $ input "Fanout" []
-      waitMatch (20 * blockTime) n1 $ \v ->
-        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+          waitFor hydraTracer 20 [n1, n2] $
+            output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO2]
+          waitFor hydraTracer 20 [n1, n2] $
+            output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx')]
 
-      -- Assert final wallet balance
-      (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
-        `shouldReturn` balance commitUTxO
+          send n1 $ input "GetUTxO" []
+
+          waitFor hydraTracer 20 [n1] $
+            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (commitUTxO <> commitUTxO2)]
+
+          send n2 $ input "Close" []
+
+          deadline <- waitMatch (20 * blockTime) n2 $ \v -> do
+            guard $ v ^? key "tag" == Just "HeadIsClosed"
+            v ^? key "contestationDeadline" . _JSON
+
+          remainingTime <- diffUTCTime deadline <$> getCurrentTime
+          waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
+            output "ReadyToFanout" ["headId" .= headId]
+          send n2 $ input "Fanout" []
+          waitMatch (20 * blockTime) n2 $ \v ->
+            guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+          -- Assert final wallet balance
+          (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+            `shouldReturn` balance (commitUTxO <> commitUTxO2)
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
