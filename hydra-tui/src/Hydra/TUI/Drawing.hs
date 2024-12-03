@@ -148,7 +148,7 @@ drawPendingIncrement ownAddress pendingIncrement now =
     Just PendingDeposit{utxoToCommit, deposit, depositDeadline} ->
       vBox
         [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
-        , padTop (Pad 1) $ txt "Pending deposit: "
+        , padTop (Pad 1) $ txt "Deposit: Pending"
         , txt $ show deposit
         , txt "Pending deposit deadline: "
         , drawRemainingDepositDeadline depositDeadline now
@@ -156,7 +156,8 @@ drawPendingIncrement ownAddress pendingIncrement now =
     Just PendingIncrement{utxoToCommit} ->
       vBox
         [ drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
-        , padTop (Pad 1) $ txt "NO Pending deposit"
+        , padTop (Pad 1) $ txt "Deposit: Approved"
+        , padTop (Pad 1) $ txt "Waiting to observe increment tx."
         ]
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> Maybe PendingIncrement -> UTCTime -> OpenScreen -> Widget Name
@@ -173,8 +174,10 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrement now 
           , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
           ]
       , hBorder
-      , txt "Pending UTxO to commit: "
-      , drawPendingIncrement ownAddress pendingIncrement now
+      , vBox
+          [ txt "Pending UTxO to commit: "
+          , drawPendingIncrement ownAddress pendingIncrement now
+          ]
       ]
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
