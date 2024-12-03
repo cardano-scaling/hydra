@@ -113,27 +113,36 @@ handleHydraEventsActiveLink e = do
     Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
       utxoL .= utxo
       activeHeadStateL .= Final
-    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} ->
+    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} -> do
+      ActiveLink{utxo} <- get
       pendingUTxOToDecommitL .= utxoToDecommit
+      utxoL .= utxo
     Update TimedServerOutput{time, output = DecommitFinalized{}} -> do
       ActiveLink{utxo, pendingUTxOToDecommit} <- get
-      utxoL .= utxo
       pendingUTxOToDecommitL .= mempty
+      utxoL .= utxo
     Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
-      pendingIncrementL .= Just (PendingDeposit utxoToCommit pendingDeposit deadline)
-    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} -> do
-      pendingIncrementL .= Just (PendingIncrement utxoToCommit)
-    Update TimedServerOutput{time, output = CommitFinalized{}} -> do
-      ActiveLink{utxo, pendingIncrement} <- get
-      case pendingIncrement of
-        Nothing ->
-          pendingIncrementL .= Nothing
-        Just (PendingIncrement utxoToCommit) -> do
-          utxoL .= utxo <> utxoToCommit
-          pendingIncrementL .= Nothing
-        Just PendingDeposit{} -> do
-          utxoL .= utxo
-          pendingIncrementL .= Nothing
+      ActiveLink{utxo, pendingIncrements} <- get
+      pendingIncrementsL .= pendingIncrements <> [PendingIncrement utxoToCommit pendingDeposit deadline PendingDeposit]
+      utxoL .= utxo
+    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit = approvedUtxoToCommit}} -> do
+      ActiveLink{utxo, pendingIncrements} <- get
+      pendingIncrementsL
+        .= fmap
+          ( \inc@PendingIncrement{utxoToCommit = pendingUtxoToCommit, deposit, depositDeadline} ->
+              if hashUTxO pendingUtxoToCommit == hashUTxO approvedUtxoToCommit
+                then PendingIncrement pendingUtxoToCommit deposit depositDeadline FinalizingDeposit
+                else inc
+          )
+          pendingIncrements
+      utxoL .= utxo
+    Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} -> do
+      ActiveLink{utxo, pendingIncrements} <- get
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
+      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
+      let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
+      pendingIncrementsL .= activePendingIncrements
+      utxoL .= utxo <> activeUtxoToCommit
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
