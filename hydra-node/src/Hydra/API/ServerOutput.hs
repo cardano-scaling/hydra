@@ -141,6 +141,7 @@ data ServerOutput tx
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
+  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -201,6 +202,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     DecommitFinalized{} -> []
     CommitFinalized{} -> []
+    CommitIgnored{} -> []
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -262,6 +264,7 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
+    CommitIgnored{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of

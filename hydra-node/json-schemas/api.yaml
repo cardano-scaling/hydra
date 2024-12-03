@@ -660,6 +660,12 @@ components:
         Recover transaction is observed and deposited funds are recovered to L1.
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecovered"
+    CommitIgnored:
+      title: CommitIgnored
+      description: |
+        Deposit was recorded initially but next snapshot utxo to commit was not found in pending deposits.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitIgnored"
 
 
     # END OF SERVER OUTPUT MESSAGES
@@ -728,6 +734,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitApproved"
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
+        - $ref: "api.yaml#/components/schemas/CommitIgnored"
 
     Greetings:
       type: object
@@ -1426,6 +1433,33 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         recoveredTxId:
           type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+    CommitIgnored:
+      title: CommitIgnored
+      description: |
+        Deposit not matching snapshot utxo to commit.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositUTxO
+        - snapshotUTxO
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitIgnored"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        snapshotUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

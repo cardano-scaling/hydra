@@ -321,8 +321,16 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
+
+    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
+        -- Spec: T̂ ← T̂ ⋃ {tx}
+        -- Spec: T̂ ← T̂ ⋃ {tx}
+        --       L̂  ← L̂ ◦ tx
+        --       L̂  ← L̂ ◦ tx
+
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -418,7 +426,25 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+    -- Spec: wait ŝ = ̅S.s
+
+    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+      -- Spec: wait v = v̂
+
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
@@ -613,6 +639,9 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
         -- Spec: ̂Σ[j] ← σⱼ
         (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+
+          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
             let multisig = aggregateInOrder sigs' parties
@@ -703,7 +732,17 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       }
                 }
             ]
-      _ -> outcome -- TODO: output some error here?
+      _ ->
+        cause
+          ( ClientEffect $
+              ServerOutput.CommitIgnored
+                { headId
+                , depositUTxO = Map.elems pendingDeposits
+                , snapshotUTxO = utxoToCommit
+                }
+          )
+          <> outcome
+
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
     case (decommitTx, utxoToDecommit) of
       (Just tx, Just utxo) ->
