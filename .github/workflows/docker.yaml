@@ -13,6 +13,13 @@ on:
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        type: string
+        description: 'Point-in-time to build the custom docker images'
+        required: true
+        default: "master"
 
 permissions:
   packages: write
@@ -27,6 +34,8 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref_name || '' }}
 
     - name: 🐳 Login to GitHub Container Registry
       uses: docker/login-action@v3
@@ -54,25 +63,41 @@ jobs:
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
         ./result | docker load
+        
+        IMAGE_LABEL=unstable
+        BUILDING_WORKFLOW_DISPATCH=${{github.event_name == 'workflow_dispatch'}}
+        [[ ${BUILDING_WORKFLOW_DISPATCH} = true ]] && \
+          IMAGE_LABEL=workflow_dispatch-${{github.event.inputs.ref_name}}
+
+        IS_TAG=${{github.ref_type == 'tag'}}
+
+        # Only build say we are building a tag if it's a tag _and_ not part of a
+        # workflow-dispatch task
+        [[ ${IS_TAG} = true && ${BUILDING_WORKFLOW_DISPATCH} = false ]] && \
+          BUILDING_TAG=true ||
+          BUILDING_TAG=false
+        
         # Determine whether we are building a tag and if yes, set a VERSION_NAME
-        BUILDING_TAG=${{github.ref_type == 'tag'}}
         [[ ${BUILDING_TAG} = true ]] && \
           VERSION_NAME=${{github.ref_name}}
+
         # Use 'FROM' instruction to use docker build with --label
         echo "FROM ${{matrix.target}}" | docker build \
           --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${VERSION_NAME:-unstable} \
-          --tag ${IMAGE_NAME}:unstable -
+          --label org.opencontainers.image.version=${VERSION_NAME:-${IMAGE_LABEL}} \
+          --tag ${IMAGE_NAME}:${IMAGE_LABEL} -
+        
         # Also tag with semver and 'latest' if we are building a tag
         [[ ${BUILDING_TAG} = true && ${{matrix.target}} != "hydraw" ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${{github.ref_name}}
+          docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:${{github.ref_name}}
         [[ ${BUILDING_TAG} = true ]] && \
-          docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:latest
+          docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:latest
+        
         docker images
-        docker inspect ${IMAGE_NAME}:unstable
+        docker inspect ${IMAGE_NAME}:${IMAGE_LABEL}
 
     - name: 📤 Push to registry
       run: |
