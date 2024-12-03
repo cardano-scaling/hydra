@@ -1389,6 +1389,23 @@ definitions:
             $ref: "api.yaml#/components/schemas/UTxO"
           recoveredTxId:
             type: string
+      - title: "CommitIgnored"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+          - depositUTxO
+          - snapshotUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["CommitIgnored"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          depositUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          snapshotUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: "DecommitRecorded"
         additionalProperties: false
         required:
