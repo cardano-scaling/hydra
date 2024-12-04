@@ -110,7 +110,7 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
     Idle -> ["[I]nit", "[Q]uit"]
     Active (ActiveLink{activeHeadState}) -> case activeHeadState of
       Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
-      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[C]lose", "[Q]uit"]
+      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[R]ecover", "[C]lose", "[Q]uit"]
       Closed{} -> ["[Q]uit"]
       FanoutPossible{} -> ["[F]anout", "[Q]uit"]
       Final{} -> ["[I]nit", "[Q]uit"]
@@ -181,6 +181,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
   SelectingUTxOToIncrement x -> renderForm x
+  SelectingUTxOToRecover x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   EnteringRecipientAddress _ _ x -> renderForm x
