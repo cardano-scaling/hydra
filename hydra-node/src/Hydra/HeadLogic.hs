@@ -519,6 +519,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
     case mIncrementUTxO of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just utxo ->
+        -- NOTE: this makes the commits sequential in a sense that you can't
+        -- commit unless the previous commit is settled.
         if sv == confVersion && isJust confUTxOToCommit
           then
             if confUTxOToCommit == Just utxo
