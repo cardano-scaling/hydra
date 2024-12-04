@@ -47,7 +47,7 @@ maxMainnetLovelace = Coin 100_000_000
 -- validators (see 'computeCollectComCost' 'computeAbortCost'). A too high
 -- enough number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 7
+maximumNumberOfParties = 9
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
