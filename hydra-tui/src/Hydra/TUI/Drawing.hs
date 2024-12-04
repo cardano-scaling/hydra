@@ -181,7 +181,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
   SelectingUTxOToIncrement x -> renderForm x
-  SelectingUTxOToRecover x -> renderForm x
+  SelectingDepositIdToRecover x -> renderForm x
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   EnteringRecipientAddress _ _ x -> renderForm x

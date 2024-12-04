@@ -14,6 +14,7 @@ import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List (nub, (\\))
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Graphics.Vty (
   Event (EvKey),
@@ -282,9 +283,8 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
           utxo' <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
           put $ SelectingUTxOToIncrement (utxoRadioField $ UTxO.toMap utxo')
         EvKey (KChar 'r') [] -> do
-          let pendingIncrementUTxO = foldMap (\PendingIncrement{utxoToCommit} -> utxoToCommit) pendingIncrements
-          let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) pendingIncrementUTxO
-          put $ SelectingUTxOToRecover (utxoRadioField utxo')
+          let pendingDepositIds = Map.fromList $ (\PendingIncrement{deposit, utxoToCommit} -> (deposit, List.head $ UTxO.pairs utxoToCommit)) <$> pendingIncrements
+          put $ SelectingDepositIdToRecover (depositIdRadioField pendingDepositIds)
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -329,15 +329,15 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
           liftIO $ externalCommit hydraClient commitUTxO
           put OpenHome
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
-    SelectingUTxOToRecover i -> do
+    SelectingDepositIdToRecover i -> do
       case e of
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let utxoSelected = formState i
-          let (TxIn selectedTxId _) = fst utxoSelected
-          liftIO $ recoverCommit hydraClient selectedTxId
+          let items = Map.toList utxoSelected
+          liftIO $ recoverCommit hydraClient items
           put OpenHome
-        _ -> zoom selectingUTxOToRecoverFormL $ handleFormEvent (VtyEvent e)
+        _ -> zoom selectingDepositIdToRecoverFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
       case e of
         EvKey KEsc [] -> put OpenHome
