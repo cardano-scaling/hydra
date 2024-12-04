@@ -12,6 +12,7 @@ import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (TimedServerOutput)
+import Hydra.Cardano.Api (TxId)
 import Hydra.Cardano.Api.Prelude (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
@@ -43,6 +44,7 @@ data Client tx m = Client
   -- ^ Send some input to the server.
   , sk :: SigningKey PaymentKey
   , externalCommit :: UTxO.UTxO -> m ()
+  , recoverCommit :: TxId -> m ()
   }
 
 -- | Callback for receiving server outputs.
@@ -68,6 +70,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         { sendInput = atomically . writeTBQueue q
         , sk
         , externalCommit = externalCommit' sk
+        , recoverCommit = recoverCommit'
         }
  where
   readExternalSk = readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
@@ -108,6 +111,15 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         (Req.http hostname Req./: "commit")
         (Req.ReqBodyJson $ SimpleCommitRequest @Tx payload)
         Req.jsonResponse
+        (Req.port $ fromIntegral port)
+
+  recoverCommit' txId =
+    void . runReq defaultHttpConfig $
+      Req.req
+        Req.DELETE
+        (Req.http hostname Req./: "commit" Req./: show txId)
+        Req.NoReqBody
+        Req.ignoreResponse
         (Req.port $ fromIntegral port)
 
 data ClientError = ClientJSONDecodeError String ByteString
