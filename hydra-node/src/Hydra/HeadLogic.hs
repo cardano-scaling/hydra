@@ -426,25 +426,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
   -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-    -- Spec: wait ŝ = ̅S.s
-
-    -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-      -- Spec: wait v = v̂
-
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
