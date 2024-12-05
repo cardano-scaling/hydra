@@ -178,14 +178,16 @@ handleHydraEventsInfo = \case
     report Success time "Decommit finalized"
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
-  Update TimedServerOutput{time, output = CommitRecorded{}} ->
-    report Success time "Commit deposit recorded and pending for approval"
-  Update TimedServerOutput{time, output = CommitApproved{}} ->
-    report Success time "Commit approved and submitted to Cardano"
-  Update TimedServerOutput{time, output = CommitRecovered{}} ->
-    report Success time "Commit recovered"
-  Update TimedServerOutput{time, output = CommitFinalized{}} ->
-    report Success time "Commit finalized"
+  Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} ->
+    report Success time ("Commit deposit recorded and pending for approval " <> foldMap UTxO.render (UTxO.pairs utxoToCommit) <> " deposit tx id " <> show pendingDeposit)
+  Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} ->
+    report Success time ("Commit approved and submitted to Cardano " <> foldMap UTxO.render (UTxO.pairs utxoToCommit))
+  Update TimedServerOutput{time, output = CommitRecovered{recoveredTxId}} ->
+    report Success time ("Commit recovered " <> show recoveredTxId)
+  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
+    report Success time ("Commit finalized " <> show theDeposit)
+  Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
+    report Success time ("Commit ignored. Local pending deposits " <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO)
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = InvalidInput{reason}} ->
