@@ -65,20 +65,24 @@ utxoRadioField u =
 
 depositIdRadioField ::
   forall s e n.
-  ( s ~ Map TxId ((TxIn, TxOut CtxUTxO), Bool)
+  ( s ~ (TxId, TxIn, TxOut CtxUTxO)
   , n ~ Text
   ) =>
-  Map TxId (TxIn, TxOut CtxUTxO) ->
+  [(TxId, UTxO)] ->
   Form s e n
-depositIdRadioField u =
-  let items = Map.map (,False) u
-   in newForm
-        [ checkboxGroupField '[' 'X' ']' id $
-            [ ((k, a, b), show k, UTxO.render a)
-            | (k, (a, b)) <- Map.toList items
-            ]
+depositIdRadioField txIdUTxO =
+  newForm
+    [ radioField
+        id
+        [ ((txid, i, o), show txid, UTxO.render (i, o))
+        | (txid, i, o) <- flattened txIdUTxO
         ]
-        items
+    ]
+    (Prelude.head $ flattened txIdUTxO)
+ where
+  flattened =
+    concatMap
+      (\(txId, u) -> (\(i, o) -> (txId, i, o)) <$> Map.toList (UTxO.toMap u))
 
 confirmRadioField ::
   forall s e n.
