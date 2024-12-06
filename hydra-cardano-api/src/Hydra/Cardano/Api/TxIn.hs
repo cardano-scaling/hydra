@@ -55,7 +55,7 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
 -- | Convert a cardano-api 'TxIn' into a plutus 'TxOutRef'.
 toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
 toPlutusTxOutRef txIn =
-  -- XXX: The upstream 'transTxIn' works only with the the PlutusV1 type, so we
+  -- XXX: The upstream 'transTxIn' works only with the PlutusV1 type, so we
   -- needed to vendor its definition here.
   let (Ledger.TxIn (Ledger.TxId safe) txIx) = toLedgerTxIn txIn
    in Plutus.TxOutRef (Plutus.TxId $ transSafeHash safe) (toInteger $ Ledger.txIxToInt txIx)
