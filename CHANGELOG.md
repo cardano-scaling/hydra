@@ -10,12 +10,9 @@ changes.
 
 ## [0.20.0] - UNRELEASED
 
-- **IMPORTANT - Do not release this version**
-   - Incremental commits - off-chain changes to make the incremental commits possible.
-     Important to note is that on-chain security is not implemented and hydra-node in this
-     state is not releasable!
-     Missing off-chain items to implement as a series of next PR's:
-      - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
+- hydra-node now supports incremental commits which means you can commit funds to a Head while it is running.
+
+- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as the outcome of changes in the Hydra scripts publishing.
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 

@@ -1,5 +1,7 @@
 module Hydra.Tx.Deposit where
 
+-- FIXME: delete this module once we are happy with the alternative aiken implementation
+
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -11,6 +13,7 @@ import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Network (Network)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
@@ -45,11 +48,11 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositValue = foldMap txOutValue depositUTxO
 
-  depositScript = fromPlutusScript @PlutusScriptV3 Deposit.validatorScript
+  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
-  depositPlutusDatum = Deposit.datum $ Deposit.DepositDatum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
+  depositPlutusDatum = Deposit.datum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
 
   depositDatum = mkTxOutDatumInline depositPlutusDatum
 
@@ -59,6 +62,9 @@ depositTx networkId headId commitBlueprintTx deadline =
       depositValue
       depositDatum
       ReferenceScriptNone
+
+depositAddress :: NetworkId -> AddressInEra
+depositAddress networkId = mkScriptAddress @PlutusScriptV3 networkId (fromPlutusScript @PlutusScriptV3 depositValidatorScript)
 
 -- * Observation
 
@@ -76,7 +82,7 @@ observeDepositTx ::
   Maybe DepositObservation
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
-  (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddress tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
   (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
@@ -88,17 +94,13 @@ observeDepositTx networkId tx = do
           , deadline
           }
     else Nothing
- where
-  depositScript = fromPlutusScript Deposit.validatorScript
-
-  depositAddress = mkScriptAddress @PlutusScriptV3 networkId depositScript
 
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut network depositOut = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d
     _ -> Nothing
-  Deposit.DepositDatum (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
+  (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   deposit <- do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
     pure . UTxO.fromPairs $ depositedUTxO

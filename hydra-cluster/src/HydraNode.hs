@@ -248,7 +248,7 @@ withHydraCluster ::
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
   [SigningKey HydraKey] ->
   -- | Transaction id at which Hydra scripts should have been published.
-  TxId ->
+  [TxId] ->
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a

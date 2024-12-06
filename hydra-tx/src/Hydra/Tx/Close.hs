@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Tx.Close where
@@ -100,15 +99,44 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   closeRedeemer =
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
-        | version == openVersion ->
-            Head.CloseUnused{signature = toPlutusSignatures signatures}
-        | otherwise ->
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}} ->
+        if version == openVersion
+          then
+            if
+              | isJust utxoToCommit ->
+                  Head.CloseUnusedInc
+                    { signature = toPlutusSignatures signatures
+                    , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+                    }
+              | isJust utxoToDecommit ->
+                  Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+              | isNothing utxoToCommit
+              , isNothing utxoToDecommit ->
+                  Head.CloseAny{signature = toPlutusSignatures signatures}
+              | otherwise -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+          else
             -- NOTE: This will only work for version == openVersion - 1
-            Head.CloseUsed
-              { signature = toPlutusSignatures signatures
-              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-              }
+            case (isJust utxoToCommit, isJust utxoToDecommit) of
+              (True, False) ->
+                Head.CloseUsedInc
+                  { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+                  }
+              (False, True) ->
+                Head.CloseUsedDec
+                  { signature = toPlutusSignatures signatures
+                  , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+                  }
+              (False, False) ->
+                -- NOTE: here the assumption is: if your snapshot doesn't
+                -- contain anything to de/commit then it must mean that we
+                -- either already have seen it happen (which would even out the
+                -- two versions) or this is a _normal_ snapshot so the version
+                -- is not _bumped_ further anyway and it needs to be the same
+                -- between snapshot and the open state version.
+                error $ "closeTx: both commit and decommit utxo empty but version not matching! snapshot version: " <> show version <> " open version: " <> show openVersion
+              -- TODO: can we get rid of these errors by modelling what we expect differently?
+              (True, True) -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -120,10 +148,19 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           { snapshotNumber =
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
-              toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
-          , deltaUTxOHash =
+              toBuiltin . hashUTxO $ utxo (getSnapshot confirmedSnapshot)
+          , alphaUTxOHash =
               case closeRedeemer of
-                Head.CloseUnused{} ->
+                Head.CloseUsedInc{} ->
+                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
+                Head.CloseUnusedInc{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
+              case closeRedeemer of
+                Head.CloseUsedDec{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                Head.CloseUnusedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
