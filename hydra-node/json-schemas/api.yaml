@@ -100,6 +100,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitApproved"
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
+          - $ref: "api.yaml#/components/messages/CommitIgnored"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -1446,8 +1447,6 @@ components:
       required:
         - tag
         - headId
-        - depositUTxO
-        - snapshotUTxO
         - seq
         - timestamp
       properties:
@@ -1457,9 +1456,13 @@ components:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
         depositUTxO:
-          $ref: "api.yaml#/components/schemas/UTxO"
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/UTxO"
         snapshotUTxO:
-          $ref: "api.yaml#/components/schemas/UTxO"
+          oneOf:
+           - $ref: "api.yaml#/components/schemas/UTxO"
+           - type: "null"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

@@ -136,9 +136,9 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
@@ -195,14 +195,14 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
-    DecommitInvalid{} -> []
+    DecommitInvalid headId decommitTx decommitInvalidReason -> DecommitInvalid headId <$> shrink decommitTx <*> shrink decommitInvalidReason
+    DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
+    DecommitFinalized headId decommitTxId -> DecommitFinalized headId <$> shrink decommitTxId
     CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
     CommitApproved headId u -> CommitApproved headId <$> shrink u
-    DecommitApproved headId txid u -> DecommitApproved headId txid <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
-    DecommitFinalized{} -> []
-    CommitFinalized{} -> []
-    CommitIgnored{} -> []
+    CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
+    CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -257,12 +257,12 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
-    CommitRecorded{} -> encodedResponse
-    CommitApproved{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
     DecommitFinalized{} -> encodedResponse
-    CommitFinalized{} -> encodedResponse
     DecommitInvalid{} -> encodedResponse
+    CommitRecorded{} -> encodedResponse
+    CommitApproved{} -> encodedResponse
+    CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     CommitIgnored{} -> encodedResponse
  where
