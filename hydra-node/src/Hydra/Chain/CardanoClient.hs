@@ -47,7 +47,7 @@ instance Exception QueryException where
   displayException = \case
     QueryAcquireException failure -> show failure
     QueryEraMismatchException EraMismatch{ledgerEraName, otherEraName} ->
-      -- NOTE: The "ledger" here is the the one in the cardano-node and "otherEra" is the one we picked for the query.
+      -- NOTE: The "ledger" here is the one in the cardano-node and "otherEra" is the one we picked for the query.
       printf "Connected to cardano-node in unsupported era %s, while we requested %s. Please upgrade your hydra-node." ledgerEraName otherEraName
     QueryProtocolParamsConversionException err -> show err
     QueryProtocolParamsEraNotSupported unsupportedEraName ->
