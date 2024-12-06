@@ -1394,8 +1394,6 @@ definitions:
         required:
           - tag
           - headId
-          - depositUTxO
-          - snapshotUTxO
         properties:
           tag:
             type: string
@@ -1403,9 +1401,13 @@ definitions:
           headId:
             $ref: "api.yaml#/components/schemas/HeadId"
           depositUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/UTxO"
           snapshotUTxO:
-            $ref: "api.yaml#/components/schemas/UTxO"
+            oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
       - title: "DecommitRecorded"
         additionalProperties: false
         required:
