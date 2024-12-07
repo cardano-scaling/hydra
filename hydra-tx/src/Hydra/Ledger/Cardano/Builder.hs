@@ -117,20 +117,18 @@ addExtraRequiredSigners vks tx =
 -- | Mint tokens with given plutus minting script and redeemer.
 mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 mintTokens script redeemer assets tx =
-  tx{txMintValue = TxMintValue mintedTokens' mintedWitnesses'}
+  tx{txMintValue = TxMintValue mintedTokens'}
  where
-  (mintedTokens, mintedWitnesses) =
+  mintedTokens =
     case txMintValue tx of
-      TxMintValueNone ->
-        (mempty, mempty)
-      TxMintValue t (BuildTxWith m) ->
-        (t, m)
+      TxMintValueNone -> mempty
+      TxMintValue t -> t
 
   mintedTokens' =
-    mintedTokens <> fromList (fmap (first (AssetId policyId)) assets)
+    Map.union mintedTokens newTokens
 
-  mintedWitnesses' =
-    BuildTxWith $ mintedWitnesses <> Map.singleton policyId mintingWitness
+  newTokens =
+    Map.fromList [(policyId, fmap (\(x, y) -> (x, y, BuildTxWith mintingWitness)) assets)]
 
   mintingWitness =
     mkScriptWitness script NoScriptDatumForMint (toScriptData redeemer)
