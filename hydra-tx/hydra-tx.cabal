@@ -119,6 +119,7 @@ library testlib
   build-depends:
     , base
     , bytestring
+    , cardano-api:internal
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api

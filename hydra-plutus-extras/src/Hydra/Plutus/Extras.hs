@@ -10,6 +10,7 @@ import Hydra.Prelude
 import Hydra.Plutus.Extras.Time
 
 import Cardano.Api (
+  IsPlutusScriptLanguage,
   PlutusScriptVersion,
   SerialiseAsRawBytes (serialiseToRawBytes),
   hashScript,
@@ -77,7 +78,7 @@ wrapMintingPolicy f c =
 
 -- | Compute the on-chain 'ScriptHash' for a given serialised plutus script. Use
 -- this to refer to another validator script.
-scriptValidatorHash :: PlutusScriptVersion lang -> SerialisedScript -> ScriptHash
+scriptValidatorHash :: IsPlutusScriptLanguage lang => PlutusScriptVersion lang -> SerialisedScript -> ScriptHash
 scriptValidatorHash version =
   ScriptHash
     . toBuiltin

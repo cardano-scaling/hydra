@@ -48,15 +48,6 @@ minUTxOValue pparams (TxOut addr val dat ref) =
 valueSize :: Value -> Int
 valueSize = length . toList
 
--- | Access minted assets of a transaction, as an ordered association list.
-txMintAssets :: Tx era -> [(AssetId, Quantity)]
-txMintAssets =
-  asList . txMintValue . getTxBodyContent . getTxBody
- where
-  asList = \case
-    TxMintNone -> []
-    TxMintValue _ val _ -> toList val
-
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.
