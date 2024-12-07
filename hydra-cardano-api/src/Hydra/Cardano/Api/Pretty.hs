@@ -104,9 +104,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
     ]
 
   mintLines =
-    [ "== MINT/BURN\n" <> case txMintValue content of
-        Api.TxMintValueNone -> "[]"
-        Api.TxMintValue val _ -> prettyValue 0 val
+    [ "== MINT/BURN\n" <> prettyValue 0 (txMintValueToValue $ txMintValue content)
     ]
 
   prettyValue n =

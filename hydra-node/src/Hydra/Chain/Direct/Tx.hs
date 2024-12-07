@@ -188,7 +188,7 @@ observeInitTx tx = do
 
   mintedTokenNames pid =
     [ assetName
-    | (AssetId policyId assetName, q) <- txMintAssets tx
+    | (AssetId policyId assetName, q) <- toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ getTxBody tx
     , q == 1 -- NOTE: Only consider unique tokens
     , policyId == pid
     , assetName /= hydraHeadV1AssetName

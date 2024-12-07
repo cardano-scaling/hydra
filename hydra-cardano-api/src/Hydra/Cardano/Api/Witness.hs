@@ -38,7 +38,7 @@ mkScriptReference txIn _script datum redeemer =
   PlutusScriptWitness
     (scriptLanguageInEra @lang @era)
     (plutusScriptVersion @lang)
-    (PReferenceScript txIn Nothing)
+    (PReferenceScript txIn)
     datum
     redeemer
     (ExecutionUnits 0 0)
