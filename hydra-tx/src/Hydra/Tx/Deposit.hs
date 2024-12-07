@@ -77,7 +77,7 @@ observeDepositTx ::
 observeDepositTx networkId tx = do
   -- TODO: could just use the first output and fail otherwise
   (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddress tx
-  (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toUTxOContext depositOut)
+  (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toCtxUTxOTxOut depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
       Just

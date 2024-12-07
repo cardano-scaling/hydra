@@ -47,7 +47,6 @@ library
     Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
-    Hydra.Cardano.Api.CtxUTxO
     Hydra.Cardano.Api.ExecutionUnits
     Hydra.Cardano.Api.Hash
     Hydra.Cardano.Api.KeyWitness
@@ -82,7 +81,7 @@ library
     , base                    >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             ^>=10.1
+    , cardano-api             ^>=10.2
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
