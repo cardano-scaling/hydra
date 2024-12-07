@@ -102,7 +102,7 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
   pure $
-    second ((\(UnsignedTx unsignedTx) -> fromLedgerTx unsignedTx) . balancedTxBody) $
+    second (flip Tx [] . balancedTxBody) $
       makeTransactionBodyAutoBalance
         shelleyBasedEra
         systemStart

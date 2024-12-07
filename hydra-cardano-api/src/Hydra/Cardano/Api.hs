@@ -202,7 +202,7 @@ pattern ShelleyAddressInAnyEra <-
 type BalancedTxBody = Cardano.Api.BalancedTxBody Era
 {-# COMPLETE BalancedTxBody #-}
 
-pattern BalancedTxBody :: TxBodyContent BuildTx -> UnsignedTx Era -> TxOut CtxTx -> Coin -> BalancedTxBody
+pattern BalancedTxBody :: TxBodyContent BuildTx -> TxBody -> TxOut CtxTx -> Coin -> BalancedTxBody
 pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
   Cardano.Api.BalancedTxBody balancedTxBodyContent balancedTxBody balancedTxChangeOutput balancedTxFee
   where
@@ -580,11 +580,10 @@ pattern TxMintValueNone <-
       Cardano.Api.TxMintNone
 
 pattern TxMintValue ::
-  Value ->
-  BuildTxWith buidl (Map PolicyId (ScriptWitness WitCtxMint)) ->
+  Map PolicyId [(AssetName, Quantity, BuildTxWith buidl (ScriptWitness WitCtxMint))] ->
   TxMintValue buidl
-pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
-  Cardano.Api.TxMintValue _ txMintValueInEra txMintValueScriptWitnesses
+pattern TxMintValue{txMintValueInEra} <-
+  Cardano.Api.TxMintValue _ txMintValueInEra
   where
     TxMintValue =
       Cardano.Api.TxMintValue maryBasedEra
