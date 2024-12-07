@@ -64,7 +64,7 @@ healthyAbortTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyHeadInput, toUTxOContext headOutput)
+    UTxO.singleton (healthyHeadInput, toCtxUTxOTxOut headOutput)
       <> UTxO (Map.fromList healthyInitials)
       <> UTxO (Map.fromList (map (\(i, o, _) -> (i, o)) healthyCommits))
       <> registryUTxO scriptRegistry
@@ -75,7 +75,7 @@ healthyAbortTx =
         committedUTxO
         scriptRegistry
         somePartyCardanoVerificationKey
-        (healthyHeadInput, toUTxOContext headOutput)
+        (healthyHeadInput, toCtxUTxOTxOut headOutput)
         headTokenScript
         (Map.fromList healthyInitials)
         (Map.fromList (map (\(i, o, _) -> (i, o)) healthyCommits))
@@ -286,12 +286,11 @@ genAbortableOutputs parties =
 
   initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO
   initialTxOut vk =
-    toUTxOContext $
-      TxOut
-        (mkScriptAddress testNetworkId initialScript)
-        (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
-        (mkTxOutDatumInline initialDatum)
-        ReferenceScriptNone
+    TxOut
+      (mkScriptAddress testNetworkId initialScript)
+      (fromList [(AssetId testPolicyId (assetNameFromVerificationKey vk), 1)])
+      (mkTxOutDatumInline initialDatum)
+      ReferenceScriptNone
 
   initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
 
@@ -315,7 +314,7 @@ generateCommitUTxOs parties = do
  where
   mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> UTxO -> (TxOut CtxUTxO, UTxO)
   mkCommitUTxO (vk, party) utxo =
-    ( toUTxOContext $
+    ( toCtxUTxOTxOut $
         TxOut
           (mkScriptAddress testNetworkId commitScript)
           commitValue

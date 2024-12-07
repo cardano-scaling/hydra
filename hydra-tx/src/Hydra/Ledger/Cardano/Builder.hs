@@ -65,7 +65,6 @@ emptyTxBody =
     TxValidityNoUpperBound
     TxMetadataNone
     TxAuxScriptsNone
-    (BuildTxWith TxSupplementalDataNone)
     TxExtraKeyWitnessesNone
     (BuildTxWith $ Just $ LedgerProtocolParameters def)
     TxWithdrawalsNone
