@@ -146,7 +146,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
       withHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
         let
-          bobTxOut = toUTxOContext $ List.head (txOuts' aliceToBob)
+          bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
           Right bobToAlice =
             mkSimpleTx
               (mkTxIn aliceToBob 0, bobTxOut)

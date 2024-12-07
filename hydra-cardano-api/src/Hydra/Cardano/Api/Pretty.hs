@@ -134,10 +134,10 @@ renderTxWithUTxO utxo (Tx body _wits) =
       "TxOutDatumNone"
     Api.TxOutDatumHash h ->
       "TxOutDatumHash " <> show h
-    Api.TxOutDatumInTx scriptData ->
-      "TxOutDatumInTx " <> prettyScriptData scriptData
     Api.TxOutDatumInline scriptData ->
       "TxOutDatumInline " <> prettyScriptData scriptData
+    Api.TxOutSupplementalDatum scriptData ->
+      "TxOutSupplementalDatum " <> prettyScriptData scriptData
 
   scriptLines =
     [ "== SCRIPTS (" <> show (length scripts) <> ")"

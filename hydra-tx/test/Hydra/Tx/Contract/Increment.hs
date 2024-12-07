@@ -79,7 +79,7 @@ healthyIncrementTx =
   headInput = generateWith arbitrary 42
 
   headOutput =
-    mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyDatum)
+    mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
       & addParticipationTokens healthyParticipants
       & modifyTxOutValue (<> foldMap txOutValue healthyUTxO)
 
