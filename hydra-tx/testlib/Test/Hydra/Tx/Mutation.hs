@@ -549,7 +549,7 @@ addDatum datum scriptData =
     TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
     TxOutDatumInline _sd -> error "not useful for inline datums"
-    TxOutDatumInTx sd ->
+    TxOutSupplementalDatum sd ->
       case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
         TxBodyScriptData (Ledger.TxDats dats) redeemers ->
@@ -564,8 +564,8 @@ modifyInlineDatum fn txOut =
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInTx _sd) ->
-      error "Unexpected in-tx datum"
+    (TxOutSupplementalDatum _sd) ->
+      error "Unexpected supplemental datum"
     (TxOutDatumInline sd) ->
       case fromScriptData sd of
         Just st ->
@@ -593,7 +593,7 @@ ensureDatums outs scriptData =
  where
   ensureDatum txOut sd =
     case txOutDatum txOut of
-      d@(TxOutDatumInTx _) -> addDatum d sd
+      d@(TxOutSupplementalDatum _) -> addDatum d sd
       _ -> sd
 
 -- | Alter a transaction's redeemers map given some mapping function.

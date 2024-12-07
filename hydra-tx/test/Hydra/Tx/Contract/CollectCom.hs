@@ -127,7 +127,7 @@ healthyHeadTxOut =
   mkHeadOutput
     testNetworkId
     testPolicyId
-    (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
+    (mkTxOutDatumInline healthyCollectComInitialDatum)
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -236,7 +236,7 @@ genCollectComMutation (tx, _utxo) =
         illedHeadResolvedInput <-
           mkHeadOutput testNetworkId
             <$> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
-            <*> pure (toUTxOContext $ mkTxOutDatumInline healthyCollectComInitialDatum)
+            <*> pure (mkTxOutDatumInline healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadTxIn illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
@@ -251,7 +251,7 @@ genCollectComMutation (tx, _utxo) =
           Changes
             [ ChangeInput
                 txIn
-                (toUTxOContext $ mkInitialOutput testNetworkId testSeedInput participant)
+                (toCtxUTxOTxOut $ mkInitialOutput testNetworkId testSeedInput participant)
                 (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
             , AddScript $ fromPlutusScript initialValidatorScript
             ]
