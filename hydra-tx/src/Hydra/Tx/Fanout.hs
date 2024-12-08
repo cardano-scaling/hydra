@@ -11,7 +11,6 @@ import Hydra.Ledger.Cardano.Builder (
   addOutputs,
   addReferenceInputs,
   burnTokens,
-  emptyTxBody,
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
@@ -37,7 +36,7 @@ fanoutTx ::
   Tx
 fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs (orderedTxOutsToFanout <> orderedTxOutsToDecommit)

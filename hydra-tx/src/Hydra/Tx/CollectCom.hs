@@ -15,7 +15,6 @@ import Hydra.Ledger.Cardano.Builder (
   addInputs,
   addOutputs,
   addReferenceInputs,
-  emptyTxBody,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (commitValidatorScript)
@@ -51,7 +50,7 @@ collectComTx ::
   Tx
 collectComTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) commits utxoToCollect =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
       & addReferenceInputs [commitScriptRef, headScriptRef]
       & addOutputs [headOutput]
