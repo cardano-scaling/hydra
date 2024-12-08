@@ -73,7 +73,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (addInputs, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -460,7 +460,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let spendingTx =
           unsafeBuildTransaction $
             defaultTxBodyContent
-              & addInputs [(scriptIn, scriptWitness)]
+              & addTxIns [(scriptIn, scriptWitness)]
     pure
       ( Aeson.object
           [ "blueprintTx" .= spendingTx

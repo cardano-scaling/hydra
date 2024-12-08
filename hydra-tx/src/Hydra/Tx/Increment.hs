@@ -9,11 +9,6 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  setValidityUpperBound,
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
@@ -48,11 +43,11 @@ incrementTx ::
 incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot =
   unsafeBuildTransaction $
     defaultTxBodyContent
-      & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutput']
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound upperValiditySlot
+      & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
+      & addTxInsReference [headScriptRef]
+      & addTxOuts [headOutput']
+      & addTxExtraKeyWits [verificationKeyHash vk]
+      & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =

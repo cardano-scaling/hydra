@@ -8,11 +8,6 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  setValidityUpperBound,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus.Orphans ()
@@ -62,11 +57,11 @@ contestTx ::
 contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     defaultTxBodyContent
-      & addInputs [(headInput, headWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound slotNo
+      & addTxIns [(headInput, headWitness)]
+      & addTxInsReference [headScriptRef]
+      & addTxOuts [headOutputAfter]
+      & addTxExtraKeyWits [verificationKeyHash vk]
+      & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
   ClosedThreadOutput
