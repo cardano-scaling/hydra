@@ -368,24 +368,6 @@ progressReport nodeId clientId queueSize queue = do
       threadDelay 5
       progressReport nodeId clientId queueSize queue
 
---
--- Helpers
---
-
-assignUTxO :: (UTxO, Int) -> Map.Map Int (HydraClient, UTxO) -> Map.Map Int (HydraClient, UTxO)
-assignUTxO (utxo, clientId) = Map.adjust appendUTxO clientId
- where
-  appendUTxO (client, utxo') = (client, utxo <> utxo')
-
-noUTxOs :: UTxO
-noUTxOs = mempty
-
-double :: Real a => a -> Double
-double = realToFrac
-
-int :: Int -> Int
-int = id
-
 type TransactionId = Integer
 type TransactionInput = Int
 type TransactionOutput = Int

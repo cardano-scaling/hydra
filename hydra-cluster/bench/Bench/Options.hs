@@ -28,7 +28,6 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (argument)
-import Options.Applicative.Help (Doc, align, fillSep, line, (<+>))
 
 data Options
   = StandaloneOptions
@@ -89,9 +88,6 @@ standaloneOptionsParser =
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
-
-item :: [Doc] -> Doc
-item items = line <> ("* " <+> align (fillSep items))
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
