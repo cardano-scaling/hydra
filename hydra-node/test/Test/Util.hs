@@ -18,7 +18,6 @@ import Control.Monad.IOSim (
 import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
-import Data.List (isInfixOf)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
@@ -56,27 +55,11 @@ shouldBe actual expected =
  where
   reason = ExpectedButGot Nothing (show expected) (show actual)
 
--- | Lifted variant of Hspec's 'shouldReturn'.
-shouldReturn :: (HasCallStack, MonadThrow m, Eq a, Show a) => m a -> a -> m ()
-shouldReturn ma expected = ma >>= (`shouldBe` expected)
-
--- | Lifted variant of Hspec's 'shouldSatisfy'.
-shouldSatisfy :: (HasCallStack, MonadThrow m, Show a) => a -> (a -> Bool) -> m ()
-shouldSatisfy v p
-  | p v = pure ()
-  | otherwise = failure $ "predicate failed on: " <> show v
-
 -- | Lifted variant of Hspec's 'shouldNotBe'.
 shouldNotBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
 shouldNotBe actual expected
   | actual /= expected = pure ()
   | otherwise = failure $ "not expected: " <> show actual
-
--- | Lifted variant of Hspec's 'shouldContain'.
-shouldContain :: (HasCallStack, MonadThrow m, Eq a, Show a) => [a] -> [a] -> m ()
-shouldContain actual expected
-  | expected `isInfixOf` actual = pure ()
-  | otherwise = failure $ show actual <> " does not contain " <> show expected
 
 -- | A 'Tracer' that works in 'IOSim' monad.
 -- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
@@ -114,13 +97,6 @@ isContinuous = \case
   [] -> True
   [_] -> True
   (a : b : as) -> succ a == b && isContinuous (b : as)
-
--- | Predicate which decides whether given list is monotonic.
-isMonotonic :: Ord a => [a] -> Bool
-isMonotonic = \case
-  [] -> True
-  [_] -> True
-  (a : b : as) -> a <= b && isMonotonic (b : as)
 
 -- | Predicate which decides whether given list is strictly monotonic.
 isStrictlyMonotonic :: Ord a => [a] -> Bool
