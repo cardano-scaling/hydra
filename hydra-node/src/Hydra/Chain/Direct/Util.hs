@@ -28,9 +28,6 @@ readFileTextEnvelopeThrow ::
 readFileTextEnvelopeThrow asType fileContents =
   either (fail . show) pure =<< readFileTextEnvelope asType (File fileContents)
 
-readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
-readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
-
 -- | A simple retrying function with a constant delay. Retries only if the given
 -- predicate evaluates to 'True'.
 --
