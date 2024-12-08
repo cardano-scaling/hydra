@@ -62,7 +62,6 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Monadic (
-  PropertyM,
   assert,
   monadicIO,
   monitor,
@@ -255,26 +254,6 @@ recordEventsHandler ctx cs getTimeHandle = do
 -- | A block used for testing. This is a simpler version of the cardano-api
 -- 'Block' and can be de-/constructed easily.
 data TestBlock = TestBlock BlockHeader [Tx]
-
-withCounterExample :: [TestBlock] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
-withCounterExample blocks headState step = do
-  stBefore <- run $ readTVarIO headState
-  a <- run step
-  stAfter <- run $ readTVarIO headState
-  a <$ do
-    monitor $
-      counterexample $
-        toString $
-          unlines
-            [ "Chain state at (before rollback): " <> show stBefore
-            , "Chain state at (after rollback):  " <> show stAfter
-            , "Block sequence: \n"
-                <> unlines
-                  ( fmap
-                      ("    " <>)
-                      [show (getChainPoint header) | TestBlock header _ <- blocks]
-                  )
-            ]
 
 -- | Thin wrapper which generates a 'TestBlock' at some specific slot.
 genBlockAt :: SlotNo -> [Tx] -> Gen TestBlock
