@@ -283,22 +283,6 @@ queryProtocolParameters networkId socket queryPoint =
       BabbageEra -> encodeToEra BabbageEra pparams
       ConwayEra -> pure pparams
 
--- | Query the protocol parameters at given point. NOTE: If the era is not
--- matching this fails with an era mismatch.
---
--- Throws at least 'QueryException' if query fails.
-queryProtocolParameters' ::
-  IsShelleyBasedEra era =>
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
-  QueryPoint ->
-  IO (PParams (ShelleyLedgerEra era))
-queryProtocolParameters' networkId socket queryPoint =
-  runQueryExpr networkId socket queryPoint $
-    queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
-
 -- | Query 'GenesisParameters' at a given point.
 --
 -- Throws at least 'QueryException' if query fails.
