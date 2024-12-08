@@ -11,12 +11,8 @@ import Cardano.Ledger.Api (
  )
 import Cardano.Ledger.Babbage.Core (redeemerPointer)
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
-import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Data.List (find)
 import Data.Map qualified as Map
-import Hydra.Cardano.Api.PlutusScript (fromLedgerScript)
-import Hydra.Cardano.Api.PolicyId (toLedgerPolicyID, toLedgerScriptHash)
 import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import PlutusLedgerApi.V3 qualified as Plutus
 
@@ -30,27 +26,6 @@ findRedeemerSpending ::
 findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
   ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwaySpending . AsItem $ toLedgerTxIn txIn)
   lookupRedeemer ptr scriptData
-
-findRedeemerMinting ::
-  Plutus.FromData a =>
-  Tx Era ->
-  PolicyId ->
-  Maybe a
-findRedeemerMinting (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) pid = do
-  ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwayMinting . AsItem $ toLedgerPolicyID pid)
-  lookupRedeemer ptr scriptData
-
-findScriptMinting ::
-  forall lang.
-  () =>
-  Tx Era ->
-  PolicyId ->
-  Maybe (PlutusScript lang)
-findScriptMinting (getTxBody -> ShelleyTxBody _ _ scripts _ _ _) pid = do
-  fromLedgerScript @_ @lang
-    <$> find ((== needle) . Ledger.hashScript @(ShelleyLedgerEra Era)) scripts
- where
-  needle = toLedgerScriptHash pid
 
 --
 -- Internals
