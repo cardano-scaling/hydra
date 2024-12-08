@@ -817,8 +817,3 @@ expectInvalid = \case
         counterexample' $ renderTxWithUTxO spendableUTxO tx
         fail "But it did not fail"
   _ -> pure ()
-
--- | Generate sometimes a value with given generator, but more often just use
--- the given value.
-orSometimes :: a -> Gen a -> Gen a
-orSometimes a gen = frequency [(1, pure a), (2, gen)]
