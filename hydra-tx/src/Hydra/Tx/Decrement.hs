@@ -6,11 +6,10 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  emptyTxBody,
+  addExtraKeyWits,
+  addTxIns,
+  addTxInsReference,
+  addTxOuts,
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
@@ -43,11 +42,11 @@ decrementTx ::
   Tx
 decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs (headOutput' : map toTxContext decommitOutputs)
-      & addExtraRequiredSigners [verificationKeyHash vk]
+    defaultTxBodyContent
+      & addTxIns [(headInput, headWitness)]
+      & addTxInsReference [headScriptRef]
+      & addTxOuts (headOutput' : map toTxContext decommitOutputs)
+      & addExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
  where
   headRedeemer =

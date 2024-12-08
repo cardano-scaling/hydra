@@ -137,7 +137,7 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
-    emptyTxBody
+    defaultTxBodyContent
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts = outs
       , txFee = TxFeeExplicit fee
@@ -170,7 +170,7 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
-    emptyTxBody
+    defaultTxBodyContent
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
