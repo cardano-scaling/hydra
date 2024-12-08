@@ -41,7 +41,7 @@ healthyCommitTx =
   (tx', lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
+    UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
       <> healthyCommittedUTxO
       <> registryUTxO scriptRegistry
 
@@ -59,7 +59,7 @@ healthyCommitTx =
       (mkHeadId Fixture.testPolicyId)
       commitParty
       CommitBlueprintTx{lookupUTxO = healthyCommittedUTxO, blueprintTx}
-      (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, initialPubKeyHash)
+      (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut, initialPubKeyHash)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -79,7 +79,7 @@ healthyInitialTxIn = generateWith arbitrary 42
 
 healthyInitialTxOut :: TxOut CtxTx
 healthyInitialTxOut =
-  setMinUTxOValue Fixture.pparams . toUTxOContext $
+  setMinUTxOValue Fixture.pparams . toCtxUTxOTxOut $
     mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
       verificationKeyToOnChainId commitVerificationKey
 
@@ -147,7 +147,7 @@ genCommitMutation (tx, _utxo) =
             , ChangeOutput 0 mutatedCommitTxOut
             , ChangeInput
                 healthyInitialTxIn
-                (toUTxOContext healthyInitialTxOut)
+                (toCtxUTxOTxOut healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (removedTxIn `List.delete` allComittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MissingOrInvalidCommitAuthor) MutateRequiredSigner <$> do
@@ -162,7 +162,7 @@ genCommitMutation (tx, _utxo) =
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId commitTxOut)
             , ChangeInput
                 healthyInitialTxIn
-                (toUTxOContext $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
+                (toCtxUTxOTxOut $ replacePolicyIdWith Fixture.testPolicyId otherHeadId healthyInitialTxOut)
                 (Just $ toScriptData $ Initial.ViaCommit (allComittedTxIn <&> toPlutusTxOutRef))
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning

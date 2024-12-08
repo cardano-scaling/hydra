@@ -197,7 +197,7 @@ adjustUTxO tx utxo =
   let txid = txId tx
       consumed = txIns' tx
       produced =
-        toUTxOContext
+        toCtxUTxOTxOut
           <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
       utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
    in utxo' <> produced

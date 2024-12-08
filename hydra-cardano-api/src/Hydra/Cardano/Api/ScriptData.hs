@@ -41,8 +41,8 @@ fromScriptData =
 txOutScriptData :: TxOut CtxTx era -> Maybe HashableScriptData
 txOutScriptData (TxOut _ _ d _) =
   case d of
-    TxOutDatumInTx _ sd -> Just sd
     TxOutDatumInline _ sd -> Just sd
+    TxOutSupplementalDatum _ sd -> Just sd
     _ -> Nothing
 
 -- | Lookup included datum of given 'TxOut'.

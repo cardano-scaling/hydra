@@ -11,7 +11,7 @@ mkTxOutDatum ::
   a ->
   TxOutDatum CtxTx era
 mkTxOutDatum =
-  TxOutDatumInTx (alonzoBasedEra @era) . toScriptData
+  TxOutSupplementalDatum (alonzoBasedEra @era) . toScriptData
 
 -- | Construct a 'TxOutDatum' as a 'ScriptData' hash from some serialisable data.
 mkTxOutDatumHash ::

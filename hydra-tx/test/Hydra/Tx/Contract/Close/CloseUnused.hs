@@ -87,7 +87,7 @@ healthyCloseCurrentTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
 
-  datum = toUTxOContext $ mkTxOutDatumInline healthyCurrentOpenDatum
+  datum = mkTxOutDatumInline healthyCurrentOpenDatum
 
   lookupUTxO =
     UTxO.singleton (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
@@ -309,7 +309,7 @@ genCloseCurrentMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyCurrentOpenDatum)
+  datum = mkTxOutDatumInline healthyCurrentOpenDatum
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime

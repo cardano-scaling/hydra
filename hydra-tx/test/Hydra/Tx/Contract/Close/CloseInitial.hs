@@ -71,7 +71,7 @@ healthyCloseInitialTx =
       openThreadOutput
 
   initialDatum :: TxOutDatum CtxUTxO
-  initialDatum = toUTxOContext (mkTxOutDatumInline healthyInitialOpenDatum)
+  initialDatum = mkTxOutDatumInline healthyInitialOpenDatum
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
