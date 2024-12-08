@@ -36,15 +36,9 @@ library
     Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
     Test.Network.Ports
-    Test.Plutus.Validator
 
   build-depends:
     , base
-    , cardano-ledger-alonzo
-    , cardano-ledger-core
-    , cardano-slotting
-    , containers
-    , data-default
     , directory
     , filepath
     , hspec
@@ -52,12 +46,8 @@ library
     , hspec-core
     , hspec-junit-formatter  <1.1.1
     , HUnit
-    , hydra-cardano-api
     , hydra-prelude
-    , lens
     , network
-    , plutus-ledger-api      >=1.1.1.0
-    , plutus-tx
     , port-utils
     , process
     , QuickCheck
