@@ -44,7 +44,7 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Ledger.Cardano.Builder (addInputs, addReferenceInputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
@@ -222,7 +222,7 @@ propIsSubmapOf as bs =
 genBlueprintTxWithUTxO :: Gen (UTxO, Tx)
 genBlueprintTxWithUTxO =
   fmap (second unsafeBuildTransaction) $
-    spendingPubKeyOutput (mempty, emptyTxBody)
+    spendingPubKeyOutput (mempty, defaultTxBodyContent)
       >>= spendSomeScriptInputs
       >>= addSomeReferenceInputs
       >>= addValidityRange
@@ -234,7 +234,7 @@ genBlueprintTxWithUTxO =
     utxoToSpend <- genUTxOAdaOnlyOfSize =<< choose (0, 3)
     pure
       ( utxo <> utxoToSpend
-      , txbody & addVkInputs (toList $ UTxO.inputSet utxoToSpend)
+      , txbody & addTxInsSpending (toList $ UTxO.inputSet utxoToSpend)
       )
 
   spendSomeScriptInputs (utxo, txbody) = do
@@ -249,7 +249,7 @@ genBlueprintTxWithUTxO =
     pure
       ( utxo <> utxoToSpend
       , txbody
-          & addInputs
+          & addTxIns
             ( UTxO.pairs $
                 ( \_ ->
                     BuildTxWith $
@@ -263,7 +263,7 @@ genBlueprintTxWithUTxO =
   addSomeReferenceInputs (utxo, txbody) = do
     txout <- genTxOutWithReferenceScript
     txin <- arbitrary
-    pure (utxo <> UTxO.singleton (txin, txout), txbody & addReferenceInputs [txin])
+    pure (utxo <> UTxO.singleton (txin, txout), txbody & addTxInsReference [txin])
 
   addValidityRange (utxo, txbody) = do
     (start, end) <- arbitrary

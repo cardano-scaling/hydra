@@ -11,13 +11,6 @@ import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  emptyTxBody,
-  setValidityLowerBound,
-  setValidityUpperBound,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
@@ -68,13 +61,13 @@ closeTx ::
   Tx
 closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutputAfter]
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityLowerBound startSlotNo
-      & setValidityUpperBound endSlotNo
+    defaultTxBodyContent
+      & addTxIns [(headInput, headWitness)]
+      & addTxInsReference [headScriptRef]
+      & addTxOuts [headOutputAfter]
+      & addTxExtraKeyWits [verificationKeyHash vk]
+      & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
+      & setTxValidityUpperBound (TxValidityUpperBound endSlotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
  where
   OpenThreadOutput

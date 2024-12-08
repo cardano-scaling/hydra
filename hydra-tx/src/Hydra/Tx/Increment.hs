@@ -9,12 +9,6 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  emptyTxBody,
-  setValidityUpperBound,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)
@@ -51,12 +45,12 @@ incrementTx ::
   Tx
 incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
-      & addReferenceInputs [headScriptRef]
-      & addOutputs [headOutput']
-      & addExtraRequiredSigners [verificationKeyHash vk]
-      & setValidityUpperBound upperValiditySlot
+    defaultTxBodyContent
+      & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
+      & addTxInsReference [headScriptRef]
+      & addTxOuts [headOutput']
+      & addTxExtraKeyWits [verificationKeyHash vk]
+      & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
  where
   headRedeemer =
