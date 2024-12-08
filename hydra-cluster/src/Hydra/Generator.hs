@@ -7,7 +7,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (QueryTip), buildTransaction, mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
-import Data.Default (def)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkTransferTx)
@@ -86,9 +85,6 @@ instance FromJSON ClientDataset where
    where
     parseSigningKey =
       either (fail . show) pure . deserialiseFromTextEnvelope (AsSigningKey AsPaymentKey)
-
-defaultProtocolParameters :: PParams LedgerEra
-defaultProtocolParameters = def
 
 -- | Generate a 'Dataset' which does not grow the per-client UTXO set over time.
 -- This version provided faucet key owns funds on the initial funds of the
