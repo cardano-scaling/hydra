@@ -28,20 +28,7 @@ data QueryException
   | QueryProtocolParamsEncodingFailureOnEra AnyCardanoEra Text
   | QueryEraNotInCardanoModeFailure AnyCardanoEra
   | QueryNotShelleyBasedEraException AnyCardanoEra
-  deriving stock (Show)
-
-instance Eq QueryException where
-  a == b = case (a, b) of
-    (QueryAcquireException af1, QueryAcquireException af2) -> case (af1, af2) of
-      (AFPointTooOld, AFPointTooOld) -> True
-      (AFPointNotOnChain, AFPointNotOnChain) -> True
-      _ -> False
-    (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
-    (QueryProtocolParamsEraNotSupported ens1, QueryProtocolParamsEraNotSupported ens2) -> ens1 == ens2
-    (QueryProtocolParamsEncodingFailureOnEra e1 f1, QueryProtocolParamsEncodingFailureOnEra e2 f2) -> e1 == e2 && f1 == f2
-    (QueryEraNotInCardanoModeFailure e1, QueryEraNotInCardanoModeFailure e2) -> e1 == e2
-    (QueryNotShelleyBasedEraException e1, QueryNotShelleyBasedEraException e2) -> e1 == e2
-    _ -> False
+  deriving stock (Show, Eq)
 
 instance Exception QueryException where
   displayException = \case
