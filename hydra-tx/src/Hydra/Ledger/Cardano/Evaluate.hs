@@ -421,12 +421,6 @@ propTransactionFailsEvaluation (tx, lookupUTxO) =
 
 -- * Generators
 
-genPointInTime :: Gen (SlotNo, UTCTime)
-genPointInTime = do
-  slot <- SlotNo <$> arbitrary
-  let time = slotNoToUTCTime systemStart slotLength slot
-  pure (slot, time)
-
 -- | Parameter here is the contestation period (cp) so we need to generate
 -- start (tMin) and end (tMax) tx validity bound such that their difference
 -- is not higher than the cp.
@@ -443,12 +437,6 @@ genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do
   let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
   slot <- SlotNo <$> choose (0, slotDeadline)
-  pure (slot, slotNoToUTCTime systemStart slotLength slot)
-
-genPointInTimeAfter :: UTCTime -> Gen (SlotNo, UTCTime)
-genPointInTimeAfter deadline = do
-  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
-  slot <- SlotNo <$> choose (slotDeadline, maxBound)
   pure (slot, slotNoToUTCTime systemStart slotLength slot)
 
 -- ** Plutus cost model fixtures
