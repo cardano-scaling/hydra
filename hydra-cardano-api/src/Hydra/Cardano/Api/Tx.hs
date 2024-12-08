@@ -24,7 +24,6 @@ import Cardano.Ledger.Api (
  )
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Plutus.Language qualified as Ledger
 import Control.Lens ((&), (.~), (^.))
 import Data.Bifunctor (bimap)
@@ -67,12 +66,6 @@ utxoProducedByTx tx =
       <&> bimap (mkTxIn tx) toCtxUTxOTxOut
  where
   TxBody body = getTxBody tx
-
--- | Get explicit fees allocated to a transaction.
-txFee' :: Tx era -> Coin
-txFee' (getTxBody -> TxBody body) =
-  case txFee body of
-    TxFeeExplicit _ y -> y
 
 -- * Type Conversions
 
