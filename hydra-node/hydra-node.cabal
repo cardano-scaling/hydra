@@ -325,6 +325,7 @@ test-suite tests
     , aeson
     , base
     , bytestring
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -342,6 +343,7 @@ test-suite tests
     , contra-tracer
     , directory
     , filepath
+    , hedgehog-quickcheck
     , hspec
     , hspec-core
     , hspec-golden-aeson

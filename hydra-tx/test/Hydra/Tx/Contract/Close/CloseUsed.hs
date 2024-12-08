@@ -133,7 +133,7 @@ healthyCloseOutdatedTx =
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   datum :: TxOutDatum CtxUTxO
-  datum = toUTxOContext (mkTxOutDatumInline healthyOutdatedOpenDatum)
+  datum = mkTxOutDatumInline healthyOutdatedOpenDatum
 
   openThreadOutput :: OpenThreadOutput
   openThreadOutput =
@@ -370,7 +370,7 @@ genCloseOutdatedMutation (tx, _utxo) =
 
   headTxOut = fromJust $ txOuts' tx !!? 0
 
-  datum = toUTxOContext (mkTxOutDatumInline healthyOutdatedOpenDatum)
+  datum = mkTxOutDatumInline healthyOutdatedOpenDatum
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime

@@ -47,7 +47,6 @@ library
     Hydra.Cardano.Api.BlockHeader
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.CtxTx
-    Hydra.Cardano.Api.CtxUTxO
     Hydra.Cardano.Api.ExecutionUnits
     Hydra.Cardano.Api.Hash
     Hydra.Cardano.Api.KeyWitness
@@ -78,11 +77,12 @@ library
   -- NOTE: We only use an upper bound on cardano-api and have the other
   -- dependencies on cardano-ledger* and plutus-ledger-api follow.
   build-depends:
-    , aeson                   >=2
-    , base                    >=4.16
+    , aeson                      >=2
+    , base                       >=4.16
     , base16-bytestring
     , bytestring
-    , cardano-api             ^>=10.1
+    , cardano-api                ^>=10.4
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
@@ -90,13 +90,14 @@ library
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-binary
-    , cardano-ledger-byron
+    , cardano-ledger-byron-test
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
     , containers
+    , hedgehog-quickcheck
     , lens
     , plutus-ledger-api
     , QuickCheck
     , serialise
-    , text                    >=2
+    , text                       >=2
