@@ -7,7 +7,6 @@ module Test.Hydra.Prelude (
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
-  forAll2,
   pickBlind,
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
@@ -41,7 +40,7 @@ import Test.Hspec.Api.Formatters.V1 (formatterToFormat, specdoc)
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
 import Test.Hspec.MarkdownFormatter (markdownFormatter)
-import Test.QuickCheck (Property, Testable, coverTable, forAll, forAllBlind, tabulate)
+import Test.QuickCheck (Property, Testable, coverTable, forAllBlind, tabulate)
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 
 -- | Create a unique directory in the caonical, system-specific temporary path,
@@ -209,18 +208,6 @@ genericCoverTable xs =
   allLabels = enumerate :: [a]
   enumerate = [minBound .. maxBound]
   numberOfLabels = toInteger $ length allLabels
-
--- | Shorthand for using 2 generated values in a property.
-forAll2 ::
-  (Testable property, Show a, Show b) =>
-  Gen a ->
-  Gen b ->
-  ((a, b) -> property) ->
-  Property
-forAll2 genA genB action =
-  forAll genA $ \a ->
-    forAll genB $ \b ->
-      action (a, b)
 
 -- | Like 'pick' but using 'forAllBlind' under the hood.
 pickBlind :: Monad m => Gen a -> PropertyM m a
