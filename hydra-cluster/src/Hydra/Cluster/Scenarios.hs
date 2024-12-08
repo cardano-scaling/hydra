@@ -42,6 +42,7 @@ import Hydra.Cardano.Api (
   Tx,
   TxId,
   UTxO,
+  defaultTxBodyContent,
   getTxBody,
   getTxId,
   getVerificationKey,
