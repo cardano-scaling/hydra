@@ -1183,11 +1183,6 @@ openHead chain n1 n2 = do
   waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
-matchFanout :: PostChainTx tx -> Bool
-matchFanout = \case
-  FanoutTx{} -> True
-  _ -> False
-
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
   HeadIsClosed{} -> pure ()
