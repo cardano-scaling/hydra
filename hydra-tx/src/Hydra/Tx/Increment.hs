@@ -13,7 +13,6 @@ import Hydra.Ledger.Cardano.Builder (
   addInputs,
   addOutputs,
   addReferenceInputs,
-  emptyTxBody,
   setValidityUpperBound,
   unsafeBuildTransaction,
  )
@@ -48,7 +47,7 @@ incrementTx ::
   Tx
 incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs [(headInput, headWitness), (depositIn, depositWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs [headOutput']

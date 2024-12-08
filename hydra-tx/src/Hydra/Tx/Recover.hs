@@ -9,7 +9,6 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano.Builder (
   addInputs,
   addOutputs,
-  emptyTxBody,
   setValidityLowerBound,
   unsafeBuildTransaction,
  )
@@ -27,7 +26,7 @@ recoverTx ::
   Tx
 recoverTx depositTxId deposited lowerBoundSlot =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs recoverInputs
       & addOutputs depositOutputs
       & setValidityLowerBound lowerBoundSlot

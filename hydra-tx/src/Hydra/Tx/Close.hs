@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano.Builder (
   addInputs,
   addOutputs,
   addReferenceInputs,
-  emptyTxBody,
   setValidityLowerBound,
   setValidityUpperBound,
   unsafeBuildTransaction,
@@ -69,7 +68,7 @@ closeTx ::
   Tx
 closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs [headOutputAfter]

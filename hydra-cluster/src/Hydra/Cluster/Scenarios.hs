@@ -34,6 +34,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted (..),
  )
 import Hydra.Cardano.Api (
+  defaultTxBodyContent,
   Coin (..),
   File (File),
   Key (SigningKey),
@@ -71,7 +72,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (addInputs, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (addInputs, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -457,7 +458,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
               mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
-            emptyTxBody
+            defaultTxBodyContent
               & addInputs [(scriptIn, scriptWitness)]
     pure
       ( Aeson.object

@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano.Builder (
   addOutputs,
   addReferenceInputs,
   burnTokens,
-  emptyTxBody,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
@@ -54,7 +53,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   | otherwise =
       Right $
         unsafeBuildTransaction $
-          emptyTxBody
+          defaultTxBodyContent
             & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
             & addReferenceInputs ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
             & addOutputs reimbursedOutputs

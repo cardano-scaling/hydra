@@ -34,49 +34,6 @@ data InvalidTransactionException = InvalidTransactionException
 
 instance Exception InvalidTransactionException
 
--- * Constructing
-
--- | An empty 'TxBodyContent' with all empty/zero values to be extended using
--- record updates.
---
--- NOTE: 'makeTransactionBody' throws when one tries to build a transaction
--- with scripts but no collaterals. This is unfortunate because collaterals are
--- currently added after by our integrated wallet.
---
--- Similarly, 'makeTransactionBody' throws when building a transaction with
--- scripts and no protocol parameters (needed to compute the script integrity
--- hash). This is also added by our wallet at the moment and this ugly
--- work-around will be removed eventually (related item
--- [215](https://github.com/cardano-scaling/hydra/issues/215).
---
--- So we currently bypass this by having default but seemingly innofensive
--- values for collaterals and protocol params in the 'empty' value
-emptyTxBody :: TxBodyContent BuildTx
-emptyTxBody =
-  TxBodyContent
-    mempty -- inputs
-    (TxInsCollateral mempty)
-    TxInsReferenceNone
-    mempty -- outputs
-    TxTotalCollateralNone
-    TxReturnCollateralNone
-    (TxFeeExplicit 0)
-    TxValidityNoLowerBound
-    TxValidityNoUpperBound
-    TxMetadataNone
-    TxAuxScriptsNone
-    TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ LedgerProtocolParameters def)
-    TxWithdrawalsNone
-    TxCertificatesNone
-    TxUpdateProposalNone
-    TxMintValueNone
-    TxScriptValidityNone
-    Nothing
-    Nothing
-    Nothing
-    Nothing
-
 -- | Add new inputs to an ongoing builder.
 addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addInputs ins tx =

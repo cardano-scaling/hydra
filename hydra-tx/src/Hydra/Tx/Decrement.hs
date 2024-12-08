@@ -10,7 +10,6 @@ import Hydra.Ledger.Cardano.Builder (
   addInputs,
   addOutputs,
   addReferenceInputs,
-  emptyTxBody,
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
@@ -43,7 +42,7 @@ decrementTx ::
   Tx
 decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
   unsafeBuildTransaction $
-    emptyTxBody
+    defaultTxBodyContent
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
       & addOutputs (headOutput' : map toTxContext decommitOutputs)
