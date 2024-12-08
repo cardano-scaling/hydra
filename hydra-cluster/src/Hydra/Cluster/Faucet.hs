@@ -180,23 +180,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
  where
   changeAddress = mkVkAddress networkId
 
--- | Build and sign tx and return the calculated fee.
--- - Signing key should be the key of a sender
--- - Address is used as a change address.
--- - Lovelace amount should be one we are trying to send.
-calculateTxFee ::
-  RunningNode ->
-  SigningKey PaymentKey ->
-  UTxO ->
-  AddressInEra ->
-  Coin ->
-  IO Coin
-calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
-  let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
-   in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
-        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-        Right tx -> pure $ txFee' (sign secretKey $ getTxBody tx)
-
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
 retryOnExceptions tracer action =
