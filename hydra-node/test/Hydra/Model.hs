@@ -127,11 +127,6 @@ data GlobalState
   | Final {finalUTxO :: UTxOType Payment}
   deriving stock (Eq, Show)
 
-isPendingCommitFrom :: Party -> GlobalState -> Bool
-isPendingCommitFrom party Initial{pendingCommits} =
-  party `Map.member` pendingCommits
-isPendingCommitFrom _ _ = False
-
 type Uncommitted = Map.Map Party (UTxOType Payment)
 
 newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
