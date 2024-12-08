@@ -10,22 +10,13 @@ where
 import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (
   EraTx (mkBasicTx),
-  bodyTxL,
-  datsTxWitsL,
-  getLanguageView,
   inputsTxBodyL,
   mkBasicTxBody,
-  rdmrsTxWitsL,
-  scriptIntegrityHashTxBodyL,
-  witsTxL,
  )
 import Cardano.Ledger.Api qualified as Ledger
-import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Plutus.Language qualified as Ledger
-import Control.Lens ((&), (.~), (^.))
+import Control.Lens ((&), (.~))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Set qualified as Set
@@ -82,19 +73,3 @@ fromLedgerTx ::
   Tx era
 fromLedgerTx =
   ShelleyTx shelleyBasedEra
-
--- | Compute the integrity hash of a transaction using a list of plutus languages.
-recomputeIntegrityHash ::
-  (Ledger.AlonzoEraPParams ppera, Ledger.AlonzoEraTxWits txera, Ledger.AlonzoEraTxBody txera, EraTx txera) =>
-  Ledger.PParams ppera ->
-  [Ledger.Language] ->
-  Ledger.Tx txera ->
-  Ledger.Tx txera
-recomputeIntegrityHash pp languages tx = do
-  tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
- where
-  integrityHash =
-    hashScriptIntegrity
-      (Set.fromList $ getLanguageView pp <$> languages)
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
