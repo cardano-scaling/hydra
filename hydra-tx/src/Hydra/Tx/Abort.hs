@@ -11,10 +11,10 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn))
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
+  addExtraKeyWits,
+  addTxIns,
+  addTxInsReference,
+  addTxOuts,
   burnTokens,
   unsafeBuildTransaction,
  )
@@ -54,11 +54,11 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
       Right $
         unsafeBuildTransaction $
           defaultTxBodyContent
-            & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-            & addReferenceInputs ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
-            & addOutputs reimbursedOutputs
+            & addTxIns ((headInput, headWitness) : initialInputs <> commitInputs)
+            & addTxInsReference ([headScriptRef, initialScriptRef] <> [commitScriptRef | not $ null commitInputs])
+            & addTxOuts reimbursedOutputs
             & burnTokens headTokenScript Burn headTokens
-            & addExtraRequiredSigners [verificationKeyHash vk]
+            & addExtraKeyWits [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $
