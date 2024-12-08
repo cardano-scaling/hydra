@@ -227,11 +227,6 @@ latestSnapshotNumber = \case
   (s : _) -> s.number
   _ -> 0
 
-latestSnapshot :: [ModelSnapshot] -> Maybe ModelSnapshot
-latestSnapshot = \case
-  [] -> Nothing
-  (s : _) -> Just s
-
 -- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
 -- simplified form of 'UTxO'.
 data ModelSnapshot = ModelSnapshot
