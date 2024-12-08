@@ -34,10 +34,6 @@ newtype Ledger tx = Ledger
   -- necessarily the same as the given UTxO after some transactions
   }
 
-canApply :: Ledger tx -> ChainSlot -> UTxOType tx -> tx -> ValidationResult
-canApply ledger slot utxo tx =
-  either (Invalid . snd) (const Valid) $ applyTransactions ledger slot utxo (pure tx)
-
 -- | Collect applicable transactions and resulting UTxO. In contrast to
 -- 'applyTransactions', this functions continues on validation errors.
 collectTransactions :: Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> ([tx], UTxOType tx)
