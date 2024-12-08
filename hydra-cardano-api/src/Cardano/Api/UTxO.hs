@@ -87,10 +87,6 @@ render (k, TxOut _ (txOutValueToValue -> v) _ _) =
 difference :: UTxO' out -> UTxO' out -> UTxO' out
 difference a b = UTxO $ Map.difference (toMap a) (toMap b)
 
--- | Infix version of 'difference'.
-(\\) :: UTxO' out -> UTxO' out -> UTxO' out
-a \\ b = difference a b
-
 -- * Type Conversions
 
 -- | Transforms a UTxO containing tx outs from any era into Babbage era.
