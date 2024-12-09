@@ -455,7 +455,7 @@ directChainConfigParser =
   DirectChainConfig
     <$> networkIdParser
     <*> nodeSocketParser
-    <*> many hydraScriptsTxIdParser
+    <*> (hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
@@ -699,6 +699,21 @@ startChainFromParser =
           pure $ ChainPoint slotNo headerHash
         _emptyOrSingularList ->
           Nothing
+
+hydraScriptsTxIdsParser :: Parser [TxId]
+hydraScriptsTxIdsParser =
+  option
+    (eitherReader $ left show . parseFromHex . BSC.split ',' . BSC.pack)
+    ( long "hydra-scripts-tx-id"
+        <> metavar "TXID"
+        <> help
+          "The transaction which is expected to have published Hydra scripts as \
+          \reference scripts in its outputs. Note: All scripts need to be in the \
+          \first 10 outputs. See release notes for pre-published versions. You \
+          \can use the 'publish-scripts' sub-command to publish them yourself."
+    )
+ where
+  parseFromHex = mapM (deserialiseFromRawBytesHex AsTxId)
 
 hydraScriptsTxIdParser :: Parser TxId
 hydraScriptsTxIdParser =
