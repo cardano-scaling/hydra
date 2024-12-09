@@ -362,11 +362,3 @@ genSequenceOfObservableBlocks = do
     let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
-
-showRollbackInfo :: (Word, ChainPoint) -> String
-showRollbackInfo (rollbackDepth, rollbackPoint) =
-  toString $
-    unlines
-      [ "Rollback depth: " <> show rollbackDepth
-      , "Rollback point: " <> show rollbackPoint
-      ]
