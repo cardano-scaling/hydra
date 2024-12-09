@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
+  TxId,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -265,11 +266,12 @@ spec = parallel $
             { chainConfig = Direct defaultDirectChainConfig{startChainFrom = Just ChainPointAtGenesis}
             }
 
-    prop "parses --hydra-scripts-tx-id as a tx id" $ \txIds ->
-      concatMap (\txid -> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txid]) txIds
+    prop "parses --hydra-scripts-tx-id as a tx id" $ \(txIds :: NonEmpty TxId) -> do
+      let lineToParse = intercalate "," $ toString . serialiseToRawBytesHexText <$> toList txIds
+      ["--hydra-scripts-tx-id", lineToParse]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = txIds}
+            { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = toList txIds}
             }
 
     it "switches to offline chain when using --initial-utxo" $
