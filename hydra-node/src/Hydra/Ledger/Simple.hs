@@ -136,9 +136,3 @@ utxoRefs = Set.fromList . fmap SimpleTxOut
 
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
-
--- * Generators
-
-listOfCommittedUTxOs :: Integer -> Gen [UTxOType SimpleTx]
-listOfCommittedUTxOs numCommits =
-  pure $ Set.singleton . SimpleTxOut <$> [1 .. numCommits]
