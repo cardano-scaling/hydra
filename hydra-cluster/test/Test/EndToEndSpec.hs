@@ -520,7 +520,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] (UnsafeContestationPeriod 1)
-            withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
+            withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing False $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 
