@@ -98,7 +98,9 @@ function publishReferenceScripts() {
   hnode publish-scripts \
     --testnet-magic ${NETWORK_ID} \
     --node-socket ${DEVNET_DIR}/node.socket \
-    --cardano-signing-key devnet/credentials/faucet.sk
+    --cardano-signing-key devnet/credentials/faucet.sk \
+    | tr '\n' ',' \
+    | head -c -1
 }
 
 function queryPParams() {
