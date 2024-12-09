@@ -5,7 +5,7 @@
 
 module Hydra.TUI.Handlers where
 
-import Hydra.Prelude hiding (Down, padLeft)
+import Hydra.Prelude hiding (Down)
 
 import Brick
 import Hydra.Cardano.Api hiding (Active)
