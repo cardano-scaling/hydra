@@ -29,14 +29,6 @@ carolVk = getVerificationKey carolSk
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 10
 
--- | TODO: This is hard-coded and must match what's in the genesis file, so
--- ideally, we want to either:
---
--- - overwrite the genesis configuration with the `ClusterConfig`
--- - pull the network id from the genesis configuration
-defaultNetworkId :: NetworkId
-defaultNetworkId = Api.Testnet (Api.NetworkMagic 42)
-
 -- NOTE: This is hard-coded and needs to correspond to the initial funds set in
 -- the genesis-shelley.json file.
 availableInitialFunds :: Num a => a

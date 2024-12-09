@@ -17,28 +17,18 @@ module Hydra.Ledger.Cardano.Evaluate where
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Plutus.Evaluate (collectPlutusScriptsWithContext)
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
-import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), getVersion, natVersion)
+import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Plutus (
   Language (..),
-  LegacyPlutusArgs (..),
-  PlutusArgs (..),
-  PlutusLanguage (decodePlutusRunnable),
-  PlutusRunnable (..),
-  PlutusWithContext (..),
-  SLanguage (..),
-  isLanguage,
-  unPlutusV2Args,
  )
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
-import Control.Arrow (left)
 import Control.Lens ((.~))
 import Control.Lens.Getter
 import Data.ByteString qualified as BS
@@ -48,7 +38,6 @@ import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Flat (flat)
 import Hydra.Cardano.Api (
   Era,
   EraHistory (EraHistory),
@@ -58,7 +47,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   LedgerProtocolParameters (..),
   ProtocolParametersConversionError,
-  ScriptExecutionError (ScriptErrorMissingScript),
+  ScriptExecutionError,
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
   StandardCrypto,
@@ -68,8 +57,6 @@ import Hydra.Cardano.Api (
   evaluateTransactionExecutionUnits,
   getTxBody,
   toLedgerExUnits,
-  toLedgerTx,
-  toLedgerUTxO,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -86,13 +73,8 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
-import PlutusCore qualified as PLC
-import PlutusLedgerApi.Common (mkTermToEvaluate, toData)
-import PlutusLedgerApi.Common qualified as Plutus
 import Test.QuickCheck (Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
-import UntypedPlutusCore (UnrestrictedProgram (..))
-import UntypedPlutusCore qualified as UPLC
 
 -- * Evaluate transactions
 
@@ -176,18 +158,6 @@ data EvaluationError
 type EvaluationReport =
   (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
 
-renderEvaluationReportFailures :: EvaluationReport -> Text
-renderEvaluationReportFailures reportMap =
-  unlines $ renderScriptExecutionError <$> failures
- where
-  failures = lefts $ foldMap (: []) reportMap
-
-  renderScriptExecutionError = \case
-    ScriptErrorMissingScript missingRdmrPtr _ ->
-      "Missing script of redeemer pointer " <> show missingRdmrPtr
-    f ->
-      show f
-
 -- | Get the total used 'ExecutionUnits' from an 'EvaluationReport'. Useful to
 -- further process the result of 'evaluateTx'.
 usedExecutionUnits :: EvaluationReport -> ExecutionUnits
@@ -222,48 +192,6 @@ estimateMinFee tx evaluationReport =
   b = pparams ^. ppMinFeeBL
   prices = pparams ^. ppPricesL
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
-
--- * Profile transactions
-
--- | Like 'evaluateTx', but instead of actual evaluation, return the
--- flat-encoded, fully applied scripts for each redeemer to be evaluated
--- externally by 'uplc'. Use input format "flat-namedDeBruijn". This can be used
--- to gather profiling information.
---
--- NOTE: This assumes we use 'Babbage' and only 'PlutusV2' scripts are used.
-prepareTxScripts ::
-  Tx ->
-  UTxO ->
-  Either String [ByteString]
-prepareTxScripts tx utxo = do
-  -- Tuples with scripts and their arguments collected from the tx
-  results <-
-    case collectPlutusScriptsWithContext epochInfo systemStart pparams ltx lutxo of
-      Left e -> Left $ show e
-      Right x -> pure x
-
-  -- Fully applied UPLC programs which we could run using the cekMachine
-  programs <- forM results $ \(PlutusWithContext protocolVersion script _ (arguments :: PlutusArgs l) _exUnits _costModel) -> do
-    (PlutusRunnable rs) <-
-      case script of
-        Right runnable -> pure runnable
-        Left serialised -> left show $ decodePlutusRunnable protocolVersion serialised
-    -- TODO: replace with mkTermToEvaluate from PlutusLanguage type class once available
-    let majorProtocolVersion = Plutus.MajorProtocolVersion $ getVersion protocolVersion
-        args =
-          case isLanguage @l of
-            SPlutusV2 -> case unPlutusV2Args arguments of
-              LegacyPlutusArgs2 redeemer scriptContext -> [redeemer, toData scriptContext]
-              _ -> error "unexpeted args"
-            _ -> error "unsupported language"
-    appliedTerm <- left show $ mkTermToEvaluate Plutus.PlutusV2 majorProtocolVersion rs args
-    pure $ UPLC.Program () PLC.latestVersion appliedTerm
-
-  pure $ flat . UnrestrictedProgram <$> programs
- where
-  ltx = toLedgerTx tx
-
-  lutxo = toLedgerUTxO utxo
 
 -- * Fixtures
 
@@ -421,12 +349,6 @@ propTransactionFailsEvaluation (tx, lookupUTxO) =
 
 -- * Generators
 
-genPointInTime :: Gen (SlotNo, UTCTime)
-genPointInTime = do
-  slot <- SlotNo <$> arbitrary
-  let time = slotNoToUTCTime systemStart slotLength slot
-  pure (slot, time)
-
 -- | Parameter here is the contestation period (cp) so we need to generate
 -- start (tMin) and end (tMax) tx validity bound such that their difference
 -- is not higher than the cp.
@@ -443,12 +365,6 @@ genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
 genPointInTimeBefore deadline = do
   let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
   slot <- SlotNo <$> choose (0, slotDeadline)
-  pure (slot, slotNoToUTCTime systemStart slotLength slot)
-
-genPointInTimeAfter :: UTCTime -> Gen (SlotNo, UTCTime)
-genPointInTimeAfter deadline = do
-  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
-  slot <- SlotNo <$> choose (slotDeadline, maxBound)
   pure (slot, slotNoToUTCTime systemStart slotLength slot)
 
 -- ** Plutus cost model fixtures

@@ -4,7 +4,6 @@ module Hydra.Cardano.Api.ScriptData where
 
 import Hydra.Cardano.Api.Prelude hiding (left)
 
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Era qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Codec.Serialise (deserialiseOrFail, serialise)
@@ -12,7 +11,6 @@ import Control.Arrow (left)
 import Data.Aeson (Value (String), withText)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
-import Data.Map qualified as Map
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.QuickCheck (arbitrarySizedNatural, choose, oneof, scale, sized, vector)
 
@@ -36,38 +34,13 @@ fromScriptData =
   Plutus.fromData . toPlutusData . getScriptData
 
 -- | Get the 'HashableScriptData' associated to the a 'TxOut'. Note that this
--- requires the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
--- 'lookupScriptData'.
+-- requires the 'CtxTx' context.
 txOutScriptData :: TxOut CtxTx era -> Maybe HashableScriptData
 txOutScriptData (TxOut _ _ d _) =
   case d of
     TxOutDatumInTx _ sd -> Just sd
     TxOutDatumInline _ sd -> Just sd
     _ -> Nothing
-
--- | Lookup included datum of given 'TxOut'.
-lookupScriptData ::
-  forall era.
-  ( UsesStandardCrypto era
-  , Ledger.Era (ShelleyLedgerEra era)
-  ) =>
-  Tx era ->
-  TxOut CtxUTxO era ->
-  Maybe HashableScriptData
-lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) (TxOut _ _ datum _) =
-  case datum of
-    TxOutDatumNone ->
-      Nothing
-    (TxOutDatumHash _ (ScriptDataHash h)) ->
-      fromLedgerData <$> Map.lookup h datums
-    (TxOutDatumInline _ dat) ->
-      Just dat
- where
-  datums :: Map (Ledger.DataHash StandardCrypto) (Ledger.Data (ShelleyLedgerEra era))
-  datums =
-    case (scriptsData :: TxBodyScriptData era) of
-      TxBodyNoScriptData -> mempty
-      TxBodyScriptData _ (Ledger.TxDats m) _ -> m
 
 -- * Type Conversions
 

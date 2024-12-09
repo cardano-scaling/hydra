@@ -282,9 +282,6 @@ shrinkValue :: Value -> [Value]
 shrinkValue =
   shrinkMapBy fromList toList shrinkListAggressively
 
-genBytes :: Gen ByteString
-genBytes = arbitrary
-
 genHash :: Gen ByteString
 genHash = BS.pack <$> vector 32
 

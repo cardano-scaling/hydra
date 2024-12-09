@@ -1,9 +1,9 @@
 module Main where
 
 import Hydra.Prelude
-import HydraTestUtilsSpec qualified
+import Spec qualified
 import Test.Hspec.Runner
 import Test.Hydra.Prelude (combinedHspecFormatter)
 
 main :: IO ()
-main = hspecWith defaultConfig{configFormat = Just (combinedHspecFormatter "hydra-test-utils")} HydraTestUtilsSpec.spec
+main = hspecWith defaultConfig{configFormat = Just (combinedHspecFormatter "hydra-test-utils")} Spec.spec
