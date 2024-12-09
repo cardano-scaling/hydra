@@ -66,8 +66,7 @@ depositScriptUTxO :: UTxO
 depositScriptUTxO = utxoFromTx depositTransaction
 
 depositTxIn :: TxIn
-depositTxOut :: TxOut CtxUTxO
-(depositTxIn, depositTxOut) = List.head $ UTxO.pairs depositScriptUTxO
+(depositTxIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
 data RecoverMutation
   = -- | Move the deposit deadline further so that the recover lower bound is
