@@ -10,7 +10,9 @@ changes.
 
 ## [0.20.0] - UNRELEASED
 
-- hydra-node now supports incremental commits which means you can commit funds to a Head while it is running.
+- **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
+  with the community members building on Hydra. This feature means you can commit funds to a Head while it is running.
+  TODO: Implement missing spec changes.
 
 - **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as the outcome of changes in the Hydra scripts publishing.
 

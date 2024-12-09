@@ -64,6 +64,7 @@ import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Tx.Gen (genOutput, genUTxOAdaOnlyOfSize)
+import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
@@ -259,7 +260,10 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo Nothing mempty [] -- We do not validate the signatures
+    utxoToCommit' <- oneof [arbitrary, pure Nothing]
+    utxoToDecommit' <- oneof [arbitrary, pure Nothing]
+    let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

@@ -321,16 +321,8 @@ onOpenNetworkReqTx env ledger st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        --       L̂  ← L̂ ◦ tx
-        --       L̂  ← L̂ ◦ tx
-
         -- Spec: T̂ ← T̂ ⋃ {tx}
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
@@ -622,9 +614,6 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
         (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
@@ -1250,16 +1239,16 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
-  Monoid (UTxOType tx) =>
+  IsTx tx =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   newState HeadFannedOut{chainState = newChainState}
-    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = utxo <> fromMaybe mempty utxoToCommit})
+    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit})
  where
-  Snapshot{utxo, utxoToCommit} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
   ClosedState{confirmedSnapshot, headId} = closedState
 

@@ -247,7 +247,7 @@ withHydraCluster ::
   -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
   [SigningKey HydraKey] ->
-  -- | Transaction id at which Hydra scripts should have been published.
+  -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
