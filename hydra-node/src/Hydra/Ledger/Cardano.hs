@@ -137,7 +137,7 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
-    emptyTxBody
+    defaultTxBodyContent
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts = outs
       , txFee = TxFeeExplicit fee
@@ -170,7 +170,7 @@ mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
-    emptyTxBody
+    defaultTxBodyContent
       { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
       , txOuts =
           TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
@@ -197,7 +197,7 @@ adjustUTxO tx utxo =
   let txid = txId tx
       consumed = txIns' tx
       produced =
-        toUTxOContext
+        toCtxUTxOTxOut
           <$> fromPairs ((\(txout, ix) -> (TxIn txid (TxIx ix), txout)) <$> zip (txOuts' tx) [0 ..])
       utxo' = fromPairs $ filter (\(txin, _) -> txin `notElem` consumed) $ pairs utxo
    in utxo' <> produced

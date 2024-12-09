@@ -7,10 +7,6 @@ import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano.Builder (
-  addInputs,
-  addOutputs,
-  emptyTxBody,
-  setValidityLowerBound,
   unsafeBuildTransaction,
  )
 import Hydra.Tx (HeadId, mkHeadId)
@@ -27,10 +23,10 @@ recoverTx ::
   Tx
 recoverTx depositTxId deposited lowerBoundSlot =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs recoverInputs
-      & addOutputs depositOutputs
-      & setValidityLowerBound lowerBoundSlot
+    defaultTxBodyContent
+      & addTxIns recoverInputs
+      & addTxOuts depositOutputs
+      & setTxValidityLowerBound (TxValidityLowerBound lowerBoundSlot)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "RecoverTx")
  where
   recoverInputs = (,depositWitness) <$> [TxIn depositTxId (TxIx 0)]
