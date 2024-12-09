@@ -33,8 +33,8 @@ main = do
   publish opts = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
-    txId <- publishHydraScripts networkId publishNodeSocket sk
-    putStr (decodeUtf8 (serialiseToRawBytesHex txId))
+    txIds <- publishHydraScripts networkId publishNodeSocket sk
+    mapM_ putBSLn (serialiseToRawBytesHex <$> txIds)
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
