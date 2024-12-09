@@ -88,7 +88,6 @@ library
     , base                  >=4.7 && <5
     , bytestring
     , cardano-slotting
-    , cardano-api
     , containers
     , contra-tracer
     , data-default
@@ -99,7 +98,6 @@ library
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
-    , hydra-plutus
     , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
@@ -108,8 +106,6 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
-    , plutus-ledger-api
-    , plutus-tx
     , process
     , QuickCheck
     , req

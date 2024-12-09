@@ -345,12 +345,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
       Direct DirectChainConfig{nodeSocket, networkId} -> do
         -- NOTE: This implicitly tests of cardano-cli with hydra-node
         protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+        print cardanoLedgerProtocolParametersFile
         Aeson.encodeFile cardanoLedgerProtocolParametersFile $
           protocolParameters
             & atKey "txFeeFixed" ?~ toJSON (Number 0)
             & atKey "txFeePerByte" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+        -- & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+        -- & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+        writeFileLBS "queried-pparams.json" (Aeson.encode protocolParameters)
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
@@ -384,14 +386,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = CreatePipe
+            , std_err = Inherit
             }
 
     traceWith tracer $ HydraNodeCommandSpec $ show $ cmdspec p
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
-        (Just out, Just err) -> action out err processHandle
+        (Just out, Nothing) -> action out stderr processHandle
         (Nothing, _) -> error "Should not happen™"
         (_, Nothing) -> error "Should not happen™"
  where
