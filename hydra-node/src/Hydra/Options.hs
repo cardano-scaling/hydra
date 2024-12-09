@@ -903,7 +903,7 @@ toArgs
           } ->
           toArgNetworkId networkId
             <> toArgNodeSocket nodeSocket
-            <> concatMap (\txId -> ["--hydra-scripts-tx-id", toString $ serialiseToRawBytesHexText txId]) hydraScriptsTxId
+            <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
