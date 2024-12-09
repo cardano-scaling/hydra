@@ -69,7 +69,7 @@ import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
-import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -143,11 +143,6 @@ data WalletInfoOnChain = WalletInfoOnChain
   }
 
 type ChainQuery m = QueryPoint -> Api.Address ShelleyAddr -> m WalletInfoOnChain
-
-watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
-watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
-  u <- getUTxO
-  u <$ check (predicate u)
 
 -- | Create a new tiny wallet handle.
 newTinyWallet ::
