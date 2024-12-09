@@ -27,8 +27,3 @@ instance FromCBOR TxId where
 toLedgerTxId :: TxId -> Ledger.TxId StandardCrypto
 toLedgerTxId (TxId h) =
   Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))
-
--- | Convert a cardano-ledger 'TxId' into a cardano-api 'TxId'.
-fromLedgerTxId :: Ledger.TxId StandardCrypto -> TxId
-fromLedgerTxId (Ledger.TxId h) =
-  TxId (CC.castHash (Ledger.extractHash h))
