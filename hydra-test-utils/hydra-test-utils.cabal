@@ -58,7 +58,7 @@ test-suite hydra-test-util-tests
   import:             package-config
   hs-source-dirs:     test
   other-modules:
-    HydraTestUtilsSpec
+    Spec
     Test.HSpec.MarkdownFormatterSpec
 
   main-is:            Main.hs
