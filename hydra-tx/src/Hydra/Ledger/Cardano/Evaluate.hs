@@ -47,7 +47,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   LedgerProtocolParameters (..),
   ProtocolParametersConversionError,
-  ScriptExecutionError (ScriptErrorMissingScript),
+  ScriptExecutionError,
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
   StandardCrypto,
@@ -157,18 +157,6 @@ data EvaluationError
 -- evaluation or used a number of 'ExecutionUnits'.
 type EvaluationReport =
   (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
-
-renderEvaluationReportFailures :: EvaluationReport -> Text
-renderEvaluationReportFailures reportMap =
-  unlines $ renderScriptExecutionError <$> failures
- where
-  failures = lefts $ foldMap (: []) reportMap
-
-  renderScriptExecutionError = \case
-    ScriptErrorMissingScript missingRdmrPtr _ ->
-      "Missing script of redeemer pointer " <> show missingRdmrPtr
-    f ->
-      show f
 
 -- | Get the total used 'ExecutionUnits' from an 'EvaluationReport'. Useful to
 -- further process the result of 'evaluateTx'.
