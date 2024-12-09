@@ -114,23 +114,17 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
-import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (newTVarIO)
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, traceResult)
-import Data.Map ((!))
 import Data.Map qualified as Map
-import Data.Set qualified as Set
 import GHC.IO (unsafePerformIO)
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
-import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
+import Hydra.BehaviorSpec (dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),
   GlobalState (..),
   Nodes (Nodes, nodes),
-  OffChainState (..),
   RunMonad,
   RunState (..),
   WorldState (..),
@@ -145,8 +139,7 @@ import Hydra.Model qualified as Model
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, property, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -160,7 +153,7 @@ import Test.QuickCheck.DynamicLogic (
   withGenQ,
  )
 import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic', monitor, run)
+import Test.QuickCheck.Monadic (PropertyM, assert, monadic')
 import Test.QuickCheck.Property ((===))
 import Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
@@ -313,71 +306,6 @@ prop_doesNotGenerate0AdaUTxO (Actions actions) =
     _anyOtherStep -> False
   contains0Ada = (== lovelaceToValue 0) . snd
 
-prop_checkModel :: Property
-prop_checkModel =
-  within 30000000 $
-    forAllShrink arbitrary shrink $ \actions ->
-      runIOSimProp $ do
-        (metadata, _symEnv) <- runActions actions
-        let WorldState{hydraParties, hydraState} = underlyingState metadata
-        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
-        -- the underlying simulated chain which produces a block every 20s. It
-        -- should be enough to ensure all nodes' threads terminate their actions
-        -- and those gets picked up by the chain
-        run $ lift waitForAMinute
-        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-        nodes <- run $ gets nodes
-        assert (parties == Map.keysSet nodes)
-        forM_ parties $ \p -> do
-          assertBalancesInOpenHeadAreConsistent hydraState nodes p
- where
-  waitForAMinute :: MonadDelay m => m ()
-  waitForAMinute = threadDelay 60
-
-assertBalancesInOpenHeadAreConsistent ::
-  GlobalState ->
-  Map Party (TestHydraClient Tx (IOSim s)) ->
-  Party ->
-  PropertyM (RunMonad (IOSim s)) ()
-assertBalancesInOpenHeadAreConsistent world nodes p = do
-  let node = nodes ! p
-  case world of
-    Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      utxo <- run $ getUTxO node
-      let expectedBalance =
-            Map.fromListWith
-              (<>)
-              [ (unwrapAddress addr, value)
-              | (Payment.CardanoSigningKey sk, value) <- confirmedUTxO
-              , let addr = mkVkAddress testNetworkId (getVerificationKey sk)
-              , valueToLovelace value /= Just 0
-              ]
-      let actualBalance =
-            Map.fromListWith (<>) $
-              [ (unwrapAddress addr, value)
-              | (TxOut addr value _ _) <- Map.elems (UTxO.toMap utxo)
-              , valueToLovelace value /= Just 0
-              ]
-      monitor $
-        counterexample $
-          toString $
-            unlines
-              [ "actualBalance = " <> show actualBalance
-              , "expectedBalance = " <> show expectedBalance
-              , "Difference: (" <> show p <> ") " <> show (Map.difference actualBalance expectedBalance)
-              ]
-      assert (expectedBalance == actualBalance)
-    _ -> do
-      pure ()
- where
-  getUTxO node = lift $ do
-    node `send` GetUTxO
-    let loop =
-          waitForNext node >>= \case
-            GetUTxOResponse _ u -> pure u
-            _ -> loop
-    loop
-
 --
 
 -- * Utilities for `IOSim`
@@ -444,8 +372,3 @@ eventually a = action_ (Wait 10) >> action_ a
 
 action_ :: Action WorldState () -> DL WorldState ()
 action_ = void . action
-
-unwrapAddress :: AddressInEra -> Text
-unwrapAddress = \case
-  ShelleyAddressInEra addr -> serialiseToBech32 addr
-  ByronAddressInEra{} -> error "Byron."
