@@ -310,7 +310,7 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
+    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) True $ do
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
@@ -318,6 +318,31 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
           <&> either absurd id
  where
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- | Run a hydra-node with given 'ChainConfig', and real protocol parameters (no zero fees).
+withHydraNodeRealFee ::
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeRealFee tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  withLogFile logFilePath $ \logFileHandle -> do
+    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) False $ do
+      \_ err processHandle -> do
+        race
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
+          (withConnectionToNode tracer hydraNodeId action)
+          <&> either absurd id
+ where
+  logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- | A bit of boolean blindness, if this type is True we should zero the fees in queried protocol parameters.
+type ZeroFees = Bool
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -331,9 +356,10 @@ withHydraNode' ::
   [Int] ->
   -- | If given use this as std out.
   Maybe Handle ->
+  ZeroFees ->
   (Handle -> Handle -> ProcessHandle -> IO a) ->
   IO a
-withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
+withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut zeroFees action = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -345,12 +371,18 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
       Direct DirectChainConfig{nodeSocket, networkId} -> do
         -- NOTE: This implicitly tests of cardano-cli with hydra-node
         protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
+        print cardanoLedgerProtocolParametersFile
         Aeson.encodeFile cardanoLedgerProtocolParametersFile $
-          protocolParameters
-            & atKey "txFeeFixed" ?~ toJSON (Number 0)
-            & atKey "txFeePerByte" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
-            & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+          if zeroFees
+            then
+              protocolParameters
+                & atKey "txFeeFixed" ?~ toJSON (Number 0)
+                & atKey "txFeePerByte" ?~ toJSON (Number 0)
+                & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
+                & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+            else
+              protocolParameters
+        writeFileLBS "queried-pparams.json" (Aeson.encode protocolParameters)
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
@@ -384,14 +416,14 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
                 }
           )
             { std_out = maybe CreatePipe UseHandle mGivenStdOut
-            , std_err = CreatePipe
+            , std_err = Inherit
             }
 
     traceWith tracer $ HydraNodeCommandSpec $ show $ cmdspec p
 
     withCreateProcess p $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
       case (mCreatedStdOut <|> mGivenStdOut, mCreatedStdErr) of
-        (Just out, Just err) -> action out err processHandle
+        (Just out, Nothing) -> action out stderr processHandle
         (Nothing, _) -> error "Should not happen™"
         (_, Nothing) -> error "Should not happen™"
  where

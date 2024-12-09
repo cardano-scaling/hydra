@@ -83,6 +83,15 @@ addInputs :: TxIns BuildTx -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addInputs ins tx =
   tx{txIns = txIns tx <> ins}
 
+-- | Add new inputs to an ongoing builder.
+addCollateralInput :: TxIn -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addCollateralInput txin tx =
+  tx{txInsCollateral = TxInsCollateral [txin]}
+
+changePParams :: PParams (ShelleyLedgerEra Era) -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+changePParams pparams tx =
+  tx{txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams}
+
 addReferenceInputs :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addReferenceInputs refs' tx =
   tx
