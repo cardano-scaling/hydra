@@ -373,9 +373,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 , contestationDeadline = deadline
                 }
             let expectedUTxO =
-                  Snapshot.utxo snapshot
-                    <> fromMaybe mempty (Snapshot.utxoToCommit snapshot)
-                    <> fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
+                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                    `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
             aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
               waitForUTxO node expectedUTxO
