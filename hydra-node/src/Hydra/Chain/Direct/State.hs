@@ -1228,9 +1228,15 @@ genCloseTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx, ConfirmedSnapshot T
 genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  let (confirmedUtxo, utxoToDecommit) = splitUTxO u0
+  let (inHead, toDecommit) = splitUTxO u0
+  utxoToCommit' <- oneof [arbitrary, pure Nothing]
+  utxoToDecommit' <- oneof [pure toDecommit, pure mempty]
+  let (confirmedUTxO, utxoToCommit, utxoToDecommit) =
+        if isNothing utxoToCommit
+          then (inHead, mempty, Just utxoToDecommit')
+          else (u0, utxoToCommit', Nothing)
   let version = 0
-  snapshot <- genConfirmedSnapshot headId version 1 confirmedUtxo Nothing (Just utxoToDecommit) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
