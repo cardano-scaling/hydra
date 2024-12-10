@@ -64,7 +64,7 @@ import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
 import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO, serialisedScriptRegistry)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
@@ -568,7 +568,7 @@ performTx result =
       let validationError = getValidationError tx utxo
       when (isNothing validationError) $ do
         put $ adjustUTxO tx utxo
-      let observation = observeHeadTx Fixture.testNetworkId utxo tx
+      let observation = observeHeadTx Fixture.testNetworkId serialisedScriptRegistry utxo tx
       pure
         TxResult
           { constructedTx = Right tx
