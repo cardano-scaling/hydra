@@ -13,7 +13,7 @@ import Cardano.Ledger.SafeHash qualified as Ledger
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
 import Data.Function (on)
-import Data.List (intercalate, sort, sortBy)
+import Data.List (sort, sortBy)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import GHC.IsList (IsList (..))
@@ -22,9 +22,6 @@ import Hydra.Cardano.Api.ScriptData (fromLedgerData)
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Api.Tx -> String
 renderTx = renderTxWithUTxO mempty
-
-renderTxs :: [Api.Tx] -> String
-renderTxs xs = intercalate "\n\n" (renderTx <$> xs)
 
 -- | Like 'renderTx', but uses the given UTxO to resolve inputs.
 renderTxWithUTxO :: UTxO -> Api.Tx -> String

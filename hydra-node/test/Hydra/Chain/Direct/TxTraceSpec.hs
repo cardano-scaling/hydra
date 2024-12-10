@@ -227,11 +227,6 @@ latestSnapshotNumber = \case
   (s : _) -> s.number
   _ -> 0
 
-latestSnapshot :: [ModelSnapshot] -> Maybe ModelSnapshot
-latestSnapshot = \case
-  [] -> Nothing
-  (s : _) -> Just s
-
 -- | Model of a real snapshot which contains a 'SnapshotNumber` but also our
 -- simplified form of 'UTxO'.
 data ModelSnapshot = ModelSnapshot
@@ -822,8 +817,3 @@ expectInvalid = \case
         counterexample' $ renderTxWithUTxO spendableUTxO tx
         fail "But it did not fail"
   _ -> pure ()
-
--- | Generate sometimes a value with given generator, but more often just use
--- the given value.
-orSometimes :: a -> Gen a -> Gen a
-orSometimes a gen = frequency [(1, pure a), (2, gen)]

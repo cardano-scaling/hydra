@@ -27,22 +27,3 @@ readFileTextEnvelopeThrow ::
   IO a
 readFileTextEnvelopeThrow asType fileContents =
   either (fail . show) pure =<< readFileTextEnvelope asType (File fileContents)
-
-readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
-readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
-
--- | A simple retrying function with a constant delay. Retries only if the given
--- predicate evaluates to 'True'.
---
--- Better coupled with a 'timeout' function.
-retry ::
-  forall e m a.
-  (MonadCatch m, MonadDelay m, Exception e) =>
-  (e -> Bool) ->
-  m a ->
-  m a
-retry predicate action =
-  catchIf predicate action $ \_ ->
-    threadDelay 0.5 >> retry predicate action
- where
-  catchIf f a b = a `catch` \e -> if f e then b e else throwIO e

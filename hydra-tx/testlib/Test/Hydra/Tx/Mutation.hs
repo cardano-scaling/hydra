@@ -160,7 +160,7 @@ import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -688,16 +688,6 @@ alterTxOuts fn tx =
 
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
-
--- | Generates an output that pays to some arbitrary pubkey.
-anyPayToPubKeyTxOut :: Gen (TxOut ctx)
-anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
-
--- | Finds the Head script's input in given `UTxO` set.
--- '''NOTE''': This function is partial, it assumes the `UTxO` set contains a
--- Head script output.
-headTxIn :: UTxO -> TxIn
-headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs
 
 -- | A 'Mutation' that changes the minted/burnt quantity of all tokens to a
 -- non-zero value different than the given one.

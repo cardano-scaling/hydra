@@ -32,7 +32,6 @@ module Hydra.Prelude (
   shrinkListAggressively,
   reasonablySized,
   ReasonablySized (..),
-  padLeft,
   padRight,
   Except,
   decodeBase16,
@@ -214,13 +213,6 @@ newtype ReasonablySized a = ReasonablySized a
 
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
-
--- | Pad a text-string to left with the given character until it reaches the given
--- length.
---
--- NOTE: Truncate the string if longer than the given length.
-padLeft :: Char -> Int -> Text -> Text
-padLeft c n str = T.takeEnd n (T.replicate n (T.singleton c) <> str)
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.
