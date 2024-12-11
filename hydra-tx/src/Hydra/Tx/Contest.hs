@@ -23,6 +23,7 @@ import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
+
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -60,7 +61,7 @@ contestTx ::
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
+contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -70,6 +71,8 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
       & setValidityUpperBound slotNo
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
+  Snapshot{number, utxo, utxoToCommit, utxoToDecommit} = snapshot
+
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
     , closedParties
@@ -88,19 +91,9 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
   headScript =
     fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
-  headRedeemer = toScriptData $ Head.Contest contestRedeemer
+  contestRedeemer = setContestRedeemer snapshot openVersion sig
 
-  contestRedeemer
-    | version == openVersion =
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
-          }
-    | otherwise =
-        -- NOTE: This will only work for version == openVersion - 1
-        Head.ContestOutdated
-          { signature = toPlutusSignatures sig
-          , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-          }
+  headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -120,9 +113,18 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
         Head.ClosedDatum
           { snapshotNumber = toInteger number
           , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , deltaUTxOHash =
+          , alphaUTxOHash =
               case contestRedeemer of
-                Head.ContestCurrent{} ->
+                Head.ContestUsedInc{} ->
+                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
+                Head.ContestUnusedInc{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
+              case contestRedeemer of
+                Head.ContestUsedDec{} ->
+                  toBuiltin $ hashUTxO @Tx mempty
+                Head.ContestUnusedDec{} ->
                   toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties
@@ -132,3 +134,43 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           }
+
+setContestRedeemer :: Snapshot Tx -> SnapshotVersion -> MultiSignature (Snapshot Tx) -> Head.ContestRedeemer
+setContestRedeemer Snapshot{version, utxoToCommit, utxoToDecommit} openVersion sig =
+  if version == openVersion
+    then
+      if
+        | isJust utxoToDecommit ->
+            Head.ContestUnusedDec
+              { signature = toPlutusSignatures sig
+              }
+        | isJust utxoToCommit ->
+            Head.ContestUnusedInc
+              { signature = toPlutusSignatures sig
+              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+              }
+        | isNothing utxoToCommit
+        , isNothing utxoToDecommit ->
+            Head.ContestCurrent
+              { signature = toPlutusSignatures sig
+              }
+        | otherwise -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+    else case (isJust utxoToCommit, isJust utxoToDecommit) of
+      (True, False) ->
+        Head.ContestUsedInc
+          { signature = toPlutusSignatures sig
+          }
+      (False, True) ->
+        Head.ContestUsedDec
+          { signature = toPlutusSignatures sig
+          , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
+          }
+      (False, False) ->
+        -- NOTE: here the assumption is: if your snapshot doesn't
+        -- contain anything to de/commit then it must mean that we
+        -- either already have seen it happen (which would even out the
+        -- two versions) or this is a _normal_ snapshot so the version
+        -- is not _bumped_ further anyway and it needs to be the same
+        -- between snapshot and the open state version.
+        error $ "contestTx: both commit and decommit utxo empty but version not the same! snapshot version: " <> show version <> " open version: " <> show openVersion
+      (True, True) -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."

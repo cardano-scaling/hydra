@@ -19,6 +19,7 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Lens ((<>~))
+import Data.List qualified as List
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -83,6 +84,7 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (
   splitUTxO,
   verificationKeyToOnChainId,
@@ -90,7 +92,7 @@ import Hydra.Tx.Utils (
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose, generate)
+import Test.QuickCheck (choose, generate, oneof)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -308,6 +310,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -318,18 +321,32 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
-            let (inHead, toDecommit) = splitUTxO someUTxO
             let v = 0
-            let snapshot =
-                  Snapshot
-                    { headId
-                    , number = 1
-                    , utxo = inHead
-                    , confirmed = []
-                    , utxoToCommit = Nothing
-                    , utxoToDecommit = Just toDecommit
-                    , version = v
-                    }
+            snapshot <-
+              generate $
+                oneof
+                  [ let (inHead, toDecommit) = splitUTxO someUTxO
+                     in pure
+                          Snapshot
+                            { headId
+                            , number = 1
+                            , utxo = inHead
+                            , confirmed = []
+                            , utxoToCommit = Nothing
+                            , utxoToDecommit = Just toDecommit
+                            , version = v
+                            }
+                  , pure
+                      Snapshot
+                        { headId
+                        , number = 1
+                        , utxo = someUTxO
+                        , confirmed = []
+                        , utxoToCommit = Just someUTxOToCommit
+                        , utxoToDecommit = Nothing
+                        , version = v
+                        }
+                  ]
 
             postTx $ CloseTx headId headParameters v (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
 
@@ -349,14 +366,18 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             postTx $
               FanoutTx
-                { utxo = inHead
-                , utxoToDecommit = Just toDecommit
+                { utxo = Snapshot.utxo snapshot
+                , utxoToCommit = Snapshot.utxoToCommit snapshot
+                , utxoToDecommit = Snapshot.utxoToDecommit snapshot
                 , headSeed
                 , contestationDeadline = deadline
                 }
+            let expectedUTxO =
+                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                    `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
             aliceChain `observesInTime` OnFanoutTx headId
             failAfter 5 $
-              waitForUTxO node (inHead <> toDecommit)
+              waitForUTxO node expectedUTxO
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
@@ -418,7 +439,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 )
             )
             ""
-        let hydraScriptsTxId = fromString hydraScriptsTxIdStr
+        let hydraScriptsTxId = fromString <$> List.lines hydraScriptsTxIdStr
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do

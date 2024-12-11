@@ -66,6 +66,7 @@ import Hydra.Chain.Direct.State (
   genDepositTx,
   genFanoutTx,
   genHydraContext,
+  genIncrementTx,
   genInitTx,
   genRecoverTx,
   genStInitial,
@@ -143,7 +144,6 @@ import Test.QuickCheck (
   forAllShrink,
   getPositive,
   label,
-  sized,
   sublistOf,
   tabulate,
   (.&&.),
@@ -348,17 +348,21 @@ spec = parallel $ do
           Nothing ->
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
+  describe "increment" $ do
+    propBelowSizeLimit maxTxSize forAllIncrement
+    propIsValid forAllIncrement
+
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
 
-    prop "observes distributed outputs" $
-      forAllDecrement' $ \toDistribute utxo tx ->
-        case observeDecrementTx utxo tx of
-          Just DecrementObservation{distributedOutputs} ->
-            distributedOutputs === toDistribute
-          Nothing ->
-            False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+  prop "observes distributed outputs" $
+    forAllDecrement' $ \toDistribute utxo tx ->
+      case observeDecrementTx utxo tx of
+        Just DecrementObservation{distributedOutputs} ->
+          distributedOutputs === toDistribute
+        Nothing ->
+          False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
@@ -507,7 +511,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     _ -> fail "not observed close"
   -- Fanout
   let fanoutUTxO = getKnownUTxO stClosed
-  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing (slotNoFromUTCTime systemStart slotLength deadline)
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing Nothing (slotNoFromUTCTime systemStart slotLength deadline)
 
   -- Properties
   let collectFails =
@@ -646,7 +650,9 @@ forAllDeposit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllDeposit action = do
-  forAllShrink genDepositTx shrink $ uncurry action
+  forAllShrink (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, st, depositUTxO, tx) ->
+    let utxo = getKnownUTxO st <> depositUTxO
+     in action utxo tx
 
 forAllRecover ::
   Testable property =>
@@ -654,6 +660,23 @@ forAllRecover ::
   Property
 forAllRecover action = do
   forAllShrink genRecoverTx shrink $ uncurry action
+
+forAllIncrement ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllIncrement action = do
+  forAllIncrement' $ \utxo tx ->
+    action utxo tx
+
+forAllIncrement' ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllIncrement' action = do
+  forAllShrink (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, st, incrementUTxO, tx) ->
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> incrementUTxO
+     in action utxo tx
 
 forAllDecrement ::
   Testable property =>
@@ -668,8 +691,8 @@ forAllDecrement' ::
   ([TxOut CtxUTxO] -> UTxO -> Tx -> property) ->
   Property
 forAllDecrement' action = do
-  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, _, tx) ->
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+  forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, utxo', tx) ->
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
      in action distributed utxo tx
 
 forAllClose ::
@@ -729,11 +752,10 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (sized $ \n -> genFanoutTx maximumNumberOfParties (n `min` maxSupported)) $ \(hctx, stClosed, _, tx) ->
-    forAllBlind (pickChainContext hctx) $ \ctx ->
-      let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
-       in action utxo tx
-            & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
+  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, stClosed, _, tx) ->
+    let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
+     in action utxo tx
+          & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
   maxSupported = 44
 

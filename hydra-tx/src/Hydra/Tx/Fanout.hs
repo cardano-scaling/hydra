@@ -26,6 +26,8 @@ fanoutTx ::
   ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
+  -- | Snapshotted commit UTxO to fanout on layer 1
+  Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
   -- | Everything needed to spend the Head state-machine output.
@@ -35,12 +37,12 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addReferenceInputs [headScriptRef]
-      & addOutputs (orderedTxOutsToFanout <> orderedTxOutsToDecommit)
+      & addOutputs (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setValidityLowerBound (deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
@@ -56,8 +58,10 @@ fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlot
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral $ length utxo
-        , numberOfDecommitOutputs = fromIntegral $ maybe 0 length utxoToDecommit
+        { numberOfFanoutOutputs = fromIntegral $ length $ toList utxo
+        , -- TODO: Update the spec with this new field 'numberOfCommitOutputs'
+          numberOfCommitOutputs = fromIntegral $ length $ maybe [] toList utxoToCommit
+        , numberOfDecommitOutputs = fromIntegral $ length (maybe [] toList utxoToDecommit)
         }
 
   headTokens =
@@ -70,3 +74,8 @@ fanoutTx scriptRegistry utxo utxoToDecommit (headInput, headOutput) deadlineSlot
     case utxoToDecommit of
       Nothing -> []
       Just decommitUTxO -> toTxContext <$> toList decommitUTxO
+
+  orderedTxOutsToCommit =
+    case utxoToCommit of
+      Nothing -> []
+      Just commitUTxO -> toTxContext <$> toList commitUTxO
