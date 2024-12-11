@@ -70,6 +70,7 @@ module.exports = {
       label: "Specification",
     },
     "dev/protocol",
+    "dev/incremental-commits-and-decommits",
     {
       type: "doc",
       id: "dev/commit_to_a_Head",
