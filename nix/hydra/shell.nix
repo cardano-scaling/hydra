@@ -54,6 +54,7 @@ let
     pkgs.yq
     # Use latest jq in all shells, to avoid 1.6 bug with large integers.
     pkgsLatest.jq
+    pkgs.rust-bin.beta.latest.default
   ];
 
   libs = [
