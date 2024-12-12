@@ -48,6 +48,7 @@ data HeadError
   | FanoutUTxOHashMismatch
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
+  | FanoutUTxOToCommitHashMismatch
   | FanoutUTxOToDecommitHashMismatch
   | DepositNotSpent
   | DepositInputNotFound
@@ -122,3 +123,4 @@ instance ToErrorCode HeadError where
     FailedCloseUsedDec -> "H51"
     FailedCloseUnusedInc -> "H52"
     FailedCloseUsedInc -> "H53"
+    FanoutUTxOToCommitHashMismatch -> "H54"

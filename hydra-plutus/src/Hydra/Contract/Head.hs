@@ -646,7 +646,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
       fannedOutUtxoHash == utxoHash
 
   hasSameCommitUTxOHash =
-    traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
+    traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
       alphaUTxOHash == commitUtxoHash
 
   hasSameUTxOToDecommitHash =

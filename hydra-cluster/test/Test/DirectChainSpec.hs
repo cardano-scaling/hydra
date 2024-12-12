@@ -309,8 +309,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@DirectChainTest{postTx} -> do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
-            someUTxOToCommit <- seedFromFaucet node aliceExternalVk 1_000_000 (contramap FromFaucet tracer)
+            someUTxO <- seedFromFaucet node aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet node aliceExternalVk 2_000_000 (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
