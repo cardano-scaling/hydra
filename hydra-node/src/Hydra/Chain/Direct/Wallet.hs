@@ -71,6 +71,7 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
+import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
@@ -179,6 +180,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           -- We query pparams here again as it's possible that a hardfork
           -- occurred and the pparams changed.
           pparams <- querySomePParams
+          writeFileLBS "pparams.json" (Aeson.encode pparams)
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)

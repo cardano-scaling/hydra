@@ -7,13 +7,15 @@ module Hydra.Contract.Dummy where
 
 import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import Hydra.Prelude
+import Hydra.Prelude hiding ((==))
 
 import PlutusLedgerApi.V3 (BuiltinData, ScriptContext, ScriptHash, SerialisedScript, serialiseCompiledCode, toOpaque)
 import PlutusTx (CompiledCode, compile)
+import PlutusTx.Prelude (Eq(..))
+import PlutusTx.Builtins (schnorrkel)
 
 dummyValidator :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
-dummyValidator _ _ _ = True
+dummyValidator _ _ _ = "" == schnorrkel ""
 
 compiledDummyValidator :: CompiledCode ValidatorType
 compiledDummyValidator =
