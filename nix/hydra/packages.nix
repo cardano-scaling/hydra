@@ -144,7 +144,8 @@ rec {
         hydra-chain-observer
         inputs.cardano-node.packages.${system}.cardano-node
         inputs.cardano-node.packages.${system}.cardano-cli
-        inputs.mithril.packages.${system}.mithril-client-cli
+        pkgs.mithril-client-cli
+        pkgs.mithril-client-cli-unstable
         pkgs.check-jsonschema
       ];
   };

@@ -6,7 +6,6 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson.Lens (key)
-import Hydra.Cluster.Fixture (KnownNetwork (Sanchonet))
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
@@ -17,7 +16,6 @@ spec :: Spec
 spec = parallel $ do
   describe "downloadLatestSnapshotTo" $
     forEachKnownNetwork "invokes mithril-client correctly" $ \network -> do
-      when (network == Sanchonet) $ pendingWith "Sanchonet broken on stable presently."
       (tracer, getTraces) <- captureTracer "MithrilSpec"
       withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
         let dbPath = tmpDir </> "db"
