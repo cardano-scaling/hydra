@@ -149,7 +149,6 @@ createOutputAtAddress ::
 createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
   utxo <- findFaucetUTxO node 0
-  -- pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
   -- let output =
