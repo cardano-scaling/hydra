@@ -23,7 +23,6 @@
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
     mithril.url = "github:input-output-hk/mithril/2442.0";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
-    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs =
@@ -33,7 +32,6 @@
       # TODO remove when haskellNix updated to newer nixpkgs
     , nixpkgsLatest
     , cardano-node
-    , rust-overlay
     , ...
     } @ inputs:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -71,7 +69,6 @@
               # Custom static libs used for darwin build
               (import ./nix/static-libs.nix)
               inputs.nix-npm-buildpackage.overlays.default
-              (import rust-overlay)
               # Specific versions of tools we require
               (final: prev: {
                 aiken = inputs.aiken.packages.${system}.aiken;
