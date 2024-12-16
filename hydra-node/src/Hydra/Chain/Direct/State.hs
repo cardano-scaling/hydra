@@ -1232,7 +1232,7 @@ genCloseTx numParties = do
   utxoToCommit' <- oneof [arbitrary, pure Nothing]
   utxoToDecommit' <- oneof [pure toDecommit, pure mempty]
   let (confirmedUTxO, utxoToCommit, utxoToDecommit) =
-        if isNothing utxoToCommit
+        if isNothing utxoToCommit'
           then (inHead, mempty, Just utxoToDecommit')
           else (u0, utxoToCommit', Nothing)
   let version = 0
