@@ -21,8 +21,11 @@
       flake = false;
     };
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
-    mithril.url = "github:input-output-hk/mithril/2442.0";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
+
+
+    mithril.url = "github:input-output-hk/mithril/2445.0";
+    mithril-unstable.url = "github:input-output-hk/mithril/unstable";
   };
 
   outputs =
@@ -86,6 +89,10 @@
                 cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;
                 cardano-node = inputs.cardano-node.packages.${system}.cardano-node;
                 mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli;
+                mithril-client-cli-unstable =
+                  pkgs.writeShellScriptBin "mithril-client-unstable" ''
+                    exec ${inputs.mithril-unstable.packages.${system}.mithril-client-cli}/bin/mithril-client "$@"
+                  '';
               })
             ];
           };
