@@ -32,7 +32,7 @@ curl -X POST <IP>:<PORT>/commit --data @commit.json
 
 :::info
 
-Note that commit transaction, which is sent to the hydra-node API, only needs
+Note that the commit transaction, which is sent to the hydra-node API, only needs
 to specify the transaction inputs present in L1 that we want to make available
 on L2. It will ignore any specified outputs and instead the owner of
 incremented `UTxO` on L2 is the same one that owned the funds on L1.
@@ -49,7 +49,7 @@ It goes together with a `UTxO` used to resolve the transaction inputs. It's
 purpose is to prove that one can spend specified transaction inputs.
 
 Successfull API response includes a _deposit_ transaction that needs to be
-signed and submitted by the user in order to kick of the deposit process.
+signed and submitted by the user in order to kick-off the deposit process.
 
 This process just locks the specified `UTxO` at a deposit script address which
 will then, later on, after confirmed snapshot, be unlocked by the _increment_
@@ -67,7 +67,7 @@ Once a hydra-node observes a deposit transaction it will record the deposit as
 pending into the local state. There can be many pending deposits but the new
 Snapshot will include them one by one.
 
-When this new Snapshot is ackgnowledged by all parties _increment_ transaction
+When this new Snapshot is acknowledged by all parties _increment_ transaction
 will be posted by the leader.
 
 :::info

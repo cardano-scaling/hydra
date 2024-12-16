@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (HeadId, mkHeadId)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import PlutusLedgerApi.V1 (CurrencySymbol, POSIXTime)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
@@ -64,7 +63,7 @@ observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV3 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
-  (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe (CurrencySymbol, POSIXTime, [Commit.Commit])
+  (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
   deposits <- do
     depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
     pure $ UTxO.fromPairs depositedUTxO
