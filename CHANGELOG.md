@@ -46,7 +46,7 @@ changes.
 
 - Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
 
-- Update mithril to `unstable`
+- Use different versions of mithril depending on the network (Sanchonet/Preview: Unstable, Mainnet/Preproduction: 2445.0)
 
 - New websocket URL parameter `?address=...` to filter `SnapshotConfirmed`, `TxValid` and `TxInvalid` server outputs by address.
 

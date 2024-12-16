@@ -27,7 +27,7 @@ downloadLatestSnapshotTo tracer network directory = do
   genesisKey <- parseRequest genesisKeyURL >>= httpBS <&> getResponseBody
   let cmd =
         setStderr createPipe $
-          proc "mithril-client" $
+          proc mithrilExe $
             concat
               [ ["--aggregator-endpoint", aggregatorEndpoint]
               , ["cardano-db", "download", "latest"]
@@ -37,6 +37,14 @@ downloadLatestSnapshotTo tracer network directory = do
               ]
   withProcessWait_ cmd traceStderr
  where
+  -- Note: Minor hack; we use a different version of the mithril-client for
+  -- these networks. Hopefully this can be removed, one day.
+  mithrilExe =
+    case network of
+      Preview -> "mithril-client-unstable"
+      Sanchonet -> "mithril-client-unstable"
+      _ -> "mithril-client"
+
   traceStderr p =
     ignoreEOFErrors . forever $ do
       bytes <- BS.hGetLine (getStderr p)

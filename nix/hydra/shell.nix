@@ -40,6 +40,7 @@ let
     pkgs.haskellPackages.graphmod
     # To interact with mithril and integration tests
     pkgs.mithril-client-cli
+    pkgs.mithril-client-cli-unstable
     pkgs.nixpkgs-fmt
     pkgs.nodejs
     pkgs.pkg-config
@@ -122,7 +123,8 @@ let
       hsPkgs.hydra-cluster.components.exes.hydra-cluster
       inputs.cardano-node.packages.${system}.cardano-node
       inputs.cardano-node.packages.${system}.cardano-cli
-      inputs.mithril.packages.${system}.mithril-client-cli
+      pkgs.mithril-client-cli
+      pkgs.mithril-client-cli-unstable
     ];
   };
 
