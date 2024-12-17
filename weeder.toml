@@ -1,2 +1,14 @@
-roots = [ "^Main.main$" ,"^Spec.main$"  ]
+roots = [ "^Main.main$"
+ , "^Spec.main$"
+ , "^main$"
+ , "validatorHash$"
+ , "validatorScript$"
+ , "queryEpochNo$"
+ , "queryUTxOWhole$"
+ , "traceDebug$"
+ , "spy$"
+ , "spy'$"
+ , "showFromAction$"
+ , "redeemer$"
+ ]
 type-class-roots = true

@@ -19,7 +19,6 @@ import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
-  Key (VerificationKey),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -28,7 +27,6 @@ import Hydra.Cardano.Api (
   TxIn,
   deserialiseFromRawBytes,
   genTxIn,
-  getVerificationKey,
   serialiseToRawBytes,
   verificationKeyHash,
  )
@@ -54,12 +52,6 @@ aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 -- NOTE: Using 'zcarol' as seed results in ordered 'deriveParty' values
 carolSk = generateSigningKey "zcarol"
-
--- | Hydra verification keys for 'alice', 'bob', and 'carol'.
-aliceVk, bobVk, carolVk :: VerificationKey HydraKey
-aliceVk = getVerificationKey aliceSk
-bobVk = getVerificationKey bobSk
-carolVk = getVerificationKey carolSk
 
 testHeadId :: HeadId
 testHeadId = UnsafeHeadId "1234"

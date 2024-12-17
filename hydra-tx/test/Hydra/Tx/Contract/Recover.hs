@@ -17,7 +17,7 @@ import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Recover (recoverTx)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
+import PlutusLedgerApi.V3 (CurrencySymbol)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
 import Test.Hydra.Tx.Mutation (
@@ -41,9 +41,6 @@ healthyRecoverTx =
 
 recoverSlotNo :: SlotNo
 recoverSlotNo = SlotNo $ arbitrary `generateWith` 42
-
-recoverDeadline :: POSIXTime
-recoverDeadline = posixFromUTCTime depositDeadline
 
 depositDeadline :: UTCTime
 depositDeadline =
@@ -69,8 +66,7 @@ depositScriptUTxO :: UTxO
 depositScriptUTxO = utxoFromTx depositTransaction
 
 depositTxIn :: TxIn
-depositTxOut :: TxOut CtxUTxO
-(depositTxIn, depositTxOut) = List.head $ UTxO.pairs depositScriptUTxO
+(depositTxIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
 data RecoverMutation
   = -- | Move the deposit deadline further so that the recover lower bound is

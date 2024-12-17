@@ -16,7 +16,6 @@ import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   ConfirmedSnapshot (..),
-  SnapshotNumber,
   SnapshotVersion,
   hashUTxO,
   mkHeadId,
@@ -44,9 +43,6 @@ import Test.QuickCheck.Instances ()
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
   deriving stock (Generic, Show, Enum, Bounded)
-
-healthyCloseSnapshotNumber :: SnapshotNumber
-healthyCloseSnapshotNumber = 0
 
 healthyCloseSnapshotVersion :: SnapshotVersion
 healthyCloseSnapshotVersion = 0

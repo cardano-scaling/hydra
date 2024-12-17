@@ -4,7 +4,7 @@
 
 module Hydra.TUI.Model where
 
-import Hydra.Prelude hiding (Down, State, padLeft)
+import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
 
