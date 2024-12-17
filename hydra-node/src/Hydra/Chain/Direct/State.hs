@@ -1229,11 +1229,12 @@ genCloseTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (inHead, toDecommit) = splitUTxO u0
-  utxoToCommit' <- oneof [arbitrary, pure Nothing]
+  n <- elements [1 .. 10]
+  utxoToCommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize n, pure Nothing]
   utxoToDecommit' <- oneof [pure toDecommit, pure mempty]
   let (confirmedUTxO, utxoToCommit, utxoToDecommit) =
         if isNothing utxoToCommit'
-          then (inHead, mempty, Just utxoToDecommit')
+          then (inHead, mempty, if utxoToDecommit' == mempty then Nothing else Just utxoToDecommit')
           else (u0, utxoToCommit', Nothing)
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)

@@ -153,8 +153,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               case closeRedeemer of
                 Head.CloseUsedInc{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
-                Head.CloseUnusedInc{} ->
-                  toBuiltin $ hashUTxO @Tx mempty
+                Head.CloseUnusedInc{alreadyCommittedUTxOHash} -> alreadyCommittedUTxOHash
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , omegaUTxOHash =
               case closeRedeemer of
