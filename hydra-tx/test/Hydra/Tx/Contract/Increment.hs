@@ -26,9 +26,10 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.Deposit (depositDeadline, healthyDepositTx)
-import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Contract.Deposit (healthyDepositTx, healthyDepositUTxO)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit qualified as Deposit
+import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (
   incrementTx,
@@ -101,6 +102,9 @@ healthyParties = deriveParty <$> healthySigningKeys
 
 healthyOnChainParties :: [OnChain.Party]
 healthyOnChainParties = partyToChain <$> healthyParties
+
+healthySignature :: MultiSignature (Snapshot Tx)
+healthySignature = aggregate [sign sk healthySnapshot | sk <- healthySigningKeys]
 
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
