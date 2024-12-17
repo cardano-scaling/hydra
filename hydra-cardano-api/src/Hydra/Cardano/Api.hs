@@ -72,7 +72,6 @@ import Cardano.Api as X hiding (
   fromLedgerValue,
   green,
   makeShelleyKeyWitness,
-  policyId,
   queryEraHistory,
   queryProtocolParameters,
   queryStakePools,
@@ -127,7 +126,6 @@ import Hydra.Cardano.Api.AddressInEra as Extras
 import Hydra.Cardano.Api.BlockHeader as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.CtxTx as Extras
-import Hydra.Cardano.Api.CtxUTxO as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.NetworkId ()
@@ -203,7 +201,7 @@ pattern ShelleyAddressInAnyEra <-
 type BalancedTxBody = Cardano.Api.BalancedTxBody Era
 {-# COMPLETE BalancedTxBody #-}
 
-pattern BalancedTxBody :: TxBodyContent BuildTx -> UnsignedTx Era -> TxOut CtxTx -> Coin -> BalancedTxBody
+pattern BalancedTxBody :: TxBodyContent BuildTx -> TxBody -> TxOut CtxTx -> Coin -> BalancedTxBody
 pattern BalancedTxBody{balancedTxBodyContent, balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
   Cardano.Api.BalancedTxBody balancedTxBodyContent balancedTxBody balancedTxChangeOutput balancedTxFee
   where
@@ -393,7 +391,6 @@ pattern TxBodyContent ::
   TxValidityUpperBound ->
   TxMetadataInEra ->
   TxAuxScripts ->
-  BuildTxWith buidl (TxSupplementalDatums Era) ->
   TxExtraKeyWitnesses ->
   BuildTxWith buidl (Maybe (LedgerProtocolParameters Era)) ->
   TxWithdrawals buidl Era ->
@@ -418,7 +415,6 @@ pattern TxBodyContent
   , txValidityUpperBound
   , txMetadata
   , txAuxScripts
-  , txSupplementalDatums
   , txExtraKeyWits
   , txProtocolParams
   , txWithdrawals
@@ -443,7 +439,6 @@ pattern TxBodyContent
     txValidityUpperBound
     txMetadata
     txAuxScripts
-    txSupplementalDatums
     txExtraKeyWits
     txProtocolParams
     txWithdrawals
@@ -584,11 +579,10 @@ pattern TxMintValueNone <-
       Cardano.Api.TxMintNone
 
 pattern TxMintValue ::
-  Value ->
-  BuildTxWith buidl (Map PolicyId (ScriptWitness WitCtxMint)) ->
+  Map PolicyId [(AssetName, Quantity, BuildTxWith buidl (ScriptWitness WitCtxMint))] ->
   TxMintValue buidl
-pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
-  Cardano.Api.TxMintValue _ txMintValueInEra txMintValueScriptWitnesses
+pattern TxMintValue{txMintValueInEra} <-
+  Cardano.Api.TxMintValue _ txMintValueInEra
   where
     TxMintValue =
       Cardano.Api.TxMintValue maryBasedEra
@@ -638,7 +632,7 @@ pattern ReferenceScriptNone <-
 -- ** TxOutDatum
 
 type TxOutDatum ctx = Cardano.Api.TxOutDatum ctx Era
-{-# COMPLETE TxOutDatumNone, TxOutDatumHash, TxOutDatumInTx, TxOutDatumInline #-}
+{-# COMPLETE TxOutDatumNone, TxOutDatumHash, TxOutSupplementalDatum, TxOutDatumInline #-}
 
 pattern TxOutDatumNone :: TxOutDatum ctx
 pattern TxOutDatumNone <-
@@ -654,12 +648,12 @@ pattern TxOutDatumHash{txOutDatumHash} <-
     TxOutDatumHash =
       Cardano.Api.TxOutDatumHash alonzoBasedEra
 
-pattern TxOutDatumInTx :: HashableScriptData -> TxOutDatum CtxTx
-pattern TxOutDatumInTx{txOutDatumScriptData} <-
-  Cardano.Api.TxOutDatumInTx _ txOutDatumScriptData
+pattern TxOutSupplementalDatum :: HashableScriptData -> TxOutDatum CtxTx
+pattern TxOutSupplementalDatum{txOutDatumScriptData} <-
+  Cardano.Api.TxOutSupplementalDatum _ txOutDatumScriptData
   where
-    TxOutDatumInTx =
-      Cardano.Api.TxOutDatumInTx alonzoBasedEra
+    TxOutSupplementalDatum =
+      Cardano.Api.TxOutSupplementalDatum alonzoBasedEra
 
 pattern TxOutDatumInline :: HashableScriptData -> TxOutDatum ctx
 pattern TxOutDatumInline{txOutDatumInlineScriptData} <-

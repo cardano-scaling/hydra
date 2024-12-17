@@ -137,7 +137,7 @@ spec =
           let commitSigningKey = genSigningKey `generateWith` 42
           let commitVerificationKey = getVerificationKey commitSigningKey
           let healthyInitialTxOut =
-                setMinUTxOValue Fixture.pparams . toUTxOContext $
+                setMinUTxOValue Fixture.pparams . toCtxUTxOTxOut $
                   mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
                     verificationKeyToOnChainId commitVerificationKey
           let healthyInitialTxIn = generateWith arbitrary 42
@@ -152,12 +152,12 @@ spec =
                       (mkHeadId Fixture.testPolicyId)
                       ownParty
                       CommitBlueprintTx{lookupUTxO, blueprintTx}
-                      (healthyInitialTxIn, toUTxOContext healthyInitialTxOut, verificationKeyHash ownVerificationKey)
+                      (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut, verificationKeyHash ownVerificationKey)
               counterexample ("\n\n\nCommit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
                 let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
                 let commitTxBody = toLedgerTx createdTx ^. bodyTxL
                 let spendableUTxO =
-                      UTxO.singleton (healthyInitialTxIn, toUTxOContext healthyInitialTxOut)
+                      UTxO.singleton (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut)
                         <> lookupUTxO
                         <> registryUTxO scriptRegistry
 
