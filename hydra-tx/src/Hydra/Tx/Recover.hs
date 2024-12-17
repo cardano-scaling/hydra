@@ -61,7 +61,7 @@ observeRecoverTx ::
   UTxO ->
   Tx ->
   Maybe RecoverObservation
-observeRecoverTx networkId SerialisedScriptRegistry{} utxo tx = do
+observeRecoverTx networkId SerialisedScriptRegistry{depositScriptValidator} utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (TxIn depositTxId _, depositOut) <- findTxOutByScript @PlutusScriptV3 inputUTxO depositScript
   dat <- txOutScriptData $ toTxContext depositOut
@@ -83,4 +83,4 @@ observeRecoverTx networkId SerialisedScriptRegistry{} utxo tx = do
         )
     else Nothing
  where
-  depositScript = fromPlutusScript depositValidatorScript
+  depositScript = fromPlutusScript depositScriptValidator
