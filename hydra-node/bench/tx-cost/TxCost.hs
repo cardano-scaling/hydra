@@ -256,13 +256,14 @@ computeFanOutCost = do
         pure Nothing
 
   -- Generate a fanout with a defined number of outputs.
+  -- TODO: why are we not re-using the same functions from the Direct.State module?
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
     utxoToCommit' <- oneof [arbitrary, pure Nothing]
     utxoToDecommit' <- oneof [arbitrary, pure Nothing]
-    let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
+    let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
     snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
