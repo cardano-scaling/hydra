@@ -111,7 +111,7 @@ import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx, observeDepositTxOut)
-import Hydra.Tx.Fanout (IncrementalAction (..), fanoutTx)
+import Hydra.Tx.Fanout (fanoutTx, setIncrementalAction)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -747,17 +747,9 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- checkHeadDatum headUTxO
-  incrementalAction <- setIncrementalAction ?> BothCommitAndDecommitInFanout
+  incrementalAction <- setIncrementalAction utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
   pure $ fanoutTx scriptRegistry utxo incrementalAction closedThreadUTxO deadlineSlotNo headTokenScript
  where
-  setIncrementalAction =
-    case (utxoToCommit, utxoToDecommit) of
-      (Just _, Just _) -> Nothing
-      (Just _, Nothing) ->
-        ToCommit <$> utxoToCommit
-      (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
-      (Nothing, Nothing) -> Just NoThing
-
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{scriptRegistry} = ctx

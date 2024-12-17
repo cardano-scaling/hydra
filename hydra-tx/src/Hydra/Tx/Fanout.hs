@@ -20,6 +20,15 @@ import Hydra.Tx.Utils (headTokensFromValue, mkHydraHeadV1TxName)
 
 data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
 
+setIncrementalAction :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
+setIncrementalAction utxoToCommit utxoToDecommit =
+  case (utxoToCommit, utxoToDecommit) of
+    (Just _, Just _) -> Nothing
+    (Just _, Nothing) ->
+      ToCommit <$> utxoToCommit
+    (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
+    (Nothing, Nothing) -> Just NoThing
+
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.

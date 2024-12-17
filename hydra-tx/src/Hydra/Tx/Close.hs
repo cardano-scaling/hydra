@@ -34,6 +34,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Contest (PointInTime)
 import Hydra.Tx.Crypto (toPlutusSignatures)
+import Hydra.Tx.Fanout (IncrementalAction (..), setIncrementalAction)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -100,43 +101,32 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToCommit, utxoToDecommit}} ->
-        if version == openVersion
-          then
-            if
-              | isJust utxoToCommit ->
+        let incrementalAction = setIncrementalAction utxoToCommit utxoToDecommit
+         in if version == openVersion
+              then case incrementalAction of
+                Just (ToCommit utxo') ->
                   Head.CloseUnusedInc
                     { signature = toPlutusSignatures signatures
-                    , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
+                    , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
                     }
-              | isJust utxoToDecommit ->
-                  Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
-              | isNothing utxoToCommit
-              , isNothing utxoToDecommit ->
-                  Head.CloseAny{signature = toPlutusSignatures signatures}
-              | otherwise -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
-          else
-            -- NOTE: This will only work for version == openVersion - 1
-            case (isJust utxoToCommit, isJust utxoToDecommit) of
-              (True, False) ->
-                Head.CloseUsedInc
-                  { signature = toPlutusSignatures signatures
-                  , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-                  }
-              (False, True) ->
-                Head.CloseUsedDec
-                  { signature = toPlutusSignatures signatures
-                  , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-                  }
-              (False, False) ->
-                -- NOTE: here the assumption is: if your snapshot doesn't
-                -- contain anything to de/commit then it must mean that we
-                -- either already have seen it happen (which would even out the
-                -- two versions) or this is a _normal_ snapshot so the version
-                -- is not _bumped_ further anyway and it needs to be the same
-                -- between snapshot and the open state version.
-                error $ "closeTx: both commit and decommit utxo empty but version not matching! snapshot version: " <> show version <> " open version: " <> show openVersion
-              -- TODO: can we get rid of these errors by modelling what we expect differently?
-              (True, True) -> error "closeTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+                Just (ToDecommit _) -> Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+                Just NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
+                Nothing -> Head.CloseAny{signature = toPlutusSignatures signatures}
+              else
+                -- NOTE: This will only work for version == openVersion - 1
+                case incrementalAction of
+                  Just (ToCommit utxo') ->
+                    Head.CloseUsedInc
+                      { signature = toPlutusSignatures signatures
+                      , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                      }
+                  Just (ToDecommit utxo') ->
+                    Head.CloseUsedDec
+                      { signature = toPlutusSignatures signatures
+                      , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                      }
+                  Just NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
+                  Nothing -> Head.CloseAny{signature = toPlutusSignatures signatures}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
