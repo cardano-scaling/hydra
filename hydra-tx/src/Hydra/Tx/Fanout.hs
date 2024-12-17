@@ -18,6 +18,8 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (headTokensFromValue, mkHydraHeadV1TxName)
 
+data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
+
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.
@@ -26,10 +28,8 @@ fanoutTx ::
   ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
-  -- | Snapshotted commit UTxO to fanout on layer 1
-  Maybe UTxO ->
-  -- | Snapshotted decommit UTxO to fanout on layer 1
-  Maybe UTxO ->
+  -- | Snapshotted de/commit UTxO to fanout on layer 1
+  IncrementalAction ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -37,7 +37,7 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo incrementalAction (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -60,8 +60,8 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
       Head.Fanout
         { numberOfFanoutOutputs = fromIntegral $ length $ toList utxo
         , -- TODO: Update the spec with this new field 'numberOfCommitOutputs'
-          numberOfCommitOutputs = fromIntegral $ length $ maybe [] toList utxoToCommit
-        , numberOfDecommitOutputs = fromIntegral $ length (maybe [] toList utxoToDecommit)
+          numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
+        , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
         }
 
   headTokens =
@@ -70,12 +70,8 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
 
-  orderedTxOutsToDecommit =
-    case utxoToDecommit of
-      Nothing -> []
-      Just decommitUTxO -> toTxContext <$> toList decommitUTxO
-
-  orderedTxOutsToCommit =
-    case utxoToCommit of
-      Nothing -> []
-      Just commitUTxO -> toTxContext <$> toList commitUTxO
+  (orderedTxOutsToCommit, orderedTxOutsToDecommit) =
+    case incrementalAction of
+      ToCommit utxoToCommit -> (toTxContext <$> toList utxoToCommit, [])
+      ToDecommit utxoToDecommit -> ([], toTxContext <$> toList utxoToDecommit)
+      NoThing -> ([], [])

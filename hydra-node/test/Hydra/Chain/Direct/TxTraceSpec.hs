@@ -119,8 +119,7 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
     & cover 10 (hasFanout steps) "reach fanout"
     & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-    & cover 10 (fanoutWithCommitDelta steps) "fanout with additional commit UTxO to distribute"
-    & cover 1 (fanoutWithDecommitDelta steps) "fanout with additional decommit UTxO to distribute"
+    & cover 10 (fanoutWithCommitOrDecommitDelta steps) "fanout with additional de/commit UTxO to distribute"
  where
   hasSomeSnapshots =
     any $
@@ -146,20 +145,12 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
             && not (null utxo)
         _ -> False
 
-  fanoutWithCommitDelta =
+  fanoutWithCommitOrDecommitDelta =
     any $
       \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{alphaUTxO} ->
+        Fanout{alphaUTxO, omegaUTxO} ->
           polarity == PosPolarity
-            && not (null alphaUTxO)
-        _ -> False
-
-  fanoutWithDecommitDelta =
-    any $
-      \(_ := ActionWithPolarity{polarAction, polarity}) -> case polarAction of
-        Fanout{omegaUTxO} ->
-          polarity == PosPolarity
-            && not (null omegaUTxO)
+            && (not (null alphaUTxO) || not (null omegaUTxO))
         _ -> False
 
   countContests =
@@ -201,7 +192,7 @@ prop_runActions actions =
   coversInterestingActions actions
     . monadic runAppMProperty
     $ do
-      print actions
+      -- print actions
       void (runActions actions)
  where
   runAppMProperty :: AppM Property -> Property
@@ -368,7 +359,7 @@ instance StateModel Model where
           ( 5
           , do
               -- Fanout with the currently known model state.
-              omegaUTxO <- frequency [(1, pure pendingDecommit), (1, pure mempty), (1, arbitrary)]
+              omegaUTxO <- frequency [(1, pure pendingDecommit), (1, pure mempty), (5, arbitrary)]
               alphaUTxO' <- frequency [(1, if null pendingDeposit then arbitrary else elements pendingDeposit), (1, arbitrary)]
               pure $
                 Some $
@@ -483,8 +474,9 @@ instance StateModel Model where
         && snapshot.number > closedSnapshotNumber
         && snapshot.number > currentSnapshotNumber
         && actor `notElem` alreadyContested
-    Fanout{} ->
-      headState == Closed
+    Fanout{alphaUTxO, omegaUTxO} ->
+      (alphaUTxO == mempty || omegaUTxO == mempty)
+        && headState == Closed
 
   -- Determine actions we want to perform and want to see failing. If this is
   -- False, the action is discarded (e.g. it's invalid or we don't want to see
@@ -542,7 +534,7 @@ instance StateModel Model where
       NewSnapshot{newSnapshot} ->
         m
           { knownSnapshots = nub $ newSnapshot : m.knownSnapshots
-          , pendingDecommit = newSnapshot.toDecommit -- <> pendingDecommit
+          , pendingDecommit = newSnapshot.toDecommit
           , currentSnapshotNumber = newSnapshot.number
           }
       Deposit{utxoToDeposit} ->

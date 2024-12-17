@@ -151,15 +151,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
   utxo <- findFaucetUTxO node 0
   let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
-  -- let output =
-  --       -- TODO: improve this so we don't autobalance and then reset the value
-  --       modifyTxOutValue (const val) $
-  --         mkTxOutAutoBalance
-  --           pparams
-  --           atAddress
-  --           val
-  --           datum
-  --           ReferenceScriptNone
   buildTransaction
     networkId
     nodeSocket

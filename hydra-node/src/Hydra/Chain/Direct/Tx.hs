@@ -364,6 +364,7 @@ observeIncrementTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV3 utxo depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
+  -- we need to be able to decode the datum, no need to use it tho
   _ :: Deposit.DepositDatum <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput

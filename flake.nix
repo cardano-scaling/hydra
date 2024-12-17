@@ -24,7 +24,7 @@
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
 
 
-    mithril.url = "github:input-output-hk/mithril/2445.0";
+    mithril.url = "github:input-output-hk/mithril/2450.0";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
   };
 

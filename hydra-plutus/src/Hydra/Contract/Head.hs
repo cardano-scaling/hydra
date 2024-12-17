@@ -415,8 +415,7 @@ checkClose ctx openBefore redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
-    , -- , alphaUTxOHash = alphaUTxOHash'
-    omegaUTxOHash = omegaUTxOHash'
+    , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
     , contestationPeriod = cperiod'
@@ -534,10 +533,11 @@ checkContest ctx closedDatum redeemer =
     case redeemer of
       ContestCurrent{signature} ->
         traceIfFalse $(errorCode FailedContestCurrent) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
-            signature
+          omegaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              signature
       ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUsedDec) $
           omegaUTxOHash' == emptyHash
@@ -598,8 +598,7 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
-    , -- , alphaUTxOHash = alphaUTxOHash'
-    omegaUTxOHash = omegaUTxOHash'
+    , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'
     , contestationPeriod = contestationPeriod'

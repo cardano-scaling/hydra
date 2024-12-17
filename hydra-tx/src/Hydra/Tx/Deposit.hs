@@ -1,7 +1,5 @@
 module Hydra.Tx.Deposit where
 
--- FIXME: delete this module once we are happy with the alternative aiken implementation
-
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO

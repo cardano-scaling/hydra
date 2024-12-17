@@ -181,10 +181,9 @@ data Input
   | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
-      , numberOfCommitOutputs :: Integer
-      -- ^ TODO: add this to the spec
-      , -- \^ Spec: m
-        numberOfDecommitOutputs :: Integer
+      , -- TODO: add this to the spec
+        numberOfCommitOutputs :: Integer
+      , numberOfDecommitOutputs :: Integer
       -- ^ Spec: n
       }
   deriving stock (Generic, Show)
