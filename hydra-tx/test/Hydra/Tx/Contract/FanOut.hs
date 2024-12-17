@@ -17,7 +17,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
-import Hydra.Tx.Fanout (fanoutTx)
+import Hydra.Tx.Fanout (IncrementalAction (..), fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
@@ -41,12 +41,16 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       (fst healthyFanoutSnapshotUTxO)
-      -- TODO: revisit - use some commits also
-      Nothing
-      (Just $ snd healthyFanoutSnapshotUTxO)
+      incrementalAction
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
+
+  -- TODO: revisit - use some commits also
+  incrementalAction =
+    if snd healthyFanoutSnapshotUTxO == mempty
+      then NoThing
+      else ToDecommit (snd healthyFanoutSnapshotUTxO)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 
@@ -86,8 +90,7 @@ healthyFanoutDatum =
     Head.ClosedDatum
       { snapshotNumber = 1
       , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-      , -- TODO: revisit
-        alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
+      , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
       , omegaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties

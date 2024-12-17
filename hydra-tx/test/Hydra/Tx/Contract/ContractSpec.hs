@@ -149,6 +149,7 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
+  -- TODO: Add CloseAny and ContestCurrent examples too
   describe "ContestDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
