@@ -21,7 +21,7 @@ import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
-import Hydra.Tx.Utils (IncrementalAction (..), adaOnly, splitUTxO)
+import Hydra.Tx.Utils (adaOnly, splitUTxO)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genOutput, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
@@ -41,16 +41,11 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       (fst healthyFanoutSnapshotUTxO)
-      incrementalAction
+      Nothing
+      (Just $ snd healthyFanoutSnapshotUTxO)
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
-
-  -- TODO: revisit - use some commits also
-  incrementalAction =
-    if snd healthyFanoutSnapshotUTxO == mempty
-      then NoThing
-      else ToDecommit (snd healthyFanoutSnapshotUTxO)
 
   scriptRegistry = genScriptRegistry `generateWith` 42
 

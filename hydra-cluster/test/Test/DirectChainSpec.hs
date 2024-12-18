@@ -92,7 +92,7 @@ import Hydra.Tx.Utils (
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose, generate, oneof)
+import Test.QuickCheck (choose, elements, generate, oneof)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -321,7 +321,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
-            let v = 0
+            v <- generate $ elements [0, 1]
+            snapshotVersion <- generate $ elements [0, 1]
             snapshot <-
               generate $
                 oneof
@@ -334,7 +335,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                             , confirmed = []
                             , utxoToCommit = Nothing
                             , utxoToDecommit = Just toDecommit
-                            , version = v
+                            , version = snapshotVersion
                             }
                   , pure
                       Snapshot
@@ -344,11 +345,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                         , confirmed = []
                         , utxoToCommit = Just someUTxOToCommit
                         , utxoToDecommit = Nothing
-                        , version = v
+                        , version = snapshotVersion
                         }
                   ]
 
-            postTx $ CloseTx headId headParameters v (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
+            postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
 
             deadline <-
               waitMatch aliceChain $ \case
@@ -367,7 +368,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             postTx $
               FanoutTx
                 { utxo = Snapshot.utxo snapshot
-                , utxoToCommit = Snapshot.utxoToCommit snapshot
+                , -- if snapshotVersion is not the same as local version, it
+                  -- means we observed a commit so it needs to be fanned-out as well
+                  utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
                 , utxoToDecommit = Snapshot.utxoToDecommit snapshot
                 , headSeed
                 , contestationDeadline = deadline

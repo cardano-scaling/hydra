@@ -1207,7 +1207,6 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
-  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -1220,10 +1219,10 @@ onClosedClientFanout closedState =
                 -- NOTE: note that logic is flipped in the commit and decommit case here.
                 if toInteger snapshotVersion == max (toInteger version - 1) 0
                   then utxoToCommit
-                  else mempty
+                  else Nothing
             , utxoToDecommit =
                 if toInteger snapshotVersion == max (toInteger version - 1) 0
-                  then mempty
+                  then Nothing
                   else utxoToDecommit
             , headSeed
             , contestationDeadline
