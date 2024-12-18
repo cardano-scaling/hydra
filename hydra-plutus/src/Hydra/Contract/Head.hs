@@ -415,6 +415,7 @@ checkClose ctx openBefore redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
+    , alphaUTxOHash = alphaUTxOHash'
     , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
@@ -439,30 +440,36 @@ checkClose ctx openBefore redeemer =
       CloseAny{signature} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
+            && alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
       CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
-          omegaUTxOHash' /= emptyHash
+          alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
               signature
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
-          omegaUTxOHash' == emptyHash
+          alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
-      CloseUnusedInc{signature} ->
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
-            signature
+          alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+              signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           omegaUTxOHash' == emptyHash
@@ -533,24 +540,27 @@ checkContest ctx closedDatum redeemer =
     case redeemer of
       ContestCurrent{signature} ->
         traceIfFalse $(errorCode FailedContestCurrent) $
-          omegaUTxOHash' == emptyHash
+          alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
       ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUsedDec) $
-          omegaUTxOHash' == emptyHash
+          alphaUTxOHash' == emptyHash
+            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
       ContestUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedContestUnusedDec) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
-            signature
+          alphaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
+              signature
       ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedContestUnusedInc) $
           omegaUTxOHash' == emptyHash
@@ -560,10 +570,11 @@ checkContest ctx closedDatum redeemer =
               signature
       ContestUsedInc{signature} ->
         traceIfFalse $(errorCode FailedContestUsedInc) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
-            signature
+          omegaUTxOHash' == emptyHash
+            && verifySnapshotSignature
+              parties
+              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash)
+              signature
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -598,6 +609,7 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { snapshotNumber = snapshotNumber'
     , utxoHash = utxoHash'
+    , alphaUTxOHash = alphaUTxOHash'
     , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'

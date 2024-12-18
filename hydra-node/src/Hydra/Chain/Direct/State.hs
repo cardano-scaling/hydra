@@ -1242,7 +1242,7 @@ genCloseTx numParties = do
   utxoToDecommit' <- oneof [pure toDecommit, pure mempty]
   let (confirmedUTxO, utxoToCommit, utxoToDecommit) =
         if isNothing utxoToCommit'
-          then (inHead, mempty, if utxoToDecommit' == mempty then Nothing else Just utxoToDecommit')
+          then (inHead, Nothing, if utxoToDecommit' == mempty then Nothing else Just utxoToDecommit')
           else (u0, utxoToCommit', Nothing)
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)

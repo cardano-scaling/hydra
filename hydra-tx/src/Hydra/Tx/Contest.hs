@@ -142,13 +142,9 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
               case contestRedeemer of
                 Head.ContestUsedInc{} ->
                   toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-                Head.ContestUnusedInc{} ->
-                  toBuiltin $ hashUTxO @Tx mempty
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , omegaUTxOHash =
               case contestRedeemer of
-                Head.ContestUsedDec{} ->
-                  toBuiltin $ hashUTxO @Tx mempty
                 Head.ContestUnusedDec{} ->
                   toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
                 _ -> toBuiltin $ hashUTxO @Tx mempty
