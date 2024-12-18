@@ -857,23 +857,6 @@ replaceUTxOHash utxoHash = \case
         }
   otherState -> otherState
 
-replaceAlphaUTxOHash :: Head.Hash -> Head.State -> Head.State
-replaceAlphaUTxOHash alphaUTxOHash' = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash, omegaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
-    Head.Closed
-      Head.ClosedDatum
-        { Head.parties = parties
-        , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash'
-        , Head.omegaUTxOHash = omegaUTxOHash
-        , Head.contestationDeadline = contestationDeadline
-        , Head.contestationPeriod = contestationPeriod
-        , Head.headId = headId
-        , Head.contesters = contesters
-        , Head.version = version
-        }
-  otherState -> otherState
 replaceOmegaUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceOmegaUTxOHash omegaUTxOHash' = \case
   Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
