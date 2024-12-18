@@ -4,7 +4,7 @@ This section is a manual for users interested in running a Hydra node.
 
 Hydra node is an implementation of the Hydra Head protocol, designed to enable fast and low-cost transactions by operating off-chain while leveraging the security of the main Cardano blockchain.
 
-Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency. 
+Decentralized applications (DApps), exchanges, and enterprise-level services can choose to run a Hydra node to participate in forming Hydra heads – mini-ledgers that process transactions independently and in parallel, significantly enhancing throughput and reducing latency.
 
 The `hydra-node` interfaces with the Cardano blockchain, connects to other `hydra-nodes` on a dedicated overlay network, runs a simplified (coordinated) Hydra Head protocol, and provides an API for clients.
 
@@ -32,7 +32,7 @@ implied terms are excluded to the fullest extent permitted by law. For details,
 see also sections 7, 8 and 9 of the [Apache 2.0 License][license].
 :::
 
-Now, without further ado, you can learn more about the protocol by visiting the [protocol overview page](./protocol-overview) or directly dive into [getting started using a local devnet](./getting-started).
+Now, without further ado, you can learn more about the protocol by visiting the [protocol overview page](./docs/protocol-overview) or directly dive into [getting started using a local devnet](./docs/getting-started).
 
 [known-issues]: ./known-issues.md
 [license]: https://github.com/cardano-scaling/hydra/blob/master/LICENSE
