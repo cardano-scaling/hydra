@@ -16,7 +16,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (IncrementalAction (..), headTokensFromValue, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (headTokensFromValue, mkHydraHeadV1TxName)
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
@@ -26,8 +26,10 @@ fanoutTx ::
   ScriptRegistry ->
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
-  -- | Snapshotted de/commit UTxO to fanout on layer 1
-  IncrementalAction ->
+  -- | Snapshotted commit UTxO to fanout on layer 1
+  Maybe UTxO ->
+  -- | Snapshotted decommit UTxO to fanout on layer 1
+  Maybe UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -35,7 +37,7 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo incrementalAction (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -68,8 +70,12 @@ fanoutTx scriptRegistry utxo incrementalAction (headInput, headOutput) deadlineS
   orderedTxOutsToFanout =
     toTxContext <$> toList utxo
 
-  (orderedTxOutsToCommit, orderedTxOutsToDecommit) =
-    case incrementalAction of
-      ToCommit utxoToCommit -> (toTxContext <$> toList utxoToCommit, [])
-      ToDecommit utxoToDecommit -> ([], toTxContext <$> toList utxoToDecommit)
-      NoThing -> ([], [])
+  orderedTxOutsToCommit =
+    case utxoToCommit of
+      Nothing -> []
+      Just commitUTxO -> toTxContext <$> toList commitUTxO
+
+  orderedTxOutsToDecommit =
+    case utxoToDecommit of
+      Nothing -> []
+      Just decommitUTxO -> toTxContext <$> toList decommitUTxO
