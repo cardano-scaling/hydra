@@ -472,7 +472,8 @@ checkClose ctx openBefore redeemer =
               signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
-          omegaUTxOHash' == emptyHash
+          alphaUTxOHash' == alreadyCommittedUTxOHash
+            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
@@ -645,14 +646,14 @@ checkFanout ::
   Bool
 checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
   mustBurnAllHeadTokens minted headId parties
-    && hasSameDecommitUTxOHash
+    && hasSameUTxOHash
     && hasSameCommitUTxOHash
-    && hasSameUTxOToDecommitHash
+    && hasSameDecommitUTxOHash
     && afterContestationDeadline
  where
   minted = txInfoMint txInfo
 
-  hasSameDecommitUTxOHash =
+  hasSameUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       fannedOutUtxoHash == utxoHash
 
@@ -660,7 +661,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
     traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
       alphaUTxOHash == commitUtxoHash
 
-  hasSameUTxOToDecommitHash =
+  hasSameDecommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       omegaUTxOHash == decommitUtxoHash
 

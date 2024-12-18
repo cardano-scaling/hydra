@@ -200,7 +200,7 @@ computeContestCost = do
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    (closedSnapshotNumber, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty
+    (closedSnapshotNumber, _, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty mempty
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
