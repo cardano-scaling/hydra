@@ -16,6 +16,7 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
+    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -26,7 +27,6 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
-    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     PatternSynonyms
@@ -94,6 +94,7 @@ library
     , hydra-plutus-extras
     , hydra-prelude
     , lens
+    , lens-aeson
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
@@ -123,8 +124,7 @@ library testlib
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-conway
-    , cardano-ledger-conway:testlib
+    , cardano-ledger-conway:{cardano-ledger-conway, testlib}
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
@@ -191,11 +191,9 @@ test-suite tests
     , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx
-    , hydra-tx:testlib
+    , hydra-tx:{hydra-tx, testlib}
     , lens
-    , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
+    , plutus-ledger-api:{plutus-ledger-api, plutus-ledger-api-testlib}
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
