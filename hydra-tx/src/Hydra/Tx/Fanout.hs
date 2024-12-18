@@ -16,18 +16,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (headTokensFromValue, mkHydraHeadV1TxName)
-
-data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
-
-setIncrementalAction :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
-setIncrementalAction utxoToCommit utxoToDecommit =
-  case (utxoToCommit, utxoToDecommit) of
-    (Just _, Just _) -> Nothing
-    (Just _, Nothing) ->
-      ToCommit <$> utxoToCommit
-    (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
-    (Nothing, Nothing) -> Just NoThing
+import Hydra.Tx.Utils (IncrementalAction (..), headTokensFromValue, mkHydraHeadV1TxName)
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need

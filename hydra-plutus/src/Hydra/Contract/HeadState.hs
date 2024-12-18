@@ -102,14 +102,13 @@ data CloseRedeemer
     CloseUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyCommittedUTxOHash :: Hash
-      -- ^ UTxO which was already committed ηα
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
       { signature :: [Signature]
-      , alreadyCommittedUTxOHash :: Hash
       -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was already committed ηα
       }
   deriving stock (Show, Generic)
 

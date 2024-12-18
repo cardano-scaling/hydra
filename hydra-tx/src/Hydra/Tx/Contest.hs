@@ -24,8 +24,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
 
-import Hydra.Tx.Fanout (IncrementalAction (..), setIncrementalAction)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (IncrementalAction (..), mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 
@@ -61,8 +60,9 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
+  IncrementalAction ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput =
+contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput incrementalAction =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -72,7 +72,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setValidityUpperBound slotNo
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
-  Snapshot{number, utxo, utxoToCommit, utxoToDecommit} = snapshot
+  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -92,7 +92,31 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   headScript =
     fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
-  contestRedeemer = setContestRedeemer snapshot openVersion sig
+  contestRedeemer =
+    case incrementalAction of
+      ToCommit utxo' ->
+        if version == openVersion
+          then
+            Head.ContestUnusedInc
+              { signature = toPlutusSignatures sig
+              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+          else
+            Head.ContestUsedInc
+              { signature = toPlutusSignatures sig
+              }
+      ToDecommit utxo' ->
+        if version == openVersion
+          then
+            Head.ContestUnusedDec
+              { signature = toPlutusSignatures sig
+              }
+          else
+            Head.ContestUsedDec
+              { signature = toPlutusSignatures sig
+              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+      NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
@@ -135,32 +159,3 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           }
-
-setContestRedeemer :: Snapshot Tx -> SnapshotVersion -> MultiSignature (Snapshot Tx) -> Head.ContestRedeemer
-setContestRedeemer Snapshot{version, utxoToCommit, utxoToDecommit} openVersion sig =
-  let incrementalAction = setIncrementalAction utxoToCommit utxoToDecommit
-   in if version == openVersion
-        then case incrementalAction of
-          Just (ToCommit utxo') ->
-            Head.ContestUnusedInc
-              { signature = toPlutusSignatures sig
-              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-              }
-          Just (ToDecommit _) ->
-            Head.ContestUnusedDec
-              { signature = toPlutusSignatures sig
-              }
-          Just NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
-          Nothing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
-        else case incrementalAction of
-          Just (ToCommit _) ->
-            Head.ContestUsedInc
-              { signature = toPlutusSignatures sig
-              }
-          Just (ToDecommit utxo') ->
-            Head.ContestUsedDec
-              { signature = toPlutusSignatures sig
-              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-              }
-          Just NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
-          Nothing -> Head.ContestCurrent{signature = toPlutusSignatures sig}

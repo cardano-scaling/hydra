@@ -111,13 +111,13 @@ import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx, observeDepositTxOut)
-import Hydra.Tx.Fanout (fanoutTx, setIncrementalAction)
+import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (depositDeadline, testNetworkId)
 import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
@@ -573,6 +573,7 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
 data CloseTxError
   = InvalidHeadIdInClose {headId :: HeadId}
   | CannotFindHeadOutputToClose
+  | BothCommitAndDecommitInClose
   deriving stock (Show)
 
 data RecoverTxError
@@ -644,8 +645,12 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
           , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
           , openParties = partyToChain <$> parties
           }
-  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput
+
+  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInClose
+  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction
  where
+  Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
+
   headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
@@ -657,6 +662,7 @@ data ContestTxError
   | MissingHeadRedeemerInContest
   | WrongDatumInContest
   | FailedToConvertFromScriptDataInContest
+  | BothCommitAndDecommitInContest
   deriving stock (Show)
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -684,8 +690,10 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
-  pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput
+  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInContest
+  pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput incrementalAction
  where
+  Snapshot{utxoToCommit, utxoToDecommit} = sn
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <- txOutScriptData (toTxContext headOutput) ?> MissingHeadDatumInContest
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
@@ -747,7 +755,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
     UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- checkHeadDatum headUTxO
-  incrementalAction <- setIncrementalAction utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
+  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
   pure $ fanoutTx scriptRegistry utxo incrementalAction closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn

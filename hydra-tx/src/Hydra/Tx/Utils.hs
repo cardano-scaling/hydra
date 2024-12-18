@@ -91,3 +91,19 @@ parseDatum :: FromScriptData a => TxOut CtxUTxO -> Maybe a
 parseDatum out = do
   headDatum <- txOutScriptData (toTxContext out)
   fromScriptData headDatum
+
+-- | Type to encapsulate one of the two possible incremental actions or a
+-- regular snapshot. This actually signals that our snapshot modeling is likely
+-- not ideal but for now we want to keep track of both fields (de/commit) since
+-- we might want to support batch de/commits too in the future, but having both fields
+-- be Maybe UTxO intruduces a lot of checks if the value is Nothing or mempty.
+data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
+
+setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
+setIncrementalActionMaybe utxoToCommit utxoToDecommit =
+  case (utxoToCommit, utxoToDecommit) of
+    (Just _, Just _) -> Nothing
+    (Just _, Nothing) ->
+      ToCommit <$> utxoToCommit
+    (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
+    (Nothing, Nothing) -> Just NoThing
