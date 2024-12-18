@@ -151,7 +151,7 @@ genContestMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedContestCurrent) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
@@ -182,6 +182,27 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= healthyContesterVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
+    , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
+      -- This also seems to be covered by MutateRequiredSigner
+      SomeMutation (pure $ toErrorCode FailedContestCurrent) ContestFromDifferentHead <$> do
+        otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
+        pure $
+          Changes
+            [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
+            , ChangeInput
+                healthyClosedHeadTxIn
+                (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
+                ( Just $
+                    toScriptData
+                      ( Head.Contest
+                          Head.ContestCurrent
+                            { signature =
+                                toPlutusSignatures $
+                                  healthySignature healthyContestSnapshotNumber
+                            }
+                      )
+                )
+            ]
     , SomeMutation (pure $ toErrorCode NoSigners) MutateNoRequiredSigner <$> do
         pure $ ChangeRequiredSigners []
     , SomeMutation (pure $ toErrorCode TooManySigners) MutateMultipleRequiredSigner <$> do
@@ -208,27 +229,6 @@ genContestMutation (tx, _utxo) =
         lb <- arbitrary
         ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
         pure (lb, ub)
-    , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
-      -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
-        otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
-        pure $
-          Changes
-            [ ChangeOutput 0 (replacePolicyIdWith testPolicyId otherHeadId headTxOut)
-            , ChangeInput
-                healthyClosedHeadTxIn
-                (replacePolicyIdWith testPolicyId otherHeadId healthyClosedHeadTxOut)
-                ( Just $
-                    toScriptData
-                      ( Head.Contest
-                          Head.ContestCurrent
-                            { signature =
-                                toPlutusSignatures $
-                                  healthySignature healthyContestSnapshotNumber
-                            }
-                      )
-                )
-            ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     , SomeMutation (pure $ toErrorCode SignerAlreadyContested) MutateInputContesters . ChangeInputHeadDatum <$> do

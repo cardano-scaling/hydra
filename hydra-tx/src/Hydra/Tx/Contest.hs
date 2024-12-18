@@ -24,6 +24,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
 
+import Hydra.Tx.Fanout (IncrementalAction (..), setIncrementalAction)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -137,40 +138,29 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
 setContestRedeemer :: Snapshot Tx -> SnapshotVersion -> MultiSignature (Snapshot Tx) -> Head.ContestRedeemer
 setContestRedeemer Snapshot{version, utxoToCommit, utxoToDecommit} openVersion sig =
-  if version == openVersion
-    then
-      if
-        | isJust utxoToDecommit ->
+  let incrementalAction = setIncrementalAction utxoToCommit utxoToDecommit
+   in if version == openVersion
+        then case incrementalAction of
+          Just (ToCommit utxo') ->
+            Head.ContestUnusedInc
+              { signature = toPlutusSignatures sig
+              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+          Just (ToDecommit _) ->
             Head.ContestUnusedDec
               { signature = toPlutusSignatures sig
               }
-        | isJust utxoToCommit ->
-            Head.ContestUnusedInc
-              { signature = toPlutusSignatures sig
-              , alreadyCommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-              }
-        | isNothing utxoToCommit
-        , isNothing utxoToDecommit ->
-            Head.ContestCurrent
+          Just NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
+          Nothing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
+        else case incrementalAction of
+          Just (ToCommit _) ->
+            Head.ContestUsedInc
               { signature = toPlutusSignatures sig
               }
-        | otherwise -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."
-    else case (isJust utxoToCommit, isJust utxoToDecommit) of
-      (True, False) ->
-        Head.ContestUsedInc
-          { signature = toPlutusSignatures sig
-          }
-      (False, True) ->
-        Head.ContestUsedDec
-          { signature = toPlutusSignatures sig
-          , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-          }
-      (False, False) ->
-        -- NOTE: here the assumption is: if your snapshot doesn't
-        -- contain anything to de/commit then it must mean that we
-        -- either already have seen it happen (which would even out the
-        -- two versions) or this is a _normal_ snapshot so the version
-        -- is not _bumped_ further anyway and it needs to be the same
-        -- between snapshot and the open state version.
-        error $ "contestTx: both commit and decommit utxo empty but version not the same! snapshot version: " <> show version <> " open version: " <> show openVersion
-      (True, True) -> error "contestTx: unexpected to have both utxo to commit and decommit in the same snapshot."
+          Just (ToDecommit utxo') ->
+            Head.ContestUsedDec
+              { signature = toPlutusSignatures sig
+              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+          Just NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
+          Nothing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
