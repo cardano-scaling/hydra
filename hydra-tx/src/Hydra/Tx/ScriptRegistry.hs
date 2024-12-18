@@ -4,32 +4,18 @@ module Hydra.Tx.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Codec.CBOR.Read qualified as CBOR
-import Control.Lens ((^.))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nth, _String)
 import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
 import Data.Map qualified as Map
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  ScriptHash,
-  TxIn (..),
-  TxOut,
-  hashScriptInAnyLang,
-  txOutReferenceScript,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
- )
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import PlutusLedgerApi.Common (MajorProtocolVersion (..), ScriptDecodeError, SerialisedScript)
-import PlutusLedgerApi.V3 qualified as PlutusV3
+import PlutusLedgerApi.Common (SerialisedScript)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -100,19 +86,21 @@ serialisedScriptRegistry =
     , depositScriptValidator = Deposit.validatorScript
     }
 
-mkValidatorScript :: Text -> SerialisedScript
-mkValidatorScript base16Text =
+-- XXX: used to parse Aiken `compiledCode`.
+serialisedScriptFromText :: Text -> SerialisedScript
+serialisedScriptFromText base16Text =
   case Base16.decode base16Bytes of
     Left e -> error $ "Failed to decode initial validator: " <> show e
     Right bytes -> toShort bytes
  where
   base16Bytes = encodeUtf8 base16Text
 
-mkValidatorScriptV2 :: ByteString -> Either String SerialisedScript
-mkValidatorScriptV2 cborHex = do
+-- XXX: used to parse Plutus `cborHex`.
+cborHexToSerialisedScript :: ByteString -> SerialisedScript
+cborHexToSerialisedScript cborHex = either (error . show) SBS.toShort $ do
   bytes <- Base16.decode cborHex
-  r <- CBOR.deserialiseFromBytes @ByteString bytes
-  pure $ SBS.toShort r
+  (_, a) <- first show $ CBOR.deserialiseFromBytes @ByteString fromCBOR (LBS.fromStrict bytes)
+  pure a
 
 -- | Get the UTxO that corresponds to a script registry.
 --
