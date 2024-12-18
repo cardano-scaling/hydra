@@ -23,7 +23,7 @@ $ plantuml -Tsvg architecture-c4.puml
 
 ### Network
 
-The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./networking) for details.
+The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./architecture/networking) for details.
 
 ### Chain interaction
 
