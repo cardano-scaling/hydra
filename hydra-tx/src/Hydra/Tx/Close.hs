@@ -107,6 +107,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               then
                 Head.CloseUnusedInc
                   { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
                   }
               else
                 Head.CloseUsedInc
@@ -138,12 +139,9 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               case closeRedeemer of
                 Head.CloseUsedInc{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
-                Head.CloseUnusedInc{} -> toBuiltin $ hashUTxO @Tx mempty
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , omegaUTxOHash =
               case closeRedeemer of
-                Head.CloseUsedDec{} ->
-                  toBuiltin $ hashUTxO @Tx mempty
                 Head.CloseUnusedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty

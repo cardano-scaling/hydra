@@ -33,7 +33,9 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -82,11 +84,17 @@ healthyCloseCurrentTx =
       somePartyCardanoVerificationKey
       (mkHeadId Fixture.testPolicyId)
       healthyCurrentSnapshotVersion
-      (healthyConfirmedSnapshot healthyCurrentSnapshot)
+      closeUnusedSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
+      incrementalAction
 
+  closeUnusedSnapshot = healthyConfirmedSnapshot healthyCurrentSnapshot
+
+  incrementalAction =
+    fromMaybe NoThing $
+      setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUnusedSnapshot) (utxoToDecommit $ getSnapshot closeUnusedSnapshot)
   datum = toUTxOContext $ mkTxOutDatumInline healthyCurrentOpenDatum
 
   lookupUTxO =

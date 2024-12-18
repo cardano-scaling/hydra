@@ -102,6 +102,8 @@ data CloseRedeemer
     CloseUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was signed but not committed ηα
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
