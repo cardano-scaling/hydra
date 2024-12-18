@@ -457,11 +457,11 @@ checkClose ctx openBefore redeemer =
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUnusedInc{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
+            (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
             signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
