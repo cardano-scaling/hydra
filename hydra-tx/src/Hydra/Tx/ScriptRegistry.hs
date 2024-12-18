@@ -6,7 +6,14 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
+import Codec.CBOR.Read qualified as CBOR
+import Control.Lens ((^.))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Lens (key, nth, _String)
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Short qualified as SBS
 import Data.Map qualified as Map
+import Hydra.Cardano.Api
 import Hydra.Cardano.Api (
   CtxUTxO,
   ScriptHash,
@@ -21,7 +28,8 @@ import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import PlutusLedgerApi.Common (SerialisedScript)
+import PlutusLedgerApi.Common (MajorProtocolVersion (..), ScriptDecodeError, SerialisedScript)
+import PlutusLedgerApi.V3 qualified as PlutusV3
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -91,6 +99,20 @@ serialisedScriptRegistry =
     , headScriptValidator = Head.validatorScript
     , depositScriptValidator = Deposit.validatorScript
     }
+
+mkValidatorScript :: Text -> SerialisedScript
+mkValidatorScript base16Text =
+  case Base16.decode base16Bytes of
+    Left e -> error $ "Failed to decode initial validator: " <> show e
+    Right bytes -> toShort bytes
+ where
+  base16Bytes = encodeUtf8 base16Text
+
+mkValidatorScriptV2 :: ByteString -> Either String SerialisedScript
+mkValidatorScriptV2 cborHex = do
+  bytes <- Base16.decode cborHex
+  r <- CBOR.deserialiseFromBytes @ByteString bytes
+  pure $ SBS.toShort r
 
 -- | Get the UTxO that corresponds to a script registry.
 --
