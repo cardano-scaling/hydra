@@ -22,6 +22,8 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (
+  IncrementalAction (..),
+  setIncrementalActionMaybe,
   splitUTxO,
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
@@ -63,7 +65,9 @@ healthyContestTx =
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
+      incrementalAction
 
+  incrementalAction = fromMaybe NoThing $ setIncrementalActionMaybe (utxoToCommit healthyContestSnapshot) (utxoToDecommit healthyContestSnapshot)
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   closedThreadOutput =
