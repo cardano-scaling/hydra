@@ -214,7 +214,7 @@ observeInitTx tx = do
 
   mintedTokenNames pid =
     [ assetName
-    | (AssetId policyId assetName, q) <- txMintAssets tx
+    | (AssetId policyId assetName, q) <- toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ getTxBody tx
     , q == 1 -- NOTE: Only consider unique tokens
     , policyId == pid
     , assetName /= hydraHeadV1AssetName
@@ -279,7 +279,7 @@ observeCommitTx networkId utxo tx = do
   policyId <- fromPlutusCurrencySymbol headId
   pure
     CommitObservation
-      { commitOutput = (commitIn, toUTxOContext commitOut)
+      { commitOutput = (commitIn, toCtxUTxOTxOut commitOut)
       , party
       , committed
       , headId = mkHeadId policyId
@@ -419,7 +419,7 @@ observeDecrementTx utxo tx = do
               { headId
               , newVersion = fromChainSnapshotVersion version
               , distributedOutputs =
-                  toUTxOContext <$> txOuts' tx
+                  toCtxUTxOTxOut <$> txOuts' tx
                     & drop 1 -- NOTE: Head output must be in first position
                     & take (fromIntegral numberOfDecommitOutputs)
               }

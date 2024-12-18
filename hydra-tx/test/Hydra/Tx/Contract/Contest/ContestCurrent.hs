@@ -181,7 +181,7 @@ healthyClosedHeadTxOut =
   mkHeadOutput testNetworkId testPolicyId headTxOutDatum
     & addParticipationTokens healthyParticipants
  where
-  headTxOutDatum = toUTxOContext (mkTxOutDatumInline healthyClosedState)
+  headTxOutDatum = mkTxOutDatumInline healthyClosedState
 
 healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
 healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
