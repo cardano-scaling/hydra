@@ -71,7 +71,6 @@ library
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.ValidityInterval
     Hydra.Cardano.Api.Value
-    Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
 
   -- NOTE: We only use an upper bound on cardano-api and have the other
