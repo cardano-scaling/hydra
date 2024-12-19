@@ -79,7 +79,6 @@ library
   build-depends:
     , aeson                   >=2
     , base                    >=4.16
-    , base16-bytestring
     , bytestring
     , cardano-api             ^>=10.1
     , cardano-binary
@@ -97,5 +96,4 @@ library
     , lens
     , plutus-ledger-api
     , QuickCheck
-    , serialise
     , text                    >=2
