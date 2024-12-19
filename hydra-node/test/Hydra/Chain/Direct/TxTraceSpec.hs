@@ -119,7 +119,7 @@ coversInterestingActions (Actions_ _ (Smart _ steps)) p =
     & cover 5 (closeNonInitial steps) "close with non initial snapshots"
     & cover 10 (hasFanout steps) "reach fanout"
     & cover 10 (fanoutWithSomeUTxO steps) "fanout with some UTxO"
-    & cover 10 (fanoutWithCommitOrDecommitDelta steps) "fanout with additional de/commit UTxO to distribute"
+    & cover 10 (fanoutWithCommitOrDecommitDelta steps) "fanout with additional commit or decommit UTxO to distribute"
  where
   hasSomeSnapshots =
     any $
