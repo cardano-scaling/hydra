@@ -37,7 +37,6 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedContesters :: [Plutus.PubKeyHash]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
