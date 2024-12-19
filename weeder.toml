@@ -11,4 +11,14 @@ roots = [ "^Main.main$"
  , "showFromAction$"
  , "redeemer$"
  ]
-type-class-roots = true
+root-instances = [ { class = '\.Eq$' }
+                 , { class = '\.Show$' }
+                 , { class = '\.Read$' }
+                 , { class = '\.Enum$' }
+                 , { class = '\.Bounded$' }
+                 , { class = '\.Generic$' }
+                 , { class = '\.Ord$' }
+                 , { class = '\.Num$' }
+                 , { class = '\.Real$' }
+                 , { class = '\.Integral$' }
+                 ]
