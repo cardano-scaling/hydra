@@ -87,11 +87,6 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
       & auxDataTxL .~ SJust newAuxData
       & bodyTxL . auxDataHashTxBodyL .~ SJust (hashTxAuxData newAuxData)
 
-parseDatum :: FromScriptData a => TxOut CtxUTxO -> Maybe a
-parseDatum out = do
-  headDatum <- txOutScriptData (toTxContext out)
-  fromScriptData headDatum
-
 -- | Type to encapsulate one of the two possible incremental actions or a
 -- regular snapshot. This actually signals that our snapshot modeling is likely
 -- not ideal but for now we want to keep track of both fields (de/commit) since
