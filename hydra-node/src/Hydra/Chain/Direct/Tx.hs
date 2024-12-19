@@ -17,7 +17,6 @@ import Hydra.Prelude hiding (toList)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
-import Data.ByteString.Base16 qualified as Base16
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
@@ -59,16 +58,6 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
 
-instance ToJSON UTxOHash where
-  toJSON (UTxOHash bytes) =
-    Aeson.String . decodeUtf8 $ Base16.encode bytes
-
-instance FromJSON UTxOHash where
-  parseJSON = Aeson.withText "UTxOHash" $ \cborText ->
-    case Base16.decode $ encodeUtf8 cborText of
-      Left e -> fail e
-      Right bs -> pure $ UTxOHash bs
-
 instance Arbitrary UTxOHash where
   arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
 
@@ -79,11 +68,6 @@ data InitialThreadOutput = InitialThreadOutput
   , initialParties :: [OnChain.Party]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary InitialThreadOutput where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 -- * Observe Hydra Head transactions
 
@@ -102,9 +86,6 @@ data HeadObservation
   | Contest ContestObservation
   | Fanout FanoutObservation
   deriving stock (Eq, Show, Generic)
-
-instance Arbitrary HeadObservation where
-  arbitrary = genericArbitrary
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
@@ -138,19 +119,12 @@ data InitObservation = InitObservation
   }
   deriving stock (Show, Eq, Generic)
 
-instance Arbitrary InitObservation where
-  arbitrary = genericArbitrary
-
 data NotAnInitReason
   = NoHeadOutput
   | NotAHeadDatum
   | NoSTFound
   | NotAHeadPolicy
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary NotAnInitReason where
-  arbitrary = genericArbitrary
 
 -- | Identify a init tx by checking the output value for holding tokens that are
 -- valid head tokens (checked by seed + policy).
@@ -230,9 +204,6 @@ data CommitObservation = CommitObservation
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary CommitObservation where
-  arbitrary = genericArbitrary
-
 -- | Identify a commit tx by:
 --
 -- - Check that its spending from the init validator,
@@ -304,9 +275,6 @@ data CollectComObservation = CollectComObservation
   }
   deriving stock (Show, Eq, Generic)
 
-instance Arbitrary CollectComObservation where
-  arbitrary = genericArbitrary
-
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
 observeCollectComTx ::
@@ -352,9 +320,6 @@ data IncrementObservation = IncrementObservation
   }
   deriving stock (Show, Eq, Generic)
 
-instance Arbitrary IncrementObservation where
-  arbitrary = genericArbitrary
-
 observeIncrementTx ::
   UTxO ->
   Tx ->
@@ -395,9 +360,6 @@ data DecrementObservation = DecrementObservation
   }
   deriving stock (Show, Eq, Generic)
 
-instance Arbitrary DecrementObservation where
-  arbitrary = genericArbitrary
-
 observeDecrementTx ::
   UTxO ->
   Tx ->
@@ -435,9 +397,6 @@ data CloseObservation = CloseObservation
   , snapshotNumber :: SnapshotNumber
   }
   deriving stock (Show, Eq, Generic)
-
-instance Arbitrary CloseObservation where
-  arbitrary = genericArbitrary
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -486,9 +445,6 @@ data ContestObservation = ContestObservation
   }
   deriving stock (Show, Eq, Generic)
 
-instance Arbitrary ContestObservation where
-  arbitrary = genericArbitrary
-
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeContestTx ::
@@ -528,9 +484,6 @@ observeContestTx utxo tx = do
 
 newtype FanoutObservation = FanoutObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
 
-instance Arbitrary FanoutObservation where
-  arbitrary = genericArbitrary
-
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeFanoutTx ::
@@ -550,9 +503,6 @@ observeFanoutTx utxo tx = do
   headScript = fromPlutusScript Head.validatorScript
 
 newtype AbortObservation = AbortObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
-
-instance Arbitrary AbortObservation where
-  arbitrary = genericArbitrary
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
