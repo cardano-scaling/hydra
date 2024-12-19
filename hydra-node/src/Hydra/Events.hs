@@ -18,7 +18,6 @@ import Hydra.Prelude
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 type EventId = Word64
 
@@ -66,8 +65,6 @@ deriving instance IsChainState tx => FromJSON (StateEvent tx)
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateEvent tx) where
   arbitrary = arbitrary >>= genStateEvent
   shrink = genericShrink
-
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateEvent tx)
 
 genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
 genStateEvent sc = StateEvent <$> arbitrary <*> pure sc
