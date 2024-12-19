@@ -8,43 +8,20 @@ import Hydra.Prelude
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..), TokenName, TxId (..), TxOutRef (..), UpperBound, Value, upperBound)
-import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Prelude (BuiltinByteString, Eq, fromBuiltin, toBuiltin)
-import Test.QuickCheck (choose, vectorOf)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..))
+import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 import Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
   arbitrary = toBuiltin <$> (arbitrary :: Gen ByteString)
 
-instance Arbitrary TokenName where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 instance Arbitrary CurrencySymbol where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-instance Arbitrary Value where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance (PlutusTx.Prelude.Eq k, Arbitrary k, Arbitrary v) => Arbitrary (AssocMap.Map k v) where
-  arbitrary = AssocMap.safeFromList <$> arbitrary
-
 instance Arbitrary POSIXTime where
   arbitrary = POSIXTime <$> arbitrary
-
-instance ToJSON POSIXTime where
-  toJSON (POSIXTime ms) = toJSON ms
-
-instance FromJSON POSIXTime where
-  parseJSON = fmap POSIXTime . parseJSON
-
-instance Arbitrary a => Arbitrary (UpperBound a) where
-  arbitrary = upperBound <$> arbitrary
 
 instance ToJSON PubKeyHash where
   toJSON kh =
@@ -66,9 +43,3 @@ instance FromJSON PubKeyHash where
 
 instance Arbitrary PubKeyHash where
   arbitrary = genericArbitrary
-
-instance Arbitrary TxOutRef where
-  arbitrary = do
-    txId <- TxId . toBuiltin . BS.pack <$> vectorOf 32 arbitrary
-    txIx <- choose (0, 99)
-    pure $ TxOutRef txId txIx
