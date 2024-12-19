@@ -24,7 +24,6 @@ const config = {
   projectName: "Hydra",
   staticDirectories: ["static", customFields.apiSpecDir],
   customFields,
-  trailingSlash: false,
 
   scripts: [
     {
