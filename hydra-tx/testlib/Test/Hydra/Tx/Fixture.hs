@@ -39,6 +39,7 @@ import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party
@@ -58,6 +59,10 @@ testHeadId = UnsafeHeadId "1234"
 
 testHeadSeed :: HeadSeed
 testHeadSeed = UnsafeHeadSeed "000000000000000000#0"
+
+depositDeadline :: UTCTime
+depositDeadline = unsafePerformIO getCurrentTime
+{-# NOINLINE depositDeadline #-}
 
 -- | Derive some 'OnChainId' from a Hydra party. In the real protocol this is
 -- currently not done, but in this simulated chain setting this is definitely
