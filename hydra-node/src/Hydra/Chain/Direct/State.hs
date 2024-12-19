@@ -192,10 +192,6 @@ data ChainState
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary ChainState where
-  arbitrary = genChainState
-  shrink = genericShrink
-
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
   getKnownUTxO = \case
@@ -301,14 +297,6 @@ data ClosedState = ClosedState
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ClosedState where
-  arbitrary = do
-    -- XXX: Untangle the whole generator mess here
-    (_, st, _, _) <- genFanoutTx maxGenParties
-    pure st
-
-  shrink = genericShrink
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -926,16 +914,6 @@ observeClose st tx = do
 -- | Maximum number of parties used in the generators.
 maxGenParties :: Int
 maxGenParties = 3
-
--- | Generate a 'ChainState' within known limits above.
-genChainState :: Gen ChainState
-genChainState =
-  oneof
-    [ pure Idle
-    , Initial <$> arbitrary
-    , Open <$> arbitrary
-    , Closed <$> arbitrary
-    ]
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
