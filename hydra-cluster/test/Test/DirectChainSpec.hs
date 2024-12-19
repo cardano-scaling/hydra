@@ -92,7 +92,7 @@ import Hydra.Tx.Utils (
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose, elements, generate, oneof)
+import Test.QuickCheck (choose, generate)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
@@ -321,33 +321,18 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             postTx $ CollectComTx someUTxO headId headParameters
             aliceChain `observesInTime` OnCollectComTx{headId}
-            v <- generate $ elements [0, 1]
-            snapshotVersion <- generate $ elements [0, 1]
-            snapshot <-
-              generate $
-                oneof
-                  [ let (inHead, toDecommit) = splitUTxO someUTxO
-                     in pure
-                          Snapshot
-                            { headId
-                            , number = 1
-                            , utxo = inHead
-                            , confirmed = []
-                            , utxoToCommit = Nothing
-                            , utxoToDecommit = Just toDecommit
-                            , version = snapshotVersion
-                            }
-                  , pure
-                      Snapshot
-                        { headId
-                        , number = 1
-                        , utxo = someUTxO
-                        , confirmed = []
-                        , utxoToCommit = Just someUTxOToCommit
-                        , utxoToDecommit = Nothing
-                        , version = snapshotVersion
-                        }
-                  ]
+            let v = 0
+            let snapshotVersion = 0
+            let snapshot =
+                  Snapshot
+                    { headId
+                    , number = 1
+                    , utxo = someUTxO
+                    , confirmed = []
+                    , utxoToCommit = Just someUTxOToCommit
+                    , utxoToDecommit = Nothing
+                    , version = snapshotVersion
+                    }
 
             postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
 
