@@ -9,15 +9,9 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label, toList)
 
 import Data.List qualified as List
-import Data.Set ((\\))
-import Data.Set qualified as Set
-import GHC.IsList (IsList (..))
-import Hydra.Tx.IsTx (IsTx (..))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
-import Test.QuickCheck.StateModel (HasVariables)
-import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys
@@ -36,18 +30,6 @@ instance Ord CardanoSigningKey where
    where
     hashOf = verificationKeyHash . getVerificationKey
 
-instance ToJSON CardanoSigningKey where
-  toJSON = error "don't use"
-
-instance FromJSON CardanoSigningKey where
-  parseJSON = error "don't use"
-
-instance ToCBOR CardanoSigningKey where
-  toCBOR = error "don't use"
-
-instance FromCBOR CardanoSigningKey where
-  fromCBOR = error "don't use"
-
 instance Arbitrary CardanoSigningKey where
   arbitrary = CardanoSigningKey . snd <$> genKeyPair
 
@@ -58,7 +40,6 @@ data Payment = Payment
   , value :: Value
   }
   deriving stock (Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Show Payment where
   -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
@@ -72,40 +53,9 @@ instance Show Payment where
       <> show value
       <> " }"
 
-instance Arbitrary Payment where
-  arbitrary = error "don't use"
+type PaymentUTxO = [(CardanoSigningKey, Value)]
 
-instance ToCBOR Payment where
-  toCBOR = error "don't use"
-
-instance FromCBOR Payment where
-  fromCBOR = error "don't use"
-
-instance HasVariables Payment where
-  getAllVariables _ = mempty
-
--- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
-instance IsTx Payment where
-  type TxIdType Payment = Int
-  type TxOutType Payment = (CardanoSigningKey, Value)
-  type UTxOType Payment = [(CardanoSigningKey, Value)]
-  type ValueType Payment = Value
-  txId = error "undefined"
-  balance = foldMap snd
-  hashUTxO = encodeUtf8 . show @Text
-  txSpendingUTxO = \case
-    [] -> error "nothing to spend spending"
-    [(from, value)] -> Payment{from, to = from, value}
-    _ -> error "cant spend from multiple utxo in one payment"
-  utxoFromTx Payment{to, value} = [(to, value)]
-  outputsOfUTxO = id
-  withoutUTxO a b =
-    let as = second toList <$> a
-        bs = second toList <$> b
-        result = Set.toList $ Set.fromList as \\ Set.fromList bs
-     in second fromList <$> result
-
-applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
+applyTx :: PaymentUTxO -> Payment -> PaymentUTxO
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
 
@@ -118,9 +68,3 @@ genAdaValue = lovelaceToValue . fromInteger <$> choose (minimumUTxOAda, 10000000
 -- * Orphans
 instance Arbitrary Value where
   arbitrary = genAdaValue
-
-instance ToCBOR Value where
-  toCBOR = error "don't use"
-
-instance FromCBOR Value where
-  fromCBOR = error "don't use"

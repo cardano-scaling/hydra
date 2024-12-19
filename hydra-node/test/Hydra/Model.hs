@@ -58,12 +58,11 @@ import Hydra.BehaviorSpec (
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadLogic (Committed ())
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
-import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
+import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), PaymentUTxO, applyTx, genAdaValue)
 import Hydra.Node (runHydraNode)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (HydraKey)
@@ -112,30 +111,30 @@ data GlobalState
       }
   | Initial
       { headParameters :: HeadParameters
-      , commits :: Committed Payment
+      , commits :: Map Party PaymentUTxO
       , pendingCommits :: Uncommitted
       }
   | Open
       { headParameters :: HeadParameters
       , offChainState :: OffChainState
-      , committed :: Committed Payment
+      , committed :: Map Party PaymentUTxO
       }
   | Closed
       { headParameters :: HeadParameters
-      , closedUTxO :: UTxOType Payment
+      , closedUTxO :: PaymentUTxO
       }
-  | Final {finalUTxO :: UTxOType Payment}
+  | Final {finalUTxO :: PaymentUTxO}
   deriving stock (Eq, Show)
 
-type Uncommitted = Map.Map Party (UTxOType Payment)
+type Uncommitted = Map.Map Party PaymentUTxO
 
-newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
+newtype OffChainState = OffChainState {confirmedUTxO :: PaymentUTxO}
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
 instance DynLogicModel WorldState
 
-type ActualCommitted = UTxOType Payment
+type ActualCommitted = PaymentUTxO
 
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
@@ -153,7 +152,7 @@ instance StateModel WorldState where
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
     Init :: Party -> Action WorldState ()
-    Commit :: Party -> UTxOType Payment -> Action WorldState ActualCommitted
+    Commit :: Party -> PaymentUTxO -> Action WorldState ActualCommitted
     Decommit :: Party -> Payment -> Action WorldState ()
     Abort :: Party -> Action WorldState ()
     Close :: Party -> Action WorldState ()
@@ -202,7 +201,7 @@ instance StateModel WorldState where
     -- `NewTx` action for example but also want to make sure that after
     -- a 'Decommit' we are not left without any funds so further actions
     -- can be generated.
-    genOpenActions :: UTxOType Payment -> Gen (Any (Action WorldState))
+    genOpenActions :: PaymentUTxO -> Gen (Any (Action WorldState))
     genOpenActions confirmedUTxO =
       if null confirmedUTxO
         then
@@ -858,7 +857,7 @@ toTxOuts payments =
 -- | Convert payment-style utxos into real utxos. The 'Payment' tx domain is
 -- smaller than UTxO and we map every unique signer + value entry to a mocked
 -- 'TxIn' on the real cardano domain.
-toRealUTxO :: UTxOType Payment -> UTxOType Tx
+toRealUTxO :: PaymentUTxO -> UTxOType Tx
 toRealUTxO paymentUTxO =
   UTxO.fromPairs $
     [ (mkMockTxIn sk ix, mkTxOut sk val)
