@@ -148,7 +148,6 @@ import Hydra.Cardano.Api.TxOutValue as Extras
 import Hydra.Cardano.Api.UTxO as Extras
 import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
-import Hydra.Cardano.Api.VerificationKey ()
 import Hydra.Cardano.Api.Witness as Extras
 
 import Cardano.Api qualified
