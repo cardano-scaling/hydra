@@ -190,7 +190,6 @@ data ChainState
   | Open OpenState
   | Closed ClosedState
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -217,7 +216,6 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
@@ -245,7 +243,6 @@ data InitialState = InitialState
   , seedTxIn :: TxIn
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary InitialState where
   arbitrary = do
@@ -273,7 +270,6 @@ data OpenState = OpenState
   , openUtxoHash :: UTxOHash
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary OpenState where
   arbitrary = do
@@ -296,7 +292,6 @@ data ClosedState = ClosedState
   , seedTxIn :: TxIn
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
