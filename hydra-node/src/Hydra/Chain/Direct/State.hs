@@ -244,13 +244,6 @@ data InitialState = InitialState
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary InitialState where
-  arbitrary = do
-    ctx <- genHydraContext maxGenParties
-    snd <$> genStInitial ctx
-
-  shrink = genericShrink
-
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
     UTxO $
