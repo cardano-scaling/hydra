@@ -927,10 +927,6 @@ observeClose st tx = do
 maxGenParties :: Int
 maxGenParties = 3
 
--- | Maximum number of assets (ADA or other tokens) used in the generators.
-maxGenAssets :: Int
-maxGenAssets = 70
-
 -- | Generate a 'ChainState' within known limits above.
 genChainState :: Gen ChainState
 genChainState =
