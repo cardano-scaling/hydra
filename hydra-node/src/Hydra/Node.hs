@@ -234,9 +234,6 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   }
 
-instance HasParty (HydraNode tx m) where
-  getParty HydraNode{env} = getParty env
-
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
