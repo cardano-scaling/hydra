@@ -31,10 +31,8 @@ import Cardano.Crypto.DSIGN (
   genKeyDSIGN,
   hashVerKeyDSIGN,
   rawDeserialiseSigDSIGN,
-  rawDeserialiseSignKeyDSIGN,
   rawDeserialiseVerKeyDSIGN,
   rawSerialiseSigDSIGN,
-  rawSerialiseSignKeyDSIGN,
   rawSerialiseVerKeyDSIGN,
   seedSizeDSIGN,
   signDSIGN,
@@ -51,7 +49,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
-  AsType (AsHash, AsSigningKey, AsVerificationKey),
+  AsType (AsHash, AsVerificationKey),
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
@@ -128,13 +126,6 @@ instance Key HydraKey where
 
 instance Arbitrary (SigningKey HydraKey) where
   arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
-
-instance SerialiseAsRawBytes (SigningKey HydraKey) where
-  serialiseToRawBytes (HydraSigningKey sk) =
-    rawSerialiseSignKeyDSIGN sk
-
-  deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
-    maybe (error "TODO: SerialiseAsRawBytesError, but constructor not exported") (Right . HydraSigningKey) (rawDeserialiseSignKeyDSIGN bs)
 
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
