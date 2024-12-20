@@ -90,7 +90,7 @@ If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1 **exactl
 ### Examples
 
 1. **Minimum UTXO value (`minUTxOValue = 0`)**:
-   - Outputs with no 'ada' on layer 2 would be disallowed on layer 1, preventing their fanout. This restriction makes direct fanout impossible for such outputs. Even using partial fanout, as considered in [this feature](https://github.com/input-output-hk/hydra/issues/190), would not permit the fanout of affected UTXOs.
+   - Outputs with no 'ada' on layer 2 would be disallowed on layer 1, preventing their fanout. This restriction makes direct fanout impossible for such outputs. Even using partial fanout, as considered in [this feature](https://github.com/cardano-scaling/hydra/issues/190), would not permit the fanout of affected UTXOs.
 
 2. **Maximum transaction execution units (`maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`)**:
    - Outputs directed to scripts, which are too costly to validate on layer 1, can still be fanned out but will become unspendable due to exceeding the allowable execution limits on layer 1.

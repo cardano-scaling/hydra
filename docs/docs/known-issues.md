@@ -27,4 +27,4 @@ There is a hard-coded limit on the **mainnet** where only up to 100 ada can be c
 
 ### Known bugs
 
-Refer to the project repository issue tracker for [known issues](https://github.com/input-output-hk/hydra/issues?q=is%3Aissue+is%3Aopen+label%3A%22bug+%3Abug%3A%22). If you discover any security-relevant problems, please follow our [security policy](https://github.com/input-output-hk/hydra?tab=security-ov-file#readme).
+Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue+is%3Aopen+label%3A%22bug+%3Abug%3A%22). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).
