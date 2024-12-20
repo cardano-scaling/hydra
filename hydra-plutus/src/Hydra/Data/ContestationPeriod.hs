@@ -21,14 +21,6 @@ PlutusTx.unstableMakeIsData ''ContestationPeriod
 instance Arbitrary ContestationPeriod where
   arbitrary = fromInteger <$> arbitrary
 
-instance FromJSON ContestationPeriod where
-  parseJSON =
-    fmap (UnsafeContestationPeriod . fromInteger) . parseJSON
-
-instance ToJSON ContestationPeriod where
-  toJSON =
-    toJSON . toInteger . milliseconds
-
 contestationPeriodFromDiffTime :: NominalDiffTime -> ContestationPeriod
 contestationPeriodFromDiffTime = UnsafeContestationPeriod . truncate . (* 1000) . nominalDiffTimeToSeconds
 
