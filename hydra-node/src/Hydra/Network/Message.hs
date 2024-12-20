@@ -53,9 +53,6 @@ data HydraHandshakeRefused = HydraHandshakeRefused
   }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary HydraHandshakeRefused where
-  arbitrary = genericArbitrary
-
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}
