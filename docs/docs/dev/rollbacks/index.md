@@ -43,4 +43,4 @@ The consequences of a rollback on the head's state vary depending on when the ro
 🛠 Hydra currently handles rollbacks gracefully in simpler cases, such as scenario 1 above. However, in cases where a `CollectCom` transaction rollback occurs, which can easily lead to a head becoming stale due to desynchronization among nodes (where one node resets its state before the rollback and loses track of subsequent events during the head's open phase), the head will need to be closed.
 :::
 
-Rollback handling has been partially deactivated in Hydra per [ADR-23](https://github.com/input-output-hk/hydra/blob/master/docs/adr/2023-04-26_023-single-state.md). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/input-output-hk/hydra/issues/185).
+Rollback handling has been partially deactivated in Hydra per [ADR-23](https://github.com/cardano-scaling/hydra/blob/master/docs/adr/2023-04-26_023-single-state.md). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/cardano-scaling/hydra/issues/185).

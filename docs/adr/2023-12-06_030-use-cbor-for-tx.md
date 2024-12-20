@@ -12,7 +12,7 @@ Accepted
 
 ## Context
 
-* The [Hydra.Ledger.Cardano](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano.hs#L127) module provides `ToJSON/FromJSON` instances for `Tx` and [AlonzoTx](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L361)
+* The [Hydra.Ledger.Cardano](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano.hs#L127) module provides `ToJSON/FromJSON` instances for `Tx` and [AlonzoTx](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L361)
   * We have specified this format as part of [Hydra API](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/json-schemas/api.yaml#L1473)
 * These instances appear in a few places as part of Hydra API:
   * In the [ServerOutput](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/ServerOutput.hs#L51) sent by the node to clients
@@ -22,7 +22,7 @@ Accepted
   * In the [Network.Message](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Network/Message.hs#L20) exchanged between the nodes
   * In the [ClientInput](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/ClientInput.hs#L9) from clients submitting `NewTx` commands
   * In the [HTTPServer](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/API/HTTPServer.hs#L297) API
-* Note that in the latter 2 cases, the hydra-node _accepts_ a hex-CBOR-encoded _JSON string_ to represent a transaction and this particular case is handled directly in the [FromJSON](https://github.com/input-output-hk/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L388) instance for transactions where 3 different representations are even accepted:
+* Note that in the latter 2 cases, the hydra-node _accepts_ a hex-CBOR-encoded _JSON string_ to represent a transaction and this particular case is handled directly in the [FromJSON](https://github.com/cardano-scaling/hydra/blob/b2dc5a0da4988631bd2c1e94b66ba6217d5db595/hydra-node/src/Hydra/Ledger/Cardano/Json.hs#L388) instance for transactions where 3 different representations are even accepted:
   * JSON object detailing the transaction
   * A JSON string representing CBOR-encoding of a transaction
   * Or a `TextEnvelope` which wraps the CBOR transaction in a simple JSON object
