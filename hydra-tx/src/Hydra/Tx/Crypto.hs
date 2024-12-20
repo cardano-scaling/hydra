@@ -278,7 +278,6 @@ data Verified
   | FailedKeys {failedKeys :: [VerificationKey HydraKey]}
   | KeyNumberMismatch
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 -- | Verify a given 'MultiSignature a' and value 'a' provided a list of
 -- 'VerificationKey'.

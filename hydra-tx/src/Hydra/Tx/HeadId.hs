@@ -21,7 +21,6 @@ import Test.QuickCheck.Instances.Time ()
 newtype HeadId = UnsafeHeadId ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
-  deriving newtype (FromCBOR, ToCBOR)
 
 instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (UnsafeHeadId bytes) = bytes
