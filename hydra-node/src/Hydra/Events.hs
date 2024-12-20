@@ -24,9 +24,6 @@ type EventId = Word64
 class HasEventId a where
   getEventId :: a -> EventId
 
-instance HasEventId (EventId, a) where
-  getEventId = fst
-
 newtype EventSource e m = EventSource
   { getEvents :: HasEventId e => m [e]
   -- ^ Retrieve all events from the event source.
