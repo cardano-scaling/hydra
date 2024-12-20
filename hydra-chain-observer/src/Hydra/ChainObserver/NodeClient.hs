@@ -36,9 +36,6 @@ data ChainObservation
       }
   deriving stock (Eq, Show, Generic)
 
-instance Arbitrary ChainObservation where
-  arbitrary = genericArbitrary
-
 defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
 
