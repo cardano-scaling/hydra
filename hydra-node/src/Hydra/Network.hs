@@ -47,9 +47,6 @@ newtype Network m msg = Network
   -- ^ Send a `msg` to the whole configured hydra network including ourselves.
   }
 
-instance Contravariant (Network m) where
-  contramap f (Network bcast) = Network $ \msg -> bcast (f msg)
-
 -- | Interface from network layer to the application.
 -- XXX: Reliably delivering a message in the crash-recovery fault model is
 -- tricky. According to "Introduction to Reliable and Secure Distributed
