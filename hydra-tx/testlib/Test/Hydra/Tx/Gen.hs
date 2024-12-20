@@ -23,11 +23,8 @@ import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (OpenThreadOutput)
-import Hydra.Tx.Contest (ClosedThreadOutput)
 import Hydra.Tx.Crypto (Hash (..))
-import Hydra.Tx.Deposit (DepositObservation)
 import Hydra.Tx.Party (Party (..))
-import Hydra.Tx.Recover (RecoverObservation)
 import PlutusTx.Builtins (fromBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture qualified as Fixtures
@@ -263,16 +260,6 @@ genScriptRegistry = do
 instance Arbitrary OpenThreadOutput where
   arbitrary = genericArbitrary
   shrink = genericShrink
-
-instance Arbitrary ClosedThreadOutput where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary DepositObservation where
-  arbitrary = genericArbitrary
-
-instance Arbitrary RecoverObservation where
-  arbitrary = genericArbitrary
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
