@@ -16,7 +16,7 @@ Although we try to contain the use of IO at the outskirt of the Hydra node using
 
 Testing asynchronous and concurrent code is notoriously painful
 
-The ouroboros consensus test suite and [hydra-sim](https://github.com/input-output-hk/hydra-sim) simulation have demonstrated the effectiveness of abstracting concurrent primitives through the use of typeclasses (MTL-style pattern) and being able to run these as pure code, harvesting and analysing produced execution traces.
+The ouroboros consensus test suite and [hydra-sim](https://github.com/cardano-scaling/hydra-sim) simulation have demonstrated the effectiveness of abstracting concurrent primitives through the use of typeclasses (MTL-style pattern) and being able to run these as pure code, harvesting and analysing produced execution traces.
 
 There are other such libraries, e.g. [concurrency](https://hackage.haskell.org/package/concurrency) and [dejafu](https://hackage.haskell.org/package/dejafu), as well as the venerable [exceptions](https://hackage.haskell.org/package/exceptions) (for abstracting exception throwing).
 
