@@ -44,7 +44,6 @@ data OpenThreadOutput = OpenThreadOutput
   , openParties :: [OnChain.Party]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
