@@ -18,19 +18,19 @@ data Options = Options
   , scenario :: Scenario
   }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 data PublishOrReuse = Publish | Reuse [TxId]
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 data UseMithril = NotUseMithril | UseMithril
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 data Scenario = Idle | RespendUTxO
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 parseOptions :: Parser Options
 parseOptions =
