@@ -456,7 +456,6 @@ data TinyWalletLog
   deriving stock (Eq, Generic, Show)
 
 deriving anyclass instance ToJSON TinyWalletLog
-deriving anyclass instance FromJSON TinyWalletLog
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary

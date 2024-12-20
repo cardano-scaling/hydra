@@ -198,8 +198,6 @@ awaitTransaction networkId socket tx =
 data QueryPoint = QueryTip | QueryAt ChainPoint
   deriving stock (Eq, Show, Generic)
 
-deriving anyclass instance ToJSON QueryPoint
-
 instance Arbitrary QueryPoint where
   -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have
   -- not bothered about it yet.

@@ -460,7 +460,7 @@ data DirectChainLog
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary DirectChainLog where
   arbitrary = genericArbitrary
