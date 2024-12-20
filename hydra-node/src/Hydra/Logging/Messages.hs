@@ -30,7 +30,6 @@ data HydraLog tx net
 deriving stock instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)
 deriving stock instance (Show net, Show (HydraNodeLog tx)) => Show (HydraLog tx net)
 deriving anyclass instance (ToJSON net, ToJSON (HydraNodeLog tx)) => ToJSON (HydraLog tx net)
-deriving anyclass instance (FromJSON net, FromJSON (HydraNodeLog tx)) => FromJSON (HydraLog tx net)
 
 instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => Arbitrary (HydraLog tx net) where
   arbitrary = genericArbitrary

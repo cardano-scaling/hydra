@@ -27,7 +27,7 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Exception (IOException)
-import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.Map.Strict as Map
@@ -371,12 +371,6 @@ instance ToJSON trace => ToJSON (WithHost trace) where
       [ "host" .= h
       , "data" .= tr
       ]
-
-instance FromJSON trace => FromJSON (WithHost trace) where
-  parseJSON = withObject "WithHost" $ \obj ->
-    WithHost
-      <$> (obj .: "host")
-      <*> (obj .: "data")
 
 data TraceOuroborosNetwork msg
   = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))

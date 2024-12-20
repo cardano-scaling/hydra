@@ -122,7 +122,7 @@ data ReliableMsg msg = ReliableMsg
   , payload :: msg
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance ToCBOR msg => ToCBOR (ReliableMsg msg) where
   toCBOR ReliableMsg{knownMessageIds, payload} = toCBOR knownMessageIds <> toCBOR payload
@@ -156,7 +156,7 @@ data ReliabilityLog
       , numberOfParties :: Int
       }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary ReliabilityLog where
   arbitrary = genericArbitrary
