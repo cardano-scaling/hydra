@@ -21,4 +21,12 @@ root-instances = [ { class = '\.Eq$' }
                  , { class = '\.Num$' }
                  , { class = '\.Real$' }
                  , { class = '\.Integral$' }
+                 , { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" }
+                 , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" }
+                 , { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" }
+                 , { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" }
+                 , { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" }
+                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
+                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
+                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" }
                  ]
