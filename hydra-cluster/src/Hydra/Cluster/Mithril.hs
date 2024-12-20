@@ -17,7 +17,7 @@ data MithrilLog
   | -- | Output captured directly from mithril-client stderr.
     StdErr {output :: Value}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 -- | Downloads and unpacks latest snapshot for given network in db/ of given
 -- directory.
