@@ -10,6 +10,8 @@ changes.
 
 ## [0.20.0] - UNRELEASED
 
+- Bump docusaurus version
+
 - **IMPORTANT - Do not release this version**
    - Incremental commits - off-chain changes to make the incremental commits possible.
      Important to note is that on-chain security is not implemented and hydra-node in this
