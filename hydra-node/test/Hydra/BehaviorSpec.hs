@@ -23,7 +23,7 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
-import Hydra.Cardano.Api (ChainPoint (..), SigningKey, SlotNo (SlotNo), Tx)
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -33,7 +33,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (
   Effect (..),
@@ -994,15 +993,6 @@ class IsChainState a => IsChainStateTest a where
 
 instance IsChainStateTest SimpleTx where
   advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
-
-instance IsChainStateTest Tx where
-  advanceSlot cs@ChainStateAt{recordedAt} =
-    let newChainPoint = case recordedAt of
-          Just (ChainPoint (SlotNo slotNo) bh) ->
-            ChainPoint (SlotNo slotNo + 1) bh
-          _NothingOrGenesis ->
-            ChainPoint (SlotNo 1) (error "should not use block header hash in tests")
-     in cs{recordedAt = Just newChainPoint}
 
 -- | Creates a simulated chain and network to which 'HydraNode's can be
 -- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
