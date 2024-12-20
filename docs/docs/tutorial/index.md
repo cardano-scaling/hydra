@@ -27,7 +27,7 @@ This tutorial assumes the following tools are available on your system:
 After ensuring the tools above are available, begin by downloading pre-built binaries of the involved Cardano software components and placing them in a `bin/` directory:
 
 :::tip
-Older versions of `jq` (<= 1.6) have a bug where they do not successfully
+Older versions of `jq` (`<= 1.6`) have a bug where they do not successfully
 round-trip large integers, [which can cause
 issues](https://github.com/cardano-scaling/hydra/issues/1679) you can verify
 that you have a good version of jq with this command:
