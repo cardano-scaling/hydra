@@ -459,8 +459,6 @@ mkTopology peers =
 data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving stock (Show)
 
-instance Exception ProcessHasExited
-
 -- | Cardano-cli wrapper to query protocol parameters. While we have also client
 -- functions in Hydra.Chain.CardanoClient and Hydra.Cluster.CardanoClient,
 -- sometimes we deliberately want to use the cardano-cli to ensure
