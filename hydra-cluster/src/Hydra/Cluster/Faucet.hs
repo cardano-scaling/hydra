@@ -21,7 +21,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
@@ -150,15 +149,8 @@ createOutputAtAddress ::
 createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
   utxo <- findFaucetUTxO node 0
-  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   let collateralTxIns = mempty
-  let output =
-        mkTxOutAutoBalance
-          pparams
-          atAddress
-          val
-          datum
-          ReferenceScriptNone
+  let output = TxOut atAddress val datum ReferenceScriptNone
   buildTransaction
     networkId
     nodeSocket
@@ -205,7 +197,7 @@ retryOnExceptions tracer action =
 --
 -- The key of the given Actor is used to pay for fees in required transactions,
 -- it is expected to have sufficient funds.
-publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
+publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk

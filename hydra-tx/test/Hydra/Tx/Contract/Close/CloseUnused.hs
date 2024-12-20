@@ -33,7 +33,9 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -53,8 +55,8 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
-  replaceDeltaUTxOHash,
   replaceHeadId,
+  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
@@ -82,11 +84,17 @@ healthyCloseCurrentTx =
       somePartyCardanoVerificationKey
       (mkHeadId Fixture.testPolicyId)
       healthyCurrentSnapshotVersion
-      (healthyConfirmedSnapshot healthyCurrentSnapshot)
+      closeUnusedSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
+      incrementalAction
 
+  closeUnusedSnapshot = healthyConfirmedSnapshot healthyCurrentSnapshot
+
+  incrementalAction =
+    fromMaybe NoThing $
+      setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUnusedSnapshot) (utxoToDecommit $ getSnapshot closeUnusedSnapshot)
   datum = toUTxOContext $ mkTxOutDatumInline healthyCurrentOpenDatum
 
   lookupUTxO =
@@ -212,7 +220,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature}
+        pure $ Head.Close Head.CloseUnusedDec{signature}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -277,7 +285,7 @@ genCloseCurrentMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          Head.CloseUnused
+                          Head.CloseUnusedDec
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
                             }
                       )
@@ -296,7 +304,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
-        pure $ headTxOut & modifyInlineDatum (replaceDeltaUTxOHash mutatedHash)
+        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
     ]
  where
   genOversizedTransactionValidity = do

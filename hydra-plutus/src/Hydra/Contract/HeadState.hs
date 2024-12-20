@@ -52,7 +52,9 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: s
   , utxoHash :: Hash
   -- ^ Spec: η. Digest of snapshotted UTxO
-  , deltaUTxOHash :: Hash
+  -- | TODO: add alphaUTxOHash to the spec
+  , alphaUTxOHash :: Hash
+  , omegaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
   -- ^ Spec: C
@@ -81,17 +83,34 @@ PlutusTx.unstableMakeIsData ''State
 data CloseRedeemer
   = -- | Intial snapshot is used to close.
     CloseInitial
+  | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
+    CloseAny
+      {signature :: [Signature]}
   | -- | Closing snapshot refers to the current state version
-    CloseUnused
+    CloseUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       }
   | -- | Closing snapshot refers to the previous state version
-    CloseUsed
+    CloseUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
+      }
+  | -- | Closing snapshot refers to the current state version
+    CloseUnusedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was signed but not committed ηα
+      }
+  | -- | Closing snapshot refers to the previous state version
+    CloseUsedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was already committed ηα
       }
   deriving stock (Show, Generic)
 
@@ -105,19 +124,38 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       }
   | -- | Contesting snapshot refers to the previous state version
-    ContestOutdated
+    ContestUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
+      }
+  | -- | Redeemer to use when the decommit was not yet observed but we closed the Head.
+    ContestUnusedDec
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      }
+  | -- | Redeemer to use when the commit was not yet observed but we closed the Head.
+    ContestUnusedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
+      , alreadyCommittedUTxOHash :: Hash
+      -- ^ UTxO which was already committed ηα
+      }
+  | ContestUsedInc
+      { signature :: [Signature]
+      -- ^ Multi-signature of a snapshot ξ
       }
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''ContestRedeemer
 
 -- | Sub-type for increment transition
--- TODO: add more fields as needed.
 data IncrementRedeemer = IncrementRedeemer
+  { signature :: [Signature]
+  , snapshotNumber :: SnapshotNumber
+  , increment :: TxOutRef
+  }
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''IncrementRedeemer
@@ -144,7 +182,8 @@ data Input
   | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
-      -- ^ Spec: m
+      , -- TODO: add this to the spec
+        numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
       -- ^ Spec: n
       }

@@ -1,6 +1,9 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Hydra.Cluster.Options where
 
 import Data.ByteString.Char8 qualified as BSC
+import Data.List qualified as List
 import Hydra.Cardano.Api (AsType (AsTxId), TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Prelude
@@ -17,7 +20,7 @@ data Options = Options
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data PublishOrReuse = Publish | Reuse TxId
+data PublishOrReuse = Publish | Reuse [TxId]
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -73,13 +76,17 @@ parseOptions =
           <> help "Publish hydra scripts before running the scenario."
       )
       <|> option
-        (eitherReader $ bimap show Reuse . deserialiseFromRawBytesHex AsTxId . BSC.pack)
+        (eitherReader $ bimap show Reuse . parseTxIds)
         ( long "hydra-scripts-tx-id"
             <> metavar "TXID"
             <> help
               "Use the hydra scripts already published in given transaction id. \
               \See --publish-hydra-scripts or hydra-node publish-scripts"
         )
+   where
+    parseTxIds str =
+      let parsed = fmap (deserialiseFromRawBytesHex AsTxId . BSC.pack) (List.lines str)
+       in if null (lefts parsed) then Right (rights parsed) else Left ("Invalid TxId" :: String)
 
   parseUseMithril =
     flag
