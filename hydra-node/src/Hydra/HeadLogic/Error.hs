@@ -24,8 +24,6 @@ data LogicError tx
   | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
   deriving stock (Generic)
 
-instance (Typeable tx, Show (Input tx), Show (HeadState tx), Show (RequirementFailure tx)) => Exception (LogicError tx)
-
 instance (Arbitrary (Input tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink
