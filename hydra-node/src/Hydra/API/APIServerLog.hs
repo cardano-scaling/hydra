@@ -20,7 +20,7 @@ data APIServerLog
       , path :: PathInfo
       }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary APIServerLog where
   arbitrary =
@@ -50,10 +50,6 @@ instance ToJSON PathInfo where
   toJSON (PathInfo bytes) =
     Aeson.String $ decodeUtf8 bytes
 
-instance FromJSON PathInfo where
-  parseJSON = Aeson.withText "PathInfo" $ \t ->
-    pure . PathInfo $ encodeUtf8 t
-
 -- | New type wrapper to define JSON instances.
 --
 -- NOTE: We are not using http-types 'StdMethod' as we do not want to be
@@ -67,7 +63,3 @@ instance Arbitrary Method where
 instance ToJSON Method where
   toJSON (Method bytes) =
     Aeson.String $ decodeUtf8 bytes
-
-instance FromJSON Method where
-  parseJSON = Aeson.withText "Method" $ \t ->
-    pure . Method $ encodeUtf8 t

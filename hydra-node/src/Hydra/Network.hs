@@ -78,12 +78,6 @@ instance FromJSON PortNumber where
 instance Arbitrary PortNumber where
   arbitrary = fromIntegral @Word16 <$> arbitrary
 
-instance ToCBOR PortNumber where
-  toCBOR = toCBOR . toInteger
-
-instance FromCBOR PortNumber where
-  fromCBOR = fmap fromInteger fromCBOR
-
 newtype NodeId = NodeId {nodeId :: Text}
   deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
 
@@ -121,19 +115,6 @@ instance Arbitrary Host where
   arbitrary = do
     ip <- toIPv4w <$> arbitrary
     Host (toText $ show ip) <$> arbitrary
-
-instance ToCBOR Host where
-  toCBOR Host{hostname, port} =
-    mconcat
-      [ toCBOR hostname
-      , toCBOR port
-      ]
-
-instance FromCBOR Host where
-  fromCBOR =
-    Host
-      <$> fromCBOR
-      <*> (fromInteger <$> fromCBOR)
 
 showHost :: Host -> String
 showHost Host{hostname, port} =

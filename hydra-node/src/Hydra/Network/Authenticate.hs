@@ -27,14 +27,13 @@ data Signed msg = Signed
   , party :: Party
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 data Authenticated msg = Authenticated
   { payload :: msg
   , party :: Party
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance (Arbitrary msg, SignableRepresentation msg) => Arbitrary (Signed msg) where
   arbitrary = genericArbitrary

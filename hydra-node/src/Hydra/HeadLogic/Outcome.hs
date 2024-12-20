@@ -46,7 +46,6 @@ data Effect tx
 deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
-deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
@@ -151,7 +150,6 @@ instance Semigroup (Outcome tx) where
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
-deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
@@ -187,7 +185,6 @@ data WaitReason tx
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
-deriving anyclass instance IsTx tx => FromJSON (WaitReason tx)
 
 instance ArbitraryIsTx tx => Arbitrary (WaitReason tx) where
   arbitrary = genericArbitrary

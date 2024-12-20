@@ -22,7 +22,7 @@ data NetworkEvent msg
   = ConnectivityEvent Connectivity
   | ReceivedMessage {sender :: Party, msg :: msg}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
   arbitrary = genericArbitrary
@@ -30,7 +30,7 @@ instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
 type HydraVersionedProtocolNumber :: Type
 newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Natural}
   deriving stock (Eq, Show, Generic, Ord)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary HydraVersionedProtocolNumber where
   arbitrary = genericArbitrary
@@ -40,7 +40,7 @@ data KnownHydraVersions
   = KnownHydraVersions {fromKnownHydraVersions :: [HydraVersionedProtocolNumber]}
   | NoKnownHydraVersions
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary KnownHydraVersions where
   arbitrary = genericArbitrary
@@ -52,7 +52,6 @@ data HydraHandshakeRefused = HydraHandshakeRefused
   , theirVersions :: KnownHydraVersions
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary HydraHandshakeRefused where
   arbitrary = genericArbitrary
@@ -66,7 +65,7 @@ data Connectivity
       , theirVersions :: KnownHydraVersions
       }
   deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
