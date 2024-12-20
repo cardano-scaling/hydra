@@ -1,6 +1,6 @@
 ---
 sidebar_label: 'Topologies'
-sidebar_position: 2
+sidebar_position: 1
 ---
 
 # Topologies
@@ -9,3 +9,9 @@ The Hydra Head protocol is a well-defined layer 2 consensus protocol, as detaile
 
 As the community grows and more users develop solutions on top of Hydra, the 'catalog' of topologies will expand. This expansion aims to assist newcomers in discovering and constructing the deployment model that best fits their use case.
 
+```mdx-code-block
+import DocCardList from '@theme/DocCardList';
+import { useDocsSidebar } from '@docusaurus/plugin-content-docs/client';
+
+<DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
+```
