@@ -129,7 +129,7 @@ data EndToEndLog
   | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
   | CreatedKey {keyPath :: FilePath}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do

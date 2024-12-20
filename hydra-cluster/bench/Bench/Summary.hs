@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Bench.Summary where
@@ -29,7 +28,6 @@ data Summary = Summary
   , quantiles :: Vector Double
   }
   deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
 
 errorSummary :: Dataset -> HUnitFailure -> Summary
 errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason) =

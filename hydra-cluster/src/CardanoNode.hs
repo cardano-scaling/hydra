@@ -50,12 +50,12 @@ data NodeLog
   | MsgSynchronizing {percentDone :: Centi}
   | MsgQueryGenesisParametersFailed {err :: Text}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 type Port = Int
 
 newtype NodeId = NodeId Int
-  deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, Num)
 
 -- | Configuration parameters for a single node devnet
 data DevnetConfig = DevnetConfig
@@ -67,7 +67,6 @@ data DevnetConfig = DevnetConfig
   -- ^ A list of port
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
@@ -115,7 +114,6 @@ data PortsConfig = PortsConfig
   -- ^ Other peers TCP ports.
   }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =
