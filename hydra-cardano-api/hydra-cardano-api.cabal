@@ -71,7 +71,6 @@ library
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.ValidityInterval
     Hydra.Cardano.Api.Value
-    Hydra.Cardano.Api.VerificationKey
     Hydra.Cardano.Api.Witness
 
   -- NOTE: We only use an upper bound on cardano-api and have the other
@@ -79,7 +78,6 @@ library
   build-depends:
     , aeson                   >=2
     , base                    >=4.16
-    , base16-bytestring
     , bytestring
     , cardano-api             ^>=10.1
     , cardano-binary
@@ -97,5 +95,4 @@ library
     , lens
     , plutus-ledger-api
     , QuickCheck
-    , serialise
     , text                    >=2

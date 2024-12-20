@@ -43,9 +43,6 @@ newtype UTxO' out = UTxO
     , FromJSON
     )
 
-instance Traversable UTxO' where
-  traverse fn (UTxO m) = UTxO <$> traverse fn m
-
 -- | Create a 'UTxO' from a list of 'TxIn' and 'out' pairs.
 fromPairs :: [(TxIn, out)] -> UTxO' out
 fromPairs = UTxO . Map.fromList

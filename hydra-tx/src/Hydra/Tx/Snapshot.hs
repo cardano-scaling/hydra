@@ -113,27 +113,6 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               (Just utxo) -> pure utxo
           )
 
-instance (Typeable tx, ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
-    toCBOR headId
-      <> toCBOR version
-      <> toCBOR number
-      <> toCBOR confirmed
-      <> toCBOR utxo
-      <> toCBOR utxoToCommit
-      <> toCBOR utxoToDecommit
-
-instance (Typeable tx, FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
-  fromCBOR =
-    Snapshot
-      <$> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 

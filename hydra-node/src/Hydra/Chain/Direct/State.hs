@@ -194,11 +194,6 @@ data ChainState
   | Open OpenState
   | Closed ClosedState
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ChainState where
-  arbitrary = genChainState
-  shrink = genericShrink
 
 instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
@@ -225,7 +220,6 @@ data ChainContext = ChainContext
   , scriptRegistry :: ScriptRegistry
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
@@ -253,14 +247,6 @@ data InitialState = InitialState
   , seedTxIn :: TxIn
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary InitialState where
-  arbitrary = do
-    ctx <- genHydraContext maxGenParties
-    snd <$> genStInitial ctx
-
-  shrink = genericShrink
 
 instance HasKnownUTxO InitialState where
   getKnownUTxO st =
@@ -281,7 +267,6 @@ data OpenState = OpenState
   , openUtxoHash :: UTxOHash
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary OpenState where
   arbitrary = do
@@ -304,15 +289,6 @@ data ClosedState = ClosedState
   , seedTxIn :: TxIn
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ClosedState where
-  arbitrary = do
-    -- XXX: Untangle the whole generator mess here
-    (_, st, _, _) <- genFanoutTx maxGenParties maxGenAssets
-    pure st
-
-  shrink = genericShrink
 
 instance HasKnownUTxO ClosedState where
   getKnownUTxO st =
@@ -920,20 +896,6 @@ observeClose st tx = do
 -- | Maximum number of parties used in the generators.
 maxGenParties :: Int
 maxGenParties = 3
-
--- | Maximum number of assets (ADA or other tokens) used in the generators.
-maxGenAssets :: Int
-maxGenAssets = 70
-
--- | Generate a 'ChainState' within known limits above.
-genChainState :: Gen ChainState
-genChainState =
-  oneof
-    [ pure Idle
-    , Initial <$> arbitrary
-    , Open <$> arbitrary
-    , Closed <$> arbitrary
-    ]
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.

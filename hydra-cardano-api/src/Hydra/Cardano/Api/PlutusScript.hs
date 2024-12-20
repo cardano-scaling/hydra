@@ -17,16 +17,6 @@ fromPlutusScript =
 
 -- * Orphans
 
-instance IsPlutusScriptLanguage lang => ToJSON (PlutusScript lang) where
-  toJSON = toJSON . serialiseToTextEnvelope Nothing
-
-instance IsPlutusScriptLanguage lang => FromJSON (PlutusScript lang) where
-  parseJSON v = do
-    env <- parseJSON v
-    case deserialiseFromTextEnvelope (proxyToAsType Proxy) env of
-      Left e -> fail $ show e
-      Right a -> pure a
-
 instance Arbitrary (PlutusScript lang) where
   arbitrary =
     PlutusScriptSerialised . SBS.pack <$> listOf arbitrary

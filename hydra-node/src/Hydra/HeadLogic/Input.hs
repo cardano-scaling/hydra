@@ -30,7 +30,6 @@ data Input tx
 deriving stock instance IsChainState tx => Eq (Input tx)
 deriving stock instance IsChainState tx => Show (Input tx)
 deriving anyclass instance IsChainState tx => ToJSON (Input tx)
-deriving anyclass instance IsChainState tx => FromJSON (Input tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Input tx) where
   arbitrary = genericArbitrary
