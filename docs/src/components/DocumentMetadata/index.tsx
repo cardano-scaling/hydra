@@ -58,7 +58,7 @@ export default function DocumentMetadata({ }: Props): JSX.Element {
   const isBrowser = useIsBrowser()
 
   if (!isBrowser) {
-    return <></>
+    return null;
   }
 
   const baseUrl = context.siteConfig.baseUrl
