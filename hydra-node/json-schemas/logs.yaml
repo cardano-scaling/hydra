@@ -1389,6 +1389,25 @@ definitions:
             $ref: "api.yaml#/components/schemas/UTxO"
           recoveredTxId:
             type: string
+      - title: "CommitIgnored"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+        properties:
+          tag:
+            type: string
+            enum: ["CommitIgnored"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          depositUTxO:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/UTxO"
+          snapshotUTxO:
+            oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
       - title: "DecommitRecorded"
         additionalProperties: false
         required:
@@ -2590,7 +2609,9 @@ definitions:
           nodeSocket:
             type: string
           hydraScriptsTxId:
-            $ref: "api.yaml#/components/schemas/TxId"
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
           cardanoSigningKey:
             type: string
           cardanoVerificationKeys:

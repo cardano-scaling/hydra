@@ -428,6 +428,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u -> do
+                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
                 -- Spec: ŝ ← ̅S.s + 1
                 -- NOTE: confSn == seenSn == sn here
                 let nextSnapshot =
@@ -436,7 +437,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                         , version = version
                         , number = sn
                         , confirmed = requestedTxs
-                        , utxo = u
+                        , utxo = snapshotUTxO
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         }
@@ -492,6 +493,8 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
     case mIncrementUTxO of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just utxo ->
+        -- NOTE: this makes the commits sequential in a sense that you can't
+        -- commit unless the previous commit is settled.
         if sv == confVersion && isJust confUTxOToCommit
           then
             if confUTxOToCommit == Just utxo
@@ -572,7 +575,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{initialUTxO} -> initialUTxO
-    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
+    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
@@ -702,7 +705,17 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
                       }
                 }
             ]
-      _ -> outcome -- TODO: output some error here?
+      _ ->
+        cause
+          ( ClientEffect $
+              ServerOutput.CommitIgnored
+                { headId
+                , depositUTxO = Map.elems pendingDeposits
+                , snapshotUTxO = utxoToCommit
+                }
+          )
+          <> outcome
+
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
     case (decommitTx, utxoToDecommit) of
       (Just tx, Just utxo) ->
@@ -1194,7 +1207,6 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
-  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -1203,16 +1215,21 @@ onClosedClientFanout closedState =
       { postChainTx =
           FanoutTx
             { utxo
+            , utxoToCommit =
+                -- NOTE: note that logic is flipped in the commit and decommit case here.
+                if toInteger snapshotVersion == max (toInteger version - 1) 0
+                  then utxoToCommit
+                  else Nothing
             , utxoToDecommit =
                 if toInteger snapshotVersion == max (toInteger version - 1) 0
-                  then mempty
+                  then Nothing
                   else utxoToDecommit
             , headSeed
             , contestationDeadline
             }
       }
  where
-  Snapshot{utxo, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version} = closedState
 
@@ -1221,15 +1238,16 @@ onClosedClientFanout closedState =
 --
 -- __Transition__: 'ClosedState' → 'IdleState'
 onClosedChainFanoutTx ::
+  IsTx tx =>
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
   newState HeadFannedOut{chainState = newChainState}
-    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo})
+    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit})
  where
-  Snapshot{utxo} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
   ClosedState{confirmedSnapshot, headId} = closedState
 
@@ -1286,7 +1304,8 @@ update env ledger st ev = case (st, ev) of
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
-    cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" $ getSnapshot confirmedSnapshot)
+    let snapshot' = getSnapshot confirmedSnapshot
+     in cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1596,16 +1615,19 @@ aggregate st = \case
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { coordinatedHeadState =
-                  coordinatedHeadState
-                    { pendingDeposits = Map.delete depositTxId existingDeposits
-                    , version = newVersion
-                    }
-              }
+          let newLocalUTxO = fromMaybe mempty (Map.lookup depositTxId existingDeposits)
+              pendingDeposits = Map.delete depositTxId existingDeposits
+           in Open
+                os
+                  { coordinatedHeadState =
+                      coordinatedHeadState
+                        { pendingDeposits
+                        , version = newVersion
+                        , localUTxO = localUTxO <> newLocalUTxO
+                        }
+                  }
          where
-          CoordinatedHeadState{pendingDeposits = existingDeposits} = coordinatedHeadState
+          CoordinatedHeadState{pendingDeposits = existingDeposits, localUTxO} = coordinatedHeadState
       _otherState -> st
   DecommitFinalized{newVersion} ->
     case st of

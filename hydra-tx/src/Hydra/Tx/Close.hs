@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Hydra.Tx.Close where
@@ -35,7 +34,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Contest (PointInTime)
 import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (IncrementalAction (..), mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | Representation of the Head output after a CollectCom transaction.
@@ -66,8 +65,9 @@ closeTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
+  IncrementalAction ->
   Tx
-closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput =
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -100,15 +100,29 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   closeRedeemer =
     case confirmedSnapshot of
       InitialSnapshot{} -> Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version, utxoToDecommit}}
-        | version == openVersion ->
-            Head.CloseUnused{signature = toPlutusSignatures signatures}
-        | otherwise ->
-            -- NOTE: This will only work for version == openVersion - 1
-            Head.CloseUsed
-              { signature = toPlutusSignatures signatures
-              , alreadyDecommittedUTxOHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-              }
+      ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
+        case incrementalAction of
+          ToCommit utxo' ->
+            if version == openVersion
+              then
+                Head.CloseUnusedInc
+                  { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  }
+              else
+                Head.CloseUsedInc
+                  { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  }
+          ToDecommit utxo' ->
+            if version == openVersion
+              then Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+              else
+                Head.CloseUsedDec
+                  { signature = toPlutusSignatures signatures
+                  , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  }
+          NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -120,10 +134,15 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           { snapshotNumber =
               fromIntegral . number $ getSnapshot confirmedSnapshot
           , utxoHash =
-              toBuiltin . hashUTxO . utxo $ getSnapshot confirmedSnapshot
-          , deltaUTxOHash =
+              toBuiltin . hashUTxO $ utxo (getSnapshot confirmedSnapshot)
+          , alphaUTxOHash =
               case closeRedeemer of
-                Head.CloseUnused{} ->
+                Head.CloseUsedInc{} ->
+                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
+              case closeRedeemer of
+                Head.CloseUnusedDec{} ->
                   toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties

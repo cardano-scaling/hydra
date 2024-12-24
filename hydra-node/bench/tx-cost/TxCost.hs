@@ -31,6 +31,7 @@ import Hydra.Chain.Direct.State (
   genCommits',
   genDecrementTx,
   genHydraContextFor,
+  genIncrementTx,
   genInitTx,
   genStClosed,
   genStInitial,
@@ -63,6 +64,7 @@ import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Tx.Gen (genOutput, genUTxOAdaOnlyOfSize)
+import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
@@ -135,6 +137,21 @@ computeCollectComCost =
     let spendableUTxO = getKnownUTxO stInitialized
     pure (fold committedUTxOs, unsafeCollect cctx headId (ctxHeadParameters ctx) utxoToCollect spendableUTxO, getKnownUTxO stInitialized <> getKnownUTxO cctx)
 
+computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
+computeIncrementCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  pure $ interesting <> limit
+ where
+  compute numParties = do
+    (ctx, st, utxo', tx) <- genIncrementTx numParties
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
+    case checkSizeAndEvaluate tx utxo of
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
+      Nothing ->
+        pure Nothing
+
 computeDecrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeDecrementCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
@@ -183,7 +200,7 @@ computeContestCost = do
   genContestTx numParties = do
     ctx <- genHydraContextFor numParties
     utxo <- arbitrary
-    (closedSnapshotNumber, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty
+    (closedSnapshotNumber, _, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty mempty
     cctx <- pickChainContext ctx
     snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore (getContestationDeadline stClosed)
@@ -239,11 +256,15 @@ computeFanOutCost = do
         pure Nothing
 
   -- Generate a fanout with a defined number of outputs.
+  -- TODO: why are we not re-using the same functions from the Direct.State module?
   genFanoutTx numParties numOutputs = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo Nothing mempty [] -- We do not validate the signatures
+    utxoToCommit' <- oneof [arbitrary, pure Nothing]
+    utxoToDecommit' <- oneof [arbitrary, pure Nothing]
+    let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
@@ -251,7 +272,7 @@ computeFanOutCost = do
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength (getContestationDeadline stClosed)
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)

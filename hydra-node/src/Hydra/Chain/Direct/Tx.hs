@@ -26,7 +26,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -364,7 +364,8 @@ observeIncrementTx utxo tx = do
   (headInput, headOutput) <- findTxOutByScript @PlutusScriptV3 inputUTxO headScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript @PlutusScriptV3 utxo depositScript
   dat <- txOutScriptData $ toTxContext depositOutput
-  Deposit.DepositDatum _ <- fromScriptData dat
+  -- we need to be able to decode the datum, no need to use it tho
+  _ :: Deposit.DepositDatum <- fromScriptData dat
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ toTxContext headOutput
   datum <- fromScriptData oldHeadDatum
@@ -384,7 +385,7 @@ observeIncrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  depositScript = fromPlutusScript Deposit.validatorScript
+  depositScript = fromPlutusScript depositValidatorScript
   headScript = fromPlutusScript Head.validatorScript
 
 data DecrementObservation = DecrementObservation
