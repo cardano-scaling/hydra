@@ -84,7 +84,7 @@ users can request a recover by providing a `TxId` of the deposit transaction
 which initially locked the funds.
 
 ::::info
-Users can also request to see pending deposits. See our api [documentation](/api-reference/#operation-publish-/commits).
+Users can also request to see pending deposits. See our api [documentation](/api-reference).
 ::::
 
 Any Head participant can request to recover the deposit not only the one which initially deposited the funds.
