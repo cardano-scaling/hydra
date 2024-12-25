@@ -39,7 +39,7 @@ Here, isolate the transaction for `5` parties by altering the function to `maybe
 
 ## Compiling a script for profiling
 
-The `collectCom` transaction utilizes the `vCommit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Commit`](/haddock/hydra-plutus/Hydra-Contract-Commit.html) and [`Hydra.Contract.Head`](/haddock/hydra-plutus/Hydra-Contract-Head.html):
+The `collectCom` transaction utilizes the `vCommit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Commit`](pathname:///haddock/hydra-plutus/Hydra-Contract-Commit.html) and [`Hydra.Contract.Head`](pathname:///haddock/hydra-plutus/Hydra-Contract-Head.html):
 
 ```
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
@@ -48,7 +48,7 @@ The `collectCom` transaction utilizes the `vCommit` and `vHead` validator script
 ## Acquiring an executable script
 
 You can achieve this using
-[`prepareTxScripts`](/haddock/hydra-tx/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
+[`prepareTxScripts`](pathname:///haddock/hydra-tx/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
 To acquire and save the fully applied scripts from the transaction onto disk, run:
 
 ```haskell

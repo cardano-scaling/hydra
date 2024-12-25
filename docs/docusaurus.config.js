@@ -19,7 +19,7 @@ const config = {
   baseUrl: "/head-protocol/",
   // Note: This gives warnings about the haddocks; but actually they are
   // present. If you are concerned, please check the links manually!
-  onBrokenLinks: "warn",
+  onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/hydra.png",
   organizationName: "Input Output",
