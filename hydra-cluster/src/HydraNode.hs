@@ -348,6 +348,8 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
           protocolParameters
             & atKey "txFeeFixed" ?~ toJSON (Number 0)
             & atKey "txFeePerByte" ?~ toJSON (Number 0)
+            & atKey "stakeAddressDeposit" ?~ toJSON (Number 0)
+            & atKey "stakePoolDeposit" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
 

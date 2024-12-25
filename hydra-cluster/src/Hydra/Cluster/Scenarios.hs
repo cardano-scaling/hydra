@@ -1102,6 +1102,33 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
   RunningNode{networkId, nodeSocket, blockTime} = node
 
+withdrawZero :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+withdrawZero tracer workDir node hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer node Alice) $ do
+    refuelIfNeeded tracer node Alice 30_000_000
+    let contestationPeriod = UnsafeContestationPeriod 1
+    aliceChainConfig <-
+      chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      -- Initialize & open head
+      send n1 $ input "Init" []
+      headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      (walletVk, walletSk) <- generate genKeyPair
+      let headAmount = 8_000_000
+      let commitAmount = 5_000_000
+      headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+
+      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
+
+      waitFor hydraTracer 10 [n1] $
+        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+ where
+  hydraTracer = contramap FromHydraNode tracer
+  RunningNode{networkId, nodeSocket} = node
+
 -- * L2 scenarios
 
 -- | Finds UTxO owned by given key in the head and creates transactions

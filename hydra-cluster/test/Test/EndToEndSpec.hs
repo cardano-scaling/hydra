@@ -69,6 +69,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
+  withdrawZero,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
@@ -218,6 +219,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= persistenceCanLoadWithEmptyCommit tracer tmpDir node
+      it "withdraw zero" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= withdrawZero tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
       it "does not error when all nodes open the head concurrently" $ \tracer ->
