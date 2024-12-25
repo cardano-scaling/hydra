@@ -159,6 +159,8 @@ test-suite tests
     Hydra.Tx.Contract.CollectCom
     Hydra.Tx.Contract.Commit
     Hydra.Tx.Contract.Contest.ContestCurrent
+    Hydra.Tx.Contract.Contest.ContestDec
+    Hydra.Tx.Contract.Contest.Healthy
     Hydra.Tx.Contract.ContractSpec
     Hydra.Tx.Contract.Decrement
     Hydra.Tx.Contract.Deposit

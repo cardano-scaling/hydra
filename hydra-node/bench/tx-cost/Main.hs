@@ -36,6 +36,7 @@ import TxCost (
   computeContestCost,
   computeDecrementCost,
   computeFanOutCost,
+  computeIncrementCost,
   computeInitCost,
  )
 
@@ -93,6 +94,7 @@ writeTransactionCostMarkdown mseed hdl = do
   let initC = costOfInit seed
   let commitC = costOfCommit seed
   let collectComC = costOfCollectCom seed
+  let incrementC = costOfIncrement seed
   let decrementC = costOfDecrement seed
   let closeC = costOfClose seed
   let contestC = costOfContest seed
@@ -108,6 +110,7 @@ writeTransactionCostMarkdown mseed hdl = do
             [ initC
             , commitC
             , collectComC
+            , incrementC
             , decrementC
             , closeC
             , contestC
@@ -242,6 +245,32 @@ costOfCollectCom = markdownCollectComCost . genFromSeed computeCollectComCost
                 <> " | "
                 <> show utxoSize
                 <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfIncrement :: Int -> Text
+costOfIncrement = markdownIncrementCost . genFromSeed computeIncrementCost
+ where
+  markdownIncrementCost stats =
+    unlines $
+      [ "## Cost of Increment Transaction"
+      , ""
+      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| :------ | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show numParties
+                <> "| "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)

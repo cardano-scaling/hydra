@@ -113,16 +113,41 @@ handleHydraEventsActiveLink e = do
     Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
       utxoL .= utxo
       activeHeadStateL .= Final
-    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} ->
+    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} -> do
+      ActiveLink{utxo} <- get
       pendingUTxOToDecommitL .= utxoToDecommit
-    Update TimedServerOutput{time, output = DecommitFinalized{}} ->
+      utxoL .= UTxO.difference utxo utxoToDecommit
+    Update TimedServerOutput{time, output = DecommitFinalized{}} -> do
+      ActiveLink{utxo, pendingUTxOToDecommit} <- get
       pendingUTxOToDecommitL .= mempty
+      utxoL .= utxo
     Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
-      pendingIncrementL .= Just (PendingDeposit utxoToCommit pendingDeposit deadline)
-    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} -> do
-      pendingIncrementL .= Just (PendingIncrement utxoToCommit)
-    Update TimedServerOutput{time, output = CommitFinalized{}} -> do
-      pendingIncrementL .= Nothing
+      ActiveLink{utxo, pendingIncrements} <- get
+      pendingIncrementsL .= pendingIncrements <> [PendingIncrement utxoToCommit pendingDeposit deadline PendingDeposit]
+      utxoL .= utxo
+    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit = approvedUtxoToCommit}} -> do
+      ActiveLink{utxo, pendingIncrements} <- get
+      pendingIncrementsL
+        .= fmap
+          ( \inc@PendingIncrement{utxoToCommit = pendingUtxoToCommit, deposit, depositDeadline} ->
+              if hashUTxO pendingUtxoToCommit == hashUTxO approvedUtxoToCommit
+                then PendingIncrement pendingUtxoToCommit deposit depositDeadline FinalizingDeposit
+                else inc
+          )
+          pendingIncrements
+      utxoL .= utxo
+    Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} -> do
+      ActiveLink{utxo, pendingIncrements} <- get
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
+      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
+      let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
+      pendingIncrementsL .= activePendingIncrements
+      utxoL .= utxo <> activeUtxoToCommit
+    Update TimedServerOutput{time, output = CommitRecovered{recoveredUTxO, recoveredTxId}} -> do
+      ActiveLink{utxo, pendingIncrements} <- get
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= recoveredTxId) pendingIncrements
+      pendingIncrementsL .= activePendingIncrements
+      utxoL .= UTxO.difference utxo recoveredUTxO
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
@@ -147,14 +172,47 @@ handleHydraEventsInfo = \case
     report Success time "Transaction submitted successfully"
   Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
     warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
-  Update TimedServerOutput{time, output = DecommitApproved{}} ->
-    report Success time "Decommit approved and submitted to Cardano"
+  Update TimedServerOutput{time, output = DecommitApproved{decommitTxId, utxoToDecommit}} ->
+    report Success time $
+      "Decommit approved and submitted to Cardano "
+        <> show decommitTxId
+        <> " "
+        <> foldMap UTxO.render (UTxO.pairs utxoToDecommit)
+  Update TimedServerOutput{time, output = DecommitFinalized{decommitTxId}} ->
+    report Success time $
+      "Decommit finalized "
+        <> show decommitTxId
   Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
-    warn time ("Decommit Transaction with id " <> show (txId decommitTx) <> " is not applicable: " <> show decommitInvalidReason)
-  Update TimedServerOutput{time, output = CommitRecorded{}} ->
-    report Success time "Commit deposit recorded and pending for approval"
-  Update TimedServerOutput{time, output = CommitApproved{}} ->
-    report Success time "Commit approved and submitted to Cardano"
+    warn time $
+      "Decommit Transaction with id "
+        <> show (txId decommitTx)
+        <> " is not applicable: "
+        <> show decommitInvalidReason
+  Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit}} ->
+    report Success time $
+      "Commit deposit recorded with "
+        <> " deposit tx id "
+        <> show pendingDeposit
+        <> "and pending for approval "
+        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+  Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} ->
+    report Success time $
+      "Commit approved and submitted to Cardano "
+        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+  Update TimedServerOutput{time, output = CommitRecovered{recoveredTxId, recoveredUTxO}} ->
+    report Success time $
+      "Commit recovered "
+        <> show recoveredTxId
+        <> " "
+        <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
+  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
+    report Success time $
+      "Commit finalized "
+        <> show theDeposit
+  Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
+    warn time $
+      "Commit ignored. Local pending deposits "
+        <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO
   Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = InvalidInput{reason}} ->
@@ -189,12 +247,13 @@ handleVtyEventsHeadState cardanoClient hydraClient e = do
 handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
 handleVtyEventsActiveLink cardanoClient hydraClient e = do
   utxo <- use utxoL
-  zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo e
+  pendingIncrements <- use pendingIncrementsL
+  zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e
 
-handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> Vty.Event -> EventM Name ActiveHeadState ()
-handleVtyEventsActiveHeadState cardanoClient hydraClient utxo e = do
+handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
+handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e = do
   zoom (initializingStateL . initializingScreenL) $ handleVtyEventsInitializingScreen cardanoClient hydraClient e
-  zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo e
+  zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e
   s <- use id
   case s of
     FanoutPossible -> handleVtyEventsFanoutPossible hydraClient e
@@ -235,8 +294,8 @@ handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
         _ -> pure ()
       zoom confirmingAbortFormL $ handleFormEvent (VtyEvent e)
 
-handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> Vty.Event -> EventM Name OpenScreen ()
-handleVtyEventsOpen cardanoClient hydraClient utxo e =
+handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
+handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
   get >>= \case
     OpenHome -> do
       case e of
@@ -249,6 +308,9 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e =
         EvKey (KChar 'i') [] -> do
           utxo' <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
           put $ SelectingUTxOToIncrement (utxoRadioField $ UTxO.toMap utxo')
+        EvKey (KChar 'r') [] -> do
+          let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
+          put $ SelectingDepositIdToRecover (depositIdRadioField pendingDepositIds)
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -293,6 +355,14 @@ handleVtyEventsOpen cardanoClient hydraClient utxo e =
           liftIO $ externalCommit hydraClient commitUTxO
           put OpenHome
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
+    SelectingDepositIdToRecover i -> do
+      case e of
+        EvKey KEsc [] -> put OpenHome
+        EvKey KEnter [] -> do
+          let (selectedTxId, _, _) = formState i
+          liftIO $ recoverCommit hydraClient selectedTxId
+          put OpenHome
+        _ -> zoom selectingDepositIdToRecoverFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
       case e of
         EvKey KEsc [] -> put OpenHome

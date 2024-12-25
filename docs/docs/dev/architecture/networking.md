@@ -74,7 +74,7 @@ See also [this ADR](/adr/27) for a past discussion on making the network compone
 
 ### Current network stack
 
-See [haddocks](/haddock/hydra-node/Hydra-Node-Network.html)
+See [haddocks](pathname:///haddock/hydra-node/Hydra-Node-Network.html)
 
 - Hydra nodes form a network of pairwise connected *peers* using point-to-point (eg, TCP) connections that are expected to remain active at all times:
   - Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which manages connections with peers via a reliable point-to-point stream-based communication framework known as a `Snocket`

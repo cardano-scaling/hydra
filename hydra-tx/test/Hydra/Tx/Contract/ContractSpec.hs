@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Network (networkIdToNetwork)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
-import Hydra.Contract.Head qualified as OnChain
+import Hydra.Contract.Util qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -39,7 +39,9 @@ import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyClos
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Tx.Contract.Commit (genCommitMutation, healthyCommitTx)
-import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation, healthyContestTx)
+import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
+import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (healthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
@@ -132,12 +134,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseUnused" $ do
+  describe "CloseUnusedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseUsed" $ do
+  describe "CloseUsedDec" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
@@ -147,6 +149,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
+  -- TODO: Add CloseAny and ContestCurrent examples too
+  describe "ContestDec" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyContestTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyContestTx genContestDecMutation
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFanoutTx

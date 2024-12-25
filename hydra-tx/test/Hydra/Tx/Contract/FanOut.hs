@@ -41,6 +41,7 @@ healthyFanoutTx =
     fanoutTx
       scriptRegistry
       (fst healthyFanoutSnapshotUTxO)
+      Nothing
       (Just $ snd healthyFanoutSnapshotUTxO)
       (headInput, headOutput)
       healthySlotNo
@@ -84,7 +85,8 @@ healthyFanoutDatum =
     Head.ClosedDatum
       { snapshotNumber = 1
       , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-      , deltaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
+      , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
+      , omegaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline

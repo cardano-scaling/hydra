@@ -83,7 +83,7 @@ data PostChainTx tx
       , openVersion :: SnapshotVersion
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
-  | FanoutTx {utxo :: UTxOType tx, utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | FanoutTx {utxo :: UTxOType tx, utxoToCommit :: Maybe (UTxOType tx), utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -104,7 +104,7 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
-    FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -198,9 +198,9 @@ data PostTxError tx
   | FailedToConstructContestTx
   | FailedToConstructCollectTx
   | FailedToConstructDepositTx
-  | FailedToConstructRecoverTx
-  | FailedToConstructIncrementTx
-  | FailedToConstructDecrementTx
+  | FailedToConstructRecoverTx {failureReason :: Text}
+  | FailedToConstructIncrementTx {failureReason :: Text}
+  | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   deriving stock (Generic)
 
