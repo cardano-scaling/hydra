@@ -51,7 +51,7 @@ connections and better fault tolerance.
 
 The messages exchanged through the _Hydra networking_ layer between participants
 are authenticated. Each message is
-[signed](https://github.com/input-output-hk/hydra/issues/727) using the Hydra
+[signed](https://github.com/cardano-scaling/hydra/issues/727) using the Hydra
 signing key of the emitting party, which is identified by the corresponding
 verification key. When a message with an unknown or incorrect signature is
 received, it is dropped, and a notification is logged.

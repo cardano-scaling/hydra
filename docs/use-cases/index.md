@@ -1,5 +1,5 @@
 ---
-sidebar_label: "Overview"
+sidebar_label: "Use cases"
 sidebar_position: 1
 ---
 
@@ -13,7 +13,7 @@ We are currently exploring use cases across various domains, including payments,
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';
-import {useDocsSidebar} from '@docusaurus/theme-common/internal';
+import { useDocsSidebar } from '@docusaurus/plugin-content-docs/client';
 
 <DocCardList items={useDocsSidebar().items.filter(({ docId }) => docId != "index")}/>
 ```

@@ -83,7 +83,7 @@ Check the scripts against which a hydra-node was compiled using:
 hydra-node --script-info
 ```
 
-For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/input-output-hk/hydra/releases) and [`networks.json`](https://github.com/input-output-hk/hydra/blob/master/networks.json).
+For public [(test) networks](https://book.world.dev.cardano.org/environments.html), we publish Hydra scripts with each new release, listing transaction IDs in the [release notes](https://github.com/cardano-scaling/hydra/releases) and [`networks.json`](https://github.com/cardano-scaling/hydra/blob/master/networks.json).
 
 To publish scripts yourself, use the `publish-scripts` command:
 
@@ -100,7 +100,7 @@ This command outputs a transaction ID upon success. The provided key should hold
 
 The ledger is at the core of a Hydra head. Hydra is currently integrated with Cardano and assumes a ledger configuration similar to layer 1. This translates as a command-line option `--ledger-protocol-parameters`. This defines the updatable protocol parameters such as fees or transaction sizes. These parameters follow the same format as the `cardano-cli query protocol-parameters` output.
 
-We provide existing files in [hydra-cluster/config](https://github.com/input-output-hk/hydra/blob/master/hydra-cluster/config), which can be used as the basis. In particular, the protocol parameters nullify costs inside a head. Apart from that, they are the direct copy of the current mainnet parameters. An interesting point about Hydra's ledger is that while it re-uses the same rules and code as layer 1 (isomorphic), some parameters can be altered. For example, fees can be adjusted, but not parameters controlling maximum value sizes or minimum ada values, as altering these could make a head unclosable.
+We provide existing files in [hydra-cluster/config](https://github.com/cardano-scaling/hydra/blob/master/hydra-cluster/config), which can be used as the basis. In particular, the protocol parameters nullify costs inside a head. Apart from that, they are the direct copy of the current mainnet parameters. An interesting point about Hydra's ledger is that while it re-uses the same rules and code as layer 1 (isomorphic), some parameters can be altered. For example, fees can be adjusted, but not parameters controlling maximum value sizes or minimum ada values, as altering these could make a head unclosable.
 
 A good rule of thumb is that anything that applies strictly to transactions (fees, execution units, max tx size, etc) is safe to change. But anything that could be reflected in the UTXO is not.
 

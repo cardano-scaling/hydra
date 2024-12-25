@@ -22,4 +22,4 @@ We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64
 
 ### Build from source
 
-While using Docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We recommend using [Nix](https://nixos.org/download.html) for this and you can find instructions in our [contributing guidelines](https://github.com/input-output-hk/hydra/blob/master/CONTRIBUTING.md).
+While using Docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We recommend using [Nix](https://nixos.org/download.html) for this and you can find instructions in our [contributing guidelines](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md).
