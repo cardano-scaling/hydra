@@ -14,6 +14,7 @@ import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial as Initial
 import Hydra.Plutus (initialValidatorScript)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import PlutusLedgerApi.V3 (Data, SerialisedScript, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
@@ -26,7 +27,7 @@ import Prettyprinter.Render.Text (renderStrict)
 main :: IO ()
 main = do
   putTextLn "Script info:"
-  putLBSLn $ encodePretty scriptInfo
+  putLBSLn $ encodePretty (scriptInfo serialisedScriptRegistry)
 
   putTextLn "Serialise scripts:"
   writeScripts scripts

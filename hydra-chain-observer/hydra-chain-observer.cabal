@@ -90,8 +90,8 @@ executable hydra-chain-observer
   main-is:        Main.hs
   build-depends:
     , hydra-chain-observer
+    , hydra-plutus
     , hydra-prelude
-    , hydra-tx
 
 test-suite tests
   import:             project-config
@@ -104,9 +104,9 @@ test-suite tests
     , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx
     , hydra-tx:testlib
     , QuickCheck
 

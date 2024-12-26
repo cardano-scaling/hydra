@@ -17,6 +17,7 @@ import Hydra.Cardano.Api.Prelude qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))
 import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
@@ -39,21 +40,28 @@ data ScriptInfo = ScriptInfo
 
 -- | Gather 'ScriptInfo' from the current Hydra scripts. This is useful to
 -- determine changes in between version of 'hydra-plutus'.
-scriptInfo :: ScriptInfo
-scriptInfo =
+scriptInfo :: SerialisedScriptRegistry -> ScriptInfo
+scriptInfo serialisedScriptRegistry =
   ScriptInfo
     { mintingScriptHash = plutusScriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
-    , initialScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript initialValidatorScript
-    , initialScriptSize = scriptSize initialValidatorScript
-    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript commitValidatorScript
-    , commitScriptSize = scriptSize commitValidatorScript
-    , headScriptHash = plutusScriptHash Head.validatorScript
-    , headScriptSize = scriptSize Head.validatorScript
-    , depositScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript depositValidatorScript
-    , depositScriptSize = scriptSize depositValidatorScript
+    , initialScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript initialScriptValidator
+    , initialScriptSize = scriptSize initialScriptValidator
+    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript commitScriptValidator
+    , commitScriptSize = scriptSize commitScriptValidator
+    , headScriptHash = plutusScriptHash headScriptValidator
+    , headScriptSize = scriptSize headScriptValidator
+    , depositScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript depositScriptValidator
+    , depositScriptSize = scriptSize depositScriptValidator
     }
  where
+  SerialisedScriptRegistry
+    { initialScriptValidator
+    , commitScriptValidator
+    , headScriptValidator
+    , depositScriptValidator
+    } = serialisedScriptRegistry
+
   plutusScriptHash =
     hashScript . PlutusScript . fromPlutusScript
 

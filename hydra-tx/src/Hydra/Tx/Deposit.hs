@@ -13,8 +13,8 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
-import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 

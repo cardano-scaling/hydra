@@ -10,14 +10,14 @@ import Hydra.ChainObserver.Options (BlockfrostOptions (..), DirectOptions (..), 
 import Hydra.Contract qualified as Contract
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
-import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry)
 import Options.Applicative (execParser)
 
 main :: SerialisedScriptRegistry -> ObserverHandler IO -> IO ()
 main serialisedScriptRegistry observerHandler = do
   opts <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
-    traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
+    traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo serialisedScriptRegistry}
     case opts of
       DirectOpts DirectOptions{networkId, nodeSocket, startChainFrom} -> do
         let NodeClient{follow} = ouroborusClient tracer nodeSocket networkId serialisedScriptRegistry

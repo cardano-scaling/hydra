@@ -38,6 +38,7 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
@@ -760,7 +761,7 @@ hydraNodeCommand =
 
   scriptInfo =
     infoOption
-      (decodeUtf8 $ encodePretty Contract.scriptInfo)
+      (decodeUtf8 $ encodePretty (Contract.scriptInfo serialisedScriptRegistry))
       (long "script-info" <> help "Dump script info as JSON")
 
 hydraNodeVersion :: Version

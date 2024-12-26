@@ -85,6 +85,7 @@ import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFro
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
@@ -99,7 +100,6 @@ import Hydra.Tx (
   getSnapshot,
   partyToChain,
   registryUTxO,
-  serialisedScriptRegistry,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)

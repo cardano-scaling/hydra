@@ -41,7 +41,8 @@ import Hydra.ChainObserver.NodeClient (
   observeAll,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx (IsTx (..), SerialisedScriptRegistry)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry)
+import Hydra.Tx (IsTx (..))
 
 data APIBlockfrostError
   = BlockfrostError Text
