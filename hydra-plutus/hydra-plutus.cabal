@@ -18,6 +18,7 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
+    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -26,7 +27,6 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
-    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     PatternSynonyms
@@ -62,6 +62,7 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Plutus
+    Hydra.SerialisedScriptRegistry
 
   hs-source-dirs:  src
   build-depends:
@@ -69,6 +70,7 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , cborg
     , file-embed
     , hydra-cardano-api
     , hydra-plutus-extras

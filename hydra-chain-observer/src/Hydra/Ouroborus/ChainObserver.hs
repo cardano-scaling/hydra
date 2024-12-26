@@ -36,7 +36,7 @@ import Hydra.ChainObserver.NodeClient (
   observeAll,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),

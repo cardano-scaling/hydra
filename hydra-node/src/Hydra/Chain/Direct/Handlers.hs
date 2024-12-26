@@ -80,11 +80,11 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
-  serialisedScriptRegistry,
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)

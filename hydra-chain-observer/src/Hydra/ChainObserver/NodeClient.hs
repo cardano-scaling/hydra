@@ -20,8 +20,8 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry)
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 

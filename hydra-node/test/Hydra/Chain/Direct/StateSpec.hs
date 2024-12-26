@@ -112,11 +112,11 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
-import Hydra.Tx.ScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)

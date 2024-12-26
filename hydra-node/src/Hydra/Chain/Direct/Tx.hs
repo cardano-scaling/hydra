@@ -27,6 +27,7 @@ import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx (
   HeadId (..),
   HeadSeed (..),
@@ -45,7 +46,6 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
-import Hydra.Tx.ScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName)
 import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
