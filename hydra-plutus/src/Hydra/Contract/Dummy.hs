@@ -26,5 +26,8 @@ fakeWrap ::
   ValidatorType
 fakeWrap _ _ = toOpaque ()
 
-dummyValidatorScript :: PlutusScript
-dummyValidatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledDummyValidator
+dummyValidatorScript :: SerialisedScript
+dummyValidatorScript = serialiseCompiledCode compiledDummyValidator
+
+dummyValidatorHash :: ScriptHash
+dummyValidatorHash = scriptValidatorHash PlutusScriptV3 dummyValidatorScript

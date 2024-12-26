@@ -34,9 +34,38 @@ data InvalidTransactionException = InvalidTransactionException
 instance Exception InvalidTransactionException
 
 -- | Like 'addInputs' but only for vk inputs which requires no additional data.
-addTxInsSpending :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
-addTxInsSpending ins =
-  addTxIns ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
+addVkInputs :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addVkInputs ins =
+  addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
+
+addCollateralInput :: TxIn -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addCollateralInput txin tx =
+  tx{txInsCollateral = TxInsCollateral [txin]}
+
+changePParams :: PParams (ShelleyLedgerEra Era) -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+changePParams pparams tx =
+  tx{txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams}
+
+-- | Append new outputs to an ongoing builder.
+addOutputs :: [TxOut CtxTx] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addOutputs outputs tx =
+  tx{txOuts = txOuts tx <> outputs}
+
+-- | Add extra required key witnesses to a transaction.
+addExtraRequiredSigners :: [Hash PaymentKey] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addExtraRequiredSigners vks tx =
+  tx{txExtraKeyWits = txExtraKeyWits'}
+ where
+  txExtraKeyWits' =
+    case txExtraKeyWits tx of
+      TxExtraKeyWitnessesNone ->
+        TxExtraKeyWitnesses vks
+      TxExtraKeyWitnesses vks' ->
+        TxExtraKeyWitnesses (vks' <> vks)
+
+addCertificates :: TxCertificates BuildTx Era -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addCertificates certs tx =
+  tx{txCertificates = certs}
 
 -- | Mint tokens with given plutus minting script and redeemer.
 mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBodyContent BuildTx -> TxBodyContent BuildTx

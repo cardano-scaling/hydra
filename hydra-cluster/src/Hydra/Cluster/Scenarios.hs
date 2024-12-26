@@ -11,6 +11,7 @@ import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildTransaction,
+  queryProtocolParameters,
   queryTip,
   queryUTxOFor,
   submitTx,
@@ -35,22 +36,35 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.Cardano.Api (
   Coin (..),
+  ConwayEraOnwards (ConwayEraOnwardsConway),
+  Era,
   File (File),
   Key (SigningKey),
+  KeyWitnessInCtx (..),
   PaymentKey,
+  PlutusScriptV3,
+  ScriptDatum (..),
+  ShelleyBasedEra (ShelleyBasedEraConway),
+  StakeAddressRequirements (..),
+  StakeDelegationRequirements (..),
   Tx,
+  TxCertificates (..),
   TxId,
   UTxO,
-  addTxIns,
-  defaultTxBodyContent,
+  fromPlutusScript,
   getTxBody,
   getTxId,
   getVerificationKey,
+  hashScript,
+  hashScriptInAnyLang,
   lovelaceToValue,
   makeSignedTransaction,
+  makeStakeAddressDelegationCertificate,
+  makeStakeAddressRegistrationCertificate,
   mkScriptAddress,
   mkScriptDatum,
   mkScriptWitness,
+  mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
   scriptWitnessInCtx,
@@ -61,23 +75,28 @@ import Hydra.Cardano.Api (
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
+  pattern KeyWitness,
+  pattern PlutusScript,
+  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Prelude (StakeCredential (StakeCredentialByScript))
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (addCertificates, addCollateralInput, addInputs, addOutputs, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (dummyValidatorHash, dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -1102,7 +1121,7 @@ canDecommit tracer workDir node hydraScriptsTxId =
 
   RunningNode{networkId, nodeSocket, blockTime} = node
 
-withdrawZero :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> TxId -> IO ()
+withdrawZero :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 withdrawZero tracer workDir node hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 30_000_000
@@ -1110,22 +1129,108 @@ withdrawZero tracer workDir node hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1@HydraClient{hydraNodeId} -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
+      (aliceVerificationKey, aliceSecretKey) <- keysFor Alice
+      aliceUTxO <- seedFromFaucet node aliceVerificationKey 5_000_000 (contramap FromFaucet tracer)
+      aliceCollateralUTxO <- seedFromFaucet node aliceVerificationKey 5_000_000 (contramap FromFaucet tracer)
       (walletVk, walletSk) <- generate genKeyPair
-      let headAmount = 8_000_000
-      let commitAmount = 5_000_000
-      headUTxO <- seedFromFaucet node walletVk headAmount (contramap FromFaucet tracer)
-      commitUTxO <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
+      (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
 
-      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= submitTx node
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
 
-      waitFor hydraTracer 10 [n1] $
-        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+      let commitTx = responseBody res
+      submitTx node commitTx
+
+      lockedUTxO <- waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      let serializedScript = PlutusScriptSerialised dummyValidatorScript
+      let stakeCred = StakeCredentialByScript $ hashScript $ PlutusScript (PlutusScriptSerialised dummyValidatorScript)
+      let delegation =
+            StakeAddrRegistrationConway
+              ConwayEraOnwardsConway
+              (Coin 0)
+              stakeCred
+      let buildTx =
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness serializedScript NoScriptDatumForStake (toScriptData ())
+      let cert = TxCertificates ShelleyBasedEraConway [makeStakeAddressRegistrationCertificate delegation] (BuildTxWith [(stakeCred, buildTx)])
+      let (collateralInput, _) = List.head $ UTxO.pairs aliceCollateralUTxO
+
+      let (scriptInput, _) = List.head $ UTxO.pairs scriptUTxO
+      let (normalInput', _) = List.head $ UTxO.pairs aliceUTxO
+      pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+
+      let scriptAddress = mkScriptAddress networkId serializedScript
+      let scriptOutput =
+            mkTxOutAutoBalance
+              pparams
+              scriptAddress
+              (lovelaceToValue 0)
+              (mkTxOutDatumHash ())
+              ReferenceScriptNone
+      let returnOutput =
+            TxOut (mkVkAddress networkId walletVk) (lovelaceToValue 4_000_000) TxOutDatumNone ReferenceScriptNone
+      let normalInput = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> [normalInput']
+      let scriptWitness =
+            BuildTxWith $
+              ScriptWitness scriptWitnessInCtx $
+                mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+      let tx =
+            unsafeBuildTransaction $
+              emptyTxBody
+                -- & changePParams pparams
+                & addInputs [(scriptInput, scriptWitness)]
+                & addCertificates cert
+                & addCollateralInput collateralInput
+                & addOutputs [returnOutput, scriptOutput]
+      -- & setTxFee (TxFeeExplicit $ Coin 173_465)
+      let signedL2tx = signTx aliceSecretKey tx
+      putStrLn $ renderTxWithUTxO (scriptUTxO <> aliceUTxO <> aliceCollateralUTxO) tx
+      send n1 $ input "NewTx" ["transaction" .= signedL2tx]
+
+      waitMatch 10 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $
+          toJSON tx
+            `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+        v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
  where
+  prepareScriptPayload lovelaceAmt = do
+    let serializedScript = PlutusScriptSerialised dummyValidatorScript
+    let scriptAddress = mkScriptAddress networkId serializedScript
+    let datumHash = mkTxOutDatumHash ()
+    (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue lovelaceAmt)
+    let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
+
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+    let spendingTx =
+          unsafeBuildTransaction $
+            emptyTxBody
+              & addInputs [(scriptIn, scriptWitness)]
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= spendingTx
+          , "utxo" .= scriptUTxO
+          ]
+      , scriptUTxO
+      )
+
   hydraTracer = contramap FromHydraNode tracer
   RunningNode{networkId, nodeSocket} = node
 

@@ -1,6 +1,7 @@
 module Hydra.Tx.Utils (
   module Hydra.Tx.Utils,
   dummyValidatorScript,
+  dummyValidatorHash,
 ) where
 
 import Hydra.Cardano.Api
@@ -13,7 +14,7 @@ import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
-import Hydra.Contract.Dummy (dummyValidatorScript)
+import Hydra.Contract.Dummy (dummyValidatorScript, dummyValidatorHash)
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
