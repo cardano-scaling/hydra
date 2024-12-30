@@ -37,29 +37,22 @@ import Hydra.API.HTTPServer (
 import Hydra.Cardano.Api (
   Coin (..),
   ConwayEraOnwards (ConwayEraOnwardsConway),
-  Era,
   File (File),
   Key (SigningKey),
-  KeyWitnessInCtx (..),
   PaymentKey,
-  PlutusScriptV3,
   ScriptDatum (..),
   ShelleyBasedEra (ShelleyBasedEraConway),
   StakeAddressRequirements (..),
-  StakeDelegationRequirements (..),
   Tx,
   TxCertificates (..),
   TxId,
   UTxO,
-  fromPlutusScript,
   getTxBody,
   getTxId,
   getVerificationKey,
   hashScript,
-  hashScriptInAnyLang,
   lovelaceToValue,
   makeSignedTransaction,
-  makeStakeAddressDelegationCertificate,
   makeStakeAddressRegistrationCertificate,
   mkScriptAddress,
   mkScriptDatum,
@@ -67,6 +60,8 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
+  modifyTxOutValue,
+  negateValue,
   scriptWitnessInCtx,
   selectLovelace,
   signTx,
@@ -75,7 +70,6 @@ import Hydra.Cardano.Api (
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
-  pattern KeyWitness,
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
@@ -91,12 +85,12 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (addCertificates, addCollateralInput, addInputs, addOutputs, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (addCertificates, addCollateralInput, addInputs, addOutputs, changePParams, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
-import Hydra.Tx.Utils (dummyValidatorHash, dummyValidatorScript, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -1134,10 +1128,8 @@ withdrawZero tracer workDir node hydraScriptsTxId =
       send n1 $ input "Init" []
       headId <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
 
-      (aliceVerificationKey, aliceSecretKey) <- keysFor Alice
-      aliceUTxO <- seedFromFaucet node aliceVerificationKey 5_000_000 (contramap FromFaucet tracer)
+      (aliceVerificationKey, aliceSecretKey) <- keysFor AliceFunds
       aliceCollateralUTxO <- seedFromFaucet node aliceVerificationKey 5_000_000 (contramap FromFaucet tracer)
-      (walletVk, walletSk) <- generate genKeyPair
       (clientPayload, scriptUTxO) <- prepareScriptPayload 3_000_000
 
       res <-
@@ -1152,10 +1144,31 @@ withdrawZero tracer workDir node hydraScriptsTxId =
       let commitTx = responseBody res
       submitTx node commitTx
 
-      lockedUTxO <- waitMatch 10 n1 $ \v -> do
+      Just lockedUTxO :: Maybe UTxO <- waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "tag" == Just "HeadIsOpen"
-        pure $ v ^? key "utxo"
+        pure $ v ^? key "utxo" . _JSON
+
+      resp <-
+        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
+          <&> setRequestBodyJSON aliceCollateralUTxO
+            >>= httpJSON
+
+      let depositTransaction = getResponseBody resp :: Tx
+      let depositTx = signTx aliceSecretKey depositTransaction
+
+      submitTx node depositTx
+
+      waitFor hydraTracer 20 [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= aliceCollateralUTxO]
+      waitFor hydraTracer 20 [n1] $
+        output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody depositTx)]
+
+      send n1 $ input "GetUTxO" []
+
+      waitFor hydraTracer 20 [n1] $
+        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> aliceCollateralUTxO)]
+
       let serializedScript = PlutusScriptSerialised dummyValidatorScript
       let stakeCred = StakeCredentialByScript $ hashScript $ PlutusScript (PlutusScriptSerialised dummyValidatorScript)
       let delegation =
@@ -1169,8 +1182,7 @@ withdrawZero tracer workDir node hydraScriptsTxId =
       let cert = TxCertificates ShelleyBasedEraConway [makeStakeAddressRegistrationCertificate delegation] (BuildTxWith [(stakeCred, buildTx)])
       let (collateralInput, _) = List.head $ UTxO.pairs aliceCollateralUTxO
 
-      let (scriptInput, _) = List.head $ UTxO.pairs scriptUTxO
-      let (normalInput', _) = List.head $ UTxO.pairs aliceUTxO
+      let (scriptInput, _) = List.head $ UTxO.pairs lockedUTxO
       pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
       let scriptAddress = mkScriptAddress networkId serializedScript
@@ -1181,24 +1193,24 @@ withdrawZero tracer workDir node hydraScriptsTxId =
               (lovelaceToValue 0)
               (mkTxOutDatumHash ())
               ReferenceScriptNone
-      let returnOutput =
-            TxOut (mkVkAddress networkId walletVk) (lovelaceToValue 4_000_000) TxOutDatumNone ReferenceScriptNone
-      let normalInput = (,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> [normalInput']
+      let scriptValue = txOutValue scriptOutput
+      let expectedOutputValue = lovelaceToValue 3_000_000 <> negateValue scriptValue
       let scriptWitness =
             BuildTxWith $
               ScriptWitness scriptWitnessInCtx $
                 mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+      pparams' <- queryProtocolParameters networkId nodeSocket QueryTip
       let tx =
             unsafeBuildTransaction $
               emptyTxBody
-                -- & changePParams pparams
-                & addInputs [(scriptInput, scriptWitness)]
-                & addCertificates cert
+                -- we should not need to change pparams here. Why is the pparams hash different?
+                & changePParams pparams'
                 & addCollateralInput collateralInput
-                & addOutputs [returnOutput, scriptOutput]
-      -- & setTxFee (TxFeeExplicit $ Coin 173_465)
+                & addInputs [(scriptInput, scriptWitness)]
+                & addOutputs [modifyTxOutValue (<> expectedOutputValue) scriptOutput]
+                & addCertificates cert
       let signedL2tx = signTx aliceSecretKey tx
-      putStrLn $ renderTxWithUTxO (scriptUTxO <> aliceUTxO <> aliceCollateralUTxO) tx
+      putStrLn $ renderTxWithUTxO (scriptUTxO <> aliceCollateralUTxO) tx
       send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
       waitMatch 10 n1 $ \v -> do
@@ -1208,6 +1220,7 @@ withdrawZero tracer workDir node hydraScriptsTxId =
             `elem` (v ^.. key "snapshot" . key "confirmed" . values)
         v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
  where
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
   prepareScriptPayload lovelaceAmt = do
     let serializedScript = PlutusScriptSerialised dummyValidatorScript
     let scriptAddress = mkScriptAddress networkId serializedScript
