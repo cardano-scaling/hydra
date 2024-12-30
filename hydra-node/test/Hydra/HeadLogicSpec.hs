@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
--- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
+-- | Unit tests of the protocol logic in 'HeadLogic'. These are very fine
 -- grained and specific to individual steps in the protocol. More high-level of
 -- the protocol logic, especially between multiple parties can be found in
 -- 'Hydra.BehaviorSpec'.
