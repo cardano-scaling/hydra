@@ -23,7 +23,8 @@ import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+
+import Hydra.Tx.Utils (IncrementalAction (..), mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 
@@ -59,8 +60,9 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
+  IncrementalAction ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{number, utxo, utxoToDecommit, version} sig (slotNo, _) closedThreadOutput =
+contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput incrementalAction =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
@@ -70,6 +72,8 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
       & setValidityUpperBound slotNo
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
+  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
+
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
     , closedParties
@@ -88,19 +92,33 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
   headScript =
     fromPlutusScript @PlutusScriptV3 Head.validatorScript
 
-  headRedeemer = toScriptData $ Head.Contest contestRedeemer
+  contestRedeemer =
+    case incrementalAction of
+      ToCommit utxo' ->
+        if version == openVersion
+          then
+            Head.ContestUnusedInc
+              { signature = toPlutusSignatures sig
+              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+          else
+            Head.ContestUsedInc
+              { signature = toPlutusSignatures sig
+              }
+      ToDecommit utxo' ->
+        if version == openVersion
+          then
+            Head.ContestUnusedDec
+              { signature = toPlutusSignatures sig
+              }
+          else
+            Head.ContestUsedDec
+              { signature = toPlutusSignatures sig
+              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              }
+      NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
 
-  contestRedeemer
-    | version == openVersion =
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
-          }
-    | otherwise =
-        -- NOTE: This will only work for version == openVersion - 1
-        Head.ContestOutdated
-          { signature = toPlutusSignatures sig
-          , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-          }
+  headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
@@ -120,9 +138,14 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion Snapshot{numbe
         Head.ClosedDatum
           { snapshotNumber = toInteger number
           , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , deltaUTxOHash =
+          , alphaUTxOHash =
               case contestRedeemer of
-                Head.ContestCurrent{} ->
+                Head.ContestUsedInc{} ->
+                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
+                _ -> toBuiltin $ hashUTxO @Tx mempty
+          , omegaUTxOHash =
+              case contestRedeemer of
+                Head.ContestUnusedDec{} ->
                   toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties

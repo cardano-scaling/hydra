@@ -62,7 +62,6 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Monadic (
-  PropertyM,
   assert,
   monadicIO,
   monitor,
@@ -256,26 +255,6 @@ recordEventsHandler ctx cs getTimeHandle = do
 -- 'Block' and can be de-/constructed easily.
 data TestBlock = TestBlock BlockHeader [Tx]
 
-withCounterExample :: [TestBlock] -> TVar IO ChainStateAt -> IO a -> PropertyM IO a
-withCounterExample blocks headState step = do
-  stBefore <- run $ readTVarIO headState
-  a <- run step
-  stAfter <- run $ readTVarIO headState
-  a <$ do
-    monitor $
-      counterexample $
-        toString $
-          unlines
-            [ "Chain state at (before rollback): " <> show stBefore
-            , "Chain state at (after rollback):  " <> show stAfter
-            , "Block sequence: \n"
-                <> unlines
-                  ( fmap
-                      ("    " <>)
-                      [show (getChainPoint header) | TestBlock header _ <- blocks]
-                  )
-            ]
-
 -- | Thin wrapper which generates a 'TestBlock' at some specific slot.
 genBlockAt :: SlotNo -> [Tx] -> Gen TestBlock
 genBlockAt sl txs = do
@@ -383,11 +362,3 @@ genSequenceOfObservableBlocks = do
     let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
     putNextBlock commitTx
     pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
-
-showRollbackInfo :: (Word, ChainPoint) -> String
-showRollbackInfo (rollbackDepth, rollbackPoint) =
-  toString $
-    unlines
-      [ "Rollback depth: " <> show rollbackDepth
-      , "Rollback point: " <> show rollbackPoint
-      ]

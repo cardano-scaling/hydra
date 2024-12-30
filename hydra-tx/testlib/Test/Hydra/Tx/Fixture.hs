@@ -19,7 +19,6 @@ import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
-  Key (VerificationKey),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -28,7 +27,6 @@ import Hydra.Cardano.Api (
   TxIn,
   deserialiseFromRawBytes,
   genTxIn,
-  getVerificationKey,
   serialiseToRawBytes,
   verificationKeyHash,
  )
@@ -41,6 +39,7 @@ import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party
@@ -55,17 +54,15 @@ bobSk = generateSigningKey "bob"
 -- NOTE: Using 'zcarol' as seed results in ordered 'deriveParty' values
 carolSk = generateSigningKey "zcarol"
 
--- | Hydra verification keys for 'alice', 'bob', and 'carol'.
-aliceVk, bobVk, carolVk :: VerificationKey HydraKey
-aliceVk = getVerificationKey aliceSk
-bobVk = getVerificationKey bobSk
-carolVk = getVerificationKey carolSk
-
 testHeadId :: HeadId
 testHeadId = UnsafeHeadId "1234"
 
 testHeadSeed :: HeadSeed
 testHeadSeed = UnsafeHeadSeed "000000000000000000#0"
+
+depositDeadline :: UTCTime
+depositDeadline = unsafePerformIO getCurrentTime
+{-# NOINLINE depositDeadline #-}
 
 -- | Derive some 'OnChainId' from a Hydra party. In the real protocol this is
 -- currently not done, but in this simulated chain setting this is definitely

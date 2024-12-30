@@ -395,15 +395,15 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       let HeadParameters{contestationPeriod} = headParameters
       (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperBound of
-        Left _ -> throwIO (FailedToConstructIncrementTx @Tx)
+        Left err -> throwIO (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
         Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do
       case recover ctx headId recoverTxId spendableUTxO (fromChainSlot deadline) of
-        Left _ -> throwIO (FailedToConstructRecoverTx @Tx)
+        Left err -> throwIO (FailedToConstructRecoverTx{failureReason = show err} :: PostTxError Tx)
         Right recoverTx' -> pure recoverTx'
     DecrementTx{headId, headParameters, decrementingSnapshot} ->
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
-        Left _ -> throwIO (FailedToConstructDecrementTx @Tx)
+        Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
         Right decrementTx' -> pure decrementTx'
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
@@ -419,13 +419,13 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{utxo, utxoToDecommit, headSeed, contestationDeadline} -> do
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
       deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
       case headSeedToTxIn headSeed of
         Nothing ->
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
-          case fanout ctx spendableUTxO seedTxIn utxo utxoToDecommit deadlineSlot of
+          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
             Right fanoutTx -> pure fanoutTx
  where

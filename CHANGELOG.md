@@ -10,12 +10,11 @@ changes.
 
 ## [0.20.0] - UNRELEASED
 
-- **IMPORTANT - Do not release this version**
-   - Incremental commits - off-chain changes to make the incremental commits possible.
-     Important to note is that on-chain security is not implemented and hydra-node in this
-     state is not releasable!
-     Missing off-chain items to implement as a series of next PR's:
-      - Revisit types related to observations/posting transactions and make sure the fields are named appropriatelly
+- **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
+  with the community members building on Hydra. This feature means you can commit funds to a Head while it is running.
+  TODO: Implement missing spec changes.
+
+- **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-seperated list, as the outcome of changes in the Hydra scripts publishing.
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
 
@@ -39,6 +38,8 @@ changes.
   - Overall this results in transactions still to be submitted once per client,
     but requires signifanctly less book-keeping on the client-side.
 
+- Bump docusaurus version
+
 - Add blockfrost support to `hydra-chain-observer`, to follow the chain via Blockfrost API.
 
 - Fix `bench-e2e single` benchmarks and only use `--output-directory` to keep
@@ -46,7 +47,7 @@ changes.
 
 - Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
 
-- Update mithril to `2442.0`
+- Use different versions of mithril depending on the network (Sanchonet/Preview: Unstable, Mainnet/Preproduction: 2450.0)
 
 - New websocket URL parameter `?address=...` to filter `SnapshotConfirmed`, `TxValid` and `TxInvalid` server outputs by address.
 

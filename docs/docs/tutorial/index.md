@@ -27,7 +27,7 @@ This tutorial assumes the following tools are available on your system:
 After ensuring the tools above are available, begin by downloading pre-built binaries of the involved Cardano software components and placing them in a `bin/` directory:
 
 :::tip
-Older versions of `jq` (<= 1.6) have a bug where they do not successfully
+Older versions of `jq` (`<= 1.6`) have a bug where they do not successfully
 round-trip large integers, [which can cause
 issues](https://github.com/cardano-scaling/hydra/issues/1679) you can verify
 that you have a good version of jq with this command:
@@ -386,7 +386,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 ## Step 3. Start the Hydra node
 
 
-Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../configuration#reference-scripts) for guidance on publishing your own scripts.
+Scripts are pre-published for all [released](https://github.com/cardano-scaling/hydra/releases) HYDRA_VERSIONs of the `hydra-node` and common Cardano networks. Consult the [user manual](../docs/configuration#reference-scripts) for guidance on publishing your own scripts.
 
 
 Start the `hydra-node` using these parameters:

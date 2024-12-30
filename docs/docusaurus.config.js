@@ -17,6 +17,8 @@ const config = {
   title: "Hydra Head protocol documentation",
   url: "https://hydra.family",
   baseUrl: "/head-protocol/",
+  // Note: This gives warnings about the haddocks; but actually they are
+  // present. If you are concerned, please check the links manually!
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/hydra.png",
@@ -24,6 +26,7 @@ const config = {
   projectName: "Hydra",
   staticDirectories: ["static", customFields.apiSpecDir],
   customFields,
+  trailingSlash: false,
 
   scripts: [
     {
@@ -48,6 +51,7 @@ const config = {
           path: "adr",
           routeBasePath: "/adr",
           blogTitle: "Architecture Decision Records",
+          onUntruncatedBlogPosts: "ignore",
           blogDescription:
             "Lightweight technical documentation for the Hydra node software.",
           blogSidebarTitle: "Architecture Decision Records",

@@ -28,20 +28,7 @@ data QueryException
   | QueryProtocolParamsEncodingFailureOnEra AnyCardanoEra Text
   | QueryEraNotInCardanoModeFailure AnyCardanoEra
   | QueryNotShelleyBasedEraException AnyCardanoEra
-  deriving stock (Show)
-
-instance Eq QueryException where
-  a == b = case (a, b) of
-    (QueryAcquireException af1, QueryAcquireException af2) -> case (af1, af2) of
-      (AFPointTooOld, AFPointTooOld) -> True
-      (AFPointNotOnChain, AFPointNotOnChain) -> True
-      _ -> False
-    (QueryEraMismatchException em1, QueryEraMismatchException em2) -> em1 == em2
-    (QueryProtocolParamsEraNotSupported ens1, QueryProtocolParamsEraNotSupported ens2) -> ens1 == ens2
-    (QueryProtocolParamsEncodingFailureOnEra e1 f1, QueryProtocolParamsEncodingFailureOnEra e2 f2) -> e1 == e2 && f1 == f2
-    (QueryEraNotInCardanoModeFailure e1, QueryEraNotInCardanoModeFailure e2) -> e1 == e2
-    (QueryNotShelleyBasedEraException e1, QueryNotShelleyBasedEraException e2) -> e1 == e2
-    _ -> False
+  deriving stock (Show, Eq)
 
 instance Exception QueryException where
   displayException = \case
@@ -295,22 +282,6 @@ queryProtocolParameters networkId socket queryPoint =
       AlonzoEra -> encodeToEra AlonzoEra pparams
       BabbageEra -> encodeToEra BabbageEra pparams
       ConwayEra -> pure pparams
-
--- | Query the protocol parameters at given point. NOTE: If the era is not
--- matching this fails with an era mismatch.
---
--- Throws at least 'QueryException' if query fails.
-queryProtocolParameters' ::
-  IsShelleyBasedEra era =>
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
-  QueryPoint ->
-  IO (PParams (ShelleyLedgerEra era))
-queryProtocolParameters' networkId socket queryPoint =
-  runQueryExpr networkId socket queryPoint $
-    queryInShelleyBasedEraExpr shelleyBasedEra QueryProtocolParameters
 
 -- | Query 'GenesisParameters' at a given point.
 --

@@ -12,10 +12,10 @@ import Test.QuickCheck.Instances.Time ()
 spec :: Spec
 spec = do
   describe "fromNominalDiffTime" $ do
-    prop "works for diff times > 0" $
+    prop "works for diff times `> 0`" $
       isJust . fromNominalDiffTime . getPositive
 
-    prop "fails for diff times <= 0" $
+    prop "fails for diff times `<= 0`" $
       isNothing . fromNominalDiffTime . getNonPositive
 
     prop "rounds to 1 second" $ \n ->

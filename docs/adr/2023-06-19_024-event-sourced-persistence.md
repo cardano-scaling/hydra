@@ -13,7 +13,7 @@ Accepted
 ## Context
 
 - The state of a Hydra Head is currently persisted as a whole upon each `NewState` _outcome_ from the `update` function: The new state is serialised and the `state` file is overwritten with the corresponding bytes. While this is a straightforward strategy to implement, it has a huge impact on the performance of a Hydra Head as serialising a large data structure like the `HeadState` and completely overwriting a file is costly
-  - We revisited our benchmarks and [found](https://github.com/input-output-hk/hydra/issues/186#issuecomment-1584292265) that persistence was the major bottleneck when measuring roundtrip confirmation time,e g. the time it takes from a client's perspective to submit a transaction and observe in a `ConfirmedSnapshot`
+  - We revisited our benchmarks and [found](https://github.com/cardano-scaling/hydra/issues/186#issuecomment-1584292265) that persistence was the major bottleneck when measuring roundtrip confirmation time,e g. the time it takes from a client's perspective to submit a transaction and observe in a `ConfirmedSnapshot`
 - Furthermore, the way we currently handle changes to the `HeadState` in the hydra-node, while conceptually being an `Effect` is handled differently from other `Effect`s: The state is updated transactionally through a dedicated `modifyHeadState` function in the core loop of processing events, and _then_ effects are processed.
 
 ## Decision
@@ -55,4 +55,4 @@ sequenceDiagram
   - Instead of having the `HeadLogic` emits directly a `ClientEffect`, the latter could be the result of a client-centric _interpretation_ of a `StateChanged`.
   - Pushing this a little further, we could maintain a _Query Model_ for clients with a dedicated [Query API](https://github.com/cardano-scaling/hydra/discussions/686) to ease implementation of stateless clients.
 
-- Calling `StateChanged` an _event_ while treating it in the code alongside _effects_ might introduce some confusion as we already use the word [Event](https://github.com/input-output-hk/hydra/blob/45913954eb18ef550a31017daa443cee6720a00c/hydra-node/src/Hydra/HeadLogic.hs#L64) to designate the inputs (a.k.a. commands) to the Head logic state machine. We might want at some later point to unify the terminology.
+- Calling `StateChanged` an _event_ while treating it in the code alongside _effects_ might introduce some confusion as we already use the word [Event](https://github.com/cardano-scaling/hydra/blob/45913954eb18ef550a31017daa443cee6720a00c/hydra-node/src/Hydra/HeadLogic.hs#L64) to designate the inputs (a.k.a. commands) to the Head logic state machine. We might want at some later point to unify the terminology.

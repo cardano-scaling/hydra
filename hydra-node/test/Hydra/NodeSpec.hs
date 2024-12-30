@@ -360,11 +360,6 @@ createPersistenceInMemory = do
       , loadAll = readTVarIO tvar
       }
 
-isReqSn :: Message tx -> Bool
-isReqSn = \case
-  ReqSn{} -> True
-  _ -> False
-
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
   [ observationInput $ OnInitTx testHeadId testHeadSeed headParameters participants

@@ -15,18 +15,12 @@ import Data.Fixed (Centi)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (
-  AsType (AsPaymentKey),
   File (..),
   GenesisParameters (..),
   NetworkId,
   NetworkMagic (..),
-  PaymentKey,
-  SigningKey,
   SocketPath,
-  VerificationKey,
-  generateSigningKey,
   getProgress,
-  getVerificationKey,
  )
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
@@ -464,11 +458,6 @@ mkTopology peers =
     Aeson.object
       ["addr" .= ("127.0.0.1" :: Text), "port" .= port, "valency" .= (1 :: Int)]
 
-generateCardanoKey :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
-generateCardanoKey = do
-  sk <- generateSigningKey AsPaymentKey
-  pure (getVerificationKey sk, sk)
-
 data ProcessHasExited = ProcessHasExited Text ExitCode
   deriving stock (Show)
 
@@ -502,13 +491,6 @@ cliQueryProtocolParameters nodeSocket networkId = do
 --
 -- Helpers
 --
-
--- | Do something with an a JSON object. Fails if the given JSON value isn't an
--- object.
-withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
-withObject fn = \case
-  Aeson.Object m -> Aeson.Object (fn m)
-  x -> x
 
 unsafeDecodeJson :: FromJSON a => ByteString -> IO a
 unsafeDecodeJson = either fail pure . Aeson.eitherDecodeStrict

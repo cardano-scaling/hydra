@@ -21,7 +21,6 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.CardanoClient (queryProtocolParameters)
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
@@ -150,15 +149,8 @@ createOutputAtAddress ::
 createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
   utxo <- findFaucetUTxO node 0
-  pparams <- queryProtocolParameters networkId nodeSocket QueryTip
   let collateralTxIns = mempty
-  let output =
-        mkTxOutAutoBalance
-          pparams
-          atAddress
-          val
-          datum
-          ReferenceScriptNone
+  let output = TxOut atAddress val datum ReferenceScriptNone
   buildTransaction
     networkId
     nodeSocket
@@ -179,23 +171,6 @@ createOutputAtAddress node@RunningNode{networkId, nodeSocket} atAddress datum va
           Just u -> pure u
  where
   changeAddress = mkVkAddress networkId
-
--- | Build and sign tx and return the calculated fee.
--- - Signing key should be the key of a sender
--- - Address is used as a change address.
--- - Lovelace amount should be one we are trying to send.
-calculateTxFee ::
-  RunningNode ->
-  SigningKey PaymentKey ->
-  UTxO ->
-  AddressInEra ->
-  Coin ->
-  IO Coin
-calculateTxFee RunningNode{networkId, nodeSocket} secretKey utxo addr lovelace =
-  let theOutput = TxOut addr (lovelaceToValue lovelace) TxOutDatumNone ReferenceScriptNone
-   in buildTransaction networkId nodeSocket addr utxo [] [theOutput] >>= \case
-        Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
-        Right tx -> pure $ txFee' (sign secretKey $ getTxBody tx)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
@@ -222,7 +197,7 @@ retryOnExceptions tracer action =
 --
 -- The key of the given Actor is used to pay for fees in required transactions,
 -- it is expected to have sufficient funds.
-publishHydraScriptsAs :: RunningNode -> Actor -> IO TxId
+publishHydraScriptsAs :: RunningNode -> Actor -> IO [TxId]
 publishHydraScriptsAs RunningNode{networkId, nodeSocket} actor = do
   (_, sk) <- keysFor actor
   publishHydraScripts networkId nodeSocket sk

@@ -62,15 +62,15 @@ queryScriptRegistry ::
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
-  TxId ->
+  [TxId] ->
   m ScriptRegistry
-queryScriptRegistry networkId socketPath txId = do
+queryScriptRegistry networkId socketPath txIds = do
   utxo <- liftIO $ queryUTxOByTxIn networkId socketPath QueryTip candidates
   case newScriptRegistry utxo of
     Left e -> throwIO e
     Right sr -> pure sr
  where
-  candidates = [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]] -- Arbitrary but, high-enough.
+  candidates = concatMap (\txId -> [TxIn txId ix | ix <- [TxIx 0 .. TxIx 10]]) txIds -- Arbitrary but, high-enough.
 
 publishHydraScripts ::
   -- | Expected network discriminant.
@@ -79,37 +79,34 @@ publishHydraScripts ::
   SocketPath ->
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
-  IO TxId
+  IO [TxId]
 publishHydraScripts networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
-  utxo <- queryUTxOFor networkId socketPath QueryTip vk
-  let outputs =
-        mkScriptTxOut pparams
-          <$> [ mkScriptRefV3 initialValidatorScript
-              , mkScriptRefV3 commitValidatorScript
-              , mkScriptRefV3 Head.validatorScript
-              ]
-      totalDeposit = sum (selectLovelace . txOutValue <$> outputs)
-      someUTxO =
-        maybe mempty UTxO.singleton $
-          UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
-  buildTransaction
-    networkId
-    socketPath
-    changeAddress
-    someUTxO
-    []
-    outputs
-    >>= \case
-      Left e ->
-        throwErrorAsException e
-      Right x -> do
-        let body = getTxBody x
-        let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
-        submitTransaction networkId socketPath tx
-        void $ awaitTransaction networkId socketPath tx
-        return $ getTxId body
+  forM scriptRefs $ \scriptRef -> do
+    utxo <- queryUTxOFor networkId socketPath QueryTip vk
+    let output = mkScriptTxOut pparams <$> [mkScriptRefV3 scriptRef]
+        totalDeposit = sum (selectLovelace . txOutValue <$> output)
+        someUTxO =
+          maybe mempty UTxO.singleton $
+            UTxO.find (\o -> selectLovelace (txOutValue o) > totalDeposit) utxo
+    buildTransaction
+      networkId
+      socketPath
+      changeAddress
+      someUTxO
+      []
+      output
+      >>= \case
+        Left e ->
+          throwErrorAsException e
+        Right x -> do
+          let body = getTxBody x
+          let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey sk)] body
+          submitTransaction networkId socketPath tx
+          void $ awaitTransaction networkId socketPath tx
+          return $ getTxId body
  where
+  scriptRefs = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
   vk = getVerificationKey sk
 
   changeAddress = mkVkAddress networkId vk

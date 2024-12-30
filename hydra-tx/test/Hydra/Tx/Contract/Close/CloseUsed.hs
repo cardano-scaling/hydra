@@ -40,9 +40,11 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOpenHeadTxOut,
   healthySignature,
   healthySplitUTxOInHead,
+  healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -89,7 +91,7 @@ healthyOutdatedSnapshot =
     , confirmed = []
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
-    , utxoToDecommit = Nothing -- NOTE: In the `CloseOutdated` case, we expect the utxoToDecommit to be Nothing
+    , utxoToDecommit = Just healthySplitUTxOToDecommit
     }
 
 healthyOutdatedOpenDatum :: Head.State
@@ -120,10 +122,17 @@ healthyCloseOutdatedTx =
       somePartyCardanoVerificationKey
       (mkHeadId Fixture.testPolicyId)
       healthyOpenStateVersion
-      (healthyConfirmedSnapshot healthyOutdatedSnapshot)
+      closeUsedSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
+      incrementalAction
+
+  closeUsedSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
+
+  incrementalAction =
+    fromMaybe NoThing $
+      setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUsedSnapshot) (utxoToDecommit $ getSnapshot closeUsedSnapshot)
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =
@@ -236,17 +245,17 @@ genCloseOutdatedMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature}
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
+        pure $ Head.Close Head.CloseUnusedDec{signature}
+    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , -- Last known open state version is recorded in closed state
       SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyOpenStateVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) SnapshotNotSignedByAllParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure . ChangeInputHeadDatum $ replaceParties mutatedParties healthyOutdatedOpenDatum
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
@@ -267,7 +276,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey))
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         mutatedUTxOHash <- (toBuiltin <$> genHash) `suchThat` (/= healthyCloseUTxOHash)
         pure $ modifyInlineDatum (replaceUTxOHash mutatedUTxOHash) headTxOut
     , -- Correct contestation deadline is set
@@ -303,7 +312,7 @@ genCloseOutdatedMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          Head.CloseUnused
+                          Head.CloseUnusedDec
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyOutdatedSnapshot
@@ -323,7 +332,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
     , -- XXX: The following mutations are quite redundant
-      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeHeadRedeemer <$> do
+      SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateCloseUTxOToDecommitHash . ChangeHeadRedeemer <$> do
         -- Close redeemer contains the hash of a decommit utxo. If we
         -- change it should cause invalid signature error.
         let healthyUTxOToDecommitHash =
@@ -334,11 +343,11 @@ genCloseOutdatedMutation (tx, _utxo) =
         mutatedUTxOHash <- genHash `suchThat` (/= healthyUTxOToDecommitHash)
         pure $
           Head.Close
-            Head.CloseUsed
+            Head.CloseUsedDec
               { signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot
               , alreadyDecommittedUTxOHash = toBuiltin mutatedUTxOHash
               }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseSignatures . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateCloseSignatures . ChangeHeadRedeemer <$> do
         -- Close redeemer contains the signatures. If we change them should
         -- cause invalid signature error.
         let healthyUTxOToDecommitHash =
@@ -349,15 +358,15 @@ genCloseOutdatedMutation (tx, _utxo) =
         signature <- toPlutusSignatures <$> (arbitrary `suchThat` (/= signatures healthyOutdatedConfirmedClosingSnapshot))
         pure $
           Head.Close
-            Head.CloseUsed
+            Head.CloseUsedDec
               { signature
               , alreadyDecommittedUTxOHash = toBuiltin healthyUTxOToDecommitHash
               }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseType . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateCloseType . ChangeHeadRedeemer <$> do
         -- Close redeemer claims whether the snapshot is valid against current
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
-        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot}
+        pure $ Head.Close Head.CloseUnusedDec{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot}
     ]
  where
   genOversizedTransactionValidity = do

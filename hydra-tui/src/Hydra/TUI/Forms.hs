@@ -5,7 +5,7 @@
 
 module Hydra.TUI.Forms where
 
-import Hydra.Prelude hiding (Down, State, padLeft)
+import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
 
@@ -62,6 +62,27 @@ utxoRadioField u =
         ]
     ]
     (Prelude.head $ Map.toList u)
+
+depositIdRadioField ::
+  forall s e n.
+  ( s ~ (TxId, TxIn, TxOut CtxUTxO)
+  , n ~ Text
+  ) =>
+  [(TxId, UTxO)] ->
+  Form s e n
+depositIdRadioField txIdUTxO =
+  newForm
+    [ radioField
+        id
+        [ ((txid, i, o), show txid, UTxO.render (i, o))
+        | (txid, i, o) <- flattened txIdUTxO
+        ]
+    ]
+    (Prelude.head $ flattened txIdUTxO)
+ where
+  flattened =
+    concatMap
+      (\(txId, u) -> (\(i, o) -> (txId, i, o)) <$> Map.toList (UTxO.toMap u))
 
 confirmRadioField ::
   forall s e n.

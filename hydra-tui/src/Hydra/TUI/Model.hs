@@ -4,7 +4,7 @@
 
 module Hydra.TUI.Model where
 
-import Hydra.Prelude hiding (Down, State, padLeft)
+import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
 
@@ -42,6 +42,8 @@ type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 
+type TxIdRadioFieldForm e n = Form (TxId, TxIn, TxOut CtxUTxO) e n
+
 type ConfirmingRadioFieldForm e n = Form Bool e n
 
 data InitializingState = InitializingState
@@ -59,6 +61,7 @@ data OpenScreen
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
+  | SelectingDepositIdToRecover {selectingDepositIdToRecoverForm :: TxIdRadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
   | SelectingRecipient
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
@@ -88,20 +91,23 @@ data HeadState
   = Idle
   | Active {activeLink :: ActiveLink}
 
-data PendingIncrement
+data PendingIncrementStatus
   = PendingDeposit
-      { utxoToCommit :: UTxO
-      , deposit :: TxId
-      , depositDeadline :: UTCTime
-      }
-  | PendingIncrement
-      { utxoToCommit :: UTxO
-      }
+  | FinalizingDeposit
+  deriving (Show)
+
+data PendingIncrement
+  = PendingIncrement
+  { utxoToCommit :: UTxO
+  , deposit :: TxId
+  , depositDeadline :: UTCTime
+  , status :: PendingIncrementStatus
+  }
 
 data ActiveLink = ActiveLink
   { utxo :: UTxO
   , pendingUTxOToDecommit :: UTxO
-  , pendingIncrement :: Maybe PendingIncrement
+  , pendingIncrements :: [PendingIncrement]
   , parties :: [Party]
   , headId :: HeadId
   , activeHeadState :: ActiveHeadState
@@ -120,6 +126,7 @@ makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
   , ("selectingUTxOToIncrementForm", "selectingUTxOToIncrementFormL")
+  , ("selectingDepositIdToRecoverForm", "selectingDepositIdToRecoverFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
   , ("enteringRecipientAddressForm", "enteringRecipientAddressFormL")
@@ -174,7 +181,7 @@ makeLensesFor
 makeLensesFor
   [ ("utxo", "utxoL")
   , ("pendingUTxOToDecommit", "pendingUTxOToDecommitL")
-  , ("pendingIncrement", "pendingIncrementL")
+  , ("pendingIncrements", "pendingIncrementsL")
   , ("parties", "partiesL")
   , ("activeHeadState", "activeHeadStateL")
   , ("headId", "headIdL")
@@ -209,7 +216,7 @@ newActiveLink parties headId =
           }
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
-    , pendingIncrement = Nothing
+    , pendingIncrements = mempty
     , headId
     }
 

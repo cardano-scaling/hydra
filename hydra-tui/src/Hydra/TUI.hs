@@ -3,7 +3,7 @@
 
 module Hydra.TUI where
 
-import Hydra.Prelude hiding (Down, State, padLeft)
+import Hydra.Prelude hiding (Down, State)
 
 import Brick
 import Hydra.Cardano.Api

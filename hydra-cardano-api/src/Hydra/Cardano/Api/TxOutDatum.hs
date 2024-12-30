@@ -4,15 +4,6 @@ import Hydra.Cardano.Api.Prelude
 
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 
--- | Construct a 'TxOutDatum' to be included in the tx from some serialisable data.
-mkTxOutDatum ::
-  forall era a.
-  (ToScriptData a, IsAlonzoBasedEra era) =>
-  a ->
-  TxOutDatum CtxTx era
-mkTxOutDatum =
-  TxOutDatumInTx (alonzoBasedEra @era) . toScriptData
-
 -- | Construct a 'TxOutDatum' as a 'ScriptData' hash from some serialisable data.
 mkTxOutDatumHash ::
   forall era a ctx.

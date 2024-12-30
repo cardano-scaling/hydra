@@ -16,7 +16,7 @@ import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   ConfirmedSnapshot (..),
-  SnapshotNumber,
+  Snapshot (utxoToCommit, utxoToDecommit),
   SnapshotVersion,
   hashUTxO,
   mkHeadId,
@@ -34,6 +34,8 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyUTxO,
   somePartyCardanoVerificationKey,
  )
+import Hydra.Tx.Snapshot (getSnapshot)
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genScriptRegistry)
@@ -44,9 +46,6 @@ import Test.QuickCheck.Instances ()
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
   deriving stock (Generic, Show, Enum, Bounded)
-
-healthyCloseSnapshotNumber :: SnapshotNumber
-healthyCloseSnapshotNumber = 0
 
 healthyCloseSnapshotVersion :: SnapshotVersion
 healthyCloseSnapshotVersion = 0
@@ -69,6 +68,11 @@ healthyCloseInitialTx =
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
       openThreadOutput
+      incrementalAction
+
+  incrementalAction =
+    fromMaybe NoThing $
+      setIncrementalActionMaybe (utxoToCommit $ getSnapshot closingSnapshot) (utxoToDecommit $ getSnapshot closingSnapshot)
 
   initialDatum :: TxOutDatum CtxUTxO
   initialDatum = toUTxOContext (mkTxOutDatumInline healthyInitialOpenDatum)

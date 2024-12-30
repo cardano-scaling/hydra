@@ -51,7 +51,7 @@ connections and better fault tolerance.
 
 The messages exchanged through the _Hydra networking_ layer between participants
 are authenticated. Each message is
-[signed](https://github.com/input-output-hk/hydra/issues/727) using the Hydra
+[signed](https://github.com/cardano-scaling/hydra/issues/727) using the Hydra
 signing key of the emitting party, which is identified by the corresponding
 verification key. When a message with an unknown or incorrect signature is
 received, it is dropped, and a notification is logged.
@@ -74,7 +74,7 @@ See also [this ADR](/adr/27) for a past discussion on making the network compone
 
 ### Current network stack
 
-See [haddocks](/haddock/hydra-node/Hydra-Node-Network.html)
+See [haddocks](pathname:///haddock/hydra-node/Hydra-Node-Network.html)
 
 - Hydra nodes form a network of pairwise connected *peers* using point-to-point (eg, TCP) connections that are expected to remain active at all times:
   - Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which manages connections with peers via a reliable point-to-point stream-based communication framework known as a `Snocket`

@@ -10,18 +10,13 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
-  queryCurrentEraExpr,
-  queryEpochNo,
   queryGenesisParameters,
   queryTip,
   queryTipSlotNo,
-  runQueryExpr,
   submitTx,
   waitForUTxO,
  )
 import CardanoNode (
-  CardanoNodeArgs (..),
-  unsafeDecodeJsonFile,
   withCardanoNodeDevnet,
  )
 import Control.Concurrent.STM (newTVarIO, readTVarIO)
@@ -29,7 +24,7 @@ import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (AsJSON (_JSON), key, values, _Double, _JSON)
+import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -533,27 +528,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
 
--- | Query the current era at the tip, and guard that it is equal to the
--- provided one.
-guardEra :: NetworkId -> SocketPath -> AnyCardanoEra -> IO ()
-guardEra networkId nodeSocket era = do
-  runQueryExpr networkId nodeSocket QueryTip queryCurrentEraExpr >>= guard . (== era)
-
--- | Wait until given number of epoch. This uses the epoch and slot lengths from
--- the 'ShelleyGenesisFile' of the node args passed in.
-waitUntilEpoch :: FilePath -> CardanoNodeArgs -> RunningNode -> Natural -> IO ()
-waitUntilEpoch stateDirectory args RunningNode{networkId, nodeSocket} toEpochNo = do
-  fromEpochNo :: Natural <- fromIntegral . unEpochNo <$> queryEpochNo networkId nodeSocket QueryTip
-  toEpochNo `shouldSatisfy` (> fromEpochNo)
-  shelleyGenesisFile :: Aeson.Value <- unsafeDecodeJsonFile (stateDirectory </> nodeShelleyGenesisFile args)
-  let slotLength =
-        fromMaybe (error "Field epochLength not found") $
-          shelleyGenesisFile ^? key "slotLength" . _Double
-      epochLength =
-        fromMaybe (error "Field epochLength not found") $
-          shelleyGenesisFile ^? key "epochLength" . _Double
-  threadDelay . realToFrac $ fromIntegral (toEpochNo - fromEpochNo) * epochLength * slotLength
-
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
   seenLogs <- newTVarIO []
@@ -581,7 +555,7 @@ waitForLog delay nodeOutput failureMessage predicate = do
         ]
           <> logs
 
-timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> TxId -> IO ()
+timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
@@ -645,7 +619,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
       v ^? key "snapshot" . key "confirmed"
     confirmedTransactions ^.. values `shouldBe` [toJSON tx]
 
-initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> TxId -> RunningNode -> IO ()
+initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> [TxId] -> RunningNode -> IO ()
 initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocket} = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
@@ -775,9 +749,6 @@ bobCommittedToHead = 5_000_000
 paymentFromAliceToBob :: Num a => a
 paymentFromAliceToBob = 1_000_000
 
-someTxId :: IsString s => s
-someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
-
 inHeadAddress :: VerificationKey PaymentKey -> AddressInEra
 inHeadAddress =
   mkVkAddress network
@@ -788,10 +759,3 @@ inHeadAddress =
 
 int :: Int -> Int
 int = id
-
-outputRef :: TxId -> Natural -> Value
-outputRef tid tix =
-  object
-    [ "txId" .= tid
-    , "index" .= tix
-    ]
