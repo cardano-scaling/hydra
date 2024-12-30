@@ -21,6 +21,7 @@ root-instances = [ { class = '\.Eq$' }
                  , { class = '\.Num$' }
                  , { class = '\.Real$' }
                  , { class = '\.Integral$' }
+                 , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" }
                  , { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" }
                  , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" }
                  , { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" }
