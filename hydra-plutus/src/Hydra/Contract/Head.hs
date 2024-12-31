@@ -254,8 +254,6 @@ checkIncrement ::
   IncrementRedeemer ->
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
-  -- FIXME: spec is mentioning the n also needs to be unchanged - what is n here? utxo hash?
-  -- "parameters cid, 𝑘̃ H , 𝑛, 𝑇 stay unchanged"
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && mustIncreaseValue
