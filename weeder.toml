@@ -33,6 +33,8 @@ root-instances = [
  , { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" }
  # This one is odd.
  , { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" }
+ # TODO: Remove this
+ , { module = "Hydra.Model.Payment", instance = "IsTx" }
  # These are used for debugging.
  , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
  , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
