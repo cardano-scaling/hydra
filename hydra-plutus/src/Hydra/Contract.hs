@@ -14,7 +14,6 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
  )
 import Hydra.Cardano.Api.Prelude qualified as Api
-import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))

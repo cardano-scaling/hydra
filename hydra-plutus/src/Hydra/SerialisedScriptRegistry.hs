@@ -7,9 +7,8 @@ import Data.ByteString.Base16 qualified as Base16
 
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import PlutusLedgerApi.Common (SerialisedScript)
 
 data SerialisedScriptRegistry = SerialisedScriptRegistry
@@ -26,7 +25,7 @@ serialisedScriptRegistry =
     { initialScriptValidator = initialValidatorScript
     , commitScriptValidator = commitValidatorScript
     , headScriptValidator = Head.validatorScript
-    , depositScriptValidator = Deposit.validatorScript
+    , depositScriptValidator = depositValidatorScript
     }
 
 -- XXX: used to parse Aiken `compiledCode`.

@@ -9,11 +9,8 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
-<<<<<<< HEAD
 import Hydra.Plutus (depositValidatorScript)
-=======
 import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))
->>>>>>> 9cb6d7a62 (move SerialisedScriptRegistry to hydra-plutus)
 import Hydra.Tx (HeadId, mkHeadId)
 import Hydra.Tx.Utils (mkHydraHeadV1TxName)
 

@@ -61,7 +61,7 @@ import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
 import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO, serialisedScriptRegistry)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
@@ -700,14 +700,14 @@ performTx action result =
                 Deposit{} -> (Just . getTxId . getTxBody $ tx, adjustUTxO tx utxo)
                 _ -> (depositTxId, adjustUTxO tx utxo)
         put adjusted
-        let observation = observeHeadTx Fixture.testNetworkId serialisedScriptRegistry utxo tx
-        pure
-          TxResult
-            { constructedTx = Right tx
-            , spendableUTxO = utxo
-            , validationError
-            , observation
-            }
+      let observation = observeHeadTx Fixture.testNetworkId serialisedScriptRegistry utxo tx
+      pure
+        TxResult
+          { constructedTx = Right tx
+          , spendableUTxO = utxo
+          , validationError
+          , observation
+          }
 
 getValidationError :: Tx -> UTxO -> Maybe String
 getValidationError tx utxo =

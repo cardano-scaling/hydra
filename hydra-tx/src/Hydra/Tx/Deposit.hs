@@ -82,7 +82,7 @@ observeDepositTx ::
   Maybe DepositObservation
 observeDepositTx networkId SerialisedScriptRegistry{depositScriptValidator} tx = do
   -- TODO: could just use the first output and fail otherwise
-  (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddr tx
   (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toCtxUTxOTxOut depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
@@ -97,7 +97,7 @@ observeDepositTx networkId SerialisedScriptRegistry{depositScriptValidator} tx =
  where
   depositScript = fromPlutusScript depositScriptValidator
 
-  depositAddress = mkScriptAddress @PlutusScriptV3 networkId depositScript
+  depositAddr = mkScriptAddress @PlutusScriptV3 networkId depositScript
 
 observeDepositTxOut ::
   Network ->
