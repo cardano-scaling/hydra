@@ -16,8 +16,6 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
-import Test.QuickCheck.StateModel (HasVariables)
-import Test.QuickCheck.StateModel.Variables (HasVariables (..))
 import Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys
@@ -72,17 +70,11 @@ instance Show Payment where
       <> show value
       <> " }"
 
-instance Arbitrary Payment where
-  arbitrary = error "don't use"
-
 instance ToCBOR Payment where
   toCBOR = error "don't use"
 
 instance FromCBOR Payment where
   fromCBOR = error "don't use"
-
-instance HasVariables Payment where
-  getAllVariables _ = mempty
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
