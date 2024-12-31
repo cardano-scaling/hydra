@@ -1,4 +1,5 @@
-roots = [ "^Main.main$"
+roots = [
+   "^Main.main$"
  , "^Spec.main$"
  , "^main$"
  , "validatorHash$"
@@ -11,23 +12,29 @@ roots = [ "^Main.main$"
  , "showFromAction$"
  , "redeemer$"
  ]
-root-instances = [ { class = '\.Eq$' }
-                 , { class = '\.Show$' }
-                 , { class = '\.Read$' }
-                 , { class = '\.Enum$' }
-                 , { class = '\.Bounded$' }
-                 , { class = '\.Generic$' }
-                 , { class = '\.Ord$' }
-                 , { class = '\.Num$' }
-                 , { class = '\.Real$' }
-                 , { class = '\.Integral$' }
-                 , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" }
-                 , { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" }
-                 , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" }
-                 , { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" }
-                 , { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" }
-                 , { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" }
-                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
-                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
-                 , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" }
-                 ]
+root-instances = [
+ # Stock instances are treated as roots.
+   { class = '\.Eq$' }
+ , { class = '\.Show$' }
+ , { class = '\.Read$' }
+ , { class = '\.Enum$' }
+ , { class = '\.Bounded$' }
+ , { class = '\.Generic$' }
+ , { class = '\.Ord$' }
+ , { class = '\.Num$' }
+ , { class = '\.Real$' }
+ , { class = '\.Integral$' }
+ # unstableMakeIsData creates all Data instances at once, some are unused and
+ # so are treated as roots.
+ , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" }
+ , { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" }
+ , { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" }
+ , { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" }
+ , { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" }
+ # This one is odd.
+ , { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" }
+ # These are used for debugging.
+ , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
+ , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
+ , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" }
+ ]
