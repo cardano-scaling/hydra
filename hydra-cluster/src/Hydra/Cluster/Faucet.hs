@@ -56,7 +56,7 @@ seedFromFaucet node@RunningNode{networkId, nodeSocket} receivingVerificationKey 
   (faucetVk, faucetSk) <- keysFor Faucet
   seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk
   producedUTxO <- awaitTransaction networkId nodeSocket seedTx
-  pure $ UTxO.filter (== toUTxOContext theOutput) producedUTxO
+  pure $ UTxO.filter (== toCtxUTxOTxOut theOutput) producedUTxO
  where
   submitSeedTx faucetVk faucetSk = do
     faucetUTxO <- findFaucetUTxO node lovelace

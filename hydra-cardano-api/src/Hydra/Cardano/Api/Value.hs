@@ -7,7 +7,6 @@ import Cardano.Ledger.Core (getMinCoinTxOut)
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Data.Word (Word64)
 import GHC.IsList (IsList (..))
-import Hydra.Cardano.Api.CtxUTxO (ToUTxOContext (..))
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
 import PlutusLedgerApi.V1.Value (flattenValue)
 import PlutusLedgerApi.V3 (adaSymbol, adaToken, fromBuiltin, unTokenName)
@@ -24,7 +23,7 @@ minUTxOValue pparams (TxOut addr val dat ref) =
   lovelaceToValue $
     getMinCoinTxOut
       pparams
-      (toShelleyTxOut shelleyBasedEra (toUTxOContext out'))
+      (toShelleyTxOut shelleyBasedEra $ toCtxUTxOTxOut out')
  where
   out' =
     TxOut
@@ -48,15 +47,6 @@ minUTxOValue pparams (TxOut addr val dat ref) =
 -- | Count number of assets in a 'Value'.
 valueSize :: Value -> Int
 valueSize = length . toList
-
--- | Access minted assets of a transaction, as an ordered association list.
-txMintAssets :: Tx era -> [(AssetId, Quantity)]
-txMintAssets =
-  asList . txMintValue . getTxBodyContent . getTxBody
- where
-  asList = \case
-    TxMintNone -> []
-    TxMintValue _ val _ -> toList val
 
 -- * Type Conversions
 

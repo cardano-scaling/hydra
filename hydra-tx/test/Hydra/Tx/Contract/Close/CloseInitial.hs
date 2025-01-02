@@ -75,7 +75,7 @@ healthyCloseInitialTx =
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closingSnapshot) (utxoToDecommit $ getSnapshot closingSnapshot)
 
   initialDatum :: TxOutDatum CtxUTxO
-  initialDatum = toUTxOContext (mkTxOutDatumInline healthyInitialOpenDatum)
+  initialDatum = mkTxOutDatumInline healthyInitialOpenDatum
 
   lookupUTxO :: UTxO' (TxOut CtxUTxO)
   lookupUTxO =

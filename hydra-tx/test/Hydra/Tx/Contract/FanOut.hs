@@ -53,7 +53,7 @@ healthyFanoutTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatumInline healthyFanoutDatum)
+  headOutput' = mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyFanoutDatum)
 
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
 
@@ -148,8 +148,8 @@ genFanoutMutation (tx, _utxo) =
     ]
  where
   burntTokens =
-    case txMintValue $ txBodyContent $ txBody tx of
-      TxMintValueNone -> error "expected minted value"
-      TxMintValue v _ -> toList v
+    case toList . txMintValueToValue . txMintValue $ txBodyContent $ txBody tx of
+      [] -> error "expected minted value"
+      v -> v
 
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)

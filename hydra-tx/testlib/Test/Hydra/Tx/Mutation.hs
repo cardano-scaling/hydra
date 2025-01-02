@@ -130,6 +130,7 @@ module Test.Hydra.Tx.Mutation where
 
 import Hydra.Cardano.Api
 
+import Cardano.Api.Plutus (DebugPlutusFailure (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
@@ -213,7 +214,7 @@ propTransactionFailsPhase2 mExpectedError (tx, lookupUTxO) =
  where
   matchesErrorMessage :: Text -> ScriptExecutionError -> Bool
   matchesErrorMessage errMsg = \case
-    ScriptErrorEvaluationFailed _ errList -> errMsg `elem` errList
+    ScriptErrorEvaluationFailed (DebugPlutusFailure{dpfExecutionLogs}) -> errMsg `elem` dpfExecutionLogs
     _otherScriptExecutionError -> False
 
 -- * Mutations
@@ -525,7 +526,7 @@ addDatum datum scriptData =
     TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
     TxOutDatumInline _sd -> error "not useful for inline datums"
-    TxOutDatumInTx sd ->
+    TxOutSupplementalDatum sd ->
       case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
         TxBodyScriptData (Ledger.TxDats dats) redeemers ->
@@ -540,8 +541,8 @@ modifyInlineDatum fn txOut =
       error "Unexpected empty head datum"
     (TxOutDatumHash _ha) ->
       error "Unexpected hash-only datum"
-    (TxOutDatumInTx _sd) ->
-      error "Unexpected in-tx datum"
+    (TxOutSupplementalDatum _sd) ->
+      error "Unexpected supplemental datum"
     (TxOutDatumInline sd) ->
       case fromScriptData sd of
         Just st ->
@@ -568,7 +569,7 @@ ensureDatums outs scriptData =
  where
   ensureDatum txOut sd =
     case txOutDatum txOut of
-      d@(TxOutDatumInTx _) -> addDatum d sd
+      d@(TxOutSupplementalDatum _) -> addDatum d sd
       _ -> sd
 
 -- | Alter a transaction's redeemers map given some mapping function.
@@ -667,50 +668,37 @@ alterTxOuts fn tx =
 -- | A 'Mutation' that changes the minted/burnt quantity of all tokens to a
 -- non-zero value different than the given one.
 changeMintedValueQuantityFrom :: Tx -> Integer -> Gen Mutation
-changeMintedValueQuantityFrom tx exclude =
-  ChangeMintedValue
-    <$> case mintedValue of
-      TxMintValueNone ->
-        pure mempty
-      TxMintValue v _ -> do
-        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
-        pure . fromList $ map (second $ const someQuantity) $ toList v
+changeMintedValueQuantityFrom tx exclude = do
+  someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
+  pure $ ChangeMintedValue $ fromList $ map (second $ const someQuantity) $ toList mintedValue
  where
-  mintedValue = txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
 
 -- | A 'Mutation' that changes the minted/burned quantity of tokens like this:
 -- - when no value is being minted/burned -> add a value
 -- - when tx is minting or burning values -> add more values on top of that
 changeMintedTokens :: Tx -> Value -> Gen Mutation
 changeMintedTokens tx mintValue =
-  ChangeMintedValue
-    <$> case mintedValue of
-      TxMintValueNone ->
-        pure mintValue
-      TxMintValue v _ ->
-        pure $ v <> mintValue
+  pure $ ChangeMintedValue $ mintedValue <> mintValue
  where
-  mintedValue = txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
 
 -- | A `Mutation` that adds an `Arbitrary` participation token with some quantity.
 -- As usual the quantity can be positive for minting, or negative for burning.
 addPTWithQuantity :: Tx -> Quantity -> Gen Mutation
 addPTWithQuantity tx quantity =
-  ChangeMintedValue <$> do
-    case mintedValue of
-      TxMintValue v _ -> do
-        -- NOTE: We do not expect Ada or any other assets to be minted, so
-        -- we can take the policy id from the head
-        case Prelude.head $ toList v of
-          (AdaAssetId, _) -> error "unexpected mint of Ada"
-          (AssetId pid _an, _) -> do
-            -- Some arbitrary token name, which could correspond to a pub key hash
-            pkh <- arbitrary
-            pure $ v <> fromList [(AssetId pid pkh, quantity)]
-      TxMintValueNone ->
-        pure mempty
+  ChangeMintedValue
+    <$>
+    -- NOTE: We do not expect Ada or any other assets to be minted, so
+    -- we can take the policy id from the head
+    case Prelude.head $ toList mintedValue of
+      (AdaAssetId, _) -> error "unexpected mint of Ada"
+      (AssetId pid _an, _) -> do
+        -- Some arbitrary token name, which could correspond to a pub key hash
+        pkh <- arbitrary
+        pure $ mintedValue <> fromList [(AssetId pid pkh, quantity)]
  where
-  mintedValue = txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
 
 -- | Replace first given 'PolicyId' with the second argument in the whole 'TxOut' value.
 replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
@@ -941,9 +929,9 @@ replaceContesters contesters = \case
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
 removePTFromMintedValue output tx =
-  case txMintValue $ txBodyContent $ txBody tx of
-    TxMintValueNone -> error "expected minted value"
-    TxMintValue v _ -> fromList $ filter (not . isPT) $ toList v
+  case toList $ txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx of
+    [] -> error "expected minted value"
+    v -> fromList $ filter (not . isPT) v
  where
   outValue = txOutValue output
   assetNames =
