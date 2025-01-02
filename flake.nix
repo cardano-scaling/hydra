@@ -189,7 +189,7 @@
 
           devShells = import ./nix/hydra/shell.nix {
             inherit (inputs) aiken;
-            inherit inputs pkgs hsPkgs system pkgsLatest;
+            inherit inputs pkgs hsPkgs system pkgsLatest hydraPackages;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };

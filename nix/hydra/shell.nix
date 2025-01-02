@@ -9,6 +9,7 @@
 , ghc
 , pkgsLatest
 , aiken
+, hydraPackages
 }:
 let
 
@@ -119,8 +120,8 @@ let
     name = "hydra-node-exe-shell";
 
     buildInputs = [
-      hsPkgs.hydra-node.components.exes.hydra-node
-      hsPkgs.hydra-cluster.components.exes.hydra-cluster
+      hydraPackages.hydra-node
+      hydraPackages.hydra-cluster
       inputs.cardano-node.packages.${system}.cardano-node
       inputs.cardano-node.packages.${system}.cardano-cli
       pkgs.mithril-client-cli
@@ -132,8 +133,8 @@ let
   demoShell = pkgs.mkShell {
     name = "hydra-demo-shell";
     buildInputs = [
-      hsPkgs.hydra-node.components.exes.hydra-node
-      hsPkgs.hydra-tui.components.exes.hydra-tui
+      hydraPackages.hydra-node
+      hydraPackages.hydra-tui
       run-tmux
       inputs.cardano-node.packages.${system}.cardano-node
       inputs.cardano-node.packages.${system}.cardano-cli
