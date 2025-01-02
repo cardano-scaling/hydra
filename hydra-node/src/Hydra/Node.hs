@@ -234,9 +234,6 @@ data HydraNode tx m = HydraNode
   , server :: Server tx m
   }
 
-instance HasParty (HydraNode tx m) where
-  getParty HydraNode{env} = getParty env
-
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
@@ -391,7 +388,6 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary

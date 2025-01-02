@@ -14,7 +14,7 @@ spec =
   prop "adds sequential id to all enqueued items" prop_identify_enqueued_items
 
 newtype DummyInput = DummyInput Int
-  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (Eq, Show)
 
 prop_identify_enqueued_items :: NonEmptyList Int -> Property
 prop_identify_enqueued_items (NonEmpty inputs) =

@@ -26,7 +26,6 @@ data ScriptRegistry = ScriptRegistry
   , headReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 data NewScriptRegistryException = MissingScript
   { scriptName :: Text

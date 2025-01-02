@@ -13,7 +13,6 @@ import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Ouroboros.Consensus.Cardano.Block (EraMismatch (..))
-import Test.QuickCheck (oneof)
 import Text.Printf (printf)
 
 -- XXX: This should be re-exported by cardano-api
@@ -197,17 +196,6 @@ awaitTransaction networkId socket tx =
 -- | Describes whether to query at the tip or at a specific point.
 data QueryPoint = QueryTip | QueryAt ChainPoint
   deriving stock (Eq, Show, Generic)
-
-deriving anyclass instance ToJSON QueryPoint
-
-instance Arbitrary QueryPoint where
-  -- XXX: This is not complete as we lack an 'Arbitrary ChainPoint' and we have
-  -- not bothered about it yet.
-  arbitrary =
-    oneof
-      [ pure QueryTip
-      , pure $ QueryAt ChainPointAtGenesis
-      ]
 
 -- | Query the latest chain point aka "the tip".
 queryTip :: NetworkId -> SocketPath -> IO ChainPoint

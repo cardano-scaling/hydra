@@ -73,7 +73,7 @@ data KnownNetwork
   | Mainnet
   | Sanchonet
   deriving stock (Generic, Show, Eq, Enum, Bounded)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 toNetworkId :: KnownNetwork -> NetworkId
 toNetworkId = \case

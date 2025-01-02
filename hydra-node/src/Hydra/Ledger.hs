@@ -50,7 +50,6 @@ data ValidationResult
   = Valid
   | Invalid ValidationError
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 newtype ValidationError = ValidationError {reason :: Text}
   deriving stock (Eq, Show, Generic)

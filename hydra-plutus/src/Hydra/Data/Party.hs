@@ -2,9 +2,7 @@ module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)
 
-import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import Data.ByteString qualified as BS
-import Data.ByteString.Base16 qualified as Base16
 import PlutusTx qualified
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
@@ -35,18 +33,6 @@ instance PlutusTx.FromData Party where
 
 instance PlutusTx.UnsafeFromData Party where
   unsafeFromBuiltinData = UnsafeParty . unsafeFromBuiltinData
-
-instance ToJSON Party where
-  toJSON (UnsafeParty bytes) =
-    object ["vkey" .= String (decodeUtf8 $ Base16.encode $ fromBuiltin bytes)]
-
-instance FromJSON Party where
-  parseJSON =
-    withObject "Party" $ \o -> do
-      hexText :: Text <- o .: "vkey"
-      case Base16.decode $ encodeUtf8 hexText of
-        Left e -> fail e
-        Right bs -> pure UnsafeParty{vkey = toBuiltin bs}
 
 -- | Create an on-chain 'Party' from some verification key bytes.
 partyFromVerificationKeyBytes :: ByteString -> Party

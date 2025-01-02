@@ -507,30 +507,6 @@ deriving stock instance Eq Head.DecrementRedeemer
 deriving stock instance Eq Head.CloseRedeemer
 deriving stock instance Eq Head.ContestRedeemer
 
-instance Arbitrary Head.IncrementRedeemer where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.DecrementRedeemer where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.CloseRedeemer where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.ContestRedeemer where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.Input where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.OpenDatum where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.ClosedDatum where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.State where
-  arbitrary = genericArbitrary
-
 -- * Helpers
 
 -- | Identify Head script's output.

@@ -101,7 +101,6 @@ library
     , hydra-tx
     , hydra-tx:testlib
     , io-classes
-    , iohk-monitoring
     , lens
     , lens-aeson
     , optparse-applicative

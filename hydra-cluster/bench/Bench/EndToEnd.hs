@@ -333,7 +333,6 @@ data Event = Event
   , confirmedAt :: Maybe UTCTime
   }
   deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
 
 processTransactions :: [HydraClient] -> [ClientDataset] -> IO (Map.Map TxId Event)
 processTransactions clients clientDatasets = do

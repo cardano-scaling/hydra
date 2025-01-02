@@ -5,7 +5,6 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
-import Cardano.BM.Tracing (ToObject)
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
@@ -470,4 +469,4 @@ data HydraNodeLog
   | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
   | EndWaiting {nodeId :: Int}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON, ToObject)
+  deriving anyclass (ToJSON)

@@ -258,11 +258,6 @@ instance Num ModelSnapshot where
       , toDecommit = mempty
       }
 
-instance Arbitrary ModelSnapshot where
-  arbitrary = genericArbitrary
-
-  shrink = genericShrink
-
 data State
   = Open
   | Closed

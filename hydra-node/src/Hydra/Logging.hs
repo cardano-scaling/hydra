@@ -66,7 +66,6 @@ data Envelope a = Envelope
   , message :: a
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (FromJSON)
 
 instance ToJSON a => ToJSON (Envelope a) where
   toEncoding Envelope{timestamp, threadId, namespace, message} =
