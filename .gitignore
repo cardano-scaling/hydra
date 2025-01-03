@@ -33,3 +33,9 @@ hspec-results.md
 /demo/.env
 /demo/devnet/
 /docs/static/haddock/
+
+# tx-cost-difference files
+diff.md
+old.md
+new.md
+new-headers.txt
