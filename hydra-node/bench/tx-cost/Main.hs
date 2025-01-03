@@ -157,6 +157,7 @@ scriptSizes =
   , "| " <> "νDeposit" <> " | " <> serialiseToRawBytesHexText depositScriptHash <> " | " <> show depositScriptSize <> " | "
   , ""
   , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per head."
+  , ""
   ]
  where
   ScriptInfo
