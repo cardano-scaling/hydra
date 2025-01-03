@@ -6,6 +6,7 @@ import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Hydra.Plutus.Orphans ()
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -171,7 +172,7 @@ scriptSizes =
     , headScriptSize
     , depositScriptHash
     , depositScriptSize
-    } = scriptInfo
+    } = scriptInfo serialisedScriptRegistry
 
 genFromSeed :: Gen a -> Int -> a
 genFromSeed (MkGen g) seed = g (mkQCGen seed) 30

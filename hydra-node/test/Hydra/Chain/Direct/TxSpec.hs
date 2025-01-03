@@ -46,6 +46,7 @@ import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
@@ -114,7 +115,7 @@ spec =
             genericCoverTable [transition] $
               counterexample (show transition) $
                 let utxo = getKnownUTxO st <> additionalUTxO
-                 in case observeHeadTx testNetworkId utxo tx of
+                 in case observeHeadTx testNetworkId serialisedScriptRegistry utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
                       Abort{} -> transition === Transition.Abort

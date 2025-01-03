@@ -80,6 +80,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
@@ -305,7 +306,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   maybeObserveSomeTx point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
-    let observation = observeHeadTx networkId spendableUTxO tx
+    let observation = observeHeadTx networkId serialisedScriptRegistry spendableUTxO tx
     case convertObservation observation of
       Nothing -> pure Nothing
       Just observedTx -> do

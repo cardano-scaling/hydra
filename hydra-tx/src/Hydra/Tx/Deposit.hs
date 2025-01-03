@@ -13,6 +13,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
+import Hydra.SerialisedScriptRegistry (SerialisedScriptRegistry (..))
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
@@ -76,11 +77,12 @@ data DepositObservation = DepositObservation
 
 observeDepositTx ::
   NetworkId ->
+  SerialisedScriptRegistry ->
   Tx ->
   Maybe DepositObservation
-observeDepositTx networkId tx = do
+observeDepositTx networkId SerialisedScriptRegistry{depositScriptValidator} tx = do
   -- TODO: could just use the first output and fail otherwise
-  (TxIn depositTxId _, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  (TxIn depositTxId _, depositOut) <- findTxOutByAddress depositAddr tx
   (headId, deposited, deadline) <- observeDepositTxOut (networkIdToNetwork networkId) (toCtxUTxOTxOut depositOut)
   if all (`elem` txIns' tx) (UTxO.inputSet deposited)
     then
@@ -92,8 +94,15 @@ observeDepositTx networkId tx = do
           , deadline
           }
     else Nothing
+ where
+  depositScript = fromPlutusScript depositScriptValidator
 
-observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
+  depositAddr = mkScriptAddress @PlutusScriptV3 networkId depositScript
+
+observeDepositTxOut ::
+  Network ->
+  TxOut CtxUTxO ->
+  Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut network depositOut = do
   dat <- case txOutDatum depositOut of
     TxOutDatumInline d -> pure d

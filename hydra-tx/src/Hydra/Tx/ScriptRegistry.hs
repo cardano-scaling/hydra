@@ -4,20 +4,11 @@ module Hydra.Tx.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  ScriptHash,
-  TxIn (..),
-  TxOut,
-  hashScriptInAnyLang,
-  txOutReferenceScript,
-  pattern ReferenceScript,
-  pattern ReferenceScriptNone,
- )
+import Hydra.Cardano.Api
 import Hydra.Contract (ScriptInfo (..), scriptInfo)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
@@ -70,7 +61,7 @@ newScriptRegistry =
     { initialScriptHash
     , commitScriptHash
     , headScriptHash
-    } = scriptInfo
+    } = scriptInfo serialisedScriptRegistry
 
 -- | Get the UTxO that corresponds to a script registry.
 --

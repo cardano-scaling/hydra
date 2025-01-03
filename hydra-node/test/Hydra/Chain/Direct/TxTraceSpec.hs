@@ -52,6 +52,7 @@ import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.SerialisedScriptRegistry (serialisedScriptRegistry)
 import Hydra.Tx (CommitBlueprintTx (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
@@ -458,8 +459,7 @@ instance StateModel Model where
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
               then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+              else snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -508,8 +508,7 @@ instance StateModel Model where
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
               then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+              else snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -701,7 +700,7 @@ performTx action result =
                 Deposit{} -> (Just . getTxId . getTxBody $ tx, adjustUTxO tx utxo)
                 _ -> (depositTxId, adjustUTxO tx utxo)
         put adjusted
-      let observation = observeHeadTx Fixture.testNetworkId utxo tx
+      let observation = observeHeadTx Fixture.testNetworkId serialisedScriptRegistry utxo tx
       pure
         TxResult
           { constructedTx = Right tx
