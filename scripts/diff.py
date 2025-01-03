@@ -24,6 +24,14 @@ def parties(df):
 def utxo(df):
   return df.set_index("UTxO")
 
+def utxo_and_parties(df):
+  df = df.set_index(["UTxO", "Parties"])
+
+  df.index = df.index.to_flat_index()
+  df.index.name = "UTxO, Parties"
+
+  return df
+
 def compare(f, old, new):
   # New should be better, so we compare to that.
   df = f(new) - f(old)
@@ -67,11 +75,14 @@ diffs = [
   , (headers[2], compare( utxo,        base[3], branch[3]))
   ]
 
-# Then the remaining are all the same.
-for i in range(4, 9 + 1):
+# Then (almost all) the remaining are all the same,
+for i in range(4, 8 + 1):
   diffs.append(( headers[i - 1]
                , compare( parties, base[i], branch[i] )
                ))
+
+# Except fanout is different; it has parties _and_ UTxO
+diffs.append((headers[9], compare(utxo_and_parties, base[10], branch[10])))
 
 # Check that ther was _some_ difference, at least.
 some_change = any( df.to_numpy().sum() != 0 for _, df in diffs )
