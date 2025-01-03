@@ -8,7 +8,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
-import Hydra.Ledger.Cardano.Builder (addOutputs, addVkInputs, emptyTxBody, mintTokens, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -28,9 +28,9 @@ initTx ::
   Tx
 initTx networkId seedTxIn participants parameters =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addVkInputs [seedTxIn]
-      & addOutputs
+    defaultTxBodyContent
+      & addTxInsSpending [seedTxIn]
+      & addTxOuts
         ( mkHeadOutputInitial networkId seedTxIn parameters
             : map (mkInitialOutput networkId seedTxIn) participants
         )

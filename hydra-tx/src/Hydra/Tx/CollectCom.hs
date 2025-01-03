@@ -11,11 +11,6 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
-  addExtraRequiredSigners,
-  addInputs,
-  addOutputs,
-  addReferenceInputs,
-  emptyTxBody,
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (commitValidatorScript)
@@ -51,11 +46,11 @@ collectComTx ::
   Tx
 collectComTx networkId scriptRegistry vk headId headParameters (headInput, initialHeadOutput) commits utxoToCollect =
   unsafeBuildTransaction $
-    emptyTxBody
-      & addInputs ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
-      & addReferenceInputs [commitScriptRef, headScriptRef]
-      & addOutputs [headOutput]
-      & addExtraRequiredSigners [verificationKeyHash vk]
+    defaultTxBodyContent
+      & addTxIns ((headInput, headWitness) : (mkCommit <$> Map.keys commits))
+      & addTxInsReference [commitScriptRef, headScriptRef]
+      & addTxOuts [headOutput]
+      & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CollectComTx")
  where
   HeadParameters{parties, contestationPeriod} = headParameters
