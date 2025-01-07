@@ -15,6 +15,8 @@ on:
   schedule:
     # Everyday at 4:00 AM
     - cron: "0 4 * * *"
+  # Allows to trigger runs on any branch
+  workflow_dispatch:
 
 permissions:
   checks: write
