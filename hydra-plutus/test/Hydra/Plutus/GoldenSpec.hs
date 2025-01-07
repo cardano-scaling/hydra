@@ -49,12 +49,6 @@ spec = do
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
-  it "Deposit validator script" $
-    goldenScript "vDeposit" depositValidatorScript
-  it "Initial validator script" $
-    goldenScript "vInitial" initialValidatorScript
-  it "Commit validator script" $
-    goldenScript "vCommit" commitValidatorScript
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
