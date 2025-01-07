@@ -83,7 +83,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
     fst (headReference scriptRegistry)
 
   headScript =
-    fromPlutusScript @PlutusScriptV3 Head.validatorScript
+    PlutusScriptSerialised Head.validatorScript
 
   contestRedeemer =
     case incrementalAction of

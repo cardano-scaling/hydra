@@ -49,7 +49,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headScriptRef =
     fst (headReference scriptRegistry)
   headScript =
-    fromPlutusScript @PlutusScriptV3 Head.validatorScript
+    PlutusScriptSerialised Head.validatorScript
   headRedeemer =
     toScriptData $
       Head.Fanout

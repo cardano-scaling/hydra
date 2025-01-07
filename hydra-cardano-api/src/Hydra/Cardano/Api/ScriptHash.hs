@@ -4,8 +4,6 @@ module Hydra.Cardano.Api.ScriptHash where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.PlutusScript ()
-
 -- * Extras
 
 -- | Like 'hashScript', but for a 'ScriptInAnyLang'.

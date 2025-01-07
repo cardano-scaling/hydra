@@ -22,7 +22,6 @@ import Hydra.Cardano.Api (
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  PlutusScriptV3,
   PolicyId,
   Quantity (..),
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -35,7 +34,6 @@ import Hydra.Cardano.Api (
   UTxO,
   UTxO' (UTxO),
   chainPointToSlotNo,
-  fromPlutusScript,
   fromScriptData,
   genTxIn,
   getTxBody,
@@ -52,6 +50,7 @@ import Hydra.Cardano.Api (
   txOutValue,
   txSpendingUTxO,
   pattern ByronAddressInEra,
+  pattern PlutusScriptSerialised,
   pattern ShelleyAddressInEra,
   pattern TxIn,
   pattern TxOut,
@@ -407,11 +406,11 @@ abort ctx seedTxIn spendableUTxO committedUTxO = do
   commits =
     UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
 
-  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
+  commitScript = PlutusScriptSerialised commitValidatorScript
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = PlutusScriptSerialised initialValidatorScript
 
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -443,9 +442,9 @@ collect ctx headId headParameters utxoToCollect spendableUTxO = do
   pure $
     collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
  where
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
-  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
+  commitScript = PlutusScriptSerialised commitValidatorScript
 
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
@@ -490,8 +489,8 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
           Left SnapshotIncrementUTxOIsNull
       | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
  where
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
-  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript
 
   Snapshot{utxoToCommit} = sn
 
@@ -530,7 +529,7 @@ decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
     Left DecrementValueNegative
   Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   decommitValue = foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
 
@@ -584,7 +583,7 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
     then Left InvalidHeadIdInRecover{headId}
     else Right $ recoverTx depositedTxId deposited lowerValiditySlot
  where
-  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript
   ChainContext{networkId} = ctx
 
 -- | Construct a close transaction spending the head output in given 'UTxO',
@@ -627,7 +626,7 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
  where
   Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -699,7 +698,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 data FanoutTxError
   = CannotFindHeadOutputToFanout
@@ -738,7 +737,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
 
   ChainContext{scriptRegistry} = ctx
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-

@@ -55,7 +55,7 @@ main = do
           serialised =
             Aeson.encode $
               serialiseToTextEnvelope (Just $ fromString itemName) $
-                fromPlutusScript @PlutusScriptV3 item
+                PlutusScriptSerialised item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
 

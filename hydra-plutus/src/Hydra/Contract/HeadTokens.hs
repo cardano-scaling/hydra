@@ -16,13 +16,12 @@ module Hydra.Contract.HeadTokens where
 import PlutusTx.Prelude
 
 import Hydra.Cardano.Api (
-  PlutusScriptV3,
   PolicyId,
   TxIn,
-  fromPlutusScript,
   scriptPolicyId,
   toPlutusTxOutRef,
   pattern PlutusScript,
+  pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api qualified as Api
 
@@ -206,4 +205,4 @@ headPolicyId =
 -- | Get the applied head minting policy script given a seed 'TxIn'.
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
-  fromPlutusScript @PlutusScriptV3 . mintingPolicyScript . toPlutusTxOutRef
+  PlutusScriptSerialised . mintingPolicyScript . toPlutusTxOutRef

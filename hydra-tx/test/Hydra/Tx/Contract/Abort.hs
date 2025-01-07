@@ -122,7 +122,7 @@ propHasInitial (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  addr = mkScriptAddress testNetworkId (fromPlutusScript @PlutusScriptV3 initialValidatorScript)
+  addr = mkScriptAddress testNetworkId (PlutusScriptSerialised initialValidatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == addr
 
@@ -132,7 +132,7 @@ propHasCommit (_, utxo) =
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  addr = mkScriptAddress testNetworkId (fromPlutusScript @PlutusScriptV3 commitValidatorScript)
+  addr = mkScriptAddress testNetworkId (PlutusScriptSerialised commitValidatorScript)
   paysToCommitScript txOut =
     txOutAddress txOut == addr
 
@@ -292,7 +292,7 @@ genAbortableOutputs parties =
       (mkTxOutDatumInline initialDatum)
       ReferenceScriptNone
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = PlutusScriptSerialised initialValidatorScript
 
   initialDatum = Initial.datum (toPlutusCurrencySymbol testPolicyId)
 
@@ -332,7 +332,7 @@ generateCommitUTxOs parties = do
             ]
         ]
 
-    commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
+    commitScript = PlutusScriptSerialised commitValidatorScript
 
     commitDatum = mkCommitDatum party utxo (toPlutusCurrencySymbol testPolicyId)
 
