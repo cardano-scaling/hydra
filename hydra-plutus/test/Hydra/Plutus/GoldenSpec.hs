@@ -29,10 +29,22 @@ import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValid
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus
+import System.Process.Typed (proc, runProcess_)
 import Test.Hspec.Golden (Golden (..))
 
 spec :: Spec
 spec = do
+  it "Plutus blueprint is up-to-date" $ do
+    -- Running aiken -t compact should not change plutus.json
+    existing <- readFileBS "plutus.json"
+    runProcess_ $ proc "aiken" ["build", "-t", "compact"]
+    actual <- readFileBS "plutus.json"
+    -- Undo any changes made by aiken
+    writeFileBS "plutus.json" existing
+    when (actual /= existing) $ do
+      putTextLn "Plutus blueprint in plutus.json is not up-to-date. Run \"aiken -t compact\" to update it."
+    actual `shouldBe` existing
+
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
