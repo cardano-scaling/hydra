@@ -46,15 +46,13 @@ that you have a good version of jq with this command:
 ```shell
 mkdir -p bin
 hydra_version=0.19.0
-mithril_version=2437.1
 cardano_node_version=10.1.2
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-linux-x64.tar.gz \
-  | tar xz -C bin mithril-client
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 chmod +x bin/*
 ```
 
@@ -64,15 +62,13 @@ chmod +x bin/*
 ```shell
 mkdir -p bin
 hydra_version=0.19.0
-mithril_version=2437.1
 cardano_node_version=10.1.2
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --wildcards ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./share/preprod --strip-components=3
-curl -L -o - https://github.com/input-output-hk/mithril/releases/download/${mithril_version}/mithril-${mithril_version}-macos-x64.tar.gz \
-  | tar xz -C bin
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 chmod +x bin/*
 ```
 
