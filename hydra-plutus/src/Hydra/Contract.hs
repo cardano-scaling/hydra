@@ -9,9 +9,9 @@ import Data.ByteString.Lazy qualified as BSL
 import Hydra.Cardano.Api (
   PlutusScriptVersion (PlutusScriptV3),
   ScriptHash,
-  fromPlutusScript,
   hashScript,
   pattern PlutusScript,
+  pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api.Prelude qualified as Api
 import Hydra.Contract.Head qualified as Head
@@ -44,18 +44,18 @@ scriptInfo =
   ScriptInfo
     { mintingScriptHash = plutusScriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
-    , initialScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript initialValidatorScript
+    , initialScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised initialValidatorScript
     , initialScriptSize = scriptSize initialValidatorScript
-    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript commitValidatorScript
+    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised commitValidatorScript
     , commitScriptSize = scriptSize commitValidatorScript
     , headScriptHash = plutusScriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript
-    , depositScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ fromPlutusScript depositValidatorScript
+    , depositScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised depositValidatorScript
     , depositScriptSize = scriptSize depositValidatorScript
     }
  where
   plutusScriptHash =
-    hashScript . PlutusScript . fromPlutusScript
+    hashScript . PlutusScript . PlutusScriptSerialised
 
   scriptSize = BSL.length . serialise
 

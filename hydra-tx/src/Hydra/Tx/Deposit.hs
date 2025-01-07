@@ -46,7 +46,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositValue = foldMap txOutValue depositUTxO
 
-  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript
 
   deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
 
@@ -62,7 +62,7 @@ depositTx networkId headId commitBlueprintTx deadline =
       ReferenceScriptNone
 
 depositAddress :: NetworkId -> AddressInEra
-depositAddress networkId = mkScriptAddress @PlutusScriptV3 networkId (fromPlutusScript @PlutusScriptV3 depositValidatorScript)
+depositAddress networkId = mkScriptAddress @PlutusScriptV3 networkId (PlutusScriptSerialised depositValidatorScript)
 
 -- * Observation
 

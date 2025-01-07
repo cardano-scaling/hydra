@@ -85,7 +85,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     fst (headReference scriptRegistry)
 
   headScript =
-    fromPlutusScript @PlutusScriptV3 Head.validatorScript
+    PlutusScriptSerialised Head.validatorScript
 
   headRedeemer = toScriptData $ Head.Close closeRedeemer
 

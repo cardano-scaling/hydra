@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   findRedeemerSpending,
-  fromPlutusScript,
   genTxIn,
   hashScript,
   isScriptTxOut,
@@ -427,11 +426,11 @@ genCommitTxMutation utxo tx =
     fromMaybe (error "not found redeemer") $
       findRedeemerSpending @Initial.RedeemerType tx initialTxIn
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = PlutusScriptSerialised initialValidatorScript
 
   fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
 
-  fakeScript = fromPlutusScript dummyValidatorScript
+  fakeScript = PlutusScriptSerialised dummyValidatorScript
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do

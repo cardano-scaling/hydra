@@ -42,7 +42,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
   depositOutputs =
     toTxContext <$> toList deposited
 
-  depositScript = fromPlutusScript @PlutusScriptV3 depositValidatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript
 
 data RecoverObservation = RecoverObservation
   { headId :: HeadId
@@ -77,4 +77,4 @@ observeRecoverTx networkId utxo tx = do
         )
     else Nothing
  where
-  depositScript = fromPlutusScript depositValidatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript

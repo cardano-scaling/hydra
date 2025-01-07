@@ -59,7 +59,7 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
   headScriptRef = fst (headReference scriptRegistry)
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
@@ -91,6 +91,6 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   commitValue =
     mconcat $ txOutValue <$> Map.elems commits
   commitScript =
-    fromPlutusScript @PlutusScriptV3 commitValidatorScript
+    PlutusScriptSerialised commitValidatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom

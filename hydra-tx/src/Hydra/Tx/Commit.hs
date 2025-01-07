@@ -130,7 +130,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     TxOut commitAddress commitValue commitDatum ReferenceScriptNone
 
   commitScript =
-    fromPlutusScript @PlutusScriptV3 commitValidatorScript
+    PlutusScriptSerialised commitValidatorScript
 
   commitAddress =
     mkScriptAddress networkId commitScript

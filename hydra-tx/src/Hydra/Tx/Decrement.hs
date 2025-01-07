@@ -68,7 +68,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   decommitOutputs = maybe [] toList utxoToDecommit
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   headScriptRef = fst (headReference scriptRegistry)
 
