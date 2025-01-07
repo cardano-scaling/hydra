@@ -109,8 +109,8 @@ test-suite tests
     , lens
     , lens-aeson
     , plutus-ledger-api
-    , process
     , QuickCheck
+    , typed-process
 
   build-tool-depends: hspec-discover:hspec-discover
 
