@@ -15,7 +15,7 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
-    aiken.url = "github:aiken-lang/aiken";
+    aiken.url = "github:aiken-lang/aiken/v1.1.5";
     hls = {
       url = "github:haskell/haskell-language-server";
       flake = false;
