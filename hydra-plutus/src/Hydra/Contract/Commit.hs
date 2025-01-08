@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | The validator used to collect & open or abort a Head.
+-- | Datum and redeemer types, as well as helper functions for the commit
+-- validator implemented in aiken.
 module Hydra.Contract.Commit where
 
 import PlutusTx.Prelude

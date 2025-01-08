@@ -3,36 +3,20 @@ module Main where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Codec.Serialise (serialise)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BL
 import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (scriptInfo)
-import Hydra.Contract.Head as Head
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial as Initial
-import Hydra.Plutus (initialValidatorScript)
-import PlutusLedgerApi.V3 (Data, SerialisedScript, toData)
-import PlutusTx (getPlc)
-import PlutusTx.Code (CompiledCode)
-import Prettyprinter (defaultLayoutOptions, layoutPretty)
-import Prettyprinter.Render.Text (renderStrict)
+import PlutusLedgerApi.V3 (Data, toData)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
--- This small utility is useful to manually construct transactions payload for Hydra on-chain
--- protocol.
 main :: IO ()
 main = do
   putTextLn "Script info:"
   putLBSLn $ encodePretty scriptInfo
-
-  putTextLn "Serialise scripts:"
-  writeScripts scripts
-
-  putTextLn "Compile scripts:"
-  writePlc compiledScripts
 
   putTextLn "Serialise datums:"
   writeData datums
@@ -48,25 +32,6 @@ main = do
           <> ": "
           <> show (hashScriptDataBytes . unsafeHashableScriptData $ fromPlutusData aDatum)
  where
-  writeScripts :: [(SerialisedScript, String)] -> IO ()
-  writeScripts plutus =
-    forM_ plutus $ \(item, itemName) -> do
-      let itemFile = itemName <> ".plutus"
-          serialised =
-            Aeson.encode $
-              serialiseToTextEnvelope (Just $ fromString itemName) $
-                PlutusScriptSerialised item
-      BL.writeFile itemFile serialised
-      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
-
-  writePlc :: [(Compiled, String)] -> IO ()
-  writePlc plutus =
-    forM_ plutus $ \(Compiled item, itemName) -> do
-      let itemFile = itemName <> ".plc"
-          serialised = encodeUtf8 $ renderStrict $ layoutPretty defaultLayoutOptions $ pretty $ getPlc item
-      BL.writeFile itemFile serialised
-      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
-
   writeData :: [(Data, String)] -> IO ()
   writeData plutus =
     forM_ plutus $ \(item, itemName) -> do
@@ -80,20 +45,6 @@ main = do
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
 
   sizeInKb = (<> " KB") . show . (`div` 1024) . BL.length
-
-  scripts =
-    [ (headScript, "headScript")
-    , (initialScript, "initialScript")
-    ]
-
-  headScript = Head.validatorScript
-
-  initialScript = initialValidatorScript
-
-  compiledScripts =
-    [ (Compiled Head.compiledValidator, "headScript")
-    , (Compiled Initial.compiledValidator, "initialScript")
-    ]
 
   datums =
     [ (headDatum, "headDatum")
@@ -109,5 +60,3 @@ main = do
   redeemers = [(headRedeemer, "headRedeemer")]
 
   headRedeemer = toData Head.Abort
-
-data Compiled = forall a. Compiled {compiledCode :: CompiledCode a}

@@ -5,6 +5,8 @@
 -- The plutus blueprint in 'plutus.json' is embedded in the binary and serves as
 -- the ground truth for validator scripts and hashes.
 --
+-- NOTE: All scripts are PlutusV3 scripts (defined by the 'PlutusScript' synonym pattern).
+--
 -- XXX: We are using a hardcoded indices to access validators in plutus.json.
 -- This is fragile and depends on the validator names not changing.
 module Hydra.Plutus where
@@ -16,9 +18,10 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth, _String)
 import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
+import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import PlutusCore.Core (plcVersion110)
 import PlutusCore.MkPlc qualified as UPLC
-import PlutusLedgerApi.Common (SerialisedScript, serialiseUPLC, toBuiltin, toData, uncheckedDeserialiseUPLC)
+import PlutusLedgerApi.Common (serialiseUPLC, toBuiltin, toData, uncheckedDeserialiseUPLC)
 import PlutusLedgerApi.V3 (ScriptHash (..))
 import UntypedPlutusCore qualified as UPLC
 
@@ -30,9 +33,9 @@ blueprintJSON =
     Just value -> value
 
 -- | Get the commit validator by decoding it from 'blueprintJSON'.
-commitValidatorScript :: SerialisedScript
+commitValidatorScript :: PlutusScript
 commitValidatorScript =
-  toShort . Base16.decodeLenient . encodeUtf8 $
+  PlutusScriptSerialised . toShort . Base16.decodeLenient . encodeUtf8 $
     blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
 
 -- | Get the commit validator hash from 'blueprintJSON'.
@@ -43,9 +46,9 @@ commitValidatorScriptHash =
 
 -- | Get the initial validator by decoding the parameterized initial validator
 -- from the 'blueprintJSON' and applying the 'commitValidatorScriptHash' to it.
-initialValidatorScript :: SerialisedScript
+initialValidatorScript :: PlutusScript
 initialValidatorScript =
-  serialiseUPLC appliedProgram
+  PlutusScriptSerialised $ serialiseUPLC appliedProgram
  where
   appliedProgram = case unappliedProgram `UPLC.applyProgram` argumentProgram of
     Left e -> error $ "Failed to applyProgram: " <> show e
@@ -63,7 +66,7 @@ initialValidatorScript =
       blueprintJSON ^. key "validators" . nth 4 . key "compiledCode" . _String
 
 -- | Get the deposit validator by decoding it from 'blueprintJSON'.
-depositValidatorScript :: SerialisedScript
+depositValidatorScript :: PlutusScript
 depositValidatorScript =
-  toShort . Base16.decodeLenient . encodeUtf8 $
+  PlutusScriptSerialised . toShort . Base16.decodeLenient . encodeUtf8 $
     blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String

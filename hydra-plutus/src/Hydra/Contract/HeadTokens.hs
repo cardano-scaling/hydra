@@ -41,7 +41,6 @@ import PlutusLedgerApi.V3 (
   OutputDatum (..),
   ScriptContext (..),
   ScriptHash,
-  SerialisedScript,
   TxInInfo (..),
   TxInfo (..),
   TxOutRef,
@@ -185,13 +184,13 @@ validateTokensBurning context =
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Api.PlutusScriptV3 initialValidatorScript)
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 Head.validatorHash
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash initialValidatorScript)
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Head.validatorScript)
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
-mintingPolicyScript :: TxOutRef -> SerialisedScript
+mintingPolicyScript :: TxOutRef -> Api.PlutusScript
 mintingPolicyScript txOutRef =
-  serialiseCompiledCode $
+  PlutusScriptSerialised . serialiseCompiledCode $
     unappliedMintingPolicy
       `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 txOutRef
 
@@ -205,4 +204,4 @@ headPolicyId =
 -- | Get the applied head minting policy script given a seed 'TxIn'.
 mkHeadTokenScript :: TxIn -> Api.PlutusScript
 mkHeadTokenScript =
-  PlutusScriptSerialised . mintingPolicyScript . toPlutusTxOutRef
+  mintingPolicyScript . toPlutusTxOutRef

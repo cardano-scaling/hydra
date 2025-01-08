@@ -245,11 +245,11 @@ genScriptRegistry = do
     ScriptRegistry
       { initialReference =
           ( TxIn txId' (TxIx 0)
-          , txOut{txOutReferenceScript = mkScriptRefV3 initialValidatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef initialValidatorScript}
           )
       , commitReference =
           ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRefV3 commitValidatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
           )
       , headReference =
           ( TxIn txId' (TxIx 2)
