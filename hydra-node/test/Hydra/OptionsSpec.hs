@@ -26,6 +26,7 @@ import Hydra.Options (
   defaultDirectChainConfig,
   defaultLedgerConfig,
   defaultOfflineChainConfig,
+  defaultPublishOptions,
   defaultRunOptions,
   outputFile,
   parseHydraCommandFromArgs,
@@ -284,34 +285,34 @@ spec = parallel $
             }
 
     describe "publish-scripts sub-command" $ do
-      xit "does not parse without any options" $
-        shouldNotParse
-          [ "publish-scripts"
+      it "parses without any options" $
+        [ "publish-scripts"
+        ]
+          `shouldParse` Publish defaultPublishOptions
+
+      it "parses with some missing option (1)" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--node-socket", "foo"]
+          , ["--mainnet"]
           ]
+          `shouldParse` Publish defaultPublishOptions{publishNodeSocket = "foo", publishNetworkId = Mainnet}
 
-      xit "does not parse with some missing option (1)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--node-socket", "foo"]
-            , ["--mainnet"]
-            ]
+      it "parses with some missing option (2)" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--testnet-magic", "42"]
+          , ["--cardano-signing-key", "foo"]
+          ]
+          `shouldParse` Publish defaultPublishOptions{publishSigningKey = "foo", publishNetworkId = Testnet (NetworkMagic 42)}
 
-      xit "does not parse with some missing option (2)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--testnet-magic", "42"]
-            , ["--cardano-signing-key", "foo"]
-            ]
-
-      xit "does not parse with some missing option (3)" $
-        shouldNotParse $
-          mconcat
-            [ ["publish-scripts"]
-            , ["--node-socket", "foo"]
-            , ["--cardano-signing-key", "foo"]
-            ]
+      it "parses with some missing option (3)" $
+        mconcat
+          [ ["publish-scripts"]
+          , ["--node-socket", "foo"]
+          , ["--cardano-signing-key", "foo"]
+          ]
+          `shouldParse` Publish defaultPublishOptions{publishNodeSocket = "foo", publishSigningKey = "foo"}
 
       it "should parse using testnet and all options" $
         mconcat
