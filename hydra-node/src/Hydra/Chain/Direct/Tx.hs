@@ -171,7 +171,7 @@ observeInitTx tx = do
     guard $ isScriptTxOut headScript out
     (ix,out,) <$> (fromScriptData =<< txOutScriptData out)
 
-  headScript = fromPlutusScript @PlutusScriptV3 Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
 
@@ -184,7 +184,7 @@ observeInitTx tx = do
 
   isInitial = isScriptTxOut initialScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = PlutusScriptSerialised initialValidatorScript
 
   mintedTokenNames pid =
     [ assetName
@@ -262,11 +262,11 @@ observeCommitTx networkId utxo tx = do
 
   initialAddress = mkScriptAddress @PlutusScriptV3 networkId initialScript
 
-  initialScript = fromPlutusScript @PlutusScriptV3 initialValidatorScript
+  initialScript = PlutusScriptSerialised initialValidatorScript
 
   commitAddress = mkScriptAddress networkId commitScript
 
-  commitScript = fromPlutusScript @PlutusScriptV3 commitValidatorScript
+  commitScript = PlutusScriptSerialised commitValidatorScript
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: OpenThreadOutput
@@ -307,7 +307,7 @@ observeCollectComTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
   decodeUtxoHash datum =
     case fromScriptData datum of
       Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
@@ -350,8 +350,8 @@ observeIncrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  depositScript = fromPlutusScript depositValidatorScript
-  headScript = fromPlutusScript Head.validatorScript
+  depositScript = PlutusScriptSerialised depositValidatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 data DecrementObservation = DecrementObservation
   { headId :: HeadId
@@ -389,7 +389,7 @@ observeDecrementTx utxo tx = do
         _ -> Nothing
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: ClosedThreadOutput
@@ -434,7 +434,7 @@ observeCloseTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 data ContestObservation = ContestObservation
   { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
@@ -474,7 +474,7 @@ observeContestTx utxo tx = do
           }
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
   decodeDatum headDatum =
     case fromScriptData headDatum of
@@ -500,7 +500,7 @@ observeFanoutTx utxo tx = do
       Head.Fanout{} -> pure FanoutObservation{headId}
       _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 newtype AbortObservation = AbortObservation {headId :: HeadId} deriving stock (Eq, Show, Generic)
 
@@ -519,7 +519,7 @@ observeAbortTx utxo tx = do
     Head.Abort -> pure $ AbortObservation headId
     _ -> Nothing
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 -- * Cardano specific identifiers
 

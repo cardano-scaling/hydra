@@ -515,7 +515,7 @@ isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV3 Fixture.testNetworkId headScript
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is

@@ -17,11 +17,11 @@ import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV3, AsScript),
   File (..),
   Script,
-  fromPlutusScript,
   hashScript,
   readFileTextEnvelope,
   writeFileTextEnvelope,
   pattern PlutusScript,
+  pattern PlutusScriptSerialised,
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -49,7 +49,7 @@ spec = do
 goldenScript :: String -> Plutus.SerialisedScript -> Golden Script
 goldenScript name plutusScript =
   Golden
-    { output = PlutusScript $ fromPlutusScript plutusScript
+    { output = PlutusScript $ PlutusScriptSerialised plutusScript
     , encodePretty = show . hashScript
     , writeToFile
     , readFromFile

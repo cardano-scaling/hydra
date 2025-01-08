@@ -48,7 +48,7 @@ mkHeadOutput networkId tokenPolicyId datum =
     datum
     ReferenceScriptNone
  where
-  headScript = fromPlutusScript Head.validatorScript
+  headScript = PlutusScriptSerialised Head.validatorScript
 
 mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
 mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
@@ -74,6 +74,6 @@ mkInitialOutput networkId seedTxIn participant =
   initialAddress =
     mkScriptAddress @PlutusScriptV3 networkId initialScript
   initialScript =
-    fromPlutusScript @PlutusScriptV3 initialValidatorScript
+    PlutusScriptSerialised initialValidatorScript
   initialDatum =
     mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
