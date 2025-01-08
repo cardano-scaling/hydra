@@ -147,6 +147,15 @@ data PublishOptions = PublishOptions
   }
   deriving stock (Show, Eq)
 
+-- | Default options as they should also be provided by 'runOptionsParser'.
+defaultPublishOptions :: PublishOptions
+defaultPublishOptions =
+  PublishOptions
+    { publishNetworkId = Testnet (NetworkMagic 42)
+    , publishNodeSocket = "node.socket"
+    , publishSigningKey = "cardano.sk"
+    }
+
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
   PublishOptions
@@ -493,7 +502,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value "node.socket"
+        <> value (publishNodeSocket defaultPublishOptions)
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -506,7 +515,7 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value "cardano.sk"
+        <> value (publishSigningKey defaultPublishOptions)
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
