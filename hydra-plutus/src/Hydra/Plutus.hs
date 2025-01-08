@@ -1,6 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Module to load and provide the Hydra scripts.
+--
+-- The plutus blueprint in 'plutus.json' is embedded in the binary and serves as
+-- the ground truth for validator scripts and hashes.
+--
+-- XXX: We are using a hardcoded indices to access validators in plutus.json.
+-- This is fragile and depends on the validator names not changing.
 module Hydra.Plutus where
 
 import Hydra.Prelude
@@ -10,44 +16,54 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth, _String)
 import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
-import PlutusLedgerApi.Common (SerialisedScript)
+import PlutusCore.Core (plcVersion110)
+import PlutusCore.MkPlc qualified as UPLC
+import PlutusLedgerApi.Common (SerialisedScript, serialiseUPLC, toBuiltin, toData, uncheckedDeserialiseUPLC)
+import PlutusLedgerApi.V3 (ScriptHash (..))
+import UntypedPlutusCore qualified as UPLC
 
--- | Loads the "plutus.json" blueprint and provides the decoded JSON.
+-- | Loads the embedded "plutus.json" blueprint and provides the decoded JSON.
 blueprintJSON :: Aeson.Value
 blueprintJSON =
   case Aeson.decodeStrict $(makeRelativeToProject "./plutus.json" >>= embedFile) of
     Nothing -> error "Invalid blueprint: plutus.json"
     Just value -> value
 
--- | Access the commit validator script from the 'blueprintJSON'.
+-- | Get the commit validator by decoding it from 'blueprintJSON'.
 commitValidatorScript :: SerialisedScript
 commitValidatorScript =
-  case Base16.decode commitBase16Bytes of
-    Left e -> error $ "Failed to decode commit validator: " <> show e
-    Right bytes -> toShort bytes
- where
-  commitBase16Bytes = encodeUtf8 base16Text
-  -- NOTE: we are using a hardcoded index to access the commit validator.
-  -- This is fragile and will raise problems when we move another plutus validator
-  -- to Aiken.
-  -- Reference: https://github.com/cardano-foundation/CIPs/tree/master/CIP-0057
-  base16Text = blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
+  toShort . Base16.decodeLenient . encodeUtf8 $
+    blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
 
--- | Access the initial validator script from the 'blueprintJSON'.
+-- | Get the commit validator hash from 'blueprintJSON'.
+commitValidatorScriptHash :: ScriptHash
+commitValidatorScriptHash =
+  ScriptHash . toBuiltin . Base16.decodeLenient . encodeUtf8 $
+    blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
+
+-- | Get the initial validator by decoding the parameterized initial validator
+-- from the 'blueprintJSON' and applying the 'commitValidatorScriptHash' to it.
 initialValidatorScript :: SerialisedScript
 initialValidatorScript =
-  case Base16.decode base16Bytes of
-    Left e -> error $ "Failed to decode initial validator: " <> show e
-    Right bytes -> toShort bytes
+  serialiseUPLC appliedProgram
  where
-  base16Bytes = encodeUtf8 initialBase16Text
-  initialBase16Text = blueprintJSON ^. key "validators" . nth 4 . key "compiledCode" . _String
+  appliedProgram = case unappliedProgram `UPLC.applyProgram` argumentProgram of
+    Left e -> error $ "Failed to applyProgram: " <> show e
+    Right x -> x
 
+  unappliedProgram = uncheckedDeserialiseUPLC unappliedScript
+
+  argumentProgram =
+    UPLC.Program () plcVersion110 $
+      UPLC.mkConstant () $
+        toData commitValidatorScriptHash
+
+  unappliedScript =
+    toShort . Base16.decodeLenient . encodeUtf8 $
+      blueprintJSON ^. key "validators" . nth 4 . key "compiledCode" . _String
+
+-- | Get the deposit validator by decoding it from 'blueprintJSON'.
 depositValidatorScript :: SerialisedScript
 depositValidatorScript =
-  case Base16.decode depositBase16Bytes of
-    Left e -> error $ "Failed to decode commit validator: " <> show e
-    Right bytes -> toShort bytes
- where
-  depositBase16Bytes = encodeUtf8 depositBase16Text
-  depositBase16Text = blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String
+  toShort . Base16.decodeLenient . encodeUtf8 $
+    blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String
