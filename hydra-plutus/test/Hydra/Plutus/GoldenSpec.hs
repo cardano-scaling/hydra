@@ -25,24 +25,26 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus
-import System.Process.Typed (proc, runProcess_)
+import System.Process.Typed (runProcess_, shell)
 import Test.Hspec.Golden (Golden (..))
+
+aikenBuildCommand :: String
+aikenBuildCommand = "aiken build -t compact"
 
 spec :: Spec
 spec = do
   it "Plutus blueprint is up-to-date" $ do
     -- Running aiken -t compact should not change plutus.json
     existing <- readFileBS "plutus.json"
-    runProcess_ $ proc "aiken" ["build", "-t", "compact"]
+    runProcess_ $ shell aikenBuildCommand
     actual <- readFileBS "plutus.json"
     -- Undo any changes made by aiken
     writeFileBS "plutus.json" existing
     when (actual /= existing) $ do
-      putTextLn "Plutus blueprint in plutus.json is not up-to-date. Run \"aiken -t compact\" to update it."
+      putTextLn $ "Plutus blueprint in plutus.json is not up-to-date. Run " <> show aikenBuildCommand <> " to update it."
     actual `shouldBe` existing
 
   it "Head validator script" $
