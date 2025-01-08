@@ -69,14 +69,12 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & modifyTxOutDatum (const headDatumAfter)
       & modifyTxOutValue (<> depositedValue)
 
-  headScript = PlutusScriptSerialised Head.validatorScript
-
   headScriptRef = fst (headReference scriptRegistry)
 
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -93,8 +91,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
 
-  depositScript = PlutusScriptSerialised depositValidatorScript
-
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
 
@@ -103,6 +99,6 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   depositWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptWitness depositScript InlineScriptDatum depositRedeemer
+        mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
   Snapshot{utxo, utxoToCommit, version, number} = snapshot

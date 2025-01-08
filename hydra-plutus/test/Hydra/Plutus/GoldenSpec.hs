@@ -16,6 +16,7 @@ import Test.Hydra.Prelude
 import Hydra.Cardano.Api (
   AsType (AsPlutusScriptV3, AsScript),
   File (..),
+  PlutusScript,
   Script,
   hashScript,
   readFileTextEnvelope,
@@ -27,7 +28,6 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as Plutus
 import System.Process.Typed (runProcess_, shell)
 import Test.Hspec.Golden (Golden (..))
 
@@ -50,14 +50,14 @@ spec = do
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
-    goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
+    goldenScript "mHead" (PlutusScriptSerialised $ serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
-goldenScript :: String -> Plutus.SerialisedScript -> Golden Script
+goldenScript :: String -> PlutusScript -> Golden Script
 goldenScript name plutusScript =
   Golden
-    { output = PlutusScript $ PlutusScriptSerialised plutusScript
+    { output = PlutusScript plutusScript
     , encodePretty = show . hashScript
     , writeToFile
     , readFromFile

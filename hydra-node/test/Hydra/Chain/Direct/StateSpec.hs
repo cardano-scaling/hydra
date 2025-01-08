@@ -13,7 +13,6 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   CtxUTxO,
   NetworkId (Mainnet),
-  PlutusScriptV3,
   Tx,
   TxIn,
   TxOut,
@@ -36,7 +35,6 @@ import Hydra.Cardano.Api (
   utxoFromTx,
   valueSize,
   pattern PlutusScript,
-  pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
@@ -394,7 +392,7 @@ genInitTxMutation seedInput tx =
 
   -- We do replace the minting policy of all tokens and datum of a head output to
   -- simulate a faked init transaction.
-  alwaysSucceedsV3 = PlutusScriptSerialised dummyValidatorScript
+  alwaysSucceedsV3 = dummyValidatorScript
   originalPolicyId = HeadTokens.headPolicyId seedInput
   fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV3
   changeMintingPolicy (out, idx)
@@ -416,7 +414,7 @@ genCommitTxMutation utxo tx =
 
   (initialTxIn, initialTxOut) =
     fromMaybe (error "not found initial script") $
-      UTxO.find (isScriptTxOut @PlutusScriptV3 initialScript) resolvedInputs
+      UTxO.find (isScriptTxOut initialValidatorScript) resolvedInputs
 
   resolvedInputs =
     UTxO.fromPairs $
@@ -426,11 +424,9 @@ genCommitTxMutation utxo tx =
     fromMaybe (error "not found redeemer") $
       findRedeemerSpending @Initial.RedeemerType tx initialTxIn
 
-  initialScript = PlutusScriptSerialised initialValidatorScript
+  fakeScriptAddress = mkScriptAddress testNetworkId fakeScript
 
-  fakeScriptAddress = mkScriptAddress @PlutusScriptV3 testNetworkId fakeScript
-
-  fakeScript = PlutusScriptSerialised dummyValidatorScript
+  fakeScript = dummyValidatorScript
 
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do

@@ -172,10 +172,8 @@ healthyCommitOutput participant party committed =
  where
   txIn = genTxIn `genForParty` party
 
-  commitScript =
-    PlutusScriptSerialised commitValidatorScript
   commitAddress =
-    mkScriptAddress testNetworkId commitScript
+    mkScriptAddress testNetworkId commitValidatorScript
   commitValue =
     foldMap txOutValue committed
       <> fromList
@@ -253,7 +251,7 @@ genCollectComMutation (tx, _utxo) =
                 txIn
                 (toCtxUTxOTxOut $ mkInitialOutput testNetworkId testSeedInput participant)
                 (Just . toScriptData . Initial.redeemer $ Initial.ViaCommit [toPlutusTxOutRef txIn])
-            , AddScript $ PlutusScriptSerialised initialValidatorScript
+            , AddScript initialValidatorScript
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)

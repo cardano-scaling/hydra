@@ -10,10 +10,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn))
-import Hydra.Ledger.Cardano.Builder (
-  burnTokens,
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Utils (headTokensFromValue)
@@ -59,11 +56,11 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+
   headScriptRef =
     fst (headReference scriptRegistry)
-  headScript =
-    PlutusScriptSerialised Head.validatorScript
+
   headRedeemer =
     toScriptData Head.Abort
 
@@ -83,11 +80,9 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   abortInitialWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference initialScriptRef initialScript InlineScriptDatum initialRedeemer
+        mkScriptReference initialScriptRef initialValidatorScript InlineScriptDatum initialRedeemer
   initialScriptRef =
     fst (initialReference scriptRegistry)
-  initialScript =
-    PlutusScriptSerialised initialValidatorScript
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.ViaAbort
 
@@ -95,11 +90,9 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   abortCommitWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference commitScriptRef commitScript InlineScriptDatum commitRedeemer
+        mkScriptReference commitScriptRef commitValidatorScript InlineScriptDatum commitRedeemer
   commitScriptRef =
     fst (commitReference scriptRegistry)
-  commitScript =
-    PlutusScriptSerialised commitValidatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 

@@ -10,14 +10,12 @@ import Hydra.Prelude
 import Hydra.Plutus.Extras.Time
 
 import Cardano.Api (
-  IsPlutusScriptLanguage,
-  PlutusScriptVersion,
+  IsPlutusScriptLanguage (plutusScriptVersion),
+  PlutusScript,
+  Script (PlutusScript),
   SerialiseAsRawBytes (serialiseToRawBytes),
   hashScript,
-  pattern PlutusScript,
  )
-import Cardano.Api.Shelley (PlutusScript (PlutusScriptSerialised))
-import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.V3 (
   Datum (..),
   ScriptContext (..),
@@ -76,13 +74,12 @@ wrapMintingPolicy f c =
 
 -- * Similar utilities as plutus-ledger
 
--- | Compute the on-chain 'ScriptHash' for a given serialised plutus script. Use
--- this to refer to another validator script.
-scriptValidatorHash :: IsPlutusScriptLanguage lang => PlutusScriptVersion lang -> SerialisedScript -> ScriptHash
-scriptValidatorHash version =
+-- | Compute the on-chain 'ScriptHash' for a given plutus script. Use this to
+-- refer to another validator script.
+scriptValidatorHash :: IsPlutusScriptLanguage lang => PlutusScript lang -> ScriptHash
+scriptValidatorHash =
   ScriptHash
     . toBuiltin
     . serialiseToRawBytes
     . hashScript
-    . PlutusScript version
-    . PlutusScriptSerialised
+    . PlutusScript plutusScriptVersion

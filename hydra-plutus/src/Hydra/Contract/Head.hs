@@ -12,7 +12,10 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Hydra.Cardano.Api (PlutusScriptVersion (PlutusScriptV3))
+import Hydra.Cardano.Api (
+  PlutusScript,
+  pattern PlutusScriptSerialised,
+ )
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
@@ -34,8 +37,8 @@ import Hydra.Contract.HeadState (
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, (===))
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
-import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
+import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (lovelaceValue)
 import PlutusLedgerApi.V3 (
@@ -50,7 +53,6 @@ import PlutusLedgerApi.V3 (
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   ScriptContext (..),
-  ScriptHash,
   ToData (toBuiltinData),
   TokenName (..),
   TxInInfo (..),
@@ -806,11 +808,8 @@ compiledValidator =
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
-validatorScript :: SerialisedScript
-validatorScript = serialiseCompiledCode compiledValidator
-
-validatorHash :: ScriptHash
-validatorHash = scriptValidatorHash PlutusScriptV3 validatorScript
+validatorScript :: PlutusScript
+validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =

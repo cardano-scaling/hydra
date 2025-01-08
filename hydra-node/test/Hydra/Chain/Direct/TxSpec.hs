@@ -240,7 +240,7 @@ genBlueprintTxWithUTxO =
       )
 
   spendSomeScriptInputs (utxo, txbody) = do
-    let alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
+    let alwaysSucceedingScript = dummyValidatorScript
     datum <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     redeemer <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     let genTxOut = do
@@ -291,7 +291,7 @@ genBlueprintTxWithUTxO =
       , do
           lovelace <- arbitrary
           let redeemer = hedgehog genHashableScriptData `generateWith` 42
-              alwaysSucceedingScript = PlutusScriptSerialised dummyValidatorScript
+              alwaysSucceedingScript = dummyValidatorScript
               scriptWitness = mkScriptWitness alwaysSucceedingScript NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId alwaysSucceedingScript
           pure

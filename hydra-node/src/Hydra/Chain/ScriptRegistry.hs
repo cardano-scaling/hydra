@@ -22,7 +22,7 @@ import Hydra.Cardano.Api (
   makeShelleyKeyWitness,
   makeSignedTransaction,
   mkScriptAddress,
-  mkScriptRefV3,
+  mkScriptRef,
   mkTxOutAutoBalance,
   mkVkAddress,
   selectLovelace,
@@ -82,9 +82,9 @@ publishHydraScripts ::
   IO [TxId]
 publishHydraScripts networkId socketPath sk = do
   pparams <- queryProtocolParameters networkId socketPath QueryTip
-  forM scriptRefs $ \scriptRef -> do
+  forM scripts $ \script -> do
     utxo <- queryUTxOFor networkId socketPath QueryTip vk
-    let output = mkScriptTxOut pparams <$> [mkScriptRefV3 scriptRef]
+    let output = mkScriptTxOut pparams <$> [mkScriptRef script]
         totalDeposit = sum (selectLovelace . txOutValue <$> output)
         someUTxO =
           maybe mempty UTxO.singleton $
@@ -106,7 +106,7 @@ publishHydraScripts networkId socketPath sk = do
           void $ awaitTransaction networkId socketPath tx
           return $ getTxId body
  where
-  scriptRefs = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
+  scripts = [initialValidatorScript, commitValidatorScript, Head.validatorScript]
   vk = getVerificationKey sk
 
   changeAddress = mkVkAddress networkId vk

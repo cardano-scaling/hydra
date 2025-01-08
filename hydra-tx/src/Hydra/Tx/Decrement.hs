@@ -68,14 +68,12 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   decommitOutputs = maybe [] toList utxoToDecommit
 
-  headScript = PlutusScriptSerialised Head.validatorScript
-
   headScriptRef = fst (headReference scriptRegistry)
 
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
   headDatumAfter =
     mkTxOutDatumInline $

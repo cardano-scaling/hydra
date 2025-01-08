@@ -45,11 +45,9 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
-  headScript =
-    PlutusScriptSerialised Head.validatorScript
   headRedeemer =
     toScriptData $
       Head.Fanout

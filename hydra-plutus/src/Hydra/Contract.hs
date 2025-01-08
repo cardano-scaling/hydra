@@ -3,17 +3,13 @@ module Hydra.Contract where
 
 import Hydra.Prelude
 
-import Codec.Serialise (serialise)
 import Data.ByteString qualified as BS
-import Data.ByteString.Lazy qualified as BSL
 import Hydra.Cardano.Api (
-  PlutusScriptVersion (PlutusScriptV3),
   ScriptHash,
   hashScript,
+  serialiseToRawBytes,
   pattern PlutusScript,
-  pattern PlutusScriptSerialised,
  )
-import Hydra.Cardano.Api.Prelude qualified as Api
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
@@ -23,16 +19,16 @@ import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 data ScriptInfo = ScriptInfo
   { mintingScriptHash :: ScriptHash
   -- ^ Hash of the μHead minting script given some default parameters.
-  , mintingScriptSize :: Int64
+  , mintingScriptSize :: Int
   -- ^ Size of the μHead minting script given some default parameters.
   , initialScriptHash :: ScriptHash
-  , initialScriptSize :: Int64
+  , initialScriptSize :: Int
   , commitScriptHash :: ScriptHash
-  , commitScriptSize :: Int64
+  , commitScriptSize :: Int
   , headScriptHash :: ScriptHash
-  , headScriptSize :: Int64
+  , headScriptSize :: Int
   , depositScriptHash :: ScriptHash
-  , depositScriptSize :: Int64
+  , depositScriptSize :: Int
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -42,22 +38,21 @@ data ScriptInfo = ScriptInfo
 scriptInfo :: ScriptInfo
 scriptInfo =
   ScriptInfo
-    { mintingScriptHash = plutusScriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
+    { mintingScriptHash = scriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
-    , initialScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised initialValidatorScript
+    , initialScriptHash = scriptHash initialValidatorScript
     , initialScriptSize = scriptSize initialValidatorScript
-    , commitScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised commitValidatorScript
+    , commitScriptHash = scriptHash commitValidatorScript
     , commitScriptSize = scriptSize commitValidatorScript
-    , headScriptHash = plutusScriptHash Head.validatorScript
+    , headScriptHash = scriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript
-    , depositScriptHash = hashScript $ Api.PlutusScript PlutusScriptV3 $ PlutusScriptSerialised depositValidatorScript
+    , depositScriptHash = scriptHash depositValidatorScript
     , depositScriptSize = scriptSize depositValidatorScript
     }
  where
-  plutusScriptHash =
-    hashScript . PlutusScript . PlutusScriptSerialised
+  scriptHash = hashScript . PlutusScript
 
-  scriptSize = BSL.length . serialise
+  scriptSize = BS.length . serialiseToRawBytes
 
   defaultOutRef =
     TxOutRef

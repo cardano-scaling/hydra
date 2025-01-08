@@ -43,12 +43,10 @@ initTx networkId seedTxIn participants parameters =
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
   TxOut
-    (mkScriptAddress @PlutusScriptV3 networkId headScript)
+    (mkScriptAddress networkId Head.validatorScript)
     (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
- where
-  headScript = PlutusScriptSerialised Head.validatorScript
 
 mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
 mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
@@ -72,8 +70,6 @@ mkInitialOutput networkId seedTxIn participant =
   initialValue =
     fromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
   initialAddress =
-    mkScriptAddress @PlutusScriptV3 networkId initialScript
-  initialScript =
-    PlutusScriptSerialised initialValidatorScript
+    mkScriptAddress @PlutusScriptV3 networkId initialValidatorScript
   initialDatum =
     mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)

@@ -77,13 +77,10 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef headScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
   headScriptRef =
     fst (headReference scriptRegistry)
-
-  headScript =
-    PlutusScriptSerialised Head.validatorScript
 
   contestRedeemer =
     case incrementalAction of
