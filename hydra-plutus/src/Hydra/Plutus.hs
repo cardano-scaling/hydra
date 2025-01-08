@@ -19,10 +19,10 @@ import Data.Aeson.Lens (key, nth, _String)
 import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import Hydra.Plutus.Extras (scriptValidatorHash)
 import PlutusCore.Core (plcVersion110)
 import PlutusCore.MkPlc qualified as UPLC
-import PlutusLedgerApi.Common (serialiseUPLC, toBuiltin, toData, uncheckedDeserialiseUPLC)
-import PlutusLedgerApi.V3 (ScriptHash (..))
+import PlutusLedgerApi.Common (serialiseUPLC, toData, uncheckedDeserialiseUPLC)
 import UntypedPlutusCore qualified as UPLC
 
 -- | Loads the embedded "plutus.json" blueprint and provides the decoded JSON.
@@ -37,12 +37,6 @@ commitValidatorScript :: PlutusScript
 commitValidatorScript =
   PlutusScriptSerialised . toShort . Base16.decodeLenient . encodeUtf8 $
     blueprintJSON ^. key "validators" . nth 0 . key "compiledCode" . _String
-
--- | Get the commit validator hash from 'blueprintJSON'.
-commitValidatorScriptHash :: ScriptHash
-commitValidatorScriptHash =
-  ScriptHash . toBuiltin . Base16.decodeLenient . encodeUtf8 $
-    blueprintJSON ^. key "validators" . nth 0 . key "hash" . _String
 
 -- | Get the initial validator by decoding the parameterized initial validator
 -- from the 'blueprintJSON' and applying the 'commitValidatorScriptHash' to it.
@@ -59,7 +53,7 @@ initialValidatorScript =
   argumentProgram =
     UPLC.Program () plcVersion110 $
       UPLC.mkConstant () $
-        toData commitValidatorScriptHash
+        toData (scriptValidatorHash commitValidatorScript)
 
   unappliedScript =
     toShort . Base16.decodeLenient . encodeUtf8 $
