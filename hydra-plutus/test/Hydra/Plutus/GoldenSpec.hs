@@ -25,24 +25,32 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as Plutus
+import System.Process.Typed (runProcess_, shell)
 import Test.Hspec.Golden (Golden (..))
+
+aikenBuildCommand :: String
+aikenBuildCommand = "aiken build -t compact"
 
 spec :: Spec
 spec = do
+  it "Plutus blueprint is up-to-date" $ do
+    -- Running aiken -t compact should not change plutus.json
+    existing <- readFileBS "plutus.json"
+    runProcess_ $ shell aikenBuildCommand
+    actual <- readFileBS "plutus.json"
+    -- Undo any changes made by aiken
+    writeFileBS "plutus.json" existing
+    when (actual /= existing) $ do
+      putTextLn $ "Plutus blueprint in plutus.json is not up-to-date. Run " <> show aikenBuildCommand <> " to update it."
+    actual `shouldBe` existing
+
   it "Head validator script" $
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
     goldenScript "mHead" (serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
-  it "Deposit validator script" $
-    goldenScript "vDeposit" depositValidatorScript
-  it "Initial validator script" $
-    goldenScript "vInitial" initialValidatorScript
-  it "Commit validator script" $
-    goldenScript "vCommit" commitValidatorScript
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.
