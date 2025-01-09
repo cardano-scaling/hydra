@@ -54,14 +54,10 @@ spec = do
 
     describe "findRunningCardanoNode" $ do
       it "returns Nothing on non-matching network" $ \(tr, tmp) -> do
-        unless (Preview `elem` supportedNetworks) $
-          pendingWith "Preview is not supported so skipping this test."
         withCardanoNodeOnKnownNetwork tr tmp Preview $ \_ -> do
           findRunningCardanoNode tr tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
-        unless (Preview `elem` supportedNetworks) $
-          pendingWith "Preview is not supported so skipping this test."
         withCardanoNodeOnKnownNetwork tr tmp Preview $ \runningNode -> do
           findRunningCardanoNode tr tmp Preview `shouldReturn` Just runningNode
 
