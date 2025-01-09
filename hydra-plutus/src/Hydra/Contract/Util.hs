@@ -55,18 +55,6 @@ mustBurnAllHeadTokens minted headCurrencySymbol parties =
       Just tokenMap -> negate $ sum tokenMap
 {-# INLINEABLE mustBurnAllHeadTokens #-}
 
--- | Checks if the state token (ST) for list of parties containing specific
--- 'CurrencySymbol' are burnt.
-mustBurnST :: Value -> CurrencySymbol -> Bool
-mustBurnST val headCurrencySymbol =
-  case AssocMap.lookup headCurrencySymbol (getValue val) of
-    Nothing -> False
-    Just tokenMap ->
-      case AssocMap.lookup (TokenName hydraHeadV1) tokenMap of
-        Nothing -> False
-        Just v -> v == negate 1
-{-# INLINEABLE mustBurnST #-}
-
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
@@ -134,16 +122,3 @@ scriptOutputsAt h p =
       flt _ = Nothing
    in mapMaybe flt (txInfoOutputs p)
 {-# INLINEABLE scriptOutputsAt #-}
-
--- | Get the total value locked by the given validator in this transaction.
-valueLockedBy :: TxInfo -> ScriptHash -> Value
-valueLockedBy ptx h =
-  let outputs = map snd (scriptOutputsAt h ptx)
-   in mconcat outputs
-{-# INLINEABLE valueLockedBy #-}
-
--- | Given a UTXO reference and a transaction (`TxInfo`), resolve it to one of the transaction's inputs (`TxInInfo`).
-findTxInByTxOutRef :: TxOutRef -> TxInfo -> Maybe TxInInfo
-findTxInByTxOutRef outRef TxInfo{txInfoInputs} =
-  find (\TxInInfo{txInInfoOutRef} -> txInInfoOutRef == outRef) txInfoInputs
-{-# INLINEABLE findTxInByTxOutRef #-}
