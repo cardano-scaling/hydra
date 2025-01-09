@@ -50,7 +50,6 @@ import Hydra.Cardano.Api (
   txOutValue,
   txSpendingUTxO,
   pattern ByronAddressInEra,
-  pattern PlutusScriptSerialised,
   pattern ShelleyAddressInEra,
   pattern TxIn,
   pattern TxOut,
@@ -394,23 +393,17 @@ abort ::
 abort ctx seedTxIn spendableUTxO committedUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToAbort) pure $
-      UTxO.find (isScriptTxOut headScript) utxoOfThisHead'
+      UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead'
 
   abortTx committedUTxO scriptRegistry ownVerificationKey headUTxO headTokenScript initials commits
  where
   utxoOfThisHead' = utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO
 
   initials =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut initialScript) utxoOfThisHead'
+    UTxO.toMap $ UTxO.filter (isScriptTxOut initialValidatorScript) utxoOfThisHead'
 
   commits =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
-
-  commitScript = PlutusScriptSerialised commitValidatorScript
-
-  headScript = PlutusScriptSerialised Head.validatorScript
-
-  initialScript = PlutusScriptSerialised initialValidatorScript
+    UTxO.toMap $ UTxO.filter (isScriptTxOut commitValidatorScript) utxoOfThisHead'
 
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -437,15 +430,11 @@ collect ::
 collect ctx headId headParameters utxoToCollect spendableUTxO = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInCollect{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
-  let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitScript) utxoOfThisHead'
+  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
+  let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitValidatorScript) utxoOfThisHead'
   pure $
     collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
  where
-  headScript = PlutusScriptSerialised Head.validatorScript
-
-  commitScript = PlutusScriptSerialised commitValidatorScript
-
   ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
 
 data IncrementTxError
@@ -473,11 +462,11 @@ increment ::
 increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
+  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
   (depositedIn, depositedOut) <-
     UTxO.findBy
       ( \(TxIn txid _, txout) ->
-          isScriptTxOut depositScript txout && txid == depositTxId
+          isScriptTxOut depositValidatorScript txout && txid == depositTxId
       )
       spendableUTxO
       ?> CannotFindDepositOutputInIncrement{depositTxId}
@@ -489,9 +478,6 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
           Left SnapshotIncrementUTxOIsNull
       | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton (depositedIn, depositedOut)) upperValiditySlot sigs
  where
-  headScript = PlutusScriptSerialised Head.validatorScript
-  depositScript = PlutusScriptSerialised depositValidatorScript
-
   Snapshot{utxoToCommit} = sn
 
   (sn, sigs) =
@@ -523,14 +509,12 @@ decrement ::
 decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut headScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
+  headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   let balance = txOutValue headOut <> negateValue decommitValue
   when (isNegative balance) $
     Left DecrementValueNegative
   Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
  where
-  headScript = PlutusScriptSerialised Head.validatorScript
-
   decommitValue = foldMap txOutValue $ fromMaybe mempty $ utxoToDecommit sn
 
   isNegative = any ((< 0) . snd) . IsList.toList
@@ -572,7 +556,7 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
   (_, depositedOut) <-
     UTxO.findBy
       ( \(TxIn txid _, txout) ->
-          isScriptTxOut depositScript txout && txid == depositedTxId
+          isScriptTxOut depositValidatorScript txout && txid == depositedTxId
       )
       spendableUTxO
       ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}
@@ -583,7 +567,6 @@ recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
     then Left InvalidHeadIdInRecover{headId}
     else Right $ recoverTx depositedTxId deposited lowerValiditySlot
  where
-  depositScript = PlutusScriptSerialised depositValidatorScript
   ChainContext{networkId} = ctx
 
 -- | Construct a close transaction spending the head output in given 'UTxO',
@@ -612,7 +595,7 @@ close ::
 close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
-    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToClose
   let openThreadOutput =
         OpenThreadOutput
@@ -625,8 +608,6 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
   pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction
  where
   Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
-
-  headScript = PlutusScriptSerialised Head.validatorScript
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -662,7 +643,7 @@ contest ::
 contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInContest{headId}
   headUTxO <-
-    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead pid spendableUTxO)
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
   incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInContest
@@ -698,8 +679,6 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
-  headScript = PlutusScriptSerialised Head.validatorScript
-
 data FanoutTxError
   = CannotFindHeadOutputToFanout
   | MissingHeadDatumInFanout
@@ -727,7 +706,7 @@ fanout ::
   Either FanoutTxError Tx
 fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
   headUTxO <-
-    UTxO.find (isScriptTxOut headScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- checkHeadDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
@@ -736,8 +715,6 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
   headTokenScript = mkHeadTokenScript seedTxIn
 
   ChainContext{scriptRegistry} = ctx
-
-  headScript = PlutusScriptSerialised Head.validatorScript
 
   checkHeadDatum headUTxO@(_, headOutput) = do
     headDatum <-

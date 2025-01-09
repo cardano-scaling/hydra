@@ -61,7 +61,6 @@ import Hydra.Cardano.Api (
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
-  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
   pattern TxOut,
@@ -446,9 +445,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
   prepareScriptPayload lovelaceAmt = do
-    let script = dummyValidatorScript
-    let serializedScript = PlutusScriptSerialised script
-    let scriptAddress = mkScriptAddress networkId serializedScript
+    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
     let datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
@@ -456,7 +453,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let scriptWitness =
           BuildTxWith $
             ScriptWitness scriptWitnessInCtx $
-              mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+              mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
             defaultTxBodyContent

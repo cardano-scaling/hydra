@@ -2,22 +2,9 @@ module Hydra.Cardano.Api.ReferenceScript where
 
 import Hydra.Cardano.Api.Prelude
 
-import PlutusLedgerApi.V3 qualified as Plutus
-
 -- | Construct a 'ReferenceScript' from any given Plutus script.
---
--- NOTE: The script is treated as a 'PlutusScriptV3'
-mkScriptRef :: Plutus.SerialisedScript -> ReferenceScript Era
+mkScriptRef :: IsPlutusScriptLanguage lang => PlutusScript lang -> ReferenceScript Era
 mkScriptRef =
   ReferenceScript babbageBasedEra
     . toScriptInAnyLang
-    . PlutusScript PlutusScriptV3
-    . PlutusScriptSerialised
-
--- | Construct a PlutusV3 'ReferenceScript' from any given Plutus script.
-mkScriptRefV3 :: Plutus.SerialisedScript -> ReferenceScript Era
-mkScriptRefV3 =
-  ReferenceScript babbageBasedEra
-    . toScriptInAnyLang
-    . PlutusScript PlutusScriptV3
-    . PlutusScriptSerialised
+    . PlutusScript plutusScriptVersion
