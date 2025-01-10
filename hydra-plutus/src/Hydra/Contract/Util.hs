@@ -16,7 +16,6 @@ import PlutusLedgerApi.V3 (
   OutputDatum (..),
   ScriptHash (..),
   TokenName (..),
-  TxInInfo (..),
   TxInfo (..),
   TxOut (..),
   TxOutRef (..),
