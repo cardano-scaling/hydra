@@ -68,7 +68,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
@@ -131,6 +131,80 @@ data EndToEndLog
   | CreatedKey {keyPath :: FilePath}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+oneOfNNodesCanDropForAWhile :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+oneOfNNodesCanDropForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
+      <&> setNetworkId networkId
+
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
+      <&> setNetworkId networkId
+
+  carolChainConfig <-
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Init
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits something
+        requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode
+
+        -- Everyone else commits nothing
+        mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx cardanoNode) [n2, n3]
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON aliceUTxO, "headId" .= headId]
+
+        -- Perform a simple transaction from alice to herself
+        utxo <- getSnapshotUTxO n1
+        tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
+        send n1 $ input "NewTx" ["transaction" .= tx]
+
+        -- Everyone confirms it
+        waitForAllMatch (200 * blockTime) [n1, n2, n3] $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Alice never-the-less submits a transaction
+      utxo <- getSnapshotUTxO n1
+      tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
+      send n1 $ input "NewTx" ["transaction" .= tx]
+
+      -- Carol reconnects, and then the snapshot can be confirmed
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Note: We can't use `waitForAlMatch` here as it expects them to
+        -- emit the exact same datatype; but Carol will be behind in sequence
+        -- numbers as she was offline.
+        flip mapConcurrently_ [n1, n2, n3] $ \n ->
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+            -- Just check that everyone signed it.
+            let sigs = v ^.. key "signatures" . key "multiSignature" . values
+            guard $ length sigs == 3
+ where
+  RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
+  hydraTracer = contramap FromHydraNode tracer
 
 restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do

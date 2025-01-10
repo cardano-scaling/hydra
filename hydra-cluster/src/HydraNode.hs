@@ -95,6 +95,14 @@ waitNoMatch delay client match = do
     Left _ -> pure () -- Success: waitMatch failed to find a match
     Right _ -> failure "waitNoMatch: A match was found when none was expected"
 
+-- | Wait up to some time and succeed if no API server output matches the given predicate.
+waitForAllNoMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClient] -> (Aeson.Value -> Maybe a) -> IO ()
+waitForAllNoMatch delay clients match = do
+  result <- try (void $ waitForAllMatch delay clients match) :: IO (Either SomeException ())
+  case result of
+    Left _ -> pure () -- Success: waitMatch failed to find a match
+    Right _ -> failure "waitForAllNoMatch: A match was found when none was expected"
+
 -- | Wait up to some time for an API server output to match the given predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay client@HydraClient{tracer, hydraNodeId} match = do

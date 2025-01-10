@@ -59,6 +59,7 @@ import Hydra.Cluster.Scenarios (
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
+  oneOfNNodesCanDropForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
   restartedNodeCanAbort,
@@ -298,6 +299,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   output "HeadIsFinalized" ["utxo" .= u0, "headId" .= headId]
 
     describe "restarting nodes" $ do
+      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= oneOfNNodesCanDropForAWhile tracer tmpDir node
+
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
