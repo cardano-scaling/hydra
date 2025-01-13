@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.follows = "haskellNix/nixpkgs";
-    nixpkgsLatest.url = "github:NixOS/nixpkgs/nixos-24.05";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
@@ -32,8 +31,6 @@
     { self
     , flake-parts
     , nixpkgs
-      # TODO remove when haskellNix updated to newer nixpkgs
-    , nixpkgsLatest
     , cardano-node
     , ...
     } @ inputs:
@@ -53,9 +50,6 @@
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
-          pkgsLatest = import nixpkgsLatest {
-            inherit system;
-          };
           pkgs = import nixpkgs {
             inherit system;
             overlays = [
@@ -159,8 +153,7 @@
             };
           process-compose."demo" = import ./nix/hydra/demo.nix {
             inherit system pkgs inputs self;
-            inherit (pkgsLatest) process-compose;
-            inherit (pkgs) cardano-node cardano-cli;
+            inherit (pkgs) cardano-node cardano-cli process-compose;
             inherit (hydraPackages) hydra-node hydra-tui;
           };
 
@@ -173,7 +166,7 @@
                 pkgs.nixpkgs-fmt
                 pkgs.fourmolu
               ];
-              treefmt = pkgsLatest.treefmt;
+              treefmt = pkgs.treefmt;
             };
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
             "hydra-cardano-api"
@@ -189,7 +182,7 @@
 
           devShells = import ./nix/hydra/shell.nix {
             inherit (inputs) aiken;
-            inherit inputs pkgs hsPkgs system pkgsLatest hydraPackages;
+            inherit inputs pkgs hsPkgs system hydraPackages;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };

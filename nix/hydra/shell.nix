@@ -7,7 +7,6 @@
 , system
 , pkgs
 , ghc
-, pkgsLatest
 , aiken
 , hydraPackages
 }:
@@ -40,6 +39,7 @@ let
     # Generate a graph of the module dependencies in the "dot" format
     pkgs.haskellPackages.graphmod
     # To interact with mithril and integration tests
+    pkgs.jq
     pkgs.mithril-client-cli
     pkgs.mithril-client-cli-unstable
     pkgs.nixpkgs-fmt
@@ -53,8 +53,6 @@ let
     pkgs.weeder
     pkgs.yarn
     pkgs.yq
-    # Use latest jq in all shells, to avoid 1.6 bug with large integers.
-    pkgsLatest.jq
   ];
 
   libs = [
@@ -149,7 +147,7 @@ let
       pkgs.plantuml
       # Note: jq 1.6 has a bug that means it fails to read large integers
       # correctly, so we require 1.7+ at least.
-      pkgsLatest.jq
+      pkgs.jq
       pkgs.weeder
     ];
   };
