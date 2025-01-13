@@ -2,8 +2,9 @@
 
 module Main where
 
-import Hydra.Prelude hiding (fromList)
+import Hydra.Prelude hiding (fromList, intercalate)
 
+import Data.ByteString (intercalate)
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
  )
@@ -34,7 +35,7 @@ main = do
     (_, sk) <- readKeyPair (publishSigningKey opts)
     let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
     txIds <- publishHydraScripts networkId publishNodeSocket sk
-    mapM_ putBSLn (serialiseToRawBytesHex <$> txIds)
+    putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
