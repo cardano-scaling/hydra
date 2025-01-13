@@ -178,6 +178,7 @@ test-suite tests
     , lens-aeson
     , process
     , QuickCheck
+    , split
     , stm
     , text
     , time
