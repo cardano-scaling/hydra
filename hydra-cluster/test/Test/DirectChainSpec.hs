@@ -19,7 +19,7 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.STM (newEmptyTMVarIO, takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Lens ((<>~))
-import Data.List qualified as List
+import Data.List.Split (splitWhen)
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -427,7 +427,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 )
             )
             ""
-        let hydraScriptsTxId = fromString <$> List.lines hydraScriptsTxIdStr
+        let hydraScriptsTxId = fromString <$> splitWhen (== ',') (filter (/= '\n') hydraScriptsTxIdStr)
         failAfter 5 $ void $ queryScriptRegistry networkId nodeSocket hydraScriptsTxId
 
   it "can only contest once" $ \tracer -> do
