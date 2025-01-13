@@ -18,7 +18,6 @@ import CardanoClient (
   submitTx,
   waitForUTxO,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^..), (^?))
@@ -38,7 +37,6 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.Cardano.Api (
   Coin (..),
-  mkTxIn,
   File (File),
   Key (SigningKey),
   KeyWitnessInCtx (KeyWitnessForSpending),
@@ -58,6 +56,7 @@ import Hydra.Cardano.Api (
   mkScriptAddress,
   mkScriptDatum,
   mkScriptWitness,
+  mkTxIn,
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
@@ -78,6 +77,7 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
@@ -420,9 +420,10 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
 
         -- Push it into L2
-        requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= \tx -> do
-          putStrLn $ renderTxWithUTxO utxoToCommit tx
-          submitTx node tx
+        requestCommitTx n1 utxoToCommit
+          <&> signTx walletSk >>= \tx -> do
+            putStrLn $ renderTxWithUTxO utxoToCommit tx
+            submitTx node tx
 
         -- Check UTxO is present in L2
         waitFor hydraTracer (10 * blockTime) [n1] $
