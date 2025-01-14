@@ -113,6 +113,7 @@ library
     , typed-process
     , unix
     , websockets
+    , cardano-api
 
   ghc-options:     -haddock
 

@@ -19,8 +19,8 @@ import PlutusTx.Prelude (Eq (..))
 schnorrkelValidator :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
 schnorrkelValidator _ _ _ = "" == schnorrkel ""
 
-schnorrkelValidatorScript :: SerialisedScript
-schnorrkelValidatorScript = serialiseCompiledCode compiledDummyValidator
+schnorrkelValidatorScript :: PlutusScript
+schnorrkelValidatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledDummyValidator
 
 compiledSchnorrkelValidator :: CompiledCode ValidatorType
 compiledSchnorrkelValidator =

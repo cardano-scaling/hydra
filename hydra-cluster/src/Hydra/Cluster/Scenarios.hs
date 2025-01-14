@@ -39,7 +39,6 @@ import Hydra.Cardano.Api (
   Coin (..),
   File (File),
   Key (SigningKey),
-  KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
   Tx,
   TxId,
@@ -69,11 +68,8 @@ import Hydra.Cardano.Api (
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
-  pattern KeyWitness,
-  pattern PlutusScriptSerialised,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
-  pattern TxFeeExplicit,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
@@ -84,7 +80,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (changePParams, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -422,7 +418,7 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
           <&> signTx walletSk >>= \tx -> do
-            putStrLn $ renderTxWithUTxO utxoToCommit tx
+            -- putStrLn $ renderTxWithUTxO utxoToCommit tx
             submitTx node tx
 
         -- Check UTxO is present in L2
@@ -432,8 +428,9 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
         -- Send the UTxO to a script; in preparation for running the script
-        let serializedScript = PlutusScriptSerialised dummyValidatorScript
-        -- let serializedScript = PlutusScriptSerialised schnorrkelValidatorScript
+        let serializedScript = dummyValidatorScript
+        -- TODO: Use this one.
+        -- let serializedScript = schnorrkelValidatorScript
         let scriptAddress = mkScriptAddress networkId serializedScript
         let scriptOutput =
               mkTxOutAutoBalance
@@ -448,8 +445,6 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         let signedL2tx = signTx walletSk tx
         send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
-        putStrLn $ renderTxWithUTxO utxoToCommit signedL2tx
-
         waitMatch 10 n1 $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
           guard $
@@ -462,10 +457,18 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
                 ScriptWitness scriptWitnessInCtx $
                   mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
 
+        let txIn = mkTxIn signedL2tx 0
+
+        putStrLn "UTxO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        putStrLn $ renderTxWithUTxO utxoToCommit tx
+        putStrLn "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ UTxO"
+
         -- TODO: Include the script as an input!
         let body =
               defaultTxBodyContent
-                & addTxIns [(mkTxIn signedL2tx 0, scriptWitness)]
+                & addTxIns [(txIn, scriptWitness)]
+
+        print body
 
         tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
         let signedL2tx = signTx walletSk tx
