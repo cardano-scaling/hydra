@@ -60,6 +60,7 @@ import PlutusLedgerApi.V3 (
   TxOut (..),
   UpperBound (..),
   Value (Value),
+  mintValueMinted,
  )
 import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
@@ -117,7 +118,7 @@ checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol pa
     && mustBeSignedByParticipant ctx headCurrencySymbol
     && mustReimburseCommittedUTxO
  where
-  minted = txInfoMint txInfo
+  minted = mintValueMinted $ txInfoMint txInfo
 
   mustReimburseCommittedUTxO =
     traceIfFalse $(errorCode ReimbursedOutputsDontMatch) $
@@ -653,7 +654,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
  where
-  minted = txInfoMint txInfo
+  minted = mintValueMinted $ txInfoMint txInfo
 
   hasSameUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $

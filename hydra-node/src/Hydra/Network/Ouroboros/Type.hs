@@ -5,7 +5,8 @@ import Hydra.Prelude
 import Cardano.Binary qualified as CBOR
 import Codec.CBOR.Read qualified as CBOR
 import GHC.Show (Show (show))
-import Network.TypedProtocol (PeerHasAgency (ClientAgency), Protocol (..))
+import Network.TypedProtocol.Core (ReflRelativeAgency (ReflClientAgency))
+import Network.TypedProtocol (Protocol (..))
 import Network.TypedProtocol.Codec (Codec)
 import Network.TypedProtocol.Codec.CBOR (mkCodecCborLazyBS)
 import Network.TypedProtocol.Core (PeerRole)
@@ -77,8 +78,8 @@ codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
     PeerHasAgency pr st ->
     Message (FireForget a) st st' ->
     CBOR.Encoding
-  encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 0
-  encodeMsg (ClientAgency TokIdle) (MsgSend msg) = CBOR.encodeWord 1 <> toCBOR msg
+  encodeMsg (ReflClientAgency TokIdle) MsgDone = CBOR.encodeWord 0
+  encodeMsg (ReflClientAgency TokIdle) (MsgSend msg) = CBOR.encodeWord 1 <> toCBOR msg
 
   decodeMsg ::
     forall (pr :: PeerRole) s (st :: FireForget a).
@@ -87,9 +88,9 @@ codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
   decodeMsg stok = do
     key <- CBOR.decodeWord
     case (stok, key) of
-      (ClientAgency TokIdle, 0) ->
+      (ReflClientAgency TokIdle, 0) ->
         return $ SomeMessage MsgDone
-      (ClientAgency TokIdle, 1) -> do
+      (ReflClientAgency TokIdle, 1) -> do
         SomeMessage . MsgSend <$> fromCBOR
-      (ClientAgency TokIdle, _) ->
+      (ReflClientAgency TokIdle, _) ->
         fail "codecFireForget.StIdle: unexpected key"

@@ -21,6 +21,7 @@ import PlutusLedgerApi.V3 (
   TxOutRef (..),
   Value (getValue),
   toBuiltinData,
+  mintValueMinted
  )
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
@@ -57,7 +58,7 @@ mustBurnAllHeadTokens minted headCurrencySymbol parties =
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
-    isZero txInfoMint
+    isZero (mintValueMinted txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
 
 infix 4 ===

@@ -46,6 +46,7 @@ import PlutusLedgerApi.V3 (
   TxOutRef,
   Value (getValue),
   serialiseCompiledCode,
+  mintValueMinted
  )
 import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
 import PlutusTx (CompiledCode)
@@ -136,6 +137,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
     maybe 0 sum
       . AssocMap.lookup currency
       . getValue
+      . mintValueMinted
       $ txInfoMint txInfo
 
   (headId, seed, nParties) =
@@ -173,7 +175,8 @@ validateTokensBurning context =
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
-  minted = getValue $ txInfoMint txInfo
+  -- TODO: Should this be burned our minted?!
+  minted = getValue . mintValueMinted $ txInfoMint txInfo
 
   burnHeadTokens =
     case AssocMap.lookup currency minted of

@@ -40,7 +40,7 @@ import Cardano.Crypto.Hash.Class qualified as CC
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (EraCrypto)
+import Cardano.Ledger.Core (EraCrypto)
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
