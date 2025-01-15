@@ -40,6 +40,25 @@ import Test.QuickCheck (
   vectorOf,
  )
 
+-- | Build a zero-fee transaction which spends the first output owned by given
+-- signing key and transfers it in full to given verification key.
+mkTransferTx ::
+  MonadFail m =>
+  NetworkId ->
+  UTxO ->
+  SigningKey PaymentKey ->
+  VerificationKey PaymentKey ->
+  m Tx
+mkTransferTx networkId utxo sender recipient =
+  case UTxO.find (isVkTxOut $ getVerificationKey sender) utxo of
+    Nothing -> fail "no utxo left to spend"
+    Just (txIn, txOut) ->
+      case mkSimpleTx (txIn, txOut) (mkVkAddress networkId recipient, txOutValue txOut) sender of
+        Left err ->
+          fail $ "mkSimpleTx failed: " <> show err
+        Right tx ->
+          pure tx
+
 -- * Ledger
 
 -- | Use the cardano-ledger as an in-hydra 'Ledger'.

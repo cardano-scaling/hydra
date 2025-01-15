@@ -69,6 +69,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   testPreventResumeReconfiguredPeer,
   threeNodesNoErrorsOnOpen,
+  oneOfNNodesCanDropForAWhile,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
@@ -195,6 +196,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               >>= canDecommit tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
+      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= oneOfNNodesCanDropForAWhile tracer tmpDir node
+
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
