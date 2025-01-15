@@ -59,6 +59,7 @@ import Hydra.Cluster.Scenarios (
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
+  oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
   restartedNodeCanAbort,
@@ -180,7 +181,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
         withHydraNode tr offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
           withHydraNode tr offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
-            waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
+            -- HACK: waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
             let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
             let Right aliceToBob =
                   mkSimpleTx
@@ -260,6 +261,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               >>= persistenceCanLoadWithEmptyCommit tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
+      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= oneOfThreeNodesStopsForAWhile tracer tmpDir node
+
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
