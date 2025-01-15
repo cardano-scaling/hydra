@@ -46,6 +46,7 @@ import Hydra.Cardano.Api (
   addTxIns,
   addTxInsCollateral,
   addTxOuts,
+  createAndValidateTransactionBody,
   defaultTxBodyContent,
   getTxBody,
   getTxId,
@@ -418,7 +419,6 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
           <&> signTx walletSk >>= \tx -> do
-            -- putStrLn $ renderTxWithUTxO utxoToCommit tx
             submitTx node tx
 
         -- Check UTxO is present in L2
@@ -457,21 +457,22 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
                 ScriptWitness scriptWitnessInCtx $
                   mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
 
+        -- Note: Bug! autobalancing breaks the script business
+        -- tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
+
         let txIn = mkTxIn signedL2tx 0
-
-        putStrLn "UTxO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        putStrLn $ renderTxWithUTxO utxoToCommit tx
-        putStrLn "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ UTxO"
-
-        -- TODO: Include the script as an input!
         let body =
               defaultTxBodyContent
                 & addTxIns [(txIn, scriptWitness)]
 
-        print body
-
-        tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
+        -- Note: Fix! Use `createAndValidateTransactionBody` instead. This
+        -- means we _can_ construct the tx; but it doesn't submit (because it
+        -- isn't balanced! And it's missing collateral, etc...
+        txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
+        let tx = makeSignedTransaction [] txBody
         let signedL2tx = signTx walletSk tx
+
+        send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
         waitMatch 10 n1 $ \v -> do
           guard $ v ^? key "tag" == Just "SnapshotConfirmed"
