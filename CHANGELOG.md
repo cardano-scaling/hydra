@@ -14,6 +14,8 @@ changes.
 
 - Add `inlineDatumRaw` to transaction outputs on the `hydra-node` API.
 
+- Auto-debug and provide more information on `PlutusFailure` when validating transactions on L2 ledger.
+
 ## [0.19.0] - 2024-09-13
 
 - Tested with `cardano-node 9.1.1` and `cardano-cli 9.2.1.0`
