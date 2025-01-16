@@ -34,6 +34,11 @@ const config = {
       defer: true,
       "data-domain": "hydra.family",
     },
+    {
+      // GDPR
+      src: "https://cmp.osano.com/AzZXI3TYiFWNB5yus/09f536e2-8feb-4b15-8f96-249e7ae491a3/osano.js",
+      async: false,
+    },
   ],
 
   presets: [
