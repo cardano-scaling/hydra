@@ -16,7 +16,18 @@ import Hydra.Ledger.Cardano.Builder
 
 import Cardano.Api.UTxO (fromPairs, pairs)
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Rules (
+  FailureDescription (..),
+  TagMismatchDescription (FailedUnexpectedly),
+ )
 import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Conway.Rules (
+  ConwayLedgerPredFailure (ConwayUtxowFailure),
+  ConwayUtxoPredFailure (UtxosFailure),
+  ConwayUtxosPredFailure (ValidationTagMismatch),
+  ConwayUtxowPredFailure (UtxoFailure),
+ )
+import Cardano.Ledger.Plutus (debugPlutus)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
@@ -68,7 +79,16 @@ cardanoLedger globals ledgerEnv =
       Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
         Right . fromLedgerUTxO $ Ledger.utxosUtxo us
    where
-    toValidationError = ValidationError . show
+    -- As we use applyTx we only expect one ledger rule to run and one tx to
+    -- fail validation, hence using the heads of non empty lists is fine.
+    toValidationError (Ledger.ApplyTxError (e :| _)) = case e of
+      (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
+        ValidationError $
+          "Plutus validation failed: "
+            <> msg
+            <> "Debug info: "
+            <> show (debugPlutus @StandardCrypto (decodeUtf8 ctx))
+      _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
 
