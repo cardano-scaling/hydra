@@ -77,7 +77,7 @@ library
     , aeson                      >=2
     , base                       >=4.16
     , bytestring
-    , cardano-api                ^>=10.5
+    , cardano-api                ^>=10.6
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
