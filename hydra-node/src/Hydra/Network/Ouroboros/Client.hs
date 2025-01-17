@@ -3,15 +3,16 @@ module Hydra.Network.Ouroboros.Client where
 import Hydra.Prelude
 
 import Hydra.Network.Ouroboros.Type (
-  ClientHasAgency (TokIdle),
   FireForget (..),
   Message (MsgDone, MsgSend),
-  NobodyHasAgency (TokDone),
  )
 import Network.TypedProtocol.Core (
-  Peer (..),
-  PeerHasAgency (..),
+  IsPipelined (..),
   PeerRole (..),
+  ReflRelativeAgency (..),
+ )
+import Network.TypedProtocol.Peer (
+  Peer (..),
  )
 
 data FireForgetClient msg m a where
@@ -22,13 +23,13 @@ data FireForgetClient msg m a where
 fireForgetClientPeer ::
   Monad m =>
   FireForgetClient msg m a ->
-  Peer (FireForget msg) 'AsClient 'StIdle m a
+  Peer (FireForget msg) 'AsClient 'NonPipelined 'StIdle m a
 fireForgetClientPeer = \case
   Idle next ->
     Effect $ fireForgetClientPeer <$> next
   SendMsg msg next ->
-    Yield (ClientAgency TokIdle) (MsgSend msg) $
+    Yield ReflClientAgency (MsgSend msg) $
       Effect $
         fireForgetClientPeer <$> next
   SendDone action ->
-    Effect $ Yield (ClientAgency TokIdle) MsgDone . Done TokDone <$> action
+    Effect $ Yield ReflClientAgency MsgDone . Done ReflNobodyAgency <$> action
