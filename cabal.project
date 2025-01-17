@@ -41,7 +41,3 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
-
-constraints:
-  quickcheck-instances==0.3.31,
-  data-default==0.7.1.3
