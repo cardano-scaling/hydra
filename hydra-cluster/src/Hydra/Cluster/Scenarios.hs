@@ -7,6 +7,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Api.PParams (getLanguageView)
+import Cardano.Ledger.Api.Tx (bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Tx.Body (scriptIntegrityHashTxBodyL)
+import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
@@ -19,9 +24,8 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog)
-import Cardano.Ledger.Core (witsTxL)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((^..), (^?))
+import Control.Lens ((.~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _JSON, _String)
@@ -38,9 +42,12 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.Cardano.Api (
   Coin (..),
+  ExecutionUnits (..),
   File (File),
   Key (SigningKey),
+  KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
+  PlutusScriptOrReferenceInput (PScript),
   Tx,
   TxId,
   UTxO,
@@ -49,6 +56,7 @@ import Hydra.Cardano.Api (
   addTxOuts,
   createAndValidateTransactionBody,
   defaultTxBodyContent,
+  fromLedgerTx,
   getTxBody,
   getTxId,
   getVerificationKey,
@@ -61,25 +69,27 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
+  negateValue,
+  plutusScriptVersion,
+  scriptLanguageInEra,
   scriptWitnessInCtx,
   selectLovelace,
   setTxFee,
   signTx,
+  toLedgerTx,
   toScriptData,
   txOutValue,
+  txOuts',
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
+  pattern KeyWitness,
+  pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
+  pattern TxFeeExplicit,
   pattern TxOut,
   pattern TxOutDatumNone,
-  pattern TxFeeExplicit,
-  pattern KeyWitness,
-  KeyWitnessInCtx (KeyWitnessForSpending),
-  txOuts',
-  negateValue,
-  setTxProtocolParams
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
@@ -89,6 +99,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -435,9 +446,7 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         pparams <- queryProtocolParameters networkId nodeSocket QueryTip
 
         -- Send the UTxO to a script; in preparation for running the script
-        let serializedScript = dummyValidatorScript
-        -- TODO: Use this one.
-        -- let serializedScript = schnorrkelValidatorScript
+        let serializedScript = schnorrkelValidatorScript
         let scriptAddress = mkScriptAddress networkId serializedScript
         let scriptOutput =
               mkTxOutAutoBalance
@@ -462,17 +471,19 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         let scriptWitness =
               BuildTxWith $
                 ScriptWitness scriptWitnessInCtx $
-                  mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
+                  PlutusScriptWitness
+                    serializedScript
+                    (mkScriptDatum ())
+                    (toScriptData ())
+                    maxTxExecutionUnits
 
         -- Note: Bug! autobalancing breaks the script business
         -- tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
-
 
         let txIn = mkTxIn signedL2tx 0
         let remainder = mkTxIn signedL2tx 1
 
         let fee = 8_000_000
-
         let outAmt = foldMap txOutValue (txOuts' tx) <> negateValue (lovelaceToValue fee)
         let body =
               defaultTxBodyContent
@@ -480,14 +491,15 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
                 & addTxInsCollateral [remainder]
                 & setTxFee (TxFeeExplicit fee)
                 & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
-                -- & setTxProtocolParams (Just pparams)
 
         -- Note: Fix! Use `createAndValidateTransactionBody` instead. This
         -- means we _can_ construct the tx; but it doesn't submit (because it
         -- isn't balanced! And it's missing collateral, etc...
         txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
+
         let tx = makeSignedTransaction [] txBody
-        let signedL2tx = signTx walletSk tx
+            tx' = fromLedgerTx $ recomputeIntegrityHash pparams [PlutusV3] (toLedgerTx tx)
+        let signedL2tx = signTx walletSk tx'
 
         send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
@@ -498,7 +510,6 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
               `elem` (v ^.. key "snapshot" . key "confirmed" . values)
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
-
 
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 -- recomputeIntegrityHash ::
@@ -515,11 +526,6 @@ recomputeIntegrityHash pp languages tx = do
       (Set.fromList $ getLanguageView pp <$> languages)
       (tx ^. witsTxL . rdmrsTxWitsL)
       (tx ^. witsTxL . datsTxWitsL)
-
-
-
-
-
 
 singlePartyCommitsScriptBlueprint ::
   Tracer IO EndToEndLog ->
