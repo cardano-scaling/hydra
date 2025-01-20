@@ -43,8 +43,8 @@ sudo usermod -aG docker $(whoami)
 
 Prepare the common directory for cardano database:
 ```bash
-sudo mkdir -p /srv/var/cardano
-sudo chown "$(whoami)" /srv/var/cardano
+sudo mkdir -p /data/cardano
+sudo chown "$(whoami)" /data/cardano
 ```
 
 # Add the server as a github runner
