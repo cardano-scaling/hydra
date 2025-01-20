@@ -13,7 +13,10 @@ import Hydra.Contract.MintAction (MintAction (Burn))
 import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
-import Hydra.Tx.Utils (headTokensFromValue)
+import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue)
+
+-- * Creation
 
 data AbortTxError
   = OverlappingInputs
@@ -97,3 +100,23 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
   reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
+
+-- * Observation
+
+newtype AbortObservation = AbortObservation {headId :: HeadId}
+  deriving stock (Eq, Show, Generic)
+
+-- | Identify an abort tx by looking up the input spending the Head output and
+-- decoding its redeemer.
+observeAbortTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe AbortObservation
+observeAbortTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  headId <- findStateToken headOutput
+  findRedeemerSpending tx headInput >>= \case
+    Head.Abort -> pure $ AbortObservation headId
+    _ -> Nothing

@@ -14,13 +14,10 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
-  observeHeadTx,
- )
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 

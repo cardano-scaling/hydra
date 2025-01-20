@@ -6,9 +6,9 @@ import Test.Hydra.Prelude
 import Hydra.Cardano.Api (utxoFromTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (HeadObservation (..))
 import Hydra.ChainObserver.NodeClient (observeAll, observeTx)
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Hydra.Tx.Observe (HeadObservation (..))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)

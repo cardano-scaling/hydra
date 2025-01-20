@@ -28,21 +28,16 @@ import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript)
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import Hydra.Tx.Party (Party, partyToChain)
+import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Party (Party, partyFromChain, partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (CurrencySymbol)
 import PlutusLedgerApi.V3 qualified as Plutus
 
-mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
-mkCommitDatum party utxo headId =
-  Commit.datum (partyToChain party, commits, headId)
- where
-  commits =
-    mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
+-- * Construction
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 commitTx ::
@@ -142,3 +137,82 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     mkTxOutDatumInline $ mkCommitDatum party utxoToCommit (headIdToCurrencySymbol headId)
 
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
+
+mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Plutus.Datum
+mkCommitDatum party utxo headId =
+  Commit.datum (partyToChain party, commits, headId)
+ where
+  commits =
+    mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
+
+-- * Observation
+
+-- | Full observation of a commit transaction.
+data CommitObservation = CommitObservation
+  { commitOutput :: (TxIn, TxOut CtxUTxO)
+  , party :: Party
+  -- ^ Hydra participant who committed the UTxO.
+  , committed :: UTxO
+  , headId :: HeadId
+  }
+  deriving stock (Eq, Show, Generic)
+
+-- | Identify a commit tx by:
+--
+-- - Check that its spending from the init validator,
+-- - Find the outputs which pays to the commit validator,
+-- - Using the datum of that output, deserialize the committed output,
+-- - Reconstruct the committed UTxO from both values (tx input and output).
+observeCommitTx ::
+  NetworkId ->
+  -- | A UTxO set to lookup tx inputs. Should at least contain the input
+  -- spending from νInitial.
+  UTxO ->
+  Tx ->
+  Maybe CommitObservation
+observeCommitTx networkId utxo tx = do
+  -- NOTE: Instead checking to spend from initial we could be looking at the
+  -- seed:
+  --
+  --  - We must check that participation token in output satisfies
+  --      policyId = hash(mu_head(seed))
+  --
+  --  - This allows us to assume (by induction) the output datum at the commit
+  --    script is legit
+  --
+  --  - Further, we need to assert / assume that only one script is spent = onle
+  --    one redeemer matches the InitialRedeemer, as we do not have information
+  --    which of the inputs is spending from the initial script otherwise.
+  --
+  --  Right now we only have the headId in the datum, so we use that in place of
+  --  the seed -> THIS CAN NOT BE TRUSTED.
+  guard isSpendingFromInitial
+
+  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
+  dat <- txOutScriptData commitOut
+  (onChainParty, onChainCommits, headId) :: Commit.DatumType <- fromScriptData dat
+  party <- partyFromChain onChainParty
+
+  -- NOTE: If we have the resolved inputs (utxo) then we could avoid putting
+  -- the commit into the datum (+ changing the hashing strategy of
+  -- collect/fanout)
+  committed <- do
+    committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
+    pure . UTxO.fromPairs $ committedUTxO
+
+  policyId <- fromPlutusCurrencySymbol headId
+  pure
+    CommitObservation
+      { commitOutput = (commitIn, toCtxUTxOTxOut commitOut)
+      , party
+      , committed
+      , headId = mkHeadId policyId
+      }
+ where
+  isSpendingFromInitial :: Bool
+  isSpendingFromInitial =
+    any (\o -> txOutAddress o == initialAddress) (resolveInputsUTxO utxo tx)
+
+  initialAddress = mkScriptAddress networkId initialValidatorScript
+
+  commitAddress = mkScriptAddress networkId commitValidatorScript

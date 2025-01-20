@@ -82,7 +82,21 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (
+import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.Initial qualified as Initial
+import Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx,
+  genValidityBoundsFromContestationPeriod,
+  maxTxSize,
+  propTransactionEvaluates,
+  propTransactionFailsEvaluation,
+ )
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus (initialValidatorScript)
+import Hydra.Tx.Close (ClosedThreadOutput (closedContesters))
+import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
   CollectComObservation (..),
@@ -98,20 +112,6 @@ import Hydra.Chain.Direct.Tx (
   observeHeadTx,
   observeInitTx,
  )
-import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano.Evaluate (
-  evaluateTx,
-  genValidityBoundsFromContestationPeriod,
-  maxTxSize,
-  propTransactionEvaluates,
-  propTransactionFailsEvaluation,
- )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus (initialValidatorScript)
-import Hydra.Tx.Contest (ClosedThreadOutput (closedContesters))
-import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot

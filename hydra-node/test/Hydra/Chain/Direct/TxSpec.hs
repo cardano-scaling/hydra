@@ -1,5 +1,6 @@
 -- | Remainder of tests covering observation and tx creation by the "direct"
 -- chain component.
+-- XXX: This does not have a corresponding "source" module which it tests.
 module Hydra.Chain.Direct.TxSpec where
 
 import Hydra.Cardano.Api
@@ -35,7 +36,6 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (HeadObservation (..), observeHeadTx)
 import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
@@ -43,6 +43,7 @@ import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkInitialOutput)
+import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')

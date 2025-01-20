@@ -10,8 +10,11 @@ import Hydra.Ledger.Cardano.Builder (
   burnTokens,
   unsafeBuildTransaction,
  )
+import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (headTokensFromValue, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+
+-- * Creation
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
@@ -71,3 +74,24 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     case utxoToDecommit of
       Nothing -> []
       Just decommitUTxO -> toTxContext <$> toList decommitUTxO
+
+-- * Observation
+
+newtype FanoutObservation = FanoutObservation {headId :: HeadId}
+  deriving stock (Eq, Show, Generic)
+
+-- | Identify a fanout tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeFanoutTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe FanoutObservation
+observeFanoutTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  headId <- findStateToken headOutput
+  findRedeemerSpending tx headInput
+    >>= \case
+      Head.Fanout{} -> pure FanoutObservation{headId}
+      _ -> Nothing

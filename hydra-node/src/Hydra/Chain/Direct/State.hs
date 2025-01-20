@@ -61,18 +61,6 @@ import Hydra.Chain (
   maximumNumberOfParties,
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
-import Hydra.Chain.Direct.Tx (
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  InitObservation (..),
-  NotAnInitReason,
-  UTxOHash,
-  observeCloseTx,
-  observeCollectComTx,
-  observeCommitTx,
-  observeInitTx,
- )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
@@ -101,10 +89,10 @@ import Hydra.Tx (
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
-import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
-import Hydra.Tx.CollectCom (collectComTx)
+import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime, closeTx)
+import Hydra.Tx.CollectCom (OpenThreadOutput (..), UTxOHash, collectComTx)
 import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Contest (ClosedThreadOutput (..), PointInTime, contestTx)
+import Hydra.Tx.Contest (contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
@@ -113,6 +101,17 @@ import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx, o
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
+import Hydra.Tx.Observe (
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  InitObservation (..),
+  NotAnInitReason,
+  observeCloseTx,
+  observeCollectComTx,
+  observeCommitTx,
+  observeInitTx,
+ )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)

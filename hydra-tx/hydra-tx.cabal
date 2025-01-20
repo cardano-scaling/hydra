@@ -65,6 +65,7 @@ library
     Hydra.Tx.Increment
     Hydra.Tx.Init
     Hydra.Tx.IsTx
+    Hydra.Tx.Observe
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
     Hydra.Tx.Recover

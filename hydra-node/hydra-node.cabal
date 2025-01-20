@@ -60,7 +60,6 @@ library
     Hydra.Chain.Direct.Handlers
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
-    Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
@@ -145,7 +144,6 @@ library
     , ouroboros-network-api           >=0.7.1
     , ouroboros-network-framework
     , ouroboros-network-protocols     >=0.8
-    , plutus-ledger-api               >=1.21
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt
