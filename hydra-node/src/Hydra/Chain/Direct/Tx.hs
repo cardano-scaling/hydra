@@ -15,7 +15,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Commit qualified as Commit
@@ -30,13 +29,11 @@ import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   HeadId (..),
-  HeadSeed (..),
   Party,
   SnapshotNumber,
   SnapshotVersion,
   fromChainSnapshotNumber,
   fromChainSnapshotVersion,
-  headIdToCurrencySymbol,
   mkHeadId,
   partyFromChain,
  )
@@ -47,7 +44,7 @@ import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName)
-import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin)
+import PlutusLedgerApi.V3 (fromBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (vectorOf)
@@ -498,23 +495,6 @@ observeAbortTx utxo tx = do
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure $ AbortObservation headId
     _ -> Nothing
-
--- * Cardano specific identifiers
-
-currencySymbolToHeadId :: MonadFail m => CurrencySymbol -> m HeadId
-currencySymbolToHeadId = fmap mkHeadId . fromPlutusCurrencySymbol
-
-headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
-headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
-
-headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
-headSeedToTxIn (UnsafeHeadSeed bytes) =
-  case Aeson.decodeStrict bytes of
-    Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
-    Just txIn -> pure txIn
-
-txInToHeadSeed :: TxIn -> HeadSeed
-txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin
 
 -- * Helpers
 

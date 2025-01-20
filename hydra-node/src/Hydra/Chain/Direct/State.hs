@@ -69,12 +69,10 @@ import Hydra.Chain.Direct.Tx (
   InitialThreadOutput (..),
   NotAnInitReason,
   UTxOHash,
-  headIdToPolicyId,
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
   observeInitTx,
-  txInToHeadSeed,
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -95,8 +93,10 @@ import Hydra.Tx (
   SnapshotVersion (..),
   deriveParty,
   getSnapshot,
+  headIdToPolicyId,
   partyToChain,
   registryUTxO,
+  txInToHeadSeed,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
