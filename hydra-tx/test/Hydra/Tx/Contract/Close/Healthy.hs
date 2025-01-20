@@ -18,7 +18,7 @@ import Hydra.Tx (
   hashUTxO,
   partyToChain,
  )
-import Hydra.Tx.Contest (PointInTime)
+import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)

@@ -44,11 +44,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (NoHeadTx),
-  observeHeadTx,
- )
-import Hydra.Chain.Direct.Tx qualified as Tx
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -59,6 +54,8 @@ import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
+import Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
+import Hydra.Tx.Observe qualified as Tx
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)

@@ -19,9 +19,11 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..))
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
+
+-- * Construction
 
 -- | Construct a _increment_ transaction which takes as input some 'UTxO'
 -- locked at v_deposit and make it available on L2.
@@ -102,3 +104,42 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
   Snapshot{utxo, utxoToCommit, version, number} = snapshot
+
+-- * Observation
+
+data IncrementObservation = IncrementObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , depositTxId :: TxId
+  }
+  deriving stock (Show, Eq, Generic)
+
+observeIncrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe IncrementObservation
+observeIncrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (TxIn depositTxId _, depositOutput) <- findTxOutByScript utxo depositValidatorScript
+  dat <- txOutScriptData $ toTxContext depositOutput
+  -- we need to be able to decode the datum, no need to use it tho
+  _ :: Deposit.DepositDatum <- fromScriptData dat
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) ->
+          pure
+            IncrementObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , depositTxId
+              }
+        _ -> Nothing
+    _ -> Nothing

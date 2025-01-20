@@ -22,7 +22,7 @@ import Hydra.Chain.CardanoClient (
   queryTip,
  )
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
-import Hydra.Tx.Contest (PointInTime)
+import Hydra.Tx.Close (PointInTime)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 import Test.QuickCheck (getPositive)
 

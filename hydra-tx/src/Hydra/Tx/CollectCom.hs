@@ -7,9 +7,12 @@ import Data.Map qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Data.ByteString qualified as BS
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
@@ -20,8 +23,12 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.Common (fromBuiltin)
 import PlutusLedgerApi.V3 (toBuiltin)
+import Test.QuickCheck (vectorOf)
+
+-- * Construction
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -91,3 +98,63 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
     mconcat $ txOutValue <$> Map.elems commits
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.ViaCollectCom
+
+-- * Observation
+
+-- | Representation of the Head output after a CollectCom transaction.
+data OpenThreadOutput = OpenThreadOutput
+  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , openContestationPeriod :: OnChain.ContestationPeriod
+  , openParties :: [OnChain.Party]
+  }
+  deriving stock (Eq, Show, Generic)
+
+newtype UTxOHash = UTxOHash ByteString
+  deriving stock (Eq, Show, Generic)
+
+instance Arbitrary UTxOHash where
+  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
+
+data CollectComObservation = CollectComObservation
+  { threadOutput :: OpenThreadOutput
+  , headId :: HeadId
+  , utxoHash :: UTxOHash
+  }
+  deriving stock (Show, Eq, Generic)
+
+-- | Identify a collectCom tx by lookup up the input spending the Head output
+-- and decoding its redeemer.
+observeCollectComTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe CollectComObservation
+observeCollectComTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Initial{parties, contestationPeriod}, Head.CollectCom) -> do
+      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
+      pure
+        CollectComObservation
+          { threadOutput =
+              OpenThreadOutput
+                { openThreadUTxO = (newHeadInput, newHeadOutput)
+                , openParties = parties
+                , openContestationPeriod = contestationPeriod
+                }
+          , headId
+          , utxoHash
+          }
+    _ -> Nothing
+ where
+  decodeUtxoHash datum =
+    case fromScriptData datum of
+      Just (Head.Open Head.OpenDatum{utxoHash}) -> Just $ fromBuiltin utxoHash
+      _ -> Nothing
