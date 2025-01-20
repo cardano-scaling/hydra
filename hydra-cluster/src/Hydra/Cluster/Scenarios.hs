@@ -11,15 +11,23 @@ import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildTransaction,
-  queryProtocolParameters,
   queryTip,
   queryUTxOFor,
   submitTx,
   waitForUTxO,
  )
+
+import Cardano.Ledger.Api (
+  AsIx (..),
+  ConwayPlutusPurpose (..),
+  Redeemers (..),
+  rdmrsTxWitsL,
+  witsTxL,
+ )
+import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((^..), (^?))
+import Control.Lens ((.~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _JSON, _String)
@@ -39,6 +47,8 @@ import Hydra.Cardano.Api (
   ConwayEraOnwards (ConwayEraOnwardsConway),
   File (File),
   Key (SigningKey),
+  LedgerEra,
+  PParams,
   PaymentKey,
   ScriptDatum (..),
   ShelleyBasedEra (ShelleyBasedEraConway),
@@ -47,6 +57,9 @@ import Hydra.Cardano.Api (
   TxCertificates (..),
   TxId,
   UTxO,
+  addTxIns,
+  defaultTxBodyContent,
+  fromLedgerTx,
   getTxBody,
   getTxId,
   getVerificationKey,
@@ -65,6 +78,8 @@ import Hydra.Cardano.Api (
   scriptWitnessInCtx,
   selectLovelace,
   signTx,
+  toLedgerData,
+  toLedgerTx,
   toScriptData,
   txOutValue,
   utxoFromTx,
@@ -85,7 +100,7 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
-import Hydra.Ledger.Cardano (addCertificates, addCollateralInput, addInputs, addOutputs, changePParams, emptyTxBody, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano (addCertificates, addCollateralInput, addOutputs, changePParams, mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -458,7 +473,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
         output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
  where
   prepareScriptPayload lovelaceAmt = do
-    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+    let scriptAddress = mkScriptAddress networkId (PlutusScriptSerialised dummyValidatorScript)
     let datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress node scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton (scriptIn, scriptOut)
@@ -466,7 +481,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
     let scriptWitness =
           BuildTxWith $
             ScriptWitness scriptWitnessInCtx $
-              mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
+              mkScriptWitness (PlutusScriptSerialised dummyValidatorScript) (mkScriptDatum ()) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
             defaultTxBodyContent
@@ -1183,12 +1198,16 @@ withdrawZero tracer workDir node hydraScriptsTxId =
       let (collateralInput, _) = List.head $ UTxO.pairs aliceCollateralUTxO
 
       let (scriptInput, _) = List.head $ UTxO.pairs lockedUTxO
-      pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+      pparams' <-
+        parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/protocol-parameters")
+          >>= httpJSON
+
+      let pparamsL2 = getResponseBody pparams' :: PParams LedgerEra
 
       let scriptAddress = mkScriptAddress networkId serializedScript
       let scriptOutput =
             mkTxOutAutoBalance
-              pparams
+              pparamsL2
               scriptAddress
               (lovelaceToValue 0)
               (mkTxOutDatumHash ())
@@ -1199,18 +1218,24 @@ withdrawZero tracer workDir node hydraScriptsTxId =
             BuildTxWith $
               ScriptWitness scriptWitnessInCtx $
                 mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
-      pparams' <- queryProtocolParameters networkId nodeSocket QueryTip
-      let tx =
+      let tx' =
             unsafeBuildTransaction $
-              emptyTxBody
-                -- we should not need to change pparams here. Why is the pparams hash different?
-                & changePParams pparams'
+              defaultTxBodyContent
                 & addCollateralInput collateralInput
-                & addInputs [(scriptInput, scriptWitness)]
+                & addTxIns [(scriptInput, scriptWitness)]
                 & addOutputs [modifyTxOutValue (<> expectedOutputValue) scriptOutput]
                 & addCertificates cert
+                -- use L2 pparams here
+                & changePParams pparamsL2
+      let certRedeemers = Redeemers @LedgerEra (fromList [(ConwayCertifying (AsIx 0), (toLedgerData $ toScriptData (), ExUnits 10 10))])
+      let existingRedeemers = toLedgerTx tx' ^. witsTxL . rdmrsTxWitsL
+      let tx =
+            fromLedgerTx $
+              toLedgerTx tx'
+                & witsTxL . rdmrsTxWitsL
+                  .~ certRedeemers <> existingRedeemers
       let signedL2tx = signTx aliceSecretKey tx
-      putStrLn $ renderTxWithUTxO (scriptUTxO <> aliceCollateralUTxO) tx
+      putStrLn $ renderTxWithUTxO (scriptUTxO <> aliceCollateralUTxO) signedL2tx
       send n1 $ input "NewTx" ["transaction" .= signedL2tx]
 
       waitMatch 10 n1 $ \v -> do
@@ -1234,8 +1259,8 @@ withdrawZero tracer workDir node hydraScriptsTxId =
               mkScriptWitness serializedScript (mkScriptDatum ()) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
-            emptyTxBody
-              & addInputs [(scriptIn, scriptWitness)]
+            defaultTxBodyContent
+              & addTxIns [(scriptIn, scriptWitness)]
     pure
       ( Aeson.object
           [ "blueprintTx" .= spendingTx

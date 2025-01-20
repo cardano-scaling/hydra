@@ -7,9 +7,9 @@ module Hydra.Contract.Dummy where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
-import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import PlutusLedgerApi.V3 (BuiltinData, ScriptContext, serialiseCompiledCode, toOpaque)
+import Hydra.Cardano.Api (pattern PlutusScriptSerialised)
+import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import PlutusLedgerApi.V3 (BuiltinData, ScriptContext, ScriptHash, SerialisedScript, serialiseCompiledCode, toOpaque)
 import PlutusTx (CompiledCode, compile)
 
 dummyValidator :: BuiltinData -> BuiltinData -> ScriptContext -> Bool
@@ -30,4 +30,4 @@ dummyValidatorScript :: SerialisedScript
 dummyValidatorScript = serialiseCompiledCode compiledDummyValidator
 
 dummyValidatorHash :: ScriptHash
-dummyValidatorHash = scriptValidatorHash PlutusScriptV3 dummyValidatorScript
+dummyValidatorHash = scriptValidatorHash $ PlutusScriptSerialised dummyValidatorScript

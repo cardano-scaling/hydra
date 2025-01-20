@@ -88,6 +88,8 @@ library
     , base                  >=4.7 && <5
     , bytestring
     , cardano-slotting
+    , cardano-ledger-api
+    , cardano-ledger-core
     , containers
     , contra-tracer
     , directory

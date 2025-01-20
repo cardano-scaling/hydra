@@ -34,17 +34,20 @@ data InvalidTransactionException = InvalidTransactionException
 instance Exception InvalidTransactionException
 
 -- | Like 'addInputs' but only for vk inputs which requires no additional data.
+addTxInsSpending :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
+addTxInsSpending ins =
+  addTxIns ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
+
 addVkInputs :: [TxIn] -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addVkInputs ins =
-  addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
+  addTxIns ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
 
 addCollateralInput :: TxIn -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 addCollateralInput txin tx =
   tx{txInsCollateral = TxInsCollateral [txin]}
 
 changePParams :: PParams (ShelleyLedgerEra Era) -> TxBodyContent BuildTx -> TxBodyContent BuildTx
-changePParams pparams tx =
-  tx{txProtocolParams = BuildTxWith $ Just $ LedgerProtocolParameters pparams}
+changePParams pparams = setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
 
 -- | Append new outputs to an ongoing builder.
 addOutputs :: [TxOut CtxTx] -> TxBodyContent BuildTx -> TxBodyContent BuildTx

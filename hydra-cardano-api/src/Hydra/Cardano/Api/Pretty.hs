@@ -44,6 +44,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
       , redeemerLines
       , requiredSignersLines
       , metadataLines
+      , protocolParamsLines
       ]
  where
   Api.ShelleyTxBody _lbody scripts scriptsData _auxData _validity = body
@@ -54,14 +55,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     "== INPUTS (" <> show (length (txIns content)) <> ")"
       : (("- " <>) . prettyTxIn . fst <$> sortBy (compare `on` fst) (txIns content))
 
-  collateralInputLines =
-    "== COLLATERAL INPUTS (" <> show (length collateralInputs) <> ")"
-      : (("- " <>) . prettyTxIn <$> sort collateralInputs)
-
-  collateralInputs =
-    case txInsCollateral content of
-      Api.TxInsCollateralNone -> []
-      Api.TxInsCollateral refInputs -> refInputs
   referenceInputLines =
     "== REFERENCE INPUTS (" <> show (length referenceInputs) <> ")"
       : (("- " <>) . prettyTxIn <$> sort referenceInputs)
@@ -96,23 +89,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     , "Total number of assets: " <> show totalNumberOfAssets
     ]
       <> (("- " <>) . prettyOut <$> outs)
-  totalCollateralLines :: [String]
-  totalCollateralLines =
-    [ "== TOTAL COLLATERAL"
-    , show $ txTotalCollateral content
-    ]
-
-  returnCollateralLines :: [String]
-  returnCollateralLines =
-    [ "== RETURN COLLATERAL"
-    , show $ txReturnCollateral content
-    ]
-
-  feeLines :: [String]
-  feeLines =
-    [ "== FEE"
-    , show $ txFee content
-    ]
 
   prettyOut o =
     mconcat
@@ -147,6 +123,12 @@ renderTxWithUTxO utxo (Tx body _wits) =
     , show $ txFee content
     ]
 
+  protocolParamsLines :: [String]
+  protocolParamsLines =
+    [ "== Protocol Parameters"
+    , show $ buildTxWithToMaybe $ txProtocolParams content
+    ]
+
   validityLines :: [String]
   validityLines =
     [ "== VALIDITY"
@@ -154,7 +136,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     , show (txValidityUpperBound content)
     ]
 
-  mintLines :: [String]
   mintLines =
     [ "== MINT/BURN\n" <> prettyValue 0 (txMintValueToValue $ txMintValue content)
     ]
@@ -189,7 +170,6 @@ renderTxWithUTxO utxo (Tx body _wits) =
     Api.TxOutSupplementalDatum scriptData ->
       "TxOutSupplementalDatum " <> prettyScriptData scriptData
 
-  scriptLines :: [String]
   scriptLines =
     [ "== SCRIPTS (" <> show (length scripts) <> ")"
     , "Total size (bytes):  " <> show totalScriptSize
@@ -234,13 +214,11 @@ renderTxWithUTxO utxo (Tx body _wits) =
       , "\n  " <> prettyScriptData (fromLedgerData redeemerData)
       ]
 
-  requiredSignersLines :: [String]
   requiredSignersLines =
     "== REQUIRED SIGNERS" : case txExtraKeyWits content of
       Api.TxExtraKeyWitnessesNone -> ["[]"]
       Api.TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
 
-  metadataLines :: [String]
   metadataLines =
     [ "== METADATA"
     , show (txMetadata content)
