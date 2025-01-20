@@ -66,7 +66,6 @@ import Hydra.Chain.Direct.Tx (
   CollectComObservation (..),
   CommitObservation (..),
   InitObservation (..),
-  InitialThreadOutput (..),
   NotAnInitReason,
   UTxOHash,
   observeCloseTx,
@@ -77,6 +76,8 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
@@ -232,6 +233,14 @@ instance Arbitrary ChainContext where
         , ownParty
         , scriptRegistry
         }
+
+-- | Representation of the Head output after an Init transaction.
+data InitialThreadOutput = InitialThreadOutput
+  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , initialContestationPeriod :: OnChain.ContestationPeriod
+  , initialParties :: [OnChain.Party]
+  }
+  deriving stock (Eq, Show, Generic)
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput

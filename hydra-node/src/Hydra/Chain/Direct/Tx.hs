@@ -22,8 +22,6 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -49,22 +47,11 @@ import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (vectorOf)
 
--- | Needed on-chain data to create Head transactions.
-type UTxOWithScript = (TxIn, TxOut CtxUTxO, HashableScriptData)
-
 newtype UTxOHash = UTxOHash ByteString
   deriving stock (Eq, Show, Generic)
 
 instance Arbitrary UTxOHash where
   arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
-
--- | Representation of the Head output after an Init transaction.
-data InitialThreadOutput = InitialThreadOutput
-  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initialContestationPeriod :: OnChain.ContestationPeriod
-  , initialParties :: [OnChain.Party]
-  }
-  deriving stock (Eq, Show, Generic)
 
 -- * Observe Hydra Head transactions
 
