@@ -38,6 +38,7 @@ import Data.Default (def)
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
+import System.IO.Unsafe (unsafeDupablePerformIO)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
@@ -87,7 +88,10 @@ cardanoLedger globals ledgerEnv =
           "Plutus validation failed: "
             <> msg
             <> "Debug info: "
-            <> show (debugPlutus @StandardCrypto (decodeUtf8 ctx))
+            -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
+            -- action. It only re-evaluates the script and does not have any
+            -- side-effects.
+            <> show (unsafeDupablePerformIO $ debugPlutus @StandardCrypto (decodeUtf8 ctx))
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
