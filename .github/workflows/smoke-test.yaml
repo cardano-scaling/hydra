@@ -28,7 +28,7 @@ jobs:
     runs-on: [self-hosted, cardano]
     concurrency: cardano-${{inputs.network}}
     env:
-      state_dir: /srv/var/cardano/state-${{inputs.network}}
+      state_dir: /data/cardano/${{inputs.network}}
     steps:
     - uses: actions/checkout@v4
       with:
