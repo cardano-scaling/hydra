@@ -68,9 +68,7 @@ import Hydra.Chain.Direct.Tx (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
-  headSeedToTxIn,
   observeHeadTx,
-  txInToHeadSeed,
  )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
@@ -84,6 +82,8 @@ import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
+  headSeedToTxIn,
+  txInToHeadSeed,
  )
 import Hydra.Tx.Contest (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)

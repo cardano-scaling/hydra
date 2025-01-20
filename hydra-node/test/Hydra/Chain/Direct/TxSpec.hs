@@ -1,9 +1,10 @@
--- | Unit tests for our "hand-rolled" transactions as they are used in the
--- "direct" chain component.
+-- | Remainder of tests covering observation and tx creation by the "direct"
+-- chain component.
 module Hydra.Chain.Direct.TxSpec where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (EraTxAuxData (hashTxAuxData))
@@ -34,27 +35,18 @@ import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
-  currencySymbolToHeadId,
-  headIdToPolicyId,
-  headSeedToTxIn,
-  observeHeadTx,
-  txInToHeadSeed,
- )
+import Hydra.Chain.Direct.Tx (HeadObservation (..), observeHeadTx)
 import Hydra.Contract.Dummy (dummyValidatorScript)
-import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
-import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,
@@ -83,29 +75,10 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Monadic (monadicIO)
 
 spec :: Spec
 spec =
   parallel $ do
-    describe "HeadSeed (cardano)" $
-      prop "headSeedToTxIn . txInToHeadSeed === id" $ \txIn -> do
-        let headSeed = txInToHeadSeed txIn
-        headSeedToTxIn headSeed === Just txIn
-          & counterexample (show headSeed)
-
-    describe "HeadId (cardano)" $ do
-      prop "headIdToPolicyId . mkHeadId === id" $ \pid -> do
-        let headId = mkHeadId pid
-        headIdToPolicyId headId === Just pid
-          & counterexample (show headId)
-
-      prop "curencySymbolToHeadId . headIdToCurrencySymbol === id" $ \txIn -> monadicIO $ do
-        let headId = mkHeadId $ headPolicyId txIn
-        let cs = headIdToCurrencySymbol headId
-        headId' <- currencySymbolToHeadId cs
-        pure $ headId' === headId
-
     -- TODO: DRY with prop_observeAnyTx
     describe "observeHeadTx" $ do
       prop "All valid transitions for all possible states can be observed." $
