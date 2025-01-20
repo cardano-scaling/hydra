@@ -19,6 +19,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog)
+import Cardano.Ledger.Core (witsTxL)
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Value, object, (.=))
@@ -73,6 +74,12 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
   pattern TxOut,
   pattern TxOutDatumNone,
+  pattern TxFeeExplicit,
+  pattern KeyWitness,
+  KeyWitnessInCtx (KeyWitnessForSpending),
+  txOuts',
+  negateValue,
+  setTxProtocolParams
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
@@ -460,10 +467,20 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
         -- Note: Bug! autobalancing breaks the script business
         -- tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
 
+
         let txIn = mkTxIn signedL2tx 0
+        let remainder = mkTxIn signedL2tx 1
+
+        let fee = 8_000_000
+
+        let outAmt = foldMap txOutValue (txOuts' tx) <> negateValue (lovelaceToValue fee)
         let body =
               defaultTxBodyContent
-                & addTxIns [(txIn, scriptWitness)]
+                & addTxIns [(txIn, scriptWitness), (remainder, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
+                & addTxInsCollateral [remainder]
+                & setTxFee (TxFeeExplicit fee)
+                & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
+                -- & setTxProtocolParams (Just pparams)
 
         -- Note: Fix! Use `createAndValidateTransactionBody` instead. This
         -- means we _can_ construct the tx; but it doesn't submit (because it
@@ -481,6 +498,28 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
               `elem` (v ^.. key "snapshot" . key "confirmed" . values)
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
+
+
+-- | Compute the integrity hash of a transaction using a list of plutus languages.
+-- recomputeIntegrityHash ::
+--   (Ledger.AlonzoEraPParams ppera, Ledger.AlonzoEraTxWits txera, Ledger.AlonzoEraTxBody txera, EraTx txera) =>
+--   Ledger.PParams ppera ->
+--   [Ledger.Language] ->
+--   Ledger.Tx txera ->
+--   Ledger.Tx txera
+recomputeIntegrityHash pp languages tx = do
+  tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
+ where
+  integrityHash =
+    hashScriptIntegrity
+      (Set.fromList $ getLanguageView pp <$> languages)
+      (tx ^. witsTxL . rdmrsTxWitsL)
+      (tx ^. witsTxL . datsTxWitsL)
+
+
+
+
+
 
 singlePartyCommitsScriptBlueprint ::
   Tracer IO EndToEndLog ->
