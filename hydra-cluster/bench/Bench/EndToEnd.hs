@@ -8,7 +8,6 @@ import Test.Hydra.Prelude
 import Bench.Summary (Summary (..), makeQuantiles)
 import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
@@ -43,6 +42,7 @@ import Hydra.Network (Host)
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import HydraNode (
   HydraClient,
   HydraNodeLog,

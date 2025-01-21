@@ -27,6 +27,7 @@ import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -44,7 +45,6 @@ import System.Process (
  )
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
-import Hydra.Tx.DepositDeadline (DepositDeadline)
 
 -- * Client to interact with a hydra-node
 

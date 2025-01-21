@@ -50,7 +50,7 @@ import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod)
+import Hydra.Options (ChainConfig (..), DirectChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Crypto (AsType (AsHydraKey))
 import Hydra.Tx.Environment (Environment (..))
@@ -72,6 +72,7 @@ initEnvironment options = do
       , otherParties
       , participants
       , contestationPeriod
+      , depositDeadline
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -91,6 +92,9 @@ initEnvironment options = do
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
     Direct DirectChainConfig{contestationPeriod = cp} -> cp
+  depositDeadline = case chainConfig of
+    Offline{} -> defaultDepositDeadline
+    Direct DirectChainConfig{depositDeadline = ddeadline} -> ddeadline
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow (AsVerificationKey AsHydraKey) p

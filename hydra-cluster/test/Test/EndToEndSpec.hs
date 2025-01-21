@@ -24,7 +24,6 @@ import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
@@ -77,6 +76,7 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),
@@ -329,8 +329,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = UnsafeContestationPeriod 10
+            let depositDeadline = UnsafeDepositDeadline 200
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] contestationPeriod
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
             (tip, aliceHeadId) <- withHydraNode hydraTracer aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
@@ -366,8 +367,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             tip <- queryTip networkId nodeSocket
             let startFromTip = modifyConfig $ \x -> x{startChainFrom = Just tip}
             let contestationPeriod = UnsafeContestationPeriod 10
-            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob] contestationPeriod <&> startFromTip
-            bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice] contestationPeriod <&> startFromTip
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline <&> startFromTip
+            bobChainConfig <- chainConfigFor Bob tmp nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline <&> startFromTip
 
             let hydraTracer = contramap FromHydraNode tracer
             let aliceNodeId = 1
@@ -460,9 +462,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               let contestationPeriod = UnsafeContestationPeriod 10
+              let depositDeadline = UnsafeDepositDeadline 200
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
-              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
               let hydraTracer = contramap FromHydraNode tracer
               withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
@@ -495,9 +498,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
-            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod
-            bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod
-            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod depositDeadline
+            bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod depositDeadline
+            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod depositDeadline
             failAfter 20 $
               withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
@@ -516,7 +520,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-            chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] (UnsafeContestationPeriod 1)
+            let contestationPeriod = UnsafeContestationPeriod 100
+            let depositDeadline = UnsafeDepositDeadline 200
+            chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
             withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
@@ -528,7 +534,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             refuelIfNeeded tracer node Alice 100_000_000
             let contestationPeriod = UnsafeContestationPeriod 2
-            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
 
@@ -567,7 +574,8 @@ timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   let contestationPeriod = UnsafeContestationPeriod 2
-  aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod
+  let depositDeadline = UnsafeDepositDeadline 200
+  aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
     waitForNodesConnected hydraTracer 20 $ n1 :| []

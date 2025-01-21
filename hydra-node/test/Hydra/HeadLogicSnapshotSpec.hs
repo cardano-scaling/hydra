@@ -21,7 +21,7 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogicSpec (getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
-import Hydra.Options (defaultContestationPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -54,6 +54,7 @@ spec = do
                 , signingKey
                 , otherParties
                 , contestationPeriod = defaultContestationPeriod
+                , depositDeadline = defaultDepositDeadline
                 , participants = deriveOnChainId <$> threeParties
                 }
 
@@ -197,6 +198,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicST $ do
             , signingKey = aliceSk
             , otherParties = []
             , contestationPeriod = defaultContestationPeriod
+            , depositDeadline = defaultDepositDeadline
             , participants = [deriveOnChainId party]
             }
     st =

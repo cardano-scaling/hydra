@@ -936,12 +936,14 @@ toArgs
           , cardanoVerificationKeys
           , startChainFrom
           , contestationPeriod
+          , depositDeadline
           } ->
           toArgNetworkId networkId
             <> toArgNodeSocket nodeSocket
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
+            <> ["--deposit-deadline", show depositDeadline]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 

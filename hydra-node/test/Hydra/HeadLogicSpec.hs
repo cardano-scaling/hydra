@@ -51,7 +51,7 @@ import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
-import Hydra.Options (defaultContestationPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
@@ -76,6 +76,7 @@ spec =
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
+            , depositDeadline = defaultDepositDeadline
             , participants = deriveOnChainId <$> threeParties
             }
         aliceEnv =
@@ -84,6 +85,7 @@ spec =
             , signingKey = aliceSk
             , otherParties = [bob, carol]
             , contestationPeriod = defaultContestationPeriod
+            , depositDeadline = defaultDepositDeadline
             , participants = deriveOnChainId <$> threeParties
             }
 

@@ -54,10 +54,10 @@ library
     Hydra.Tx.Commit
     Hydra.Tx.Contest
     Hydra.Tx.ContestationPeriod
-    Hydra.Tx.DepositDeadline
     Hydra.Tx.Crypto
     Hydra.Tx.Decrement
     Hydra.Tx.Deposit
+    Hydra.Tx.DepositDeadline
     Hydra.Tx.Environment
     Hydra.Tx.Fanout
     Hydra.Tx.HeadId
