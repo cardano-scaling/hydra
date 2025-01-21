@@ -63,6 +63,38 @@ mkCardanoClient networkId nodeSocket =
 
 -- * Tx Construction / Submission
 
+buildTransactionWithBody ::
+  -- | Current network identifier
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Body
+  TxBodyContent BuildTx ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithBody networkId socket changeAddress body utxoToSpend = do
+  pparams <- queryProtocolParameters networkId socket QueryTip
+  systemStart <- querySystemStart networkId socket QueryTip
+  eraHistory <- queryEraHistory networkId socket QueryTip
+  stakePools <- queryStakePools networkId socket QueryTip
+  pure $
+    second (flip Tx [] . balancedTxBody) $
+      makeTransactionBodyAutoBalance
+        shelleyBasedEra
+        systemStart
+        (toLedgerEpochInfo eraHistory)
+        (LedgerProtocolParameters pparams)
+        stakePools
+        mempty
+        mempty
+        (UTxO.toApi utxoToSpend)
+        body
+        changeAddress
+        Nothing
+
 -- | Construct a simple payment consuming some inputs and producing some
 -- outputs (no certificates or withdrawals involved).
 --
@@ -84,23 +116,7 @@ buildTransaction ::
   IO (Either (TxBodyErrorAutoBalance Era) Tx)
 buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
   pparams <- queryProtocolParameters networkId socket QueryTip
-  systemStart <- querySystemStart networkId socket QueryTip
-  eraHistory <- queryEraHistory networkId socket QueryTip
-  stakePools <- queryStakePools networkId socket QueryTip
-  pure $
-    second (flip Tx [] . balancedTxBody) $
-      makeTransactionBodyAutoBalance
-        shelleyBasedEra
-        systemStart
-        (toLedgerEpochInfo eraHistory)
-        (LedgerProtocolParameters pparams)
-        stakePools
-        mempty
-        mempty
-        (UTxO.toApi utxoToSpend)
-        (bodyContent pparams)
-        changeAddress
-        Nothing
+  buildTransactionWithBody networkId socket changeAddress (bodyContent pparams) utxoToSpend
  where
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   dummyFeeForBalancing = TxFeeExplicit 0

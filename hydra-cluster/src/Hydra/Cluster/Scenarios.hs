@@ -7,10 +7,18 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
+import Cardano.Ledger.Api.Tx (EraTx, bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Tx qualified as Ledger
+import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
+import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits)
+import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildTransaction,
+  queryProtocolParameters,
   queryTip,
   queryUTxOFor,
   submitTx,
@@ -18,7 +26,7 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((^..), (^?))
+import Control.Lens ((.~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, values, _JSON, _String)
@@ -37,12 +45,17 @@ import Hydra.Cardano.Api (
   Coin (..),
   File (File),
   Key (SigningKey),
+  KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
   Tx,
   TxId,
   UTxO,
   addTxIns,
+  addTxInsCollateral,
+  addTxOuts,
+  createAndValidateTransactionBody,
   defaultTxBodyContent,
+  fromLedgerTx,
   getTxBody,
   getTxId,
   getVerificationKey,
@@ -51,18 +64,27 @@ import Hydra.Cardano.Api (
   mkScriptAddress,
   mkScriptDatum,
   mkScriptWitness,
+  mkTxIn,
+  mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
+  negateValue,
   scriptWitnessInCtx,
   selectLovelace,
+  setTxFee,
   signTx,
+  toLedgerTx,
   toScriptData,
   txOutValue,
+  txOuts',
   utxoFromTx,
   writeFileTextEnvelope,
   pattern BuildTxWith,
+  pattern KeyWitness,
+  pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
+  pattern TxFeeExplicit,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
@@ -73,6 +95,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
@@ -380,6 +403,131 @@ singlePartyCommitsFromExternal tracer workDir node hydraScriptsTxId =
         lockedUTxO `shouldBe` Just (toJSON utxoToCommit)
  where
   RunningNode{nodeSocket, blockTime} = node
+
+singlePartyUsesScriptOnL2 ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  RunningNode ->
+  [TxId] ->
+  IO ()
+singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer node Alice
+        returnFundsToFaucet tracer node AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer node Alice 250_000_000
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+        (walletVk, walletSk) <- keysFor AliceFunds
+
+        -- Create money on L1
+        utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
+
+        -- Push it into L2
+        requestCommitTx n1 utxoToCommit
+          <&> signTx walletSk >>= \tx -> do
+            submitTx node tx
+
+        -- Check UTxO is present in L2
+        waitFor hydraTracer (10 * blockTime) [n1] $
+          output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
+
+        pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+
+        -- Send the UTxO to a script; in preparation for running the script
+        let serializedScript = dummyValidatorScript
+        let scriptAddress = mkScriptAddress networkId serializedScript
+        let scriptOutput =
+              mkTxOutAutoBalance
+                pparams
+                scriptAddress
+                (lovelaceToValue 0)
+                (mkTxOutDatumHash ())
+                ReferenceScriptNone
+
+        Right tx <- buildTransaction networkId nodeSocket (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput]
+
+        let signedL2tx = signTx walletSk tx
+        send n1 $ input "NewTx" ["transaction" .= signedL2tx]
+
+        waitMatch 10 n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $
+            toJSON signedL2tx
+              `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- Now, spend the money from the script
+        let scriptWitness =
+              BuildTxWith $
+                ScriptWitness scriptWitnessInCtx $
+                  PlutusScriptWitness
+                    serializedScript
+                    (mkScriptDatum ())
+                    (toScriptData ())
+                    maxTxExecutionUnits
+
+        let txIn = mkTxIn signedL2tx 0
+        let remainder = mkTxIn signedL2tx 1
+
+        let fee = 8_000_000
+        let outAmt = foldMap txOutValue (txOuts' tx) <> negateValue (lovelaceToValue fee)
+        let body =
+              defaultTxBodyContent
+                & addTxIns [(txIn, scriptWitness), (remainder, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
+                & addTxInsCollateral [remainder]
+                & setTxFee (TxFeeExplicit fee)
+                & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
+
+        -- TODO: Instead of using `createAndValidateTransactionBody`, we
+        -- should be able to just construct the Tx with autobalancing via
+        -- `buildTransactionWithBody`. Unfortunately this is broken in the
+        -- version of cardano-api that we presently use; in a future upgrade
+        -- of that library we can try again.
+        -- tx' <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
+        txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
+
+        let spendTx' = makeSignedTransaction [] txBody
+            spendTx = fromLedgerTx $ recomputeIntegrityHash pparams [PlutusV3] (toLedgerTx spendTx')
+        let signedTx = signTx walletSk spendTx
+
+        send n1 $ input "NewTx" ["transaction" .= signedTx]
+
+        waitMatch 10 n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $
+            toJSON signedTx
+              `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- And check that we can close the head successfully
+        send n1 $ input "Close" []
+        void $
+          waitMatch (10 * blockTime) n1 $ \v -> do
+            guard $ v ^? key "tag" == Just "HeadIsClosed"
+ where
+  RunningNode{networkId, nodeSocket, blockTime} = node
+
+-- | Compute the integrity hash of a transaction using a list of plutus languages.
+recomputeIntegrityHash ::
+  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
+  PParams ppera ->
+  [Language] ->
+  Ledger.Tx txera ->
+  Ledger.Tx txera
+recomputeIntegrityHash pp languages tx = do
+  tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
+ where
+  integrityHash =
+    hashScriptIntegrity
+      (Set.fromList $ getLanguageView pp <$> languages)
+      (tx ^. witsTxL . rdmrsTxWitsL)
+      (tx ^. witsTxL . datsTxWitsL)
 
 singlePartyCommitsScriptBlueprint ::
   Tracer IO EndToEndLog ->
