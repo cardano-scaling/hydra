@@ -38,6 +38,8 @@ changes.
   - Overall this results in transactions still to be submitted once per client,
     but requires signifanctly less book-keeping on the client-side.
 
+- Auto-debug and provide more information on `PlutusFailure` when validating transactions on L2 ledger.
+
 - Bump docusaurus version
 
 - Add blockfrost support to `hydra-chain-observer`, to follow the chain via Blockfrost API.
