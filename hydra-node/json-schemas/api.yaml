@@ -2643,29 +2643,6 @@ components:
             magic:
               type: integer
 
-    ChainPoint:
-      oneOf:
-        - title: ChainPointAtGenesis
-          required:
-            - tag
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPointAtGenesis"]
-        - title: ChainPoint
-          required:
-            - tag
-            - slot
-            - blockHash
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPoint"]
-            slot:
-              type: integer
-            blockHash:
-              type: string
-
     # NOTE: We don't want anyone to depend on this!
     ChainState: {}
 
