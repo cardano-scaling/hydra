@@ -8,9 +8,11 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Api.PParams (getLanguageView)
-import Cardano.Ledger.Api.Tx (bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
-import Cardano.Ledger.Api.Tx.Body (scriptIntegrityHashTxBodyL)
+import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
+import Cardano.Ledger.Api.Tx (EraTx, bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Tx qualified as Ledger
+import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
+import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits)
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
@@ -467,7 +469,7 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
             toJSON signedL2tx
               `elem` (v ^.. key "snapshot" . key "confirmed" . values)
 
-        -- Finally, take money from the script
+        -- Now,, spend the money from the script
         let scriptWitness =
               BuildTxWith $
                 ScriptWitness scriptWitnessInCtx $
@@ -476,9 +478,6 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
                     (mkScriptDatum ())
                     (toScriptData ())
                     maxTxExecutionUnits
-
-        -- Note: Bug! autobalancing breaks the script business
-        -- tx <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
 
         let txIn = mkTxIn signedL2tx 0
         let remainder = mkTxIn signedL2tx 1
@@ -492,9 +491,12 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
                 & setTxFee (TxFeeExplicit fee)
                 & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
 
-        -- Note: Fix! Use `createAndValidateTransactionBody` instead. This
-        -- means we _can_ construct the tx; but it doesn't submit (because it
-        -- isn't balanced! And it's missing collateral, etc...
+        -- TODO: Instead of using `createAndValidateTransactionBody`, we
+        -- should be able to just construct the Tx with autobalancing via
+        -- `buildTransactionWithBody`. Unfortunately this is broken in the
+        -- version of cardano-api that we presently use; in a future upgrade
+        -- of that library we can try again.
+        -- tx' <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
         txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
 
         let tx = makeSignedTransaction [] txBody
@@ -508,16 +510,22 @@ singlePartyUsesSchnorrkelScriptOnL2 tracer workDir node hydraScriptsTxId =
           guard $
             toJSON signedL2tx
               `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- And check that we can close the head successfully
+        send n1 $ input "Close" []
+        void $
+          waitMatch (10 * blockTime) n1 $ \v -> do
+            guard $ v ^? key "tag" == Just "HeadIsClosed"
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
--- recomputeIntegrityHash ::
---   (Ledger.AlonzoEraPParams ppera, Ledger.AlonzoEraTxWits txera, Ledger.AlonzoEraTxBody txera, EraTx txera) =>
---   Ledger.PParams ppera ->
---   [Ledger.Language] ->
---   Ledger.Tx txera ->
---   Ledger.Tx txera
+recomputeIntegrityHash ::
+  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
+  PParams ppera ->
+  [Language] ->
+  Ledger.Tx txera ->
+  Ledger.Tx txera
 recomputeIntegrityHash pp languages tx = do
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
