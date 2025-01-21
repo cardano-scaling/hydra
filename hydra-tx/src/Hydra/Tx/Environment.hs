@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party, deriveParty)
 
@@ -17,6 +18,7 @@ data Environment = Environment
   , -- XXX: Improve naming
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
+  , depositDeadline :: DepositDeadline
   }
   deriving stock (Show, Eq)
 
@@ -26,6 +28,7 @@ instance Arbitrary Environment where
     otherParties <- arbitrary
     participants <- arbitrary
     contestationPeriod <- arbitrary
+    depositDeadline <- arbitrary
     pure $
       Environment
         { signingKey
@@ -33,6 +36,7 @@ instance Arbitrary Environment where
         , otherParties
         , contestationPeriod
         , participants
+        , depositDeadline
         }
 
 instance HasParty Environment where

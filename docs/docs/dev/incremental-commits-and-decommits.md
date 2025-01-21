@@ -59,9 +59,8 @@ The deposit transaction contains a deadline - time window in which we expect
 the hydra-node to be able to observe this deposit and issue a _increment_
 transaction that will do the heavy lifting and bring the specified input on L2.
 
-Currently, _contestation period_ value is used to specify a deposit deadline
-but this should be made available as a separate argument to hydra-node since it
-heavily depends on the network we are running on.
+Deposit deadline value is specified as the `hydra-node` option eg.
+`--deposit-deadline "100s"`
 
 Once a hydra-node observes a deposit transaction it will record the deposit as
 pending into the local state. There can be many pending deposits but the new
