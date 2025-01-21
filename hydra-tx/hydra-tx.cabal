@@ -54,6 +54,7 @@ library
     Hydra.Tx.Commit
     Hydra.Tx.Contest
     Hydra.Tx.ContestationPeriod
+    Hydra.Tx.DepositDeadline
     Hydra.Tx.Crypto
     Hydra.Tx.Decrement
     Hydra.Tx.Deposit
