@@ -7,44 +7,40 @@
             },
             "apiPort": 27101,
             "chainConfig": {
-                "cardanoSigningKey": "a.sk",
-                "cardanoVerificationKeys": [
-                    "c.vk",
-                    "c.vk",
-                    "c/a.vk"
-                ],
-                "contestationPeriod": 604800,
+                "cardanoSigningKey": "b/a/a/b/c/a.sk",
+                "cardanoVerificationKeys": [],
+                "contestationPeriod": 31536000,
+                "depositDeadline": 70,
                 "hydraScriptsTxId": [
-                    "159a5b2af9fbb80323578c4bde54d4a3832de3fa76e7d63413e502a21215c5a0",
-                    "b238e2db62d9b3eee51e389c6e1e085be30deb60f1acc930b75162280e3e4153",
-                    "89dc23fe5d03c76d78b5c38a34da7ca7372e9f33733110e558c02b844f4e9e5f",
-                    "40de3db2aa398932a3d3e6b513d76f05602417f40797b0c934992e822c109b9f",
-                    "4baa3abc914b5785ed2fb286f40918c6e74e6776beffdd0b05ae6acb691b589d",
-                    "3175134cd95bcfa4fbc583ba218af00841d66755ae4fa7b6a37ce8ed564608e0",
-                    "3edf8fdca40f207e96c50a003ff5f6cb0268b343b865e2eb29d0f873f91a8b1d",
-                    "25431cbcfec65f9f428a997c04902086da6ffcec4550c69543aa4ecba8f78085",
-                    "aeb514309fddd4a12fb7e1abd8cf9de9baf03b11accc126f1c57c27b91e9d453",
-                    "9c3c3660273dd7a7eafe599253319b7a4d255b94e8d80c987de8e38b14911364",
-                    "d517aba0b914312a95673f74b8c8aa2e00cbf557c4a7378c645b7faece56ffea",
-                    "7f886626751913f7f50fb73fc0fcb3dc01003e9203b7d8a07b4e1917873684a9",
-                    "758ca963dc9d47a915bcb3a3bc2772654685cad395a92a344962f09c1ec505d2",
-                    "9944994ec23c5aed57b7025c7929b54c2c844aec85af587372fe3cbe099f1190",
-                    "74d44ab6316ebbd05ddc903946eed8ac7b6f928f67b89fd4e8c465b74bd0c78e",
-                    "acd85efdf5ceffe3b78eb749bd25739f33c24635bb24012704240fcefabbedf6",
-                    "216af10ab181c53666d0885e0fbb70659d84e1e29b118d594427eb340257e9ed",
-                    "c2e3288d002f7f5a8d4a978d22fce25a48dd8b2dc835ab19d56021cb00ab30ff",
-                    "0c5382c432aa5385bcd67949a9a499e68606170efac9b553f54eb0df41fe7840",
-                    "c55298ebb626e436d83ca4829e7b8a1da073fb858351a63b1c5d7c8cf1e682b0",
-                    "5f262cb18105cf39529ddfbcc79608e9d0df5a31ae68af1a26eb34e4794bca9f"
+                    "fc0ac9d0a50bc792407751b0f895a1ab406e125aeccea9a5b91a518d45f8092b",
+                    "1e7767e28de32310bd0209e3c2a1c6f1e6259131331eb8df9de147953110b6fb",
+                    "ce3b053beb6291b4c554e193249a1d7d66267b947463c3e9bdaff2d5aa64da73",
+                    "09dc816dc4cb80778bcb1a12af809b3f060803f43472c72aeb58d960c8343c52",
+                    "ebf8ae99ceb5ffbcc4b5534b01ed78526196b1ad64963ca3bd0f0ddc7132e358",
+                    "719be08bde15ee2ab0ace82351ca026f8d64dab7145fd6fe2a8876c1817b6d19",
+                    "a5b86bf2523be8e508b9e292c3543c36aa4ea6bcde630432d71cd7b058acd927",
+                    "528183a4beb6b6e731197f85883ccc8a9065a84be5be95f09b1cfd3775bc9924",
+                    "30d8c4287c34582a7310cf4cbfe0768f8256dd559ddff2e6a7710540c80d2416",
+                    "8d611f1ba9a9f8fca26e5877001bbe612478ddd00762609c5f4e8e6e1d1bd038",
+                    "a30c518c70aa5947eab724b488b181d1428b7e2917e6bbd0dc822f1578cdfdf3",
+                    "9799e04705d25f48ca2953ef214132696ddbbda7971e354e419d33f6316927fc",
+                    "37508ecbefacbee6ccb5d93c0af37711ece264534c176b350313d5237e57368e",
+                    "27f1c5c788c70908c23b56c6d42a22c94d7ebb66074a6ee0eea037b356c2aa3d",
+                    "41458555876e2bf3c375ff17e0d31ad74d0f8cbe7dc4ba4ea06af0bf24fe01b8",
+                    "e7c088a86755d7dbc5aa79d27fad4912e9b738374c2142e638920f71954fd82b",
+                    "1db5b666b6d144ff08a24f70b3c2736e24a766db4d1f87cea668d68d78b3d8f6",
+                    "65c71e48d01d3e858462aa247045a7a4efb27441c9c5e83444f00ad8f1384211",
+                    "4dd92db8c5d50b3417f0a7c54c9181c9b6cc94209e794cf0b5b6bf6106ed26a4",
+                    "ce78af2f80097c9d9f6d5ab27153fbf4a5b45ca670da82cf27d43250c7cfd436"
                 ],
                 "networkId": {
-                    "magic": 24179,
+                    "magic": 24154,
                     "tag": "Testnet"
                 },
-                "nodeSocket": "c/b/c/c/a.socket",
+                "nodeSocket": "a/a/b/b/a/a.socket",
                 "startChainFrom": {
-                    "blockHash": "8b0e8d8ffb2521dacbd5f0c046a0a82c9b1df116682cdefb78eac73832f6f056",
-                    "slot": 3087923,
+                    "blockHash": "4c90525df43b88f04c98f4cad4b5aefba60bcc9d45d58bbcc103c1275ae27ddc",
+                    "slot": 5769171,
                     "tag": "ChainPoint"
                 },
                 "tag": "DirectChainConfig"
@@ -85,42 +81,37 @@
             },
             "apiPort": 29916,
             "chainConfig": {
-                "cardanoSigningKey": "b/c.sk",
+                "cardanoSigningKey": "a/c/c/b/b/c.sk",
                 "cardanoVerificationKeys": [
-                    "a/c/c.vk",
-                    "a/a/a.vk",
-                    "b/b.vk"
+                    "c.vk"
                 ],
-                "contestationPeriod": 22199,
+                "contestationPeriod": 43200,
+                "depositDeadline": 210,
                 "hydraScriptsTxId": [
-                    "81fa8db9191d373ae18365e336a624348e9f9d1e658958eb11c14e307f24f574",
-                    "2e91f97f9f0c86e73befb28e557fe2e085164a3ba3c365f661cb8897b63e34bc",
-                    "b2392fbd8d00ff89149e9463e7efc1da3a115099ef310bf63fa2a825934d0918",
-                    "5448abf797b1f26574cd2cc77678e831a8173cb463e0a80eed8c313387d6d6e1",
-                    "b76e2cf777b1c9e2f924c2af6ef76b966ac14c52edf4696fc514a84e8bd36699",
-                    "1d36e00d6c406e6883e5e2558e0eda9ebcc8257f11cc06d81f667c7a66af44d8",
-                    "bedc9cbea512eaee9f263bb61ee11dab167c3ac1f126ea5fd3cfac7ae438caba",
-                    "5907284ac448a8892519bf4b41d853c297eaf8d4211d3fd4b2ab9c6f00a943e7",
-                    "fdfb7ac7984e6ce1efe424d6e98d7ea0e4ee4336ac6ea6a01725b3b4a0dcb3e4",
-                    "1138812a7dd2f0cd426fd2714007792545c8858bc6b3ae0a0652fe5c06259964",
-                    "cd40b0f14e58d73f6e21e4f9546a66d6620966c8607775f869f2d32987013f9c",
-                    "f44408b6b7f683e31c6337286e384b7e458493f7577f3b9a516dccfbd2ae930c",
-                    "bfa87a8b4d01b38347c870837fa493be273726c8baba9eb208ec43b01ee9d4e5",
-                    "8822ef96aa7917a51d90c113a80fae2c38af53daee082ae18af0d1654d53e118",
-                    "8216116aa34877e5d4cee5f13d269b76ea29af2f2855d7c3fa34adca704fb6f2",
-                    "9ba54719fa0403c9f273a7f83fb1a82c1ef9305e6ea1639977540193e2190af7",
-                    "27f0acc7e5966ffd5ebc50e8c736912aad2554e9ffe3c1c8d6b86d36a5b25273",
-                    "efc742a73ceaf7f74edf26203b96d82beeec0eaf448b4aa40024377b9b7bda50",
-                    "622d0b7298b66fd59a543bd2ddf486e000bfe079f77ba8379c0eccb04b9df22d",
-                    "3c9c4855ce2cdf31f9b97b2e86ada938675646f1fc279506e9044126bb47c51f",
-                    "078d39aec931b9256bebe5ce9ac3cde98b7baf528788c45e874ae14ce5704ea5"
+                    "ed46eefd7763f08a78285ba43d2c43dbf5f033db9765a71533848ccbf55c50f7",
+                    "048a8aa8fdb5bb67a4a134c0d508ce92f8479402e836d31b017e7fd451008cf5",
+                    "33bc0cae9d794c630fa8ec43a4eed1dca3e35173a369671a8cb89ecd0b67525b",
+                    "152b1243cc9cb7dad9aa10f560c55aff3a874fa61289260c0f9823a4dd12443d",
+                    "19b7d6f27d2f4c0a6c1c0ab9a7e381cef92dc78f58622f2ef0f42df2a59e54bb",
+                    "b927752126a5e20a1e1f24f71c88ad37969ae671571e3d79792b14d185e0e6dc",
+                    "641350038598c02ab340cf7d6fa06d280369286c9e753b81bbb2bbafafa46f64",
+                    "ee931971afd19d14015774692d7e136f9cba073330d100ae592a441d192551ac",
+                    "4e5e2ab09e2ab0eac4bc3b73fc6bc4cfa8f6bf92562c69b143c21994d224227f",
+                    "3821ab358d532aa23433ca95f5879d55779bdc3999bc81e144f778896a6020e1",
+                    "a4eacf0da1e1e6df817ceaca088ad48ff288f4c55519252ac961dcc29d7fa0fe",
+                    "45186fdf84de8cf3941cc91e81bbb1516b63ffb527436f7b527a523b9fa18664",
+                    "ce539ab3269be2fc6fd93f3ae0871b5c0539684caad9b119460f4ac4a0ed38f8"
                 ],
                 "networkId": {
-                    "magic": 2827,
+                    "magic": 809,
                     "tag": "Testnet"
                 },
-                "nodeSocket": "a/c/b/a/b/c.socket",
-                "startChainFrom": null,
+                "nodeSocket": "c/b.socket",
+                "startChainFrom": {
+                    "blockHash": "6ef73570a083ab5aac3e1a834d4316be61b0488d95a41c1f819bb5a1bb180267",
+                    "slot": 6052114,
+                    "tag": "ChainPoint"
+                },
                 "tag": "DirectChainConfig"
             },
             "host": {
@@ -230,48 +221,27 @@
             },
             "apiPort": 26043,
             "chainConfig": {
-                "cardanoSigningKey": "c/a/b/b.sk",
+                "cardanoSigningKey": "b.sk",
                 "cardanoVerificationKeys": [
-                    "c/c/b.vk",
-                    "c/c.vk"
+                    "c/b.vk",
+                    "b.vk",
+                    "a/c.vk"
                 ],
                 "contestationPeriod": 86400,
+                "depositDeadline": 222,
                 "hydraScriptsTxId": [
-                    "d02b29d8f41efd55d6e5eeedcc2c3b580ce9d1ed068b2bf3aac3fb86f528dce7",
-                    "f65dd75f4c7ed96d2d15dace0ee85fffcc345379a3d84fcd31e5e02c6bc8b22f",
-                    "c49d45d04e9c7bb11493915aa27e19e0816312959d152df3c26ef87ec4de9459",
-                    "99eeae2d2166a55ba0bf64cedd88c89bd7099971667d88d4a579b88fdba20e9c",
-                    "e469f3b8bee069a230dd9b2421e504679e38b59baddf1f4e06a0353e28215063",
-                    "2bf145ed0e399b82d4f4f1a766ad07225646a3d0f712b7e1738f892045b6e5d2",
-                    "0e4617a0f516d6e5900349cce2897ab4d648c6b423b403613754b240cf032a8e",
-                    "4bad8b12926bbddd0e3450e764b413ec1c9a901633bdebf3267dffafe775099c",
-                    "4f1101398700312432decb8e93763aa354f7cb4332e38d3e781c0b0839c8f3c9",
-                    "1141727ea3f17a710db8b960a2bf535accf64dac0c18b858634fc12ee86255e4",
-                    "6a54fd0729dd8607382377300ee17e10e9f3f7d83422fc248f39ab6fc1d9e829",
-                    "f56ecce14e58ae32f8147301bf295399d9457e18c265328572082a8918b2cc9f",
-                    "74d6ebdcbf74c812bceb4fc97e808d9032f0dfb6b071caa521eb6ae69ab91e8d",
-                    "7348bc39d7b0fdf18209b1baed7268a0f7424b72c5af0ff24e61b73df25fd653",
-                    "8d743db486e2af8423c27b253f7b1751c5fc5b19d87027a1d66ac5bd35266247",
-                    "2ad786cc4b8e2cab77cfdc79c67235992ba32aa0a641034070c5fb995b89b359",
-                    "64c2000f489ff3f8e92e726385c697703554b11f4dc817323ad656d6b0da780c",
-                    "d8635aa49efc4a64b5963702005bc9dbca24124ff30cf9bf1d0daec91a6bf2b5",
-                    "674426b7468faa6eebb9cc46b509ab8714a88d835ba845b015fcbec68d2163ef",
-                    "d53d26878854f749eefe83a8f539e51991b8fd843b09c25975c55ad2ac577bc1",
-                    "7fccad6a8e630784b52872922e616ede310d49b980309a8aabefd946a421b46e",
-                    "8723bde72d91f5d986c1055ebe4ff9469f1b75b579fe67e66f06a4fca64a3b16",
-                    "8a31d2de945000e7419f6338463bacf679e75503ba44cf753d23d3947efe4a30",
-                    "ba4aec4ba004a3c066a8b11d3764f4fbcc4fe5bf3214da558624376a953ded75"
+                    "10b8c421d53822ff3a884d28e7ef9881ed099c98e6c5741cb6d731cd2a9bd6c9",
+                    "acc0ce6f3d6ffca488dfb46e95d64cafc2d059f446d108c4c089ecd3d916cafd",
+                    "0affedbbfb6d62e885dd0b4effa85a14b4cb9146240b350f0287b3d65ecae678",
+                    "44a5c9982d1bfa7c6c34c4a8185eaede1004797e6259a810910caeeb239b743a",
+                    "7013fff2f4e3454f35ae9a021fabdcd6f5afad6bf92a7b990bfabc340d08a5a3"
                 ],
                 "networkId": {
                     "magic": 323,
                     "tag": "Testnet"
                 },
-                "nodeSocket": "b/a/c/a/a/c.socket",
-                "startChainFrom": {
-                    "blockHash": "08f48a0fe4f27418962d56d66fa2cacd4c90b3d9425f2ee8a74512e80a047116",
-                    "slot": 8115413,
-                    "tag": "ChainPoint"
-                },
+                "nodeSocket": "a/c/a/c/a/b.socket",
+                "startChainFrom": null,
                 "tag": "DirectChainConfig"
             },
             "host": {
@@ -311,25 +281,44 @@
             },
             "apiPort": 26508,
             "chainConfig": {
-                "cardanoSigningKey": "a/c.sk",
+                "cardanoSigningKey": "c/a/a.sk",
                 "cardanoVerificationKeys": [
-                    "b/a/b.vk",
-                    "c.vk",
-                    "b/b/c.vk"
+                    "b/a/b.vk"
                 ],
-                "contestationPeriod": 604800,
+                "contestationPeriod": 62718,
+                "depositDeadline": 103,
                 "hydraScriptsTxId": [
-                    "c4d1c14873a873283cbd963c9dbfa26a66284665e32c9f743e4776394f44527d",
-                    "df215eb73f3d890929dbf32f8b4fb98309b0f46d3b2d749030cf96ae879f7618"
+                    "7e083deb1404f70fd868f4fd467c4f2db16237e7bb557b0ea9d82f7491f3b34e",
+                    "6fe0b9ee432c29d06d32b7c4cef26bfd384731426a580a51fbfc154a1c9924c4",
+                    "653959fec4b536b1f89d0bdbf19bf01b76aa001ab2e75ea6d6612efdc8668463",
+                    "358b44997b21696e21b981f93b007ac4937a5f719e35aed1fdcde4ef0579887f",
+                    "c7979aa6bd15de6a40eb8104e589969ce6da8ffa9a2e7d88b1e8b2eb348489c7",
+                    "b01c78163ec39b928a7d17852787ac65041d3a8d1259f6b74cbbd399d58e097d",
+                    "55fbca1c89686acff550d6be29825cefc61738f3177b6dca568ce4a06f39e019",
+                    "22b04f91ec4e4fc982f1f86aada8a4f807133b853fdbc30fe1b4f12737b09392",
+                    "d72d857b76a995da6e46ff2af143a044c6a3fb6ce95bd6ccce1c570127159aa5",
+                    "736bc3187d067d895f22e406419cd6ef88881c9fb17608af6921f137985ba987",
+                    "81f87671c13a7e3016cef44e9bbe315e869e9d9156fb5aa4cf2b48364c477bbd",
+                    "a9c005d356f9bba431d5eba7f87afecca3357f94e97db4be8eece9944eb3996f",
+                    "631f28ac893cd38adb0fbd629c89a37d30e351a7cf85af5144bfe59ef569cbbe",
+                    "db0853d8754f92659a455bd3c2f850d3fe1e93220a471fbe3a8e69cd8bd6819d",
+                    "fc5ee226d3efa0c1a9c63d1092725c9ab17cce28920b52a6aa668313ccedbc3b",
+                    "c739fbaa8deec1a4367740e82b3f6bab7bf7205a280b1b30aed7cc4c1d5f96e9",
+                    "e8c5380bfdb73c41376deb8e8d78cbd6971704114271cfd9fb242d58418111bb",
+                    "d8684dc0cd7ee96553ad463e476a347f3b59c5b0b8a7b1ff65f254d436fad9bc",
+                    "093b07797c1d5bc3eead897c6f334a5fd908e99d7b7ee8bfe0fd70788f37e95f",
+                    "be71c52c9eaf79c524ff33baa1e6418ccf13c2253aa0eed8b587e5b4fb02ec99",
+                    "84ac531c080cf6c10c5743c88d5423706450de134f8d046853c7b432523ab4aa",
+                    "2c2262253852654eaeec24d3bae8fb50f96ada6772d3f1d96efccff05705b7fb"
                 ],
                 "networkId": {
-                    "magic": 25479,
+                    "magic": 30583,
                     "tag": "Testnet"
                 },
-                "nodeSocket": "b/b/a.socket",
+                "nodeSocket": "c/c/c/b/c.socket",
                 "startChainFrom": {
-                    "blockHash": "657eb936bba472ad6a957e46dd7a3b42f37a5e041665c67f751b2e09dfa4a722",
-                    "slot": 12229570,
+                    "blockHash": "17857d0ec4e08338164f5102a7ca622b9ef05d63109314aa88de184372498585",
+                    "slot": 11390962,
                     "tag": "ChainPoint"
                 },
                 "tag": "DirectChainConfig"

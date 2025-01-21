@@ -287,7 +287,7 @@ scenarioSetup tracer tmpDir action = do
     let firstNodeId = 1
     hydraScriptsTxId <- publishHydraScriptsAs node Faucet
     let contestationPeriod = UnsafeContestationPeriod 2
-    let depositDeadline = UnsafeDepositDeadline 20
+    let depositDeadline = UnsafeDepositDeadline 200
     let hydraTracer = contramap FromHydraNode tracer
     withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \nodes -> do
       let [n1, n2, n3] = toList nodes
