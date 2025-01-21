@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Bench.Summary (Summary (..), makeQuantiles)
 import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
@@ -89,7 +90,8 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+            let depositDeadline = UnsafeDepositDeadline 10
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset clients
 

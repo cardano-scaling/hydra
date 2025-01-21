@@ -24,6 +24,7 @@ import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
@@ -256,8 +257,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               hydraScriptsTxId <- publishHydraScriptsAs node Faucet
               let contestationPeriod = UnsafeContestationPeriod 2
+              let depositDeadline = UnsafeDepositDeadline 20
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+              withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \nodes -> do
                 let [n1, n2, n3] = toList nodes
                 waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
@@ -636,8 +638,9 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
 
   let firstNodeId = clusterIx * 3
   let contestationPeriod = UnsafeContestationPeriod 2
+  let depositDeadline = UnsafeDepositDeadline 20
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+  withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
