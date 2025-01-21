@@ -138,6 +138,7 @@ import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, elements, generate)
+import Hydra.Tx.DepositDeadline (DepositDeadline(..))
 
 data EndToEndLog
   = ClusterOptions {options :: Options}
@@ -828,8 +829,9 @@ threeNodesNoErrorsOnOpen tracer tmpDir node@RunningNode{nodeSocket} hydraScripts
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let contestationPeriod = UnsafeContestationPeriod 2
+  let depositDeadline = UnsafeDepositDeadline 50
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+  withHydraCluster hydraTracer tmpDir nodeSocket 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 

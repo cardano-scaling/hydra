@@ -44,6 +44,7 @@ import System.Process (
  )
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
+import Hydra.Tx.DepositDeadline (DepositDeadline)
 
 -- * Client to interact with a hydra-node
 
@@ -249,9 +250,10 @@ withHydraCluster ::
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   ContestationPeriod ->
+  DepositDeadline ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -282,6 +284,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
+                , depositDeadline
                 }
       withHydraNode
         tracer
