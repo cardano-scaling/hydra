@@ -28,7 +28,7 @@ jobs:
     runs-on: [self-hosted, cardano]
     concurrency: cardano-${{inputs.network}}
     env:
-      state_dir: /srv/var/cardano/state-${{inputs.network}}
+      state_dir: /data/cardano/${{inputs.network}}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -59,11 +59,6 @@ jobs:
         fi
         if ${{inputs.use-mithril}}; then
           USE_MITHRIL_ARG="--use-mithril"
-        fi
-        # In case we run against an already running node, fix the permissions of
-        # the host-mounted node.socket file (which would be owned by root)
-        if [ -e ${state_dir}/node.socket ]; then
-          sudo chmod a+w ${state_dir}/node.socket
         fi
         nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG}"
 
