@@ -51,6 +51,7 @@ import Hydra.Node.InputQueue (InputQueue (enqueue))
 import Hydra.NodeSpec (createPersistenceInMemory)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
@@ -1152,6 +1153,9 @@ toOnChainTx now = \case
 testContestationPeriod :: ContestationPeriod
 testContestationPeriod = UnsafeContestationPeriod 10
 
+testDepositDeadline :: DepositDeadline
+testDepositDeadline = UnsafeDepositDeadline 10
+
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
   TestHydraClient tx m ->
@@ -1171,7 +1175,7 @@ withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod
+  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod testDepositDeadline
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)
 
@@ -1201,8 +1205,9 @@ createHydraNode ::
   TVar m [ServerOutput tx] ->
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
+  DepositDeadline ->
   m (HydraNode tx m)
-createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp = do
+createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp depositDeadline = do
   persistence <- createPersistenceInMemory
   (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
   node <- connectNode chain =<< hydrate tracer env ledger chainState eventSource [eventSink]
@@ -1223,6 +1228,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs outputH
       , otherParties
       , contestationPeriod = cp
       , participants
+      , depositDeadline
       }
   party = deriveParty signingKey
 

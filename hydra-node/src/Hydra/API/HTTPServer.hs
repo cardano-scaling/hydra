@@ -39,6 +39,7 @@ import Network.Wai (
   rawPathInfo,
   responseLBS,
  )
+import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -216,10 +217,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    -- NOTE: We double the contestation period and use it for the deadline
-    -- value in order to give enough time for the increment to be valid in
-    -- terms of deadline.
-    deadline <- addUTCTime (toNominalDiffTime contestationPeriod * 2) <$> getCurrentTime
+    deadline <- addUTCTime (depositToNominalDiffTime depositDeadline) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
@@ -237,7 +235,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
   Chain{draftCommitTx, draftDepositTx} = directChain
-  Environment{contestationPeriod} = env
+  Environment{depositDeadline} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

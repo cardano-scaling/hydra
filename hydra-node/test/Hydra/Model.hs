@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 -- | A /Model/ of the Hydra head Protocol.
 --
@@ -67,6 +68,7 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (runHydraNode)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -147,6 +149,7 @@ instance StateModel WorldState where
     Seed ::
       { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
       , seedContestationPeriod :: ContestationPeriod
+      , seedDepositDeadline :: DepositDeadline
       , toCommit :: Uncommitted
       } ->
       Action WorldState ()
@@ -415,8 +418,9 @@ genSeed :: Gen (Action WorldState ())
 genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   seedContestationPeriod <- genContestationPeriod
+  seedDepositDeadline <- genDepositDeadline
   toCommit <- mconcat <$> mapM genToCommit seedKeys
-  pure $ Seed{seedKeys, seedContestationPeriod, toCommit}
+  pure $ Seed{seedKeys, seedContestationPeriod, seedDepositDeadline, toCommit}
 
 genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
 genToCommit (hk, ck) = do
@@ -427,6 +431,11 @@ genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod = do
   n <- choose (1, 200)
   pure $ UnsafeContestationPeriod $ wordToNatural n
+
+genDepositDeadline :: Gen DepositDeadline
+genDepositDeadline = do
+  n <- choose (1, 200)
+  pure $ UnsafeDepositDeadline $ wordToNatural n
 
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState ())
 genInit hydraParties = do
@@ -554,8 +563,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, seedContestationPeriod, toCommit} ->
-        seedWorld seedKeys seedContestationPeriod toCommit
+      Seed{seedKeys, seedContestationPeriod, seedDepositDeadline, toCommit} ->
+        seedWorld seedKeys seedContestationPeriod seedDepositDeadline toCommit
       Commit party utxo ->
         performCommit (snd <$> hydraParties st) party utxo
       Decommit party tx ->
@@ -606,9 +615,10 @@ seedWorld ::
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
+  DepositDeadline ->
   Uncommitted ->
   RunMonad m ()
-seedWorld seedKeys seedCP futureCommits = do
+seedWorld seedKeys seedCP depositDeadline futureCommits = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
@@ -624,7 +634,7 @@ seedWorld seedKeys seedCP futureCommits = do
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP
+      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP depositDeadline
       let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread

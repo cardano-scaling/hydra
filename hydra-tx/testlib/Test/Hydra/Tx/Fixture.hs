@@ -40,6 +40,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
 import System.IO.Unsafe (unsafePerformIO)
+import Hydra.Tx.DepositDeadline (DepositDeadline(..))
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party
@@ -83,6 +84,7 @@ testEnvironment =
     , signingKey = aliceSk
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
+    , depositDeadline = UnsafeDepositDeadline 20
     , participants = deriveOnChainId <$> [alice, bob, carol]
     }
 
