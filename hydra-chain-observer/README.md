@@ -8,33 +8,22 @@ In both modes, reporting observations to a [`hydra-explorer`](https://github.com
 
 ## Direct Mode
 
-To run the observer in Direct Mode, provide the following arguments:
-- `--node-socket`: path to the node socket file.
-- network id: `--testnet-magic` (with magic number) for the testnet or `--mainnet` for the mainnet.
-- (optional) `--start-chain-from`: specify a chain point (SLOT.HEADER_HASH) to start observing from.
-
-For example:
+To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe usin `--start-chain-from`:
 
 ``` shell
-hydra-chain-observer direct \
+hydra-chain-observer \
   --node-socket testnets/preprod/node.socket \
   --testnet-magic 1 \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
 
-
 ## Blockfrost Mode
 
-To run the observer in Blockfrost Mode, provide the following arguments:
-- `--project-path`: file path to your Blockfrost project API token hash.
-> expected to be prefixed with environment (e.g. testnetA3C2E...)
-- (optional) `--start-chain-from`: specify a chain point (SLOT.HEADER_HASH) to start observing from.
-
-For example:
+To run a chain observer using [blockfrost](blockfrost.io), use the `--blockfrost-project-path` option to point to a file containing your Blockfrost project API token (e.g. testnetA3C2E...). Optionally, you can specify a starting point to observe usin `--start-chain-from`:
 
 ``` shell
 hydra-chain-observer blockfrost \
-  --project-path $PROJECT_TOKEN_HASH_PATH \
+  --blockfrost-project-path $PROJECT_TOKEN_PATH \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
 
@@ -43,7 +32,7 @@ hydra-chain-observer blockfrost \
 Using the `--explorer` argument we can specify a hostname / port for a `hydra-explorer` instance to report observations to. For example using a `direct` observer:
 
 ``` shell
-hydra-chain-observer direct \
+hydra-chain-observer \
   --node-socket testnets/preview/node.socket \
   --testnet-magic 2 \
   --start-chain-from "49533501.e364500a42220ea47314215679b7e42e9bbb81fa69d1366fe738d8aef900f7ee" \
