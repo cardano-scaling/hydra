@@ -38,7 +38,7 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Tx.HeadId (HeadId (..))
-import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow)
+import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
 import Network.URI (URI)
 import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -61,6 +61,7 @@ data ChainObservation
       , onChainTx :: OnChainTx Tx
       }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary
@@ -93,10 +94,9 @@ main = do
 -- | Submit observation to a 'hydra-explorer' at given base 'URI'.
 -- TODO: how to handle errors?
 reportObservation :: URI -> ChainObservation -> IO ()
-reportObservation baseURI observation =
-  parseRequestThrow url
-    >>= httpNoBody
-    <&> getResponseBody
+reportObservation baseURI observation = do
+  req <- parseRequestThrow url <&> setRequestBodyJSON observation
+  httpNoBody req <&> getResponseBody
  where
   -- TODO: determine network and version
   url = "POST " <> show baseURI <> "/observations/mainnet/0.19.0"
