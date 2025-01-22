@@ -67,6 +67,7 @@ library
   build-depends:
     , base16-bytestring
     , blockfrost-client            >=0.9.1.0
+    , http-conduit
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
