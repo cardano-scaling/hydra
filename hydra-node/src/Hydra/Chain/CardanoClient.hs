@@ -63,27 +63,27 @@ mkCardanoClient networkId nodeSocket =
 
 -- * Tx Construction / Submission
 
--- | Construct a simple payment consuming some inputs and producing some
--- outputs (no certificates or withdrawals involved).
---
--- On success, the returned transaction is fully balanced. On error, return
--- `TxBodyErrorAutoBalance`.
-buildTransaction ::
+buildTransactionWithBody ::
+  -- | Protocol parameters
+  PParams LedgerEra ->
   -- | Current network identifier
   NetworkId ->
   -- | Filepath to the cardano-node's domain socket
   SocketPath ->
   -- | Change address to send
   AddressInEra ->
+  -- | Body
+  TxBodyContent BuildTx ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
-  -- | Outputs to create.
-  [TxOut CtxTx] ->
   IO (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
-  pparams <- queryProtocolParameters networkId socket QueryTip
+buildTransactionWithBody pparams networkId socket changeAddress body utxoToSpend = do
+  -- XXX: Note minor inconsistency here; we are querying the _socket_ (i.e.
+  -- L1) for this information, but in fact this function may be called for the
+  -- construction of an L2 transaction. For this reason we take the pparams as
+  -- an argument, and at some point we can move these other fields to
+  -- arguments as well; but they are not important for our purposes at
+  -- present.
   systemStart <- querySystemStart networkId socket QueryTip
   eraHistory <- queryEraHistory networkId socket QueryTip
   stakePools <- queryStakePools networkId socket QueryTip
@@ -98,14 +98,55 @@ buildTransaction networkId socket changeAddress utxoToSpend collateral outs = do
         mempty
         mempty
         (UTxO.toApi utxoToSpend)
-        (bodyContent pparams)
+        body
         changeAddress
         Nothing
+
+buildTransaction ::
+  -- | Current network identifier
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransaction networkId socket changeAddress body utxoToSpend outs = do
+  pparams <- queryProtocolParameters networkId socket QueryTip
+  buildTransactionWithPParams pparams networkId socket changeAddress body utxoToSpend outs
+
+-- | Construct a simple payment consuming some inputs and producing some
+-- outputs (no certificates or withdrawals involved).
+--
+-- On success, the returned transaction is fully balanced. On error, return
+-- `TxBodyErrorAutoBalance`.
+buildTransactionWithPParams ::
+  -- | Protocol parameters
+  PParams LedgerEra ->
+  -- | Current network identifier
+  NetworkId ->
+  -- | Filepath to the cardano-node's domain socket
+  SocketPath ->
+  -- | Change address to send
+  AddressInEra ->
+  -- | Unspent transaction outputs to spend.
+  UTxO ->
+  -- | Collateral inputs.
+  [TxIn] ->
+  -- | Outputs to create.
+  [TxOut CtxTx] ->
+  IO (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithPParams pparams networkId socket changeAddress utxoToSpend collateral outs = do
+  buildTransactionWithBody pparams networkId socket changeAddress bodyContent utxoToSpend
  where
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   dummyFeeForBalancing = TxFeeExplicit 0
-
-  bodyContent pparams =
+  bodyContent =
     TxBodyContent
       (withWitness <$> toList (UTxO.inputSet utxoToSpend))
       (TxInsCollateral collateral)
