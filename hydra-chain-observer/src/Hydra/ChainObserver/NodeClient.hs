@@ -33,9 +33,6 @@ data ChainObservation
       }
   deriving stock (Eq, Show, Generic)
 
-defaultObserverHandler :: Applicative m => ObserverHandler m
-defaultObserverHandler = const $ pure ()
-
 newtype NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
   }
