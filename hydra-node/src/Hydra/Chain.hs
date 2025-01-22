@@ -126,6 +126,8 @@ data OnChainTx tx
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
 deriving stock instance IsTx tx => Show (OnChainTx tx)
+
+-- TODO: roundtrip tests for these as its used by hydra-chain-observer/hydra-explorer?
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
