@@ -10,7 +10,7 @@ import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserv
 import Hydra.Contract qualified as Contract
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
-import Network.HTTP.Simple (getResponseBody, httpLbs, httpNoBody, parseRequestThrow, setRequestBodyJSON)
+import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
 import Network.URI (URI)
 import Options.Applicative (execParser)
 
@@ -35,10 +35,9 @@ main = do
 -- | Submit observation to a 'hydra-explorer' at given base 'URI'.
 -- TODO: how to handle errors?
 reportObservation :: URI -> ChainObservation -> IO ()
-reportObservation baseURI observation =
-  parseRequestThrow url
-    >>= httpNoBody
-    <&> getResponseBody
+reportObservation baseURI observation = do
+  req <- parseRequestThrow url <&> setRequestBodyJSON observation
+  httpNoBody req <&> getResponseBody
  where
   -- TODO: determine network and version
   url = "POST " <> show baseURI <> "/observations/mainnet/0.19.0"
