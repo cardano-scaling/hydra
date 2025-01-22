@@ -18,7 +18,7 @@ import CardanoClient (
   QueryPoint (QueryTip),
   RunningNode (..),
   buildTransaction,
-  queryProtocolParameters,
+  buildTransactionWithPParams,
   queryTip,
   queryUTxOFor,
   submitTx,
@@ -47,7 +47,6 @@ import Hydra.Cardano.Api (
   Key (SigningKey),
   KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
-        --
   Tx,
   TxId,
   UTxO,
@@ -71,6 +70,7 @@ import Hydra.Cardano.Api (
   mkVkAddress,
   scriptWitnessInCtx,
   selectLovelace,
+  setTxProtocolParams,
   signTx,
   toLedgerTx,
   toScriptData,
@@ -80,6 +80,7 @@ import Hydra.Cardano.Api (
   writeFileTextEnvelope,
   pattern BuildTxWith,
   pattern KeyWitness,
+  pattern LedgerProtocolParameters,
   pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
@@ -438,7 +439,10 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
         waitFor hydraTracer (10 * blockTime) [n1] $
           output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
-        pparams <- queryProtocolParameters networkId nodeSocket QueryTip
+        pparamsReq <-
+          parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/protocol-parameters")
+            >>= httpJSON
+        let pparams = getResponseBody pparamsReq
 
         -- Send the UTxO to a script; in preparation for running the script
         let serializedScript = dummyValidatorScript
@@ -451,7 +455,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
                 (mkTxOutDatumHash ())
                 ReferenceScriptNone
 
-        Right tx <- buildTransaction networkId nodeSocket (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput]
+        Right tx <- buildTransactionWithPParams pparams networkId nodeSocket (mkVkAddress networkId walletVk) utxoToCommit [] [scriptOutput]
 
         let signedL2tx = signTx walletSk tx
         send n1 $ input "NewTx" ["transaction" .= signedL2tx]
@@ -481,6 +485,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
                 & addTxIns [(txIn, scriptWitness), (remainder, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
                 & addTxInsCollateral [remainder]
                 & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
+                & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
 
         -- TODO: Instead of using `createAndValidateTransactionBody`, we
         -- should be able to just construct the Tx with autobalancing via
@@ -519,6 +524,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
           `shouldReturn` lovelaceToValue commitAmount
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
+  hydraNodeBaseUrl HydraClient{hydraNodeId} = "http://127.0.0.1:" <> show (4000 + hydraNodeId)
 
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 recomputeIntegrityHash ::
