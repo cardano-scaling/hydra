@@ -350,6 +350,9 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
             & atKey "txFeePerByte" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
             & key "executionUnitPrices" . atKey "priceSteps" ?~ toJSON (Number 0)
+            & atKey "utxoCostPerByte" ?~ toJSON (Number 0)
+            & atKey "treasuryCut" ?~ toJSON (Number 0)
+            & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
 
     let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
     void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
