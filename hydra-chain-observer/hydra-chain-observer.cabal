@@ -70,6 +70,8 @@ library
     , hydra-plutus
     , hydra-prelude
     , hydra-tx
+    , io-classes
+    , network-uri
     , optparse-applicative
     , ouroboros-network-protocols
 
