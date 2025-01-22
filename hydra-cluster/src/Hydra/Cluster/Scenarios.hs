@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   Key (SigningKey),
   KeyWitnessInCtx (KeyWitnessForSpending),
   PaymentKey,
+        --
   Tx,
   TxId,
   UTxO,
@@ -428,7 +429,8 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
         (walletVk, walletSk) <- keysFor AliceFunds
 
         -- Create money on L1
-        utxoToCommit <- seedFromFaucet node walletVk 100_000_000 (contramap FromFaucet tracer)
+        let commitAmount = 100_000_000
+        utxoToCommit <- seedFromFaucet node walletVk commitAmount (contramap FromFaucet tracer)
 
         -- Push it into L2
         requestCommitTx n1 utxoToCommit
@@ -505,11 +507,21 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
             toJSON signedTx
               `elem` (v ^.. key "snapshot" . key "confirmed" . values)
 
-        -- And check that we can close the head successfully
+        -- And check that we can close and fanout the head successfully
         send n1 $ input "Close" []
-        void $
-          waitMatch (10 * blockTime) n1 $ \v -> do
-            guard $ v ^? key "tag" == Just "HeadIsClosed"
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+        waitMatch (10 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+        -- Assert final wallet balance
+        (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
+          `shouldReturn` lovelaceToValue (commitAmount - fee)
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
