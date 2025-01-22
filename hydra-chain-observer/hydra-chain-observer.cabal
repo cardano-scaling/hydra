@@ -73,6 +73,7 @@ library
     , hydra-prelude
     , hydra-tx
     , io-classes
+    , network-uri
     , optparse-applicative
     , ouroboros-network-protocols
     , retry
