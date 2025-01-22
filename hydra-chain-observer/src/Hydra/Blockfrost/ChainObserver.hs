@@ -177,12 +177,12 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   forM_ onChainTxs (traceWith tracer . logOnChainTx)
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
-  let observationsAt = HeadObservation point blockNo <$> onChainTxs
+  let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
 
   -- Call observer handler
   observerHandler $
     if null observationsAt
-      then [Tick point blockNo]
+      then [ChainObservation point blockNo Nothing]
       else observationsAt
 
   -- Next

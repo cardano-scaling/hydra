@@ -22,16 +22,14 @@ import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 type ObserverHandler m = [ChainObservation] -> m ()
 
 data ChainObservation
-  = Tick
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      }
-  | HeadObservation
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      , onChainTx :: OnChainTx Tx
-      }
+  = ChainObservation
+  { point :: ChainPoint
+  , blockNo :: BlockNo
+  , observedTx :: Maybe (OnChainTx Tx)
+  }
   deriving stock (Eq, Show, Generic)
+  -- TODO: test ToJSON ChainObservation vs explorer api
+  deriving anyclass (ToJSON)
 
 newtype NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
