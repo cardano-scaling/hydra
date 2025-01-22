@@ -69,10 +69,8 @@ import Hydra.Cardano.Api (
   mkTxOutAutoBalance,
   mkTxOutDatumHash,
   mkVkAddress,
-  negateValue,
   scriptWitnessInCtx,
   selectLovelace,
-  setTxFee,
   signTx,
   toLedgerTx,
   toScriptData,
@@ -85,7 +83,6 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptWitness,
   pattern ReferenceScriptNone,
   pattern ScriptWitness,
-  pattern TxFeeExplicit,
   pattern TxOut,
   pattern TxOutDatumNone,
  )
@@ -419,7 +416,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
   )
     $ do
       refuelIfNeeded tracer node Alice 250_000_000
-      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 100
+      aliceChainConfig <- chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] $ UnsafeContestationPeriod 1
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -478,13 +475,11 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
         let txIn = mkTxIn signedL2tx 0
         let remainder = mkTxIn signedL2tx 1
 
-        let fee = 8_000_000
-        let outAmt = foldMap txOutValue (txOuts' tx) <> negateValue (lovelaceToValue fee)
+        let outAmt = foldMap txOutValue (txOuts' tx)
         let body =
               defaultTxBodyContent
                 & addTxIns [(txIn, scriptWitness), (remainder, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
                 & addTxInsCollateral [remainder]
-                & setTxFee (TxFeeExplicit fee)
                 & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
 
         -- TODO: Instead of using `createAndValidateTransactionBody`, we
@@ -521,7 +516,7 @@ singlePartyUsesScriptOnL2 tracer workDir node hydraScriptsTxId =
 
         -- Assert final wallet balance
         (balance <$> queryUTxOFor networkId nodeSocket QueryTip walletVk)
-          `shouldReturn` lovelaceToValue (commitAmount - fee)
+          `shouldReturn` lovelaceToValue commitAmount
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 
