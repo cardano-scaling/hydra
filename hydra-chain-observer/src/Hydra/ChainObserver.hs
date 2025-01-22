@@ -31,11 +31,8 @@ import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Handlers (convertObservation)
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
-  observeHeadTx,
- )
-import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
+import Hydra.Chain.Direct.Tx (HeadObservation (..), observeHeadTx)
+import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.Contract (ScriptInfo)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
@@ -71,17 +68,19 @@ defaultObserverHandler = const $ pure ()
 
 main :: ObserverHandler IO -> IO ()
 main observerHandler = do
-  Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
+  Options{backend, startChainFrom} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
-    traceWith tracer ConnectingToNode{nodeSocket, networkId}
-    chainPoint <- case startChainFrom of
-      Nothing -> queryTip networkId nodeSocket
-      Just x -> pure x
-    traceWith tracer StartObservingFrom{chainPoint}
-    connectToLocalNode
-      (connectInfo nodeSocket networkId)
-      (clientProtocols tracer networkId chainPoint observerHandler)
+    case backend of
+      Direct{networkId, nodeSocket} -> do
+        traceWith tracer ConnectingToNode{nodeSocket, networkId}
+        chainPoint <- case startChainFrom of
+          Nothing -> queryTip networkId nodeSocket
+          Just x -> pure x
+        traceWith tracer StartObservingFrom{chainPoint}
+        connectToLocalNode
+          (connectInfo nodeSocket networkId)
+          (clientProtocols tracer networkId chainPoint observerHandler)
 
 type ChainObserverLog :: Type
 data ChainObserverLog

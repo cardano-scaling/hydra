@@ -8,12 +8,7 @@ In both modes, reporting observations to a [`hydra-explorer`](https://github.com
 
 ## Direct Mode
 
-To run the observer in Direct Mode, provide the following arguments:
-- `--node-socket`: path to the node socket file.
-- network id: `--testnet-magic` (with magic number) for the testnet or `--mainnet` for the mainnet.
-- (optional) `--start-chain-from`: specify a chain point (SLOT.HEADER_HASH) to start observing from.
-
-For example:
+To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe usin `--start-chain-from`:
 
 ``` shell
 hydra-chain-observer \
@@ -21,8 +16,6 @@ hydra-chain-observer \
   --testnet-magic 1 \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
 ```
-
-## Report to hydra-explorer
 
 Using the `--explorer` argument we can specify a hostname / port for a `hydra-explorer` instance to report observations to. For example using a `direct` observer:
 

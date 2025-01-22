@@ -8,12 +8,18 @@ import Hydra.Options (
   nodeSocketParser,
   startChainFromParser,
  )
-import Options.Applicative (Parser, ParserInfo, fullDesc, header, helper, info, progDesc)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  fullDesc,
+  header,
+  helper,
+  info,
+  progDesc,
+ )
 
-type Options :: Type
 data Options = Options
-  { networkId :: NetworkId
-  , nodeSocket :: SocketPath
+  { backend :: Backend
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
   }
@@ -22,16 +28,26 @@ data Options = Options
 optionsParser :: Parser Options
 optionsParser =
   Options
-    <$> networkIdParser
-    <*> nodeSocketParser
+    <$> backendParser
     <*> optional startChainFromParser
+
+data Backend = Direct
+  { networkId :: NetworkId
+  , nodeSocket :: SocketPath
+  }
+  deriving stock (Show, Eq)
+
+backendParser :: Parser Backend
+backendParser =
+  directParser
+ where
+  directParser =
+    Direct <$> networkIdParser <*> nodeSocketParser
 
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    ( optionsParser
-        <**> helper
-    )
+    (optionsParser <**> helper)
     ( fullDesc
         <> progDesc "Observe hydra transactions on-chain."
         <> header "hydra-chain-observer"
