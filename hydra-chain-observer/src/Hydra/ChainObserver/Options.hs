@@ -13,12 +13,10 @@ import Hydra.Options (
 import Options.Applicative (
   Parser,
   ParserInfo,
-  command,
   fullDesc,
   header,
   help,
   helper,
-  hsubparser,
   info,
   long,
   metavar,
@@ -28,46 +26,43 @@ import Options.Applicative (
   value,
  )
 
-data DirectOptions = DirectOptions
-  { networkId :: NetworkId
-  , nodeSocket :: SocketPath
+data Options = Options
+  { backend :: Backend
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
   }
   deriving stock (Show, Eq)
 
-data BlockfrostOptions = BlockfrostOptions
-  { projectPath :: FilePath
-  , startChainFrom :: Maybe ChainPoint
-  -- ^ Point at which to start following the chain.
-  }
+optionsParser :: Parser Options
+optionsParser =
+  Options
+    <$> backendParser
+    <*> optional startChainFromParser
+
+data Backend
+  = Direct
+      { networkId :: NetworkId
+      , nodeSocket :: SocketPath
+      }
+  | Blockfrost
+      { projectPath :: FilePath
+      }
   deriving stock (Show, Eq)
 
-type Options :: Type
-data Options = DirectOpts DirectOptions | BlockfrostOpts BlockfrostOptions
-  deriving stock (Show, Eq)
+backendParser :: Parser Backend
+backendParser =
+  directParser <|> blockfrostParser
+ where
+  directParser =
+    Direct <$> networkIdParser <*> nodeSocketParser
 
-directOptionsParser :: Parser Options
-directOptionsParser =
-  DirectOpts
-    <$> ( DirectOptions
-            <$> networkIdParser
-            <*> nodeSocketParser
-            <*> optional startChainFromParser
-        )
-
-blockfrostOptionsParser :: Parser Options
-blockfrostOptionsParser =
-  BlockfrostOpts
-    <$> ( BlockfrostOptions
-            <$> projectPathParser
-            <*> optional startChainFromParser
-        )
+  blockfrostParser =
+    Blockfrost <$> projectPathParser
 
 projectPathParser :: Parser FilePath
 projectPathParser =
   option str $
-    long "project-path"
+    long "blockfrost-project-path"
       <> metavar "BLOCKFROST_TOKEN_PATH"
       <> value "project_token_hash"
       <> help
@@ -75,27 +70,10 @@ projectPathParser =
         \It expects token prefixed with Blockfrost environment name\
         \e.g.: testnet-someTokenHash"
 
-directOptionsInfo :: ParserInfo Options
-directOptionsInfo =
-  info
-    directOptionsParser
-    (progDesc "Direct Mode")
-
-blockfrostOptionsInfo :: ParserInfo Options
-blockfrostOptionsInfo =
-  info
-    blockfrostOptionsParser
-    (progDesc "Blockfrost Mode")
-
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    ( hsubparser
-        ( command "direct" directOptionsInfo
-            <> command "blockfrost" blockfrostOptionsInfo
-        )
-        <**> helper
-    )
+    (optionsParser <**> helper)
     ( fullDesc
         <> progDesc "Observe hydra transactions on-chain."
         <> header "hydra-chain-observer"
