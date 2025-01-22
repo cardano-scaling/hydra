@@ -38,6 +38,8 @@ import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
 import Hydra.Tx.HeadId (HeadId (..))
+import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow)
+import Network.URI (URI)
 import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -66,9 +68,9 @@ instance Arbitrary ChainObservation where
 defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
 
-main :: ObserverHandler IO -> IO ()
-main observerHandler = do
-  Options{backend, startChainFrom} <- execParser hydraChainObserverOptions
+main :: IO ()
+main = do
+  Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
     case backend of
@@ -78,9 +80,26 @@ main observerHandler = do
           Nothing -> queryTip networkId nodeSocket
           Just x -> pure x
         traceWith tracer StartObservingFrom{chainPoint}
+
+        let observerHandler = \observations ->
+              case explorerBaseURI of
+                Nothing -> pure ()
+                Just uri -> forM_ observations $ reportObservation uri
+
         connectToLocalNode
           (connectInfo nodeSocket networkId)
           (clientProtocols tracer networkId chainPoint observerHandler)
+
+-- | Submit observation to a 'hydra-explorer' at given base 'URI'.
+-- TODO: how to handle errors?
+reportObservation :: URI -> ChainObservation -> IO ()
+reportObservation baseURI observation =
+  parseRequestThrow url
+    >>= httpNoBody
+    <&> getResponseBody
+ where
+  -- TODO: determine network and version
+  url = "POST " <> show baseURI <> "/observations/mainnet/0.19.0"
 
 type ChainObserverLog :: Type
 data ChainObserverLog

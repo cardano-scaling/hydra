@@ -65,12 +65,12 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
+    , http-conduit
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
     , hydra-tx
-    , io-classes
     , network-uri
     , optparse-applicative
     , ouroboros-network-protocols

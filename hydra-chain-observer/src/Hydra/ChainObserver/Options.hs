@@ -14,6 +14,7 @@ import Options.Applicative (
   ParserInfo,
   fullDesc,
   header,
+  help,
   helper,
   info,
   long,
