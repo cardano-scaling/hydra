@@ -179,9 +179,10 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   checkHeadState tracer env headState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   -- XXX: re-stream events just for this?
-  traceWith tracer ReplayingState
-  runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+  -- FIXME: disabled for hydra-doom
+  -- traceWith tracer ReplayingState
+  -- runConduitRes $
+  --   sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue

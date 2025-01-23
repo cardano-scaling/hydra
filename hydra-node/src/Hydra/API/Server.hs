@@ -85,8 +85,11 @@ withAPIServer config party persistence tracer chain pparams callback action =
     -- NOTE: we do not keep the stored events around in memory
     let outputsC = source .| mapC output
     -- XXX: Runs the conduit for each projection
+    putStrLn "API: project headStatus"
     headStatusP <- mkProjection Idle projectHeadStatus outputsC
+    putStrLn "API: project snapshotUtxo"
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo outputsC
+    putStrLn "API: project headId"
     headIdP <- mkProjection Nothing projectInitializingHeadId outputsC
 
     nextSeqVar <- newTVarIO 0
