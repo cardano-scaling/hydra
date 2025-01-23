@@ -5,6 +5,7 @@ module Hydra.API.ServerSpec where
 import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
+import Conduit (yieldMany)
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
@@ -415,16 +416,17 @@ withClient port path action =
             connect (n - 1)
 
 -- | Mocked persistence handle which just does nothing.
-mockPersistence :: Applicative m => PersistenceIncremental a m
+mockPersistence :: Monad m => PersistenceIncremental a m
 mockPersistence =
   mockPersistence' []
 
 -- | Mocked persistence which does not contain some constant elements.
-mockPersistence' :: Applicative m => [a] -> PersistenceIncremental a m
+mockPersistence' :: Monad m => [a] -> PersistenceIncremental a m
 mockPersistence' xs =
   PersistenceIncremental
     { append = \_ -> pure ()
     , loadAll = pure xs
+    , source = yieldMany xs
     }
 
 waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()

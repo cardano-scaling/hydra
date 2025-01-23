@@ -4,12 +4,21 @@ module Hydra.Persistence where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (newTVarIO, throwSTM, writeTVar)
-import Control.Lens.Combinators (iforM)
-import Control.Monad.Class.MonadFork (myThreadId)
+import Conduit (
+  ConduitT,
+  MonadUnliftIO,
+  ResourceT,
+  linesUnboundedAsciiC,
+  mapMC,
+  runConduitRes,
+  sinkList,
+  sourceFileBS,
+  (.|),
+ )
+import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Control.Monad.Class.MonadFork (ThreadId, myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
@@ -53,7 +62,9 @@ createPersistence fp = do
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
-  , loadAll :: FromJSON a => m [a]
+  , source :: forall i. FromJSON a => ConduitT i a (ResourceT m) ()
+  -- ^ Stream all elements from the file.
+  , loadAll :: FromJSON a => m [a] -- FIXME: define in terms of source
   }
 
 -- | Initialize persistence handle for given type 'a' at given file path.
@@ -64,35 +75,46 @@ data PersistenceIncremental a m = PersistenceIncremental
 -- an `IncorrectAccessException` will be raised.
 createPersistenceIncremental ::
   forall a m.
-  (MonadIO m, MonadThrow m, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
+  ( MonadUnliftIO m
+  , MonadThrow m
+  , FromJSON a
+  ) =>
   FilePath ->
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
-  authorizedThread <- newTVarIO Nothing
+  authorizedThread <- liftIO $ newTVarIO Nothing
   pure $
     PersistenceIncremental
-      { append = \a -> do
+      { append = \a -> liftIO $ do
           tid <- myThreadId
           atomically $ writeTVar authorizedThread $ Just tid
           let bytes = toStrict $ Aeson.encode a <> "\n"
-          liftIO $ withBinaryFile fp AppendMode (`BS.hPut` bytes)
-      , loadAll = do
-          tid <- myThreadId
-          atomically $ do
-            authTid <- readTVar authorizedThread
-            when (isJust authTid && authTid /= Just tid) $
-              throwSTM (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
-
-          liftIO (doesFileExist fp) >>= \case
-            False -> pure []
-            True -> do
-              bs <- readFileBS fp
-              -- NOTE: We require the whole file to be loadable. It might
-              -- happen that the data written by 'append' is only there
-              -- partially and then this will fail (which we accept now).
-              iforM (C8.lines bs) $ \i o ->
-                case Aeson.eitherDecodeStrict' o of
-                  Left e -> throwIO $ PersistenceException ("Error at line: " <> show (i + 1) <> " in file " <> fp <> " - " <> e)
-                  Right decoded -> pure decoded
+          withBinaryFile fp AppendMode (`BS.hPut` bytes)
+      , source = source authorizedThread
+      , loadAll = runConduitRes $ source authorizedThread .| sinkList
       }
+ where
+  source :: forall i. TVar IO (Maybe (ThreadId IO)) -> ConduitT i a (ResourceT m) ()
+  source authorizedThread = do
+    liftIO $ do
+      tid <- myThreadId
+      authTid <- readTVarIO authorizedThread
+      when (isJust authTid && authTid /= Just tid) $
+        throwIO (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
+
+    liftIO (doesFileExist fp) >>= \case
+      False -> pure ()
+      True -> do
+        -- NOTE: Read, decode and yield values line by line.
+        sourceFileBS fp
+          .| linesUnboundedAsciiC
+          .| mapMC
+            ( \bs ->
+                case Aeson.eitherDecodeStrict' bs of
+                  Left e ->
+                    lift . throwIO $
+                      PersistenceException $
+                        "Error when decoding from file " <> fp <> ": " <> show e <> "\n" <> show bs
+                  Right decoded -> pure decoded
+            )

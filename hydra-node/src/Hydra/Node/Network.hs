@@ -93,6 +93,7 @@ import Hydra.Persistence (Persistence (..), createPersistence, createPersistence
 import Hydra.Tx (IsTx, Party, deriveParty)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import System.FilePath ((</>))
+import UnliftIO (MonadUnliftIO)
 
 -- | An alias for logging messages output by network component.
 -- The type is made complicated because the various subsystems use part of the tracer only.
@@ -174,7 +175,7 @@ withNetwork tracer configuration callback action = do
 --   * Some state already exists and is loaded,
 --   * The number of parties is not the same as the number of acknowledgments saved.
 configureMessagePersistence ::
-  (MonadIO m, MonadThrow m, FromJSON msg, ToJSON msg, MonadSTM m, MonadThread m, MonadThrow (STM m)) =>
+  (MonadThrow m, FromJSON msg, ToJSON msg, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog tx) ->
   FilePath ->
   Int ->
