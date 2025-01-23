@@ -133,13 +133,13 @@ wsApp party tracer nextSeq callback headStatusP headIdP snapshotUtxoP responseCh
           prepareServerOutput outConfig response
 
     sendTextData con sentResponse
-    traceWith tracer (APIOutputSent $ toJSON response)
+  -- TODO: disabled for doom traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        traceWith tracer (APIInputReceived $ toJSON input)
+        -- TODO: disabled for doom traceWith tracer (APIInputReceived $ toJSON input)
         callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
@@ -151,7 +151,7 @@ wsApp party tracer nextSeq callback headStatusP headIdP snapshotUtxoP responseCh
         sendTextData con $ Aeson.encode timedOutput
         traceWith tracer (APIInvalidInput e clientInput)
 
-  -- forwardHistory con = do
-  --   hist <- STM.atomically (readTVar history)
-  --   let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
-  --   sendTextDatas con $ foldl' encodeAndReverse [] hist
+-- forwardHistory con = do
+--   hist <- STM.atomically (readTVar history)
+--   let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
+--   sendTextDatas con $ foldl' encodeAndReverse [] hist

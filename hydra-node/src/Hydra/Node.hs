@@ -260,7 +260,7 @@ stepHydraNode node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
   outcome <- atomically $ processNextInput node queuedItem
-  traceWith tracer (LogicOutcome party outcome)
+  -- TODO: disabled for doom traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
