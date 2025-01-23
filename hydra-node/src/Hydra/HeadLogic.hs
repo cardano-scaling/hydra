@@ -34,7 +34,6 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostChainTx (..),
-  initHistory,
   pushNewState,
   rollbackHistory,
  )
@@ -1666,48 +1665,34 @@ aggregateState ::
   Outcome tx ->
   HeadState tx
 aggregateState s outcome =
-  recoverState s $ collectStateChanged outcome
+  foldl' aggregate s $ collectStateChanged outcome
  where
   collectStateChanged = \case
     Error{} -> []
     Wait{stateChanges} -> stateChanges
     Continue{stateChanges} -> stateChanges
 
-recoverChainStateHistory ::
-  (Foldable t, IsChainState tx) =>
-  ChainStateType tx ->
-  t (StateChanged tx) ->
-  ChainStateHistory tx
-recoverChainStateHistory initialChainState =
-  foldl' aggregateChainStateHistory (initHistory initialChainState)
- where
-  aggregateChainStateHistory history = \case
-    HeadInitialized{chainState} -> pushNewState chainState history
-    CommittedUTxO{chainState} -> pushNewState chainState history
-    HeadAborted{chainState} -> pushNewState chainState history
-    HeadOpened{chainState} -> pushNewState chainState history
-    TransactionAppliedToLocalUTxO{} -> history
-    CommitRecovered{} -> history
-    CommitRecorded{} -> history
-    DecommitRecorded{} -> history
-    SnapshotRequestDecided{} -> history
-    SnapshotRequested{} -> history
-    TransactionReceived{} -> history
-    PartySignedSnapshot{} -> history
-    SnapshotConfirmed{} -> history
-    CommitFinalized{} -> history
-    DecommitFinalized{} -> history
-    HeadClosed{chainState} -> pushNewState chainState history
-    HeadContested{chainState} -> pushNewState chainState history
-    HeadIsReadyToFanout{} -> history
-    HeadFannedOut{chainState} -> pushNewState chainState history
-    ChainRolledBack{chainState} ->
-      rollbackHistory (chainStateSlot chainState) history
-    TickObserved{} -> history
-
-recoverState ::
-  (Foldable t, IsChainState tx) =>
-  HeadState tx ->
-  t (StateChanged tx) ->
-  HeadState tx
-recoverState = foldl' aggregate
+aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
+aggregateChainStateHistory history = \case
+  HeadInitialized{chainState} -> pushNewState chainState history
+  CommittedUTxO{chainState} -> pushNewState chainState history
+  HeadAborted{chainState} -> pushNewState chainState history
+  HeadOpened{chainState} -> pushNewState chainState history
+  TransactionAppliedToLocalUTxO{} -> history
+  CommitRecovered{} -> history
+  CommitRecorded{} -> history
+  DecommitRecorded{} -> history
+  SnapshotRequestDecided{} -> history
+  SnapshotRequested{} -> history
+  TransactionReceived{} -> history
+  PartySignedSnapshot{} -> history
+  SnapshotConfirmed{} -> history
+  CommitFinalized{} -> history
+  DecommitFinalized{} -> history
+  HeadClosed{chainState} -> pushNewState chainState history
+  HeadContested{chainState} -> pushNewState chainState history
+  HeadIsReadyToFanout{} -> history
+  HeadFannedOut{chainState} -> pushNewState chainState history
+  ChainRolledBack{chainState} ->
+    rollbackHistory (chainStateSlot chainState) history
+  TickObserved{} -> history
