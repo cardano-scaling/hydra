@@ -5,6 +5,7 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
+import Conduit (mapC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
@@ -89,18 +90,20 @@ withAPIServer ::
 withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
-    timedOutputEvents <- loadAll
+    -- Intialize our read models from stored events
+    -- NOTE: we do not keep the stored events around in memory
+    let outputsC = source .| mapC output
+    -- FIXME: Runs the conduit for each projection
+    headStatusP <- mkProjection Idle projectHeadStatus outputsC
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo outputsC
+    commitInfoP <- mkProjection CannotCommit projectCommitInfo outputsC
+    headIdP <- mkProjection Nothing projectInitializingHeadId outputsC
+    pendingDepositsP <- mkProjection [] projectPendingDeposits outputsC
 
-    -- Intialize our read model from stored events
-    headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-    snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
-    commitInfoP <- mkProjection CannotCommit (output <$> timedOutputEvents) projectCommitInfo
-    headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
-    pendingDepositsP <- mkProjection [] (output <$> timedOutputEvents) projectPendingDeposits
-
+    -- FIXME: this is not streaming, it loads all events into memory
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
-    history <- newTVarIO (reverse timedOutputEvents)
+    history <- newTVarIO . reverse =<< runConduitRes (source .| sinkList)
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -138,7 +141,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{loadAll, append} = persistence
+  PersistenceIncremental{source, append} = persistence
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
