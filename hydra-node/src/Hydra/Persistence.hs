@@ -9,7 +9,7 @@ import Control.Lens.Combinators (iforM)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
+import Data.ByteString.Lazy.Char8 qualified as LC8
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFile)
@@ -88,12 +88,12 @@ createPersistenceIncremental fp = do
           liftIO (doesFileExist fp) >>= \case
             False -> pure []
             True -> do
-              bs <- readFileBS fp
+              bs <- readFileLBS fp
               -- NOTE: We require the whole file to be loadable. It might
               -- happen that the data written by 'append' is only there
               -- partially and then this will fail (which we accept now).
-              iforM (C8.lines bs) $ \i o ->
-                case Aeson.eitherDecodeStrict' o of
+              iforM (LC8.lines bs) $ \i o ->
+                case Aeson.eitherDecode' o of
                   Left e -> throwIO $ PersistenceException ("Error at line: " <> show (i + 1) <> " in file " <> fp <> " - " <> e)
                   Right decoded -> pure decoded
       }
