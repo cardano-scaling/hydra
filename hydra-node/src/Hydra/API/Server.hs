@@ -5,6 +5,7 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
+import Conduit (mapC, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO, readTVar)
@@ -82,10 +83,11 @@ withAPIServer config party persistence tracer chain pparams callback action =
     responseChannel <- newBroadcastTChanIO
     -- Intialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    timedOutputEvents <- loadAll
-    headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-    snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
-    headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
+    let outputsC = source .| mapC output
+    -- XXX: Runs the conduit for each projection
+    headStatusP <- mkProjection Idle projectHeadStatus outputsC
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo outputsC
+    headIdP <- mkProjection Nothing projectInitializingHeadId outputsC
 
     nextSeqVar <- newTVarIO 0
     let nextSeq = do
@@ -128,7 +130,7 @@ withAPIServer config party persistence tracer chain pparams callback action =
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{loadAll, append} = persistence
+  PersistenceIncremental{source, append} = persistence
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
