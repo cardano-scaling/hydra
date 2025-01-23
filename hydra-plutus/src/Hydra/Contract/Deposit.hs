@@ -24,7 +24,6 @@ import PlutusTx qualified
 
 data DepositRedeemer
   = -- | Claims already deposited funds.
-    -- FIXME: Make sure to change the spec and add head CS to the Claim redeemer.
     Claim CurrencySymbol
   | -- | Recovers m number of deposited outputs.
     Recover Integer

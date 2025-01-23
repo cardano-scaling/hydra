@@ -12,7 +12,6 @@ changes.
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
   with the community members building on Hydra. This feature means you can commit funds to a Head while it is running.
-  TODO: Implement missing spec changes.
 
 - There is a new `--deposit-deadline` argument to hydra-node that determines the maximum time for the hydra-node to detect a deposit.
   After this time has passed users can recover a deposit in case it wasn't observed previously.
