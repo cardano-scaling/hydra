@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 -- IsChainState tx instance to serialize 'StateEvent Tx'
 import Hydra.Chain.Direct.State ()
 
+import Conduit (runConduitRes, sinkList, (.|))
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
@@ -60,6 +61,16 @@ spec = do
             allEvents <- getEvents
             pure $
               allEvents === loadedEvents
+
+    prop "can stream events" $
+      forAllShrink genContinuousEvents shrink $ \events ->
+        ioProperty $
+          withEventSourceAndSink $ \EventSource{sourceEvents} EventSink{putEvent} -> do
+            -- Put some events
+            forM_ events putEvent
+            streamedEvents <- runConduitRes $ sourceEvents .| sinkList
+            pure $
+              streamedEvents === events
 
     prop "can bootstrap from plain StateChanged events" $
       forAllShrink genContinuousEvents shrink $ \events -> do

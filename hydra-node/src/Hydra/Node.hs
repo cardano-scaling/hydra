@@ -10,7 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (foldMapC, foldlC, fuseBoth, mapC, mapM_C, runConduit, (.|))
+import Conduit (MonadUnliftIO, foldMapC, foldlC, fuseBoth, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
@@ -158,7 +158,7 @@ instance HasParty (DraftHydraNode tx m) where
 -- | Hydrate a 'DraftHydraNode' by loading events from source, re-aggregate node
 -- state and sending events to sinks while doing so.
 hydrate ::
-  (MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, IsChainState tx) =>
+  (IsChainState tx, MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog tx) ->
   Environment ->
   Ledger tx ->
@@ -167,8 +167,9 @@ hydrate ::
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState eventSource eventSinks = do
+  traceWith tracer LoadingState
   (lastEventId, (headState, chainStateHistory)) <-
-    runConduit $
+    runConduitRes $
       sourceEvents eventSource
         .| fuseBoth
           (foldMapC (Last . pure . getEventId))
@@ -178,8 +179,9 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   checkHeadState tracer env headState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   -- XXX: re-stream events just for this?
-  runConduit $
-    sourceEvents eventSource .| mapM_C (\e -> putEventsToSinks eventSinks [e])
+  traceWith tracer ReplayingState
+  runConduitRes $
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
 
   nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
@@ -397,7 +399,9 @@ data HydraNodeLog tx
   | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
+  | LoadingState
   | LoadedState {lastEventId :: Last EventId}
+  | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 
