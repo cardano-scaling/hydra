@@ -5,6 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Conduit (yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
@@ -346,7 +347,11 @@ mockSink :: Monad m => EventSink a m
 mockSink = EventSink{putEvent = const $ pure ()}
 
 mockSource :: Monad m => [a] -> EventSource a m
-mockSource events = EventSource{getEvents = pure events}
+mockSource events =
+  EventSource
+    { getEvents = pure events
+    , sourceEvents = yieldMany events
+    }
 
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createRecordingSink = do
@@ -360,6 +365,7 @@ createPersistenceInMemory = do
   pure
     PersistenceIncremental
       { append = \x -> atomically $ modifyTVar tvar (<> [x])
+      , source = lift (lift (readTVarIO tvar)) >>= yieldMany
       , loadAll = readTVarIO tvar
       }
 
