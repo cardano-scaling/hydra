@@ -5,6 +5,7 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
+import Conduit (MonadUnliftIO)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   modifyTVar,
@@ -1175,7 +1176,9 @@ withHydraNode signingKey otherParties chain action = do
   outputs <- atomically newTQueue
   outputHistory <- newTVarIO mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod testDepositDeadline
+  -- FIXME: createHydaNode requires an instance 'MonadUnliftIO (IOSim s)'
+  -- node <- createHydraNode traceInIOSim simpleLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod testDepositDeadline
+  let node = undefined :: HydraNode SimpleTx (IOSim s)
   withAsync (runHydraNode node) $ \_ ->
     action (createTestHydraClient outputs outputHistory node)
 
@@ -1195,7 +1198,7 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx, MonadThrow m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->

@@ -5,7 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Conduit (yieldMany)
+import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
@@ -405,7 +405,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
 testHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog SimpleTx) ->
   SigningKey HydraKey ->
   [Party] ->
