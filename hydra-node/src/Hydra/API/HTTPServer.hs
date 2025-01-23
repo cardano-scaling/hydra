@@ -28,7 +28,7 @@ import Hydra.Tx (
   IsTx (..),
   UTxOType,
  )
-import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
 import Hydra.Tx.Environment (Environment (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
 import Network.Wai (
@@ -216,10 +216,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         CannotCommit -> pure $ responseLBS status500 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
  where
   deposit headId commitBlueprint = do
-    -- NOTE: We double the contestation period and use it for the deadline
-    -- value in order to give enough time for the increment to be valid in
-    -- terms of deadline.
-    deadline <- addUTCTime (toNominalDiffTime contestationPeriod * 2) <$> getCurrentTime
+    deadline <- addUTCTime (depositToNominalDiffTime depositDeadline) <$> getCurrentTime
     draftDepositTx headId commitBlueprint deadline <&> \case
       Left e -> responseLBS status400 [] (Aeson.encode $ toJSON e)
       Right depositTx -> okJSON $ DraftCommitTxResponse depositTx
@@ -237,7 +234,7 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
       Right commitTx ->
         okJSON $ DraftCommitTxResponse commitTx
   Chain{draftCommitTx, draftDepositTx} = directChain
-  Environment{contestationPeriod} = env
+  Environment{depositDeadline} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

@@ -35,6 +35,7 @@ import Hydra.Options (
   validateRunOptions,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
+import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
@@ -189,6 +190,30 @@ spec = parallel $
                 Direct
                   defaultDirectChainConfig
                     { contestationPeriod = UnsafeContestationPeriod 300
+                    }
+            }
+    it "parses --deposit-deadline option as a number of seconds" $ do
+      shouldNotParse ["--deposit-deadline", "abc"]
+      shouldNotParse ["--deposit-deadline", "s"]
+      shouldNotParse ["--deposit-deadline", "-1"]
+      shouldNotParse ["--deposit-deadline", "0s"]
+      shouldNotParse ["--deposit-deadline", "00s"]
+      ["--deposit-deadline", "1s"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Direct
+                  defaultDirectChainConfig
+                    { depositDeadline = UnsafeDepositDeadline 1
+                    }
+            }
+      ["--deposit-deadline", "300s"]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Direct
+                  defaultDirectChainConfig
+                    { depositDeadline = UnsafeDepositDeadline 300
                     }
             }
 

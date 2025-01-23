@@ -44,12 +44,16 @@ import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import HydraNode (HydraClient (HydraClient, hydraNodeId), HydraNodeLog, withHydraNode)
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = UnsafeContestationPeriod 10
+
+tuiDepositDeadline :: DepositDeadline
+tuiDepositDeadline = UnsafeDepositDeadline 200
 
 spec :: Spec
 spec = do
@@ -160,7 +164,7 @@ setupNodeAndTUI' hostname lovelace action =
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \node@RunningNode{nodeSocket, networkId} -> do
         hydraScriptsTxId <- publishHydraScriptsAs node Faucet
-        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] tuiContestationPeriod tuiDepositDeadline
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 

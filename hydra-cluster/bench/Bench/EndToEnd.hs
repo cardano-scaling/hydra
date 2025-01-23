@@ -42,6 +42,7 @@ import Hydra.Network (Host)
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (generateSigningKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import HydraNode (
   HydraClient,
   HydraNodeLog,
@@ -89,7 +90,8 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             putStrLn $ "Starting hydra cluster in " <> workDir
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = UnsafeContestationPeriod 10
-            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+            let depositDeadline = UnsafeDepositDeadline 10
+            withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset clients
 

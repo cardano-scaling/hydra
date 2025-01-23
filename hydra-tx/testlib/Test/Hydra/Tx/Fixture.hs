@@ -35,6 +35,7 @@ import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStar
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
+import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
@@ -83,6 +84,7 @@ testEnvironment =
     , signingKey = aliceSk
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
+    , depositDeadline = UnsafeDepositDeadline 20
     , participants = deriveOnChainId <$> [alice, bob, carol]
     }
 
@@ -96,6 +98,9 @@ testHeadParameters =
 
 cperiod :: ContestationPeriod
 cperiod = UnsafeContestationPeriod 4
+
+ddeadline :: DepositDeadline
+ddeadline = UnsafeDepositDeadline 20
 
 -- * Cardano tx utilities
 

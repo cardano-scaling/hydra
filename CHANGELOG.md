@@ -14,6 +14,9 @@ changes.
   with the community members building on Hydra. This feature means you can commit funds to a Head while it is running.
   TODO: Implement missing spec changes.
 
+- There is a new `--deposit-deadline` argument to hydra-node that determines the maximum time for the hydra-node to detect a deposit.
+  After this time has passed users can recover a deposit in case it wasn't observed previously.
+
 - **BREAKING** hydra-node accepts multiple `hydra-scripts-tx-id` as a comma-seperated list, as the outcome of changes in the Hydra scripts publishing.
 
 - Tested with `cardano-node 10.1.2` and `cardano-cli 10.1.1.0`.
