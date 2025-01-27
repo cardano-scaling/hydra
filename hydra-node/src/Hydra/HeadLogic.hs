@@ -441,6 +441,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         }
+                -- TODO: Update spec comments to include eta-alpha/omega
                 -- Spec: η ← combine(𝑈)
                 --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
                 let snapshotSignature = sign signingKey nextSnapshot
