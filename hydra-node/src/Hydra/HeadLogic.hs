@@ -276,10 +276,11 @@ onInitialChainCollectTx st newChainState =
   -- Spec: 𝑈₀  ← ⋃ⁿⱼ₌₁ 𝑈ⱼ
   let u0 = fold committed
    in -- Spec: L̂  ← 𝑈₀
-      --       ̅S  ← snObj(0, 0, 𝑈₀, ∅, ⊥)
+      --       ̅S  ← snObj(0, 0, 𝑈₀, ∅, ∅)
       --       v , ŝ ← 0
       --       T̂  ← ∅
       --       txω ← ⊥
+      --       𝑈𝛼 ← ∅
       newState HeadOpened{chainState = newChainState, initialUTxO = u0}
         <> cause (ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0})
  where
@@ -327,7 +328,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
         --       L̂  ← L̂ ◦ tx
         newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
           -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-          --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
+          --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
           & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
@@ -421,6 +422,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
     waitNoSnapshotInFlight $
       -- Spec: wait v = v̂
       waitOnSnapshotVersion $
+        -- Spec: require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
           requireApplicableCommit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
             -- Resolve transactions by-id
@@ -441,9 +443,11 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                         , utxoToCommit = mUtxoToCommit
                         , utxoToDecommit = mUtxoToDecommit
                         }
-                -- TODO: Update spec comments to include eta-alpha/omega
-                -- Spec: η ← combine(𝑈)
-                --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖ηω))
+
+                -- Spec: 𝜂 ← combine(𝑈)
+                --       𝜂𝛼 ← combine(𝑈𝛼)
+                --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
+                --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
                 let snapshotSignature = sign signingKey nextSnapshot
                 -- Spec: multicast (ackSn, ŝ, σᵢ)
                 (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
@@ -510,14 +514,9 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
       Nothing -> cont (confirmedUTxO, Nothing)
       Just decommitTx ->
         -- Spec:
-        -- if v = S̄.v ∧ S̄.txω ̸= ⊥
-        --   require S̄.txω = txω
-        --   Uactive ← S̄.U
-        --   Uω ← S̄.Uω
-        -- else
-        --   require S̄.U ◦ txω ̸= ⊥
-        --   Uactive ← S̄.U ◦ txω \ outputs(txω )
-        --   Uω ← outputs(txω )
+        -- require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
+        -- require 𝑣 = 𝑣 ̂ ∧ 𝑠 = 𝑠 ̂ + 1 ∧ leader(𝑠) = 𝑗
+        -- wait 𝑠 ̂ = 𝒮.𝑠
         if sv == confVersion && isJust confUTxOToDecommit
           then
             if confUTxOToDecommit == Just (utxoFromTx decommitTx)
@@ -620,20 +619,24 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
             let multisig = aggregateInOrder sigs' parties
             -- Spec: η ← combine(𝑈ˆ)
-            --       ηω ← combine(outputs(txω))
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖ηω), σ̃)
+            --       𝜂𝛼 ← combine(𝑈𝛼)
+            --       𝑈𝜔 ← outputs(tx𝜔 )
+            --       ηω ← combine(𝑈𝜔)
+            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
             requireVerifiedMultisignature multisig snapshot $
               do
-                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, txω)
+                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
                 newState SnapshotConfirmed{snapshot, signatures = multisig}
                 <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
-                -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η, ηω)
+                -- Spec: if η𝛼 ≠ ⊥
+                --         postTx (increment, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostIncrementTx snapshot multisig
+                -- Spec: if txω ≠ ⊥
+                --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                --         multicast (reqSn, v, ̅S.s + 1, T̂, txω)
+                --         multicast (reqSn, v, ̅S.s + 1, T̂, 𝑈𝛼, txω)
                 & maybeRequestNextSnapshot (number snapshot + 1)
  where
   seenSn = seenSnapshotNumber seenSnapshot
@@ -857,7 +860,7 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl openState decommitTx =
-  -- Spec: wait txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
+  -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $ \newLocalUTxO -> do
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
     let decommitUTxO = utxoFromTx decommitTx
@@ -873,7 +876,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
               }
         )
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-      --         multicast (reqSn, v, ̅S.s + 1, T̂ , txω )
+      --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
  where
   waitOnApplicableDecommit cont =
@@ -1078,9 +1081,10 @@ onOpenClientClose ::
   Outcome tx
 onOpenClientClose st =
   -- Spec: η ← combine(̅S.𝑈)
-  --       ηω ← combine(outputs(̅S.txω))
+  --       η𝛼 ← combine(S.𝑈𝛼)
+  --       ηω ← combine(S.𝑈ω)
   --       ξ ← ̅S.σ
-  --       postTx (close, ̅S.v, ̅S.s, η, ηω,ξ)
+  --       postTx (close, ̅S.v, ̅S.s, η, η𝛼, ηω,ξ)
   cause
     OnChainEffect
       { postChainTx =
@@ -1124,9 +1128,10 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           -- that our last 'confirmedSnapshot' must match version or
           -- version-1. Assert this fact?
           -- Spec: η ← combine(̅S.𝑈)
-          --       ηω ← combine(outputs(̅S.txω))
+          --       η𝛼 ← combine(S.𝑈𝛼)
+          --       ηω ← combine(S.𝑈ω)
           --       ξ ← ̅S.σ
-          --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
+          --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
           <> cause
             OnChainEffect
               { postChainTx =
@@ -1173,9 +1178,10 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
             -- that our last 'confirmedSnapshot' must match version or
             -- version-1. Assert this fact?
             -- Spec: η ← combine(̅S.𝑈)
-            --       ηω ← combine(outputs(̅S.txω))
+            --       η𝛼 ← combine(S.𝑈𝛼)
+            --       ηω ← combine(S.𝑈ω)
             --       ξ ← ̅S.σ
-            --       postTx (contest, ̅S.v, ̅S.s, η, ηω, ξ)
+            --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
             <> cause
               OnChainEffect
                 { postChainTx =
