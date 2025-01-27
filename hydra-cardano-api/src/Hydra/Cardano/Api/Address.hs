@@ -4,10 +4,10 @@ module Hydra.Cardano.Api.Address where
 
 import Hydra.Cardano.Api.Prelude
 
-import Test.Cardano.Chain.Common.Gen (genAddress)
+import Test.Gen.Cardano.Api.Typed (genAddressByron)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- * Orphans
 
 instance Arbitrary (Address ByronAddr) where
-  arbitrary = ByronAddress <$> hedgehog genAddress
+  arbitrary = hedgehog genAddressByron
