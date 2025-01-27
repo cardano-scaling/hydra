@@ -3,12 +3,12 @@ slug: 31
 title: |
   31. Achieve constant memory in hydra-node
 authors: [v0d1ch]
-tags: [Proposed]
+tags: [Accepted]
 ---
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -40,4 +40,6 @@ automatically.
 
 This should lead to much better performance of hydra-node in terms of used
 memory for the running process. This should be also confirmed by running the
-relevant benchmarks.
+relevant [benchmarks](https://github.com/cardano-scaling/hydra/issues/1724) and
+do a test (even manual or a script) to assert that the memory consumption is
+actually reduced.
