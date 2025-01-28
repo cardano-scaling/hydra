@@ -52,7 +52,6 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: s
   , utxoHash :: Hash
   -- ^ Spec: η. Digest of snapshotted UTxO
-  -- | TODO: add alphaUTxOHash to the spec
   , alphaUTxOHash :: Hash
   , omegaUTxOHash :: Hash
   -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
@@ -182,10 +181,8 @@ data Input
   | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
-      , -- TODO: add this to the spec
-        numberOfCommitOutputs :: Integer
+      , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
-      -- ^ Spec: n
       }
   deriving stock (Generic, Show)
 

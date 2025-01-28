@@ -52,8 +52,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     toScriptData $
       Head.Fanout
         { numberOfFanoutOutputs = fromIntegral $ length $ toList utxo
-        , -- TODO: Update the spec with this new field 'numberOfCommitOutputs'
-          numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
+        , numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
         , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
         }
 
