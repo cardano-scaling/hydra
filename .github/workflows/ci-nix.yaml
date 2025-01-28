@@ -47,7 +47,7 @@ jobs:
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
         nix develop --command -- bash -c "cabal update"
-        nix develop --command -- bash -c "cabal build ${{ matrix.package }}"
+        nix develop --command -- bash -c "cabal test ${{ matrix.package }}"
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
@@ -60,7 +60,7 @@ jobs:
         TERM: "xterm"
       run: |
         nix develop --command -- bash -c "cabal update"
-        nix develop --command -- bash -c "cabal build ${{ matrix.package }}"
+        nix develop --command -- bash -c "cabal test ${{ matrix.package }}"
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
