@@ -1,0 +1,194 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Plutus core version to compile to. In babbage era, that is Cardano protocol</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- version 7 and 8, only plutus-core version 1.0.0 is available.</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><span class="hs-comment">-- | The validator used to deposit and recover locked funds</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.Deposit</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Prelude</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScriptVersion</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScriptV2</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Commit.html"><span class="hs-identifier">Hydra.Contract.Commit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Commit.html#Commit"><span class="hs-identifier">Commit</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html"><span class="hs-identifier">Hydra.Contract.DepositError</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositError"><span class="hs-identifier">DepositError</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositDeadlineNotReached"><span class="hs-identifier">DepositDeadlineNotReached</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositNoLowerBoundDefined"><span class="hs-identifier">DepositNoLowerBoundDefined</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Hydra.Contract.DepositError.html#IncorrectDepositHash"><span class="hs-identifier">IncorrectDepositHash</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html"><span class="hs-identifier">Hydra.Contract.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Head.html"><span class="hs-identifier">Hydra.Contract.Head</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Head.html#hashPreSerializedCommits"><span class="hs-identifier">hashPreSerializedCommits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Contract.Head.html#hashTxOuts"><span class="hs-identifier">hashTxOuts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ValidatorType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">scriptValidatorHash</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">wrapValidator</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Datum</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier">Extended</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Finite</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier">Interval</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ivFrom</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier">LowerBound</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">LowerBound</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier">POSIXTime</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptContext</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptHash</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier">SerialisedScript</span></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier">serialiseCompiledCode</span></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-identifier">txInfoOutputs</span></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier">txInfoValidRange</span></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CompiledCode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltinData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">data</span><span> </span><span id="DepositRedeemer"><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-var">DepositRedeemer</span></a></span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | Claims already deposited funds.</span></span><span>
+</span><span id="line-46"></span><span>    </span><span id="Claim"><span class="annot"><a href="Hydra.Contract.Deposit.html#Claim"><span class="hs-identifier hs-var">Claim</span></a></span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Recovers m number of deposited outputs.</span></span><span>
+</span><span id="line-48"></span><span>    </span><span id="Recover"><span class="annot"><a href="Hydra.Contract.Deposit.html#Recover"><span class="hs-identifier hs-var">Recover</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621679472669"><span id="local-6989586621679472676"><span id="local-6989586621679472678"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DepositRedeemer</span></span></span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><span class="hs-comment">-- | Deposit datum containing HeadId, deadline and a list of deposits.</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">newtype</span><span> </span><span id="DepositDatum"><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-var">DepositDatum</span></a></span></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="DepositDatum"><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-var">DepositDatum</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">POSIXTime</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.Commit.html#Commit"><span class="hs-identifier hs-type">Commit</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span id="local-6989586621679472719"><span id="local-6989586621679472727"><span id="local-6989586621679472729"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DepositDatum</span></span></span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- | v_deposit validator checks</span><span>
+</span><span id="line-59"></span><span class="hs-comment">--</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- * Claim redeemer -&gt; more checks will be added</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- * Recover redeemer</span><span>
+</span><span id="line-63"></span><span class="hs-comment">--     * The deadline has been reached.</span><span>
+</span><span id="line-64"></span><span class="hs-comment">--     * The hash of recovered outputs are matching the deposited outputs.</span><span>
+</span><span id="line-65"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#validator"><span class="hs-identifier hs-type">validator</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-type">DepositDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-type">DepositRedeemer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptContext</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-66"></span><span id="validator"><span class="annot"><span class="annottext">validator :: DepositDatum -&gt; DepositRedeemer -&gt; ScriptContext -&gt; Bool
+</span><a href="Hydra.Contract.Deposit.html#validator"><span class="hs-identifier hs-var hs-var">validator</span></a></span></span><span> </span><span id="local-6989586621679472770"><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679472770"><span class="hs-identifier hs-var">depositDatum</span></a></span></span><span> </span><span id="local-6989586621679472771"><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679472771"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679472772"><span class="annot"><span class="annottext">ScriptContext
+</span><a href="#local-6989586621679472772"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679472771"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="Hydra.Contract.Deposit.html#Claim"><span class="hs-identifier hs-var">Claim</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><a href="Hydra.Contract.Deposit.html#Recover"><span class="hs-identifier hs-type">Recover</span></a></span><span> </span><span id="local-6989586621679472773"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472773"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679472774"><span class="hs-identifier hs-var">afterDeadline</span></a></span><span>
+</span><span id="line-71"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Bool
+</span><a href="#local-6989586621679472776"><span class="hs-identifier hs-var">recoverOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472773"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-type">DepositDatum</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679472777"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679472777"><span class="hs-identifier hs-var">_headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679472778"><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679472778"><span class="hs-identifier hs-var">dl</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679472779"><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679472779"><span class="hs-identifier hs-var">deposits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679472770"><span class="hs-identifier hs-var">depositDatum</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679472776"><span class="annot"><span class="annottext">recoverOutputs :: Integer -&gt; Bool
+</span><a href="#local-6989586621679472776"><span class="hs-identifier hs-var hs-var">recoverOutputs</span></a></span></span><span> </span><span id="local-6989586621679472780"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472780"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">BuiltinString -&gt; Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">traceIfFalse</span></span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html#IncorrectDepositHash"><span class="hs-identifier hs-type">IncorrectDepositHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-76"></span><span>      </span><span class="annot"><span class="annottext">Integer -&gt; BuiltinByteString
+</span><a href="#local-6989586621679472783"><span class="hs-identifier hs-var">hashOfOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472780"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinByteString -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">[Commit] -&gt; BuiltinByteString
+</span><a href="Hydra.Contract.Head.html#hashPreSerializedCommits"><span class="hs-identifier hs-var">hashPreSerializedCommits</span></a></span><span> </span><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679472779"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679472783"><span class="annot"><span class="annottext">hashOfOutputs :: Integer -&gt; BuiltinByteString
+</span><a href="#local-6989586621679472783"><span class="hs-identifier hs-var hs-var">hashOfOutputs</span></a></span></span><span> </span><span id="local-6989586621679472784"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472784"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">[TxOut] -&gt; BuiltinByteString
+</span><a href="Hydra.Contract.Head.html#hashTxOuts"><span class="hs-identifier hs-var">hashTxOuts</span></a></span><span> </span><span class="annot"><span class="annottext">([TxOut] -&gt; BuiltinByteString) -&gt; [TxOut] -&gt; BuiltinByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; [TxOut] -&gt; [TxOut]
+forall a. Integer -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">take</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679472784"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxInfo -&gt; [TxOut]
+</span><span class="hs-identifier hs-var">txInfoOutputs</span></span><span> </span><span class="annot"><span class="annottext">TxInfo
+</span><a href="#local-6989586621679472786"><span class="hs-identifier hs-var">txInfo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679472774"><span class="annot"><span class="annottext">afterDeadline :: Bool
+</span><a href="#local-6989586621679472774"><span class="hs-identifier hs-var hs-var">afterDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Interval POSIXTime -&gt; LowerBound POSIXTime
+forall a. Interval a -&gt; LowerBound a
+</span><span class="hs-identifier hs-var">ivFrom</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxInfo -&gt; Interval POSIXTime
+</span><span class="hs-identifier hs-var">txInfoValidRange</span></span><span> </span><span class="annot"><span class="annottext">TxInfo
+</span><a href="#local-6989586621679472786"><span class="hs-identifier hs-var">txInfo</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-83"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">LowerBound</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Finite</span></span><span> </span><span id="local-6989586621679472787"><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679472787"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-84"></span><span>        </span><span class="annot"><span class="annottext">BuiltinString -&gt; Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">traceIfFalse</span></span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositDeadlineNotReached"><span class="hs-identifier hs-type">DepositDeadlineNotReached</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-85"></span><span>          </span><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679472787"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime -&gt; POSIXTime -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679472778"><span class="hs-identifier hs-var">dl</span></a></span><span>
+</span><span id="line-86"></span><span>      </span><span class="annot"><span class="annottext">LowerBound POSIXTime
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BuiltinString -&gt; Bool
+forall a. BuiltinString -&gt; a
+</span><span class="hs-identifier hs-var">traceError</span></span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier hs-type">errorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositNoLowerBoundDefined"><span class="hs-identifier hs-type">DepositNoLowerBoundDefined</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptContext</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">scriptContextTxInfo :: ScriptContext -&gt; TxInfo
+</span><span class="hs-identifier hs-var">scriptContextTxInfo</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679472786"><span class="annot"><span class="annottext">TxInfo
+</span><a href="#local-6989586621679472786"><span class="hs-identifier hs-var">txInfo</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptContext
+</span><a href="#local-6989586621679472772"><span class="hs-identifier hs-var">ctx</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#compiledValidator"><span class="hs-identifier hs-type">compiledValidator</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CompiledCode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ValidatorType</span></span><span>
+</span><span id="line-91"></span><span id="compiledValidator"><span class="annot"><span class="annottext">compiledValidator :: CompiledCode ValidatorType
+</span><a href="Hydra.Contract.Deposit.html#compiledValidator"><span class="hs-identifier hs-var hs-var">compiledValidator</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-special">$$</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.compile</span></span><span> </span><span class="hs-special">[||</span><span class="annot"><a href="#local-6989586621679472792"><span class="hs-identifier hs-type">wrap</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#validator"><span class="hs-identifier hs-type">validator</span></a></span><span class="hs-special">||]</span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621679472792"><span class="annot"><span class="annottext">wrap :: (DepositDatum -&gt; DepositRedeemer -&gt; ScriptContext -&gt; Bool)
+-&gt; ValidatorType
+</span><a href="#local-6989586621679472792"><span class="hs-identifier hs-var hs-var">wrap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall datum redeemer context.
+(UnsafeFromData datum, UnsafeFromData redeemer,
+ UnsafeFromData context) =&gt;
+(datum -&gt; redeemer -&gt; context -&gt; Bool) -&gt; ValidatorType
+</span><span class="hs-identifier hs-var">wrapValidator</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-type">DepositDatum</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-type">DepositRedeemer</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#validatorScript"><span class="hs-identifier hs-type">validatorScript</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialisedScript</span></span><span>
+</span><span id="line-97"></span><span id="validatorScript"><span class="annot"><span class="annottext">validatorScript :: SerialisedScript
+</span><a href="Hydra.Contract.Deposit.html#validatorScript"><span class="hs-identifier hs-var hs-var">validatorScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType -&gt; SerialisedScript
+forall a. CompiledCode a -&gt; SerialisedScript
+</span><span class="hs-identifier hs-var">serialiseCompiledCode</span></span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType
+</span><a href="Hydra.Contract.Deposit.html#compiledValidator"><span class="hs-identifier hs-var">compiledValidator</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#validatorHash"><span class="hs-identifier hs-type">validatorHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptHash</span></span><span>
+</span><span id="line-100"></span><span id="validatorHash"><span class="annot"><span class="annottext">validatorHash :: ScriptHash
+</span><a href="Hydra.Contract.Deposit.html#validatorHash"><span class="hs-identifier hs-var hs-var">validatorHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion PlutusScriptV2
+-&gt; SerialisedScript -&gt; ScriptHash
+forall lang.
+PlutusScriptVersion lang -&gt; SerialisedScript -&gt; ScriptHash
+</span><span class="hs-identifier hs-var">scriptValidatorHash</span></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion PlutusScriptV2
+</span><span class="hs-identifier hs-var">PlutusScriptV2</span></span><span> </span><span class="annot"><span class="annottext">SerialisedScript
+</span><a href="Hydra.Contract.Deposit.html#validatorScript"><span class="hs-identifier hs-var">validatorScript</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#datum"><span class="hs-identifier hs-type">datum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-type">DepositDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Datum</span></span><span>
+</span><span id="line-103"></span><span id="datum"><span class="annot"><span class="annottext">datum :: DepositDatum -&gt; Datum
+</span><a href="Hydra.Contract.Deposit.html#datum"><span class="hs-identifier hs-var hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679472803"><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679472803"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Datum
+</span><span class="hs-identifier hs-var">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositDatum -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679472803"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#redeemer"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-type">DepositRedeemer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Redeemer</span></span><span>
+</span><span id="line-106"></span><span id="redeemer"><span class="annot"><span class="annottext">redeemer :: DepositRedeemer -&gt; Redeemer
+</span><a href="Hydra.Contract.Deposit.html#redeemer"><span class="hs-identifier hs-var hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679472805"><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679472805"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Redeemer
+</span><span class="hs-identifier hs-var">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositRedeemer -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679472805"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span></pre></body></html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.CommitError</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-2"></span><span>  </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-3"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Hydra.Contract.CommitError.html"><span class="hs-identifier">Hydra.Contract.CommitError</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html"><span class="hs-identifier">Hydra.Contract.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier">ToErrorCode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#errorCode"><span class="hs-identifier">errorCode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Text.Show.html"><span class="hs-identifier">Text.Show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier">Show</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">data</span><span> </span><span id="CommitError"><span class="annot"><a href="Hydra.Contract.CommitError.html#CommitError"><span class="hs-identifier hs-var">CommitError</span></a></span></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="STNotBurnedError"><span class="annot"><a href="Hydra.Contract.CommitError.html#STNotBurnedError"><span class="hs-identifier hs-var">STNotBurnedError</span></a></span></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="STIsMissingInTheOutput"><span class="annot"><a href="Hydra.Contract.CommitError.html#STIsMissingInTheOutput"><span class="hs-identifier hs-var">STIsMissingInTheOutput</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679467996"><span id="local-6989586621679467998"><span id="local-6989586621679468002"><span class="annot"><span class="annottext">Int -&gt; CommitError -&gt; ShowS
+[CommitError] -&gt; ShowS
+CommitError -&gt; String
+(Int -&gt; CommitError -&gt; ShowS)
+-&gt; (CommitError -&gt; String)
+-&gt; ([CommitError] -&gt; ShowS)
+-&gt; Show CommitError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; CommitError -&gt; ShowS
+showsPrec :: Int -&gt; CommitError -&gt; ShowS
+$cshow :: CommitError -&gt; String
+show :: CommitError -&gt; String
+$cshowList :: [CommitError] -&gt; ShowS
+showList :: [CommitError] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.CommitError.html#CommitError"><span class="hs-identifier hs-type">CommitError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>  </span><span id="local-6989586621679468011"><span class="annot"><span class="annottext">toErrorCode :: CommitError -&gt; Text
+</span><a href="#local-6989586621679468011"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="annottext">CommitError
+</span><a href="Hydra.Contract.CommitError.html#STNotBurnedError"><span class="hs-identifier hs-var">STNotBurnedError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;C01&quot;</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="annottext">CommitError
+</span><a href="Hydra.Contract.CommitError.html#STIsMissingInTheOutput"><span class="hs-identifier hs-var">STIsMissingInTheOutput</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;C02&quot;</span></span><span>
+</span><span id="line-18"></span></pre></body></html>

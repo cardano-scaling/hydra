@@ -1,0 +1,515 @@
+{
+  "site": {
+    "lastUpdatedAt": "2024-09-13T14:50:14+01:00"
+  },
+  "adr/1": {
+    "source": {
+      "lastUpdatedAt": "2022-07-22T09:16:51+02:00",
+      "commitHash": "64a94e277cea82c0302eb15b1fae7278c93e75f9"
+    }
+  },
+  "adr/2": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/3": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/4": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/5": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/6": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/7": {
+    "source": {
+      "lastUpdatedAt": "2022-04-19T11:02:00+02:00",
+      "commitHash": "6e6d3635017291f8cadb9f6c033aa1dad8e78f90"
+    }
+  },
+  "adr/8": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/9": {
+    "source": {
+      "lastUpdatedAt": "2022-04-21T16:12:57+02:00",
+      "commitHash": "dc52442bd5967196db5a8003f923b6977437fd7f"
+    }
+  },
+  "adr/10": {
+    "source": {
+      "lastUpdatedAt": "2023-05-09T16:56:10+02:00",
+      "commitHash": "a87dd1648da0c766e5456de52b73b3cccfd5cfbd"
+    }
+  },
+  "adr/11": {
+    "source": {
+      "lastUpdatedAt": "2022-03-09T18:19:50+01:00",
+      "commitHash": "477d1cbab7a54793edc4c91ce3ca1f579db5c07c"
+    }
+  },
+  "adr/12": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "adr/13": {
+    "source": {
+      "lastUpdatedAt": "2022-04-19T11:02:28+02:00",
+      "commitHash": "d15d4d3a19df8496d3841c2d4bbdf1317886fc62"
+    }
+  },
+  "adr/14": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "adr/15": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/16": {
+    "source": {
+      "lastUpdatedAt": "2022-11-18T09:23:26+01:00",
+      "commitHash": "cb8657e254422d0c1bc4878af9a359163c48ce0a"
+    }
+  },
+  "adr/17": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/18": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "adr/19": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/20": {
+    "source": {
+      "lastUpdatedAt": "2022-09-13T13:23:04+02:00",
+      "commitHash": "a97f8b3652ff15cc2a92cb4eac381b186663f1aa"
+    }
+  },
+  "adr/21": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/22": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/23": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "adr/24": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "adr/25": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/26": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/27": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/28": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "adr/29": {
+    "source": {
+      "lastUpdatedAt": "2024-03-13T20:39:27+01:00",
+      "commitHash": "724f6e8b8461615e48c3b603c00fb4621a808b69"
+    }
+  },
+  "adr/30": {
+    "source": {
+      "lastUpdatedAt": "2024-09-18T14:33:34+02:00",
+      "commitHash": "a6a121d65f9945f169c1ba8fec5060181477528c"
+    }
+  },
+  "benchmarks/end-to-end-benchmarks": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T08:07:29+01:00",
+      "commitHash": "0f010f360d82581a61b3df0f6edb1224ef72323b"
+    }
+  },
+  "benchmarks/mt-benchmarks": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/profiling": {
+    "source": {
+      "lastUpdatedAt": "2024-09-03T10:50:49+01:00",
+      "commitHash": "0062556b9c4b71ede5100b67e7749f4a4944d403"
+    }
+  },
+  "benchmarks/tests/hydra-cluster/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/tests/hydra-node/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/tests/hydra-plutus/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/tests/hydra-tx/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/tests/plutus-cbor/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/tests/plutus-merkle-tree/hspec-results": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "benchmarks/transaction-cost": {
+    "source": {
+      "lastUpdatedAt": "",
+      "commitHash": ""
+    }
+  },
+  "docs/api-behavior": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
+      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+    }
+  },
+  "docs/configuration": {
+    "source": {
+      "lastUpdatedAt": "2024-08-14T11:51:14+02:00",
+      "commitHash": "fe2c625b867a2e0ed1a37dd47aa2a2dd8866d89c"
+    }
+  },
+  "docs/dev/architecture": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T10:58:18+03:00",
+      "commitHash": "d6040f59218f12a89a7236e5eb20e045aafb3143"
+    }
+  },
+  "docs/dev/architecture/networking": {
+    "source": {
+      "lastUpdatedAt": "2024-09-09T12:54:29+01:00",
+      "commitHash": "d2785e7938f1f0df521dd6c0ad703a2436a9fe04"
+    }
+  },
+  "docs/dev/haskell-packages": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T10:58:18+03:00",
+      "commitHash": "d6040f59218f12a89a7236e5eb20e045aafb3143"
+    }
+  },
+  "docs/dev": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T10:58:18+03:00",
+      "commitHash": "d6040f59218f12a89a7236e5eb20e045aafb3143"
+    }
+  },
+  "docs/dev/layer-two": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
+      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+    }
+  },
+  "docs/dev/protocol": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T10:13:36+02:00",
+      "commitHash": "9a1be5784d88ba20fbdd2c9471b797cacd45ae20"
+    }
+  },
+  "docs/dev/rollbacks": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T10:58:18+03:00",
+      "commitHash": "d6040f59218f12a89a7236e5eb20e045aafb3143"
+    }
+  },
+  "docs/dev/scalability": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
+      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+    }
+  },
+  "docs/dev/specification": {
+    "source": {
+      "lastUpdatedAt": "2024-08-05T12:24:36Z",
+      "commitHash": "8245e1e8c28d10e42663c17e50f0ef395a4674de"
+    }
+  },
+  "docs/faqs": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
+      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+    }
+  },
+  "docs/get-involved": {
+    "source": {
+      "lastUpdatedAt": "2024-08-15T11:12:56+03:00",
+      "commitHash": "3a35154832ba5d809f25fb1f4193212238dc972d"
+    }
+  },
+  "docs/getting-started-without-docker": {
+    "source": {
+      "lastUpdatedAt": "2024-05-06T15:23:03+02:00",
+      "commitHash": "c8befac14cb347b0168f9aafab37e89769e44bb7"
+    }
+  },
+  "docs/getting-started": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "docs/how-to/commit-blueprint": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "docs/how-to/event-sinks-and-sources": {
+    "source": {
+      "lastUpdatedAt": "2024-06-17T11:30:45+02:00",
+      "commitHash": "93ed6d65ef9cc70176d64f6687c38c16242f4ea8"
+    }
+  },
+  "docs/how-to/incremental-decommit": {
+    "source": {
+      "lastUpdatedAt": "2024-07-16T13:18:28+02:00",
+      "commitHash": "ecca46b9c1cb50793499e0fa3a93b72f15ce1484"
+    }
+  },
+  "docs/how-to/operating-hydra": {
+    "source": {
+      "lastUpdatedAt": "2024-06-17T11:30:45+02:00",
+      "commitHash": "93ed6d65ef9cc70176d64f6687c38c16242f4ea8"
+    }
+  },
+  "docs/how-to/submit-transaction": {
+    "source": {
+      "lastUpdatedAt": "2024-06-26T20:21:20+01:00",
+      "commitHash": "bf0ec232785fcdd99d34601d4efb5544a87ba945"
+    }
+  },
+  "docs": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "docs/installation": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "docs/known-issues": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "docs/protocol-overview": {
+    "source": {
+      "lastUpdatedAt": "2024-07-10T09:59:38+02:00",
+      "commitHash": "81230a6da262f3fffe7c4a4f936eba577cbc5d08"
+    }
+  },
+  "docs/tutorial": {
+    "source": {
+      "lastUpdatedAt": "2024-09-13T14:50:14+01:00",
+      "commitHash": "1ffe7c6b505e3f38b5546ae5e5b97de26bc70425"
+    }
+  },
+  "standalone/audit-guidelines": {
+    "source": {
+      "lastUpdatedAt": "2024-09-03T10:50:49+01:00",
+      "commitHash": "0062556b9c4b71ede5100b67e7749f4a4944d403"
+    }
+  },
+  "standalone/contribute": {
+    "source": {
+      "lastUpdatedAt": "2024-07-11T09:46:33+02:00",
+      "commitHash": "3e7bd6bea84002d316c138f54a18e4d250326ccf"
+    }
+  },
+  "standalone/writing-style-guide": {
+    "source": {
+      "lastUpdatedAt": "2024-07-29T14:51:31+01:00",
+      "commitHash": "05b8ad1ddc916939b25f58ab56749f8a79182d6c"
+    }
+  },
+  "topologies/basic": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
+      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+    }
+  },
+  "topologies/delegated-head": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
+      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+    }
+  },
+  "topologies": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
+      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+    }
+  },
+  "topologies/star-shaped": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:40:15+01:00",
+      "commitHash": "cd52660e6eb05e3f10c354999eda5cd58ce7011c"
+    }
+  },
+  "use-cases/auctions/always-on-service-multi": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
+      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+    }
+  },
+  "use-cases/auctions/always-on-service-single": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
+      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+    }
+  },
+  "use-cases/auctions/delegated-voucher-invitational": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
+      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+    }
+  },
+  "use-cases/auctions/delegated-voucher-open": {
+    "source": {
+      "lastUpdatedAt": "2024-07-22T09:34:53+02:00",
+      "commitHash": "a460d8e5429018b06056fb262df2a0bd9bb3d0f3"
+    }
+  },
+  "use-cases/auctions/delegated-voucher-sdk": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases/auctions": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases": {
+    "source": {
+      "lastUpdatedAt": "2024-08-02T14:25:37+03:00",
+      "commitHash": "30e3e5ccc686054561a55975213a823f53b06c55"
+    }
+  },
+  "use-cases/other/poker-game": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases/payments": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases/payments/inter-wallet-payments": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases/payments/lighting-network-like-payments": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  },
+  "use-cases/payments/pay-per-use-api": {
+    "source": {
+      "lastUpdatedAt": "2024-07-19T10:31:23+01:00",
+      "commitHash": "c3997d0175eb70027da844a40bd9f750bf43441d"
+    }
+  }
+}

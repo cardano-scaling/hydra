@@ -1,0 +1,54 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Plutus core version to compile to. In babbage era, that is Cardano protocol</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- version 7 and 8, only plutus-core version 1.0.0 is available.</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><span class="hs-comment">-- | The validator used to deposit and recover locked funds</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.Deposit</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Prelude</span></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Contract.Commit.html"><span class="hs-identifier">Hydra.Contract.Commit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Contract.Commit.html#Commit"><span class="hs-identifier">Commit</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Datum</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">POSIXTime</span></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PlutusV3</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toBuiltinData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">data</span><span> </span><span id="DepositRedeemer"><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-var">DepositRedeemer</span></a></span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-comment">-- | Claims already deposited funds.</span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-comment">-- FIXME: Make sure to change the spec and add head CS to the Claim redeemer.</span><span>
+</span><span id="line-28"></span><span>    </span><span id="Claim"><span class="annot"><a href="Hydra.Contract.Deposit.html#Claim"><span class="hs-identifier hs-var">Claim</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | Recovers m number of deposited outputs.</span></span><span>
+</span><span id="line-30"></span><span>    </span><span id="Recover"><span class="annot"><a href="Hydra.Contract.Deposit.html#Recover"><span class="hs-identifier hs-var">Recover</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span id="local-6989586621679481894"><span id="local-6989586621679481903"><span id="local-6989586621679481905"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DepositRedeemer</span></span></span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">-- | Deposit datum containing HeadId, deadline and a list of deposits.</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">type</span><span> </span><span id="DepositDatum"><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-var">DepositDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">POSIXTime</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Contract.Commit.html#Commit"><span class="hs-identifier hs-type">Commit</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#datum"><span class="hs-identifier hs-type">datum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositDatum"><span class="hs-identifier hs-type">DepositDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusV3.Datum</span></span><span>
+</span><span id="line-38"></span><span id="datum"><span class="annot"><span class="annottext">datum :: DepositDatum -&gt; Datum
+</span><a href="Hydra.Contract.Deposit.html#datum"><span class="hs-identifier hs-var hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679481951"><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679481951"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Datum
+</span><span class="hs-identifier hs-var">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositDatum -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DepositDatum
+</span><a href="#local-6989586621679481951"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><a href="Hydra.Contract.Deposit.html#redeemer"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Deposit.html#DepositRedeemer"><span class="hs-identifier hs-type">DepositRedeemer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Redeemer</span></span><span>
+</span><span id="line-41"></span><span id="redeemer"><span class="annot"><span class="annottext">redeemer :: DepositRedeemer -&gt; Redeemer
+</span><a href="Hydra.Contract.Deposit.html#redeemer"><span class="hs-identifier hs-var hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679481953"><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679481953"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Redeemer
+</span><span class="hs-identifier hs-var">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositRedeemer -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DepositRedeemer
+</span><a href="#local-6989586621679481953"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span></pre></body></html>

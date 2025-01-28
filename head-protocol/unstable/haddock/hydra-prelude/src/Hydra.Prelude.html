@@ -1,0 +1,491 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- NOTE: Usage of 'trace' in 'spy' is accepted here.</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-deprecations #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Prelude</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-5"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Relude</span></span><span class="hs-special">,</span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadSTM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadTime.SI</span></span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadST</span></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadAsync</span></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadEventlog</span></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadTimer.SI</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadFork</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadThrow</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TBQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">StaticMap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">DynamicMap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">keys</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">elems</span></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier">FromCBOR</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">ToCBOR</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">encodePretty</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">Gen</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#genericArbitrary"><span class="hs-identifier">genericArbitrary</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier">genericShrink</span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#generateWith"><span class="hs-identifier">generateWith</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#shrinkListAggressively"><span class="hs-identifier">shrinkListAggressively</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#reasonablySized"><span class="hs-identifier">reasonablySized</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#ReasonablySized"><span class="hs-identifier">ReasonablySized</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#padRight"><span class="hs-identifier">padRight</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Except.html#Except"><span class="hs-identifier">Except</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#decodeBase16"><span class="hs-identifier">decodeBase16</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#%3F%3E"><span class="hs-operator">(?&gt;)</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#withFile"><span class="hs-identifier">withFile</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#spy"><span class="hs-identifier">spy</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.Prelude.html#spy%27"><span class="hs-identifier">spy'</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Binary</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><span class="hs-identifier">FromCBOR</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><span class="hs-identifier">ToCBOR</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TBQueue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TBQueue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TMVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TMVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TQueue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TQueue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM.TVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readTVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Exception.html"><span class="hs-identifier">Control.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier">IOException</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadAsync</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">concurrently</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">concurrently_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">race</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">race_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withAsync</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-55"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadEventlog</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadEventlog</span></span><span class="hs-special">,</span><span>
+</span><span id="line-58"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadFork</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadFork</span></span><span class="hs-special">,</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadThread</span></span><span class="hs-special">,</span><span>
+</span><span id="line-62"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadST</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadST</span></span><span class="hs-special">,</span><span>
+</span><span id="line-65"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadSTM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-identifier">STM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><span class="hs-identifier">atomically</span></span><span class="hs-special">,</span><span>
+</span><span id="line-70"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadThrow</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadCatch</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadEvaluate</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadMask</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadThrow</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-76"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadTime.SI</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier">DiffTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadMonotonicTime</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadTime</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier">NominalDiffTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="hs-identifier">Time</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier">UTCTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><span class="hs-identifier">addTime</span></span><span class="hs-special">,</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier">addUTCTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="hs-identifier">diffTime</span></span><span class="hs-special">,</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#diffUTCTime"><span class="hs-identifier">diffUTCTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-88"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadTimer.SI</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadDelay</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadTimer</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-92"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Except.html"><span class="hs-identifier">Control.Monad.Trans.Except</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Except.html#Except"><span class="hs-identifier">Except</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="hs-identifier">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="hs-identifier">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-97"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Encode.Pretty</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="hs-identifier">encodePretty</span></span><span class="hs-special">,</span><span>
+</span><span id="line-100"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base16</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Base16</span></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.html"><span class="hs-identifier">Data.Text</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html"><span class="hs-identifier">GHC.Generics</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Rep"><span class="hs-identifier">Rep</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Generic.Random</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Random</span></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Generic.Random.Internal.Generic</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Random</span></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Relude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.MVar.html#MVar"><span class="hs-identifier">MVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.TypeNats.html#Nat"><span class="hs-identifier">Nat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#STM"><span class="hs-identifier">STM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#TMVar"><span class="hs-identifier">TMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#TVar"><span class="hs-identifier">TVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-112"></span><span>  </span><span class="annot"><span class="hs-identifier">atomically</span></span><span class="hs-special">,</span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#catchSTM"><span class="hs-identifier">catchSTM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#isEmptyTMVar"><span class="hs-identifier">isEmptyTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#mkWeakTMVar"><span class="hs-identifier">mkWeakTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-116"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TVar.html#modifyTVar%27"><span class="hs-identifier">modifyTVar'</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="hs-identifier">newEmptyMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#newEmptyTMVar"><span class="hs-identifier">newEmptyTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><span class="hs-identifier">newEmptyTMVarIO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="hs-identifier">newMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-121"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#newTMVar"><span class="hs-identifier">newTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-122"></span><span>  </span><span class="annot"><span class="hs-identifier">newTMVarIO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#newTVar"><span class="hs-identifier">newTVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-124"></span><span>  </span><span class="annot"><span class="hs-identifier">newTVarIO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><span class="hs-identifier">putMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#putTMVar"><span class="hs-identifier">putTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-127"></span><span>  </span><span class="annot"><span class="hs-identifier">readMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#readTMVar"><span class="hs-identifier">readTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#readTVar"><span class="hs-identifier">readTVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-130"></span><span>  </span><span class="annot"><span class="hs-identifier">readTVarIO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-131"></span><span>  </span><span class="annot"><span class="hs-identifier">swapMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#swapTMVar"><span class="hs-identifier">swapTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-133"></span><span>  </span><span class="annot"><span class="hs-identifier">takeMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#takeTMVar"><span class="hs-identifier">takeTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-135"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#throwSTM"><span class="hs-identifier">throwSTM</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-136"></span><span>  </span><span class="annot"><span class="hs-identifier">traceM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-137"></span><span>  </span><span class="annot"><span class="hs-identifier">tryPutMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-138"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#tryPutTMVar"><span class="hs-identifier">tryPutTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-139"></span><span>  </span><span class="annot"><span class="hs-identifier">tryReadMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#tryReadTMVar"><span class="hs-identifier">tryReadTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-141"></span><span>  </span><span class="annot"><span class="hs-identifier">tryTakeMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-142"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/stm-2.5.1.0/src/Control.Concurrent.STM.TMVar.html#tryTakeTMVar"><span class="hs-identifier">tryTakeTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-143"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.StdHandles.html#withFile"><span class="hs-identifier">withFile</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Conc.Sync.html#writeTVar"><span class="hs-identifier">writeTVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-145"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Relude.Extra.Map</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-147"></span><span>  </span><span class="annot"><span class="hs-identifier">DynamicMap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-148"></span><span>  </span><span class="annot"><span class="hs-identifier">StaticMap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-149"></span><span>  </span><span class="annot"><span class="hs-identifier">elems</span></span><span class="hs-special">,</span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><span class="hs-identifier">keys</span></span><span class="hs-special">,</span><span>
+</span><span id="line-151"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/System.IO.html"><span class="hs-identifier">System.IO</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-153"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-154"></span><span>  </span><span class="annot"><span class="hs-identifier">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-155"></span><span>  </span><span class="annot"><span class="hs-identifier">Gen</span></span><span class="hs-special">,</span><span>
+</span><span id="line-156"></span><span>  </span><span class="annot"><span class="hs-identifier">genericShrink</span></span><span class="hs-special">,</span><span>
+</span><span id="line-157"></span><span>  </span><span class="annot"><span class="hs-identifier">scale</span></span><span class="hs-special">,</span><span>
+</span><span id="line-158"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Gen</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Random</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkQCGen</span></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Text.Pretty.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">pShow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span class="hs-comment">-- | Provides a sensible way of automatically deriving generic 'Arbitrary'</span><span>
+</span><span id="line-164"></span><span class="hs-comment">-- instances for data-types. In the case where more advanced or tailored</span><span>
+</span><span id="line-165"></span><span class="hs-comment">-- generators are needed, custom hand-written generators should be used with</span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- functions such as `forAll` or `forAllShrink`.</span><span>
+</span><span id="line-167"></span><span id="local-6989586621679104717"><span class="annot"><a href="Hydra.Prelude.html#genericArbitrary"><span class="hs-identifier hs-type">genericArbitrary</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-type">Generic</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104717"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-169"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Random.GA</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Random.UnsizedOpts</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Rep"><span class="hs-identifier hs-type">Rep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104717"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Random.UniformWeight</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Random.Weights_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Rep"><span class="hs-identifier hs-type">Rep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104717"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-172"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="#local-6989586621679104717"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-173"></span><span id="genericArbitrary"><span class="annot"><span class="annottext">genericArbitrary :: forall a.
+(Generic a, GA UnsizedOpts (Rep a),
+ UniformWeight (Weights_ (Rep a))) =&gt;
+Gen a
+</span><a href="Hydra.Prelude.html#genericArbitrary"><span class="hs-identifier hs-var hs-var">genericArbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-174"></span><span>  </span><span class="annot"><span class="annottext">Weights a -&gt; Gen a
+forall a. GArbitrary UnsizedOpts a =&gt; Weights a -&gt; Gen a
+</span><span class="hs-identifier hs-var">Random.genericArbitrary</span></span><span> </span><span class="annot"><span class="annottext">Weights a
+forall a. UniformWeight_ (Rep a) =&gt; Weights a
+</span><span class="hs-identifier hs-var">Random.uniform</span></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="annot"><span class="hs-comment">-- | A seeded, deterministic, generator</span></span><span>
+</span><span id="line-177"></span><span id="local-6989586621679104732"><span class="annot"><a href="Hydra.Prelude.html#generateWith"><span class="hs-identifier hs-type">generateWith</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="#local-6989586621679104732"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104732"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-178"></span><span id="generateWith"><span class="annot"><span class="annottext">generateWith :: forall a. Gen a -&gt; Int -&gt; a
+</span><a href="Hydra.Prelude.html#generateWith"><span class="hs-identifier hs-var hs-var">generateWith</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MkGen</span></span><span> </span><span id="local-6989586621679104933"><span class="annot"><span class="annottext">QCGen -&gt; Int -&gt; a
+</span><a href="#local-6989586621679104933"><span class="hs-identifier hs-var">runGen</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679104934"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679104934"><span class="hs-identifier hs-var">seed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-179"></span><span>  </span><span class="annot"><span class="annottext">QCGen -&gt; Int -&gt; a
+</span><a href="#local-6989586621679104933"><span class="hs-identifier hs-var">runGen</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; QCGen
+</span><span class="hs-identifier hs-var">mkQCGen</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679104934"><span class="hs-identifier hs-var">seed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">30</span></span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- | Like 'shrinkList', but more aggressive :)</span><span>
+</span><span id="line-182"></span><span class="hs-comment">--</span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- Useful for shrinking large nested Map or Lists where the shrinker &quot;don't have</span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- time&quot; to go through many cases.</span><span>
+</span><span id="line-185"></span><span id="local-6989586621679104735"><span class="annot"><a href="Hydra.Prelude.html#shrinkListAggressively"><span class="hs-identifier hs-type">shrinkListAggressively</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679104735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679104735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span></span><span>
+</span><span id="line-186"></span><span id="shrinkListAggressively"><span class="annot"><span class="annottext">shrinkListAggressively :: forall a. [a] -&gt; [[a]]
+</span><a href="Hydra.Prelude.html#shrinkListAggressively"><span class="hs-identifier hs-var hs-var">shrinkListAggressively</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-187"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-188"></span><span>  </span><span id="local-6989586621679104941"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679104941"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int -&gt; [a] -&gt; [a]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[a] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679104941"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#div"><span class="hs-operator hs-var">`div`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679104941"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int -&gt; [a] -&gt; [a]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.List.html#drop"><span class="hs-identifier hs-var">drop</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679104941"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span class="hs-comment">-- | Resize a generator to grow with the size parameter, but remains reasonably</span><span>
+</span><span id="line-191"></span><span class="hs-comment">-- sized. That is handy when testing on data-structures that can be arbitrarily</span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- large and, when large entities don't really bring any value to the test</span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- itself.</span><span>
+</span><span id="line-194"></span><span class="hs-comment">--</span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- It uses a square root function which makes the size parameter grows</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- quadratically slower than normal. That is,</span><span>
+</span><span id="line-197"></span><span class="hs-comment">--</span><span>
+</span><span id="line-198"></span><span class="hs-comment">--     +-------------+------------------+</span><span>
+</span><span id="line-199"></span><span class="hs-comment">--     | Normal Size | Reasonable Size  |</span><span>
+</span><span id="line-200"></span><span class="hs-comment">--     | ----------- + ---------------- +</span><span>
+</span><span id="line-201"></span><span class="hs-comment">--     | 0           | 0                |</span><span>
+</span><span id="line-202"></span><span class="hs-comment">--     | 1           | 1                |</span><span>
+</span><span id="line-203"></span><span class="hs-comment">--     | 10          | 3                |</span><span>
+</span><span id="line-204"></span><span class="hs-comment">--     | 100         | 10               |</span><span>
+</span><span id="line-205"></span><span class="hs-comment">--     | 1000        | 31               |</span><span>
+</span><span id="line-206"></span><span class="hs-comment">--     +-------------+------------------+</span><span>
+</span><span id="line-207"></span><span id="local-6989586621679104742"><span class="annot"><a href="Hydra.Prelude.html#reasonablySized"><span class="hs-identifier hs-type">reasonablySized</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="#local-6989586621679104742"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="#local-6989586621679104742"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-208"></span><span id="reasonablySized"><span class="annot"><span class="annottext">reasonablySized :: forall a. Gen a -&gt; Gen a
+</span><a href="Hydra.Prelude.html#reasonablySized"><span class="hs-identifier hs-var hs-var">reasonablySized</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Int) -&gt; Gen a -&gt; Gen a
+forall a. (Int -&gt; Int) -&gt; Gen a -&gt; Gen a
+</span><span class="hs-identifier hs-var">scale</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Int
+forall b. Integral b =&gt; Double -&gt; b
+forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#ceiling"><span class="hs-identifier hs-var">ceiling</span></a></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Int) -&gt; (Int -&gt; Double) -&gt; Int -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. Floating a =&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Float.html#sqrt"><span class="hs-identifier hs-var">sqrt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Double) -&gt; (Int -&gt; Double) -&gt; Int -&gt; Double
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span><span class="annot"><span class="hs-comment">-- | A QuickCheck modifier to make use of `reasonablySized` on existing types.</span></span><span>
+</span><span id="line-211"></span><span class="hs-keyword">newtype</span><span> </span><span id="ReasonablySized"><span class="annot"><a href="Hydra.Prelude.html#ReasonablySized"><span class="hs-identifier hs-var">ReasonablySized</span></a></span></span><span> </span><span id="local-6989586621679104775"><span class="annot"><a href="#local-6989586621679104775"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ReasonablySized"><span class="annot"><a href="Hydra.Prelude.html#ReasonablySized"><span class="hs-identifier hs-var">ReasonablySized</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621679104775"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679104960"><span id="local-6989586621679104964"><span id="local-6989586621679104968"><span class="annot"><span class="annottext">Int -&gt; ReasonablySized a -&gt; ShowS
+[ReasonablySized a] -&gt; ShowS
+ReasonablySized a -&gt; String
+(Int -&gt; ReasonablySized a -&gt; ShowS)
+-&gt; (ReasonablySized a -&gt; String)
+-&gt; ([ReasonablySized a] -&gt; ShowS)
+-&gt; Show (ReasonablySized a)
+forall a. Show a =&gt; Int -&gt; ReasonablySized a -&gt; ShowS
+forall a. Show a =&gt; [ReasonablySized a] -&gt; ShowS
+forall a. Show a =&gt; ReasonablySized a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: forall a. Show a =&gt; Int -&gt; ReasonablySized a -&gt; ShowS
+showsPrec :: Int -&gt; ReasonablySized a -&gt; ShowS
+$cshow :: forall a. Show a =&gt; ReasonablySized a -&gt; String
+show :: ReasonablySized a -&gt; String
+$cshowList :: forall a. Show a =&gt; [ReasonablySized a] -&gt; ShowS
+showList :: [ReasonablySized a] -&gt; ShowS
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679104975"><span id="local-6989586621679104979"><span id="local-6989586621679104983"><span id="local-6989586621679104987"><span id="local-6989586621679104991"><span class="annot"><span class="annottext">[ReasonablySized a] -&gt; Encoding
+[ReasonablySized a] -&gt; Value
+ReasonablySized a -&gt; Bool
+ReasonablySized a -&gt; Encoding
+ReasonablySized a -&gt; Value
+(ReasonablySized a -&gt; Value)
+-&gt; (ReasonablySized a -&gt; Encoding)
+-&gt; ([ReasonablySized a] -&gt; Value)
+-&gt; ([ReasonablySized a] -&gt; Encoding)
+-&gt; (ReasonablySized a -&gt; Bool)
+-&gt; ToJSON (ReasonablySized a)
+forall a. ToJSON a =&gt; [ReasonablySized a] -&gt; Encoding
+forall a. ToJSON a =&gt; [ReasonablySized a] -&gt; Value
+forall a. ToJSON a =&gt; ReasonablySized a -&gt; Bool
+forall a. ToJSON a =&gt; ReasonablySized a -&gt; Encoding
+forall a. ToJSON a =&gt; ReasonablySized a -&gt; Value
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: forall a. ToJSON a =&gt; ReasonablySized a -&gt; Value
+toJSON :: ReasonablySized a -&gt; Value
+$ctoEncoding :: forall a. ToJSON a =&gt; ReasonablySized a -&gt; Encoding
+toEncoding :: ReasonablySized a -&gt; Encoding
+$ctoJSONList :: forall a. ToJSON a =&gt; [ReasonablySized a] -&gt; Value
+toJSONList :: [ReasonablySized a] -&gt; Value
+$ctoEncodingList :: forall a. ToJSON a =&gt; [ReasonablySized a] -&gt; Encoding
+toEncodingList :: [ReasonablySized a] -&gt; Encoding
+$comitField :: forall a. ToJSON a =&gt; ReasonablySized a -&gt; Bool
+omitField :: ReasonablySized a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679104998"><span id="local-6989586621679105002"><span id="local-6989586621679105006"><span class="annot"><span class="annottext">Maybe (ReasonablySized a)
+Value -&gt; Parser [ReasonablySized a]
+Value -&gt; Parser (ReasonablySized a)
+(Value -&gt; Parser (ReasonablySized a))
+-&gt; (Value -&gt; Parser [ReasonablySized a])
+-&gt; Maybe (ReasonablySized a)
+-&gt; FromJSON (ReasonablySized a)
+forall a. FromJSON a =&gt; Maybe (ReasonablySized a)
+forall a. FromJSON a =&gt; Value -&gt; Parser [ReasonablySized a]
+forall a. FromJSON a =&gt; Value -&gt; Parser (ReasonablySized a)
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: forall a. FromJSON a =&gt; Value -&gt; Parser (ReasonablySized a)
+parseJSON :: Value -&gt; Parser (ReasonablySized a)
+$cparseJSONList :: forall a. FromJSON a =&gt; Value -&gt; Parser [ReasonablySized a]
+parseJSONList :: Value -&gt; Parser [ReasonablySized a]
+$comittedField :: forall a. FromJSON a =&gt; Maybe (ReasonablySized a)
+omittedField :: Maybe (ReasonablySized a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span>
+</span><span id="line-214"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679104774"><span id="local-6989586621679105014"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="#local-6989586621679104774"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Prelude.html#ReasonablySized"><span class="hs-identifier hs-type">ReasonablySized</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104774"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-215"></span><span>  </span><span id="local-6989586621679105021"><span class="annot"><span class="annottext">arbitrary :: Gen (ReasonablySized a)
+</span><a href="#local-6989586621679105021"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; ReasonablySized a
+forall a. a -&gt; ReasonablySized a
+</span><a href="Hydra.Prelude.html#ReasonablySized"><span class="hs-identifier hs-var">ReasonablySized</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; ReasonablySized a) -&gt; Gen a -&gt; Gen (ReasonablySized a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen a -&gt; Gen a
+forall a. Gen a -&gt; Gen a
+</span><a href="Hydra.Prelude.html#reasonablySized"><span class="hs-identifier hs-var">reasonablySized</span></a></span><span> </span><span class="annot"><span class="annottext">Gen a
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- | Pad a text-string to right with the given character until it reaches the given</span><span>
+</span><span id="line-218"></span><span class="hs-comment">-- length.</span><span>
+</span><span id="line-219"></span><span class="hs-comment">--</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- NOTE: Truncate the string if longer than the given length.</span><span>
+</span><span id="line-221"></span><span class="annot"><a href="Hydra.Prelude.html#padRight"><span class="hs-identifier hs-type">padRight</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Char"><span class="hs-identifier hs-type">Char</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
+</span><span id="line-222"></span><span id="padRight"><span class="annot"><span class="annottext">padRight :: Char -&gt; Int -&gt; Text -&gt; Text
+</span><a href="Hydra.Prelude.html#padRight"><span class="hs-identifier hs-var hs-var">padRight</span></a></span></span><span> </span><span id="local-6989586621679105024"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679105024"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621679105025"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679105025"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679105026"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679105026"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.html#take"><span class="hs-identifier hs-var">T.take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679105025"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679105026"><span class="hs-identifier hs-var">str</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.html#replicate"><span class="hs-identifier hs-var">T.replicate</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679105025"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Text
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Show.html#singleton"><span class="hs-identifier hs-var">T.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679105024"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-223"></span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- | Decode some hex-encoded text string to raw bytes.</span><span>
+</span><span id="line-225"></span><span class="hs-comment">--</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- &gt;&gt;&gt; decodeBase16 &quot;dflkgjdjgdh&quot;</span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- Left &quot;Not base 16&quot;</span><span>
+</span><span id="line-228"></span><span id="local-6989586621679104780"><span class="annot"><a href="Hydra.Prelude.html#decodeBase16"><span class="hs-identifier hs-type">decodeBase16</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104780"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104780"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span></span><span>
+</span><span id="line-229"></span><span id="decodeBase16"><span class="annot"><span class="annottext">decodeBase16 :: forall (f :: * -&gt; *). MonadFail f =&gt; Text -&gt; f ByteString
+</span><a href="Hydra.Prelude.html#decodeBase16"><span class="hs-identifier hs-var hs-var">decodeBase16</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-230"></span><span>  </span><span class="annot"><span class="annottext">(String -&gt; f ByteString)
+-&gt; (ByteString -&gt; f ByteString)
+-&gt; Either String ByteString
+-&gt; f ByteString
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; f ByteString
+forall a. String -&gt; f a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; f ByteString
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Either String ByteString -&gt; f ByteString)
+-&gt; (Text -&gt; Either String ByteString) -&gt; Text -&gt; f ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String ByteString
+</span><span class="hs-identifier hs-var">Base16.decode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String ByteString)
+-&gt; (Text -&gt; ByteString) -&gt; Text -&gt; Either String ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. ConvertUtf8 a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span>
+</span><span id="line-231"></span><span>
+</span><span id="line-232"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">4</span><span> </span><span class="annot"><a href="Hydra.Prelude.html#%3F%3E"><span class="hs-operator hs-type">?&gt;</span></a></span><span>
+</span><span id="line-233"></span><span>
+</span><span id="line-234"></span><span class="annot"><span class="hs-comment">-- | If 'Nothing' use given 'e' as 'Left'. Infix version of `maybeToEither`.</span></span><span>
+</span><span id="line-235"></span><span id="local-6989586621679104794"><span id="local-6989586621679104795"><span class="annot"><a href="Hydra.Prelude.html#%3F%3E"><span class="hs-operator hs-type">(?&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104794"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104795"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104795"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104794"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-236"></span><span id="%3F%3E"><span class="annot"><span class="annottext">?&gt; :: forall a e. Maybe a -&gt; e -&gt; Either e a
+</span><a href="Hydra.Prelude.html#%3F%3E"><span class="hs-operator hs-var hs-var">(?&gt;)</span></a></span></span><span> </span><span id="local-6989586621679105042"><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621679105042"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679105043"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679105043"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-237"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621679105042"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-238"></span><span>    </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">e -&gt; Either e a
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679105043"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-239"></span><span>    </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679105044"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105044"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either e a
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105044"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-240"></span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- | Like 'withFile' from 'base', but without annotating errors originating from</span><span>
+</span><span id="line-242"></span><span class="hs-comment">-- enclosed action.</span><span>
+</span><span id="line-243"></span><span class="hs-comment">--</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-- XXX: This should be fixed upstream in 'base'.</span><span>
+</span><span id="line-245"></span><span id="local-6989586621679104802"><span class="annot"><a href="Hydra.Prelude.html#withFile"><span class="hs-identifier hs-type">withFile</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.IOMode.html#IOMode"><span class="hs-identifier hs-type">IOMode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104802"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104802"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-246"></span><span id="withFile"><span class="annot"><span class="annottext">withFile :: forall a. String -&gt; IOMode -&gt; (Handle -&gt; IO a) -&gt; IO a
+</span><a href="Hydra.Prelude.html#withFile"><span class="hs-identifier hs-var hs-var">withFile</span></a></span></span><span> </span><span id="local-6989586621679105057"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679105057"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span id="local-6989586621679105058"><span class="annot"><span class="annottext">IOMode
+</span><a href="#local-6989586621679105058"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621679105059"><span class="annot"><span class="annottext">Handle -&gt; IO a
+</span><a href="#local-6989586621679105059"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-247"></span><span>  </span><span class="annot"><span class="annottext">String
+-&gt; IOMode
+-&gt; (Handle -&gt; IO (Either IOException a))
+-&gt; IO (Either IOException a)
+forall a. String -&gt; IOMode -&gt; (Handle -&gt; IO a) -&gt; IO a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.StdHandles.html#withFile"><span class="hs-identifier hs-var">System.IO.withFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679105057"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">IOMode
+</span><a href="#local-6989586621679105058"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO a -&gt; IO (Either IOException a)
+forall e a. Exception e =&gt; IO a -&gt; IO (Either e a)
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+m a -&gt; m (Either e a)
+</span><span class="hs-identifier hs-var">try</span></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; IO (Either IOException a))
+-&gt; (Handle -&gt; IO a) -&gt; Handle -&gt; IO (Either IOException a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO a
+</span><a href="#local-6989586621679105059"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Either IOException a) -&gt; (Either IOException a -&gt; IO a) -&gt; IO a
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-248"></span><span>    </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679105061"><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679105061"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOException -&gt; IO a
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679105061"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-249"></span><span>    </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679105063"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105063"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105063"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span class="annot"><span class="hs-comment">-- | Like 'traceShow', but with pretty printing of the value.</span></span><span>
+</span><span id="line-252"></span><span class="hs-pragma">{-# WARNING</span><span> </span><span class="hs-pragma">spy</span><span> </span><span class="hs-pragma">&quot;Use for debugging purposes only&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-253"></span><span id="local-6989586621679104816"><span class="annot"><a href="Hydra.Prelude.html#spy"><span class="hs-identifier hs-type">spy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104816"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104816"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104816"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-254"></span><span id="spy"><span class="annot"><span class="annottext">spy :: forall a. Show a =&gt; a -&gt; a
+</span><a href="Hydra.Prelude.html#spy"><span class="hs-identifier hs-var hs-var">spy</span></a></span></span><span> </span><span id="local-6989586621679105069"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105069"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; a -&gt; a
+forall a. String -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">trace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
+forall a. ToString a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; Text -&gt; String
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Text
+forall a. Show a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">pShow</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105069"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105069"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-255"></span><span>
+</span><span id="line-256"></span><span class="annot"><span class="hs-comment">-- | Like 'spy' but prefixed with a label.</span></span><span>
+</span><span id="line-257"></span><span class="hs-pragma">{-# WARNING</span><span> </span><span class="hs-pragma">spy'</span><span> </span><span class="hs-pragma">&quot;Use for debugging purposes only&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-258"></span><span id="local-6989586621679104826"><span class="annot"><a href="Hydra.Prelude.html#spy%27"><span class="hs-identifier hs-type">spy'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679104826"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104826"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679104826"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-259"></span><span id="spy%27"><span class="annot"><span class="annottext">spy' :: forall a. Show a =&gt; String -&gt; a -&gt; a
+</span><a href="Hydra.Prelude.html#spy%27"><span class="hs-identifier hs-var hs-var">spy'</span></a></span></span><span> </span><span id="local-6989586621679105078"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679105078"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span id="local-6989586621679105079"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105079"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; a -&gt; a
+forall a. String -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">trace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679105078"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+forall a. ToString a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Text
+forall a. Show a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">pShow</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105079"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679105079"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-260"></span></pre></body></html>
