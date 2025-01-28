@@ -1,0 +1,23 @@
+name: Setup Nix & Cachix
+description: Installs nix and cachix with config values
+
+inputs:
+  authToken:
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+  - name: ❄ Prepare nix
+    uses: cachix/install-nix-action@v30
+    with:
+      extra_nix_config: |
+        accept-flake-config = true
+        log-lines = 1000
+
+  - name: ❄ Cachix cache of nix derivations
+    uses: cachix/cachix-action@v15
+    with:
+      name: cardano-scaling
+      authToken: '${{ inputs.authToken }}'

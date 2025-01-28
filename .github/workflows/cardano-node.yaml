@@ -17,12 +17,11 @@ jobs:
         repository: IntersectMBO/cardano-node
         ref: 8.7.2
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+       with:
+        name: cardano-scaling
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Build cardano-node static executables
       run: |
@@ -49,12 +48,10 @@ jobs:
         repository: ch1bo/cardano-node
         ref: 170817f5ba3f7838ffd9bd181bc30504906a6506
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Build executables
       run: |
