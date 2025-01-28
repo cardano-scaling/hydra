@@ -115,51 +115,6 @@ rec {
 
   hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
-  hydra-plutus-tests = pkgs.mkShellNoCC {
-    name = "hydra-plutus-tests";
-    buildInputs = [
-      nativePkgs.hydra-plutus.components.tests.tests
-      pkgs.aiken
-    ];
-  };
-  hydra-node-tests = pkgs.mkShellNoCC {
-    name = "hydra-node-tests";
-    buildInputs = [
-      nativePkgs.hydra-node.components.tests.tests
-      pkgs.check-jsonschema
-    ];
-  };
-  hydra-tx-tests = pkgs.mkShellNoCC {
-    name = "hydratx-tests";
-    buildInputs = [
-      nativePkgs.hydra-tx.components.tests.tests
-    ];
-  };
-  hydra-cluster-tests = pkgs.mkShellNoCC {
-    name = "hydra-cluster-tests";
-    buildInputs =
-      [
-        nativePkgs.hydra-cluster.components.tests.tests
-        hydra-node
-        hydra-chain-observer
-        inputs.cardano-node.packages.${system}.cardano-node
-        inputs.cardano-node.packages.${system}.cardano-cli
-        pkgs.mithril-client-cli
-        pkgs.mithril-client-cli-unstable
-        pkgs.check-jsonschema
-      ];
-  };
-  hydra-tui-tests = pkgs.mkShellNoCC {
-    name = "hydra-tui-tests";
-    buildInputs =
-      [
-        nativePkgs.hydra-tui.components.tests.tests
-        hydra-node
-        inputs.cardano-node.packages.${system}.cardano-node
-        inputs.cardano-node.packages.${system}.cardano-cli
-      ];
-  };
-
   hydra-node-bench = pkgs.mkShellNoCC {
     name = "hydra-node-bench";
     buildInputs = [
