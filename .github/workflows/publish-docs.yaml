@@ -24,12 +24,10 @@ jobs:
         # Also ensure we have all history with all tags
         fetch-depth: 0
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: Set up and use the "ci" devShell
       uses: nicknovitski/nix-develop@v1

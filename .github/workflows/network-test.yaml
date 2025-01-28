@@ -39,17 +39,9 @@ jobs:
       with:
         submodules: true
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: Set up and use the "ci" devShell

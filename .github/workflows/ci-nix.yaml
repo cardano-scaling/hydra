@@ -38,17 +38,9 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❓ Test
@@ -113,17 +105,9 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 📚 Documentation (Haddock)
@@ -157,17 +141,9 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 📈 Benchmark
@@ -236,17 +212,9 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Nix Flake Check
@@ -261,17 +229,9 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ❄ Build specification PDF
@@ -299,12 +259,10 @@ jobs:
         # Ensure we have all history with all commits
         fetch-depth: 0
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: Set up and use the "ci" devShell
       uses: nicknovitski/nix-develop@v1
@@ -369,17 +327,9 @@ jobs:
     - name: "Checkout the PR as the 'new' source"
       uses: actions/checkout@v4
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
-          log-lines = 1000
-
-    - name: ❄ Cachix cache of nix derivations
-      uses: cachix/cachix-action@v15
-      with:
-        name: cardano-scaling
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: Set up and use the "ci" devShell

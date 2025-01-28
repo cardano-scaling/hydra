@@ -34,11 +34,10 @@ jobs:
       with:
         submodules: true
 
-    - name: ❄ Prepare nix
-      uses: cachix/install-nix-action@v30
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
       with:
-        extra_nix_config: |
-          accept-flake-config = true
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 🧹 Cleanup hydra-node state
       run: |
