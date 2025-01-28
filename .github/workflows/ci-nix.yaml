@@ -179,7 +179,6 @@ jobs:
 
     - name: 📈 Memory usage
       run: |
-        N_TXNS=1000000 nix develop --command cabal update && cabal bench micro --benchmark-options '--json output.json +RTS -T'
         nix develop --command jq '.[2][0].reportMeasured[0][5]' hydra-node/output.json
 
     - name: 💾 Upload build & test artifacts
