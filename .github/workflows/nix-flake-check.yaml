@@ -1,0 +1,22 @@
+name: nix flake check
+
+on:
+  merge_group:
+  pull_request:
+
+jobs:
+  nix-flake-check:
+    name: "nix flake check"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: ❄ Nix Flake Check
+      run: |
+        nix flake check -L
