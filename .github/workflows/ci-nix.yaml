@@ -178,10 +178,9 @@ jobs:
         nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 📈 Memory usage
-      uses: sergeysova/jq-action@v2
       run: |
         N_TXNS=1000000 nix develop --command cabal bench micro --benchmark-options '--json output.json +RTS -T'
-        jq '.[2][0].reportMeasured[0][5]' hydra-node/output.json
+        nix develop --command jq '.[2][0].reportMeasured[0][5]' hydra-node/output.json
 
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
