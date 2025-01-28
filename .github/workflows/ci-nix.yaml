@@ -153,6 +153,13 @@ jobs:
         nix build .#${{ matrix.package }}-bench
         nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
+    - name: 📈 Memory usage
+      run: |
+
+        nix develop --command -- bash -c "cabal update"
+        N_TXNS=1000000 nix develop .#hydra-node --command -- bash -c "cabal bench micro --benchmark-options '--json output.json +RTS -T'"
+        nix develop --command -- bash -c "jq '.[2][0].reportMeasured[0][5]' hydra-node/output.json"
+
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
       with:
