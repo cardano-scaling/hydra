@@ -27,8 +27,8 @@ withWitness txIn =
 
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]
-txIns' (getTxBody -> txBody) =
-  let TxBody TxBodyContent{txIns} = txBody
+txIns' (getTxBodyContent . getTxBody -> txBodyContent) =
+  let TxBodyContent{txIns} = txBodyContent
    in fst <$> txIns
 
 -- | Access inputs of a transaction, as an ordered set.

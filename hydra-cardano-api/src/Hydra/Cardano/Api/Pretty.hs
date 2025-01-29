@@ -48,7 +48,7 @@ renderTxWithUTxO utxo (Tx body _wits) =
  where
   Api.ShelleyTxBody _lbody scripts scriptsData _auxData _validity = body
   outs = txOuts content
-  TxBody content = body
+  content = getTxBodyContent body
 
   inputLines =
     "== INPUTS (" <> show (length (txIns content)) <> ")"
