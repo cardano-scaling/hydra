@@ -31,6 +31,7 @@ instance HasEventId (EventId, a) where
 data EventSource e m = EventSource
   { getEvents :: HasEventId e => m [e]
   -- ^ Retrieve all events from the event source.
+  -- TODO: define this in terms of sourceEvents
   , sourceEvents :: HasEventId e => ConduitT () e (ResourceT m) ()
   -- ^ Stream all events from the event source.
   }
