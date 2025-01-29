@@ -10,7 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, foldMapC, foldlC, fuseBoth, mapC, mapM_C, runConduitRes, (.|))
+import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
@@ -175,10 +175,11 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   (lastEventId, (headState, chainStateHistory)) <-
     runConduitRes $
       sourceEvents eventSource
-        .| fuseBoth
-          (foldMapC (Last . pure . getEventId))
-          recoverHeadStateC
-  traceWith tracer LoadedState{lastEventId}
+        .| getZipSink
+          ( (,)
+              <$> ZipSink (foldMapC (Last . pure . getEventId))
+              <*> ZipSink recoverHeadStateC
+          )
   -- Check whether the loaded state matches our configuration (env)
   checkHeadState tracer env headState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
@@ -205,9 +206,11 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
 
   recoverHeadStateC =
     mapC stateChanged
-      .| fuseBoth
-        (foldlC aggregate initialState)
-        (foldlC aggregateChainStateHistory $ initHistory initialChainState)
+      .| getZipSink
+        ( (,)
+            <$> ZipSink (foldlC aggregate initialState)
+            <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
+        )
 
 wireChainInput :: DraftHydraNode tx m -> (ChainEvent tx -> m ())
 wireChainInput node = enqueue . ChainInput
@@ -401,7 +404,7 @@ data HydraNodeLog tx
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadingState
-  | LoadedState {lastEventId :: Last EventId}
+  | LoadedState {lastEventId :: Last EventId, headState :: HeadState tx}
   | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
