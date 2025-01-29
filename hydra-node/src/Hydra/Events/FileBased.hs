@@ -5,7 +5,7 @@ module Hydra.Events.FileBased where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, mapMC, runConduitRes, sinkList, (.|))
+import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
@@ -27,7 +27,7 @@ import Hydra.Persistence (PersistenceIncremental (..))
 --
 -- (ToJSON e, FromJSON e, HasEventId) e => (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental ::
-  (IsChainState tx, MonadSTM m, MonadUnliftIO m) =>
+  (IsChainState tx, MonadSTM m) =>
   PersistenceIncremental (PersistedStateChange tx) m ->
   m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
@@ -55,8 +55,6 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
               pure event
           )
 
-    getEvents = runConduitRes $ sourceEvents .| sinkList
-
     -- Filter events that are already stored
     putEvent e@StateEvent{eventId} = do
       atomically getLastSeenEventId >>= \case
@@ -69,7 +67,7 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
       append (New e)
       atomically $ setLastSeenEventId e
 
-  pure (EventSource{getEvents, sourceEvents}, EventSink{putEvent})
+  pure (EventSource{sourceEvents}, EventSink{putEvent})
 
 -- | Internal data type used by 'createJSONFileEventSourceAndSink' to be
 -- compatible with plain usage of 'PersistenceIncrementa' using plain

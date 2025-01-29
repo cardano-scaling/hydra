@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental)
+import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -39,8 +39,8 @@ spec = do
       withTempDir "hydra-persistence" $ \tmpDir -> do
         let fp = tmpDir <> "/data"
         writeFileBS fp ""
-        PersistenceIncremental{loadAll} <- createPersistenceIncremental fp
-        loadAll `shouldReturn` ([] :: [Aeson.Value])
+        p <- createPersistenceIncremental fp
+        loadAll p `shouldReturn` ([] :: [Aeson.Value])
 
     it "is consistent after multiple append calls in presence of new-lines" $
       checkCoverage $
@@ -51,9 +51,9 @@ spec = do
 
           actualResult <- run $
             withTempDir "hydra-persistence" $ \tmpDir -> do
-              PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
-              forM_ items append
-              loadAll
+              p <- createPersistenceIncremental $ tmpDir <> "/data"
+              forM_ items $ append p
+              loadAll p
           pure $ actualResult === items
 
     it "it cannot load from a different thread once having started appending" $
@@ -62,12 +62,12 @@ spec = do
         moreItems <- pick $ listOf genPersistenceItem `suchThat` ((> 2) . length)
         pure $
           withTempDir "hydra-persistence" $ \tmpDir -> do
-            PersistenceIncremental{loadAll, append} <- createPersistenceIncremental $ tmpDir <> "/data"
-            forM_ items append
-            loadAll `shouldReturn` items
+            p <- createPersistenceIncremental $ tmpDir <> "/data"
+            forM_ items $ append p
+            loadAll p `shouldReturn` items
             race_
-              (forever $ threadDelay 0.01 >> loadAll)
-              (forM_ moreItems $ \item -> append item >> threadDelay 0.01)
+              (forever $ threadDelay 0.01 >> loadAll p)
+              (forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
               `shouldThrow` \case
                 IncorrectAccessException{} -> True
                 _ -> False

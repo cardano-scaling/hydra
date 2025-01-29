@@ -110,9 +110,10 @@ import Hydra.Logging (traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), isPing)
-import Hydra.Persistence (Persistence (..), PersistenceIncremental (..))
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), loadAll)
 import Hydra.Tx (Party)
 import Test.QuickCheck.Instances.Vector ()
+import UnliftIO (MonadUnliftIO)
 
 data ReliableMsg msg = ReliableMsg
   { knownMessageIds :: Vector Int
@@ -180,7 +181,7 @@ data MessagePersistence m msg = MessagePersistence
 -- NOTE: This handle is returned in the underlying context just for the sake of
 -- convenience.
 mkMessagePersistence ::
-  (MonadThrow m, FromJSON msg, ToJSON msg) =>
+  (MonadUnliftIO m, MonadThrow m, FromJSON msg, ToJSON msg) =>
   Int ->
   PersistenceIncremental (Heartbeat msg) m ->
   Persistence (Vector Int) m ->

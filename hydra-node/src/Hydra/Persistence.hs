@@ -10,9 +10,9 @@ import Conduit (
   ResourceT,
   linesUnboundedAsciiC,
   mapMC,
-  runConduitRes,
-  sinkList,
+  runResourceT,
   sourceFileBS,
+  sourceToList,
   (.|),
  )
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
@@ -62,17 +62,22 @@ createPersistence fp = do
 -- | Handle to save incrementally and load files to/from disk using JSON encoding.
 data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
-  , source :: forall i. FromJSON a => ConduitT i a (ResourceT m) ()
+  , source :: FromJSON a => ConduitT () a (ResourceT m) ()
   -- ^ Stream all elements from the file.
-  , loadAll :: FromJSON a => m [a] -- FIXME: define in terms of source
   }
+
+-- | Load all elements from persistence into a list.
+-- XXX: Deprecate this to avoid large memory usage.
+loadAll :: (FromJSON a, MonadUnliftIO m) => PersistenceIncremental a m -> m [a]
+loadAll PersistenceIncremental{source} =
+  runResourceT $ sourceToList source
 
 -- | Initialize persistence handle for given type 'a' at given file path.
 --
 -- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
 -- it prevents loading from a different thread once one starts `append`ing
--- through the handle. If another thread attempts to `loadAll` after this point,
--- an `IncorrectAccessException` will be raised.
+-- through the handle. If another thread attempts to `source` (or `loadAll`)
+-- after this point, an `IncorrectAccessException` will be raised.
 createPersistenceIncremental ::
   forall a m.
   ( MonadUnliftIO m
@@ -92,7 +97,6 @@ createPersistenceIncremental fp = do
           let bytes = toStrict $ Aeson.encode a <> "\n"
           withBinaryFile fp AppendMode (`BS.hPut` bytes)
       , source = source authorizedThread
-      , loadAll = runConduitRes $ source authorizedThread .| sinkList
       }
  where
   source :: forall i. TVar IO (Maybe (ThreadId IO)) -> ConduitT i a (ResourceT m) ()

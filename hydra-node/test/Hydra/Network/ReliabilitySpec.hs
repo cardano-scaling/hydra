@@ -27,6 +27,7 @@ import Hydra.Persistence (
   PersistenceIncremental (..),
   createPersistence,
   createPersistenceIncremental,
+  loadAll,
  )
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
@@ -174,7 +175,7 @@ spec = parallel $ do
         let networkMessagesFile = tmpDir <> "/network-messages"
 
         Persistence{load, save} <- createPersistence $ tmpDir <> "/acks"
-        PersistenceIncremental{loadAll, append} <- createPersistenceIncremental networkMessagesFile
+        p <- createPersistenceIncremental networkMessagesFile
 
         let messagePersistence =
               MessagePersistence
@@ -184,8 +185,8 @@ spec = parallel $ do
                       Nothing -> pure $ replicate (length [alice, bob]) 0
                       Just acks -> pure acks
                 , saveAcks = save
-                , loadMessages = loadAll
-                , appendMessage = append
+                , loadMessages = loadAll p
+                , appendMessage = append p
                 }
 
         receivedMsgs <- do
@@ -250,9 +251,9 @@ spec = parallel $ do
     pure res
 
   reloadAll :: FilePath -> IO [Heartbeat (Heartbeat String)]
-  reloadAll fileName =
+  reloadAll fileName = do
     createPersistenceIncremental fileName
-      >>= \PersistenceIncremental{loadAll} -> loadAll
+      >>= loadAll
 
 noop :: Monad m => NetworkCallback b m
 noop = NetworkCallback{deliver = const $ pure ()}
