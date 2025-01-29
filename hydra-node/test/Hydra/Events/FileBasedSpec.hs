@@ -31,37 +31,6 @@ spec = do
     roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
 
   describe "eventPairFromPersistenceIncremental" $ do
-    prop "can handle continuous events" $
-      forAllShrink genContinuousEvents shrink $ \events ->
-        ioProperty $ do
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
-            forM_ events putEvent
-            loadedEvents <- getEvents
-            pure $
-              loadedEvents === events
-
-    prop "can handle non-continuous events" $
-      forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
-        ioProperty $ do
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
-            forM_ events putEvent
-            loadedEvents <- getEvents
-            pure $
-              loadedEvents === events
-
-    prop "can handle duplicate events" $
-      forAllShrink genContinuousEvents shrink $ \events ->
-        ioProperty $
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
-            -- Put some events
-            forM_ events putEvent
-            loadedEvents <- getEvents
-            -- Put the loaded events again (as the node would do)
-            forM_ loadedEvents putEvent
-            allEvents <- getEvents
-            pure $
-              allEvents === loadedEvents
-
     prop "can stream events" $
       forAllShrink genContinuousEvents shrink $ \events ->
         ioProperty $
@@ -72,6 +41,37 @@ spec = do
             pure $
               streamedEvents === events
 
+    prop "can handle continuous events" $
+      forAllShrink genContinuousEvents shrink $ \events ->
+        ioProperty $ do
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
+            forM_ events putEvent
+            loadedEvents <- getEvents src
+            pure $
+              loadedEvents === events
+
+    prop "can handle non-continuous events" $
+      forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
+        ioProperty $ do
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
+            forM_ events putEvent
+            loadedEvents <- getEvents src
+            pure $
+              loadedEvents === events
+
+    prop "can handle duplicate events" $
+      forAllShrink genContinuousEvents shrink $ \events ->
+        ioProperty $
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
+            -- Put some events
+            forM_ events putEvent
+            loadedEvents <- getEvents src
+            -- Put the loaded events again (as the node would do)
+            forM_ loadedEvents putEvent
+            allEvents <- getEvents src
+            pure $
+              allEvents === loadedEvents
+
     prop "can bootstrap from plain StateChanged events" $
       forAllShrink genContinuousEvents shrink $ \events -> do
         ioProperty $ do
@@ -81,10 +81,10 @@ spec = do
             PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
             forM_ stateChanges append
             -- Load and store events through the event source interface
-            (EventSource{getEvents}, EventSink{putEvent}) <-
+            (src, EventSink{putEvent}) <-
               eventPairFromPersistenceIncremental
                 =<< createPersistenceIncremental (tmpDir <> "/data")
-            loadedEvents <- getEvents
+            loadedEvents <- getEvents src
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
             pure $

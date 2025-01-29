@@ -425,7 +425,6 @@ mockPersistence' :: Monad m => [a] -> PersistenceIncremental a m
 mockPersistence' xs =
   PersistenceIncremental
     { append = \_ -> pure ()
-    , loadAll = pure xs
     , source = yieldMany xs
     }
 

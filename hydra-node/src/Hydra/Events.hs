@@ -15,7 +15,7 @@ module Hydra.Events where
 
 import Hydra.Prelude
 
-import Conduit (ConduitT, ResourceT)
+import Conduit (ConduitT, MonadUnliftIO, ResourceT, runResourceT, sourceToList)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
@@ -28,13 +28,14 @@ class HasEventId a where
 instance HasEventId (EventId, a) where
   getEventId = fst
 
-data EventSource e m = EventSource
-  { getEvents :: HasEventId e => m [e]
-  -- ^ Retrieve all events from the event source.
-  -- TODO: define this in terms of sourceEvents
-  , sourceEvents :: HasEventId e => ConduitT () e (ResourceT m) ()
+newtype EventSource e m = EventSource
+  { sourceEvents :: HasEventId e => ConduitT () e (ResourceT m) ()
   -- ^ Stream all events from the event source.
   }
+
+-- | Retrieve all events from the event source as a list.
+getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
+getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
 newtype EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()

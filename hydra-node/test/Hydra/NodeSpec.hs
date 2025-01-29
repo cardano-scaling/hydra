@@ -346,8 +346,7 @@ mockSink = EventSink{putEvent = const $ pure ()}
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
   EventSource
-    { getEvents = pure events
-    , sourceEvents = yieldMany events
+    { sourceEvents = yieldMany events
     }
 
 createRecordingSink :: IO (EventSink a IO, IO [a])
@@ -361,8 +360,7 @@ createMockSourceSink = do
   labelTVarIO tvar "in-memory-source-sink"
   let source =
         EventSource
-          { getEvents = readTVarIO tvar
-          , sourceEvents = do
+          { sourceEvents = do
               es <- lift . lift $ readTVarIO tvar
               yieldMany es
           }
