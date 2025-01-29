@@ -36,7 +36,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (Async, async, cancel, link)
 import Control.Monad.Class.MonadFork (labelThisThread)
-import Control.Monad.IOSim (IOSim)
 import Data.List (nub)
 import Data.List qualified as List
 import Data.Map ((!))
@@ -66,7 +65,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (HydraNode, runHydraNode)
+import Hydra.Node (runHydraNode)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -635,9 +634,7 @@ seedWorld seedKeys seedCP depositDeadline futureCommits = do
       labelTQueueIO outputs ("outputs-" <> shortLabel hsk)
       outputHistory <- newTVarIO []
       labelTVarIO outputHistory ("history-" <> shortLabel hsk)
-      -- FIXME: createHydaNode requires an instance 'MonadUnliftIO (IOSim s)'
-      -- node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP depositDeadline
-      let node = undefined :: HydraNode Tx m
+      node <- createHydraNode (contramap Node tr) ledger initialChainState hsk otherParties outputs outputHistory mockChain seedCP depositDeadline
       let testClient = createTestHydraClient outputs outputHistory node
       nodeThread <- async $ labelThisThread ("node-" <> shortLabel hsk) >> runHydraNode node
       link nodeThread
