@@ -35,9 +35,10 @@ jobs:
         submodules: true
 
     - name: ❄ Setup Nix/Cachix
-      uses: ./.github/actions/nix-cachix-setup
+      uses: cachix/install-nix-action@v30
       with:
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+        extra_nix_config: |
+          accept-flake-config = true
 
     - name: 🧹 Cleanup hydra-node state
       run: |
