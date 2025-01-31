@@ -34,8 +34,9 @@ instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-newtype NodeClient m = NodeClient
+data NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
+  , networkId :: NetworkId
   }
 
 type ChainObserverLog :: Type

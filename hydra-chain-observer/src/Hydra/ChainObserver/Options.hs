@@ -4,8 +4,10 @@ module Hydra.ChainObserver.Options where
 
 import Hydra.Prelude
 
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
 import Hydra.Options (
+  hydraNodeVersion,
   networkIdParser,
   nodeSocketParser,
   startChainFromParser,
@@ -19,6 +21,7 @@ import Options.Applicative (
   help,
   helper,
   info,
+  infoOption,
   long,
   maybeReader,
   metavar,
@@ -85,8 +88,13 @@ explorerParser =
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    (optionsParser <**> helper)
+    (optionsParser <**> versionInfo <**> helper)
     ( fullDesc
         <> progDesc "Observe hydra transactions on-chain."
         <> header "hydra-chain-observer"
     )
+ where
+  versionInfo =
+    infoOption
+      (showVersion hydraNodeVersion)
+      (long "version" <> help "Show version")

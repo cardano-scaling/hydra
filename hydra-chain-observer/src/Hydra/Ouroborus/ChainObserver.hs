@@ -59,6 +59,7 @@ ouroborusClient tracer nodeSocket networkId =
         connectToLocalNode
           (connectInfo nodeSocket networkId)
           (clientProtocols tracer networkId chainPoint observerHandler)
+    , networkId
     }
 
 type BlockType :: Type
