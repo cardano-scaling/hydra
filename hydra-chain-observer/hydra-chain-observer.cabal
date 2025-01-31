@@ -95,6 +95,8 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , hspec
+    , hspec-golden-aeson
+    , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude

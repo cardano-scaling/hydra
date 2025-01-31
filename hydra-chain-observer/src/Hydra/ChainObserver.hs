@@ -50,18 +50,13 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
-data ChainObservation
-  = Tick
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      }
-  | HeadObservation
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      , onChainTx :: OnChainTx Tx
-      }
+data ChainObservation = ChainObservation
+  { point :: ChainPoint
+  , blockNo :: BlockNo
+  , onChainTx :: Maybe (OnChainTx Tx)
+  }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary
@@ -82,7 +77,7 @@ main = do
           Just x -> pure x
         traceWith tracer StartObservingFrom{chainPoint}
 
-        let observerHandler = \observations ->
+        let observerHandler observations =
               case explorerBaseURI of
                 Nothing -> pure ()
                 Just uri -> forM_ observations $ reportObservation uri
@@ -204,10 +199,10 @@ chainSyncClient tracer networkId startingPoint observerHandler =
               onChainTxs = mapMaybe convertObservation observations
 
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
           observerHandler $
             if null observationsAt
-              then [Tick point blockNo]
+              then [ChainObservation point blockNo Nothing]
               else observationsAt
 
           pure $ clientStIdle utxo'
