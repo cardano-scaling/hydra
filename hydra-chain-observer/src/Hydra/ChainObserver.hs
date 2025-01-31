@@ -41,4 +41,4 @@ reportObservation baseURI observation = do
  where
   -- FIXME: determine and send network and version information
   -- TODO: maybe change schema to have network and version as part of the request body
-  url = "POST " <> show baseURI <> "/observations/mainnet/0.19.0"
+  url = "POST " <> show baseURI <> "/observations/2/0.19.0"
