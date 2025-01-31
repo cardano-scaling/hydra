@@ -19,7 +19,6 @@ import Options.Applicative (execParser)
 
 main :: IO ()
 main = do
-  -- TODO: add a --version command line option
   Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
@@ -48,5 +47,4 @@ reportObservation networkId baseURI observation = do
 
   version = showVersion hydraNodeVersion
 
-  -- TODO: maybe change schema to have network and version as part of the request body
   url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> version

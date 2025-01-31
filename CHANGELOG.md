@@ -44,7 +44,9 @@ changes.
 
 - Bump docusaurus version
 
-- Add blockfrost support to `hydra-chain-observer`, to follow the chain via Blockfrost API.
+- Changes to `hydra-chain-observer`:
+  - Add blockfrost support to follow the chain via Blockfrost API.
+   - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
 - Fix `bench-e2e single` benchmarks and only use `--output-directory` to keep
   the whole benchmark state.
