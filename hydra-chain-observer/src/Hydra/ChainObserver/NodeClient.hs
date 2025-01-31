@@ -28,8 +28,11 @@ data ChainObservation
   , observedTx :: Maybe (OnChainTx Tx)
   }
   deriving stock (Eq, Show, Generic)
-  -- TODO: test ToJSON ChainObservation vs explorer api
-  deriving anyclass (ToJSON)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ChainObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 newtype NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()

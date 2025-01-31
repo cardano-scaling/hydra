@@ -3,12 +3,19 @@ module Hydra.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (utxoFromTx)
+import Hydra.Cardano.Api (Tx, utxoFromTx)
+import Hydra.Chain (OnChainTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.ChainObserver.NodeClient (observeAll, observeTx)
+import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
 import Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Hydra.Tx.Observe (HeadObservation (..))
+import Test.Aeson.GenericSpecs (
+  Settings (..),
+  defaultSettings,
+  roundtripAndGoldenADTSpecsWithSettings,
+  roundtripAndGoldenSpecsWithSettings,
+ )
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
@@ -16,6 +23,11 @@ import Test.QuickCheck.Property (checkCoverage)
 spec :: Spec
 spec =
   parallel $ do
+    -- NOTE: Detect regressions in interface to hydra-explorer
+    let settings = defaultSettings{sampleSize = 1}
+    roundtripAndGoldenSpecsWithSettings settings $ Proxy @ChainObservation
+    roundtripAndGoldenADTSpecsWithSettings settings $ Proxy @(OnChainTx Tx)
+
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
         forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, transition) ->
