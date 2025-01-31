@@ -4,29 +4,8 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (
-  BlockHeader (BlockHeader),
-  BlockInMode (..),
-  BlockNo,
-  CardanoEra (..),
-  ChainPoint,
-  ChainSyncClient,
-  ChainTip,
-  ConsensusModeParams (..),
-  EpochSlots (..),
-  LocalChainSyncClient (..),
-  LocalNodeClientProtocols (..),
-  LocalNodeConnectInfo (..),
-  NetworkId,
-  SocketPath,
-  Tx,
-  UTxO,
-  connectToLocalNode,
-  getChainPoint,
-  getTxBody,
-  getTxId,
-  pattern Block,
- )
+import Data.Version (showVersion)
+import Hydra.Cardano.Api (BlockHeader (BlockHeader), BlockInMode (..), BlockNo, CardanoEra (..), ChainPoint, ChainSyncClient, ChainTip, ConsensusModeParams (..), EpochSlots (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId (..), SocketPath, Tx, UTxO, connectToLocalNode, getChainPoint, getTxBody, getTxId, pattern Block)
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.CardanoClient (queryTip)
@@ -37,6 +16,7 @@ import Hydra.Contract (ScriptInfo)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
+import Hydra.Options (hydraNodeVersion)
 import Hydra.Tx.HeadId (HeadId (..))
 import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
 import Network.URI (URI)
@@ -80,21 +60,26 @@ main = do
         let observerHandler observations =
               case explorerBaseURI of
                 Nothing -> pure ()
-                Just uri -> forM_ observations $ reportObservation uri
+                Just uri -> forM_ observations $ reportObservation networkId uri
 
         connectToLocalNode
           (connectInfo nodeSocket networkId)
           (clientProtocols tracer networkId chainPoint observerHandler)
 
 -- | Submit observation to a 'hydra-explorer' at given base 'URI'.
--- TODO: how to handle errors?
-reportObservation :: URI -> ChainObservation -> IO ()
-reportObservation baseURI observation = do
+reportObservation :: NetworkId -> URI -> ChainObservation -> IO ()
+reportObservation networkId baseURI observation = do
   req <- parseRequestThrow url <&> setRequestBodyJSON observation
   httpNoBody req <&> getResponseBody
  where
-  -- TODO: determine network and version
-  url = "POST " <> show baseURI <> "/observations/mainnet/0.19.0"
+  networkParam = case networkId of
+    Mainnet -> "mainnet"
+    (Testnet magic) -> show magic
+
+  version = showVersion hydraNodeVersion
+
+  -- TODO: maybe change schema to have network and version as part of the request body
+  url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> version
 
 type ChainObserverLog :: Type
 data ChainObserverLog
