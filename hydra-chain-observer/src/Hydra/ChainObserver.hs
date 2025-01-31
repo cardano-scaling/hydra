@@ -78,7 +78,6 @@ reportObservation networkId baseURI observation = do
 
   version = showVersion hydraNodeVersion
 
-  -- TODO: maybe change schema to have network and version as part of the request body
   url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> version
 
 type ChainObserverLog :: Type
