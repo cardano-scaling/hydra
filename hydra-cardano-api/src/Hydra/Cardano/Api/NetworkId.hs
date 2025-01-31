@@ -6,6 +6,7 @@ import Hydra.Cardano.Api.Prelude
 
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import Hydra.Cardano.Api.NetworkMagic ()
+import Test.QuickCheck (oneof)
 
 -- * Orphans
 
@@ -25,3 +26,9 @@ instance FromJSON NetworkId where
       "Mainnet" -> pure Mainnet
       "Testnet" -> Testnet <$> o .: "magic"
       _ -> fail "Expected tag to be Mainnet | Testnet"
+
+instance Arbitrary NetworkId where
+  arbitrary = oneof [pure Mainnet, Testnet <$> arbitrary]
+  shrink = \case
+    Mainnet -> []
+    Testnet magic -> Testnet <$> shrink magic
