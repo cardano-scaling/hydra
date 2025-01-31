@@ -31,11 +31,11 @@ jobs:
         import re
         with open("docs/docs/tutorial/index.md", "r") as tutorial:
             body = tutorial.read()
-            usedCardanoNodeVersions = re.findall(r"cardano_node_version=([0-9]+\.[0-9]+\.[0-9]+)", body)
+            usedCardanoNodeVersions = re.findall(r"cardano_node_version=([0-9]+\.[0-9]+(\.[0-9]+)?)", body)
 
         with open("hydra-cluster/test/Test/CardanoNodeSpec.hs", "r") as cardanoNodeSpecFile:
             body = cardanoNodeSpecFile.read()
-            expectedCardanoNodeVersion = re.findall(r"supportedCardanoNodeVersion = \"([0-9]+\.[0-9]+\.[0-9]+)", body)[0]
+            expectedCardanoNodeVersion = re.findall(r"supportedCardanoNodeVersion = \"([0-9]+\.[0-9]+(\.[0-9]+)?)", body)[0]
 
         print("Checking used cardano-node versions")
         if len(usedCardanoNodeVersions) > 0 and all(v == expectedCardanoNodeVersion for v in usedCardanoNodeVersions):
