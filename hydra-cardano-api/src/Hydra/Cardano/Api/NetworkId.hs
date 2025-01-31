@@ -4,7 +4,8 @@ module Hydra.Cardano.Api.NetworkId where
 
 import Hydra.Cardano.Api.Prelude
 
-import Data.Aeson (Value (Number, String), object, withObject, (.:), (.=))
+import Data.Aeson (Value (String), object, withObject, (.:), (.=))
+import Hydra.Cardano.Api.NetworkMagic ()
 
 -- * Orphans
 
@@ -14,7 +15,7 @@ instance ToJSON NetworkId where
     Testnet magic ->
       object
         [ "tag" .= String "Testnet"
-        , "magic" .= Number (fromIntegral $ unNetworkMagic magic)
+        , "magic" .= toJSON magic
         ]
 
 instance FromJSON NetworkId where
@@ -22,5 +23,5 @@ instance FromJSON NetworkId where
     tag <- o .: "tag"
     case tag :: Text of
       "Mainnet" -> pure Mainnet
-      "Testnet" -> Testnet . NetworkMagic <$> o .: "magic"
+      "Testnet" -> Testnet <$> o .: "magic"
       _ -> fail "Expected tag to be Mainnet | Testnet"
