@@ -13,6 +13,7 @@ import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol,
+  MintValue,
   OutputDatum (..),
   ScriptHash (..),
   TokenName (..),
@@ -20,15 +21,20 @@ import PlutusLedgerApi.V3 (
   TxOut (..),
   TxOutRef (..),
   Value (getValue),
+  mintValueBurned,
+  mintValueMinted,
+  mintValueToMap,
   toBuiltinData,
  )
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins (serialiseData)
 import PlutusTx.Builtins qualified as Builtins
+import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusTx.Prelude
 
 hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = "HydraHeadV1"
+hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"
+{-# INLINEABLE hydraHeadV1 #-}
 
 -- | Checks that the output contains the state token (ST) with the head
 -- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
@@ -43,13 +49,13 @@ hasST headPolicyId v =
 -- | Checks all tokens related to some specific `CurrencySymbol`.
 --
 -- This checks both PTs and ST are burnt.
-mustBurnAllHeadTokens :: Value -> CurrencySymbol -> [Party] -> Bool
-mustBurnAllHeadTokens minted headCurrencySymbol parties =
+mustBurnAllHeadTokens :: MintValue -> CurrencySymbol -> [Party] -> Bool
+mustBurnAllHeadTokens mintValue headCurrencySymbol parties =
   traceIfFalse $(errorCode BurntTokenNumberMismatch) $
     burntTokens == length parties + 1
  where
   burntTokens =
-    case AssocMap.lookup headCurrencySymbol (getValue minted) of
+    case AssocMap.lookup headCurrencySymbol (mintValueToMap mintValue) of
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 {-# INLINEABLE mustBurnAllHeadTokens #-}
@@ -57,7 +63,7 @@ mustBurnAllHeadTokens minted headCurrencySymbol parties =
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
-    isZero txInfoMint
+    isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
 
 infix 4 ===

@@ -5,8 +5,8 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
 import Control.Tracer (nullTracer)
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
+import Hydra.Network.Ouroboros.Codec (codecFireForget)
 import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
-import Hydra.Network.Ouroboros.Type (codecFireForget)
 import Network.TypedProtocol.Channel (createConnectedChannels)
 import Network.TypedProtocol.Driver.Simple (runPeer)
 import Test.Hspec.Core.Spec
@@ -15,7 +15,7 @@ import Test.Util (shouldBe, shouldRunInSim)
 spec :: Spec
 spec =
   it "client can send 'Hail Hydra!' to server" $ do
-    (res, _) <- shouldRunInSim $ do
+    ((res, _), _) <- shouldRunInSim $ do
       (channelA, channelB) <- createConnectedChannels
       server <- newServer
       concurrently

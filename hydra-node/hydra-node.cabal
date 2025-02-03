@@ -84,6 +84,7 @@ library
     Hydra.Network.Message
     Hydra.Network.Ouroboros
     Hydra.Network.Ouroboros.Client
+    Hydra.Network.Ouroboros.Codec
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.VersionedProtocol

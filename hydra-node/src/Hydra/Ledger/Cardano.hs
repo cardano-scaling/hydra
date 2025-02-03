@@ -120,6 +120,7 @@ newLedgerEnv protocolParams =
       Ledger.ledgerAccount = Ledger.AccountState mempty mempty
     , Ledger.ledgerPp = protocolParams
     , Ledger.ledgerMempool = False
+    , Ledger.ledgerEpochNo = Nothing
     }
 
 -- * Conversions and utilities

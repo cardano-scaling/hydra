@@ -11,7 +11,7 @@ import Hydra.Network.Authenticate (Signed (..))
 import Hydra.Network.Heartbeat (Heartbeat (Data))
 import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
-import Hydra.Network.Ouroboros.Type (codecFireForget)
+import Hydra.Network.Ouroboros.Codec (codecFireForget)
 import Hydra.Tx.Crypto (AsType (AsHydraKey), sign)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
@@ -64,6 +64,7 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
  )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion, queryVersion)
 import Ouroboros.Network.Socket (
+  ConnectToArgs (..),
   HandshakeCallbacks (..),
   NetworkConnectTracers (..),
   connectToNodeSocket,
@@ -181,16 +182,18 @@ injectReqSn peer snapshotNumber hydraKeyFile fakeHydraKeyFile = do
       traceWith tracer $ ConnectingTo sockAddr
       connect sock (addrAddress sockAddr)
       traceWith tracer $ ConnectedTo sockAddr
-      runClient iomgr (mkApplication sk party tracer) sock
+      void $ runClient iomgr (mkApplication sk party tracer) sock
  where
   runClient iomgr app =
     connectToNodeSocket
       iomgr
-      unversionedHandshakeCodec
-      noTimeLimitsHandshake
-      unversionedProtocolDataCodec
-      networkConnectTracers
-      (HandshakeCallbacks acceptableVersion queryVersion)
+      ConnectToArgs
+        { ctaHandshakeCodec = unversionedHandshakeCodec
+        , ctaHandshakeTimeLimits = noTimeLimitsHandshake
+        , ctaVersionDataCodec = unversionedProtocolDataCodec
+        , ctaConnectTracers = networkConnectTracers
+        , ctaHandshakeCallbacks = HandshakeCallbacks acceptableVersion queryVersion
+        }
       (unversionedProtocol app)
 
   networkConnectTracers =
