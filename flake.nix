@@ -15,10 +15,6 @@
       flake = false;
     };
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
-    hls = {
-      url = "github:haskell/haskell-language-server";
-      flake = false;
-    };
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
 
@@ -74,10 +70,7 @@
                 cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
                 cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.4.0";
                 fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.16.2.0";
-                haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" rec {
-                  src = inputs.hls;
-                  cabalProject = builtins.readFile (src + "/cabal.project");
-                };
+                haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
                 hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
                 weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
                 cardano-cli = inputs.cardano-node.packages.${system}.cardano-cli;

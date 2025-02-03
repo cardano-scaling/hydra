@@ -1060,22 +1060,6 @@
         "type": "github"
       }
     },
-    "hls": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1735065702,
-        "narHash": "sha256-jDwyGRqvtyXLRY4PexAOcWVUrlII+IlonBzcRS9v9Gg=",
-        "owner": "haskell",
-        "repo": "haskell-language-server",
-        "rev": "f09500b85f0f75acdbf15096ef0c04e0a134f43a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "haskell",
-        "repo": "haskell-language-server",
-        "type": "github"
-      }
-    },
     "hls-1.10": {
       "flake": false,
       "locked": {
@@ -2612,7 +2596,6 @@
         "cardano-node": "cardano-node",
         "flake-parts": "flake-parts",
         "haskellNix": "haskellNix_2",
-        "hls": "hls",
         "hydra-spec": "hydra-spec",
         "iohk-nix": "iohk-nix",
         "lint-utils": "lint-utils",
