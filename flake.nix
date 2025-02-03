@@ -63,7 +63,7 @@
               # Specific versions of tools we require
               (final: prev: {
                 aiken = inputs.aiken.packages.${system}.aiken;
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
                 cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
                 cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
                 cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
