@@ -1,26 +1,24 @@
 {
   inputs = {
-    nixpkgs.follows = "haskellNix/nixpkgs";
-    haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
-    iohk-nix.url = "github:input-output-hk/iohk-nix";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
-    lint-utils = {
-      url = "github:homotopic/lint-utils";
-      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
-    };
     CHaP = {
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
-    nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
-
-
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    haskellNix.url = "github:input-output-hk/haskell.nix";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
+    iohk-nix.url = "github:input-output-hk/iohk-nix";
+    lint-utils = {
+      url = "github:homotopic/lint-utils";
+      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
+    };
     mithril.url = "github:input-output-hk/mithril/2450.0";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
+    nixpkgs.follows = "haskellNix/nixpkgs";
+    nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
   outputs =
