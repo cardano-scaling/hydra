@@ -65,7 +65,7 @@
                 aiken = inputs.aiken.packages.${system}.aiken;
                 apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
                 cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
-                cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
+                cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
                 cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.4.0";
                 fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.16.2.0";
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
