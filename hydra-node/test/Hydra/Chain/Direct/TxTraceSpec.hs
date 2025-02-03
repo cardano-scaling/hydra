@@ -312,41 +312,41 @@ instance StateModel Model where
           [(1, Some . NewSnapshot <$> genSnapshot)]
             <> [ ( 2
                  , do
-                    actor <- elements allActors
-                    snapshot <- elements knownSnapshots
-                    pure $ Some Increment{actor, snapshot}
+                     actor <- elements allActors
+                     snapshot <- elements knownSnapshots
+                     pure $ Some Increment{actor, snapshot}
                  )
                | not (null knownSnapshots) -- XXX: DRY this check
                ]
             <> [ ( 5
                  , do
-                    actor <- elements allActors
-                    snapshot <- elements knownSnapshots
-                    pure $ Some Decrement{actor, snapshot}
+                     actor <- elements allActors
+                     snapshot <- elements knownSnapshots
+                     pure $ Some Decrement{actor, snapshot}
                  )
                | not (null knownSnapshots) -- XXX: DRY this check
                ]
             <> [
                  ( 1
                  , do
-                    toCommit <- arbitrary
-                    pure $ Some Deposit{utxoToDeposit = take 1 $ nub $ filter (`notElem` utxoInHead) toCommit}
+                     toCommit <- arbitrary
+                     pure $ Some Deposit{utxoToDeposit = take 1 $ nub $ filter (`notElem` utxoInHead) toCommit}
                  )
                ]
             <> [ ( 5
                  , do
-                    actor <- elements allActors
-                    snapshot <- elements knownSnapshots
-                    pure $ Some $ Close{actor, snapshot = snapshot}
+                     actor <- elements allActors
+                     snapshot <- elements knownSnapshots
+                     pure $ Some $ Close{actor, snapshot = snapshot}
                  )
                | not (null knownSnapshots)
                ]
             <> [
                  ( 5
                  , do
-                    actor <- elements allActors
-                    snapshot <- genCloseWithDecrement
-                    pure $ Some $ Close{actor, snapshot = snapshot}
+                     actor <- elements allActors
+                     snapshot <- genCloseWithDecrement
+                     pure $ Some $ Close{actor, snapshot = snapshot}
                  )
                ]
       Closed{} ->
@@ -375,9 +375,9 @@ instance StateModel Model where
               <> [
                    ( 5
                    , do
-                      actor <- elements allActors
-                      snapshot <- genContest
-                      pure $ Some $ Contest{actor, snapshot}
+                       actor <- elements allActors
+                       snapshot <- genContest
+                       pure $ Some $ Contest{actor, snapshot}
                    )
                  ]
       Final -> pure $ Some Stop
@@ -457,9 +457,9 @@ instance StateModel Model where
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
-              then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+               then snapshot.inHead == initialUTxOInHead
+               else
+                 snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
@@ -507,9 +507,9 @@ instance StateModel Model where
         && (pendingDeposit == snapshot.toCommit && pendingDecommit == snapshot.toDecommit)
         && (if snapshot.version == currentVersion then snapshot.toCommit == mempty && snapshot.toDecommit == mempty else snapshot.toCommit /= mempty || snapshot.toDecommit /= mempty)
         && ( if snapshot.number == 0
-              then snapshot.inHead == initialUTxOInHead
-              else
-                snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
+               then snapshot.inHead == initialUTxOInHead
+               else
+                 snapshot.version `elem` (currentVersion : [currentVersion - 1 | currentVersion > 0])
            )
      where
       Model{utxoInHead = initialUTxOInHead} = initialState
