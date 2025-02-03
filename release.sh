@@ -61,12 +61,11 @@ prepare_release() {
   update_api_version "$version"
   update_demo_version "$version"
   update_tutorial_version "$version"
-  update_explorer_version "$version"
 
   find . -name '*-e' -exec rm '{}' \; # cleanup BSD sed mess
-  
+
   git add .
-  
+
   git commit -m "Release $version"
 
   git tag -as "$version" -F <(changelog "$version")
@@ -117,7 +116,7 @@ check_on_master() {
 
 check_version_is_valid() {
   local version="$1"
-  
+
   echo $version | grep -E '^[0-9]*\.[0-9]*\.[0-9]*$' >/dev/null \
   || exit_err "Invalid format for version: $version"
 
@@ -164,7 +163,7 @@ check_networks_is_up_to_date() {
 update_cabal_version() {
   local version="$1" ; shift
   local cabal_files=hydra-*/*.cabal
-  
+
   for file in $cabal_files
   do
     sed -i"" -e "s,\(^version: *\)[^ ]*,\1$version," $file
@@ -189,14 +188,6 @@ update_demo_version() {
   (
     cd demo
     sed -i"" -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml seed-devnet.sh
-  )
-}
-
-update_explorer_version() {
-  local version="$1"
-  (
-    cd .github/workflows/explorer
-    sed -i"" -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:$version," docker-compose.yaml
   )
 }
 
