@@ -7,7 +7,7 @@
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    haskellNix.url = "github:input-output-hk/haskell.nix";
+    haskellNix.url = "github:input-output-hk/haskell.nix/2025.02.02";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     lint-utils = {
