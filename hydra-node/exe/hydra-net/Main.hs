@@ -10,8 +10,6 @@ import Hydra.Network (Host (..), readHost)
 import Hydra.Network.Authenticate (Signed (..))
 import Hydra.Network.Heartbeat (Heartbeat (Data))
 import Hydra.Network.Message (Message (ReqSn))
-import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
-import Hydra.Network.Ouroboros.Codec (codecFireForget)
 import Hydra.Tx.Crypto (AsType (AsHydraKey), sign)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot (SnapshotNumber (UnsafeSnapshotNumber))
@@ -25,6 +23,8 @@ import Network.Socket (
   getAddrInfo,
   socket,
  )
+import Network.TypedProtocol.FireForget.Client (FireForgetClient (..), fireForgetClientPeer)
+import Network.TypedProtocol.FireForget.Codec (codecFireForget)
 import Options.Applicative (
   Parser,
   ParserInfo,

@@ -1,10 +1,7 @@
-module Hydra.Network.Ouroboros.Type where
-
-import Hydra.Prelude
+module Network.TypedProtocol.FireForget.Type where
 
 import Network.TypedProtocol.Codec
 import Network.TypedProtocol.Core
-import Ouroboros.Consensus.Util (ShowProxy (..))
 
 -- | TODO explain Protocol
 --
@@ -25,9 +22,6 @@ instance StateTokenI StIdle where
   stateToken = SingIdle
 instance StateTokenI StDone where
   stateToken = SingDone
-
-instance ShowProxy (FireForget msg) where
-  showProxy _ = "FireForget"
 
 instance Protocol (FireForget msg) where
   -- The actual messages in our protocol.

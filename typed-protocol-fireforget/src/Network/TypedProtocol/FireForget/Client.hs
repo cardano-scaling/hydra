@@ -1,15 +1,13 @@
-module Hydra.Network.Ouroboros.Client where
+module Network.TypedProtocol.FireForget.Client where
 
-import Hydra.Prelude
-
-import Hydra.Network.Ouroboros.Type (
-  FireForget (..),
-  Message (MsgDone, MsgSend),
- )
 import Network.TypedProtocol.Core (
   IsPipelined (..),
   PeerRole (..),
   ReflRelativeAgency (..),
+ )
+import Network.TypedProtocol.FireForget.Type (
+  FireForget (..),
+  Message (MsgDone, MsgSend),
  )
 import Network.TypedProtocol.Peer (
   Peer (..),

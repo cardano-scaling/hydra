@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -- | Ouroboros-based implementation of 'Hydra.Network' interface.
 -- This implements a dumb 'FireForget' protocol and maintains one connection to each peer.
 -- Contrary to other protocols implemented in Ouroboros, this is a push-based protocol.
@@ -45,21 +47,7 @@ import Hydra.Network.Message (
   HydraVersionedProtocolNumber (..),
   KnownHydraVersions (..),
  )
-import Hydra.Network.Ouroboros.Client as FireForget (
-  FireForgetClient (..),
-  fireForgetClientPeer,
- )
-import Hydra.Network.Ouroboros.Codec (
-  codecFireForget,
- )
-import Hydra.Network.Ouroboros.Server as FireForget (
-  FireForgetServer (..),
-  fireForgetServerPeer,
- )
-import Hydra.Network.Ouroboros.Type (
-  FireForget (..),
-  Message (..),
- )
+import Network.Mux (Mode (..), WithBearer (..))
 import Network.Socket (
   AddrInfo (addrAddress),
   NameInfoFlag (..),
@@ -73,8 +61,22 @@ import Network.Socket (
 import Network.TypedProtocol.Codec (
   AnyMessage (..),
  )
-
-import Network.Mux (Mode (..), WithBearer (..))
+import Network.TypedProtocol.FireForget.Client as FireForget (
+  FireForgetClient (..),
+  fireForgetClientPeer,
+ )
+import Network.TypedProtocol.FireForget.Codec (
+  codecFireForget,
+ )
+import Network.TypedProtocol.FireForget.Server as FireForget (
+  FireForgetServer (..),
+  fireForgetServerPeer,
+ )
+import Network.TypedProtocol.FireForget.Type (
+  FireForget (..),
+  Message (..),
+ )
+import Ouroboros.Consensus.Util (ShowProxy (..))
 import Ouroboros.Network.Driver.Simple (
   TraceSendRecv (..),
  )
@@ -124,6 +126,9 @@ import Ouroboros.Network.Subscription (
 import Ouroboros.Network.Subscription qualified as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (WithIPList))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
+
+instance ShowProxy (FireForget msg) where
+  showProxy _ = "FireForget"
 
 withOuroborosNetwork ::
   forall inbound outbound.

@@ -27,6 +27,7 @@ packages:
   hydra-tui
   hydraw
   hydra-chain-observer
+  typed-protocol-fireforget
 
 -- Compile more things in parallel
 package *

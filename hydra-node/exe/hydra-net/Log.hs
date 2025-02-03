@@ -8,7 +8,6 @@ import Data.Aeson (Value (..), object, (.=))
 import Hydra.Network.Ouroboros (
   encodeTraceSendRecvFireForget,
  )
-import Hydra.Network.Ouroboros.Type (FireForget)
 import Network.Socket (
   AddrInfo (..),
   AddrInfoFlag,
@@ -17,6 +16,7 @@ import Network.Socket (
   SockAddr (..),
   SocketType (..),
  )
+import Network.TypedProtocol.FireForget.Type (FireForget)
 import Ouroboros.Network.Driver (TraceSendRecv)
 
 data NetLog msg

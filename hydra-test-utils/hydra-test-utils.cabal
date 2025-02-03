@@ -36,9 +36,12 @@ library
     Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
     Test.Network.Ports
+    Test.Util
 
   build-depends:
+    , aeson
     , base
+    , contra-tracer
     , directory
     , filepath
     , hspec
@@ -47,6 +50,7 @@ library
     , hspec-junit-formatter  <1.1.1
     , HUnit
     , hydra-prelude
+    , io-sim
     , network
     , port-utils
     , process

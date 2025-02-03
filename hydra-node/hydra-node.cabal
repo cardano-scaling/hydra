@@ -83,10 +83,6 @@ library
     Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Network.Ouroboros
-    Hydra.Network.Ouroboros.Client
-    Hydra.Network.Ouroboros.Codec
-    Hydra.Network.Ouroboros.Server
-    Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.VersionedProtocol
     Hydra.Network.Reliability
     Hydra.Node
@@ -155,8 +151,8 @@ library
     , text
     , time
     , transformers
+    , typed-protocol-fireforget
     , typed-protocols                 >=0.1.0.0
-    , typed-protocols-cborg           >=0.1.0.0
     , unliftio
     , vector
     , wai
@@ -225,6 +221,7 @@ executable hydra-net
     , network
     , optparse-applicative
     , ouroboros-network-framework  >=0.3.0.0
+    , typed-protocol-fireforget
 
   ghc-options:    -threaded -rtsopts
 
@@ -292,7 +289,6 @@ test-suite tests
     Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
-    Hydra.FireForgetSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -319,7 +315,6 @@ test-suite tests
     Hydra.UtilsSpec
     Paths_hydra_node
     Spec
-    Test.Util
 
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
@@ -347,10 +342,8 @@ test-suite tests
     , filepath
     , hedgehog-quickcheck
     , hspec
-    , hspec-core
     , hspec-golden-aeson
     , hspec-wai
-    , HUnit
     , hydra-cardano-api
     , hydra-node
     , hydra-node:testlib
@@ -377,7 +370,6 @@ test-suite tests
     , text
     , time
     , tls
-    , typed-protocols-examples        >=0.1.0.0
     , vector
     , websockets
 

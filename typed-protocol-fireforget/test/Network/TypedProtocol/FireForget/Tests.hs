@@ -1,15 +1,15 @@
-module Hydra.FireForgetSpec where
+module Network.TypedProtocol.FireForget.Tests where
 
-import Hydra.Prelude
-
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadSTM (atomically), TVar, newTVarIO, readTVarIO, writeTVar)
+import Control.Monad.Class.MonadAsync (concurrently)
 import Control.Tracer (nullTracer)
-import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
-import Hydra.Network.Ouroboros.Codec (codecFireForget)
-import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
+import Data.Text (Text)
 import Network.TypedProtocol.Channel (createConnectedChannels)
 import Network.TypedProtocol.Driver.Simple (runPeer)
-import Test.Hspec.Core.Spec
+import Network.TypedProtocol.FireForget.Client (FireForgetClient (SendDone, SendMsg), fireForgetClientPeer)
+import Network.TypedProtocol.FireForget.Codec (codecFireForget)
+import Network.TypedProtocol.FireForget.Server (FireForgetServer (FireForgetServer, recvMsg, recvMsgDone), fireForgetServerPeer)
+import Test.Hspec.Core.Spec (Spec, it)
 import Test.Util (shouldBe, shouldRunInSim)
 
 spec :: Spec

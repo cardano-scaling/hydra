@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Test.Util where
@@ -5,7 +6,6 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
-import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
   Failure (FailureException),
   IOSim,
@@ -18,8 +18,6 @@ import Control.Monad.IOSim (
 import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
-import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
 
@@ -31,14 +29,11 @@ shouldRunInSim action =
   case traceResult False tr of
     Right x -> pure x
     Left (FailureException (SomeException ex)) -> do
-      dumpTrace
       throwIO ex
     Left ex -> do
-      dumpTrace
       throwIO ex
  where
   tr = runSimTrace action
-  dumpTrace = say (toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr)
 
 -- | Utility function to dump logs given a `SimTrace`.
 printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace a -> Text

@@ -1,0 +1,83 @@
+cabal-version: 3.0
+name:          typed-protocol-fireforget
+version:       0.1.0
+synopsis:
+  A typed-protocols protocol that sends messages without waiting for a response.
+
+author:        IOG
+copyright:     2025 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DerivingStrategies
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -Wmissing-import-lists -Wmissing-local-signatures
+    -fprint-potential-instances
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules:
+    Network.TypedProtocol.FireForget.Client
+    Network.TypedProtocol.FireForget.Codec
+    Network.TypedProtocol.FireForget.Server
+    Network.TypedProtocol.FireForget.Type
+
+  other-modules:   Paths_typed_protocol_fireforget
+  build-depends:
+    , base
+    , bytestring
+    , cardano-binary
+    , cborg
+    , io-classes
+    , typed-protocols        >=0.3.0.0
+    , typed-protocols-cborg  >=0.3.0.0
+
+  ghc-options:     -haddock
+
+test-suite tests
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  other-modules:
+    Network.TypedProtocol.FireForget.Tests
+    Spec
+
+  build-depends:
+    , base
+    , contra-tracer
+    , hspec
+    , hspec-core
+    , hydra-test-utils
+    , io-classes
+    , text
+    , typed-protocol-fireforget
+    , typed-protocols-examples

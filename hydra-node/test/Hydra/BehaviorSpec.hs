@@ -17,7 +17,8 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forConcurrently_)
-import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import Control.Monad.Class.MonadSay (say)
+import Control.Monad.IOSim (Failure (..), IOSim, runSimTrace, selectTraceEventsDynamic, traceResult)
 import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
@@ -65,7 +66,24 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
-import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
+import Test.Util (printTrace, shouldBe, shouldNotBe, traceInIOSim)
+
+-- | Run given 'action' in 'IOSim' and rethrow any exceptions.
+shouldRunInSim ::
+  (forall s. IOSim s a) ->
+  IO a
+shouldRunInSim action =
+  case traceResult False tr of
+    Right x -> pure x
+    Left (FailureException (SomeException ex)) -> do
+      dumpTrace
+      throwIO ex
+    Left ex -> do
+      dumpTrace
+      throwIO ex
+ where
+  tr = runSimTrace action
+  dumpTrace = say (toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr)
 
 spec :: Spec
 spec = parallel $ do
