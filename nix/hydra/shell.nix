@@ -3,24 +3,21 @@
 # same nixpkgs as the default nix builds (see default.nix).
 
 { hsPkgs
-, inputs
-, system
 , pkgs
 , ghc
-, aiken
 , hydraPackages
 }:
 let
 
   buildInputs = [
+    # To compile hydra scripts
+    pkgs.aiken
     # For running automatic refactoring with hlint
     pkgs.apply-refact
     pkgs.cabal-fmt
     pkgs.cabal-install
     # Handy tool to debug the cabal build plan
     pkgs.cabal-plan
-    # To compile hydra scripts
-    aiken.packages.${system}.aiken
     # To interact with cardano-node and integration tests
     pkgs.cardano-cli
     # For integration tests
@@ -58,8 +55,8 @@ let
   libs = [
     pkgs.glibcLocales
     pkgs.libsodium-vrf # from iohk-nix overlay
-    pkgs.xz
     pkgs.secp256k1
+    pkgs.xz
     pkgs.zlib
   ]
   ++
@@ -120,8 +117,8 @@ let
     buildInputs = [
       hydraPackages.hydra-node
       hydraPackages.hydra-cluster
-      inputs.cardano-node.packages.${system}.cardano-node
-      inputs.cardano-node.packages.${system}.cardano-cli
+      pkgs.cardano-node
+      pkgs.cardano-cli
       pkgs.mithril-client-cli
       pkgs.mithril-client-cli-unstable
     ];
@@ -134,8 +131,8 @@ let
       hydraPackages.hydra-node
       hydraPackages.hydra-tui
       run-tmux
-      inputs.cardano-node.packages.${system}.cardano-node
-      inputs.cardano-node.packages.${system}.cardano-cli
+      pkgs.cardano-node
+      pkgs.cardano-cli
     ];
   };
 
@@ -145,8 +142,6 @@ let
     buildInputs = [
       # For building docs
       pkgs.plantuml
-      # Note: jq 1.6 has a bug that means it fails to read large integers
-      # correctly, so we require 1.7+ at least.
       pkgs.jq
       pkgs.weeder
     ];

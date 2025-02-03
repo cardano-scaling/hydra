@@ -21,14 +21,8 @@
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
-  outputs =
-    { self
-    , flake-parts
-    , nixpkgs
-    , cardano-node
-    , ...
-    } @ inputs:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { self, ... }@inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.process-compose-flake.flakeModule
       ];
@@ -44,7 +38,7 @@
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
-          pkgs = import nixpkgs {
+          pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [
               # This overlay contains libsodium and libblst libraries
@@ -90,12 +84,12 @@
           };
 
           hydraPackages = import ./nix/hydra/packages.nix {
-            inherit system pkgs inputs hsPkgs self;
+            inherit pkgs inputs hsPkgs self;
             gitRev = self.rev or "dirty";
           };
 
           hydraImages = import ./nix/hydra/docker.nix {
-            inherit hydraPackages system nixpkgs;
+            inherit hydraPackages pkgs;
           };
 
           prefixAttrs = s: attrs:
@@ -172,8 +166,7 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
-            inherit (inputs) aiken;
-            inherit inputs pkgs hsPkgs system hydraPackages;
+            inherit pkgs hsPkgs hydraPackages;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };

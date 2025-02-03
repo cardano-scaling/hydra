@@ -1,7 +1,6 @@
 # A set of buildables we typically build for releases
 
 { hsPkgs # as defined in default.nix
-, system ? builtins.currentSystem
 , pkgs
 , inputs
 , gitRev ? "unknown"
@@ -142,8 +141,8 @@ rec {
         nativePkgs.hydra-cluster.components.tests.tests
         hydra-node
         hydra-chain-observer
-        inputs.cardano-node.packages.${system}.cardano-node
-        inputs.cardano-node.packages.${system}.cardano-cli
+        pkgs.cardano-node
+        pkgs.cardano-cli
         pkgs.mithril-client-cli
         pkgs.mithril-client-cli-unstable
         pkgs.check-jsonschema
@@ -155,8 +154,8 @@ rec {
       [
         nativePkgs.hydra-tui.components.tests.tests
         hydra-node
-        inputs.cardano-node.packages.${system}.cardano-node
-        inputs.cardano-node.packages.${system}.cardano-cli
+        pkgs.cardano-node
+        pkgs.cardano-cli
       ];
   };
 
@@ -173,8 +172,8 @@ rec {
       [
         nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
         hydra-node
-        inputs.cardano-node.packages.${system}.cardano-node
-        inputs.cardano-node.packages.${system}.cardano-cli
+        pkgs.cardano-node
+        pkgs.cardano-cli
       ];
   };
 
