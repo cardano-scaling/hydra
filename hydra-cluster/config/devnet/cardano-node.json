@@ -62,6 +62,7 @@
   "TraceLocalTxSubmissionServer": true,
   "TraceMempool": true,
   "TraceMux": false,
+  "TraceOptions": {},
   "TraceTxInbound": false,
   "TraceTxOutbound": false,
   "TraceTxSubmissionProtocol": false,

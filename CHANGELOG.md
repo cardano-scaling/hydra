@@ -12,6 +12,8 @@ changes.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
+- Tested with `cardano-node 10.2` and `cardano-cli 10.3.0.0`.
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
