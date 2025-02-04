@@ -17,6 +17,9 @@ import Text.Printf (printf)
 
 type Percent = Double
 
+-- | System stats like memory consumption.
+type SystemStats = [Text]
+
 data Summary = Summary
   { clusterSize :: Word64
   , totalTxs :: Int
@@ -50,8 +53,8 @@ makeQuantiles :: [NominalDiffTime] -> Vector Double
 makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 
-textReport :: Summary -> [Text]
-textReport Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs} =
+textReport :: (Summary, SystemStats) -> [Text]
+textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -66,8 +69,11 @@ textReport Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, nu
                else []
            )
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
+        ++ ["| Memory data | "]
+        ++ ["      "]
+        ++ [unlines systemStats]
 
-markdownReport :: UTCTime -> [Summary] -> [Text]
+markdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]
 markdownReport now summaries =
   pageHeader <> concatMap formattedSummary summaries
  where
@@ -98,8 +104,8 @@ markdownReport now summaries =
     , ""
     ]
 
-  formattedSummary :: Summary -> [Text]
-  formattedSummary Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs} =
+  formattedSummary :: (Summary, SystemStats) -> [Text]
+  formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}, systemStats) =
     [ ""
     , "## " <> summaryTitle
     , ""
@@ -120,6 +126,9 @@ markdownReport now summaries =
          )
       ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
          ]
+      ++ ["      "]
+      ++ ["| Memory data | "]
+      ++ [unlines systemStats]
 
 nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
 nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds
