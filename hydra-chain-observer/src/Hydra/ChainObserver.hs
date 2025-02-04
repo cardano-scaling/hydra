@@ -5,7 +5,30 @@ module Hydra.ChainObserver where
 import Hydra.Prelude
 
 import Data.Version (showVersion)
-import Hydra.Cardano.Api (BlockHeader (BlockHeader), BlockInMode (..), BlockNo, CardanoEra (..), ChainPoint, ChainSyncClient, ChainTip, ConsensusModeParams (..), EpochSlots (..), LocalChainSyncClient (..), LocalNodeClientProtocols (..), LocalNodeConnectInfo (..), NetworkId (..), SocketPath, Tx, UTxO, connectToLocalNode, getChainPoint, getTxBody, getTxId, pattern Block)
+import Hydra.Cardano.Api (
+  BlockHeader (BlockHeader),
+  BlockInMode (..),
+  BlockNo,
+  CardanoEra (..),
+  ChainPoint,
+  ChainSyncClient,
+  ChainTip,
+  ConsensusModeParams (..),
+  EpochSlots (..),
+  LocalChainSyncClient (..),
+  LocalNodeClientProtocols (..),
+  LocalNodeConnectInfo (..),
+  NetworkId (..),
+  NetworkMagic (..),
+  SocketPath,
+  Tx,
+  UTxO,
+  connectToLocalNode,
+  getChainPoint,
+  getTxBody,
+  getTxId,
+  pattern Block,
+ )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.CardanoClient (queryTip)
@@ -74,7 +97,7 @@ reportObservation networkId baseURI observation = do
  where
   networkParam = case networkId of
     Mainnet -> "mainnet"
-    (Testnet magic) -> show magic
+    (Testnet (NetworkMagic magic)) -> show magic
 
   version = showVersion hydraNodeVersion
 
