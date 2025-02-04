@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), makeQuantiles)
+import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
 import CardanoClient (RunningNode (..), awaitTransaction, submitTransaction, submitTx)
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -17,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   tryReadTBQueue,
   writeTBQueue,
+  writeTVar,
  )
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -27,6 +28,7 @@ import Data.Map qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, signTx)
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -60,7 +62,7 @@ import HydraNode (
  )
 import System.Directory (findExecutable)
 import System.FilePath ((</>))
-import System.IO (hGetLine, hPutStrLn)
+import System.IO (hGetLine)
 import System.Process (
   CreateProcess (..),
   StdStream (CreatePipe),
@@ -70,9 +72,8 @@ import System.Process (
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
-import Prelude (read)
 
-bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO Summary
+bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
 bench startingNodeId timeoutSeconds workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
@@ -81,7 +82,8 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
-        withOSStats workDir $
+        statsTvar <- newTVarIO mempty
+        scenarioData <- withOSStats workDir statsTvar $
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \node@RunningNode{nodeSocket} -> do
             putTextLn "Seeding network"
             seedNetwork node dataset (contramap FromFaucet tracer)
@@ -94,6 +96,8 @@ bench startingNodeId timeoutSeconds workDir dataset = do
             withHydraCluster hydraTracer workDir nodeSocket startingNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
               scenario hydraTracer node workDir dataset clients
+        systemStats <- readTVarIO statsTvar
+        pure (scenarioData, systemStats)
 
 benchDemo ::
   NetworkId ->
@@ -102,13 +106,13 @@ benchDemo ::
   [Host] ->
   FilePath ->
   Dataset ->
-  IO Summary
+  IO (Summary, SystemStats)
 benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
-        putTextLn "Starting benchmark"
+        putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer
         findRunningCardanoNode' cardanoTracer networkId nodeSocket >>= \case
           Nothing ->
@@ -122,7 +126,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  scenario hydraTracer node workDir dataset (leader :| followers)
+                  (,[]) <$> scenario hydraTracer node workDir dataset (leader :| followers)
  where
   withHydraClientConnections tracer apiHosts connections action = do
     case apiHosts of
@@ -221,47 +225,67 @@ defaultDescription = ""
 -- __NOTE__: This function relies on [dstat](https://linux.die.net/man/1/dstat). If the executable is not in the @PATH@
 -- it's basically a no-op.
 --
--- Writes a @system.csv@ file into given `workDir` containing one line every 5 second with share of user CPU load.
+-- Writes into given `TVar` containing one line every 5 second with share of user/free memory load.
 -- Here is a sample content:
 --
 -- @@
--- 2022-02-16 14:25:43.67203351 UTC,11
--- 2022-02-16 14:25:48.669817664 UTC,10
--- 2022-02-16 14:25:53.672050421 UTC,14
--- 2022-02-16 14:25:58.670460796 UTC,12
--- 2022-02-16 14:26:03.669831775 UTC,11
--- 2022-02-16 14:26:08.67203726 UTC,10
+-- 2025-02-04 17:22:50.30543862 UTC
+--        Used: 7648M, Free: 46.9G
+--2025-02-04 17:22:55.305513945 UTC
+--        Used: 7713M, Free: 46.9G
+--2025-02-04 17:23:00.30550915 UTC
+--        Used: 7715M, Free: 46.9G
+--2025-02-04 17:23:05.305513574 UTC
+--        Used: 7717M, Free: 46.8G
+--2025-02-04 17:23:10.305538265 UTC
+--        Used: 7718M, Free: 46.8G
+--2025-02-04 17:23:15.305519942 UTC
+--        Used: 7719M, Free: 46.8G
+--2025-02-04 17:23:20.30550604 UTC
+--        Used: 7722M, Free: 46.8G
+--2025-02-04 17:23:25.305413146 UTC
+--        Used: 7723M, Free: 46.8G
 -- ...
 -- @@
 --
 -- TODO: add more data points for memory and network consumption
-withOSStats :: FilePath -> IO a -> IO a
-withOSStats workDir action =
+withOSStats :: FilePath -> TVar IO SystemStats -> IO a -> IO a
+withOSStats workDir tvar action =
   findExecutable "dstat" >>= \case
     Nothing -> action
-    Just exePath ->
-      withCreateProcess (process exePath){std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
+    Just _ ->
+      withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
         race
-          (collectStats out $ workDir </> "system.csv")
+          (collectStats tvar out)
           action
           >>= \case
-            Left () -> failure "dstat process failed unexpectedly"
+            Left _ -> failure "dstat process failed unexpectedly"
             Right a -> pure a
  where
-  process exePath = (proc exePath ["-cm", "-n", "-N", "lo", "--integer", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+  process = (proc "dstat" ["-cm", "-n", "-N", "lo", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
 
-  collectStats Nothing _ = pure ()
-  collectStats (Just hdl) filepath =
-    withFile filepath WriteMode $ \file ->
-      forever $
-        hGetLine hdl >>= processStat file
+  collectStats _ Nothing = pure ()
+  collectStats tvar' (Just hdl) =
+    forever $
+      hGetLine hdl >>= processStat tvar'
 
-  processStat :: Handle -> String -> IO ()
-  processStat file stat =
-    case getAllTextMatches (stat =~ ("[0-9]+" :: String)) :: [String] of
-      (cpu : _) -> do
+  processStat :: TVar IO [Text] -> String -> IO ()
+  processStat tvar' stat = do
+    let matches = getAllTextMatches (stat =~ ("[0-9.]+.|([A-Z])" :: String)) :: [String]
+    case matches of
+      (_ : _ : _ : _ : _ : memUsed : memFree : _) -> do
         now <- getCurrentTime
-        hPutStrLn file $ show now <> "," <> show ((read cpu :: Double) / 100)
+        let str =
+              pack $
+                show now
+                  <> "\n\t"
+                  <> "Used: "
+                  <> memUsed
+                  <> ", "
+                  <> "Free: "
+                  <> memFree
+        stats <- readTVarIO tvar'
+        atomically $ writeTVar tvar' $ stats <> [str]
       _ -> pure ()
 
 -- | Compute average confirmation/validation time over intervals of 5 seconds.
