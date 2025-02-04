@@ -10,6 +10,7 @@ changes.
 
 ## [0.20.1] - UNRELEASED
 
+- Record used and free memory when running `bench-e2e` benchmark.
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
 ## [0.20.0] - 2025-02-04
