@@ -257,7 +257,7 @@ const config = {
             items: [
               {
                 label: "Terms and conditions",
-                to: "https://static.iohk.io/terms/iohktermsandconditions.pdf",
+                to: "https://static.iohk.io/terms/iog-terms-and-conditions.pdf",
               },
               {
                 label: "Privacy policy",
