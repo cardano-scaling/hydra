@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Data.Version (showVersion)
 import Hydra.Blockfrost.ChainObserver (blockfrostClient)
-import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
 import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.Contract qualified as Contract
@@ -43,7 +43,7 @@ reportObservation networkId baseURI observation = do
  where
   networkParam = case networkId of
     Mainnet -> "mainnet"
-    (Testnet magic) -> show magic
+    (Testnet (NetworkMagic magic)) -> show magic
 
   version = showVersion hydraNodeVersion
 

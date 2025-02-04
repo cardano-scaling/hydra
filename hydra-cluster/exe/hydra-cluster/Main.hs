@@ -33,7 +33,7 @@ run options =
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \node -> do
             txId <- publishOrReuseHydraScripts tracer node
-            singlePartyOpenAHead tracer workDir node txId $ \client walletSk -> do
+            singlePartyOpenAHead tracer workDir node txId $ \client walletSk _headId -> do
               case scenario of
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
