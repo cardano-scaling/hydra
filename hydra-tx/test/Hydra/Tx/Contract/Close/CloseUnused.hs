@@ -16,7 +16,8 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
-import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
+import Hydra.Tx.Close (closeTx)
+import Hydra.Tx.CollectCom (OpenThreadOutput (..))
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUpperBoundPointInTime,

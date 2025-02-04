@@ -40,4 +40,7 @@ root-instances = [
  , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" }
  , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" }
  , { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" }
+ # Orphan instances needed by hydra-explorer
+ , { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" }
+ , { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" }
  ]

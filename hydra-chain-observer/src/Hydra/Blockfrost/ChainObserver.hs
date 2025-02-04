@@ -66,44 +66,43 @@ blockfrostClient ::
   Tracer IO ChainObserverLog ->
   FilePath ->
   Integer ->
-  NodeClient IO
+  IO (NodeClient IO)
 blockfrostClient tracer projectPath blockConfirmations = do
-  NodeClient
-    { follow = \startChainFrom observerHandler -> do
-        prj <- Blockfrost.projectFromFile projectPath
+  prj <- Blockfrost.projectFromFile projectPath
+  Blockfrost.Genesis
+    { _genesisActiveSlotsCoefficient
+    , _genesisSlotLength
+    , _genesisNetworkMagic
+    } <-
+    runBlockfrostM prj Blockfrost.getLedgerGenesis
+  let networkId = fromNetworkMagic _genesisNetworkMagic
+  pure
+    NodeClient
+      { networkId
+      , follow = \startChainFrom observerHandler -> do
+          Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
+            runBlockfrostM prj (Blockfrost.getBlock (Left 0))
+          traceWith tracer ConnectingToExternalNode{networkId}
 
-        Blockfrost.Block{_blockHash = (Blockfrost.BlockHash genesisBlockHash)} <-
-          runBlockfrostM prj (Blockfrost.getBlock (Left 0))
+          chainPoint <-
+            case startChainFrom of
+              Just point -> pure point
+              Nothing -> do
+                toChainPoint <$> runBlockfrostM prj Blockfrost.getLatestBlock
 
-        Blockfrost.Genesis
-          { _genesisActiveSlotsCoefficient
-          , _genesisSlotLength
-          , _genesisNetworkMagic
-          } <-
-          runBlockfrostM prj Blockfrost.getLedgerGenesis
+          traceWith tracer StartObservingFrom{chainPoint}
 
-        let networkId = fromNetworkMagic _genesisNetworkMagic
-        traceWith tracer ConnectingToExternalNode{networkId}
+          let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-        chainPoint <-
-          case startChainFrom of
-            Just point -> pure point
-            Nothing -> do
-              toChainPoint <$> runBlockfrostM prj Blockfrost.getLatestBlock
+          let blockHash = fromChainPoint chainPoint genesisBlockHash
 
-        traceWith tracer StartObservingFrom{chainPoint}
-
-        let blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
-
-        let blockHash = fromChainPoint chainPoint genesisBlockHash
-
-        stateTVar <- newTVarIO (blockHash, mempty)
-        void $
-          retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-            loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
-              `catch` \(ex :: APIBlockfrostError) ->
-                pure $ Left ex
-    }
+          stateTVar <- newTVarIO (blockHash, mempty)
+          void $
+            retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
+              loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
+                `catch` \(ex :: APIBlockfrostError) ->
+                  pure $ Left ex
+      }
  where
   shouldRetry _ = \case
     Right{} -> pure False
@@ -177,12 +176,12 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   forM_ onChainTxs (traceWith tracer . logOnChainTx)
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
-  let observationsAt = HeadObservation point blockNo <$> onChainTxs
+  let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
 
   -- Call observer handler
   observerHandler $
     if null observationsAt
-      then [Tick point blockNo]
+      then [ChainObservation point blockNo Nothing]
       else observationsAt
 
   -- Next

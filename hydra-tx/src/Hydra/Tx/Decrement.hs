@@ -15,9 +15,11 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..))
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
+
+-- * Construction
 
 -- | Construct a _decrement_ transaction which takes as input some 'UTxO' present
 -- in the L2 ledger state and makes it available on L1.
@@ -87,3 +89,41 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           }
 
   Snapshot{utxo, utxoToDecommit, number, version} = snapshot
+
+-- * Observation
+
+data DecrementObservation = DecrementObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , distributedOutputs :: [TxOut CtxUTxO]
+  }
+  deriving stock (Show, Eq, Generic)
+
+observeDecrementTx ::
+  UTxO ->
+  Tx ->
+  Maybe DecrementObservation
+observeDecrementTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) ->
+          pure
+            DecrementObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , distributedOutputs =
+                  toCtxUTxOTxOut <$> txOuts' tx
+                    & drop 1 -- NOTE: Head output must be in first position
+                    & take (fromIntegral numberOfDecommitOutputs)
+              }
+        _ -> Nothing
+    _ -> Nothing

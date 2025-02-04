@@ -1,0 +1,11 @@
+{
+    "samples": [
+        {
+            "depositTxId": "28a3b46eea486ad81a05640dc3a383e62ee21062f56caba2cab6d8152e2fdbff",
+            "headId": "16c43840a754d96df4de245c3cbda43a",
+            "newVersion": 2,
+            "tag": "OnIncrementTx"
+        }
+    ],
+    "seed": -1378129506
+}

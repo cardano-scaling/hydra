@@ -6,31 +6,20 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (
-  unsafeBuildTransaction,
- )
-import Hydra.Plutus.Orphans ()
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion)
-
-import Hydra.Tx.Utils (IncrementalAction (..), mkHydraHeadV1TxName)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 
-type PointInTime = (SlotNo, UTCTime)
-
-data ClosedThreadOutput = ClosedThreadOutput
-  { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , closedParties :: [OnChain.Party]
-  , closedContestationDeadline :: Plutus.POSIXTime
-  , closedContesters :: [Plutus.PubKeyHash]
-  }
-  deriving stock (Eq, Show, Generic)
+-- * Construction
 
 -- XXX: This function is VERY similar to the 'closeTx' function (only notable
 -- difference being the redeemer, which is in itself also the same structure as
@@ -145,3 +134,49 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           }
+
+-- * Observation
+
+data ContestObservation = ContestObservation
+  { contestedThreadOutput :: (TxIn, TxOut CtxUTxO)
+  , headId :: HeadId
+  , snapshotNumber :: SnapshotNumber
+  , contestationDeadline :: UTCTime
+  , contesters :: [Plutus.PubKeyHash]
+  }
+  deriving stock (Show, Eq, Generic)
+
+-- | Identify a close tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeContestTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe ContestObservation
+observeContestTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
+      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
+      pure
+        ContestObservation
+          { contestedThreadOutput = (newHeadInput, newHeadOutput)
+          , headId
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
+          , contestationDeadline = posixToUTCTime contestationDeadline
+          , contesters
+          }
+    _ -> Nothing
+ where
+  decodeDatum headDatum =
+    case fromScriptData headDatum of
+      Just (Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, contesters}) ->
+        (snapshotNumber, contestationDeadline, contesters)
+      _ -> error "wrong state in output datum"

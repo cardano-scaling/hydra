@@ -8,35 +8,32 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (
-  unsafeBuildTransaction,
- )
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (
   ConfirmedSnapshot (..),
   HeadId,
   ScriptRegistry (headReference),
   Snapshot (..),
+  SnapshotNumber,
   SnapshotVersion,
+  fromChainSnapshotNumber,
   getSnapshot,
   hashUTxO,
   headIdToCurrencySymbol,
   headReference,
  )
-import Hydra.Tx.Contest (PointInTime)
+import Hydra.Tx.CollectCom (OpenThreadOutput (..))
 import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.Utils (IncrementalAction (..), mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V1.Crypto qualified as Plutus
+import PlutusLedgerApi.V1.Time qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 
--- | Representation of the Head output after a CollectCom transaction.
-data OpenThreadOutput = OpenThreadOutput
-  { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , openContestationPeriod :: OnChain.ContestationPeriod
-  , openParties :: [OnChain.Party]
-  }
-  deriving stock (Eq, Show, Generic)
+-- * Construction
+
+type PointInTime = (SlotNo, UTCTime)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
@@ -144,3 +141,56 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
+
+-- * Observation
+
+data ClosedThreadOutput = ClosedThreadOutput
+  { closedThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , closedParties :: [OnChain.Party]
+  , closedContestationDeadline :: Plutus.POSIXTime
+  , closedContesters :: [Plutus.PubKeyHash]
+  }
+  deriving stock (Eq, Show, Generic)
+
+data CloseObservation = CloseObservation
+  { threadOutput :: ClosedThreadOutput
+  , headId :: HeadId
+  , snapshotNumber :: SnapshotNumber
+  }
+  deriving stock (Show, Eq, Generic)
+
+-- | Identify a close tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeCloseTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe CloseObservation
+observeCloseTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ toTxContext headOutput
+  datum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (datum, redeemer) of
+    (Head.Open Head.OpenDatum{parties}, Head.Close{}) -> do
+      (newHeadInput, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ toTxContext newHeadOutput
+      (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
+        Just (Head.Closed Head.ClosedDatum{contestationDeadline, snapshotNumber}) ->
+          pure (contestationDeadline, snapshotNumber)
+        _ -> Nothing
+      pure
+        CloseObservation
+          { threadOutput =
+              ClosedThreadOutput
+                { closedThreadUTxO = (newHeadInput, newHeadOutput)
+                , closedParties = parties
+                , closedContestationDeadline = closeContestationDeadline
+                , closedContesters = []
+                }
+          , headId
+          , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
+          }
+    _ -> Nothing

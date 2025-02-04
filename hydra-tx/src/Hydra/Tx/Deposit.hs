@@ -13,7 +13,7 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, fromCurrencySymbol, headIdToCurrencySymbol)
+import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol)
 import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
@@ -100,5 +100,5 @@ observeDepositTxOut network depositOut = do
   deposit <- do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
     pure . UTxO.fromPairs $ depositedUTxO
-  headId <- fromCurrencySymbol headCurrencySymbol
+  headId <- currencySymbolToHeadId headCurrencySymbol
   pure (headId, deposit, deadline)

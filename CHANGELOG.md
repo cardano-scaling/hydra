@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.20.1] - UNRELEASED
+
+- Submit observations to a `hydra-explorer` via optional `--explorer` option.
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature

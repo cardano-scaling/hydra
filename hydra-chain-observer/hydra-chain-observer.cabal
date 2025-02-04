@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-chain-observer
-version:       0.20.0
+version:       0.20.1
 synopsis:      Hydra Chain Observer
 author:        IOG
 copyright:     2023 IOG
@@ -65,14 +65,17 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
+    , base                         >=4.8.0
     , base16-bytestring
     , blockfrost-client            >=0.9.1.0
+    , http-conduit
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
     , hydra-tx
     , io-classes
+    , network-uri
     , optparse-applicative
     , ouroboros-network-protocols
     , retry
@@ -100,11 +103,13 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , hspec
+    , hspec-golden-aeson
     , hydra-cardano-api
     , hydra-chain-observer
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , hydra-tx:testlib
     , QuickCheck
 

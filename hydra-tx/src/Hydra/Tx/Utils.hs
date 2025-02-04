@@ -15,6 +15,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
@@ -102,3 +103,17 @@ setIncrementalActionMaybe utxoToCommit utxoToDecommit =
       ToCommit <$> utxoToCommit
     (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
     (Nothing, Nothing) -> Just NoThing
+
+-- | Find (if it exists) the head identifier contained in given `TxOut`.
+findStateToken :: TxOut ctx -> Maybe HeadId
+findStateToken =
+  fmap (mkHeadId . fst) . findHeadAssetId
+
+findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
+findHeadAssetId txOut =
+  flip findFirst (toList $ txOutValue txOut) $ \case
+    (AssetId pid aname, q)
+      | aname == hydraHeadV1AssetName && q == 1 ->
+          Just (pid, aname)
+    _ ->
+      Nothing

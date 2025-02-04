@@ -57,21 +57,6 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Tx (
-  AbortObservation (..),
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  ContestObservation (..),
-  DecrementObservation (..),
-  FanoutObservation (..),
-  HeadObservation (..),
-  IncrementObservation (..),
-  InitObservation (..),
-  headSeedToTxIn,
-  observeHeadTx,
-  txInToHeadSeed,
- )
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -84,10 +69,25 @@ import Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   UTxOType,
+  headSeedToTxIn,
+  txInToHeadSeed,
  )
-import Hydra.Tx.Contest (ClosedThreadOutput (..))
+import Hydra.Tx.Close (ClosedThreadOutput (..))
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Observe (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  InitObservation (..),
+  observeHeadTx,
+ )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import System.IO.Error (userError)
 
@@ -342,6 +342,7 @@ convertObservation = \case
     pure OnIncrementTx{headId, newVersion, depositTxId}
   Decrement DecrementObservation{headId, newVersion, distributedOutputs} ->
     pure OnDecrementTx{headId, newVersion, distributedOutputs}
+  -- XXX: Needing ClosedThreadOutput feels weird here
   Close CloseObservation{headId, snapshotNumber, threadOutput = ClosedThreadOutput{closedContestationDeadline}} ->
     pure
       OnCloseTx

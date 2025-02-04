@@ -14,33 +14,29 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
-  observeHeadTx,
- )
 import Hydra.Contract (ScriptInfo)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
 data ChainObservation
-  = Tick
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      }
-  | HeadObservation
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      , onChainTx :: OnChainTx Tx
-      }
+  = ChainObservation
+  { point :: ChainPoint
+  , blockNo :: BlockNo
+  , observedTx :: Maybe (OnChainTx Tx)
+  }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-defaultObserverHandler :: Applicative m => ObserverHandler m
-defaultObserverHandler = const $ pure ()
+instance Arbitrary ChainObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
-newtype NodeClient m = NodeClient
+data NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
+  , networkId :: NetworkId
   }
 
 type ChainObserverLog :: Type

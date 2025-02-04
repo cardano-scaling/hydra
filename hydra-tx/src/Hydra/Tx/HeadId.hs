@@ -4,11 +4,13 @@ module Hydra.Tx.HeadId where
 
 import Hydra.Prelude
 
+import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   HasTypeProxy (..),
   PolicyId,
   SerialiseAsRawBytes (..),
+  TxIn,
   UsingRawBytesHex (..),
   fromPlutusCurrencySymbol,
  )
@@ -16,6 +18,8 @@ import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
 import Test.QuickCheck (vectorOf)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
+
+-- * HeadId
 
 -- | Uniquely identifies a Hydra Head.
 newtype HeadId = UnsafeHeadId ByteString
@@ -32,6 +36,20 @@ instance HasTypeProxy HeadId where
 
 instance Arbitrary HeadId where
   arbitrary = UnsafeHeadId . BS.pack <$> vectorOf 16 arbitrary
+
+currencySymbolToHeadId :: MonadFail m => CurrencySymbol -> m HeadId
+currencySymbolToHeadId = fmap mkHeadId . fromPlutusCurrencySymbol
+
+headIdToPolicyId :: MonadFail m => HeadId -> m PolicyId
+headIdToPolicyId = fromPlutusCurrencySymbol . headIdToCurrencySymbol
+
+headIdToCurrencySymbol :: HeadId -> CurrencySymbol
+headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
+
+mkHeadId :: PolicyId -> HeadId
+mkHeadId = UnsafeHeadId . serialiseToRawBytes
+
+-- * HeadSeed
 
 -- | Unique seed to create a 'HeadId'
 --
@@ -54,11 +72,11 @@ instance HasTypeProxy HeadSeed where
 instance Arbitrary HeadSeed where
   arbitrary = UnsafeHeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
-headIdToCurrencySymbol :: HeadId -> CurrencySymbol
-headIdToCurrencySymbol (UnsafeHeadId headId) = CurrencySymbol (toBuiltin headId)
+headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
+headSeedToTxIn (UnsafeHeadSeed bytes) =
+  case Aeson.decodeStrict bytes of
+    Nothing -> fail $ "Failed to decode HeadSeed " <> show bytes
+    Just txIn -> pure txIn
 
-fromCurrencySymbol :: MonadFail m => CurrencySymbol -> m HeadId
-fromCurrencySymbol = fmap mkHeadId . fromPlutusCurrencySymbol
-
-mkHeadId :: PolicyId -> HeadId
-mkHeadId = UnsafeHeadId . serialiseToRawBytes
+txInToHeadSeed :: TxIn -> HeadSeed
+txInToHeadSeed txin = UnsafeHeadSeed $ toStrict $ Aeson.encode txin

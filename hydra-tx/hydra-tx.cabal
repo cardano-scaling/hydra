@@ -65,6 +65,7 @@ library
     Hydra.Tx.Increment
     Hydra.Tx.Init
     Hydra.Tx.IsTx
+    Hydra.Tx.Observe
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
     Hydra.Tx.Recover
@@ -170,6 +171,7 @@ test-suite tests
     Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.Recover
+    Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
     Spec
 

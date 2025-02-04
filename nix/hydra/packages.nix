@@ -85,7 +85,10 @@ rec {
       paddedRevision;
 
   hydra-chain-observer =
-    nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+    embedRevision
+      nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer
+      "hydra-chain-observer"
+      paddedRevision;
 
   hydra-chain-observer-static =
     musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;

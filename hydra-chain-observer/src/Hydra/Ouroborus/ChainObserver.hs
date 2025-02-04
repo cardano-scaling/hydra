@@ -59,6 +59,7 @@ ouroborusClient tracer nodeSocket networkId =
         connectToLocalNode
           (connectInfo nodeSocket networkId)
           (clientProtocols tracer networkId chainPoint observerHandler)
+    , networkId
     }
 
 type BlockType :: Type
@@ -146,10 +147,10 @@ chainSyncClient tracer networkId startingPoint observerHandler =
               onChainTxs = mapMaybe convertObservation observations
 
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
           observerHandler $
             if null observationsAt
-              then [Tick point blockNo]
+              then [ChainObservation point blockNo Nothing]
               else observationsAt
 
           pure $ clientStIdle utxo'

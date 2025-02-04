@@ -61,24 +61,11 @@ import Hydra.Chain (
   maximumNumberOfParties,
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
-import Hydra.Chain.Direct.Tx (
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  InitObservation (..),
-  InitialThreadOutput (..),
-  NotAnInitReason,
-  UTxOHash,
-  headIdToPolicyId,
-  observeCloseTx,
-  observeCollectComTx,
-  observeCommitTx,
-  observeInitTx,
-  txInToHeadSeed,
- )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
@@ -95,15 +82,17 @@ import Hydra.Tx (
   SnapshotVersion (..),
   deriveParty,
   getSnapshot,
+  headIdToPolicyId,
   partyToChain,
   registryUTxO,
+  txInToHeadSeed,
   utxoFromTx,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
-import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
-import Hydra.Tx.CollectCom (collectComTx)
+import Hydra.Tx.Close (ClosedThreadOutput (..), PointInTime, closeTx)
+import Hydra.Tx.CollectCom (OpenThreadOutput (..), UTxOHash, collectComTx)
 import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Contest (ClosedThreadOutput (..), PointInTime, contestTx)
+import Hydra.Tx.Contest (contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
@@ -112,6 +101,17 @@ import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx, o
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
+import Hydra.Tx.Observe (
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  InitObservation (..),
+  NotAnInitReason,
+  observeCloseTx,
+  observeCollectComTx,
+  observeCommitTx,
+  observeInitTx,
+ )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Snapshot (genConfirmedSnapshot)
@@ -232,6 +232,14 @@ instance Arbitrary ChainContext where
         , ownParty
         , scriptRegistry
         }
+
+-- | Representation of the Head output after an Init transaction.
+data InitialThreadOutput = InitialThreadOutput
+  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
+  , initialContestationPeriod :: OnChain.ContestationPeriod
+  , initialParties :: [OnChain.Party]
+  }
+  deriving stock (Eq, Show, Generic)
 
 data InitialState = InitialState
   { initialThreadOutput :: InitialThreadOutput
