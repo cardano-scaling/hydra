@@ -118,9 +118,9 @@ defaultPParams =
   pparams
     & ppPricesL
       .~ ( Prices
-            { prMem = fromJust $ boundRational 0
-            , prSteps = fromJust $ boundRational 0
-            }
+             { prMem = fromJust $ boundRational 0
+             , prSteps = fromJust $ boundRational 0
+             }
          )
     & ppMinFeeAL .~ Coin 0
     & ppMinFeeBL .~ Coin 0

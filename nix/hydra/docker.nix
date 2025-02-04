@@ -2,12 +2,8 @@
 # metadata, as this is only added by the Github workflow.
 
 { hydraPackages # as defined in packages.nix
-, system
-, nixpkgs
+, pkgs
 }:
-let
-  pkgs = import nixpkgs { inherit system; };
-in
 {
   hydra-node = pkgs.dockerTools.streamLayeredImage {
     name = "hydra-node";

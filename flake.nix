@@ -1,36 +1,28 @@
 {
   inputs = {
-    nixpkgs.follows = "haskellNix/nixpkgs";
-    haskellNix.url = "github:input-output-hk/haskell.nix";
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
-    iohk-nix.url = "github:input-output-hk/iohk-nix";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
-    lint-utils = {
-      url = "github:homotopic/lint-utils";
-      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
-    };
     CHaP = {
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.2";
-    nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
-
-
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    haskellNix.url = "github:input-output-hk/haskell.nix/2025.02.02";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification";
+    iohk-nix.url = "github:input-output-hk/iohk-nix";
+    lint-utils = {
+      url = "github:homotopic/lint-utils";
+      inputs.nixpkgs.follows = "haskellNix/nixpkgs";
+    };
     mithril.url = "github:input-output-hk/mithril/2450.0";
     mithril-unstable.url = "github:input-output-hk/mithril/unstable";
+    nixpkgs.follows = "haskellNix/nixpkgs";
+    nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
   };
 
-  outputs =
-    { self
-    , flake-parts
-    , nixpkgs
-    , cardano-node
-    , ...
-    } @ inputs:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { self, ... }@inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.process-compose-flake.flakeModule
       ];
@@ -46,7 +38,7 @@
 
           # nixpkgs enhanced with haskell.nix and crypto libs as used by iohk
 
-          pkgs = import nixpkgs {
+          pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [
               # This overlay contains libsodium and libblst libraries
@@ -65,11 +57,11 @@
               # Specific versions of tools we require
               (final: prev: {
                 aiken = inputs.aiken.packages.${system}.aiken;
-                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.14.0.0";
+                apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
                 cabal-fmt = pkgs.haskell-nix.tool compiler "cabal-fmt" "0.1.12";
-                cabal-install = pkgs.haskell-nix.cabal-install.${compiler};
-                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.4.0";
-                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.16.2.0";
+                cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
+                cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "0.7.5.0";
+                fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "0.17.0.0";
                 haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.9.0.0";
                 hlint = pkgs.haskell-nix.tool compiler "hlint" "3.8";
                 weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
@@ -92,12 +84,12 @@
           };
 
           hydraPackages = import ./nix/hydra/packages.nix {
-            inherit system pkgs inputs hsPkgs self;
+            inherit pkgs inputs hsPkgs self;
             gitRev = self.rev or "dirty";
           };
 
           hydraImages = import ./nix/hydra/docker.nix {
-            inherit hydraPackages system nixpkgs;
+            inherit hydraPackages pkgs;
           };
 
           prefixAttrs = s: attrs:
@@ -174,8 +166,7 @@
           ]);
 
           devShells = import ./nix/hydra/shell.nix {
-            inherit (inputs) aiken;
-            inherit inputs pkgs hsPkgs system hydraPackages;
+            inherit pkgs hsPkgs hydraPackages;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };
