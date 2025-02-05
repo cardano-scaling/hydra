@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
-import Bench.Summary (SystemStats, Summary (..), errorSummary, markdownReport, textReport)
+import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
