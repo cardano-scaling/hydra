@@ -5,10 +5,10 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapC, mapM_C, runConduitRes, sinkList, (.|))
+import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
+import Control.Concurrent.STM.TVar (modifyTVar, modifyTVar', newTVarIO)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
@@ -98,20 +98,20 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
+    history <- newTVarIO []
     _ <-
       runConduitRes $
         source
-          .| mapC output
-          .| iterM (lift . atomically . update headStatusP)
-          .| iterM (lift . atomically . update snapshotUtxoP)
-          .| iterM (lift . atomically . update commitInfoP)
-          .| iterM (lift . atomically . update headIdP)
-          .| mapM_C (lift . atomically . update pendingDepositsP)
+          -- .| mapC output
+          .| iterM (lift . atomically . update headStatusP . output)
+          .| iterM (lift . atomically . update snapshotUtxoP . output)
+          .| iterM (lift . atomically . update commitInfoP . output)
+          .| iterM (lift . atomically . update headIdP . output)
+          .| iterM (lift . atomically . update pendingDepositsP . output)
+          .| mapM_C (\v -> lift $ atomically $ modifyTVar history (v :))
 
-    -- FIXME: this is not streaming, it loads all events into memory
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
-    history <- newTVarIO . reverse =<< runConduitRes (source .| sinkList)
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
