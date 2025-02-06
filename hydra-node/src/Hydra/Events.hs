@@ -25,9 +25,6 @@ type EventId = Word64
 class HasEventId a where
   getEventId :: a -> EventId
 
-instance HasEventId (EventId, a) where
-  getEventId = fst
-
 newtype EventSource e m = EventSource
   { sourceEvents :: HasEventId e => ConduitT () e (ResourceT m) ()
   -- ^ Stream all events from the event source.
