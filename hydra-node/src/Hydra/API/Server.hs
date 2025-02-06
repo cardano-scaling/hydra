@@ -2,14 +2,15 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, readTVar, seq)
+import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapC, runConduitRes, sinkList, (.|))
+import Conduit (mapC, mapM_C, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
+import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -92,13 +93,20 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     responseChannel <- newBroadcastTChanIO
     -- Intialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    let outputsC = source .| mapC output
-    -- FIXME: Runs the conduit for each projection
-    headStatusP <- mkProjection Idle projectHeadStatus outputsC
-    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo outputsC
-    commitInfoP <- mkProjection CannotCommit projectCommitInfo outputsC
-    headIdP <- mkProjection Nothing projectInitializingHeadId outputsC
-    pendingDepositsP <- mkProjection [] projectPendingDeposits outputsC
+    headStatusP <- mkProjection Idle projectHeadStatus
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    commitInfoP <- mkProjection CannotCommit projectCommitInfo
+    headIdP <- mkProjection Nothing projectInitializingHeadId
+    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    _ <-
+      runConduitRes $
+        source
+          .| mapC output
+          .| iterM (lift . atomically . update headStatusP)
+          .| iterM (lift . atomically . update snapshotUtxoP)
+          .| iterM (lift . atomically . update commitInfoP)
+          .| iterM (lift . atomically . update headIdP)
+          .| mapM_C (lift . atomically . update pendingDepositsP)
 
     -- FIXME: this is not streaming, it loads all events into memory
     -- NOTE: we need to reverse the list because we store history in a reversed
