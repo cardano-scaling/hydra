@@ -3,7 +3,6 @@ module Test.Hydra.Prelude (
   HUnitFailure (..),
   location,
   failAfter,
-  combinedHspecFormatter,
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
@@ -36,10 +35,6 @@ import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
-import Test.Hspec.Api.Formatters.V1 (formatterToFormat, specdoc)
-import Test.Hspec.Core.Format (Format, FormatConfig (..))
-import Test.Hspec.JUnit (defaultJUnitConfig, junitFormat, setJUnitConfigOutputFile)
-import Test.Hspec.MarkdownFormatter (markdownFormatter)
 import Test.QuickCheck (Property, Testable, coverTable, forAllBlind, tabulate)
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 
@@ -105,30 +100,6 @@ location :: HasCallStack => Maybe SrcLoc
 location = case reverse $ getCallStack callStack of
   (_, loc) : _ -> Just loc
   _ -> Nothing
-
--- | An HSpec test formatter that combines several formatters to output test-results.
---
--- It outputs:
---
---  * A `test-results.xml` file in the current working directory
---    containing JUnit-formatted test results,
---  * A `hspec-results.md` file in the working directory containing Markdown-formatted results,
---  * Standard (colorised) reporting on the @stdout@.
-combinedHspecFormatter ::
-  -- | The name of the test suite run, for reporting purpose.
-  Text ->
-  -- | Configuration, will be passed by the HSpec test runner.
-  FormatConfig ->
-  IO Format
-combinedHspecFormatter suiteName config = do
-  junit <- junitFormat junitConfig config
-  docSpec <- formatterToFormat specdoc config
-  mdSpec <- markdownFormatter ("Test results for " <> toString suiteName) "hspec-results.md" config
-  pure $ \e -> junit e >> docSpec e >> mdSpec e
- where
-  junitConfig =
-    defaultJUnitConfig suiteName
-      & setJUnitConfigOutputFile "test-results.xml"
 
 -- | Wait for process termination and do 'failure' on non-zero exit code.
 -- This function is useful for end-to-end testing of external processes esp. in

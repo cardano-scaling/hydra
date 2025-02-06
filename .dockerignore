@@ -8,7 +8,6 @@
 *.prof
 *.hi
 *.o
-/test-results.xml
 
 demo/
 testnets/
