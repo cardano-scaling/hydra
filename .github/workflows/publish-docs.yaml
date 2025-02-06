@@ -79,15 +79,6 @@ jobs:
         merge-multiple: true
         path: docs/benchmarks
 
-    - name: 📥 Download released test-results
-      uses: actions/download-artifact@v4
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.released-workflow.outputs.result}}
-        pattern: test-results-*
-        merge-multiple: true
-        path: docs/benchmarks/tests
-
     - name: 📥 Download released haddock documentation
       uses: actions/download-artifact@v4
       with:
@@ -133,15 +124,6 @@ jobs:
         pattern: benchmarks-*
         merge-multiple: true
         path: docs/benchmarks
-
-    - name: 📥 Download latest test-results
-      uses: actions/download-artifact@v4
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        run-id: ${{steps.latest-workflow.outputs.result}}
-        pattern: test-results-*
-        merge-multiple: true
-        path: docs/benchmarks/tests
 
     - name: 📥 Download latest haddock documentation
       uses: actions/download-artifact@v4
