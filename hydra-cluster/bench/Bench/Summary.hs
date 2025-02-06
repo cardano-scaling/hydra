@@ -69,9 +69,7 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
                else []
            )
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
-        ++ ["| Memory data | "]
-        ++ ["      "]
-        ++ [unlines systemStats]
+        ++ if null systemStats then [] else "\n| Memory data | \n" : [unlines systemStats]
 
 markdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]
 markdownReport now summaries =
@@ -127,8 +125,7 @@ markdownReport now summaries =
       ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
          ]
       ++ ["      "]
-      ++ ["| Memory data | "]
-      ++ [unlines systemStats]
+      ++ if null systemStats then [] else "\n| Memory data | \n" : [unlines systemStats]
 
 nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
 nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds
