@@ -46,7 +46,7 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
   TestHydraClient (..),
@@ -959,12 +959,12 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     _ -> False
 isOwned _ _ = False
 
-headIsOpen :: ServerOutput tx -> Bool
+headIsOpen :: StateChanged tx -> Bool
 headIsOpen = \case
   HeadIsOpen{} -> True
   _otherwise -> False
 
-headIsReadyToFanout :: ServerOutput tx -> Bool
+headIsReadyToFanout :: StateChanged tx -> Bool
 headIsReadyToFanout = \case
   ReadyToFanout{} -> True
   _otherwise -> False

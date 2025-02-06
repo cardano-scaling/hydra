@@ -14,16 +14,11 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
-  HeadStatus,
-  ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
   WithUTxO (..),
-  headStatus,
-  me,
   prepareServerOutput,
-  snapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
@@ -32,6 +27,13 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic.Outcome (
+  StateChanged (..),
+  HeadStatus,
+  headStatus,
+  me,
+  snapshotUtxo,
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
 import Hydra.Tx (Party, UTxOType)
@@ -56,11 +58,11 @@ wsApp ::
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (ServerOutput tx) HeadStatus ->
+  Projection STM.STM (StateChanged tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with 'HeadId'.
-  Projection STM.STM (ServerOutput tx) (Maybe HeadId) ->
+  Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
+  Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   ServerOutputFilter tx ->
   PendingConnection ->
@@ -106,7 +108,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
                 , snapshotUtxo
                 , hydraNodeVersion = showVersion Options.hydraNodeVersion
                 } ::
-                ServerOutput tx
+                StateChanged tx
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP

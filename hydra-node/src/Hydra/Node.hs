@@ -37,6 +37,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   IdleState (..),
   Input (..),
+  StateChanged (..),
   Outcome (..),
   aggregate,
   aggregateChainStateHistory,
@@ -44,7 +45,6 @@ import Hydra.HeadLogic (
   defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)

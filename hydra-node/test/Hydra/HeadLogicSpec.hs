@@ -17,7 +17,7 @@ import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -599,7 +599,7 @@ spec =
                   , snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
+            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline, chainState = SimpleChainState 0}
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do

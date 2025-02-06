@@ -4,7 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Aeson.Lens (key)
-import Hydra.API.ServerOutput (ServerOutput, TimedServerOutput)
+import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.API.ServerOutput ( TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
@@ -19,7 +20,7 @@ spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings
     defaultSettings{sampleSize = 1}
-    $ Proxy @(ServerOutput Tx)
+    $ Proxy @(StateChanged Tx)
 
   prop "matches JSON schema" $
     prop_validateJSONSchema @(TimedServerOutput Tx) "api.json" $

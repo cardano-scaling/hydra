@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
-import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
+import Hydra.HeadLogic.Outcome (StateChanged (SnapshotConfirmed))
 import Hydra.HeadLogic (Effect (ClientEffect))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)

@@ -1,6 +1,6 @@
 module Hydra.API.ServerOutputFilter where
 
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
+import Hydra.API.ServerOutput (TimedServerOutput, output)
 import Hydra.Cardano.Api (
   Tx,
   serialiseToBech32,
@@ -12,6 +12,7 @@ import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   Snapshot (..),
  )
+import Hydra.HeadLogic (StateChanged(..))
 
 newtype ServerOutputFilter tx = ServerOutputFilter
   { txContainsAddr :: TimedServerOutput tx -> Text -> Bool
@@ -22,7 +23,7 @@ serverOutputFilter :: ServerOutputFilter Tx =
   ServerOutputFilter
     { txContainsAddr = \response address ->
         case output response of
-          TxValid{transaction} -> matchingAddr address transaction
+          TxValid{tx} -> matchingAddr address tx
           TxInvalid{transaction} -> matchingAddr address transaction
           SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
           _ -> True

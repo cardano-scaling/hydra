@@ -9,13 +9,12 @@ import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -101,12 +100,12 @@ spec = parallel $ do
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
           env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+            -- XXX: This is very tied to the fact that 'HeadIsInitializing' results in
             -- a head state that gets checked by 'checkHeadState'
             let genEvent = do
                   StateEvent
                     <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
+                    <*> (HeadIsInitializing <$> arbitrary <*> arbitrary <*> pure (mkHeadParameters env) <*> arbitrary <*> arbitrary)
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
                 `shouldThrow` \(_ :: ParameterMismatch) -> True
@@ -173,7 +172,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
+          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, tx = tx1, newLocalUTxO = utxoRefs [4]}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents
@@ -441,7 +440,7 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [StateChanged tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
   pure (node{server = Server{sendOutput = record}}, query)
