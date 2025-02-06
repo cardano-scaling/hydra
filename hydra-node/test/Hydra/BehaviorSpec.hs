@@ -33,22 +33,16 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
-import Hydra.HeadLogic (
-  Effect (..),
-  HeadState (..),
-  Input (..),
-  defaultTTL,
- )
+import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, hydrate, queryHeadState, runHydraNode, waitDelay)
-import Hydra.Node.InputQueue (InputQueue (enqueue))
-import Hydra.NodeSpec (createPersistenceInMemory)
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
+import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
+import Hydra.NodeSpec (createMockSourceSink)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -1195,7 +1189,7 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, IsChainState tx, MonadThrow m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->
@@ -1208,9 +1202,25 @@ createHydraNode ::
   DepositDeadline ->
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp depositDeadline = do
-  persistence <- createPersistenceInMemory
-  (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
-  node <- connectNode chain =<< hydrate tracer env ledger chainState eventSource [eventSink]
+  (eventSource, eventSink) <- createMockSourceSink
+  -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
+  let headState = Idle IdleState{chainState}
+  let chainStateHistory = initHistory chainState
+  nodeState <- createNodeState Nothing headState
+  inputQueue <- createInputQueue
+  node <-
+    connectNode
+      chain
+      DraftHydraNode
+        { tracer
+        , env
+        , ledger
+        , nodeState
+        , inputQueue
+        , eventSource
+        , eventSinks = [eventSink]
+        , chainStateHistory
+        }
   pure $
     node
       { server =

@@ -17,7 +17,7 @@ module Hydra.API.Projection where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
 
 -- | 'Projection' type used to alter/project the API output to suit the client needs.
 data Projection stm event model = Projection
@@ -33,19 +33,16 @@ data Projection stm event model = Projection
 mkProjection ::
   MonadSTM m =>
   model ->
-  [event] ->
   -- | Projection function
   (model -> event -> model) ->
   m (Projection (STM m) event model)
-mkProjection startingModel events project =
-  atomically $ do
-    tv <- newTVar startingModel
-    mapM_ (update tv) events
-    pure
-      Projection
-        { getLatest = readTVar tv
-        , update = update tv
-        }
+mkProjection startingModel project = do
+  tv <- newTVarIO startingModel
+  pure
+    Projection
+      { getLatest = readTVar tv
+      , update = update tv
+      }
  where
   update tv event =
     modifyTVar' tv $ \m ->

@@ -5,6 +5,7 @@ module Hydra.Events.FileBased where
 
 import Hydra.Prelude
 
+import Conduit (mapMC, (.|))
 import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
@@ -29,7 +30,7 @@ eventPairFromPersistenceIncremental ::
   (IsChainState tx, MonadSTM m) =>
   PersistenceIncremental (PersistedStateChange tx) m ->
   m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
-eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} = do
+eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
   eventIdV <- newTVarIO Nothing
   let
     getLastSeenEventId = readTVar eventIdV
@@ -41,17 +42,18 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} = do
       maybe 0 (+ 1) <$> readTVar eventIdV
 
     -- Keep track of the last seen event id when loading
-    getEvents = do
-      items <- loadAll
-      atomically . forM items $ \i -> do
-        event <- case i of
-          New e -> pure e
-          Legacy sc -> do
-            eventId <- getNextEventId
-            pure $ StateEvent eventId sc
-
-        setLastSeenEventId event
-        pure event
+    sourceEvents =
+      source
+        .| mapMC
+          ( \i -> lift . atomically $ do
+              event <- case i of
+                New e -> pure e
+                Legacy sc -> do
+                  eventId <- getNextEventId
+                  pure $ StateEvent eventId sc
+              setLastSeenEventId event
+              pure event
+          )
 
     -- Filter events that are already stored
     putEvent e@StateEvent{eventId} = do
@@ -65,7 +67,7 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, loadAll} = do
       append (New e)
       atomically $ setLastSeenEventId e
 
-  pure (EventSource{getEvents}, EventSink{putEvent})
+  pure (EventSource{sourceEvents}, EventSink{putEvent})
 
 -- | Internal data type used by 'createJSONFileEventSourceAndSink' to be
 -- compatible with plain usage of 'PersistenceIncrementa' using plain

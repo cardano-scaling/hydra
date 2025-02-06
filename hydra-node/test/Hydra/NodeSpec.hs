@@ -5,6 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
@@ -13,7 +14,6 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
-import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -34,7 +34,6 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
-import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
@@ -155,8 +154,7 @@ spec = parallel $ do
 
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
-          persistence <- createPersistenceInMemory
-          (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
+          (eventSource, eventSink) <- createMockSourceSink
 
           testHydrate eventSource [eventSink]
             >>= notConnect
@@ -346,22 +344,32 @@ mockSink :: Monad m => EventSink a m
 mockSink = EventSink{putEvent = const $ pure ()}
 
 mockSource :: Monad m => [a] -> EventSource a m
-mockSource events = EventSource{getEvents = pure events}
+mockSource events =
+  EventSource
+    { sourceEvents = yieldMany events
+    }
 
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
   pure (EventSink{putEvent}, getAll)
 
-createPersistenceInMemory :: MonadLabelledSTM m => m (PersistenceIncremental a m)
-createPersistenceInMemory = do
+createMockSourceSink :: MonadLabelledSTM m => m (EventSource a m, EventSink a m)
+createMockSourceSink = do
   tvar <- newTVarIO []
-  labelTVarIO tvar "persistence-in-memory"
-  pure
-    PersistenceIncremental
-      { append = \x -> atomically $ modifyTVar tvar (<> [x])
-      , loadAll = readTVarIO tvar
-      }
+  labelTVarIO tvar "in-memory-source-sink"
+  let source =
+        EventSource
+          { sourceEvents = do
+              es <- lift . lift $ readTVarIO tvar
+              yieldMany es
+          }
+      sink =
+        EventSink
+          { putEvent = \x ->
+              atomically $ modifyTVar tvar (<> [x])
+          }
+  pure (source, sink)
 
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
@@ -399,7 +407,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
 testHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog SimpleTx) ->
   SigningKey HydraKey ->
   [Party] ->

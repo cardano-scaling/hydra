@@ -10,6 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
+import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
   labelTVarIO,
@@ -26,6 +27,7 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   PostTxError,
+  initHistory,
  )
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
@@ -36,10 +38,10 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   Outcome (..),
+  aggregate,
+  aggregateChainStateHistory,
   aggregateState,
   defaultTTL,
-  recoverChainStateHistory,
-  recoverState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -160,7 +162,7 @@ instance HasParty (DraftHydraNode tx m) where
 -- | Hydrate a 'DraftHydraNode' by loading events from source, re-aggregate node
 -- state and sending events to sinks while doing so.
 hydrate ::
-  (MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, IsChainState tx) =>
+  (IsChainState tx, MonadDelay m, MonadLabelledSTM m, MonadAsync m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog tx) ->
   Environment ->
   Ledger tx ->
@@ -169,16 +171,24 @@ hydrate ::
   [EventSink (StateEvent tx) m] ->
   m (DraftHydraNode tx m)
 hydrate tracer env ledger initialChainState eventSource eventSinks = do
-  events <- getEvents eventSource
-  let lastSeenEventId = getEventId . last <$> nonEmpty events
-  traceWith tracer LoadedState{numberOfEvents = fromIntegral $ length events}
-  let headState = recoverState initialState (stateChanged <$> events)
-      chainStateHistory = recoverChainStateHistory initialChainState (stateChanged <$> events)
+  traceWith tracer LoadingState
+  (lastEventId, (headState, chainStateHistory)) <-
+    runConduitRes $
+      sourceEvents eventSource
+        .| getZipSink
+          ( (,)
+              <$> ZipSink (foldMapC (Last . pure . getEventId))
+              <*> ZipSink recoverHeadStateC
+          )
   -- Check whether the loaded state matches our configuration (env)
   checkHeadState tracer env headState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
-  putEventsToSinks eventSinks events
-  nodeState <- createNodeState lastSeenEventId headState
+  -- XXX: re-stream events just for this?
+  traceWith tracer ReplayingState
+  runConduitRes $
+    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+
+  nodeState <- createNodeState (getLast lastEventId) headState
   inputQueue <- createInputQueue
   pure
     DraftHydraNode
@@ -193,6 +203,14 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
       }
  where
   initialState = Idle IdleState{chainState = initialChainState}
+
+  recoverHeadStateC =
+    mapC stateChanged
+      .| getZipSink
+        ( (,)
+            <$> ZipSink (foldlC aggregate initialState)
+            <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
+        )
 
 wireChainInput :: DraftHydraNode tx m -> (ChainEvent tx -> m ())
 wireChainInput node = enqueue . ChainInput
@@ -385,7 +403,9 @@ data HydraNodeLog tx
   | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
-  | LoadedState {numberOfEvents :: Word64}
+  | LoadingState
+  | LoadedState {lastEventId :: Last EventId, headState :: HeadState tx}
+  | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
 

@@ -2,13 +2,15 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, readTVar, seq)
+import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
+import Conduit (runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
+import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -89,18 +91,28 @@ withAPIServer ::
 withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
-    timedOutputEvents <- loadAll
+    -- Intialize our read models from stored events
+    -- NOTE: we do not keep the stored events around in memory
+    headStatusP <- mkProjection Idle projectHeadStatus
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    commitInfoP <- mkProjection CannotCommit projectCommitInfo
+    headIdP <- mkProjection Nothing projectInitializingHeadId
+    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    loadedHistory <-
+      runConduitRes $
+        source
+          -- .| mapC output
+          .| iterM (lift . atomically . update headStatusP . output)
+          .| iterM (lift . atomically . update snapshotUtxoP . output)
+          .| iterM (lift . atomically . update commitInfoP . output)
+          .| iterM (lift . atomically . update headIdP . output)
+          .| iterM (lift . atomically . update pendingDepositsP . output)
+          -- FIXME: don't load whole history into memory
+          .| sinkList
 
-    -- Intialize our read model from stored events
-    headStatusP <- mkProjection Idle (output <$> timedOutputEvents) projectHeadStatus
-    snapshotUtxoP <- mkProjection Nothing (output <$> timedOutputEvents) projectSnapshotUtxo
-    commitInfoP <- mkProjection CannotCommit (output <$> timedOutputEvents) projectCommitInfo
-    headIdP <- mkProjection Nothing (output <$> timedOutputEvents) projectInitializingHeadId
-    pendingDepositsP <- mkProjection [] (output <$> timedOutputEvents) projectPendingDeposits
-
+    history <- newTVarIO loadedHistory
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
-    history <- newTVarIO (reverse timedOutputEvents)
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -138,7 +150,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{loadAll, append} = persistence
+  PersistenceIncremental{source, append} = persistence
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of

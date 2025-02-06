@@ -894,6 +894,26 @@ definitions:
             minimum: 0
           input:
             "$ref": "logs.yaml#/definitions/Input"
+      - title: LoadingState
+        description: >-
+          Loading state events from persistence.
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["LoadingState"]
+      - title: ReplayingState
+        description: >-
+          Replaying state events from persistence.
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ReplayingState"]
       - title: LoadedState
         description: >-
           Loaded state events from persistence.
@@ -901,14 +921,18 @@ definitions:
         additionalProperties: false
         required:
           - tag
-          - numberOfEvents
+          - lastEventId
+          - headState
         properties:
           tag:
             type: string
             enum: ["LoadedState"]
-          numberOfEvents:
-            type: integer
-            minimum: 0
+          lastEventId:
+            oneOf:
+              - type: "null"
+              - type: integer
+          headState:
+            $ref: "logs.yaml#/definitions/HeadState"
       - title: Misconfiguration
         description: >-
           Hydra node detected a difference between loaded state and the node arguments.

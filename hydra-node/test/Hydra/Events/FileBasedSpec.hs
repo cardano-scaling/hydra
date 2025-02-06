@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 -- IsChainState tx instance to serialize 'StateEvent Tx'
 import Hydra.Chain.Direct.State ()
 
+import Conduit (runConduitRes, sinkList, (.|))
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
@@ -30,34 +31,44 @@ spec = do
     roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
 
   describe "eventPairFromPersistenceIncremental" $ do
+    prop "can stream events" $
+      forAllShrink genContinuousEvents shrink $ \events ->
+        ioProperty $
+          withEventSourceAndSink $ \EventSource{sourceEvents} EventSink{putEvent} -> do
+            -- Put some events
+            forM_ events putEvent
+            streamedEvents <- runConduitRes $ sourceEvents .| sinkList
+            pure $
+              streamedEvents === events
+
     prop "can handle continuous events" $
       forAllShrink genContinuousEvents shrink $ \events ->
         ioProperty $ do
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
             forM_ events putEvent
-            loadedEvents <- getEvents
+            loadedEvents <- getEvents src
             pure $
               loadedEvents === events
 
     prop "can handle non-continuous events" $
       forAllShrink (sublistOf =<< genContinuousEvents) shrink $ \events ->
         ioProperty $ do
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
             forM_ events putEvent
-            loadedEvents <- getEvents
+            loadedEvents <- getEvents src
             pure $
               loadedEvents === events
 
     prop "can handle duplicate events" $
       forAllShrink genContinuousEvents shrink $ \events ->
         ioProperty $
-          withEventSourceAndSink $ \EventSource{getEvents} EventSink{putEvent} -> do
+          withEventSourceAndSink $ \src EventSink{putEvent} -> do
             -- Put some events
             forM_ events putEvent
-            loadedEvents <- getEvents
+            loadedEvents <- getEvents src
             -- Put the loaded events again (as the node would do)
             forM_ loadedEvents putEvent
-            allEvents <- getEvents
+            allEvents <- getEvents src
             pure $
               allEvents === loadedEvents
 
@@ -70,10 +81,10 @@ spec = do
             PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
             forM_ stateChanges append
             -- Load and store events through the event source interface
-            (EventSource{getEvents}, EventSink{putEvent}) <-
+            (src, EventSink{putEvent}) <-
               eventPairFromPersistenceIncremental
                 =<< createPersistenceIncremental (tmpDir <> "/data")
-            loadedEvents <- getEvents
+            loadedEvents <- getEvents src
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
             pure $
