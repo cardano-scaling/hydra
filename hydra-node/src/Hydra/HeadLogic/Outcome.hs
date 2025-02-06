@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
+import Hydra.API.ServerOutput (DecommitInvalidReason, StateChanged, ServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
@@ -50,86 +50,6 @@ deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
--- | Head state changed event. These events represent all the internal state
--- changes, get persisted and processed in an event sourcing manner.
-data StateChanged tx
-  = HeadInitialized
-      { parameters :: HeadParameters
-      , chainState :: ChainStateType tx
-      , headId :: HeadId
-      , headSeed :: HeadSeed
-      }
-  | CommittedUTxO
-      { party :: Party
-      , committedUTxO :: UTxOType tx
-      , chainState :: ChainStateType tx
-      }
-  | HeadAborted {chainState :: ChainStateType tx}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
-  | TransactionReceived {tx :: tx}
-  | TransactionAppliedToLocalUTxO
-      { tx :: tx
-      , newLocalUTxO :: UTxOType tx
-      }
-  | CommitRecorded {pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx}
-  | CommitRecovered {recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
-  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
-  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | -- | A snapshot was requested by some party.
-    -- NOTE: We deliberately already include an updated local ledger state to
-    -- not need a ledger to interpret this event.
-    SnapshotRequested
-      { snapshot :: Snapshot tx
-      , requestedTxIds :: [TxIdType tx]
-      , newLocalUTxO :: UTxOType tx
-      , newLocalTxs :: [tx]
-      }
-  | CommitFinalized {newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
-  | DecommitFinalized {newVersion :: SnapshotVersion}
-  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
-  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadIsReadyToFanout
-  | HeadFannedOut {chainState :: ChainStateType tx}
-  | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
-  deriving stock (Generic)
-
-deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
-
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
-  arbitrary = arbitrary >>= genStateChanged
-
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
-
-genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
-genStateChanged env =
-  oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO party <$> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary
-    , HeadClosed <$> arbitrary <*> arbitrary
-    , HeadContested <$> arbitrary <*> arbitrary
-    , pure HeadIsReadyToFanout
-    , HeadFannedOut <$> arbitrary
-    , ChainRolledBack <$> arbitrary
-    , TickObserved <$> arbitrary
-    ]
- where
-  Environment{party} = env
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
