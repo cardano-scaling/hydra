@@ -64,15 +64,6 @@ jobs:
         nix build .#${{ matrix.package }}-tests
         nix develop .#${{ matrix.package }}-tests --command tests
 
-    - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.package }}
-        path: |
-          ./**/test-results.xml
-          ./**/hspec-results.md
-        if-no-files-found: ignore
-
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
@@ -81,22 +72,6 @@ jobs:
         name: hydra-cluster-e2e-test-logs
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
-
-  publish-test-results:
-    name: Publish test results
-    needs: [build-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v4
-      with:
-       pattern: test-results-*
-       merge-multiple: true
-
-    - name: ✏ Publish test results to PR
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      with:
-        junit_files: ./**/test-results.xml
 
   haddock:
     name: "Build haddock using nix"
@@ -296,13 +271,6 @@ jobs:
       with:
         name: haddocks
         path: docs/static/haddock
-
-    - name: 📥 Download test results
-      uses: actions/download-artifact@v4
-      with:
-        pattern: test-results-*
-        merge-multiple: true
-        path: docs/benchmarks/tests
 
     - name: 📥 Download specification PDF
       uses: actions/download-artifact@v4

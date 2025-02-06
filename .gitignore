@@ -22,8 +22,6 @@ result*
 .history
 *.hi
 *.o
-test-results.xml
-hspec-results.md
 
 # Benchmark results
 *.html
