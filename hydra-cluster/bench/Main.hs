@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), benchOptionsParser)
-import Bench.Summary (Summary (..), errorSummary, markdownReport, textReport)
+import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
@@ -71,19 +71,19 @@ main = do
     withArgs [] $ do
       try @_ @HUnitFailure (action dir dataset) >>= \case
         Left exc -> pure $ Left (dataset, dir, errorSummary dataset exc, TestFailed exc)
-        Right summary@Summary{totalTxs, numberOfTxs, numberOfInvalidTxs}
+        Right (summary@Summary{totalTxs, numberOfTxs, numberOfInvalidTxs}, systemStats)
           | numberOfTxs /= totalTxs -> pure $ Left (dataset, dir, summary, NotEnoughTransactions numberOfTxs totalTxs)
-          | numberOfInvalidTxs == 0 -> pure $ Right summary
+          | numberOfInvalidTxs == 0 -> pure $ Right (summary, systemStats)
           | otherwise -> pure $ Left (dataset, dir, summary, InvalidTransactions numberOfInvalidTxs)
 
-  summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) Summary] -> IO ()
+  summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
   summarizeResults outputDirectory results = do
     let (failures, summaries) = partitionEithers results
     case failures of
       [] -> writeBenchmarkReport outputDirectory summaries
       errs -> do
         forM_ errs $ \(_, dir, summary, exc) -> do
-          writeBenchmarkReport outputDirectory [summary]
+          writeBenchmarkReport outputDirectory [(summary, [])]
           benchmarkFailedWith dir exc
         exitFailure
 
@@ -121,7 +121,7 @@ benchmarkFailedWith benchDir = \case
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-writeBenchmarkReport :: Maybe FilePath -> [Summary] -> IO ()
+writeBenchmarkReport :: Maybe FilePath -> [(Summary, SystemStats)] -> IO ()
 writeBenchmarkReport outputDirectory summaries = do
   dumpToStdout
   whenJust outputDirectory writeReport

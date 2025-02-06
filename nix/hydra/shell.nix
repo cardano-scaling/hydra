@@ -50,6 +50,7 @@ let
     pkgs.weeder
     pkgs.yarn
     pkgs.yq
+    pkgs.dstat
   ];
 
   libs = [
