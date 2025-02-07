@@ -1,4 +1,4 @@
-name: Check code weeds
+name: Check Code Quality
 
 on:
   # We're using merge-chains; so this needs to run then.
@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  weeder:
-    name: Check code weeds
+  quality:
+    name: Check Code Quality
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -17,6 +17,14 @@ jobs:
       uses: ./.github/actions/nix-cachix-setup
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 📐 Check treefmt
+      run: |
+        nix build .#checks.x86_64-linux.treefmt
+
+    - name: 📐 Check hlint
+      run: |
+        nix build .#checks.x86_64-linux.hlint
 
     - name: 📐 Check weeder
       run: |
