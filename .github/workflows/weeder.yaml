@@ -20,6 +20,4 @@ jobs:
 
     - name: 📐 Check weeder
       run: |
-        nix develop --command -- bash -c "cabal update"
-        nix develop --command -- bash -c "cabal build all"
-        nix develop --command -- bash -c "weeder --require-hs-files"
+        nix build .#checks.x86_64-linux.weeder

@@ -33,6 +33,17 @@ pkgs.haskell-nix.project {
   modules = [
     # Strip debugging symbols from exes (smaller closures)
     {
+      packages.hydra-cardano-api.writeHieFiles = true;
+      packages.hydra-chain-observer.writeHieFiles = true;
+      packages.hydra-cluster.writeHieFiles = true;
+      packages.hydra-node.writeHieFiles = true;
+      packages.hydra-plutus.writeHieFiles = true;
+      packages.hydra-plutus-extras.writeHieFiles = true;
+      packages.hydra-prelude.writeHieFiles = true;
+      packages.hydra-test-utils.writeHieFiles = true;
+      packages.hydra-tx.writeHieFiles = true;
+      packages.hydra-tui.writeHieFiles = true;
+      packages.hydraw.writeHieFiles = true;
       packages.hydra-node.dontStrip = false;
       packages.hydra-tui.dontStrip = false;
       packages.hydraw.dontStrip = false;
