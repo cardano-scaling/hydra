@@ -76,6 +76,20 @@
             ];
           };
 
+          hydraPackageNames = [
+            "hydra-cardano-api"
+            "hydra-chain-observer"
+            "hydra-cluster"
+            "hydra-node"
+            "hydra-tx"
+            "hydra-prelude"
+            "hydra-plutus"
+            "hydra-plutus-extras"
+            "hydra-test-utils"
+            "hydra-tui"
+            "hydraw"
+          ];
+
           inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
 
           hsPkgs = import ./nix/hydra/project.nix {
@@ -113,6 +127,26 @@
                     value = addWerror v;
                   })
                   x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+
+          componentsToHieDirectories = x:
+            [ x.components.library.hie ]
+            ++ lib.concatLists
+              (map
+                (y:
+                  lib.mapAttrsToList
+                    (k: v:
+                      v.hie
+                    )
+                    x.components."${y}") [ "benchmarks" "exes" "sublibs" "tests" ]);
+
+          componentsToWeederArgs = x:
+            builtins.concatStringsSep " " (map (z: "--hie-directory ${z}") (componentsToHieDirectories x));
+
+          hydra-weeder = pkgs.runCommand "hydra-weeder" { buildInputs = [ pkgs.weeder ]; } ''
+            mkdir -p $out
+            weeder --config ${./weeder.toml} \
+              ${builtins.concatStringsSep " " (map (x: componentsToWeederArgs hsPkgs."${x}") hydraPackageNames)}
+          '';
 
           tx-cost-diff =
             let
@@ -153,17 +187,8 @@
               ];
               treefmt = pkgs.treefmt;
             };
-          } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) [
-            "hydra-cardano-api"
-            "hydra-chain-observer"
-            "hydra-cluster"
-            "hydra-node"
-            "hydra-tx"
-            "hydra-plutus"
-            "hydra-plutus-extras"
-            "hydra-test-utils"
-            "hydra-tui"
-          ]);
+            weeder = hydra-weeder;
+          } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) hydraPackageNames);
 
           devShells = import ./nix/hydra/shell.nix {
             inherit pkgs hsPkgs hydraPackages;

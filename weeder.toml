@@ -1,6 +1,7 @@
 roots = [
    "^Main.main$"
  , "^Spec.main$"
+ , "^Paths_.*"
  , "^main$"
  , "validatorHash$"
  , "validatorScript$"
