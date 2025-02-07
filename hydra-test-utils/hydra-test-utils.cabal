@@ -33,7 +33,6 @@ library
   import:          package-config
   hs-source-dirs:  src
   exposed-modules:
-    Test.Hspec.MarkdownFormatter
     Test.Hydra.Prelude
     Test.Network.Ports
 
@@ -42,9 +41,6 @@ library
     , directory
     , filepath
     , hspec
-    , hspec-api
-    , hspec-core
-    , hspec-junit-formatter  <1.1.1
     , HUnit
     , hydra-prelude
     , network
@@ -53,24 +49,3 @@ library
     , QuickCheck
     , relude
     , temporary
-
-test-suite hydra-test-util-tests
-  import:             package-config
-  hs-source-dirs:     test
-  other-modules:
-    Spec
-    Test.HSpec.MarkdownFormatterSpec
-
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
-  build-depends:
-    , base
-    , filepath
-    , hspec
-    , hspec-core
-    , hydra-prelude
-    , hydra-test-utils
-    , QuickCheck
-
-  build-tool-depends: hspec-discover:hspec-discover
-  ghc-options:        -threaded -rtsopts
