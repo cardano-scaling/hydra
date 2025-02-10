@@ -51,4 +51,13 @@
       '')
     ];
   };
+
+  hydra-chain-observer = pkgs.dockerTools.streamLayeredImage {
+    name = "hydra-chain-observer";
+    tag = "latest";
+    created = "now";
+    config = {
+      Entrypoint = [ "${hydraPackages.hydra-chain-observer-static}/bin/hydra-chain-observer" ];
+    };
+  };
 }
