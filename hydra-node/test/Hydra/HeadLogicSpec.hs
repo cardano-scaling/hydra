@@ -17,6 +17,7 @@ import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
@@ -704,6 +705,48 @@ spec =
         let collectOtherHead = observeTx $ OnFanoutTx{headId = otherHeadId}
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      describe "ClearPendingTxs" $ do
+        it "prunes all local txs" $ do
+          -- Given a list of transactions each depending on the previous. If a
+          -- prefix gets snapshotted, the suffix still stays in the local txs.
+          let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
+              tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+              tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
+              s0 = inOpenState threeParties
+              snapshotNumber1 = 1
+              snapshot1 = Snapshot testHeadId 0 snapshotNumber1 [tx1] (utxoRef 2) Nothing Nothing
+              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) snapshotNumber1
+
+          snapshotConfirmed <- runHeadLogic bobEnv ledger s0 $ do
+            step $ receiveMessage $ ReqTx tx1
+            step $ receiveMessage $ ReqTx tx2
+            step $ receiveMessage $ ReqTx tx3
+            step $ receiveMessage $ ReqSn 0 snapshotNumber1 [txId tx1] Nothing Nothing
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+            step (ackFrom bobSk bob)
+            getState
+
+          case snapshotConfirmed of
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs, localUTxO}}) -> do
+              localTxs `shouldBe` [tx2, tx3]
+              localUTxO `shouldBe` utxoRef 4
+            _ -> fail "expected Open state"
+
+          getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+          prunedState <- runHeadLogic bobEnv ledger snapshotConfirmed $ do
+            step $ ClientInput ClearPendingTxs
+            getState
+
+          case prunedState of
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs, localUTxO}}) -> do
+              localTxs `shouldBe` []
+              localUTxO `shouldBe` utxoRef 2
+            _ -> fail "expected Open state"
+
+          getConfirmedSnapshot prunedState `shouldBe` Just snapshot1
 
     describe "Coordinated Head Protocol using real Tx" $
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
