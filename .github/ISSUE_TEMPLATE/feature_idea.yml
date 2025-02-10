@@ -1,44 +1,37 @@
-name: Feature idea
-description: Idea or request for some feature on the Hydra roadmap
+# yaml-language-server: $schema=https://raw.githubusercontent.com/SchemaStore/schemastore/refs/heads/master/src/schemas/json/github-issue-forms.json
+name: 'Feature idea'
+description: Idea or request for some feature to add to Hydra
 labels: [':thought_balloon: idea']
+type: Feature
 body:
   - type: markdown
     attributes:
-      value:
       value: |
         **Thank you for contributing to our project!** :green_heart:
 
-        Instead of opening this issue, consider [starting a new idea discussion](https://github.com/cardano-scaling/hydra/discussions/new?category=ideas).
-        That way, we can discuss & refine your idea together, before we adopt it as a feature into the roadmap.
-
   - type: textarea
-    id: why
+    id: feature-description
     attributes:
-      label: Why
-      description: Why do we need or want this feature
-      placeholder: |
-        Give context and describe the problem, challenge or opportunity you see
+      label: Description
+      description: "Clear and concise description of the problem. Please make the reason and usecases as detailed as possible. If you intend to submit a PR for this issue, tell us in the description. Thanks!"
     validations:
       required: true
 
   - type: textarea
-    id: what
+    id: suggested-solution
     attributes:
-      label: What
-      description: What is this feature roughly about
-      placeholder: |
-        For example describe a new API endpoint, a change in messaging formats,
-        a new configuration option, ...
+      label: Suggested solution
     validations:
       required: true
 
   - type: textarea
-    id: how
+    id: alternative
     attributes:
-      label: How
-      description: How could we realize this feature
-      placeholder: |
-        Which technical solutions, libraries or systems should be used, which
-        components need to change, steps how to implement this, ...
-    validations:
-      required: true
+      label: Alternative
+      description: "Clear and concise description of any alternative solutions or features you've considered."
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any other context or screenshots about the feature request here.
