@@ -66,10 +66,11 @@ Get started with the [user manual 📖](https://hydra.family/head-protocol/docs/
 - [x] Cardano-node integration via Direct connection
 - [x] Locally persisted Head state
 - [x] Commit from any wallet (e.g. hardware wallets)
+- [x] Incremental de-/commit
 
 Later:
 
-- [ ] Incremental de-/commit and optimistic Head closure protocol extensions
+- [ ] Optimistic Head closure protocol extensions
 - [ ] Modular API via event streaming plugins
 - [ ] Automated handling of rollbacks
 - [ ] Relay-capable, mesh network
