@@ -137,12 +137,14 @@ httpApp ::
   IO CommitInfo ->
   -- | Get latest confirmed UTxO snapshot.
   IO (Maybe (UTxOType tx)) ->
+  -- | Get latest pending transactions.
+  IO [TxIdType tx] ->
   -- | Get the pending commits (deposits)
   IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPendingTxs getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -156,6 +158,15 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPending
       getConfirmedUTxO >>= \case
         Nothing -> respond notFound
         Just utxo -> respond $ okJSON utxo
+    ("GET", ["txs", "pending"]) ->
+      -- XXX: Should ensure the pending txs are of the right head and the head is still
+      -- open. This is something we should fix on the "read model" side of the
+      -- server.
+      getPendingTxs >>= respond . responseLBS status200 [] . Aeson.encode
+    ("DELETE", ["txs", "pending"]) ->
+      consumeRequestBodyStrict request
+        >>= handleClearPendingTxs putClientInput
+        >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
         >>= handleDraftCommitUtxo env directChain getCommitInfo
@@ -235,6 +246,15 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         okJSON $ DraftCommitTxResponse commitTx
   Chain{draftCommitTx, draftDepositTx} = directChain
   Environment{depositDeadline} = env
+
+-- | Handle request to clear pending txs.
+handleClearPendingTxs ::
+  (ClientInput tx -> IO ()) ->
+  LBS.ByteString ->
+  IO Response
+handleClearPendingTxs putClientInput _body = do
+  putClientInput ClearPendingTxs
+  pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

@@ -101,6 +101,8 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/CommitIgnored"
+          - $ref: "api.yaml#/components/messages/PendingTxsRemoved"
+          - $ref: "api.yaml#/components/messages/PendingTxsUpdated"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -256,6 +258,41 @@ channels:
           type: response
           method: POST
           bindingVersion: '0.1.0'
+
+  /txs/pending:
+    servers:
+      - localhost-http
+    publish:
+      description: Clear pending tx in local state and resume UTxO to latest confirmed snapshot.
+      operationId: clearPendingTxs
+      message:
+        payload:
+          type: string
+          enum: ["OK"]
+      bindings:
+        http:
+          type: request
+          method: DELETE
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: getPendingTxs
+      description: |
+        Get latest pending txs.
+
+        Possible responses of this endpoint are:
+          * 200: Array of latest pending txs
+          * 404: when head was never open
+      message:
+        payload:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/TxId"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
 
   /protocol-parameters:
     servers:
@@ -443,6 +480,19 @@ components:
           tag:
             type: string
             enum: ["GetUTxO"]
+
+    ClearPendingTxs:
+      title: ClearPendingTxs
+      description: |
+        Prune local pending txs. This restore the head to the previous confirmed snapshot.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["ClearPendingTxs"]
 
     ########
     #
@@ -668,6 +718,19 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommitIgnored"
 
+    PendingTxsRemoved:
+      title: PendingTxsRemoved
+      description: |
+        Pending txs where removed and the head state is back to latest confirmed snapshot.
+      payload:
+        $ref: "api.yaml#/components/schemas/PendingTxsRemoved"
+
+    PendingTxsUpdated:
+      title: PendingTxsUpdated
+      description: |
+        Pending txs where updated during ReqSn.
+      payload:
+        $ref: "api.yaml#/components/schemas/PendingTxsUpdated"
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -736,6 +799,8 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/CommitIgnored"
+        - $ref: "api.yaml#/components/schemas/PendingTxsRemoved"
+        - $ref: "api.yaml#/components/schemas/PendingTxsUpdated"
 
     Greetings:
       type: object
@@ -1161,6 +1226,7 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/ClearPendingTxs/payload"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1463,6 +1529,58 @@ components:
           oneOf:
            - $ref: "api.yaml#/components/schemas/UTxO"
            - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PendingTxsRemoved:
+      title: PendingTxsRemoved
+      description: |
+        Prune local pending txs.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PendingTxsRemoved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        localTxIds:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/TxId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+    
+    PendingTxsUpdated:
+      title: PendingTxsUpdated
+      description: |
+        Local pending txs updated during ReqSn.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PendingTxsUpdated"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        newLocalTxIds:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/TxId"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

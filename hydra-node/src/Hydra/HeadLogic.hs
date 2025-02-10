@@ -465,6 +465,7 @@ onOpenNetworkReqSn env ledger st otherParty sv sn requestedTxIds mDecommitTx mIn
                       , newLocalUTxO
                       , newLocalTxs
                       }
+                    <> cause (ClientEffect $ ServerOutput.PendingTxsUpdated headId (txId <$> newLocalTxs))
  where
   requireReqSn continue
     | sv /= version =
@@ -1155,6 +1156,20 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
+-- | Client request to prune local pending txs.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenClientClearPendingTxs :: IsTx tx => OpenState tx -> Outcome tx
+onOpenClientClearPendingTxs openState =
+  newState PendingTxsPruned
+    <> cause notifyClient
+ where
+  notifyClient = ClientEffect $ ServerOutput.PendingTxsRemoved{headId, localTxIds = txId <$> localTxs}
+
+  CoordinatedHeadState{localTxs} = coordinatedHeadState
+
+  OpenState{headId, coordinatedHeadState} = openState
+
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
@@ -1307,6 +1322,8 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState, ClientInput ClearPendingTxs) ->
+    onOpenClientClearPendingTxs openState
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
@@ -1648,6 +1665,41 @@ aggregate st = \case
                     }
               }
       _otherState -> st
+  PendingTxsPruned ->
+    case st of
+      Open
+        os@OpenState
+          { coordinatedHeadState =
+            coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}
+          } ->
+          case confirmedSnapshot of
+            InitialSnapshot{initialUTxO} ->
+              Open
+                os
+                  { coordinatedHeadState =
+                      coordinatedHeadState
+                        { localUTxO = initialUTxO
+                        , localTxs = mempty
+                        , allTxs = mempty
+                        }
+                  }
+            ConfirmedSnapshot
+              { snapshot =
+                Snapshot
+                  { confirmed
+                  , utxo
+                  }
+              } ->
+                Open
+                  os
+                    { coordinatedHeadState =
+                        coordinatedHeadState
+                          { localUTxO = utxo
+                          , localTxs = mempty
+                          , allTxs = fromList $ fmap (\tx -> (txId tx, tx)) confirmed
+                          }
+                    }
+      _otherState -> st
   HeadIsReadyToFanout ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
@@ -1693,6 +1745,7 @@ aggregateChainStateHistory history = \case
   HeadContested{chainState} -> pushNewState chainState history
   HeadIsReadyToFanout{} -> history
   HeadFannedOut{chainState} -> pushNewState chainState history
+  PendingTxsPruned{} -> history
   ChainRolledBack{chainState} ->
     rollbackHistory (chainStateSlot chainState) history
   TickObserved{} -> history

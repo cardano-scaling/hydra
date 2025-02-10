@@ -24,6 +24,7 @@ import Hydra.API.ServerOutput (
   projectHeadStatus,
   projectInitializingHeadId,
   projectPendingDeposits,
+  projectPendingTxs,
   projectSnapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
@@ -98,6 +99,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
+    pendingTxsP <- mkProjection [] projectPendingTxs
     loadedHistory <-
       runConduitRes $
         source
@@ -107,6 +109,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
           .| iterM (lift . atomically . update commitInfoP . output)
           .| iterM (lift . atomically . update headIdP . output)
           .| iterM (lift . atomically . update pendingDepositsP . output)
+          .| iterM (lift . atomically . update pendingTxsP . output)
           -- FIXME: don't load whole history into memory
           .| sinkList
 
@@ -130,7 +133,17 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
             $ websocketsOr
               defaultConnectionOptions
               (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+              ( httpApp
+                  tracer
+                  chain
+                  env
+                  pparams
+                  (atomically $ getLatest commitInfoP)
+                  (atomically $ getLatest snapshotUtxoP)
+                  (atomically $ getLatest pendingTxsP)
+                  (atomically $ getLatest pendingDepositsP)
+                  callback
+              )
       )
       ( do
           waitForServerRunning
@@ -143,6 +156,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
                     update commitInfoP output
                     update snapshotUtxoP output
                     update headIdP output
+                    update pendingTxsP output
                     update pendingDepositsP output
                     writeTChan responseChannel timedOutput
               }

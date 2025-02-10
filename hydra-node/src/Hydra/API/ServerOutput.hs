@@ -142,6 +142,8 @@ data ServerOutput tx
   | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
+  | PendingTxsRemoved {headId :: HeadId, localTxIds :: [TxIdType tx]}
+  | PendingTxsUpdated {headId :: HeadId, newLocalTxIds :: [TxIdType tx]}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -203,6 +205,8 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
+    PendingTxsRemoved headId localTxIds -> PendingTxsRemoved headId <$> shrink localTxIds
+    PendingTxsUpdated headId newLocalTxIds -> PendingTxsUpdated headId <$> shrink newLocalTxIds
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -265,6 +269,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     CommitIgnored{} -> encodedResponse
+    PendingTxsRemoved{} -> encodedResponse
+    PendingTxsUpdated{} -> encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
@@ -301,6 +307,14 @@ projectPendingDeposits txIds = \case
   CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
   CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
   CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
+  _other -> txIds
+
+-- | Projection to obtain the list of pending txs.
+projectPendingTxs :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdType tx]
+projectPendingTxs txIds = \case
+  PendingTxsRemoved{} -> []
+  PendingTxsUpdated{newLocalTxIds} -> newLocalTxIds
+  TxValid{transaction} -> txId transaction : txIds
   _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
