@@ -6,6 +6,7 @@
 , pkgs
 , ghc
 , hydraPackages
+, system
 }:
 let
 
@@ -50,8 +51,10 @@ let
     pkgs.weeder
     pkgs.yarn
     pkgs.yq
-    pkgs.dstat
-  ];
+  ] ++
+  # `dstat` is required by the benchmark tests; but it's not supported on
+  # darwin; so we just don't include it.
+  (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dstat ]);
 
   libs = [
     pkgs.glibcLocales

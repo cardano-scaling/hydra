@@ -191,7 +191,7 @@
           } // lib.attrsets.mergeAttrsList (map (x: componentsToWerrors x hsPkgs.${x}) hydraPackageNames);
 
           devShells = import ./nix/hydra/shell.nix {
-            inherit pkgs hsPkgs hydraPackages;
+            inherit pkgs hsPkgs hydraPackages system;
             ghc = pkgs.buildPackages.haskell-nix.compiler.${compiler};
           };
         };
