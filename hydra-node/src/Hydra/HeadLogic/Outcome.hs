@@ -92,6 +92,7 @@ data StateChanged tx
   | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
   | HeadFannedOut {chainState :: ChainStateType tx}
+  | PendingTxsPruned
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)

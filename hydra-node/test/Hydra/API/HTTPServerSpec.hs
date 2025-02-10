@@ -13,6 +13,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
+  TxId,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
@@ -21,13 +22,14 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Simple (SimpleId, SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Tx.IsTx (UTxOType)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), get, post, shouldRespondWith, with)
+import Test.Hspec.Wai as Wai (delete)
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams)
@@ -132,6 +134,20 @@ spec = do
           . key "subscribe"
           . key "message"
 
+    prop "Validate /txs/pending publish api schema" $
+      prop_validateJSONSchema @Text "api.json" $
+        key "channels"
+          . key "/txs/pending"
+          . key "publish"
+          . key "message"
+
+    prop "Validate /txs/pending subscribe api schema" $
+      prop_validateJSONSchema @[TxId] "api.json" $
+        key "channels"
+          . key "/txs/pending"
+          . key "subscribe"
+          . key "message"
+
     apiServerSpec
     describe "SubmitTxRequest accepted tx formats" $ do
       prop "accepts json encoded transaction" $
@@ -152,11 +168,13 @@ apiServerSpec = do
   describe "API should respond correctly" $ do
     let getNothing = pure Nothing
         cantCommit = pure CannotCommit
+        getPendingTxs = pure []
         getPendingDeposits = pure []
+        getUTxO' = pure Nothing
         putClientInput = const (pure ())
 
     describe "GET /protocol-parameters" $ do
-      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $ do
+      with (return $ httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingTxs getPendingDeposits putClientInput) $ do
         it "matches schema" $
           withJsonSpecifications $ \schemaDir -> do
             get "/protocol-parameters"
@@ -175,7 +193,7 @@ apiServerSpec = do
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
-        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingTxs getPendingDeposits putClientInput) $ do
           get "/snapshot/utxo"
             `shouldRespondWith` case utxo of
               Nothing -> 404
@@ -188,7 +206,7 @@ apiServerSpec = do
           . withJsonSpecifications
           $ \schemaDir -> do
             let getUTxO = pure $ Just utxo
-            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingTxs getPendingDeposits putClientInput) $ do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody =
@@ -201,7 +219,7 @@ apiServerSpec = do
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
           let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
-          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
+          withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingTxs getPendingDeposits putClientInput) $ do
             get "/snapshot/utxo"
               `shouldRespondWith` 200
                 { matchBody = MatchBody $ \_ body ->
@@ -209,6 +227,54 @@ apiServerSpec = do
                       then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
                       else Nothing
                 }
+
+    describe "DELETE /txs/pending" $ do
+      prop "responds correctly" $ \txIds -> do
+        let getPendingTxs' = pure txIds
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO' getPendingTxs' getPendingDeposits putClientInput) $ do
+          Wai.delete "/txs/pending"
+            `shouldRespondWith` 200{matchBody = matchJSON ("OK" :: Text)}
+
+      prop "ok response matches schema" $ \txIds ->
+        withMaxSuccess 4
+          . cover 1 (null txIds) "empty"
+          . cover 1 (not $ null txIds) "non empty"
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            let getPendingTxs' = pure txIds
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO' getPendingTxs' getPendingDeposits putClientInput) $ do
+              Wai.delete "/txs/pending"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "channels" . key "/txs/pending" . key "publish" . key "message" . key "payload")
+                  }
+
+    describe "GET /txs/pending" $ do
+      prop "responds correctly" $ \txIds -> do
+        let getPendingTxs' = pure txIds
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO' getPendingTxs' getPendingDeposits putClientInput) $ do
+          get "/txs/pending"
+            `shouldRespondWith` case txIds of
+              [] -> 200{matchBody = matchJSON ([] :: [SimpleId])}
+              pendingTxs -> 200{matchBody = matchJSON pendingTxs}
+
+      prop "ok response matches schema" $ \txIds ->
+        withMaxSuccess 4
+          . cover 1 (null txIds) "empty"
+          . cover 1 (not $ null txIds) "non empty"
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            let getPendingTxs' = pure txIds
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO' getPendingTxs' getPendingDeposits putClientInput) $ do
+              get "/txs/pending"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "channels" . key "/txs/pending" . key "subscribe" . key "message" . key "payload")
+                  }
 
     describe "POST /commit" $ do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
@@ -219,7 +285,7 @@ apiServerSpec = do
                   pure $ Right tx
               }
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
-        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+        withApplication (httpApp nullTracer workingChainHandle testEnvironment defaultPParams getHeadId getNothing getPendingTxs getPendingDeposits putClientInput) $ do
           post "/commit" (Aeson.encode request)
             `shouldRespondWith` 200
 
@@ -243,7 +309,7 @@ apiServerSpec = do
               _ -> property
         checkCoverage $
           coverage $
-            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
+            withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingTxs getPendingDeposits putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` expectedResponse
 

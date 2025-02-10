@@ -16,6 +16,7 @@ data ClientInput tx
   | Close
   | Contest
   | Fanout
+  | ClearPendingTxs
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (ClientInput tx)
@@ -39,3 +40,4 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) w
     Close -> []
     Contest -> []
     Fanout -> []
+    ClearPendingTxs -> []

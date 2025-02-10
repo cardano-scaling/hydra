@@ -1774,6 +1774,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
               - $ref: "api.yaml#/components/messages/Fanout/payload"
+              - $ref: "api.yaml#/components/messages/ClearPendingTxs/payload"
 
       - title: NetworkInput
         type: object
