@@ -12,6 +12,8 @@ changes.
 
 - Enable multi-party, networked "offline" heads by providing an `--offline-head-id` option to `hydra-node`.
 
+- **BREAKING** Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-id` and `--initial-utxo` options to switch to offline mode. 
+
 - Stream historical data from disk in the hydra-node API server.
 
 - Record used and free memory when running `bench-e2e` benchmark.
