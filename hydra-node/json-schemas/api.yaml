@@ -263,7 +263,7 @@ channels:
     servers:
       - localhost-http
     publish:
-      description: Clear pending tx in local state and resume UTxO to latest confirmed snapshot.
+      description: Clear pending txs in local state and reset local UTxO to latest confirmed snapshot.
       operationId: clearPendingTxs
       message:
         payload:
@@ -484,7 +484,7 @@ components:
     ClearPendingTxs:
       title: ClearPendingTxs
       description: |
-        Prune local pending txs. This restore the head to the previous confirmed snapshot.
+        Prune local pending txs. This reset the local head state to latest confirmed snapshot.
       payload:
         type: object
         required:
