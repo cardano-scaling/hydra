@@ -93,17 +93,8 @@ commandParser =
  where
   subcommands =
     hsubparser $
-      offlineCommand
-        <> publishScriptsCommand
+      publishScriptsCommand
         <> genHydraKeyCommand
-
-  offlineCommand =
-    command
-      "offline"
-      ( info
-          (Run <$> offlineModeParser)
-          (progDesc "Run the node in offline mode.")
-      )
 
   publishScriptsCommand =
     command
@@ -273,18 +264,6 @@ runOptionsParser =
         )
     <*> ledgerConfigParser
 
--- | Alternative parser to 'runOptionsParser' for running the cardano-node in
--- offline mode.
-offlineModeParser :: Parser RunOptions
-offlineModeParser = do
-  -- NOTE: We must parse the offline options first as the 'runOptionsParser'
-  -- would also "consume" those options
-  chainConfig <- Offline <$> offlineChainConfigParser
-  -- NOTE: We can re-use the runOptionsParser only as it never fails
-  -- because it has defaults for all options.
-  options <- runOptionsParser
-  pure options{chainConfig}
-
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
   }
@@ -359,13 +338,6 @@ data OfflineChainConfig = OfflineChainConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-defaultOfflineChainConfig :: OfflineChainConfig
-defaultOfflineChainConfig =
-  OfflineChainConfig
-    { initialUTxOFile = "utxo.json"
-    , ledgerGenesisFile = Nothing
-    }
 
 data DirectChainConfig = DirectChainConfig
   { networkId :: NetworkId

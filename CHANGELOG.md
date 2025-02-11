@@ -15,7 +15,7 @@ changes.
   - An example was if the datum would contain CBOR instead of just hex encoded bytes.
 
 - **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
-  - Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode. 
+  - Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
 
 - Stream historical data from disk in the hydra-node API server.
 
