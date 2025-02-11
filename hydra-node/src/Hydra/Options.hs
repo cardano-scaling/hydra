@@ -40,6 +40,7 @@ import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
+import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
@@ -331,7 +332,9 @@ instance FromJSON ChainConfig where
         tag -> fail $ "unexpected tag " <> tag
 
 data OfflineChainConfig = OfflineChainConfig
-  { initialUTxOFile :: FilePath
+  { offlineHeadSeed :: HeadSeed
+  -- ^ Manually provided seed of the offline head.
+  , initialUTxOFile :: FilePath
   -- ^ Path to a json encoded starting 'UTxO' for the offline-mode head.
   , ledgerGenesisFile :: Maybe FilePath
   -- ^ Path to a shelley genesis file with slot lengths used by the offline-mode chain.
@@ -401,19 +404,31 @@ instance Arbitrary ChainConfig where
           }
 
     genOfflineChainConfig = do
+      offlineHeadSeed <- arbitrary
       ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "json"]
       initialUTxOFile <- genFilePath "json"
       pure
         OfflineChainConfig
-          { initialUTxOFile
+          { offlineHeadSeed
+          , initialUTxOFile
           , ledgerGenesisFile
           }
 
 offlineChainConfigParser :: Parser OfflineChainConfig
 offlineChainConfigParser =
   OfflineChainConfig
-    <$> initialUTxOFileParser
+    <$> offlineHeadSeedParser
+    <*> initialUTxOFileParser
     <*> ledgerGenesisFileParser
+
+offlineHeadSeedParser :: Parser HeadSeed
+offlineHeadSeedParser =
+  option
+    (eitherReader $ left show . deserialiseFromRawBytesHex AsHeadSeed . BSC.pack)
+    ( long "offline-head-seed"
+        <> metavar "HEX"
+        <> help "Offline mode: Hexadecimal seed bytes to derive the offline head id from. Needs to be consistent across the hydra-node instances."
+    )
 
 initialUTxOFileParser :: Parser FilePath
 initialUTxOFileParser =
@@ -423,7 +438,7 @@ initialUTxOFileParser =
         <> metavar "FILE"
         <> value "utxo.json"
         <> showDefault
-        <> help "File containing initial UTxO for the L2 chain in offline mode."
+        <> help "Offline mode: File containing initial UTxO for the L2 ledger in offline mode."
     )
 
 ledgerGenesisFileParser :: Parser (Maybe FilePath)
@@ -434,7 +449,7 @@ ledgerGenesisFileParser =
         <> metavar "FILE"
         <> value Nothing
         <> showDefault
-        <> help "File containing shelley genesis parameters for the simulated L1 in offline mode."
+        <> help "Offline mode: File containing shelley genesis parameters for the simulated L1 chain in offline mode."
     )
 
 directChainConfigParser :: Parser DirectChainConfig
@@ -892,10 +907,12 @@ toArgs
     argsChainConfig = \case
       Offline
         OfflineChainConfig
-          { initialUTxOFile
+          { offlineHeadSeed
+          , initialUTxOFile
           , ledgerGenesisFile
           } ->
-          ["--initial-utxo", initialUTxOFile]
+          ["--offline-head-seed", toString $ serialiseToRawBytesHexText offlineHeadSeed]
+            <> ["--initial-utxo", initialUTxOFile]
             <> case ledgerGenesisFile of
               Just fp -> ["--ledger-genesis", fp]
               Nothing -> []
