@@ -91,7 +91,10 @@ rec {
       paddedRevision;
 
   hydra-chain-observer-static =
-    musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer;
+    embedRevision
+      musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
+      "hydra-chain-observer"
+      paddedRevision;
 
   hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
     export PATH=$PATH:${hydra-node}/bin
