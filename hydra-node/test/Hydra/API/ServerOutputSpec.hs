@@ -4,9 +4,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Aeson.Lens (key)
-import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.API.ServerOutput ( TimedServerOutput)
+import Hydra.API.ServerOutput (TimedServerOutput)
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger.Cardano (Tx)
 import Test.Aeson.GenericSpecs (
@@ -24,7 +24,7 @@ spec = parallel $ do
 
   prop "matches JSON schema" $
     prop_validateJSONSchema @(TimedServerOutput Tx) "api.json" $
-      key "components" . key "schemas" . key "ServerOutput"
+      key "components" . key "schemas" . key "StateChanged"
 
   -- NOTE: The golden file produced by this is also used by the
   -- 'validate:outputs' target in ./docs/package.json.

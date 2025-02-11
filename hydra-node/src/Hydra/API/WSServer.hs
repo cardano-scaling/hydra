@@ -28,8 +28,8 @@ import Hydra.Chain.ChainState (
  )
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.Outcome (
-  StateChanged (..),
   HeadStatus,
+  StateChanged (..),
   headStatus,
   me,
   snapshotUtxo,

@@ -705,7 +705,7 @@ components:
   #######
 
   schemas:
-    ServerOutput:
+    StateChanged:
       oneOf:
         - $ref: "api.yaml#/components/schemas/Greetings"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
@@ -728,6 +728,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
         - $ref: "api.yaml#/components/schemas/DecommitInvalid"
+        - $ref: "api.yaml#/components/schemas/DecommitRecorded"
         - $ref: "api.yaml#/components/schemas/DecommitRequested"
         - $ref: "api.yaml#/components/schemas/DecommitApproved"
         - $ref: "api.yaml#/components/schemas/DecommitFinalized"
@@ -736,6 +737,13 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/CommitIgnored"
+        - $ref: "api.yaml#/components/schemas/SnapshotRequested"
+        - $ref: "api.yaml#/components/schemas/SnapshotRequestDecided"
+        - $ref: "api.yaml#/components/schemas/TransactionReceived"
+        - $ref: "api.yaml#/components/schemas/TickObserved"
+        - $ref: "api.yaml#/components/schemas/PartySignedSnapshot"
+        - $ref: "api.yaml#/components/schemas/ChainRolledBack"
+
 
     Greetings:
       type: object
@@ -833,6 +841,8 @@ components:
         - tag
         - headId
         - parties
+        - parameters
+        - chainState
         - seq
         - timestamp
       properties:
@@ -845,6 +855,10 @@ components:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/Party"
+        parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+        chainState:
+          type: object
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -964,6 +978,7 @@ components:
         - tag
         - headId
         - utxo
+        - chainState
         - seq
         - timestamp
       properties:
@@ -974,6 +989,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         utxo:
           $ref: "api.yaml#/components/schemas/UTxO"
+        chainState:
+          type: object
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1007,6 +1024,7 @@ components:
         - headId
         - transactionId
         - transaction
+        - newLocalUTxO
         - seq
         - timestamp
       properties:
@@ -1018,6 +1036,26 @@ components:
         transactionId:
           $ref: "api.yaml#/components/schemas/TxId"
         transaction:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        newLocalUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TransactionReceived:
+      type: object
+      required:
+        - tag
+        - tx
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TransactionReceived"]
+        tx:
           $ref: "api.yaml#/components/schemas/Transaction"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
@@ -1049,6 +1087,79 @@ components:
           properties:
             reason:
               type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotRequested:
+       type: object
+       required:
+         - tag
+         - snapshot
+         - requestedTxIds
+         - newLocalUTxO
+         - newLocalTxs
+         - seq
+         - timestamp
+       properties:
+         tag:
+           type: string
+           enum: ["SnapshotRequested"]
+         snapshot:
+           $ref: "api.yaml#/components/schemas/Snapshot"
+         requestedTxIds:
+           type: array
+           items:
+             $ref: "api.yaml#/components/schemas/TxId"
+         newLocalUTxO:
+           $ref: "api.yaml#/components/schemas/UTxO"
+         newLocalTxs:
+           type: array
+           items:
+             $ref: "api.yaml#/components/schemas/Transaction"
+         seq:
+           $ref: "api.yaml#/components/schemas/SequenceNumber"
+         timestamp:
+           $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotRequestDecided:
+      type: object
+      required:
+        - tag
+        - snapshotNumber
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotRequestDecided"]
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PartySignedSnapshot:
+      type: object
+      required:
+        - tag
+        - snapshot
+        - party
+        - signature
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PartySignedSnapshot"]
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        party:
+          $ref: "api.yaml#/components/schemas/Party"
+        signature:
+          $ref: "api.yaml#/components/schemas/Signature"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1166,6 +1277,41 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    TickObserved:
+      type: object
+      required:
+        - tag
+        - chainSlot
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TickObserved"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    ChainRolledBack:
+      type: object
+      required:
+        - tag
+        - chainState
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["ChainRolledBack"]
+        chainState:
+          type: object
+        seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
     IgnoredHeadInitializing:
       type: object
       required:
@@ -1279,6 +1425,28 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    DecommitRecorded:
+      type: object
+      required:
+        - tag
+        - decommitTx
+        - newLocalUTxO
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitRecorded"]
+        decommitTx:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
+        newLocalUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+            $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+
     DecommitApproved:
       title: DecommitApproved
       description: |
@@ -1317,6 +1485,7 @@ components:
         - tag
         - headId
         - decommitTxId
+        - newVersion
         - seq
         - timestamp
       properties:
@@ -1327,6 +1496,9 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         decommitTxId:
           $ref: "api.yaml#/components/schemas/TxId"
+        newVersion:
+          type: integer
+          minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2094,7 +2266,7 @@ components:
               type: string
               enum: ["InvalidStateToPost"]
             chainState:
-              $ref: "api.yaml#/components/schemas/ChainState"
+              type: object
             txTried:
               $ref: "api.yaml#/components/schemas/PostChainTx"
         - title: PlutusValidationFailed
@@ -2306,6 +2478,8 @@ components:
       - headId
       - number
       - utxo
+      - utxoToCommit
+      - utxoToDecommit
       - confirmed
       - version
       properties:

@@ -8,11 +8,11 @@ import Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
+import Hydra.HeadLogic (StateChanged (..))
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   Snapshot (..),
  )
-import Hydra.HeadLogic (StateChanged(..))
 
 newtype ServerOutputFilter tx = ServerOutputFilter
   { txContainsAddr :: TimedServerOutput tx -> Text -> Bool
@@ -23,7 +23,7 @@ serverOutputFilter :: ServerOutputFilter Tx =
   ServerOutputFilter
     { txContainsAddr = \response address ->
         case output response of
-          TxValid{tx} -> matchingAddr address tx
+          TxValid{transaction} -> matchingAddr address transaction
           TxInvalid{transaction} -> matchingAddr address transaction
           SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
           _ -> True

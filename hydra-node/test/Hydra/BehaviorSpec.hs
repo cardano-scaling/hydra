@@ -23,7 +23,6 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
-import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -35,6 +34,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -103,7 +103,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
             simulateCommit chain (alice, utxoRef 1)
             waitUntil [n1] $ Committed{headId = testHeadId, party = alice, chainState = SimpleChainState 2, utxo = utxoRef 1}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
@@ -115,7 +115,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
             simulateCommit chain (alice, utxoRef 1)
             waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
@@ -129,7 +129,7 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
             simulateCommit chain (alice, utxoRef 1)
             waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
@@ -149,11 +149,11 @@ spec = parallel $ do
               simulateCommit chain (alice, utxoRef 1)
               waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
               let veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, initialUTxO = utxoRef 1, chainState = SimpleChainState 3})
+              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3})
 
               simulateCommit chain (bob, utxoRef 2)
               waitUntil [n1] $ Committed{headId = testHeadId, party = bob, utxo = utxoRef 2, chainState = SimpleChainState 3}
-              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRefs [1, 2], chainState = SimpleChainState 4}
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 4}
 
     it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
@@ -180,7 +180,7 @@ spec = parallel $ do
               simulateCommit chain (alice, utxoRef 1)
               simulateCommit chain (bob, utxoRef 2)
 
-              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRefs [1, 2], chainState = SimpleChainState 4}
+              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 4}
 
               send n1 Abort
 
@@ -238,7 +238,7 @@ spec = parallel $ do
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, tx, newLocalUTxO = utxoRefs [1, 2, 42]}
+                waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 2, 42]}
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -249,7 +249,7 @@ spec = parallel $ do
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, tx, newLocalUTxO = utxoRefs [1, 2, 42]}
+                waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 2, 42]}
 
                 let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -309,14 +309,14 @@ spec = parallel $ do
                 send n1 (NewTx firstTx)
 
                 -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], tx = firstTx}
+                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], transactionId = txId firstTx, transaction = firstTx}
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 4], tx = secondTx}
+                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 4], transaction = secondTx, transactionId = txId secondTx}
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -340,7 +340,7 @@ spec = parallel $ do
                   _ -> False
 
                 send n1 (NewTx firstTx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], tx = firstTx}
+                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], transaction = firstTx, transactionId = txId firstTx}
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
@@ -443,7 +443,7 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
-                  waitUntil [n1, n2] $ TxValid{headId = testHeadId, tx = normalTx, newLocalUTxO = utxoRefs [1, 3, 11]}
+                  waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = normalTx, transactionId = txId normalTx, newLocalUTxO = utxoRefs [1, 3, 11]}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -894,14 +894,14 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState{slot = ChainSlot 1}, headSeed = testHeadSeed}
             simulateCommit chain (alice, utxoRef 1)
             waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState{slot = ChainSlot 2}}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, initialUTxO = utxoRefs [1], chainState = SimpleChainState{slot = ChainSlot 3}}
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1], chainState = SimpleChainState{slot = ChainSlot 3}}
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
             -- We expect the node to still work and let us post L2 transactions
             let tx = aValidTx 42
             send n1 (NewTx tx)
-            waitUntil [n1] $ TxValid{headId = testHeadId, tx, newLocalUTxO = utxoRefs [1, 42]}
+            waitUntil [n1] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 42]}
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
@@ -1282,7 +1282,7 @@ openHead chain n1 n2 = do
   waitUntil [n1, n2] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
   simulateCommit chain (bob, utxoRef 2)
   waitUntil [n1, n2] $ Committed{headId = testHeadId, party = bob, utxo = utxoRef 2, chainState = SimpleChainState 3}
-  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, chainState = SimpleChainState 4, initialUTxO = utxoRefs [1, 2]}
+  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, chainState = SimpleChainState 4, utxo = utxoRefs [1, 2]}
 
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => StateChanged tx -> m ()
 assertHeadIsClosed = \case

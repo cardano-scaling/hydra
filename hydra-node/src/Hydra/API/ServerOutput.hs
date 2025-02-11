@@ -65,7 +65,7 @@ data ServerOutputConfig = ServerOutputConfig
 
 -- | Replaces the json encoded tx field with it's cbor representation.
 --
--- NOTE: we deliberately pattern match on all 'ServerOutput' constructors in
+-- NOTE: we deliberately pattern match on all 'StateChanged' constructors in
 -- 'handleTxOutput' so that we don't forget to update this function if they
 -- change.
 prepareServerOutput ::
@@ -174,5 +174,5 @@ projectHeadStatus headStatus = \case
 projectSnapshotUtxo :: Maybe (UTxOType tx) -> StateChanged tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
-  HeadIsOpen _ _ utxos -> Just utxos
+  HeadIsOpen _ utxos _ -> Just utxos
   _other -> snapshotUtxo

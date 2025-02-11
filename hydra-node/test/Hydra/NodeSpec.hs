@@ -9,12 +9,12 @@ import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
-import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -33,6 +33,7 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Tx (txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
@@ -172,7 +173,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, tx = tx1, newLocalUTxO = utxoRefs [4]}])
+          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1, transactionId = txId tx1, newLocalUTxO = utxoRefs [1, 3, 4]}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents

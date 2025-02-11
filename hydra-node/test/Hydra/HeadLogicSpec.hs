@@ -17,7 +17,6 @@ import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -45,6 +44,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)

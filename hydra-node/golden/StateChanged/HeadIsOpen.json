@@ -599,7 +599,8 @@
                 }
             },
             "headId": "acb1a9e7d314614f7fdef54bc958e85f",
-            "initialUTxO": {
+            "tag": "HeadIsOpen",
+            "utxo": {
                 "0a445887fa21c14ea14cd20a1011c8f40755085e69137fd71acffcabd104c7c6#43": {
                     "address": "addr1qx3ym32jgwgs207ax2vkwqrf4hd8apehdpwsrlu57su2w9f8zlkxf8mdcdar3uqp85w67uxwfshhm0mr85w9m2hkyx9smcg53p",
                     "datum": null,
@@ -782,8 +783,7 @@
                         "lovelace": 9124154808975915914
                     }
                 }
-            },
-            "tag": "HeadIsOpen"
+            }
         }
     ],
     "seed": -2113261908

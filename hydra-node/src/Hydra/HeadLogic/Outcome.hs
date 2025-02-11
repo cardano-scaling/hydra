@@ -92,12 +92,13 @@ data StateChanged tx
       , utxo :: UTxOType tx
       , chainState :: ChainStateType tx
       }
-  | HeadIsOpen {headId :: HeadId, chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | TransactionReceived {tx :: tx}
   | TxValid
       { headId :: HeadId
-      , tx :: tx
+      , transaction :: tx
+      , transactionId :: TxIdType tx
       , newLocalUTxO :: UTxOType tx
       }
   | -- | Given transaction was not not applicable to the given UTxO in time and
@@ -167,7 +168,7 @@ genStateChanged env =
     , HeadIsAborted <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsOpen <$> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
-    , TxValid <$> arbitrary <*> arbitrary <*> arbitrary
+    , TxValid <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

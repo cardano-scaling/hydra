@@ -275,7 +275,7 @@ onInitialChainCollectTx st newChainState =
       --       T̂  ← ∅
       --       txω ← ⊥
       --       𝑈𝛼 ← ∅
-      newStateWithEffect HeadIsOpen{headId, chainState = newChainState, initialUTxO = u0}
+      newStateWithEffect HeadIsOpen{headId, chainState = newChainState, utxo = u0}
  where
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
@@ -318,7 +318,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
     waitApplyTx $ \newLocalUTxO ->
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
-      newStateWithEffect TxValid{headId, tx, newLocalUTxO}
+      newStateWithEffect TxValid{headId, transaction = tx, newLocalUTxO, transactionId = txId tx}
         -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
         & maybeRequestSnapshot (confirmedSn + 1)
@@ -1386,7 +1386,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  TxValid{tx, newLocalUTxO} ->
+  TxValid{transaction, newLocalUTxO} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
@@ -1396,7 +1396,7 @@ aggregate st = \case
                   { localUTxO = newLocalUTxO
                   , -- NOTE: Order of transactions is important here. See also
                     -- 'pruneTransactions'.
-                    localTxs = localTxs <> [tx]
+                    localTxs = localTxs <> [transaction]
                   }
             }
        where
@@ -1528,7 +1528,7 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadIsOpen{chainState, initialUTxO} ->
+  HeadIsOpen{chainState, utxo} ->
     case st of
       Initial InitialState{parameters, headId, headSeed} ->
         Open
@@ -1536,10 +1536,10 @@ aggregate st = \case
             { parameters
             , coordinatedHeadState =
                 CoordinatedHeadState
-                  { localUTxO = initialUTxO
+                  { localUTxO = utxo
                   , allTxs = mempty
                   , localTxs = mempty
-                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO = utxo}
                   , seenSnapshot = NoSeenSnapshot
                   , pendingDeposits = mempty
                   , decommitTx = Nothing

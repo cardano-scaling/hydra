@@ -46,7 +46,6 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
   TestHydraClient (..),
@@ -60,6 +59,7 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (Committed ())
+import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
