@@ -11,7 +11,7 @@ concurrency:
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "http-chain-observer-0.19.0" ]
     tags: [ "*.*.*" ]
 
 permissions:
@@ -21,7 +21,7 @@ jobs:
   docker:
     strategy:
       matrix:
-        target: [ hydra-node, hydra-tui, hydraw, hydra-explorer ]
+        target: [ hydra-node, hydra-tui, hydraw, hydra-chain-observer ]
 
     runs-on: ubuntu-latest
     steps:
