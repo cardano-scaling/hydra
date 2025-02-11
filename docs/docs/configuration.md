@@ -173,7 +173,7 @@ If the `hydra-node` already tracks a head in its `state` and `--start-chain-from
 
 Hydra supports an offline mode that allows for disabling the layer 1 interface – the underlying Cardano blockchain from which Hydra heads acquire funds and to which funds are eventually withdrawn. Disabling layer 1 interactions allows use cases that would otherwise require running and configuring an entire layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTXO, without having to spin up an entire layer 1 Cardano node.
 
-As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which can be an arbitrary text. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with other arguments like [cardano keys](#cardano-keys), [hydra keys](#hydra-keys) and [contestation period](#contestation-period).
+As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which is a hexadecimal byte string. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with provided [hydra keys](#hydra-keys).
 
 To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
 
@@ -192,7 +192,7 @@ Using this example UTxO:
 A (single participant) offline Hydra head can be started with:
 ```shell
 hydra-node \
-  --offline-head-seed 1234 \
+  --offline-head-seed 0001 \
   --initial-utxo utxo.json \
   --hydra-signing-key hydra.sk \
   --ledger-protocol-parameters protocol-parameters.json

@@ -24,18 +24,13 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Network (NodeId (nodeId))
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party)
 import Hydra.Utils (readJsonFileThrow)
 
--- | Derived 'HeadId' of offline head.
-offlineHeadId :: NodeId -> HeadId
-offlineHeadId = UnsafeHeadId . ("offline-" <>) . encodeUtf8 . nodeId
-
--- | Derived 'HeadSeed' of offline head.
-offlineHeadSeed :: NodeId -> HeadSeed
-offlineHeadSeed = UnsafeHeadSeed . ("offline-" <>) . encodeUtf8 . nodeId
+-- | Derived 'HeadId' of offline head from a 'HeadSeed'.
+offlineHeadId :: HeadSeed -> HeadId
+offlineHeadId (UnsafeHeadSeed seed) = UnsafeHeadId $ "offline-" <> seed
 
 newtype InitialUTxOParseException = InitialUTxOParseException String
   deriving stock (Show)
@@ -65,21 +60,26 @@ loadGenesisFile ledgerGenesisFile =
           Left e -> throwIO $ InitialUTxOParseException e
 
 withOfflineChain ::
-  NodeId ->
   OfflineChainConfig ->
   Party ->
   [Party] ->
   -- | Last known chain state as loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} party otherParties chainStateHistory callback action = do
+withOfflineChain config party otherParties chainStateHistory callback action = do
   initializeOfflineHead
   genesis <- loadGenesisFile ledgerGenesisFile
   withAsync (tickForever genesis callback) $ \tickThread -> do
     link tickThread
     action chainHandle
  where
-  headId = offlineHeadId nodeId
+  OfflineChainConfig
+    { offlineHeadSeed = headSeed
+    , initialUTxOFile
+    , ledgerGenesisFile
+    } = config
+
+  headId = offlineHeadId headSeed
 
   chainHandle =
     Chain
@@ -102,7 +102,7 @@ withOfflineChain nodeId OfflineChainConfig{ledgerGenesisFile, initialUTxOFile} p
           , observedTx =
               OnInitTx
                 { headId
-                , headSeed = offlineHeadSeed nodeId
+                , headSeed
                 , headParameters =
                     HeadParameters
                       { parties = sort (party : otherParties)
