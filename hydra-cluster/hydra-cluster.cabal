@@ -151,7 +151,6 @@ test-suite tests
     Test.Hydra.Cluster.FaucetSpec
     Test.Hydra.Cluster.MithrilSpec
     Test.Hydra.Cluster.Utils
-    Test.HydraExplorerSpec
     Test.OfflineChainSpec
 
   build-depends:
@@ -165,11 +164,8 @@ test-suite tests
     , filepath
     , hspec
     , hspec-golden-aeson
-    , http-client
-    , http-conduit
     , hydra-cardano-api
     , hydra-cluster
-    , hydra-explorer
     , hydra-node:{hydra-node, testlib}
     , hydra-prelude
     , hydra-test-utils
@@ -186,7 +182,6 @@ test-suite tests
   build-tool-depends:
     , hspec-discover:hspec-discover
     , hydra-chain-observer:hydra-chain-observer
-    , hydra-explorer:hydra-explorer
     , hydra-node:hydra-node
 
   ghc-options:        -threaded -rtsopts
