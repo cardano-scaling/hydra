@@ -9,8 +9,8 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, newTVarIO, re
 import Control.Lens ((^?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
-import Hydra.Cardano.Api (UTxO)
-import Hydra.Chain (ChainCallback, ChainEvent (..), OnChainTx (..), initHistory)
+import Hydra.Cardano.Api (Tx, UTxO)
+import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
@@ -20,24 +20,22 @@ import System.FilePath ((</>))
 
 spec :: Spec
 spec = do
-  it "does derive head id from node id" $ do
+  it "does derive head id from provided seed" $ do
     withTempDir "hydra-cluster" $ \tmpDir -> do
       Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
       let offlineConfig =
             OfflineChainConfig
-              { initialUTxOFile = tmpDir </> "utxo.json"
+              { offlineHeadSeed = "test"
+              , initialUTxOFile = tmpDir </> "utxo.json"
               , ledgerGenesisFile = Nothing
               }
-      -- XXX: this is weird
-      let chainStateHistory = initHistory initialChainState
-
       (callback, waitNext) <- monitorCallbacks
-      headId1 <- withOfflineChain "test1" offlineConfig alice [] chainStateHistory callback $ \_chain ->
+      headId1 <- withOfflineChain offlineConfig alice [] noHistory callback $ \_chain ->
         waitMatch waitNext 2 $ \case
           Observation{observedTx = OnInitTx{headId}} -> pure headId
           _ -> Nothing
 
-      headId2 <- withOfflineChain "test2" offlineConfig alice [] chainStateHistory callback $ \_chain ->
+      headId2 <- withOfflineChain offlineConfig{offlineHeadSeed = "test2"} alice [] noHistory callback $ \_chain ->
         waitMatch waitNext 2 $ \case
           Observation{observedTx = OnInitTx{headId}} -> pure headId
           _ -> Nothing
@@ -49,14 +47,12 @@ spec = do
       Aeson.encodeFile (tmpDir </> "utxo.json") (mempty @UTxO)
       let offlineConfig =
             OfflineChainConfig
-              { initialUTxOFile = tmpDir </> "utxo.json"
+              { offlineHeadSeed = "test"
+              , initialUTxOFile = tmpDir </> "utxo.json"
               , ledgerGenesisFile = Nothing
               }
-      -- XXX: this is weird
-      let chainStateHistory = initHistory initialChainState
-
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain "test" offlineConfig alice [] chainStateHistory callback $ \_chain -> do
+      withOfflineChain offlineConfig alice [] noHistory callback $ \_chain -> do
         -- Expect to see a tick of slot 1 within 2 seconds
         waitMatch waitNext 2 $ \case
           Tick{chainSlot} -> guard $ chainSlot > 0
@@ -69,14 +65,12 @@ spec = do
         >>= writeFileBS (tmpDir </> "genesis.json")
       let offlineConfig =
             OfflineChainConfig
-              { initialUTxOFile = tmpDir </> "utxo.json"
+              { offlineHeadSeed = "test"
+              , initialUTxOFile = tmpDir </> "utxo.json"
               , ledgerGenesisFile = Just $ tmpDir </> "genesis.json"
               }
-      -- XXX: this is weird
-      let chainStateHistory = initHistory initialChainState
-
       (callback, waitNext) <- monitorCallbacks
-      withOfflineChain "test" offlineConfig alice [] chainStateHistory callback $ \_chain -> do
+      withOfflineChain offlineConfig alice [] noHistory callback $ \_chain -> do
         -- Should not start at 0
         waitMatch waitNext 1 $ \case
           Tick{chainSlot} -> guard $ chainSlot > 1000
@@ -94,6 +88,9 @@ spec = do
         addUTCTime (realToFrac slotLength) slotTime `shouldBe` nextSlotTime
 
 -- * Helpers
+
+noHistory :: ChainStateHistory Tx
+noHistory = initHistory initialChainState
 
 monitorCallbacks :: IO (ChainCallback tx IO, IO (ChainEvent tx))
 monitorCallbacks = do

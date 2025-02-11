@@ -299,23 +299,30 @@ spec = parallel $
             { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = toList txIds}
             }
 
-    it "switches to offline mode when using --initial-utxo" $
+    it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
-        [ ["--initial-utxo", "some-file"]
+        [ ["--offline-head-seed", "0100"]
+        , ["--initial-utxo", "some-file"]
         ]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Offline
                   OfflineChainConfig
-                    { initialUTxOFile = "some-file"
+                    { offlineHeadSeed = "\01\00"
+                    , initialUTxOFile = "some-file"
                     , ledgerGenesisFile = Nothing
                     }
             }
 
+    it "requires --offline-head-seed and --initial-utxo for offline mode" $ do
+      shouldNotParse ["--offline-head-seed", "not-hex"]
+      shouldNotParse ["--initial-utxo", "utxo.json"]
+
     it "parses --ledger-genesis in offline mode" $
       mconcat
-        [ ["--initial-utxo", "some-file"]
+        [ ["--offline-head-seed", "0001"]
+        , ["--initial-utxo", "some-file"]
         , ["--ledger-genesis", "genesis-file"]
         ]
         `shouldParse` Run
@@ -323,7 +330,8 @@ spec = parallel $
             { chainConfig =
                 Offline
                   OfflineChainConfig
-                    { initialUTxOFile = "some-file"
+                    { offlineHeadSeed = "\00\01"
+                    , initialUTxOFile = "some-file"
                     , ledgerGenesisFile = Just "genesis-file"
                     }
             }

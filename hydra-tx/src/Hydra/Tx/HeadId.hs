@@ -61,6 +61,9 @@ newtype HeadSeed = UnsafeHeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
 
+instance IsString HeadSeed where
+  fromString = UnsafeHeadSeed . fromString
+
 instance SerialiseAsRawBytes HeadSeed where
   serialiseToRawBytes (UnsafeHeadSeed bytes) = bytes
   deserialiseFromRawBytes _ = Right . UnsafeHeadSeed
