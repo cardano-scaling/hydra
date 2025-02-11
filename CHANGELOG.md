@@ -23,6 +23,13 @@ changes.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
+- Add API query (GET /txs/pending) which responds with the set of local pending transactions.
+  * add new `PendingTxsRemoved` server output.
+
+- Add API command (DELETE /txs/pending) which prune local pending transactions and reset local state to previous confirmed snapshot.
+  * add new `PendingTxsPruned` state changed event.
+  * add new `PendingTxsRemoved` server output.
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
