@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.20.1] - UNRELEASED
+## [0.21.0] - UNRELEASED
 
-- Fix a bug where decoding `Party` information from chain would crash the node
-  or chain observer. A problematic transaction will now be ignored and not
-  deemed a valid head protocol transaction. An example was if the datum would
-  contain CBOR instead of just hex encoded bytes.
+- Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
+  - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
+  - An example was if the datum would contain CBOR instead of just hex encoded bytes.
+
+- **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
+  - Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode. 
 
 - Stream historical data from disk in the hydra-node API server.
 
