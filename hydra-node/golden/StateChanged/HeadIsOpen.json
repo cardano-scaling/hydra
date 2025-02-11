@@ -1,0 +1,790 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "tag": "ChainPointAtGenesis"
+                },
+                "spendableUTxO": {
+                    "056569967f03c33b5bf16e03fecaf3fce108658bb9b88f926732af02032e6eca#4": {
+                        "address": "addr_test1xqeeaffhfe4a8dxvpuk9y8hhkpmkd057zz4n9l7cc3rnv4dtecm75scd2eua6caqlk4pt5zwch9t8qkes2p6sp0dhu5s2q5du4",
+                        "datum": null,
+                        "datumhash": "efdfcf644decadef8a064928f6a5147754de7884fd1cb97391e169d46ccc3c7b",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "4746010000220011",
+                                "description": "",
+                                "type": "PlutusScriptV1"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
+                        },
+                        "value": {
+                            "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                "0c9db43869cc5efdb0f03b00d9c612a85e29b5": 1
+                            },
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "d9cfb9e728c91bd01ff7d6d87a887ba6ed4202392366": 8803228531271066623
+                            },
+                            "lovelace": 7026444721734220489
+                        }
+                    },
+                    "0a550516dd3bae373420ec78d67fae1741c7147e8d9ad3ad0e47467e95b21265#85": {
+                        "address": "addr_test1vp2jm7qw2svgzt0eyta7wwmhyjtnpxpl7c8xydkgxqn9n6gtt3agu",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "8202828200581c3d51ff65f2184c7e430feb2c4a1b88814050505afcec63d98b204e348200581c69fe4b2594e526ec855aa11fdeb7a103e8008324d515688fcdd7cb5f",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "49d9d7c59b890b8550badf1fa7691dfbddffb494394cab54f19363b7": {
+                                "30": 2
+                            },
+                            "88f341f211b4d2ae1998278bc121f4e3c8b51fc12a0e7ed84653b6bb": {
+                                "048137def204d5fa": 6538373674241974086,
+                                "36": 1
+                            },
+                            "lovelace": 1436573431048060110
+                        }
+                    },
+                    "17a41c4a9a0fdb6672d3459497431d88bb007b69088c50ee8b0ace8034ec2a1d#23": {
+                        "address": "addr_test1qphw9lwm2sq3u30ahs7rns3md8wagjqlqzfq852nxs657vs8tkkuxedg5h74qg92tvf8swshrvhqwdj7ug0kqszj7uhqw7jng3",
+                        "datum": null,
+                        "inlineDatum": {
+                            "list": [
+                                {
+                                    "map": [
+                                        {
+                                            "k": {
+                                                "map": [
+                                                    {
+                                                        "k": {
+                                                            "int": 1
+                                                        },
+                                                        "v": {
+                                                            "int": -3
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": ""
+                                                        },
+                                                        "v": {
+                                                            "int": -4
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": ""
+                                                        },
+                                                        "v": {
+                                                            "int": 5
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": "8b033722"
+                                                        },
+                                                        "v": {
+                                                            "int": 4
+                                                        }
+                                                    },
+                                                    {
+                                                        "k": {
+                                                            "bytes": ""
+                                                        },
+                                                        "v": {
+                                                            "bytes": "26"
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            "v": {
+                                                "list": [
+                                                    {
+                                                        "bytes": "2dd01d54"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "constructor": 3,
+                                                "fields": []
+                                            },
+                                            "v": {
+                                                "list": []
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "bytes": "43"
+                                            },
+                                            "v": {
+                                                "bytes": "442c85"
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "int": -1
+                                            },
+                                            "v": {
+                                                "bytes": "1e2e4a"
+                                            }
+                                        },
+                                        {
+                                            "k": {
+                                                "bytes": "0293a1"
+                                            },
+                                            "v": {
+                                                "bytes": "1d96d10e"
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "map": []
+                                },
+                                {
+                                    "int": -1
+                                }
+                            ]
+                        },
+                        "inlineDatumRaw": "9fa5a5012240234005448b033722044041269f442dd01d54ffd87c8080414343442c8520431e2e4a430293a1441d96d10ea020ff",
+                        "inlineDatumhash": "91a4bd0321d3963a1193b0e0228dac07dc62a8004babcb8163a0e186a2501649",
+                        "referenceScript": null,
+                        "value": {
+                            "08690a733f4c4ddf50299ddb7ff8b24ad814f8a7bf1d2362747123ac": {
+                                "8fe0a4173ce02cfd247de99b56": 2649597116661907430
+                            },
+                            "30aff2737a576702ec76ba922291e6b2a692c6acbb1c2a30c625047b": {
+                                "a7da314a559c3b4ecab4b40639c2c864f3e5227921a68ecf407c86a584eee690": 2
+                            },
+                            "lovelace": 2458575140244775
+                        }
+                    },
+                    "2efab3b2d25560245f097845cf5b9963256c8a3f80b709f35a82064d4e7b8068#47": {
+                        "address": "addr12x5yzv68hvq53qwarvjhere5g72p5f97ze9lt28eqr3a3rup43mgr8nsuu4s0ccacg",
+                        "datum": null,
+                        "datumhash": "846137dd68dcef3186e5d4a6b6359f90e68391671e5e79996b0a0203959ef495",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "46450100002261",
+                                "description": "",
+                                "type": "PlutusScriptV3"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV3"
+                        },
+                        "value": {
+                            "80b72c40b48f56dd6be4d03bdd752934b9cc09f97e2e3eca71aa7bef": {
+                                "82cc11d2d0c379b614ff5cf2ae861ba811d30a6aea40": 278143685171000952
+                            },
+                            "debb2e377a32c1a99e68d41f06ea6a39edf2a8be2c7abb88db63473d": {
+                                "c55d4391": 3673131986774142911,
+                                "cf9e26888c": 1
+                            },
+                            "lovelace": 8779283902227843729
+                        }
+                    },
+                    "474394cda32d7f5e4cda4f697b95d3a35c733dccc5109876acb9d887266612d7#87": {
+                        "address": "addr_test1qr6mf37jdyua00jc7gv449tc4xjal3hq5mxs2pdyysexd8ctndk9f7d7zrttxp8d9u2hhps60pfl30gf7t57ckq00s5q5v3vnm",
+                        "datum": null,
+                        "datumhash": "1698c97868b72c4be66b16e3ce15d431611e7ac1389308c692f0d353bbc4edd0",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "4746010000222601",
+                                "description": "",
+                                "type": "PlutusScriptV2"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                        },
+                        "value": {
+                            "9b9c3cc55c18b242b401b6509f2740cb3623cd81bad5b72f8cf58e5f": {
+                                "8e902d5738dd1ff8bae32cf787d470320e538d8a901af085fe04": 1379449861001412477
+                            },
+                            "ebe23f3a2b9d6946c9bf21298c3e9764a320f07950eeffa074da75a4": {
+                                "bd93dbd14d86c2780408be941b65b4": 2492421071113674947
+                            },
+                            "lovelace": 2
+                        }
+                    },
+                    "59a7efa0a7f0116b6ba70351a5f3b7da81bff6147d533bf5e14bb6d230344f42#60": {
+                        "address": "addr_test1xqn9ze279ck895uqwqagghdddyuskg4pm9e4mx6h8sn759d8hptrzwfqzcym3xuuyyhfk6m6fhg40azsu2dccl87pryq4g9yds",
+                        "datum": null,
+                        "datumhash": "4aa5e72b99945ab91a200bbd0845b6cb716b37c4fc59b8aeaa88b1e3e5e7fd7a",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                                "d00f5370e359b791c80acd": 3
+                            },
+                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                "c1b01dce1fdf5f97": 3920280164468481791
+                            },
+                            "lovelace": 1
+                        }
+                    },
+                    "5e4e626ca5e05abcc212d96ad4766950fcce918e568070be9816b8a13d6f37d3#51": {
+                        "address": "addr1z9h0smj0p3de78vstgkmxlf7syfkkyyaxzfa2zgrxngrkce33ra62lm7szch85s3kn9cx8rtd2k3mj4l00x2hnj58hpq45cduv",
+                        "datum": null,
+                        "datumhash": "debbe23e1b6acd1d913e667509bc3fc3875f7d817c095670e00ddac691f3fcca",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82018483030282830302828200581cb5fdabd45fb47577d3dafe22c89a5015e00bf6dbc88fe7992aefd1f28200581c8790991a8f8a31dd440ca63740e7230367a8e171a901084eac860aa28201818200581c20df848531458ccae60cddf09d1dab81d11052c6944cf4c2cd3a849b8201808201818200581c1cf3df1de6c446ba378c0a88803b72e05ef5aac7f5a0e5fb7c6e5eaf8200581c27563216f6f5420868ad7146faf50a3291b66cf8b7a6b45f09ba3ba5",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "0d33e577f1cef901417f08be596429964db8d865b8ba0c267d3886cf": {
+                                "37": 381259671277826449
+                            },
+                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                "c44b459e4c422fc5fe05273fbc13b45a76719ee81d3dd28781": 8036268815174766846
+                            },
+                            "lovelace": 3002451429218154288
+                        }
+                    },
+                    "6b3751188f8365e988dea72bb3b5d70bdb7bc439b904fcd3ba0ac8ff02158c76#23": {
+                        "address": "addr_test1yq8aw2vtvfj2kazrlynkvrq5ksa6cjwgmwwds2q30c9erwuvpgccud0ndsskv8kv0l8yevymhynk2cn4yjaak06ttkzsktk28n",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": -4
+                        },
+                        "inlineDatumRaw": "23",
+                        "inlineDatumhash": "2208e439244a1d0ef238352e3693098aba9de9dd0154f9056551636c8ed15dc1",
+                        "referenceScript": null,
+                        "value": {
+                            "5d2f81a65ed9a0a48c5d608541f837a39bed086485e22f92dfce3a99": {
+                                "66f34a03006008a4dbd72e8d335911b78bd315": 2
+                            },
+                            "lovelace": 6908079735992886650
+                        }
+                    },
+                    "6f43b2bc74173e84cde4482eb9961ab6cbe4da1a84e51737c6232cb14e733664#91": {
+                        "address": "addr_test1ypttwzuhhykgnj5jzhfu6yrncdn4fr84jzjzhydu6jzandj3qunpyw6g3k2u6pyyu5yp3p4uydfu3l73qvdz64r3k5ysksh3zp",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 3,
+                            "fields": []
+                        },
+                        "inlineDatumRaw": "d87c80",
+                        "inlineDatumhash": "67d8ed01e13f33438ea9059ac9be2e159f943cffe054283485e0300271e3e9f9",
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "820182830300818202808200581c8a333322996364eaeb26df0c7e026ba2564bb77b5c94f6d22c37cf69",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                "12390029a68738378616d9e27386b1ab3548f34e1d5afc783f0d84": 5651570951300605232,
+                                "2a": 5470938459165904727
+                            },
+                            "d2069a00faf8e0ef4206b50030eaae1b667e36c0e16d88db0ce0bd62": {
+                                "31": 5954485871803208779,
+                                "d40913ce430e6ab5737305b9666ca6c4e4b1cd": 6822439889264531973
+                            },
+                            "lovelace": 8058714155290164817
+                        }
+                    },
+                    "724984bf6f1eb40c3620e3603428e8c934529c471ff62cf1cc8400578440a7ef#83": {
+                        "address": "addr1q9gvg8hdxlvncaememl4kyrllcxdfc432rmk2xeja53l88p40zyzrzpc9408tzvs6s9s9ut0pvxd8nz9htaz539353as7g24pn",
+                        "datum": null,
+                        "datumhash": "74479bc0aadfc10110dbd194f7a78328c0085064aa3c127602e03197e0f08a79",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "504fab1d89cd385a32b748eac3b0bf65dcd83ff4b8029e57ef0a2f3e": {
+                                "145fbd30cdb1f6": 916431385355454330
+                            },
+                            "lovelace": 2
+                        }
+                    },
+                    "731fbfc208e7f604e586237fe89104a740de63a3b38d137725f7f96991624682#39": {
+                        "address": "addr1g8dkysv4v8jmulwwam6qpzdw4uythezgnkugfngrru4dty5ph9tcr52vaceqvt46zq",
+                        "datum": null,
+                        "datumhash": "be6d1262ff15c692d080df7a620c94d0a591cedd9645f7b0850c3446cc34c117",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "830303848200581cb9c6e23bb0394e0bac68d07f3595871038ee21aca5d3faf6417c81968200581c6d8673f8bcb71809401c1ab6e72fbd22081f8e4a6fb74f7e5c6edfe88200581c15c57b85f27bab607f231f47ab029b64c51bcaee8797cbb372007a6a820282830302848200581c83ee4584e7f4adc82a480d4628f2139428c76a2606d60a42b2da7cff8200581c3516cf7544af40e0d00dbb6136387a180089ebd245f043c7bab822858200581c2dea8d6b6249c54e8eb55835441768eb1d45de68e1fba77239f2a4da8200581c7dc7ae88bc79c765f357e0363bc03a9ab8b5ce10d3239bd9722598858202828200581c6e70ff0da2d08f3c5177379c8d38e627790c055d15362ed227c2eeec8200581cf39d9e7c92c9e76e83755657f4d67fdd653059d5f400b40e88c365d3",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                                "32": 394654773031532892,
+                                "76eea073b95eda5f98b57e77e78b3fc00b": 3545646693097003440
+                            },
+                            "lovelace": 2231181321918157895
+                        }
+                    },
+                    "8bbc5273ba8ed5a4512248a684f1d586f9bba4fa1a89e66d9b14f604ae1f5c11#73": {
+                        "address": "addr_test1gr47ahpj5gzuw222qk7x032a9gg6ga2xfngqq0nv2y0rhkupkctgrm3ueqzss4sk6m",
+                        "datum": null,
+                        "inlineDatum": {
+                            "list": [
+                                {
+                                    "constructor": 2,
+                                    "fields": [
+                                        {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": -3
+                                                    },
+                                                    "v": {
+                                                        "bytes": "c5"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "bc4a1d"
+                                                    },
+                                                    "v": {
+                                                        "int": 3
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -5
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": ""
+                                                    },
+                                                    "v": {
+                                                        "bytes": ""
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "f5d3"
+                                                    },
+                                                    "v": {
+                                                        "int": 3
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "int": -3
+                                                },
+                                                {
+                                                    "int": 2
+                                                },
+                                                {
+                                                    "int": -1
+                                                },
+                                                {
+                                                    "bytes": "4a"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "constructor": 5,
+                                            "fields": [
+                                                {
+                                                    "bytes": "f7"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "constructor": 4,
+                                    "fields": [
+                                        {
+                                            "list": []
+                                        },
+                                        {
+                                            "list": []
+                                        },
+                                        {
+                                            "int": 0
+                                        },
+                                        {
+                                            "constructor": 3,
+                                            "fields": [
+                                                {
+                                                    "int": 5
+                                                },
+                                                {
+                                                    "bytes": "da35983b"
+                                                },
+                                                {
+                                                    "bytes": "7a520a43"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "bytes": "72"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "int": 0
+                                },
+                                {
+                                    "bytes": "fbfc"
+                                }
+                            ]
+                        },
+                        "inlineDatumRaw": "9fd87b9fa52241c543bc4a1d032402404042f5d3039f40220220414affd87e9f41f7ffffd87d9f808000d87c9f0544da35983b447a520a43ff4172ff0042fbfcff",
+                        "inlineDatumhash": "a10a6d936c3fbebf5e49359d715c2de9bb6338a39610f41f2f997ee52c9f1370",
+                        "referenceScript": null,
+                        "value": {
+                            "d979c7b7e17bd35d691e58eaa5151afdb7972235c1dbe709ecfa17a6": {
+                                "0d4da2b20ad9a4189f": 6213118662862193914
+                            }
+                        }
+                    },
+                    "980cae45b9ca783324cad8bae862dac9f5d2b1f0c940b242ccb8f307e5e1a256#10": {
+                        "address": "addr_test1wqdagyxu4qmkxx9ju9x27rszwvhxp53suqqhpdze7mq4nfsd82alj",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                "216f9608096e": 7386486457580152284
+                            },
+                            "ff4ae9b1622c05bdb631edaf7280ad65d026b3dda860b5114c63c256": {
+                                "37": 8933405534768804086
+                            },
+                            "lovelace": 1
+                        }
+                    },
+                    "99cb91ef8ae02002cddc40fb8335b0132d8f76c4500c827e77f0c2e22f2b8d46#2": {
+                        "address": "addr1yy8nd5tnefhxmve4wucrr8he94tw9rr65nshezv8gtt2xfxwtl7rpmtdmx3y6r0uq4ptq0kzvvcwly59l8wpx083pafs34srtv",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": "7b08"
+                        },
+                        "inlineDatumRaw": "427b08",
+                        "inlineDatumhash": "49eacc360e738ea95753ce693af74df0923cd5a733185fffe3babd56843536dd",
+                        "referenceScript": null,
+                        "value": {
+                            "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                "159cf8bf141a6257014e0d3aabb52a": 1
+                            },
+                            "417c1100493fc10cffbdbcf1bd159f14567b10ab07b1b3ffc3d46170": {
+                                "b9d5e242990d1286f295b3faf161eab3": 3
+                            },
+                            "lovelace": 5327474677641902463
+                        }
+                    },
+                    "a240310d08c244ab369ad40c214b38bdd8d408f38c24c7545fb27180a65d915a#94": {
+                        "address": "addr_test1yp2cse4zwkjaacy3mn54dakca0zwt38xvpg8l33cxmf487y2a2zcaj8c82s97r2kmn385tjzng8kfrar9pz5969p8mpqke9nxp",
+                        "datum": null,
+                        "datumhash": "5610b2ebfba56c04f25c9f8710f19030607f21e1510a0202fef2c37f6ebb78ec",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82051a0024384d",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                "fb2eb9deff332f343b": 5804826830736214587
+                            },
+                            "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                                "47290ba1df9c40d46a8855f497e9f83e5806b860c4505731f218d511": 215903103745189798
+                            }
+                        }
+                    },
+                    "b1f37e0e02f02bb7b18792c2fdbe51b07756ee5ec21c9ca7c3b0d2e82aee265d#89": {
+                        "address": "addr128wsp7thsrwpntn05z874ehsdaqytvcg5qt4u3acuyzd9lvpcetc65wnry0kfwca",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "82051a00d79234",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                "2d01a584103ae6fc3a4d783b1c74175ae8ed19e01559db9a28ad67143dc69b07": 6445326318619822025,
+                                "a0e9c34ab1f6127133faa6f14b82be4b49ad0c8c6c1383f31a0f29bc1a": 2
+                            },
+                            "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                "4fcb12244cf700f385bf0186c97e7db649374ead78f7fd370e121aba4719": 2130958714388540499
+                            },
+                            "lovelace": 3747093995290133105
+                        }
+                    },
+                    "d0239135575bf2f22d40969c748cb43d155b431e0c03f24e74ff7258b82889eb#88": {
+                        "address": "addr1yy9lntj3tge0vfg368h5rglve8lkta7vu2nxv7leq6mx94l5j0mssp4atc00e2hzt4mrurxqlz7n5cj7xynrewnzn58qyp4sgy",
+                        "datum": null,
+                        "datumhash": "d724c5fbc875f11fbf9d20b39ba2fc66637d8a34bef3a48160f8bb7d36fd9d9e",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "83030182820282830301838200581c8f309251374d504053a46159df17de2c2af8524d94bd35f13e860cf98200581c255461efc738ee419ebcf8ca8b42ab66bdc19129bcf011debdee59f78200581c114f06802ab5af461dbf16ffd62f909c913e26fdf46571646ae2e8f1830301848200581c49b88da9e09637bfe943f286b947c6cb3e175a12cff4c5313727d63c8200581c76ff378287d94f8812bdccaeef04fea071b5d60d590aeca0ee5c2e488200581cd9cdf9eb3022e3b7be162418eac70bf8c4b3fd098781b00667549ca98200581cec456a07d4e8472e8c6cf9d01e034c1b405f8285837b12c0496d83978200581ca3ff338ea84d9e7dca464dfcab1fa192504a7d9db36b049ef62bdf36",
+                                "description": "",
+                                "type": "SimpleScript"
+                            },
+                            "scriptLanguage": "SimpleScriptLanguage"
+                        },
+                        "value": {
+                            "4bc2233e6db6f5a4e21021efd5a54933bc213a3f063f9bf8641a6fee": {
+                                "f55e065c1e236706b6c608b982a1": 2
+                            },
+                            "7dce1a8dd99418f612b22431ed134e0046efcb3524eb6a80daa40a14": {
+                                "38": 1865012478032181797
+                            },
+                            "lovelace": 8087645894207141197
+                        }
+                    },
+                    "eb136e2a6cfe8426a35025999accf5559c0103de612275fe911b35e2e9451819#51": {
+                        "address": "EqGAuA8vHnNkBnjmCkjNro99VZXvrX3J2Bbgvgh1Y7C3RfhQV6wUSpmLcBvW1FckJ2Va3KtGSmq8E6E5xVHjGMTBuZXkRQjBnK6TrgGffuqSmxMFZW31F8b",
+                        "datum": null,
+                        "inlineDatum": {
+                            "int": -1
+                        },
+                        "inlineDatumRaw": "20",
+                        "inlineDatumhash": "ae85d245a3d00bfde01f59f3c4fe0b4bfae1cb37e9cf91929eadcea4985711de",
+                        "referenceScript": null,
+                        "value": {
+                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                "39": 622827994156144094,
+                                "8089e4a0a81a22ee8f9688510e607b2a86573509f003186dca5c915032": 3052175858800923854
+                            },
+                            "lovelace": 1
+                        }
+                    }
+                }
+            },
+            "headId": "acb1a9e7d314614f7fdef54bc958e85f",
+            "initialUTxO": {
+                "0a445887fa21c14ea14cd20a1011c8f40755085e69137fd71acffcabd104c7c6#43": {
+                    "address": "addr1qx3ym32jgwgs207ax2vkwqrf4hd8apehdpwsrlu57su2w9f8zlkxf8mdcdar3uqp85w67uxwfshhm0mr85w9m2hkyx9smcg53p",
+                    "datum": null,
+                    "inlineDatum": {
+                        "bytes": ""
+                    },
+                    "inlineDatumRaw": "40",
+                    "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "4746010000220011",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "100293ca89846745ceef0878c8793e88de60f71d6cb25f51669db525": {
+                            "31": 2
+                        },
+                        "5f3b9e5988d89d66a69433add0c0075684f594752a199991cc57bd4b": {
+                            "fb35afe815f1749f2f7656b8f17f33854af6f0397ee6ca": 1
+                        },
+                        "lovelace": 6330010579846384620
+                    }
+                },
+                "23de9b8c4f8033914ac37af95c36f4b46455ff7441b3c04d5cc96763d2fc6938#92": {
+                    "address": "2RhQhCGqYPDnbb8FJ5CBpyE1mFe2hVcMijxSKa8ZdjxQtSCyLVhEXcb7NtQTRuZqYgJLy5BoiV3L2sH7pCsXj44Lu1kMCm2UqHVujiiLgjbvtF",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "484701000022200101",
+                            "description": "",
+                            "type": "PlutusScriptV2"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV2"
+                    },
+                    "value": {
+                        "7c053d8f1fa409dab4c78b7415c2cbb291c9a0425b55d886618ab26c": {
+                            "966422fc6249726737": 7402412258893547061
+                        },
+                        "d14032b7cb7afeaa51891382dbd623a15e2e68049f855465396d3567": {
+                            "12dee7a248ef477e3f7f64fdcd3d4bd86d80f4": 8752808181196622207
+                        },
+                        "lovelace": 2
+                    }
+                },
+                "2fe75611a5896c26f454ea869c63312a302dd514c09f8ccbd9455758e8390c1f#81": {
+                    "address": "addr1x9gcs0lfsnza9cn6zlxwk64k8e8pdrgggftaul5avexvpqkqtccd4qjsdkvmgp8ktt49asdh3x6633cl2lc35vt55hhq64v99d",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "46450100002601",
+                            "description": "",
+                            "type": "PlutusScriptV3"
+                        },
+                        "scriptLanguage": "PlutusScriptLanguage PlutusScriptV3"
+                    },
+                    "value": {
+                        "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                            "39": 3
+                        },
+                        "lovelace": 1
+                    }
+                },
+                "4eb9d3d33d43f77b5548a169fe467b77d5e7eb828c58b1fb792aff8dac77adfd#72": {
+                    "address": "addr_test1qrf43u7rjk94akdrp6clp6s5q0qcjr74al9nk22wkq9exuqa75kj9w35whdkdz4rxrxjlzzclfxeag6qwwvrwfn8llmsgakfze",
+                    "datum": null,
+                    "datumhash": "c120aca668da65cf01764066466490d9bfa72ade35a389497276b402f697137a",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8202838201848201838200581c5b692772fa68332b2efa909987187907fad0727583fedb3fbbac3eff8200581ceefd51b7232f4c917f432dc6c975381b749f12fa710103bbd51e7af68200581c3ed3715998f90584684159d1a7b8d87684ecf85c405ff4154e35494e8202848200581c393147708d6aa053308d1264f0d3d1e66e3c9c31a10a9a2a18980d548200581ce3955bf6acc742366351b0ea718eac05e4e71492658e86bbb196a8218200581c960a8a8234d89d3ae8da1d1f2fc9da70760576ff8ee2a1e97c9a71388200581c95f78eb3029379f27b92d377b5fa37ceeffa8e6878b58f7539fd608b8202828200581cb8ea1f33e2dec8e29e2b378e62c91cf78edaa6a63774c6c681a9cb088200581c9d855302a03ff74576a097c07c09ff25398b3f4da152696bdfcb27e18200581c2fd8daa40f963d769321d363aecedff0f641efbc638d25c24c4414658202838202818200581cc2577d260114d48edc5252c3a18bf97a1327fd1fa2883b0096ce011c8202838200581c6b17b70bc785dc0b19f0e4d3284a79dbce54ead675015f9b24e55e778200581c558ea583977737bed0640838963bb1e82bde4ce666c0d26120f2ac498200581c22d0811dad3406fb63630bf5d3fba4222375fe75ee1e8fb0eda95d2a8201848200581c0d0b2c3a58b2815224487acafca79e701badd9e092310458ee8f843a8200581c960748ba189e45624c7cfb35d2ffbde23d44a3dfb167c9ef3fc880d78200581ce797f0fb79d569a686be1b36d0a09aa7cf631bcad8acacffd00973af8200581c00b483bc381933fa64da35e1830d4b79a718b80e911a194f2e5b045383030182830302838200581c7a97af9cbdf138f86f974acb34c0d88c2c9565772af4af3c4c23d4d18200581ca5b5aba3ae7445ba8b18ce26c51e135e9dfd5ffd2d1ce835ce55d91c8200581c7b0f392f1257d8b4e3753c0a01f4875fbac948e13fa43198eb419aba830302848200581c85940a6176d8c3cf020601be718502bbf30cf26e5cae213a576934448200581ce2a8f46c6efdb2bebcaeb8b7451821e1be6328030677f2079e1748ad8200581c668e37620c7a941d0b3deb85017377549d80fdc02508d36440a36fd28200581cc83ec290bb171a26ccc3a02d3f2b942ebe1126356c38f01ec7d53084",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "39": 1
+                        },
+                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                            "542a42a34c8c1266ca53df7f819c50cfc10c3601dd8b7d167297": 4037877568499913645,
+                            "8430d614b94c265fa34a8066bf102a72832e": 1
+                        },
+                        "lovelace": 2
+                    }
+                },
+                "5959a01d330d1ed4903696da2701c46e3f80168570d7bc257d93f2e4b7ab0106#9": {
+                    "address": "addr1y9g5g4aquvs7dvzjsl70dw6z6h4ast64fk57krhfvzqrdf4ceazea82lssnqagek4pl3c83dae9d7kle69vs6cq4xuyqz7kcv2",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": {
+                        "script": {
+                            "cborHex": "8200581c6327b4397e9253ded559cd236ef47ddaa7aa896b36eb3ddf9645a565",
+                            "description": "",
+                            "type": "SimpleScript"
+                        },
+                        "scriptLanguage": "SimpleScriptLanguage"
+                    },
+                    "value": {
+                        "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                            "36": 2319008329793641062
+                        },
+                        "c5d23650481f131134c67ff8f68032b1227bc5923f1d58cb2068654b": {
+                            "dd408bc7a7e707ed32ba": 1
+                        },
+                        "lovelace": 1953189089948274558
+                    }
+                },
+                "60dddd0b55e19624ddf166988bf49a9f4dc9062285fbf5b7c5f4a0588a27e232#48": {
+                    "address": "EqGAuA8vHnPBf6UXHnBqoTVNytUFouSEAHQWH4qZPUWL9jCPBe7eX1k5aY91cM1s1EdjGjdX4JWMaij7sZjb9RvXLpyiQGGYVFJCiDAFZLMitRGU8FJnQh8",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "3defaf87c78e36f557d58760b7034f8fd36ecf896fef6b88138e20a7": {
+                            "ebde60bb1235": 2
+                        },
+                        "77593bde5fe916f174bd6da7e1add6453feaf2b6d9e92ab4765fac2c": {
+                            "30": 2006826983020696786
+                        }
+                    }
+                },
+                "64add617e90a511e87762fdc17ee55d97ccba249178d323ad88839bff998adfd#97": {
+                    "address": "EqGAuA8vHnNmPMHYsw7SEd765oG3ujdwj86zzCiJE848v76yeeJ3E9UYjnd9sUR9Pq5VFy21ZJFcrrDjgioTbWcyZMRKMCwoM2CejbG5LNo94cCWhEosBdE",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 4,
+                        "fields": []
+                    },
+                    "inlineDatumRaw": "d87d80",
+                    "inlineDatumhash": "4edbec644b7ff68b96e254d6cc71d2aee111b4f3e9f93f94d6674580aab29300",
+                    "referenceScript": null,
+                    "value": {
+                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                            "f2d2bc3472dc88ce85adc61f691c625a9e49da": 3548366564456147878
+                        },
+                        "lovelace": 7947650839185516343
+                    }
+                },
+                "74b79d583dd86f1db4cb6ae3d179705d7996ebb5583a222c198f6b02d5ba6dec#36": {
+                    "address": "2RhQhCGqYPDodnoDd7hpj7KymhrjxvKfnAy2qV1SyaDm65v8MHKd1rHKyhaCRnKE8xWWSvF2dNnVeg6kUnX54xQeFQ28cRiu5j7VvhWd5U9YN9",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "3ca21d5739af0f57ff61357bfce1c39599151970a579ce81587046c0198f": 6146313178732903205
+                        }
+                    }
+                },
+                "a8befa656ea68b1db6de8488c34ee09c18153e00cad2c1379725c5257c68f290#89": {
+                    "address": "addr_test1yqt8tjt323h256z9qqsngmkvhghpnt9uq8nwx49qzdk5xckrtxeqcuegjdehqnzmen39rff584hc57w6yrtyqh8vf3hsllrq82",
+                    "datum": null,
+                    "inlineDatum": {
+                        "int": -2
+                    },
+                    "inlineDatumRaw": "21",
+                    "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
+                    "referenceScript": null,
+                    "value": {
+                        "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                            "39": 1
+                        },
+                        "lovelace": 9124154808975915914
+                    }
+                }
+            },
+            "tag": "HeadIsOpen"
+        }
+    ],
+    "seed": -2113261908
+}

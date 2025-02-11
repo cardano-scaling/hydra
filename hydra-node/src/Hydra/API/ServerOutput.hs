@@ -9,8 +9,8 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (IsChainState (ChainStateType))
-import Hydra.HeadLogic.Outcome (StateChanged (..), HeadStatus (..))
+import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic.Outcome (HeadStatus (..), StateChanged (..))
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   HeadId,

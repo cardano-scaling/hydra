@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "input": "𤶅\u0015.󸿰ꅲZcA*\u0012􃘕􍷹\u0005\u001a\u0018\u001af/ꈝ圦",
+            "reason": "/<kK􁾼}CONd\u00177\u0011O#f􃍥?􂩺 \r.",
+            "tag": "InvalidInput"
+        }
+    ],
+    "seed": 1265972450
+}
