@@ -26,7 +26,7 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server (Server, sendOutput), withAPIServer)
-import Hydra.API.ServerOutput (TimedServerOutput (..), genTimedServerOutput)
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..), genTimedServerOutput, input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
@@ -35,7 +35,6 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.HeadLogic.Outcome (StateChanged (..), input)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -173,7 +172,7 @@ spec =
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
-        history :: [StateChanged SimpleTx] <- pick arbitrary
+        history :: [ServerOutput SimpleTx] <- pick arbitrary
         monitor $ cover 0.1 (null history) "no message when reconnecting"
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
@@ -188,7 +187,7 @@ spec =
                   -- wait on the greeting message
                   waitMatch 5 conn $ guard . matchGreetings
 
-                  notHistoryMessage :: StateChanged SimpleTx <- generate arbitrary
+                  notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
                   sendFromApiServer notHistoryMessage
 
                   -- Receive one more message. The messages we sent
@@ -209,8 +208,8 @@ spec =
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
                     { headId = testHeadId
-                    , snapshot
-                    , signatures = mempty
+                    , Hydra.API.ServerOutput.snapshot
+                    , Hydra.API.ServerOutput.signatures = mempty
                     }
 
             withClient port "/?snapshot-utxo=no" $ \conn -> do
@@ -221,7 +220,7 @@ spec =
 
     it "sequence numbers are continuous" $
       monadicIO $ do
-        outputs :: [StateChanged SimpleTx] <- pick arbitrary
+        outputs :: [ServerOutput SimpleTx] <- pick arbitrary
         run $
           showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
@@ -244,9 +243,9 @@ spec =
             generate $
               mapM
                 (>>= genTimedServerOutput)
-                [ HeadIsInitializing <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                , HeadIsAborted <$> arbitrary <*> arbitrary <*> arbitrary
-                , HeadIsFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+                [ HeadIsInitializing <$> arbitrary <*> arbitrary
+                , HeadIsAborted <$> arbitrary <*> arbitrary
+                , HeadIsFinalized <$> arbitrary <*> arbitrary
                 ]
           let persistence = mockPersistence' existingServerOutputs
 
@@ -262,7 +261,7 @@ spec =
 
             (headId, headIsOpenMsg) <- generate $ do
               headId <- arbitrary
-              output <- HeadIsOpen headId <$> arbitrary <*> arbitrary
+              output <- HeadIsOpen headId <$> arbitrary
               pure (headId, output)
             snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
               generateSnapshot
@@ -294,7 +293,7 @@ spec =
             let expectedUtxos = toJSON utxo
 
             withTestAPIServer port alice apiPersistence tracer $ \Server{sendOutput} -> do
-              headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+              headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
 
               mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
               waitForValue port $ \v -> do
@@ -351,7 +350,7 @@ matchGreetings :: Aeson.Value -> Bool
 matchGreetings v =
   v ^? key "tag" == Just (Aeson.String "Greetings")
 
-isGreetings :: StateChanged tx -> Bool
+isGreetings :: ServerOutput tx -> Bool
 isGreetings = \case
   Greetings{} -> True
   _ -> False
@@ -361,7 +360,7 @@ waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >=
 
 -- NOTE: this client runs indefinitely so it should be run within a context that won't
 -- leak runaway threads
-testClient :: TQueue IO (StateChanged SimpleTx) -> TVar IO Int -> Connection -> IO ()
+testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx

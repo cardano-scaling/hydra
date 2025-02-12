@@ -1,0 +1,101 @@
+{
+    "samples": [
+        {
+            "contestationPeriod": 31536000,
+            "headId": "4562e99b286e214baf74e1de1e2b0514",
+            "participants": [
+                "c6c7572391868f2c10d2e6d3044cf2fd612f569559289af819a2e295",
+                "d3f8931aed04726612cd8196b7c011ad642677555a67db638252db21",
+                "f28ccf086cbd3d39b6003aa25775eaf05faaa3596249ba3fb3197f73",
+                "1da6006304360f7775c00e074f5c094042259ad44e5fdcf82b28725d",
+                "2bbce4d3a0fcc99254c67426a2639183116f85de93c0b709a73e6fde",
+                "f1a325b3acc5f87962526f863c7a94c8c0fa5f45d60b72319697eb14"
+            ],
+            "parties": [
+                {
+                    "vkey": "886030c0bf5bfcda508b6655cdca5fb9625f99a36bde8f988d155a46b99a7271"
+                },
+                {
+                    "vkey": "97408f31ce3dadfb8f07e756bfe827d068f0bb15ed771f6d3e0378fc625e8f19"
+                },
+                {
+                    "vkey": "e1da38059d09007de6961f3a2ff7daab27cf498ff838b6d377d0d973511bdf1b"
+                },
+                {
+                    "vkey": "d3c7078ada5951d552fad7d674c62d17dbd5db1ba0a0905a33586fdd3a4957e4"
+                },
+                {
+                    "vkey": "dc965f06c418fff411b35a7e0ef1516ef8c66e0526c42375dd7a82c67536c1c4"
+                },
+                {
+                    "vkey": "58c4e79980e86bde30b9642de1920708e9a2443bfa14877ef58870ac4cc08924"
+                },
+                {
+                    "vkey": "a0fc3447b0c74fbd3126bd38427b632707f08a40747e3ccf7d185681f6bc4d5e"
+                },
+                {
+                    "vkey": "adb8ae59b71ebe48853921f0b79fe7901044a295e3e6d6f184d68c89c41c402d"
+                },
+                {
+                    "vkey": "96d749bc3399afecf03725befd62873d1ffbdc6e1c6f972fe4eb8b1266dc013f"
+                },
+                {
+                    "vkey": "f01e3715329a735fc6373028c40c77d49a656bec24f7dfe4e7336b3e2e1fe55a"
+                },
+                {
+                    "vkey": "c46d33760bd5d15fd72754a077d6e4da13fb91afd55c8f699ecc8d99bee782f0"
+                },
+                {
+                    "vkey": "32102fde4100513682cee1d79acd190ea9fbcb5a638142a7c3c82cafdc935c12"
+                },
+                {
+                    "vkey": "edd35cab31f7c784acaf7f158e4aadc517c58fc1c0e788c4e2e0dc9a51e5cba3"
+                },
+                {
+                    "vkey": "b7aa2d7147859efec901b317e0ee31717be70ce66c1ad56c8fd4478264025c4d"
+                },
+                {
+                    "vkey": "fed4a085a505370751de4451eda450cfa0729147f5f39ba73d669fc906bc6a16"
+                },
+                {
+                    "vkey": "461c6a13fbe822e8af0908c4237dc93be3cf859612ebcbd538c13da039bdd9ea"
+                },
+                {
+                    "vkey": "d9355941b4634a2a9351687a30020d60d38c6ed7e7bede039ea18090287c7716"
+                },
+                {
+                    "vkey": "a20cfd6f7738a830f10bad5fa732f0d630d3fee4f95cf5683cba575c1c64c3fd"
+                },
+                {
+                    "vkey": "2d9ae4d3338d238c0347d5d7faea19ee89d9c8c2d65545b866ccb025dc16dab8"
+                },
+                {
+                    "vkey": "c9935f6e2fc712925e9941968dc154670b3d48bbb10ed7aaab698ee9b38485b5"
+                },
+                {
+                    "vkey": "023f2aa215d4d286d14074d20aa19b74a22e6d71656f9dd723f3d4dfef881849"
+                },
+                {
+                    "vkey": "5455de40a07d67070b836c1009aa1d28d9ff463357312ee07441b2d86850b0f5"
+                },
+                {
+                    "vkey": "ebb27d8b8e6f7ba99b13789748aa365d9f1cc5a86aba741b30fb65e848b78224"
+                },
+                {
+                    "vkey": "a64c76a35aabbdc2b7971e2a0886b665d8d3544d62b47995b2fdfeca79aedd23"
+                },
+                {
+                    "vkey": "e44be20e4d79d0c3f5b3cbb3d8fa5bbd9e02711f208b39cf4823efef7778e86d"
+                },
+                {
+                    "vkey": "3f5ac3fa50bbb453f59d9295e67a212760c810ff3f5d5b448fa41231ed7d8281"
+                },
+                {
+                    "vkey": "27793ee11e4cfea0be66711846f0ef3babb8729fe69dd21c4ad165782eafc3b2"
+                }
+            ],
+            "tag": "IgnoredHeadInitializing"
+        }
+    ],
+    "seed": -1444158619
+}

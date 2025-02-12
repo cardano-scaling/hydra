@@ -21,6 +21,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendOutput)
+import Hydra.API.ServerOutput (mapStateChangedToServerOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
@@ -347,7 +348,7 @@ processEffects node tracer inputId effects = do
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
-      ClientEffect i -> sendOutput server i
+      ClientEffect i -> maybe (pure ()) (sendOutput server) (mapStateChangedToServerOutput i)
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx

@@ -22,12 +22,11 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (TimedServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api.Prelude ()
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..), HydraEvent (..))
-import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
@@ -137,10 +136,10 @@ handleHydraEventsActiveLink e = do
           )
           pendingIncrements
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} -> do
+    Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
-      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= depositTxId) pendingIncrements
-      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == depositTxId) pendingIncrements
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
+      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
       let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
       pendingIncrementsL .= activePendingIncrements
       utxoL .= utxo <> activeUtxoToCommit
@@ -206,10 +205,10 @@ handleHydraEventsInfo = \case
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} ->
+  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
     report Success time $
       "Commit finalized "
-        <> show depositTxId
+        <> show theDeposit
   Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "

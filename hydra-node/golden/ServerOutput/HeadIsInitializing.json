@@ -1,0 +1,29 @@
+{
+    "samples": [
+        {
+            "headId": "c4c2ca7ae851f5c4cab7608ea4fa5cf5",
+            "parties": [
+                {
+                    "vkey": "fb3cd53e0c62ed344a9e06f890645867487efb666b9fa5d49c23473f0975db62"
+                },
+                {
+                    "vkey": "66904408f9daa338cc063ccc0bc5c2bf16f80b80f46b51f858b4764e9b129efa"
+                },
+                {
+                    "vkey": "1916107b8c4972eb7d6f1d089dabb61ea550fad175f31af2335449eb1d6fed2e"
+                },
+                {
+                    "vkey": "2fbdb5570b19caa02ce63071ad19cdfbe03bd0bb8515c04373cd00518793aa1a"
+                },
+                {
+                    "vkey": "9c536ec71fd5089ed47dea8ad1c0d03f1a73b1aa04435cdd654db094dc8a9d7b"
+                },
+                {
+                    "vkey": "40e20e44b8a52db15bd8ae563756cb337f3bbd38f7d5f0a50e894cc5b4665cad"
+                }
+            ],
+            "tag": "HeadIsInitializing"
+        }
+    ],
+    "seed": -55075097
+}

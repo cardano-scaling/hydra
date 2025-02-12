@@ -1,0 +1,11 @@
+{
+    "samples": [
+        {
+            "contestationDeadline": "1864-05-07T04:29:30.958711501545Z",
+            "headId": "37162bc9250e8bf53b4da518301b5347",
+            "snapshotNumber": 22,
+            "tag": "HeadIsContested"
+        }
+    ],
+    "seed": -410413447
+}

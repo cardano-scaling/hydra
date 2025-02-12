@@ -14,10 +14,12 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
+  ServerOutput,
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
   WithUTxO (..),
+  mapStateChangedToServerOutput,
   prepareServerOutput,
  )
 import Hydra.API.ServerOutputFilter (
@@ -58,11 +60,11 @@ wsApp ::
   TVar [TimedServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (StateChanged tx) HeadStatus ->
+  Projection STM.STM (ServerOutput tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with 'HeadId'.
-  Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
+  Projection STM.STM (ServerOutput tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
+  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   ServerOutputFilter tx ->
   PendingConnection ->
@@ -94,22 +96,25 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
     hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
     time <- getCurrentTime
-
-    sendTextData con $
-      Aeson.encode
-        TimedServerOutput
-          { time
-          , seq
-          , output =
-              Greetings
-                { me = party
-                , headStatus
-                , hydraHeadId
-                , snapshotUtxo
-                , hydraNodeVersion = showVersion Options.hydraNodeVersion
-                } ::
-                StateChanged tx
-          }
+    case mapStateChangedToServerOutput
+      ( Greetings
+          { me = party
+          , headStatus
+          , hydraHeadId
+          , snapshotUtxo
+          , hydraNodeVersion = showVersion Options.hydraNodeVersion
+          } ::
+          StateChanged tx
+      ) of
+      Nothing -> pure ()
+      Just greetings ->
+        sendTextData con $
+          Aeson.encode
+            TimedServerOutput
+              { time
+              , seq
+              , output = greetings
+              }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
   Projection{getLatest = getLatestHeadId} = headIdP
@@ -164,9 +169,13 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
         time <- getCurrentTime
         seq <- atomically $ nextSequenceNumber history
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
-        sendTextData con $ Aeson.encode timedOutput
-        traceWith tracer (APIInvalidInput e clientInput)
+        let mOutput = mapStateChangedToServerOutput $ InvalidInput @tx e clientInput
+        case mOutput of
+          Nothing -> pure ()
+          Just output -> do
+            let timedOutput = TimedServerOutput{output = output, time, seq}
+            sendTextData con $ Aeson.encode timedOutput
+            traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
     rawHist <- STM.atomically (readTVar history)

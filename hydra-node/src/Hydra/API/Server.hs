@@ -17,6 +17,7 @@ import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   CommitInfo (CannotCommit),
+  ServerOutput,
   TimedServerOutput (..),
   projectCommitInfo,
   projectHeadStatus,
@@ -32,7 +33,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.Outcome (HeadStatus (Idle), StateChanged)
+import Hydra.HeadLogic.Outcome (HeadStatus (Idle))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..))
@@ -58,7 +59,7 @@ import Network.WebSockets (
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { sendOutput :: StateChanged tx -> m ()
+  { sendOutput :: ServerOutput tx -> m ()
   -- ^ Send some output to all connected clients.
   }
 

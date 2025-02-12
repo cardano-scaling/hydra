@@ -9,12 +9,13 @@ import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
-import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -33,7 +34,6 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
-import Hydra.Tx (txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
@@ -69,7 +69,7 @@ spec = parallel $ do
   describe "hydrate" $ do
     around setupHydrate $ do
       it "loads events from source into all sinks" $ \testHydrate ->
-        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (mockSink1, getMockSinkEvents1) <- createRecordingSink
             (mockSink2, getMockSinkEvents2) <- createRecordingSink
@@ -80,7 +80,7 @@ spec = parallel $ do
             getMockSinkEvents2 `shouldReturn` someEvents
 
       it "event ids are consistent" $ \testHydrate ->
-        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (sink, getSinkEvents) <- createRecordingSink
 
@@ -90,7 +90,7 @@ spec = parallel $ do
             getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
 
       it "fails if one sink fails" $ \testHydrate ->
-        forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf1 $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             let genSinks = elements [mockSink, failingSink]
                 failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
@@ -101,12 +101,12 @@ spec = parallel $ do
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
           env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadIsInitializing' results in
+            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
             -- a head state that gets checked by 'checkHeadState'
             let genEvent = do
                   StateEvent
                     <$> arbitrary
-                    <*> (HeadIsInitializing <$> arbitrary <*> arbitrary <*> pure (mkHeadParameters env) <*> arbitrary <*> arbitrary)
+                    <*> (Outcome.HeadIsInitializing <$> arbitrary <*> arbitrary <*> pure (mkHeadParameters env) <*> arbitrary <*> arbitrary)
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
                 `shouldThrow` \(_ :: ParameterMismatch) -> True
@@ -173,7 +173,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transaction = tx1, transactionId = txId tx1, newLocalUTxO = utxoRefs [1, 3, 4]}])
+          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents
@@ -441,7 +441,7 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [StateChanged tx])
+recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
   pure (node{server = Server{sendOutput = record}}, query)

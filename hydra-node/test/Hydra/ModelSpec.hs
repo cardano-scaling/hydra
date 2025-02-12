@@ -123,8 +123,8 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IO (unsafePerformIO)
 import Hydra.API.ClientInput (ClientInput (GetUTxO))
+import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
-import Hydra.HeadLogic.Outcome (StateChanged (GetUTxOResponse))
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (ObserveConfirmedTx, ObserveHeadIsOpen, Wait),

@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "input": "𮫥\t\\h\u0015^󷸲F\u0011#\u0000Nt\u000b15\u000f",
+            "reason": "aM",
+            "tag": "InvalidInput"
+        }
+    ],
+    "seed": -1976470744
+}

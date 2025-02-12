@@ -22,6 +22,7 @@ import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -33,7 +34,8 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
-import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..))
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -47,7 +49,6 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.Environment (Environment (..))
-import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
@@ -58,16 +59,10 @@ import Test.Hydra.Tx.Fixture (
   bobSk,
   deriveOnChainId,
   testHeadId,
+  testHeadParameters,
   testHeadSeed,
  )
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
-
-testHeadParameters :: HeadParameters
-testHeadParameters =
-  HeadParameters
-    { contestationPeriod = testContestationPeriod
-    , parties = [alice]
-    }
 
 spec :: Spec
 spec = parallel $ do
@@ -90,19 +85,19 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, chainState = SimpleChainState 2, utxo = utxoRef 1}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
     it "can close an open head" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, chainState = SimpleChainState 2, utxo = utxoRef 1}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
 
@@ -111,10 +106,10 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
@@ -125,15 +120,15 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
-            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 5}
+            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
 
   describe "Two participant Head" $ do
     it "only opens the head after all nodes committed" $
@@ -141,33 +136,31 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              let parameters = HeadParameters{contestationPeriod = testContestationPeriod, parties = [alice, bob]}
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
               simulateCommit chain (alice, utxoRef 1)
-              waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
+              waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
               let veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1, chainState = SimpleChainState 3})
+              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
 
               simulateCommit chain (bob, utxoRef 2)
-              waitUntil [n1] $ Committed{headId = testHeadId, party = bob, utxo = utxoRef 2, chainState = SimpleChainState 3}
-              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 4}
+              waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
+              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              let parameters = HeadParameters{contestationPeriod = testContestationPeriod, parties = [alice, bob]}
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               simulateCommit chain (alice, utxoRefs [1, 2])
-              waitUntil [n1, n2] $ Committed{headId = testHeadId, party = alice, utxo = utxoRefs [1, 2], chainState = SimpleChainState 2}
+              waitUntil [n1, n2] $ Committed testHeadId alice (utxoRefs [1, 2])
               send n2 Abort
-              waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 3}
+              waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2]}
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters, chainState = SimpleChainState 4, headSeed = testHeadSeed}
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
 
     it "cannot abort head when commits have been collected" $
       shouldRunInSim $ do
@@ -175,11 +168,11 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters = HeadParameters{contestationPeriod = testContestationPeriod, parties = [alice, bob]}, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               simulateCommit chain (alice, utxoRef 1)
               simulateCommit chain (bob, utxoRef 2)
 
-              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 4}
+              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
 
@@ -193,7 +186,7 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+              waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
               -- We expect bob to ignore alice's head which he is not part of
               -- although bob's configuration would includes alice as a
               -- peerconfigured)
@@ -208,10 +201,10 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters = HeadParameters{contestationPeriod = testContestationPeriod, parties = [alice, bob]}, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
               simulateCommit chain (alice, utxoRef 1)
 
-              waitUntil [n2] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
+              waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
               send n2 GetUTxO
 
               waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
@@ -237,7 +230,7 @@ spec = parallel $ do
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 2, 42]}
+                waitUntil [n1, n2] $ TxValid testHeadId 42 tx
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -248,7 +241,7 @@ spec = parallel $ do
 
                 let tx = aValidTx 42
                 send n1 (NewTx tx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 2, 42]}
+                waitUntil [n1, n2] $ TxValid testHeadId 42 tx
 
                 let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -308,14 +301,14 @@ spec = parallel $ do
                 send n1 (NewTx firstTx)
 
                 -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], transactionId = txId firstTx, transaction = firstTx}
+                waitUntil [n1, n2] $ TxValid testHeadId 1 firstTx
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 4], transaction = secondTx, transactionId = txId secondTx}
+                waitUntil [n1, n2] $ TxValid testHeadId 2 secondTx
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -328,7 +321,6 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead chain n1 n2
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
-                -- NOTE: secondTx is not applicable as it depends on an non-egisting output 3
                 let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
                 send n2 (NewTx secondTx)
@@ -339,7 +331,7 @@ spec = parallel $ do
                   _ -> False
 
                 send n1 (NewTx firstTx)
-                waitUntil [n1, n2] $ TxValid{headId = testHeadId, newLocalUTxO = utxoRefs [2, 3], transaction = firstTx, transactionId = txId firstTx}
+                waitUntil [n1, n2] $ TxValid testHeadId 1 firstTx
 
       it "sending two conflicting transactions should lead one being confirmed and one expired" $
         shouldRunInSim $
@@ -396,9 +388,8 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let deadline = arbitrary `generateWith` 42
-                  let snapshotVersion = 0
-                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
 
                   waitUntilMatch [n1, n2] $
                     \case
@@ -407,7 +398,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -423,15 +414,14 @@ spec = parallel $ do
                   let depositUTxO = utxoRefs [11]
                   let depositUTxO2 = utxoRefs [22]
                   let deadline = arbitrary `generateWith` 42
-                  let snapshotVersion = 0
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   injectChainEvent
                     n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 6}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 22]}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -439,21 +429,21 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
-                  waitUntil [n1, n2] $ TxValid{headId = testHeadId, transaction = normalTx, transactionId = txId normalTx, newLocalUTxO = utxoRefs [1, 3, 11]}
+                  waitUntil [n1, n2] $ TxValid testHeadId 3 normalTx
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (22 `member`) utxoToCommit
                       _ -> False
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
-                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = 2, newVersion = snapshotVersion + 2}
+                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11, 22], chainState = SimpleChainState 9}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11, 22]}
 
         it "can process transactions while commit pending" $
           shouldRunInSim $ do
@@ -463,23 +453,22 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let deadline = arbitrary `generateWith` 42
-                  let snapshotVersion = 0
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11], chainState = SimpleChainState 8}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11]}
 
         it "can close with commit in flight" $
           shouldRunInSim $ do
@@ -491,9 +480,9 @@ spec = parallel $ do
                   let deadline = arbitrary `generateWith` 42
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntilMatch [n1] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -507,7 +496,7 @@ spec = parallel $ do
                       _ -> False
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11], chainState = SimpleChainState 8}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11]}
 
         it "fanout utxo is correct after a commit" $
           shouldRunInSim $ do
@@ -520,11 +509,11 @@ spec = parallel $ do
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState 7}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
         it "can do new deposit once the first one has settled" $
           shouldRunInSim $ do
@@ -536,17 +525,16 @@ spec = parallel $ do
                   let deadline = arbitrary `generateWith` 42
                   let depositUTxO2 = utxoRefs [111]
                   let deadline2 = arbitrary `generateWith` 42
-                  let snapshotVersion = 0
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState 5}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = utxoRefs [11]}
-                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
                   injectChainEvent
                     n2
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState 6}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, pendingDeposits = mempty, deadline = deadline2, newLocalUTxO = utxoRefs [1, 2, 11, 111]}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState{slot = ChainSlot 1}}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, deadline = deadline2}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -556,7 +544,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11, 111], chainState = SimpleChainState 9}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11, 111]}
 
         it "multiple commits and decommits in sequence" $
           shouldRunInSim $ do
@@ -566,17 +554,16 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let deadline = arbitrary `generateWith` 42
-                  let snapsotVersion = 0
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapsotVersion + 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit decommitTx)
@@ -590,11 +577,11 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx, newVersion = snapsotVersion + 2}
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11], chainState = SimpleChainState{slot = ChainSlot 10}}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11]}
         it "commit and decommit same utxo" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -603,17 +590,16 @@ spec = parallel $ do
                   openHead chain n1 n2
                   let depositUTxO = utxoRefs [11]
                   let deadline = arbitrary `generateWith` 42
-                  let snapshotVersion = 0
                   injectChainEvent
                     n1
-                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                    Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -631,8 +617,8 @@ spec = parallel $ do
                         maybe False (88 `member`) utxoToDecommit
                       _ -> False
 
-                  waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [88]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx, newVersion = snapshotVersion + 2}
+                  waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [88])
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
                     \case
@@ -659,7 +645,6 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                  let snapshotVersion = 0
                   send n2 (Decommit decommitTx)
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
@@ -671,7 +656,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx, newVersion = snapshotVersion + 1}
+                  waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -686,7 +671,6 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                  let snapshotVersion = 0
                   send n1 (Decommit{decommitTx = decommitTx1})
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
@@ -700,11 +684,11 @@ spec = parallel $ do
                       , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
                       }
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx1}
 
                   send n2 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2, newVersion = snapshotVersion + 2}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = txId decommitTx2}
 
         it "can process transactions while decommit pending" $
           shouldRunInSim $ do
@@ -714,7 +698,6 @@ spec = parallel $ do
                   openHead chain n1 n2
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                  let snapshotVersion = 0
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
@@ -727,7 +710,7 @@ spec = parallel $ do
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1, newVersion = snapshotVersion + 1}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, decommitTxId = 1}
 
         it "can close with decommit in flight" $
           shouldRunInSim $ do
@@ -745,7 +728,7 @@ spec = parallel $ do
                     HeadIsContested{headId, snapshotNumber} -> guard $ headId == testHeadId && snapshotNumber == 1
                     _ -> Nothing
 
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1], chainState = SimpleChainState 11}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
 
         it "fanout utxo is correct after a decommit" $
           shouldRunInSim $ do
@@ -764,7 +747,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2], chainState = SimpleChainState 9}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2]}
 
         it "can fanout with empty utxo" $
           shouldRunInSim $ do
@@ -773,7 +756,6 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead chain n1 n2
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
-                  let snapshotVersion = 0
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitApproved
@@ -785,7 +767,6 @@ spec = parallel $ do
                     DecommitFinalized
                       { headId = testHeadId
                       , decommitTxId = txId decommitTx
-                      , newVersion = snapshotVersion + 1
                       }
                   let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 88)
                   send n1 (Decommit{decommitTx = decommitTx2})
@@ -793,12 +774,11 @@ spec = parallel $ do
                     DecommitFinalized
                       { headId = testHeadId
                       , decommitTxId = txId decommitTx2
-                      , newVersion = snapshotVersion + 2
                       }
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [], chainState = SimpleChainState 11}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs []}
 
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
@@ -811,7 +791,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
               send n2 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2], chainState = SimpleChainState{slot = ChainSlot 7}}
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -850,7 +830,7 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState{slot = ChainSlot 1}, headSeed = testHeadSeed}
+                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
                 simulateCommit chain (alice, utxoRef 1)
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -865,11 +845,11 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
-                waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed})]
+      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ Outcome.HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, headSeed = testHeadSeed, chainState = SimpleChainState 1})]
       logs `shouldContain` [EndEffect alice 2 0]
 
   describe "rolling back & forward does not make the node crash" $ do
@@ -878,36 +858,36 @@ spec = parallel $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState 1, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             -- We expect the Init to be rolled back and forward again
-            rollbackAndForward chain 0
+            rollbackAndForward chain 1
             -- We expect the node to still work and let us commit
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
-            waitUntil [n1] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, chainState = SimpleChainState{slot = ChainSlot 1}, headSeed = testHeadSeed}
+            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             simulateCommit chain (alice, utxoRef 1)
-            waitUntil [n1] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState{slot = ChainSlot 2}}
-            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1], chainState = SimpleChainState{slot = ChainSlot 3}}
+            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
             rollbackAndForward chain 2
             -- We expect the node to still work and let us post L2 transactions
             let tx = aValidTx 42
             send n1 (NewTx tx)
-            waitUntil [n1] $ TxValid{headId = testHeadId, transaction = tx, transactionId = txId tx, newLocalUTxO = utxoRefs [1, 42]}
+            waitUntil [n1] $ TxValid testHeadId 42 tx
 
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
   (HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m, IsChainState tx) =>
   [TestHydraClient tx m] ->
-  StateChanged tx ->
+  ServerOutput tx ->
   m ()
 waitUntil nodes expected =
   waitUntilMatch nodes (== expected)
@@ -918,9 +898,9 @@ waitUntil nodes expected =
 -- years before - but we since we are having the protocol produce 'Tick' events
 -- constantly this would be fully simulated to the end.
 waitUntilMatch ::
-  (Show (StateChanged tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
+  (Show (ServerOutput tx), HasCallStack, MonadThrow m, MonadAsync m, MonadTimer m) =>
   [TestHydraClient tx m] ->
-  (StateChanged tx -> Bool) ->
+  (ServerOutput tx -> Bool) ->
   m ()
 waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
@@ -941,14 +921,14 @@ waitUntilMatch nodes predicate = do
     unless (predicate msg) $
       match seenMsgs n
 
-  oneMonth = 100 -- 3600 * 24 * 30
+  oneMonth = 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
 waitMatch ::
   MonadThrow m =>
   TestHydraClient tx m ->
-  (StateChanged tx -> Maybe a) ->
+  (ServerOutput tx -> Maybe a) ->
   m a
 waitMatch node predicate =
   go
@@ -964,9 +944,9 @@ waitMatch node predicate =
 -- chain.
 data TestHydraClient tx m = TestHydraClient
   { send :: ClientInput tx -> m ()
-  , waitForNext :: m (StateChanged tx)
+  , waitForNext :: m (ServerOutput tx)
   , injectChainEvent :: ChainEvent tx -> m ()
-  , serverOutputs :: m [StateChanged tx]
+  , serverOutputs :: m [ServerOutput tx]
   , queryState :: m (HeadState tx)
   }
 
@@ -1198,8 +1178,8 @@ withHydraNode signingKey otherParties chain action = do
 
 createTestHydraClient ::
   MonadSTM m =>
-  TQueue m (StateChanged tx) ->
-  TVar m [StateChanged tx] ->
+  TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
   HydraNode tx m ->
   TestHydraClient tx m
 createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
@@ -1218,8 +1198,8 @@ createHydraNode ::
   ChainStateType tx ->
   SigningKey HydraKey ->
   [Party] ->
-  TQueue m (StateChanged tx) ->
-  TVar m [StateChanged tx] ->
+  TQueue m (ServerOutput tx) ->
+  TVar m [ServerOutput tx] ->
   SimulatedChainNetwork tx m ->
   ContestationPeriod ->
   DepositDeadline ->
@@ -1276,19 +1256,19 @@ openHead ::
   IOSim s ()
 openHead chain n1 n2 = do
   send n1 Init
-  waitUntil [n1, n2] $ HeadIsInitializing{headId = testHeadId, parties = fromList [alice, bob], parameters = HeadParameters{contestationPeriod = testContestationPeriod, parties = [alice, bob]}, headSeed = testHeadSeed, chainState = SimpleChainState 1}
+  waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
   simulateCommit chain (alice, utxoRef 1)
-  waitUntil [n1, n2] $ Committed{headId = testHeadId, party = alice, utxo = utxoRef 1, chainState = SimpleChainState 2}
+  waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
   simulateCommit chain (bob, utxoRef 2)
-  waitUntil [n1, n2] $ Committed{headId = testHeadId, party = bob, utxo = utxoRef 2, chainState = SimpleChainState 3}
-  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, chainState = SimpleChainState 4, utxo = utxoRefs [1, 2]}
+  waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
+  waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
-assertHeadIsClosed :: (HasCallStack, MonadThrow m) => StateChanged tx -> m ()
+assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
   HeadIsClosed{} -> pure ()
   _ -> failure "expected HeadIsClosed"
 
-assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> StateChanged tx -> m ()
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> ServerOutput tx -> m ()
 assertHeadIsClosedWith expectedSnapshotNumber = \case
   HeadIsClosed{snapshotNumber} -> do
     snapshotNumber `shouldBe` expectedSnapshotNumber

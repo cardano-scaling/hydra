@@ -670,6 +670,12 @@ definitions:
           numberOfParties:
             type: number
 
+  # NOTE: We cannot simply describe 'ServerOutput' and re-use it in api.yaml, so
+  # we opted to not detail this section here. The outputs documented in api.yaml
+  # are based on internal type 'TimeServerOutput', so basically just contain an
+  # adtitional 'timestamp' and 'seq'.
+  ServerOutput: {}
+
   ParamMismatch:
     oneOf:
       - title: ContestationPeriodMismatch
@@ -1238,6 +1244,314 @@ definitions:
             enum: ["Closed"]
           contents:
             $ref: "logs.yaml#/definitions/ClosedState"
+  StateChanged:
+    oneOf:
+      - title: "HeadInitialized"
+        additionalProperties: false
+        required:
+          - tag
+          - parameters
+          - chainState
+          - headId
+          - headSeed
+        properties:
+          tag:
+            type: string
+            enum: ["HeadInitialized"]
+          parameters:
+            $ref: "api.yaml#/components/schemas/HeadParameters"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          headSeed:
+            $ref: "api.yaml#/components/schemas/HeadSeed"
+      - title: "CommittedUTxO"
+        additionalProperties: false
+        required:
+          - tag
+          - party
+          - committedUTxO
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["CommittedUTxO"]
+          party:
+            $ref: "api.yaml#/components/schemas/Party"
+          committedUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "HeadAborted"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["HeadAborted"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "HeadOpened"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - initialUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["HeadOpened"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          initialUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "TransactionAppliedToLocalUTxO"
+        additionalProperties: false
+        required:
+          - tag
+          - tx
+          - newLocalUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["TransactionAppliedToLocalUTxO"]
+          tx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "SnapshotRequestDecided"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotRequestDecided"]
+          snapshotNumber:
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
+      - title: "SnapshotRequested"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - requestedTxIds
+          - newLocalUTxO
+          - newLocalTxs
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotRequested"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          requestedTxIds:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/TxId"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          newLocalTxs:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "TransactionReceived"
+        additionalProperties: false
+        required:
+          - tag
+          - tx
+        properties:
+          tag:
+            type: string
+            enum: ["TransactionReceived"]
+          tx:
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "CommitRecorded"
+        additionalProperties: false
+        required:
+          - tag
+          - pendingDeposits
+          - newLocalUTxO
+        properties:
+          tag:
+            type: string
+            enum: ["CommitRecorded"]
+          pendingDeposits:
+            type: object
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+      - title: "CommitFinalized"
+        additionalProperties: false
+        required:
+          - tag
+          - newVersion
+          - depositTxId
+        properties:
+          tag:
+            type: string
+            enum: ["CommitFinalized"]
+          newVersion:
+            $ref: "api.yaml#/components/schemas/SnapshotVersion"
+          depositTxId:
+            type: string
+      - title: "CommitRecovered"
+        additionalProperties: false
+        required:
+          - tag
+          - recoveredUTxO
+          - newLocalUTxO
+          - recoveredTxId
+        properties:
+          tag:
+            type: string
+            enum: ["CommitRecovered"]
+          recoveredUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          newLocalUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          recoveredTxId:
+            type: string
+      - title: "CommitIgnored"
+        additionalProperties: false
+        required:
+          - tag
+          - headId
+        properties:
+          tag:
+            type: string
+            enum: ["CommitIgnored"]
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          depositUTxO:
+            type: array
+            items:
+              $ref: "api.yaml#/components/schemas/UTxO"
+          snapshotUTxO:
+            oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
+      - title: "DecommitRecorded"
+        additionalProperties: false
+        required:
+          - tag
+          - decommitTx
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitRecorded"]
+          decommitTx:
+            type: object
+            $ref: "api.yaml#/components/schemas/Transaction"
+      - title: "DecommitFinalized"
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["DecommitFinalized"]
+      - title: "PartySignedSnapshot"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - party
+          - signature
+        properties:
+          tag:
+            type: string
+            enum: ["PartySignedSnapshot"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          party:
+            $ref: "api.yaml#/components/schemas/Party"
+          signature:
+            $ref: "api.yaml#/components/schemas/Signature"
+      - title: "SnapshotConfirmed"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotConfirmed"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatures:
+            $ref: "api.yaml#/components/schemas/MultiSignature"
+      - title: "HeadClosed"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - contestationDeadline
+        properties:
+          tag:
+            type: string
+            enum: ["HeadClosed"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "HeadContested"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+          - contestationDeadline
+        properties:
+          tag:
+            type: string
+            enum: ["HeadContested"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+          contestationDeadline:
+            $ref: "api.yaml#/components/schemas/UTCTime"
+      - title: "HeadIsReadyToFanout"
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsReadyToFanout"]
+      - title: "HeadFannedOut"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["HeadFannedOut"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "ChainRolledBack"
+        additionalProperties: false
+        required:
+          - tag
+          - chainState
+        properties:
+          tag:
+            type: string
+            enum: ["ChainRolledBack"]
+          chainState:
+            $ref: "api.yaml#/components/schemas/ChainState"
+      - title: "TickObserved"
+        additionalProperties: false
+        required:
+          - tag
+          - chainSlot
+        properties:
+          tag:
+            type: string
+            enum: ["TickObserved"]
+          chainSlot:
+            $ref: "api.yaml#/components/schemas/ChainSlot"
   IdleState:
     type: object
     additionalProperties: false
@@ -1750,7 +2064,7 @@ definitions:
             type: string
             enum: ["ClientEffect"]
           serverOutput:
-            $ref: "api.yaml#/components/schemas/StateChanged"
+            $ref: "logs.yaml#/definitions/ServerOutput"
 
       - title: NetworkEffect
         type: object
@@ -1805,7 +2119,7 @@ definitions:
             type: array
             items:
               type: object
-              $ref: "api.yaml#/components/schemas/StateChanged"
+              $ref: "logs.yaml#/definitions/StateChanged"
           effects:
             type: array
             items:
@@ -1831,8 +2145,7 @@ definitions:
             type: array
             items:
               type: object
-              $ref: "api.yaml#/components/schemas/StateChanged"
-
+              $ref: "logs.yaml#/definitions/StateChanged"
       - title: Error
         type: object
         additionalProperties: false
