@@ -3,12 +3,12 @@ slug: 17
 title: |
   17. Use UDP protocol for Hydra networking
 authors: []
-tags: [Proposed]
+tags: [Superseded]
 ---
 
 ## Status
 
-Proposed
+Superseded (as never implemented) by [ADR 32](/adr/32)
 
 ## Context
 
