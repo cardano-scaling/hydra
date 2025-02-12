@@ -104,7 +104,7 @@ data StateChanged tx
   | -- | Given transaction was not not applicable to the given UTxO in time and
     -- has been dropped.
     TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx, deadline :: UTCTime}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx, deadline :: UTCTime}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.

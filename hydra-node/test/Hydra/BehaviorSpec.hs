@@ -20,7 +20,6 @@ import Control.Monad.Class.MonadAsync (Async, MonadAsync (async), cancel, forCon
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
-import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
 import Hydra.Cardano.Api (SigningKey)
@@ -399,7 +398,7 @@ spec = parallel $ do
                   let deadline = arbitrary `generateWith` 42
                   let snapshotVersion = 0
                   injectChainEvent n1 Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
 
                   waitUntilMatch [n1, n2] $
                     \case
@@ -431,8 +430,8 @@ spec = parallel $ do
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline, newChainState = SimpleChainState{slot = ChainSlot 6}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = Map.singleton 2 depositUTxO2, deadline, newLocalUTxO = utxoRefs [1, 2, 22]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 22]}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -469,7 +468,7 @@ spec = parallel $ do
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
 
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
@@ -494,7 +493,7 @@ spec = parallel $ do
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
 
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   waitUntilMatch [n1] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -521,7 +520,7 @@ spec = parallel $ do
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -541,13 +540,13 @@ spec = parallel $ do
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState 5}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = utxoRefs [11]}
                   waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1, newVersion = snapshotVersion + 1}
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState 6}
-                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = Map.singleton 2 depositUTxO2, deadline = deadline2, newLocalUTxO = utxoRefs [1, 2, 11, 111]}
+                  waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO2, pendingDeposit = 2, pendingDeposits = mempty, deadline = deadline2, newLocalUTxO = utxoRefs [1, 2, 11, 111]}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -571,7 +570,7 @@ spec = parallel $ do
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -608,7 +607,7 @@ spec = parallel $ do
                   injectChainEvent
                     n1
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 5}}
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = Map.singleton 1 depositUTxO, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
+                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, pendingDeposits = mempty, deadline, newLocalUTxO = utxoRefs [1, 2, 11]}
                   waitUntilMatch [n1, n2] $
                     \case
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->

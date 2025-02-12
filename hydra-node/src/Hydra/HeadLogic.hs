@@ -953,7 +953,7 @@ onOpenChainDepositTx headId env st deposited depositTxId deadline =
   -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
   -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
-    newStateWithEffect CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited, deadline}
+    newStateWithEffect CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, pendingDeposits, newLocalUTxO = localUTxO <> deposited, deadline}
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
           cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
@@ -968,7 +968,7 @@ onOpenChainDepositTx headId env st deposited depositTxId deadline =
 
   Environment{party} = env
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, localUTxO} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, seenSnapshot, version, decommitTx, localUTxO, pendingDeposits} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1402,7 +1402,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{localTxs} = coordinatedHeadState
       _otherState -> st
-  CommitRecorded{pendingDeposit, newLocalUTxO} -> case st of
+  CommitRecorded{pendingDeposit, utxoToCommit, newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
@@ -1410,7 +1410,7 @@ aggregate st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { localUTxO = newLocalUTxO
-                  , pendingDeposits = pendingDeposit `Map.union` existingDeposits
+                  , pendingDeposits = Map.singleton pendingDeposit utxoToCommit `Map.union` existingDeposits
                   }
             }
        where

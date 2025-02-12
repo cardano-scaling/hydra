@@ -8,7 +8,6 @@ import Data.Aeson (Value (..), encode, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
-import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (HeadStatus (..), StateChanged (..))
 import Hydra.Prelude hiding (seq)
@@ -134,7 +133,7 @@ data CommitInfo
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged tx -> [TxIdType tx]
 projectPendingDeposits txIds = \case
-  CommitRecorded{pendingDeposit} -> Map.keys pendingDeposit <> txIds
+  CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
   CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
   CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
   _other -> txIds
