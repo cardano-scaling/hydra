@@ -257,9 +257,9 @@ withOSStats workDir tvar action =
       withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
         race
           ( do
-            -- Write the header
-            atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------|------|------|"]
-            collectStats tvar out
+              -- Write the header
+              atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------|------|------|"]
+              collectStats tvar out
           )
           action
           >>= \case
