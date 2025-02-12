@@ -256,7 +256,11 @@ withOSStats workDir tvar action =
     Just _ ->
       withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
         race
-          (collectStats tvar out)
+          ( do
+            -- Write the header
+            atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------|------|------|"]
+            collectStats tvar out
+          )
           action
           >>= \case
             Left _ -> failure "dstat process failed unexpectedly"
@@ -277,13 +281,13 @@ withOSStats workDir tvar action =
         now <- getCurrentTime
         let str =
               pack $
-                show now
-                  <> "\n\t"
-                  <> "Used: "
+                " | "
+                  <> show now
+                  <> " | "
                   <> memUsed
-                  <> ", "
-                  <> "Free: "
+                  <> " | "
                   <> memFree
+                  <> " | "
         stats <- readTVarIO tvar'
         atomically $ writeTVar tvar' $ stats <> [str]
       _ -> pure ()
