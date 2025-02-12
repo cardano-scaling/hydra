@@ -39,11 +39,9 @@ import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
 spec = do
+  -- TODO: Generalize tests corresponding to properties of network layer, e.g. validity
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
-      -- TODO: should add somewhat re-usable tests corresponding to properties
-      -- of network layer, like: validity
-
       it "broadcasts to self" $ \tracer -> do
         failAfter 5 $
           withTempDir "test-etcd" $ \tmp -> do
