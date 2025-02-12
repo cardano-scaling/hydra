@@ -104,6 +104,7 @@ run opts = do
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             -- XXX: compose cleaner
             let NetworkCallback{deliver} = wireNetworkInput wetHydraNode
+            -- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
             withAuthentication
               (contramap Network tracer)
               signingKey

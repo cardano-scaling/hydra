@@ -87,8 +87,8 @@ withEtcdNetwork tracer config callback action = do
     forever $
       Text.hGetLine (getStderr p) >>= traceWith tracer
 
-  -- TODO: use TLS to secure peer connections
-  -- TODO: use discovery to simplify configuration
+  -- XXX: Could use TLS to secure peer connections
+  -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   etcdCmd =
     setStderr createPipe $
@@ -143,7 +143,7 @@ broadcastMessages endpoint port queue =
 
 -- | Broadcast a message to the etcd cluster.
 -- Throws: 'PutException' if message could not be written to cluster.
--- HACK: Create/use a proper client.
+-- TODO: Create/use a proper client.
 putMessage ::
   (ToCBOR msg, MonadIO m, MonadCatch m) =>
   String ->
@@ -216,7 +216,7 @@ putLastKnownRevision directory rev = do
 
 -- | Write a value at a key to the etcd cluster.
 -- Throws: 'PutException' if value could not be written to cluster.
--- HACK: Create/use a proper client.
+-- TODO: Create/use a proper client.
 putKey ::
   (MonadIO m, MonadCatch m) =>
   String ->
