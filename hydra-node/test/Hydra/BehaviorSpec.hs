@@ -45,6 +45,7 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.Tx (HeadParameters (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -59,7 +60,6 @@ import Test.Hydra.Tx.Fixture (
   bobSk,
   deriveOnChainId,
   testHeadId,
-  testHeadParameters,
   testHeadSeed,
  )
 import Test.Util (shouldBe, shouldNotBe, shouldRunInSim, traceInIOSim)
@@ -848,8 +848,12 @@ spec = parallel $ do
                 waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
-
-      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ Outcome.HeadIsInitializing{headId = testHeadId, parties = fromList [alice], parameters = testHeadParameters, headSeed = testHeadSeed, chainState = SimpleChainState 1})]
+      let parameters =
+            HeadParameters
+              { contestationPeriod = testContestationPeriod
+              , parties = [alice]
+              }
+      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ Outcome.HeadInitialized{headId = testHeadId, parties = fromList [alice], parameters, headSeed = testHeadSeed, chainState = SimpleChainState 1})]
       logs `shouldContain` [EndEffect alice 2 0]
 
   describe "rolling back & forward does not make the node crash" $ do

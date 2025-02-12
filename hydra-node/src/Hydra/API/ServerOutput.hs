@@ -311,27 +311,27 @@ projectSnapshotUtxo snapshotUtxo = \case
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
 
-mapStateChangedToServerOutput :: StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
+mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
 mapStateChangedToServerOutput = \case
   StateChanged.PeerConnected{peer} -> Just $ PeerConnected{peer}
   StateChanged.PeerDisconnected{peer} -> Just $ PeerDisconnected{peer}
   StateChanged.PeerHandshakeFailure{remoteHost, ourVersion, theirVersions} ->
     Just $
       PeerHandshakeFailure{remoteHost, ourVersion, theirVersions}
-  StateChanged.HeadIsInitializing{headId, parties} -> Just $ HeadIsInitializing{headId, parties}
-  StateChanged.Committed{headId, party, utxo} -> Just $ Committed{headId, party, utxo}
-  StateChanged.HeadIsOpen{headId, utxo} -> Just $ HeadIsOpen{headId, utxo}
-  StateChanged.HeadIsClosed{headId, snapshotNumber, contestationDeadline} ->
+  StateChanged.HeadInitialized{headId, parties} -> Just $ HeadIsInitializing{headId, parties}
+  StateChanged.CommittedUTxO{headId, party, committedUTxO} -> Just $ Committed{headId, party, utxo = committedUTxO}
+  StateChanged.HeadOpened{headId, utxo} -> Just $ HeadIsOpen{headId, utxo}
+  StateChanged.HeadClosed{headId, snapshotNumber, contestationDeadline} ->
     Just $
       HeadIsClosed{headId, snapshotNumber, contestationDeadline}
-  StateChanged.HeadIsContested{headId, snapshotNumber, contestationDeadline} ->
+  StateChanged.HeadContested{headId, snapshotNumber, contestationDeadline} ->
     Just $
       HeadIsContested{headId, snapshotNumber, contestationDeadline}
-  StateChanged.ReadyToFanout{headId} -> Just $ ReadyToFanout{headId}
-  StateChanged.HeadIsAborted{headId, utxo} -> Just $ HeadIsAborted{headId, utxo}
-  StateChanged.HeadIsFinalized{headId, utxo} -> Just $ HeadIsFinalized{headId, utxo}
+  StateChanged.HeadIsReadyToFanout{headId} -> Just $ ReadyToFanout{headId}
+  StateChanged.HeadAborted{headId, utxo} -> Just $ HeadIsAborted{headId, utxo}
+  StateChanged.HeadFannedOut{headId, utxo} -> Just $ HeadIsFinalized{headId, utxo}
   StateChanged.CommandFailed{clientInput, state} -> Just $ CommandFailed{clientInput, state}
-  StateChanged.TxValid{headId, transactionId, transaction} -> Just $ TxValid{headId, transactionId, transaction}
+  StateChanged.TransactionAppliedToLocalUTxO{headId, tx} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
   StateChanged.TxInvalid{headId, utxo, transaction, validationError} -> Just $ TxInvalid{headId, utxo, transaction, validationError}
   StateChanged.SnapshotConfirmed{headId, snapshot, signatures} -> Just $ SnapshotConfirmed{headId, snapshot, signatures}
   StateChanged.GetUTxOResponse{headId, utxo} -> Just $ GetUTxOResponse{headId, utxo}

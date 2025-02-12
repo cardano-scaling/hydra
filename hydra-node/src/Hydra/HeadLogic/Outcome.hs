@@ -69,42 +69,41 @@ instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary
 
 -- | Head state changed event. These events represent all the internal state
--- changes that get persisted and processed in an event sourcing manner and
--- also displayed as outcomes at the API level.
+-- changes, get persisted and processed in an event sourcing manner.
 data StateChanged tx
-  = PeerConnected {peer :: NodeId}
-  | PeerDisconnected {peer :: NodeId}
-  | PeerHandshakeFailure
-      { remoteHost :: Host
-      , ourVersion :: Natural
-      , theirVersions :: [Natural]
-      }
-  | HeadIsInitializing
-      { headId :: HeadId
-      , parties :: [Party]
-      , parameters :: HeadParameters
+  = HeadInitialized
+      { parameters :: HeadParameters
       , chainState :: ChainStateType tx
+      , headId :: HeadId
+      , parties :: [Party]
       , headSeed :: HeadSeed
       }
-  | Committed
+  | CommittedUTxO
       { headId :: HeadId
       , party :: Party
-      , utxo :: UTxOType tx
+      , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
       }
-  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
-  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
+  | HeadAborted {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
+  | HeadOpened {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | TransactionReceived {tx :: tx}
-  | TxValid
+  | TransactionAppliedToLocalUTxO
       { headId :: HeadId
-      , transaction :: tx
-      , transactionId :: TxIdType tx
+      , tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
-  | -- | Given transaction was not not applicable to the given UTxO in time and
-    -- has been dropped.
-    TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx, deadline :: UTCTime}
+  | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
+  | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime, pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx}
+  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
+  | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
+  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
+  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
+  | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx, newVersion :: SnapshotVersion}
+  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.
@@ -114,81 +113,77 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
-  | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
-  | CommitFinalized {headId :: HeadId, newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
-  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
-  | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
-  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
-  | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx, newVersion :: SnapshotVersion}
-  | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | HeadIsClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | ReadyToFanout {headId :: HeadId}
-  | HeadIsFinalized {headId :: HeadId, chainState :: ChainStateType tx, utxo :: UTxOType tx}
-  | -- | A friendly welcome message which tells a client something about the
-    -- node. Currently used for knowing what signing key the server uses (it
-    -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
-    -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
-    Greetings
-      { me :: Party
-      , headStatus :: HeadStatus
-      , hydraHeadId :: Maybe HeadId
-      , snapshotUtxo :: Maybe (UTxOType tx)
-      , hydraNodeVersion :: String
+  | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadIsReadyToFanout {headId :: HeadId}
+  | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
+  | -- More constructors to match the mapping needed for the 'ServerOutput' type.
+    ChainRolledBack {chainState :: ChainStateType tx}
+  | TickObserved {chainSlot :: ChainSlot}
+  | PeerHandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: Natural
+      , theirVersions :: [Natural]
       }
-  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
-  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
       , parties :: [Party]
       , participants :: [OnChainId]
       }
-  | InvalidInput {reason :: String, input :: Text}
-  | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | PeerConnected {peer :: NodeId}
+  | PeerDisconnected {peer :: NodeId}
   | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
+  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
+  | InvalidInput {reason :: String, input :: Text}
+  | Greetings
+      { me :: Party
+      , headStatus :: HeadStatus
+      , hydraHeadId :: Maybe HeadId
+      , snapshotUtxo :: Maybe (UTxOType tx)
+      , hydraNodeVersion :: String
+      }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, IsChainState tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving stock instance (IsTx tx, IsChainState tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving anyclass instance (IsTx tx, IsChainState tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving anyclass instance (IsTx tx, IsChainState tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
-
-genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
-genStateChanged env =
-  oneof
-    [ HeadIsInitializing <$> arbitrary <*> arbitrary <*> pure (mkHeadParameters env) <*> arbitrary <*> arbitrary
-    , Committed <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
-    , HeadIsAborted <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadIsOpen <$> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
-    , TxValid <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadIsClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , HeadIsContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , ReadyToFanout <$> arbitrary
-    , HeadIsFinalized <$> arbitrary <*> arbitrary <*> arbitrary
-    , ChainRolledBack <$> arbitrary
-    , TickObserved <$> arbitrary
-    ]
- where
-  Environment{party} = env
+deriving stock instance (IsChainState tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving stock instance (IsChainState tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving anyclass instance (IsChainState tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving anyclass instance (IsChainState tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
+
+genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
+genStateChanged env =
+  oneof
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadIsReadyToFanout <$> arbitrary
+    , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+    , ChainRolledBack <$> arbitrary
+    , TickObserved <$> arbitrary
+    ]
+ where
+  Environment{party} = env
 
 data DecommitInvalidReason tx
   = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}

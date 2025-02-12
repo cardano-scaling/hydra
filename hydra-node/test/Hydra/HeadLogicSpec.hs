@@ -599,21 +599,21 @@ spec =
                   , snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline, chainState = SimpleChainState 0}
+            clientEffect = ClientEffect HeadClosed{headId = testHeadId, snapshotNumber, contestationDeadline, chainState = SimpleChainState 0}
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do
             outcome1 `hasEffect` clientEffect
             outcome1
               `hasNoEffectSatisfying` \case
-                ClientEffect (ReadyToFanout _) -> True
+                ClientEffect (HeadIsReadyToFanout _) -> True
                 _ -> False
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
               someChainSlot = arbitrary `generateWith` 42
               stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
           outcome2 <- step stepTimePastDeadline
-          lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
+          lift $ outcome2 `hasEffect` ClientEffect (HeadIsReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
         let snapshotVersion = 0

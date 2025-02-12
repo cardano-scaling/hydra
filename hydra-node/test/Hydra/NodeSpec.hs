@@ -15,7 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (No
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
-import Hydra.HeadLogic.Outcome qualified as Outcome
+import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -69,7 +69,7 @@ spec = parallel $ do
   describe "hydrate" $ do
     around setupHydrate $ do
       it "loads events from source into all sinks" $ \testHydrate ->
-        forAllShrink (listOf $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (mockSink1, getMockSinkEvents1) <- createRecordingSink
             (mockSink2, getMockSinkEvents2) <- createRecordingSink
@@ -80,7 +80,7 @@ spec = parallel $ do
             getMockSinkEvents2 `shouldReturn` someEvents
 
       it "event ids are consistent" $ \testHydrate ->
-        forAllShrink (listOf $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             (sink, getSinkEvents) <- createRecordingSink
 
@@ -90,7 +90,7 @@ spec = parallel $ do
             getEventId <$> seenEvents `shouldBe` getEventId <$> someEvents
 
       it "fails if one sink fails" $ \testHydrate ->
-        forAllShrink (listOf1 $ Outcome.genStateChanged testEnvironment >>= genStateEvent) shrink $
+        forAllShrink (listOf1 $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
             let genSinks = elements [mockSink, failingSink]
                 failingSink = EventSink{putEvent = \_ -> failure "failing sink called"}
@@ -106,7 +106,7 @@ spec = parallel $ do
             let genEvent = do
                   StateEvent
                     <$> arbitrary
-                    <*> (Outcome.HeadIsInitializing <$> arbitrary <*> arbitrary <*> pure (mkHeadParameters env) <*> arbitrary <*> arbitrary)
+                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
                 `shouldThrow` \(_ :: ParameterMismatch) -> True
@@ -246,7 +246,7 @@ spec = parallel $ do
 
         outputs <- getServerOutputs
         let isPostTxOnChainFailed = \case
-              PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+              Hydra.API.ServerOutput.PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
               _ -> False
         any isPostTxOnChainFailed outputs `shouldBe` True
 

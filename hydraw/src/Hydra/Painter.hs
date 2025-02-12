@@ -7,9 +7,9 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Exception (IOException)
 import Data.Aeson qualified as Aeson
 import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
+import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.HeadLogic.Outcome (StateChanged (GetUTxOResponse))
 import Hydra.Network (Host (..))
 import Network.WebSockets (Connection, runClient, sendTextData)
 import Network.WebSockets.Connection (receive, receiveData)
@@ -26,7 +26,7 @@ paintPixel networkId signingKeyPath cnx pixel = do
   sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
   msg <- receiveData cnx
   putStrLn $ "Received from hydra-node: " <> show msg
-  case Aeson.eitherDecode @(StateChanged Tx) msg of
+  case Aeson.eitherDecode @(ServerOutput Tx) msg of
     Right (GetUTxOResponse _ utxo) ->
       case UTxO.find (\TxOut{txOutAddress} -> txOutAddress == myAddress) utxo of
         Nothing -> fail $ "No UTxO owned by " <> show myAddress
