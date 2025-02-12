@@ -66,7 +66,7 @@ let
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [
     pkgs.systemd
-    pkgs.etcd # TODO: Run-time dependency of hydra-node, better place?
+    pkgs.etcd # Run-time dependency of hydra-node
   ];
 
   haskellNixShell = hsPkgs.shellFor {
