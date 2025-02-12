@@ -126,12 +126,13 @@ import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), WithIPList (W
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosNetwork ::
-  forall msg.
-  (ToCBOR msg, FromCBOR msg) =>
-  Tracer IO (WithHost (TraceOuroborosNetwork msg)) ->
+  forall inbound outbound.
+  (ToCBOR outbound, FromCBOR outbound) =>
+  (ToCBOR inbound, FromCBOR inbound) =>
+  Tracer IO (WithHost (TraceOuroborosNetwork outbound)) ->
   HydraNetworkConfig ->
   (HydraHandshakeRefused -> IO ()) ->
-  NetworkComponent IO msg msg ()
+  NetworkComponent IO inbound outbound ()
 withOuroborosNetwork
   tracer
   HydraNetworkConfig{protocolVersion, localHost, remoteHosts}
@@ -303,7 +304,7 @@ withOuroborosNetwork
             }
 
     hydraClient ::
-      TChan msg ->
+      TChan outbound ->
       OuroborosApplicationWithMinimalCtx 'InitiatorMode addr LByteString IO () Void
     hydraClient chan =
       OuroborosApplication
@@ -318,10 +319,7 @@ withOuroborosNetwork
       initiator =
         mkMiniProtocolCbFromPeer
           ( const
-              ( contramap (WithHost localHost . TraceSendRecv) tracer
-              , codecFireForget
-              , fireForgetClientPeer $ client chan
-              )
+              (nullTracer, codecFireForget, fireForgetClientPeer $ client chan)
           )
 
     hydraServer ::
@@ -336,14 +334,7 @@ withOuroborosNetwork
         ]
      where
       responder :: MiniProtocolCb ctx LByteString IO ()
-      responder =
-        mkMiniProtocolCbFromPeer
-          ( const
-              ( contramap (WithHost localHost . TraceSendRecv) tracer
-              , codecFireForget
-              , fireForgetServerPeer server
-              )
-          )
+      responder = mkMiniProtocolCbFromPeer (const (nullTracer, codecFireForget, fireForgetServerPeer server))
 
     -- TODO: provide sensible limits
     -- https://github.com/input-output-hk/ouroboros-network/issues/575
@@ -352,14 +343,14 @@ withOuroborosNetwork
       MiniProtocolLimits{maximumIngressQueue = maxBound}
 
     client ::
-      TChan msg ->
-      FireForgetClient msg IO ()
+      TChan outbound ->
+      FireForgetClient outbound IO ()
     client chan =
       Idle $ do
         atomically (readTChan chan) <&> \msg ->
           SendMsg msg (pure $ client chan)
 
-    server :: FireForgetServer msg IO ()
+    server :: FireForgetServer inbound IO ()
     server =
       FireForgetServer
         { recvMsg = \msg -> deliver msg $> server
