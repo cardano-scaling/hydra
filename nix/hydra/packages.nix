@@ -127,17 +127,23 @@ rec {
       pkgs.aiken
     ];
   };
+  hydra-tx-tests = pkgs.mkShellNoCC {
+    name = "hydra-tx-tests";
+    buildInputs = [
+      nativePkgs.hydra-tx.components.tests.tests
+    ];
+  };
+  hydra-chain-observer-tests = pkgs.mkShellNoCC {
+    name = "hydra-chain-observer-tests";
+    buildInputs = [
+      nativePkgs.hydra-chain-observer.components.tests.tests
+    ];
+  };
   hydra-node-tests = pkgs.mkShellNoCC {
     name = "hydra-node-tests";
     buildInputs = [
       nativePkgs.hydra-node.components.tests.tests
       pkgs.check-jsonschema
-    ];
-  };
-  hydra-tx-tests = pkgs.mkShellNoCC {
-    name = "hydratx-tests";
-    buildInputs = [
-      nativePkgs.hydra-tx.components.tests.tests
     ];
   };
   hydra-cluster-tests = pkgs.mkShellNoCC {
