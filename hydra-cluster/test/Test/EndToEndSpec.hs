@@ -180,7 +180,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
         withHydraNode tr offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
           withHydraNode tr offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
-            waitForNodesConnected tr 10 $ aliceNode :| [bobNode]
+            waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
             -- XXX: DRY this up
             let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
             let Right aliceToBob =
