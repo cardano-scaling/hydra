@@ -1,10 +1,10 @@
 {
     "samples": [
         {
-            "headId": "a9b19296ca88760da2ea2a658552a9f8",
+            "headId": "e2a4b9f1ef12cb934a87a8855da8f54d",
             "tag": "CommitFinalized",
-            "theDeposit": "c1bee990921ee5ebd45b4c96a41269a9b7c69dbb8b7491c899008acb33312b27"
+            "theDeposit": "1d8b196ddd7a01fd1dad526cd0e4e9ddbb99be5231e6b064588615f226a4dc78"
         }
     ],
-    "seed": 1547353027
+    "seed": 1825576190
 }

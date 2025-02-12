@@ -1,17 +1,34 @@
 {
     "samples": [
         {
-            "ourVersion": 4,
+            "ourVersion": 7,
             "remoteHost": {
-                "hostname": "0.0.41.168",
-                "port": 29935
+                "hostname": "0.0.120.66",
+                "port": 16769
             },
             "tag": "PeerHandshakeFailure",
             "theirVersions": [
+                28,
+                29,
+                15,
+                5,
+                2,
+                30,
+                18,
+                25,
+                16,
+                8,
+                8,
+                25,
                 11,
-                17
+                13,
+                4,
+                26,
+                19,
+                25,
+                6
             ]
         }
     ],
-    "seed": 643541746
+    "seed": -1697808025
 }
