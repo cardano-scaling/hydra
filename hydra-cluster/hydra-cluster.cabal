@@ -110,7 +110,6 @@ library
     , process
     , QuickCheck
     , req
-    , temporary
     , text
     , time
     , typed-process
