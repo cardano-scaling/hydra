@@ -19,7 +19,6 @@ import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
-  Effect (ClientEffect),
   Input (NetworkInput),
  )
 import Hydra.Logging.Messages (HydraLog (..))
@@ -96,16 +95,16 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
-    t <- getMonotonicTime
-    forM_ (confirmed snapshot) $ \tx -> do
-      txsStartTime <- readTVarIO transactionsMap
-      case Map.lookup (txId tx) txsStartTime of
-        Just start -> do
-          atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
-          histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
-        Nothing -> pure ()
-    tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
+  -- (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
+  --   t <- getMonotonicTime
+  --   forM_ (confirmed snapshot) $ \tx -> do
+  --     txsStartTime <- readTVarIO transactionsMap
+  --     case Map.lookup (txId tx) txsStartTime of
+  --       Just start -> do
+  --         atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
+  --         histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
+  --       Nothing -> pure ()
+  --   tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
   (Node (EndInput _ _)) ->
     tick "hydra_head_inputs"
   _ -> pure ()
@@ -115,12 +114,12 @@ monitor transactionsMap metricsMap = \case
       (Just (CounterMetric c)) -> liftIO $ inc c
       _ -> pure ()
 
-  tickN metricName num =
-    case Map.lookup metricName metricsMap of
-      (Just (CounterMetric c)) -> liftIO $ add num c
-      _ -> pure ()
-
-  histo metricName time =
-    case Map.lookup metricName metricsMap of
-      (Just (HistogramMetric h)) -> liftIO $ observe (fromRational $ toRational $ time * 1000) h
-      _ -> pure ()
+  -- tickN metricName num =
+  --   case Map.lookup metricName metricsMap of
+  --     (Just (CounterMetric c)) -> liftIO $ add num c
+  --     _ -> pure ()
+  --
+  -- histo metricName time =
+  --   case Map.lookup metricName metricsMap of
+  --     (Just (HistogramMetric h)) -> liftIO $ observe (fromRational $ toRational $ time * 1000) h
+  --     _ -> pure ()

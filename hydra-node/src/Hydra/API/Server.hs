@@ -82,7 +82,6 @@ withAPIServer ::
   APIServerConfig ->
   Environment ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
@@ -149,8 +148,6 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{source, append} = persistence
-
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
       (Just cert, Just key) ->
@@ -165,13 +162,11 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
 
   appendToHistory history output = do
     time <- getCurrentTime
-    timedOutput <- atomically $ do
+    atomically $ do
       seq <- nextSequenceNumber history
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
-    append timedOutput
-    pure timedOutput
 
   onIOException ioException =
     throwIO
