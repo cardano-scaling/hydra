@@ -340,3 +340,4 @@ projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
+

@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
+import Hydra.API.ServerOutput (DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
@@ -58,15 +58,17 @@ data StateChanged tx
       , headSeed :: HeadSeed
       }
   | CommittedUTxO
-      { party :: Party
+      { headId :: HeadId
+      , party :: Party
       , committedUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
-  | HeadOpened {chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
+  | HeadOpened {headId :: HeadId, chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionReceived {tx :: tx}
   | TransactionAppliedToLocalUTxO
-      { tx :: tx
+      { headId :: HeadId
+      , tx :: tx
       , newLocalUTxO :: UTxOType tx
       }
   | CommitRecorded {pendingDeposits :: Map (TxIdType tx) (UTxOType tx), newLocalUTxO :: UTxOType tx}
@@ -82,7 +84,7 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       }
-  | CommitFinalized {newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
@@ -108,11 +110,11 @@ genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (St
 genStateChanged env =
   oneof
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO party <$> arbitrary <*> arbitrary
+    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

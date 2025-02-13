@@ -82,13 +82,12 @@ withAPIServer ::
   APIServerConfig ->
   Environment ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   ServerComponent tx IO ()
-withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action =
+withAPIServer config env party tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Intialize our read models from stored events
@@ -98,17 +97,18 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    loadedHistory <-
-      runConduitRes $
-        source
-          -- .| mapC output
-          .| iterM (lift . atomically . update headStatusP . output)
-          .| iterM (lift . atomically . update snapshotUtxoP . output)
-          .| iterM (lift . atomically . update commitInfoP . output)
-          .| iterM (lift . atomically . update headIdP . output)
-          .| iterM (lift . atomically . update pendingDepositsP . output)
-          -- FIXME: don't load whole history into memory
-          .| sinkList
+    -- let source = undefined
+    -- loadedHistory <-
+    --   runConduitRes $
+    --     source
+    --       -- .| mapC output
+    --       .| iterM (lift . atomically . update headStatusP . output)
+    --       .| iterM (lift . atomically . update snapshotUtxoP . output)
+    --       .| iterM (lift . atomically . update commitInfoP . output)
+    --       .| iterM (lift . atomically . update headIdP . output)
+    --       .| iterM (lift . atomically . update pendingDepositsP . output)
+    --       -- FIXME: don't load whole history into memory
+    --       .| sinkList
 
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
@@ -150,8 +150,6 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{source, append} = persistence
-
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
       (Just cert, Just key) ->
@@ -166,13 +164,11 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
 
   appendToHistory history output = do
     time <- getCurrentTime
-    timedOutput <- atomically $ do
+    atomically $ do
       seq <- nextSequenceNumber history
       let timedOutput = TimedServerOutput{output, time, seq}
       modifyTVar' history (timedOutput :)
       pure timedOutput
-    append timedOutput
-    pure timedOutput
 
   onIOException ioException =
     throwIO
