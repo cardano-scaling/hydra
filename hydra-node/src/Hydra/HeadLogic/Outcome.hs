@@ -39,8 +39,8 @@ import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx
-  = -- | Effect to be handled by the "Hydra.API", results in sending this 'StateChanged'.
-    ClientEffect {serverOutput :: StateChanged tx}
+  = -- | Effect to be handled by the "Hydra.API", results in converting 'StateChanged' to 'ServerOutput' and sending it to the client.
+    ClientEffect {stateChanged :: StateChanged tx}
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.

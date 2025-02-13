@@ -206,7 +206,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   initialState = Idle IdleState{chainState = initialChainState}
 
   recoverHeadStateC =
-    mapC stateChanged
+    mapC Hydra.Events.stateChanged
       .| getZipSink
         ( (,)
             <$> ZipSink (foldlC aggregate initialState)
