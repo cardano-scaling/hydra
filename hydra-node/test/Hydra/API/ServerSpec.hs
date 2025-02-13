@@ -35,6 +35,7 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
+import Hydra.Events (EventSource (..), StateEvent)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -58,7 +59,7 @@ spec =
   parallel $ do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withTestAPIServer p alice mockPersistence tracer
+        let withServerOnPort p = withTestAPIServer p alice (mockSource []) tracer
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
@@ -71,7 +72,7 @@ spec =
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
-            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
@@ -79,7 +80,7 @@ spec =
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreePort $ \port ->
-            withTestAPIServer port alice mockPersistence tracer $ \_ -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 version <- waitMatch 5 conn $ \v -> do
                   guard $ matchGreetings v
@@ -90,7 +91,7 @@ spec =
       queue <- atomically newTQueue
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port -> do
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
             semaphore <- newTVarIO 0
             withAsync
               ( concurrently_
@@ -114,16 +115,16 @@ spec =
           let persistentFile = tmpDir <> "/history"
           arbitraryMsg <- generate arbitrary
 
-          persistence <- createPersistenceIncremental persistentFile
+          -- persistence <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
               sendOutput arbitraryMsg
 
           queue1 <- atomically newTQueue
           queue2 <- atomically newTQueue
-          persistence' <- createPersistenceIncremental persistentFile
+          -- persistence' <- createPersistenceIncremental persistentFile
           withFreePort $ \port -> do
-            withTestAPIServer port alice persistence' tracer $ \Server{sendOutput} -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
               semaphore <- newTVarIO 0
               withAsync
                 ( concurrently_
@@ -159,7 +160,7 @@ spec =
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- failAfter 10 $ replicateM (length outputs + 1) (receiveData conn)
@@ -179,7 +180,7 @@ spec =
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
                 mapM_ sendFromApiServer history
                 -- start client that doesn't want to see the history
@@ -203,7 +204,7 @@ spec =
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
-          withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
             let snapshotConfirmedMessage =
                   SnapshotConfirmed
@@ -224,7 +225,7 @@ spec =
         run $
           showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
-              withTestAPIServer port alice mockPersistence tracer $ \Server{sendOutput} -> do
+              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
                 mapM_ sendOutput outputs
                 withClient port "/" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
@@ -239,17 +240,17 @@ spec =
         withFreePort $ \port -> do
           -- Prime some relevant server outputs already into persistence to
           -- check whether the latest headStatus is loaded correctly.
-          existingServerOutputs <-
-            generate $
-              mapM
-                (>>= genTimedServerOutput)
-                [ HeadIsInitializing <$> arbitrary <*> arbitrary
-                , HeadIsAborted <$> arbitrary <*> arbitrary
-                , HeadIsFinalized <$> arbitrary <*> arbitrary
-                ]
-          let persistence = mockPersistence' existingServerOutputs
+          -- existingServerOutputs <-
+          --   generate $
+          --     mapM
+          --       (>>= genTimedServerOutput)
+          --       [ HeadIsInitializing <$> arbitrary <*> arbitrary
+          --       , HeadIsAborted <$> arbitrary <*> arbitrary
+          --       , HeadIsFinalized <$> arbitrary <*> arbitrary
+          --       ]
+          -- let persistence = mockPersistence' existingServerOutputs
 
-          withTestAPIServer port alice persistence tracer $ \Server{sendOutput} -> do
+          withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
             let generateSnapshot =
                   generate $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
@@ -287,12 +288,12 @@ spec =
             let generateSnapshot =
                   generate $
                     SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-            apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            -- apiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
             snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
               generateSnapshot
             let expectedUtxos = toJSON utxo
 
-            withTestAPIServer port alice apiPersistence tracer $ \Server{sendOutput} -> do
+            withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
               headIsInitializing <- generate $ HeadIsInitializing <$> arbitrary <*> arbitrary
 
               mapM_ sendOutput [headIsInitializing, snapShotConfirmedMsg]
@@ -300,8 +301,8 @@ spec =
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
-            newApiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
-            withTestAPIServer port alice newApiPersistence tracer $ \_ -> do
+            -- newApiPersistence <- createPersistenceIncremental $ persistenceDir <> "/server-output"
+            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
               waitForValue port $ \v -> do
                 guard $ v ^? key "headStatus" == Just (Aeson.String "Initializing")
                 guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
@@ -322,7 +323,7 @@ spec =
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
                     }
-            withAPIServer @SimpleTx config testEnvironment alice tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -332,7 +333,7 @@ spec =
 sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
-    withTestAPIServer port alice mockPersistence tracer $ \_server -> do
+    withTestAPIServer port alice (mockSource []) tracer $ \_server -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
@@ -391,12 +392,12 @@ noop = const $ pure ()
 withTestAPIServer ::
   PortNumber ->
   Party ->
-  PersistenceIncremental (TimedServerOutput SimpleTx) IO ->
+  EventSource (StateEvent SimpleTx) IO ->
   Tracer IO APIServerLog ->
   (Server SimpleTx IO -> IO ()) ->
   IO ()
-withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx config testEnvironment actor  tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+withTestAPIServer port actor eventSource tracer action = do
+  withAPIServer @SimpleTx config testEnvironment actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
 
@@ -426,6 +427,12 @@ mockPersistence' xs =
   PersistenceIncremental
     { append = \_ -> pure ()
     , source = yieldMany xs
+    }
+
+mockSource :: Monad m => [a] -> EventSource a m
+mockSource events =
+  EventSource
+    { sourceEvents = yieldMany events
     }
 
 waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
