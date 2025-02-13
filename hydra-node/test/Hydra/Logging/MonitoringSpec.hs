@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
 import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed))
-import Hydra.HeadLogic (Effect (ClientEffect))
+
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
@@ -28,7 +28,7 @@ spec =
         traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx tx1)))
         traceWith tracer (Node $ BeginInput alice 1 (receiveMessage (ReqTx tx2)))
         threadDelay 0.1
-        traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 1 [tx2, tx1] (utxoRefs [1])) mempty)))
+        -- traceWith tracer (Node $ BeginEffect alice 0 0 (ClientEffect (SnapshotConfirmed testHeadId (testSnapshot 1 1 [tx2, tx1] (utxoRefs [1])) mempty)))
 
         metrics <-
           Text.lines

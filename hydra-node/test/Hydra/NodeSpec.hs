@@ -321,7 +321,7 @@ primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
 notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 notConnect =
-  connect mockChain mockNetwork mockServer
+  connect mockChain mockNetwork
 
 mockServer :: Monad m => Server SimpleTx m
 mockServer =
@@ -444,7 +444,7 @@ recordNetwork node = do
 recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
-  pure (node{server = Server{sendOutput = record}}, query)
+  pure (node, query) -- {server = Server{sendOutput = record}}
 
 messageRecorder :: IO (msg -> IO (), IO [msg])
 messageRecorder = do

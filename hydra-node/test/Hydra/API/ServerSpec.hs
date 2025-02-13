@@ -322,7 +322,7 @@ spec =
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
                     }
-            withAPIServer @SimpleTx config testEnvironment alice mockPersistence tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment alice tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -396,7 +396,7 @@ withTestAPIServer ::
   (Server SimpleTx IO -> IO ()) ->
   IO ()
 withTestAPIServer port actor persistence tracer action = do
-  withAPIServer @SimpleTx config testEnvironment actor persistence tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+  withAPIServer @SimpleTx config testEnvironment actor  tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing}
 

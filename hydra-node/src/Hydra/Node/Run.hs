@@ -20,6 +20,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Events.Api (addApiEventSink, wireApiEvents)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
@@ -75,25 +76,24 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        -- API
-        let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
-        withAPIServer apiServerConfig env party (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
-          -- Hydrate with event source and sinks
-          (eventSource, filePersistenceSink) <-
-            eventPairFromPersistenceIncremental
-              =<< createPersistenceIncremental (persistenceDir <> "/state")
-          -- NOTE: Add any custom sink setup code here
-          -- customSink <- createCustomSink
-          let eventSinks =
-                [ filePersistenceSink
-                , apiServerSink server
-                -- NOTE: Add any custom sinks here
-                -- , customSink
-                ]
-          wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
-          -- Chain
-          withChain <- prepareChainComponent tracer env chainConfig
-          withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+        -- Hydrate with event source and sinks
+        (eventSource, filePersistenceSink) <-
+          eventPairFromPersistenceIncremental
+            =<< createPersistenceIncremental (persistenceDir <> "/state")
+        -- NOTE: Add any custom sink setup code here
+        -- customSink <- createCustomSink
+        let eventSinks =
+              [ filePersistenceSink
+              -- NOTE: Add any custom sinks here
+              -- , customSink
+              ]
+        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventSource eventSinks
+        -- Chain
+        withChain <- prepareChainComponent tracer env chainConfig
+        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+          -- API
+          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
+          withAPIServer apiServerConfig env party (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
             let networkConfiguration =
                   NetworkConfiguration
@@ -112,8 +112,11 @@ run opts = do
               $ \network -> do
                 -- Main loop
                 traceWith tracer EnteringMainloop
+                apiServerSink <-
+                   wireApiEvents server
+                       =<< createPersistenceIncremental (persistenceDir <> "/state")
                 connect chain network server wetHydraNode
-                  >>= runHydraNode
+                  >>= runHydraNode . addApiEventSink apiServerSink
  where
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams

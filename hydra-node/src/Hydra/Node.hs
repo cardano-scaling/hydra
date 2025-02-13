@@ -241,11 +241,10 @@ connect ::
   Monad m =>
   Chain tx m ->
   Network m (Message tx) ->
-  Server tx m ->
   DraftHydraNode tx m ->
   m (HydraNode tx m)
-connect chain network server node =
-  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+connect chain network node =
+  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network}
  where
   DraftHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
 
@@ -353,7 +352,6 @@ processEffects node tracer inputId effects = do
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
-      ClientEffect i -> sendOutput server i
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx
@@ -364,7 +362,6 @@ processEffects node tracer inputId effects = do
   HydraNode
     { hn
     , oc = Chain{postTx}
-    , server
     , inputQueue = InputQueue{enqueue}
     , env = Environment{party}
     } = node

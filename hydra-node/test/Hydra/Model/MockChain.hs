@@ -183,8 +183,7 @@ mockChainAndNetwork tr seedKeys commits = do
             getTimeHandle
             seedInput
             localChainState
-        mockServer = Server{sendOutput = const $ pure ()}
-    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
+    node <- connect mockChain (createMockNetwork draftNode nodes) draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     let mockNode =
           MockHydraNode

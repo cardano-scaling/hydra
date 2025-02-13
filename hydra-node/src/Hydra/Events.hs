@@ -41,7 +41,7 @@ newtype EventSink e m = EventSink
 
 -- | Put a list of events to a list of event sinks in a round-robin fashion.
 putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
-putEventsToSinks sinks events =
+putEventsToSinks sinks events = traceShow "==== putEventsToSinks ====" $
   forM_ events $ \event ->
     forM_ sinks $ \sink ->
       putEvent sink event
