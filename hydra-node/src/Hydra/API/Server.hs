@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.Server where
@@ -5,12 +6,13 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (runConduitRes, sinkList, (.|))
+import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (iterM)
+import GHC.Num (naturalFromWord)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -18,7 +20,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   CommitInfo (CannotCommit),
   HeadStatus (Idle),
-  ServerOutput,
+  ServerOutput (..),
   TimedServerOutput (..),
   projectCommitInfo,
   projectHeadStatus,
@@ -34,10 +36,12 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Events (EventSource (..), StateEvent (..))
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..))
-import Hydra.Tx (Party)
+import Hydra.Tx (IsTx, Party, txId)
 import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -56,6 +60,7 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -82,12 +87,13 @@ withAPIServer ::
   APIServerConfig ->
   Environment ->
   Party ->
+  EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   ServerComponent tx IO ()
-withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action = do
+withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action = do
   responseChannel <- newBroadcastTChanIO
   -- Intialize our read models from stored events
   -- NOTE: we do not keep the stored events around in memory
@@ -98,18 +104,18 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
   pendingDepositsP <- mkProjection [] projectPendingDeposits
   loadedHistory <-
     runConduitRes $
-      source
-        -- .| mapC output
-        .| iterM (lift . atomically . update headStatusP . output)
-        .| iterM (lift . atomically . update snapshotUtxoP . output)
-        .| iterM (lift . atomically . update commitInfoP . output)
-        .| iterM (lift . atomically . update headIdP . output)
-        .| iterM (lift . atomically . update pendingDepositsP . output)
+      sourceEvents
+        .| iterM (maybe (pure ()) (lift . atomically . update headStatusP . output) . mkTimedServerOutputFromStateEvent)
+        .| iterM (maybe (pure ()) (lift . atomically . update snapshotUtxoP . output) . mkTimedServerOutputFromStateEvent)
+        .| iterM (maybe (pure ()) (lift . atomically . update commitInfoP . output) . mkTimedServerOutputFromStateEvent)
+        .| iterM (maybe (pure ()) (lift . atomically . update headIdP . output) . mkTimedServerOutputFromStateEvent)
+        .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output ) . mkTimedServerOutputFromStateEvent)
         -- FIXME: don't load whole history into memory
+        .| mapWhileC mkTimedServerOutputFromStateEvent
         .| sinkList
 
-  -- NOTE: we need to reverse the list because we store history in a reversed
-  -- list in memory but in order on disk
+   -- NOTE: we need to reverse the list because we store history in a reversed
+   -- list in memory but in order on disk
   history <- newTVarIO $ reverse loadedHistory
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
@@ -134,19 +140,13 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
         waitForServerRunning
         action $
           Server
-            { sendOutput = \output -> do
-                timedOutput <- appendToHistory history output
-                atomically $ do
-                  update headStatusP output
-                  update commitInfoP output
-                  update snapshotUtxoP output
-                  update headIdP output
-                  update pendingDepositsP output
-                  writeTChan responseChannel timedOutput
+            { sendOutput = \output -> pure ()
             }
     )
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
+
+  EventSource{sourceEvents} = eventSource
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
@@ -196,3 +196,60 @@ setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
+
+mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent event =
+  case mapStateChangedToServerOutput stateChanged of
+    Nothing -> Nothing
+    Just output ->
+      let time = unsafePerformIO getCurrentTime
+       in Just $ TimedServerOutput{output, time, seq = fromIntegral eventId}
+ where
+  StateEvent{eventId, stateChanged} = event
+
+mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
+mapStateChangedToServerOutput = \case
+  -- StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
+  -- StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
+  -- StateChanged.PeerHandshakeFailure{..} -> Just $ PeerHandshakeFailure{..}
+  StateChanged.HeadInitialized{..} -> Just $ HeadIsInitializing{..}
+  StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+  StateChanged.HeadOpened{headId, initialUTxO} -> Just $ HeadIsOpen{headId, utxo = initialUTxO}
+  StateChanged.HeadClosed{..} ->
+    Just $
+      HeadIsClosed{..}
+  StateChanged.HeadContested{..} ->
+    Just $
+      HeadIsContested{..}
+  -- StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
+  StateChanged.HeadAborted{..} -> Just $ HeadIsAborted{..}
+  StateChanged.HeadFannedOut{..} -> Just $ HeadIsFinalized{..}
+  -- StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
+  StateChanged.TransactionAppliedToLocalUTxO{..} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
+  -- StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+  StateChanged.SnapshotConfirmed{..} -> Just $ SnapshotConfirmed{..}
+  -- StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
+  -- StateChanged.InvalidInput{..} -> Just $ InvalidInput{..}
+  -- StateChanged.Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion} -> Just $ Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion}
+  -- StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
+  -- StateChanged.IgnoredHeadInitializing{..} -> Just $ IgnoredHeadInitializing{..}
+  -- StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
+  -- StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}
+  -- StateChanged.DecommitApproved{..} -> Just $ DecommitApproved{..}
+  StateChanged.DecommitFinalized{..} -> Just $ DecommitFinalized{..}
+  StateChanged.CommitRecorded{..} ->
+    Just $
+      CommitRecorded{..}
+  -- StateChanged.CommitApproved{..} -> Just $ CommitApproved{..}
+  StateChanged.CommitFinalized{headId, depositTxId} -> Just $ CommitFinalized{headId, theDeposit = depositTxId}
+  StateChanged.CommitRecovered{..} ->
+    Just $
+      CommitRecovered{..}
+  -- StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
+  StateChanged.TransactionReceived{} -> Nothing
+  StateChanged.DecommitRecorded{} -> Nothing
+  StateChanged.SnapshotRequested{} -> Nothing
+  StateChanged.SnapshotRequestDecided{} -> Nothing
+  StateChanged.PartySignedSnapshot{} -> Nothing
+  StateChanged.ChainRolledBack{} -> Nothing
+  StateChanged.TickObserved{} -> Nothing
