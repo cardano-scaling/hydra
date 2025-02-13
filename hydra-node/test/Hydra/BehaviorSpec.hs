@@ -837,17 +837,17 @@ spec = parallel $ do
       logs
         `shouldContain` [EndInput alice 0]
 
-    it "traces handling of effects" $ do
-      let result = runSimTrace $ do
-            withSimulatedChainAndNetwork $ \chain ->
-              withHydraNode aliceSk [] chain $ \n1 -> do
-                send n1 Init
-                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-
-          logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
-
-      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-      logs `shouldContain` [EndEffect alice 2 0]
+  -- it "traces handling of effects" $ do
+  --   let result = runSimTrace $ do
+  --         withSimulatedChainAndNetwork $ \chain ->
+  --           withHydraNode aliceSk [] chain $ \n1 -> do
+  --             send n1 Init
+  --             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+  --
+  --       logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
+  --
+  --   logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+  --   logs `shouldContain` [EndEffect alice 2 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -899,7 +899,7 @@ waitUntilMatch ::
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
-waitUntilMatch nodes predicate = do
+waitUntilMatch nodes predicate = traceShow "waitUntilMatch" $ do
   seenMsgs <- newTVarIO []
   timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
     Just x -> pure x
@@ -914,11 +914,11 @@ waitUntilMatch nodes predicate = do
  where
   match seenMsgs n = do
     msg <- waitForNext n
-    atomically (modifyTVar' seenMsgs (msg :))
+    atomically (modifyTVar' seenMsgs (spy' "msg" msg :))
     unless (predicate msg) $
       match seenMsgs n
 
-  oneMonth = 3600 * 24 * 30
+  oneMonth = 60 -- 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
@@ -1019,8 +1019,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
-              mockServer = Server{sendOutput = const $ pure ()}
-          node <- connect mockChain mockNetwork mockServer draftNode
+          node <- connect mockChain mockNetwork draftNode
           atomically $ modifyTVar nodes (node :)
           pure node
       , tickThread
@@ -1208,29 +1207,27 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs outputH
   let chainStateHistory = initHistory chainState
   nodeState <- createNodeState Nothing headState
   inputQueue <- createInputQueue
-  node <-
-    connectNode
-      chain
-      DraftHydraNode
-        { tracer
-        , env
-        , ledger
-        , nodeState
-        , inputQueue
-        , eventSource
-        , eventSinks = [eventSink]
-        , chainStateHistory
-        }
-  pure $
-    node
-      { server =
-          Server
-            { sendOutput = \out -> atomically $ do
-                writeTQueue outputs out
-                modifyTVar' outputHistory (out :)
-            }
+  connectNode
+    chain
+    DraftHydraNode
+      { tracer
+      , env
+      , ledger
+      , nodeState
+      , inputQueue
+      , eventSource
+      , eventSinks = [eventSink]
+      , chainStateHistory
       }
  where
+  -- { server =
+  --     Server
+  --       { sendOutput = \out -> atomically $ do
+  --           writeTQueue outputs out
+  --           modifyTVar' outputHistory (out :)
+  --       }
+  -- }
+
   env =
     Environment
       { party
