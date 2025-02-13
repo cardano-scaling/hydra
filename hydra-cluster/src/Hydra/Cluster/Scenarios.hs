@@ -114,6 +114,7 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
+  waitNoMatch,
   withHydraCluster,
   withHydraNode,
  )
@@ -213,13 +214,37 @@ oneOfNNodesCanDropForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
       tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
       send n1 $ input "NewTx" ["transaction" .= tx]
 
-      -- Carol reconnects, and then the snapshot can be confirmed
+      -- Carol reconnects
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- flip mapConcurrently_ [n1, n2, n3] $ \n ->
+        --   waitMatch (200 * blockTime) n $ \v -> do
+        --     guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        --     guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+        --     -- Just check that everyone signed it.
+        --     let sigs = v ^.. key "signatures" . key "multiSignature" . values
+        --     guard $ length sigs == 3
+
+        -- Everybody prune their local pending txs
+        send n1 $ input "ClearPendingTxs" []
+        waitNoMatch (100 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "PendingTxsPruned"
+
+        send n2 $ input "ClearPendingTxs" []
+        waitNoMatch (100 * blockTime) n2 $ \v -> do
+          guard $ v ^? key "tag" == Just "PendingTxsPruned"
+
+        send n3 $ input "ClearPendingTxs" []
+        waitNoMatch (100 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "PendingTxsPruned"
+
+        -- Alice re-submits the transaction
+        send n1 $ input "NewTx" ["transaction" .= tx]
+
         -- Note: We can't use `waitForAlMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
         -- numbers as she was offline.
         flip mapConcurrently_ [n1, n2, n3] $ \n ->
-          waitMatch (200 * blockTime) n $ \v -> do
+          waitMatch (500 * blockTime) n $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
             guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
             -- Just check that everyone signed it.
