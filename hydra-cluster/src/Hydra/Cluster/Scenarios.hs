@@ -214,28 +214,28 @@ oneOfNNodesCanDropForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
       tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
       send n1 $ input "NewTx" ["transaction" .= tx]
 
+      -- Alice and Bob confirms
+      flip mapConcurrently_ [n1, n2] $ \n ->
+        waitMatch (1000 * blockTime) n $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+          let sigs = v ^.. key "signatures" . key "multiSignature" . values
+          guard $ length sigs == 2
+
       -- Carol reconnects
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- flip mapConcurrently_ [n1, n2, n3] $ \n ->
-        --   waitMatch (200 * blockTime) n $ \v -> do
-        --     guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-        --     guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-        --     -- Just check that everyone signed it.
-        --     let sigs = v ^.. key "signatures" . key "multiSignature" . values
-        --     guard $ length sigs == 3
+        -- Carol does not confirm
+        waitNoMatch (500 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+          let sigs = v ^.. key "signatures" . key "multiSignature" . values
+          guard $ length sigs == 3
 
         -- Everybody prune their local pending txs
-        send n1 $ input "ClearPendingTxs" []
-        waitNoMatch (100 * blockTime) n1 $ \v -> do
-          guard $ v ^? key "tag" == Just "PendingTxsPruned"
-
-        send n2 $ input "ClearPendingTxs" []
-        waitNoMatch (100 * blockTime) n2 $ \v -> do
-          guard $ v ^? key "tag" == Just "PendingTxsPruned"
-
-        send n3 $ input "ClearPendingTxs" []
-        waitNoMatch (100 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "PendingTxsPruned"
+        flip mapConcurrently_ [n1, n2, n3] $ \n -> do
+          send n $ input "ClearPendingTxs" []
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "PendingTxsPruned"
 
         -- Alice re-submits the transaction
         send n1 $ input "NewTx" ["transaction" .= tx]
