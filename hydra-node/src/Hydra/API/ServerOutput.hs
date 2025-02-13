@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Hydra.API.ServerOutput where
 
@@ -313,49 +314,49 @@ projectSnapshotUtxo snapshotUtxo = \case
 
 mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
 mapStateChangedToServerOutput = \case
-  StateChanged.PeerConnected{peer} -> Just $ PeerConnected{peer}
-  StateChanged.PeerDisconnected{peer} -> Just $ PeerDisconnected{peer}
-  StateChanged.PeerHandshakeFailure{remoteHost, ourVersion, theirVersions} ->
+  StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
+  StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
+  StateChanged.PeerHandshakeFailure{..} ->
     Just $
-      PeerHandshakeFailure{remoteHost, ourVersion, theirVersions}
-  StateChanged.HeadInitialized{headId, parties} -> Just $ HeadIsInitializing{headId, parties}
-  StateChanged.CommittedUTxO{headId, party, committedUTxO} -> Just $ Committed{headId, party, utxo = committedUTxO}
-  StateChanged.HeadOpened{headId, utxo} -> Just $ HeadIsOpen{headId, utxo}
-  StateChanged.HeadClosed{headId, snapshotNumber, contestationDeadline} ->
+      PeerHandshakeFailure{..}
+  StateChanged.HeadInitialized{..} -> Just $ HeadIsInitializing{..}
+  StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+  StateChanged.HeadOpened{..} -> Just $ HeadIsOpen{headId, utxo}
+  StateChanged.HeadClosed{..} ->
     Just $
-      HeadIsClosed{headId, snapshotNumber, contestationDeadline}
-  StateChanged.HeadContested{headId, snapshotNumber, contestationDeadline} ->
+      HeadIsClosed{..}
+  StateChanged.HeadContested{..} ->
     Just $
-      HeadIsContested{headId, snapshotNumber, contestationDeadline}
-  StateChanged.HeadIsReadyToFanout{headId} -> Just $ ReadyToFanout{headId}
-  StateChanged.HeadAborted{headId, utxo} -> Just $ HeadIsAborted{headId, utxo}
-  StateChanged.HeadFannedOut{headId, utxo} -> Just $ HeadIsFinalized{headId, utxo}
-  StateChanged.CommandFailed{clientInput, state} -> Just $ CommandFailed{clientInput, state}
-  StateChanged.TransactionAppliedToLocalUTxO{headId, tx} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
-  StateChanged.TxInvalid{headId, utxo, transaction, validationError} -> Just $ TxInvalid{headId, utxo, transaction, validationError}
-  StateChanged.SnapshotConfirmed{headId, snapshot, signatures} -> Just $ SnapshotConfirmed{headId, snapshot, signatures}
-  StateChanged.GetUTxOResponse{headId, utxo} -> Just $ GetUTxOResponse{headId, utxo}
-  StateChanged.InvalidInput{reason, input} -> Just $ InvalidInput{reason, input}
+      HeadIsContested{..}
+  StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
+  StateChanged.HeadAborted{..} -> Just $ HeadIsAborted{..}
+  StateChanged.HeadFannedOut{..} -> Just $ HeadIsFinalized{..}
+  StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
+  StateChanged.TransactionAppliedToLocalUTxO{..} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
+  StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+  StateChanged.SnapshotConfirmed{..} -> Just $ SnapshotConfirmed{..}
+  StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
+  StateChanged.InvalidInput{..} -> Just $ InvalidInput{..}
   StateChanged.Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion} ->
     Just $
       Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion}
-  StateChanged.PostTxOnChainFailed{postChainTx, postTxError} -> Just $ PostTxOnChainFailed{postChainTx, postTxError}
-  StateChanged.IgnoredHeadInitializing{headId, contestationPeriod, parties, participants} ->
+  StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
+  StateChanged.IgnoredHeadInitializing{..} ->
     Just $
-      IgnoredHeadInitializing{headId, contestationPeriod, parties, participants}
-  StateChanged.DecommitRequested{headId, decommitTx, utxoToDecommit} -> Just $ DecommitRequested{headId, decommitTx, utxoToDecommit}
-  StateChanged.DecommitInvalid{headId, decommitTx, decommitInvalidReason} -> Just $ DecommitInvalid{headId, decommitTx, decommitInvalidReason}
-  StateChanged.DecommitApproved{headId, decommitTxId, utxoToDecommit} -> Just $ DecommitApproved{headId, decommitTxId, utxoToDecommit}
-  StateChanged.DecommitFinalized{headId, decommitTxId} -> Just $ DecommitFinalized{headId, decommitTxId}
-  StateChanged.CommitRecorded{headId, utxoToCommit, pendingDeposit, deadline} ->
+      IgnoredHeadInitializing{..}
+  StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
+  StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}
+  StateChanged.DecommitApproved{..} -> Just $ DecommitApproved{..}
+  StateChanged.DecommitFinalized{..} -> Just $ DecommitFinalized{..}
+  StateChanged.CommitRecorded{..} ->
     Just $
-      CommitRecorded{headId, utxoToCommit, pendingDeposit, deadline}
-  StateChanged.CommitApproved{headId, utxoToCommit} -> Just $ CommitApproved{headId, utxoToCommit}
-  StateChanged.CommitFinalized{headId, depositTxId} -> Just $ CommitFinalized{headId, theDeposit = depositTxId}
-  StateChanged.CommitRecovered{headId, recoveredUTxO, recoveredTxId} ->
+      CommitRecorded{..}
+  StateChanged.CommitApproved{..} -> Just $ CommitApproved{..}
+  StateChanged.CommitFinalized{..} -> Just $ CommitFinalized{headId, theDeposit = depositTxId}
+  StateChanged.CommitRecovered{..} ->
     Just $
-      CommitRecovered{headId, recoveredUTxO, recoveredTxId}
-  StateChanged.CommitIgnored{headId, depositUTxO, snapshotUTxO} -> Just $ CommitIgnored{headId, depositUTxO, snapshotUTxO}
+      CommitRecovered{..}
+  StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
   StateChanged.TransactionReceived{} -> Nothing
   StateChanged.DecommitRecorded{} -> Nothing
   StateChanged.SnapshotRequested{} -> Nothing
