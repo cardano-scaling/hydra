@@ -1,0 +1,23 @@
+{
+    "samples": [
+        {
+            "headId": "c8dd1121a2b94d9fc1f4920e744b4130",
+            "newLocalTxIds": [
+                "372a84e1d7219e06d33ecd0caf50b6e5acc955273426bfb01e6bae9d2ea529e7",
+                "c6f3b9003b2545a9f9103293fa480e90b756014ff722666a4d2049fb60541a2b",
+                "cef88506274cf79ee18a69033f3405310bdcae7697ef6988af5bc63d4dbfcdd5",
+                "2b5741aeda5f58d8e6cc30dce0d993b3d3877abb02e1aa0e0878f0ecd5f2172f",
+                "d61c48a519371cd27edf22982643a2503fbaf6d3079129396a36667837bf3573",
+                "91b069b543e24757d9997a73917db784287ff4807ef7f474e59a94833d5dd763",
+                "20dd8cc4e28abfccdccaec6825fa369d3a5dab925cc2c5f97d70293e1d0ced5e",
+                "657696efe2aed1b249e20447cfbc6729d94b7d124f89cc9bf386040393e17950",
+                "0b3c8e6c1bc5940cae1f367c79a1a4d4044ccbce2d50af70be17c8a90e9eb869",
+                "c832843fcd115936998fa00f6d80b4ab4b4b1eb8b2cd8bdfcf5268b9a08e8163",
+                "49890a35edf12c2137178a0c57b8b20140a9fbf68c2e7186b0851cf5b60c21f6",
+                "0be3516504cbfa700fe1c6800aeeab365d2359730f1a1ab99a867b98a79b5ad0"
+            ],
+            "tag": "PendingTxsUpdated"
+        }
+    ],
+    "seed": 905378476
+}
