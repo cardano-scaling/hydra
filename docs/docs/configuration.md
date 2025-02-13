@@ -173,7 +173,9 @@ If the `hydra-node` already tracks a head in its `state` and `--start-chain-from
 
 Hydra supports an offline mode that allows for disabling the layer 1 interface – the underlying Cardano blockchain from which Hydra heads acquire funds and to which funds are eventually withdrawn. Disabling layer 1 interactions allows use cases that would otherwise require running and configuring an entire layer 1 private devnet. For example, the offline mode can be used to quickly validate a series of transactions against a UTXO, without having to spin up an entire layer 1 Cardano node.
 
-To initialize the layer 2 ledger's UTXO state, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
+As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which is a hexadecimal byte string. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with provided [hydra keys](#hydra-keys).
+
+To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference/#schema-UTxO) for the schema.
 
 Using this example UTxO:
 ```json utxo.json
@@ -187,12 +189,13 @@ Using this example UTxO:
 }
 ```
 
-An offline mode hydra-node can be started with:
+A (single participant) offline Hydra head can be started with:
 ```shell
-hydra-node offline \
+hydra-node \
+  --offline-head-seed 0001 \
+  --initial-utxo utxo.json \
   --hydra-signing-key hydra.sk \
-  --ledger-protocol-parameters protocol-parameters.json \
-  --initial-utxo utxo.json
+  --ledger-protocol-parameters protocol-parameters.json
 ```
 
 As the node is not connected to a real network, genesis parameters that normally influence things like time-based transaction validation cannot be fetched and are set to defaults. To configure block times, set `--ledger-genesis` to a Shelley genesis file similar to the [shelley-genesis.json](https://book.world.dev.cardano.org/environments/mainnet/shelley-genesis.json).
