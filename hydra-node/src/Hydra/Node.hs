@@ -260,7 +260,6 @@ data HydraNode tx m = HydraNode
   , eventSinks :: [EventSink (StateEvent tx) m]
   , oc :: Chain tx m
   , hn :: Network m (Message tx)
-  , server :: Server tx m
   }
 
 runHydraNode ::
