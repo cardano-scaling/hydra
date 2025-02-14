@@ -17,7 +17,6 @@ import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -45,6 +44,7 @@ import Hydra.HeadLogic (
   defaultTTL,
   update,
  )
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..), StateChanged (..))
 import Hydra.HeadLogic.State (SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
@@ -599,21 +599,21 @@ spec =
                   , snapshotNumber
                   , contestationDeadline
                   }
-            clientEffect = ClientEffect HeadIsClosed{headId = testHeadId, snapshotNumber, contestationDeadline}
+            clientEffect = ClientEffect HeadClosed{headId = testHeadId, snapshotNumber, contestationDeadline, chainState = SimpleChainState 0}
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do
             outcome1 `hasEffect` clientEffect
             outcome1
               `hasNoEffectSatisfying` \case
-                ClientEffect (ReadyToFanout _) -> True
+                ClientEffect (HeadIsReadyToFanout _) -> True
                 _ -> False
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
               someChainSlot = arbitrary `generateWith` 42
               stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
           outcome2 <- step stepTimePastDeadline
-          lift $ outcome2 `hasEffect` ClientEffect (ReadyToFanout testHeadId)
+          lift $ outcome2 `hasEffect` ClientEffect (HeadIsReadyToFanout testHeadId)
 
       it "contests when detecting close with old snapshot" $ do
         let snapshotVersion = 0

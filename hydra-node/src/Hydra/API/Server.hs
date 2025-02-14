@@ -17,7 +17,6 @@ import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   CommitInfo (CannotCommit),
-  HeadStatus (Idle),
   ServerOutput,
   TimedServerOutput (..),
   projectCommitInfo,
@@ -34,6 +33,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic.Outcome (HeadStatus (Idle))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Persistence (PersistenceIncremental (..))

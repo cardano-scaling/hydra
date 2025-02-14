@@ -21,6 +21,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendOutput)
+import Hydra.API.ServerOutput (mapStateChangedToServerOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
@@ -38,13 +39,13 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   Outcome (..),
+  StateChanged (..),
   aggregate,
   aggregateChainStateHistory,
   aggregateState,
   defaultTTL,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
@@ -205,7 +206,7 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
   initialState = Idle IdleState{chainState = initialChainState}
 
   recoverHeadStateC =
-    mapC stateChanged
+    mapC Hydra.Events.stateChanged
       .| getZipSink
         ( (,)
             <$> ZipSink (foldlC aggregate initialState)
@@ -347,7 +348,7 @@ processEffects node tracer inputId effects = do
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
-      ClientEffect i -> sendOutput server i
+      ClientEffect i -> maybe (pure ()) (sendOutput server) (mapStateChangedToServerOutput i)
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx

@@ -22,7 +22,7 @@ import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..))
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
   Chain (..),
@@ -34,6 +34,8 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
+import Hydra.HeadLogic.Outcome (DecommitInvalidReason (..))
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -43,6 +45,7 @@ import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.Tx (HeadParameters (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -845,8 +848,12 @@ spec = parallel $ do
                 waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
-
-      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
+      let parameters =
+            HeadParameters
+              { contestationPeriod = testContestationPeriod
+              , parties = [alice]
+              }
+      logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ Outcome.HeadInitialized{headId = testHeadId, parties = fromList [alice], parameters, headSeed = testHeadSeed, chainState = SimpleChainState 1})]
       logs `shouldContain` [EndEffect alice 2 0]
 
   describe "rolling back & forward does not make the node crash" $ do

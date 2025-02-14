@@ -15,7 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (No
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
 import Hydra.HeadLogic (Input (..))
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
+import Hydra.HeadLogic.Outcome (StateChanged (..), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
@@ -106,7 +106,7 @@ spec = parallel $ do
             let genEvent = do
                   StateEvent
                     <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
+                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
                 `shouldThrow` \(_ :: ParameterMismatch) -> True
@@ -246,7 +246,7 @@ spec = parallel $ do
 
         outputs <- getServerOutputs
         let isPostTxOnChainFailed = \case
-              PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+              Hydra.API.ServerOutput.PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
               _ -> False
         any isPostTxOnChainFailed outputs `shouldBe` True
 
