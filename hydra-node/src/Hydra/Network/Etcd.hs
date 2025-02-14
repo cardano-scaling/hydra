@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Implements a Hydra network component via an etcd cluster.
@@ -15,8 +16,14 @@
 -- messages that were not seen before.
 module Hydra.Network.Etcd where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (MonadMask)
 
+import Control.Monad.Catch(MonadMask(..))
+import Network.GRPC.Client
+import Network.GRPC.Client.StreamType.IO
+import Network.GRPC.Common
+import Network.GRPC.Common.Protobuf
+import Proto.API.Etcd
 import Cardano.Binary (decodeFull', serialize, serialize')
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
@@ -32,7 +39,6 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser, Value, parseEither)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
 import Data.Text.IO qualified as Text
@@ -44,16 +50,11 @@ import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (
-  ExitCodeException (..),
-  byteStringInput,
   createPipe,
   getStderr,
   getStdout,
-  nullStream,
   proc,
-  runProcess_,
   setStderr,
-  setStdin,
   setStdout,
   stopProcess,
   waitExitCode,
@@ -77,11 +78,13 @@ withEtcdNetwork tracer config callback action = do
       race_ (traceStderr p) $ do
         race_ (waitMessages clientUrl persistenceDir callback) $ do
           queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-          race_ (broadcastMessages clientUrl port queue) $
-            action
-              Network
-                { broadcast = writePersistentQueue queue
-                }
+          let server = ServerInsecure $ Address clientUrl port Nothing
+          withConnection def server $ \conn -> do
+            race_ (broadcastMessages conn port queue) $
+              action
+                Network
+                  { broadcast = writePersistentQueue queue
+                  }
  where
   traceStderr p =
     forever $
@@ -129,7 +132,7 @@ withEtcdNetwork tracer config callback action = do
 -- Retries on failure to 'putMessage' in case we are on a minority cluster.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
-  String ->
+  Connection ->
   PortNumber ->
   PersistentQueue IO msg ->
   IO ()
@@ -137,16 +140,17 @@ broadcastMessages endpoint port queue =
   forever $ do
     msg <- peekPersistentQueue queue
     (putMessage endpoint port msg >> popPersistentQueue queue msg)
+-- find out what to catch here instead
+{--
       `catch` \PutFailed{reason} -> do
         putTextLn $ "put failed: " <> reason
         threadDelay 1
+--}
 
 -- | Broadcast a message to the etcd cluster.
--- Throws: 'PutException' if message could not be written to cluster.
--- TODO: Create/use a proper client.
 putMessage ::
-  (ToCBOR msg, MonadIO m, MonadCatch m) =>
-  String ->
+  (ToCBOR msg, MonadIO m, MonadMask m) =>
+  Connection ->
   PortNumber ->
   msg ->
   m ()
@@ -155,7 +159,7 @@ putMessage endpoint port msg = do
  where
   key = "msg-" <> show port
 
-  hexMsg = LBase16.encode $ serialize msg
+  hexMsg = Base16.encode $ toStrict $ serialize msg
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
@@ -212,33 +216,23 @@ putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
   liftIO $ encodeFile (directory </> "last-known-revision.json") rev
 
+
 -- * Low-level etcd api
 
 -- | Write a value at a key to the etcd cluster.
--- Throws: 'PutException' if value could not be written to cluster.
--- TODO: Create/use a proper client.
 putKey ::
-  (MonadIO m, MonadCatch m) =>
-  String ->
+  (MonadIO m, MonadMask m) =>
+  Connection ->
   -- | Key
-  String ->
+  ByteString ->
   -- | Value
-  LByteString ->
+  ByteString ->
   m ()
-putKey endpoint key value =
-  handle (throwIO . exitCodeToException) $
-    runProcess_ $
-      proc "etcdctl" ["--endpoints", endpoint, "put", key]
-        & setStdin (byteStringInput value)
-        & setStdout nullStream
- where
-  exitCodeToException :: ExitCodeException -> PutException
-  exitCodeToException ec = PutFailed{reason = decodeUtf8 $ eceStdout ec}
-
-newtype PutException = PutFailed {reason :: Text}
-  deriving stock (Show)
-
-instance Exception PutException
+putKey conn key value = do
+    let req = defMessage & #key .~  key
+                         & #value .~  value
+    _ <- nonStreaming conn (rpc @(Protobuf KV "put")) req
+    pure ()
 
 data EtcdEntry = EtcdEntry
   { revision :: Natural

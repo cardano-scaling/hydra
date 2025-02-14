@@ -47,6 +47,7 @@ pkgs.haskell-nix.project {
       packages.hydra-node.dontStrip = false;
       packages.hydra-tui.dontStrip = false;
       packages.hydraw.dontStrip = false;
+      packages.proto-lens-protobuf-types.components.library.build-tools = [ pkgs.protobuf ];
     }
     # Use different static libs on darwin
     # TODO: Always use these?

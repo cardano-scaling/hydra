@@ -127,7 +127,10 @@ library
     , cryptonite
     , data-default
     , directory
+    , exceptions
     , filepath
+    , grapesy
+    , grapesy-etcd
     , http-types
     , hydra-cardano-api
     , hydra-plutus

@@ -41,3 +41,13 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/grapesy-etcd
+  tag: cb8e6fe535cb675393bed5cd5188bf96c44cd322
+  --sha256: sha256-1o5hsJdstE1PzH0rIYLqGl1Mf/CbTR0v24Jo6G08GO8=
+  subdir:
+    grapesy-etcd
+
+allow-newer: network
