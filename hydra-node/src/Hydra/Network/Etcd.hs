@@ -22,6 +22,7 @@ import Control.Monad.Catch(MonadMask(..))
 import Network.GRPC.Client
 import Network.GRPC.Client.StreamType.IO
 import Network.GRPC.Common
+import Network.GRPC.Common.NextElem qualified as NextElem
 import Network.GRPC.Common.Protobuf
 import Proto.API.Etcd
 import Cardano.Binary (decodeFull', serialize, serialize')
@@ -66,6 +67,7 @@ import System.Process.Typed (
 -- listens for incoming messages.
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
+  msg ~ (Output (Protobuf Watch "watch")) =>
   Tracer IO Text ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
@@ -76,10 +78,10 @@ withEtcdNetwork tracer config callback action = do
     -- TODO: error handling
     race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
-        race_ (waitMessages clientUrl persistenceDir callback) $ do
-          queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-          let server = ServerInsecure $ Address clientUrl port Nothing
-          withConnection def server $ \conn -> do
+        let server = ServerInsecure $ Address clientUrl port Nothing
+        withConnection def server $ \conn -> do
+          race_ (waitMessages conn persistenceDir callback) $ do
+            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
             race_ (broadcastMessages conn port queue) $
               action
                 Network
@@ -163,43 +165,20 @@ putMessage endpoint port msg = do
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
-  FromCBOR msg =>
-  String ->
+  Connection ->
   FilePath ->
-  NetworkCallback msg IO ->
+  NetworkCallback (Output (Protobuf Watch "watch")) IO ->
   IO ()
-waitMessages endpoint directory NetworkCallback{deliver} = do
+waitMessages conn directory NetworkCallback{deliver} = do
   revision <- getLastKnownRevision directory
-  forever $ do
-    -- Watch all key value updates
-    withProcessWait (cmd revision) process
-    -- Wait before reconnecting
-    threadDelay 1
- where
-  cmd revision =
-    setStdout createPipe $
-      proc "etcdctl" $
-        concat
-          [ ["--endpoints", endpoint]
-          , ["watch"]
-          , ["--prefix", "msg"]
-          , ["--rev", show $ revision + 1]
-          , ["-w", "json"]
-          ]
+  foo conn
 
-  process p = do
-    bs <- BS.hGetLine (getStdout p)
-    case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-      Left err -> putStrLn $ "Failed to parse etcd entry: " <> err
-      Right EtcdEntry{revision, entries} -> do
-        putLastKnownRevision directory revision
-        forM_ entries $ \(_, value) ->
-          -- HACK: lenient decoding
-          case decodeFull' $ Base16.decodeLenient value of
-            Left err -> fail $ "Failed to decode etcd entry: " <> show err
-            Right msg -> do
-              deliver msg
-        process p
+foo :: Connection -> IO ()
+foo conn = do
+  let req = defMessage & #createRequest .~ (defMessage & #key .~  "msg")
+  biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
+    NextElem.forM_ (replicate 5 req) send
+    NextElem.whileNext_ recv print
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do

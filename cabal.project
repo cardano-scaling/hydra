@@ -45,8 +45,8 @@ program-options
 source-repository-package
   type: git
   location: https://github.com/cardano-scaling/grapesy-etcd
-  tag: cb8e6fe535cb675393bed5cd5188bf96c44cd322
-  --sha256: sha256-1o5hsJdstE1PzH0rIYLqGl1Mf/CbTR0v24Jo6G08GO8=
+  tag: bc3517caea2a87f1715e186b9a96d2c6c5779c3a
+  --sha256: sha256-UX5o1/Pizqu/VtPYHJ6YT14Sja6GDuosaoMzHJ2O2Fg=
   subdir:
     grapesy-etcd
 
