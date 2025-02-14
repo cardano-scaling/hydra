@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-node
-version:       0.20.0
+version:       0.21.0
 synopsis:      The Hydra node
 author:        IOG
 copyright:     2022 IOG
@@ -80,6 +80,7 @@ library
     Hydra.Logging.Monitoring
     Hydra.Network
     Hydra.Network.Authenticate
+    Hydra.Network.Etcd
     Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Network.Ouroboros
@@ -102,6 +103,8 @@ library
   build-depends:
     , aeson
     , base
+    , base16-bytestring
+    , base64-bytestring
     , bytestring
     , cardano-api:internal
     , cardano-binary
@@ -155,8 +158,10 @@ library
     , text
     , time
     , transformers
+    , typed-process
     , typed-protocols                 >=0.1.0.0
     , typed-protocols-cborg           >=0.1.0.0
+    , unix
     , unliftio
     , vector
     , wai

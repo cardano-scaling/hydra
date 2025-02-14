@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.20.1] - UNRELEASED
+## [0.21.0] - UNRELEASED
+
+- Enable multi-party, networked "offline" heads by providing an `--offline-head-id` option to `hydra-node`.
+
+- **BREAKING** Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-id` and `--initial-utxo` options to switch to offline mode. 
 
 - Stream historical data from disk in the hydra-node API server.
 
