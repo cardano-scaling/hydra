@@ -53,6 +53,7 @@ library
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.NetworkId
+    Hydra.Cardano.Api.NetworkMagic
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude

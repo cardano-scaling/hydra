@@ -133,6 +133,7 @@ import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.KeyWitness as Extras
 import Hydra.Cardano.Api.NetworkId ()
+import Hydra.Cardano.Api.NetworkMagic ()
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ReferenceScript as Extras

@@ -1,0 +1,11 @@
+{
+    "samples": [
+        {
+            "contestationDeadline": "1864-05-11T13:14:04.480927225587Z",
+            "headId": "c8dbcee16850146d996f4f05dbbd1a4c",
+            "snapshotNumber": 10,
+            "tag": "OnCloseTx"
+        }
+    ],
+    "seed": -1105831259
+}

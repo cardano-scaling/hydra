@@ -290,8 +290,8 @@ singlePartyOpenAHead ::
   RunningNode ->
   TxId ->
   -- | Continuation called when the head is open
-  (HydraClient -> SigningKey PaymentKey -> IO ()) ->
-  IO ()
+  (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
+  IO a
 singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
   (`finally` returnFundsToFaucet tracer node Alice) $ do
     refuelIfNeeded tracer node Alice 25_000_000
@@ -319,7 +319,7 @@ singlePartyOpenAHead tracer workDir node hydraScriptsTxId callback =
       waitFor hydraTracer (10 * blockTime) [n1] $
         output "HeadIsOpen" ["utxo" .= toJSON utxoToCommit, "headId" .= headId]
 
-      callback n1 walletSk
+      callback n1 walletSk headId
  where
   RunningNode{networkId, nodeSocket, blockTime} = node
 

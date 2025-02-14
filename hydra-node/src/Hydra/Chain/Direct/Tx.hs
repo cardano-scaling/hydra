@@ -115,6 +115,10 @@ instance Arbitrary HeadObservation where
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 observeHeadTx networkId utxo tx =
+  -- XXX: This is throwing away valuable information! We should be collecting
+  -- all "not an XX" reasons here in case we fall through and want that
+  -- diagnostic information in the call site of this function. Collecting errors
+  -- could be done with 'validation' or a similar package.
   fromMaybe NoHeadTx $
     either (const Nothing) (Just . Init) (observeInitTx tx)
       <|> Abort <$> observeAbortTx utxo tx
@@ -149,6 +153,7 @@ data NotAnInitReason
   | NotAHeadDatum
   | NoSTFound
   | NotAHeadPolicy
+  | InvalidPartyInDatum
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -183,6 +188,10 @@ observeInitTx tx = do
   unless (pid == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
+  parties <-
+    maybe (Left InvalidPartyInDatum) Right $
+      traverse partyFromChain onChainParties
+
   pure $
     InitObservation
       { headId = mkHeadId pid
@@ -190,7 +199,7 @@ observeInitTx tx = do
       , initialThreadUTxO = (mkTxIn tx ix, toCtxUTxOTxOut headOut)
       , initials
       , contestationPeriod
-      , parties = mapMaybe partyFromChain onChainParties
+      , parties
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
