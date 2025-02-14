@@ -99,6 +99,7 @@ data InitObservation = InitObservation
 data NotAnInitReason
   = NoHeadOutput
   | NotAHeadDatum
+  | InvalidPartyInDatum
   | NoSTFound
   | NotAHeadPolicy
   deriving stock (Show, Eq, Generic)
@@ -131,6 +132,10 @@ observeInitTx tx = do
   unless (pid == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
+  parties <-
+    maybe (Left InvalidPartyInDatum) Right $
+      traverse partyFromChain onChainParties
+
   pure $
     InitObservation
       { headId = mkHeadId pid
@@ -138,7 +143,7 @@ observeInitTx tx = do
       , initialThreadUTxO = (mkTxIn tx ix, toCtxUTxOTxOut headOut)
       , initials
       , contestationPeriod
-      , parties = mapMaybe partyFromChain onChainParties
+      , parties
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where

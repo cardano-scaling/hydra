@@ -10,6 +10,11 @@ changes.
 
 ## [0.20.1] - UNRELEASED
 
+- Fix a bug where decoding `Party` information from chain would crash the node
+  or chain observer. A problematic transaction will now be ignored and not
+  deemed a valid head protocol transaction. An example was if the datum would
+  contain CBOR instead of just hex encoded bytes.
+
 - Stream historical data from disk in the hydra-node API server.
 
 - Record used and free memory when running `bench-e2e` benchmark.
