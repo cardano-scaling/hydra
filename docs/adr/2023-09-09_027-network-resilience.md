@@ -3,12 +3,12 @@ slug: 27
 title: |
   27. Network failures model
 authors: [abailly, pgrange]
-tags: [Accepted]
+tags: [Superseded]
 ---
 
 ## Status
 
-Accepted
+Superseded by [ADR 32](/adr/32)
 
 ## Context
 
