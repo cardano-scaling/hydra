@@ -246,7 +246,7 @@ withOuroborosNetwork
             , ctaConnectTracers = networkConnectTracers
             , ctaHandshakeCallbacks = HandshakeCallbacks acceptableVersion queryVersion
             }
-          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (app chan))
+          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (\_ -> app chan))
           sn
      where
       networkConnectTracers :: NetworkConnectTracers SockAddr HydraVersionedProtocolNumber
@@ -278,7 +278,7 @@ withOuroborosNetwork
           noTimeLimitsHandshake
           hydraVersionedProtocolDataCodec
           (HandshakeCallbacks acceptableVersion queryVersion)
-          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (SomeResponderApplication app))
+          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (\_ -> SomeResponderApplication app))
           nullErrorPolicies
         $ \_addr serverAsync -> do
           race_ (wait serverAsync) continuation
