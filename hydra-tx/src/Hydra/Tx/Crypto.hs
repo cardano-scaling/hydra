@@ -58,6 +58,7 @@ import Hydra.Cardano.Api (
   Key (..),
   SerialiseAsCBOR,
   SerialiseAsRawBytes (..),
+  SerialiseAsRawBytesError (..),
   serialiseToRawBytesHexText,
  )
 import Hydra.Contract.HeadState qualified as OnChain
@@ -85,7 +86,10 @@ instance SerialiseAsRawBytes (Hash HydraKey) where
   serialiseToRawBytes (HydraKeyHash vkh) = hashToBytes vkh
 
   deserialiseFromRawBytes (AsHash AsHydraKey) bs =
-    maybe (error "TODO: SerialiseAsRawBytesError, but constructor not exported") (Right . HydraKeyHash) (hashFromBytes bs)
+    maybe
+      (Left $ SerialiseAsRawBytesError "invalid length when deserializing Hash HydraKey")
+      (Right . HydraKeyHash)
+      (hashFromBytes bs)
 
 instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
@@ -134,7 +138,10 @@ instance SerialiseAsRawBytes (SigningKey HydraKey) where
     rawSerialiseSignKeyDSIGN sk
 
   deserialiseFromRawBytes (AsSigningKey AsHydraKey) bs =
-    maybe (error "TODO: SerialiseAsRawBytesError, but constructor not exported") (Right . HydraSigningKey) (rawDeserialiseSignKeyDSIGN bs)
+    maybe
+      (Left $ SerialiseAsRawBytesError "invalid length when deserializing SigningKey HydraKey")
+      (Right . HydraSigningKey)
+      (rawDeserialiseSignKeyDSIGN bs)
 
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
@@ -149,7 +156,10 @@ instance SerialiseAsRawBytes (VerificationKey HydraKey) where
     rawSerialiseVerKeyDSIGN vk
 
   deserialiseFromRawBytes (AsVerificationKey AsHydraKey) bs =
-    maybe (error "TODO: SerialiseAsRawBytesError, but constructor not exported") (Right . HydraVerificationKey) (rawDeserialiseVerKeyDSIGN bs)
+    maybe
+      (Left $ SerialiseAsRawBytesError "invalid length when deserializing VerificationKey HydraKey")
+      (Right . HydraVerificationKey)
+      (rawDeserialiseVerKeyDSIGN bs)
 
 instance ToJSON (VerificationKey HydraKey) where
   toJSON = toJSON . serialiseToRawBytesHexText
