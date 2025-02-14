@@ -60,6 +60,8 @@ Accepted
 
 - Introspectability network as the `etcd` cluster is queriable could improve debugging experience
 
+- Persisted state for networking changes as there will be no `acks`, but the `etcd` Write Ahead Log (WAL) and a last seen revision.
+
 - Can keep same user experience on configuration
   - Full, static topology with listing everone as `--peer`
   - Simpler configuration via [peer discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#discovery) possible
