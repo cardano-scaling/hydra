@@ -27,11 +27,14 @@ import Hydra.Persistence (PersistenceIncremental (..))
 --
 -- (ToJSON e, FromJSON e, HasEventId) e => (EventSource e m, EventSink e m)
 eventPairFromPersistenceIncremental ::
-  (IsChainState tx, MonadSTM m) =>
+  (IsChainState tx, MonadSTM m, MonadTime m) =>
   PersistenceIncremental (PersistedStateChange tx) m ->
   m (EventSource (StateEvent tx) m, EventSink (StateEvent tx) m)
 eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
   eventIdV <- newTVarIO Nothing
+  -- TODO: All legacy events will have the same associated time. How to work around this?
+  now <- getCurrentTime
+
   let
     getLastSeenEventId = readTVar eventIdV
 
@@ -50,7 +53,7 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
                 New e -> pure e
                 Legacy sc -> do
                   eventId <- getNextEventId
-                  pure $ StateEvent eventId sc
+                  pure $ StateEvent{eventId, stateChanged = sc, time = now}
               setLastSeenEventId event
               pure event
           )

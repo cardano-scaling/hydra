@@ -532,6 +532,7 @@ instance
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadDelay m
+  , MonadTime m
   ) =>
   RunModel WorldState (RunMonad m)
   where
@@ -612,6 +613,7 @@ seedWorld ::
   , MonadFork m
   , MonadMask m
   , MonadDelay m
+  , MonadTime m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->

@@ -109,13 +109,13 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
         .| iterM (maybe (pure ()) (lift . atomically . update snapshotUtxoP . output) . mkTimedServerOutputFromStateEvent)
         .| iterM (maybe (pure ()) (lift . atomically . update commitInfoP . output) . mkTimedServerOutputFromStateEvent)
         .| iterM (maybe (pure ()) (lift . atomically . update headIdP . output) . mkTimedServerOutputFromStateEvent)
-        .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output ) . mkTimedServerOutputFromStateEvent)
+        .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output) . mkTimedServerOutputFromStateEvent)
         -- FIXME: don't load whole history into memory
         .| mapWhileC mkTimedServerOutputFromStateEvent
         .| sinkList
 
-   -- NOTE: we need to reverse the list because we store history in a reversed
-   -- list in memory but in order on disk
+  -- NOTE: we need to reverse the list because we store history in a reversed
+  -- list in memory but in order on disk
   history <- newTVarIO $ reverse loadedHistory
   (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 

@@ -9,6 +9,7 @@ import Hydra.Chain.Direct.State ()
 
 import Conduit (runConduitRes, sinkList, (.|))
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
+import Data.List (zipWith3)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
 import Hydra.Ledger.Cardano (Tx)
@@ -92,7 +93,7 @@ spec = do
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
-  zipWith StateEvent [0 ..] <$> listOf arbitrary
+  zipWith3 StateEvent [0 ..] <$> listOf arbitrary <*> listOf arbitrary
 
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
