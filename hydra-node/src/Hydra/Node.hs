@@ -264,6 +264,7 @@ data HydraNode tx m = HydraNode
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -276,6 +277,7 @@ runHydraNode node =
 stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -324,11 +326,12 @@ processNextInput HydraNode{nodeState, ledger, env} e =
 
   computeOutcome = HeadLogic.update env ledger
 
-processStateChanges :: MonadSTM m => HydraNode tx m -> [StateChanged tx] -> m ()
+processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processStateChanges node stateChanges = do
-  events <- atomically . forM stateChanges $ \stateChanged -> do
-    eventId <- getNextEventId
-    pure StateEvent{eventId, stateChanged}
+  events <- forM stateChanges $ \stateChanged -> do
+    time <- getCurrentTime
+    eventId <- atomically getNextEventId
+    pure StateEvent{eventId, stateChanged, time}
   putEventsToSinks eventSinks events
  where
   HydraNode
