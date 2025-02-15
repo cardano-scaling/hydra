@@ -110,7 +110,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           .| iterM (maybe (pure ()) (lift . atomically . update snapshotUtxoP . output) . mkTimedServerOutputFromStateEvent)
           .| iterM (maybe (pure ()) (lift . atomically . update commitInfoP . output) . mkTimedServerOutputFromStateEvent)
           .| iterM (maybe (pure ()) (lift . atomically . update headIdP . output) . mkTimedServerOutputFromStateEvent)
-          .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output ) . mkTimedServerOutputFromStateEvent)
+          .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output) . mkTimedServerOutputFromStateEvent)
           -- FIXME: don't load whole history into memory
           .| mapWhileC mkTimedServerOutputFromStateEvent
           .| sinkList
@@ -143,14 +143,14 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             Server
               { sendOutput = \output -> do
                   pure ()
-                  -- timedOutput <- appendToHistory history output
-                  -- atomically $ do
-                  --   update headStatusP output
-                  --   update commitInfoP output
-                  --   update snapshotUtxoP output
-                  --   update headIdP output
-                  --   update pendingDepositsP output
-                  --   writeTChan responseChannel timedOutput
+                  timedOutput <- appendToHistory history output
+                  atomically $ do
+                    update headStatusP output
+                    update commitInfoP output
+                    update snapshotUtxoP output
+                    update headIdP output
+                    update pendingDepositsP output
+                    writeTChan responseChannel timedOutput
               }
       )
  where
