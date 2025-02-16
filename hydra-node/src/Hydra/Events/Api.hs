@@ -20,7 +20,8 @@ wireApiEvents ::
   PersistenceIncremental (PersistedStateChange tx) m ->
   m (EventSink (StateEvent tx) m)
 wireApiEvents server PersistenceIncremental{append, source} = do
-  let putEvent StateEvent{stateChanged} =
+  let putEvent stateEvent@StateEvent{stateChanged} = do
+        append (New stateEvent)
         maybe (pure ()) sendOutput $ mapStateChangedToServerOutput stateChanged
   pure EventSink{putEvent}
  where

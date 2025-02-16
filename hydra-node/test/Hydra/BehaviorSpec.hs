@@ -899,7 +899,7 @@ waitUntilMatch ::
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
-waitUntilMatch nodes predicate = traceShow "waitUntilMatch" $ do
+waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
   timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
     Just x -> pure x

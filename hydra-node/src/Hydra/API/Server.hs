@@ -256,7 +256,7 @@ mapStateChangedToServerOutput = \case
     Just $
       CommitRecovered{..}
   -- StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
-  StateChanged.TransactionReceived{} -> Nothing
+  StateChanged.TransactionReceived{headId, tx} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
   StateChanged.DecommitRecorded{} -> Nothing
   StateChanged.SnapshotRequested{} -> Nothing
   StateChanged.SnapshotRequestDecided{} -> Nothing

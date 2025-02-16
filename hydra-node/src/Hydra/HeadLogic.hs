@@ -169,6 +169,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , chainState = newChainState
           , headId
           , headSeed
+          , parties
           }
   -- <> cause (ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties})
   | otherwise = noop
@@ -323,9 +324,9 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger st ttl tx =
+onOpenNetworkReqTx env ledger st ttl tx = traceShow "=======onOpenNetworkReqTx========" $
   -- Keep track of transactions by-id
-  (newState TransactionReceived{tx} <>) $
+  (newState TransactionReceived{headId, tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
       -- (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
@@ -336,7 +337,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
         & maybeRequestSnapshot (confirmedSn + 1)
  where
-  waitApplyTx cont =
+  waitApplyTx cont = traceShow "====waitApplyTx====" $
     case applyTransactions currentSlot localUTxO [tx] of
       Right utxo' -> cont utxo'
       Left (_, err)

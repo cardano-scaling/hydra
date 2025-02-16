@@ -5,15 +5,16 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Conduit (MonadUnliftIO, yieldMany)
+import Conduit (MonadUnliftIO, mapM_C, runConduitRes, yieldMany, (.|))
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..))
+import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), genStateEvent, getEventId)
+import Hydra.Events.Api (addApiEventSink, wireApiEvents)
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -34,6 +35,8 @@ import Hydra.Node (
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
+import Hydra.Persistence (PersistenceIncremental (..))
+import Hydra.Tx (IsTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
@@ -100,18 +103,18 @@ spec = parallel $ do
 
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
-         forAllShrink arbitrary shrink $ \now ->
-          env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
-            -- a head state that gets checked by 'checkHeadState'
-            let genEvent = do
-                  StateEvent
-                    <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
-                    <*> pure now
-            forAllShrink genEvent shrink $ \incompatibleEvent ->
-              testHydrate (mockSource [incompatibleEvent]) []
-                `shouldThrow` \(_ :: ParameterMismatch) -> True
+          forAllShrink arbitrary shrink $ \now ->
+            env /= testEnvironment ==> do
+              -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+              -- a head state that gets checked by 'checkHeadState'
+              let genEvent = do
+                    StateEvent
+                      <$> arbitrary
+                      <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                      <*> pure now
+              forAllShrink genEvent shrink $ \incompatibleEvent ->
+                testHydrate (mockSource [incompatibleEvent]) []
+                  `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
@@ -158,7 +161,9 @@ spec = parallel $ do
         failAfter 1 $ do
           (eventSource, eventSink) <- createMockSourceSink
 
-          testHydrate eventSource [eventSink]
+          apiSink <- wireApiEvents mockServer (mockPersistence [])
+
+          testHydrate eventSource [eventSink, apiSink]
             >>= notConnect
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
@@ -169,11 +174,11 @@ spec = parallel $ do
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
           (node, getServerOutputs) <-
-            testHydrate eventSource [eventSink, recordingSink]
+            testHydrate eventSource [eventSink, recordingSink, apiSink]
               >>= notConnect
               >>= primeWith [reqTx]
               >>= recordServerOutputs
-          runToCompletion node
+              >>= (\(node, serverOutputs) -> runToCompletion node >> pure (node, serverOutputs))
 
           getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
 
@@ -325,6 +330,13 @@ notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx
 notConnect =
   connect mockChain mockNetwork
 
+mockPersistence :: Monad m => [a] -> PersistenceIncremental a m
+mockPersistence xs =
+  PersistenceIncremental
+    { append = \_ -> pure ()
+    , source = yieldMany xs
+    }
+
 mockServer :: Monad m => Server SimpleTx m
 mockServer =
   Server{sendOutput = \_ -> pure ()}
@@ -443,10 +455,15 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: IsTx tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
-  pure (node, query) -- {server = Server{sendOutput = record}}
+  let evtSrc = eventSource node
+  _ <-
+      runConduitRes $
+        sourceEvents evtSrc
+          .| mapM_C (\e -> maybe (pure ()) (lift . record) $ mapStateChangedToServerOutput (stateChanged e))
+  pure (node, query)
 
 messageRecorder :: IO (msg -> IO (), IO [msg])
 messageRecorder = do

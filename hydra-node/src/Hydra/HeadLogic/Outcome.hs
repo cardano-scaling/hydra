@@ -56,6 +56,7 @@ data StateChanged tx
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
+      , parties :: [Party]
       }
   | CommittedUTxO
       { headId :: HeadId
@@ -65,7 +66,7 @@ data StateChanged tx
       }
   | HeadAborted {chainState :: ChainStateType tx}
   | HeadOpened {headId :: HeadId, chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
-  | TransactionReceived {tx :: tx}
+  | TransactionReceived {headId :: HeadId, tx :: tx}
   | TransactionAppliedToLocalUTxO
       { headId :: HeadId
       , tx :: tx
@@ -109,11 +110,11 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
+    , TransactionReceived <$> arbitrary <*> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitRecorded <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
