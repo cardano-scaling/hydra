@@ -100,10 +100,12 @@ import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
+import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getSnapshot,
   getSnapshotUTxO,
   input,
   output,
@@ -114,7 +116,6 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
-  waitNoMatch,
   withHydraCluster,
   withHydraNode,
  )
@@ -214,42 +215,27 @@ oneOfNNodesCanDropForAWhile tracer workDir cardanoNode hydraScriptsTxId = do
       tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
       send n1 $ input "NewTx" ["transaction" .= tx]
 
-      -- Alice and Bob confirms
-      flip mapConcurrently_ [n1, n2] $ \n ->
-        waitMatch (1000 * blockTime) n $ \v -> do
-          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-          let sigs = v ^.. key "signatures" . key "multiSignature" . values
-          guard $ length sigs == 2
+      -- Alice and Bob accept it
+      waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "TxValid"
+        guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
-      -- Carol reconnects
+      -- Alice resets its local state, loosing Bob signature
+      send n1 $ input "ClearPendingTxs" []
+      waitMatch (200 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "PendingTxsRemoved"
+
+      -- Carol becomes online again
       withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Carol does not confirm
-        waitNoMatch (500 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-          let sigs = v ^.. key "signatures" . key "multiSignature" . values
-          guard $ length sigs == 3
+        -- Wait for Carol to catch up
+        threadDelay 3
 
-        -- Everybody prune their local pending txs
-        flip mapConcurrently_ [n1, n2, n3] $ \n -> do
-          send n $ input "ClearPendingTxs" []
-          waitMatch (200 * blockTime) n $ \v -> do
-            guard $ v ^? key "tag" == Just "PendingTxsPruned"
-
-        -- Alice re-submits the transaction
-        send n1 $ input "NewTx" ["transaction" .= tx]
-
-        -- Note: We can't use `waitForAlMatch` here as it expects them to
-        -- emit the exact same datatype; but Carol will be behind in sequence
-        -- numbers as she was offline.
-        flip mapConcurrently_ [n1, n2, n3] $ \n ->
-          waitMatch (500 * blockTime) n $ \v -> do
-            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-            -- Just check that everyone signed it.
-            let sigs = v ^.. key "signatures" . key "multiSignature" . values
-            guard $ length sigs == 3
+        -- Check everyones state
+        s1@Snapshot{} <- getSnapshot n1
+        s2@Snapshot{} <- getSnapshot n2
+        s3@Snapshot{} <- getSnapshot n3
+        s1 `shouldBe` s2
+        s2 `shouldBe` s3
  where
   RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
   hydraTracer = contramap FromHydraNode tracer
