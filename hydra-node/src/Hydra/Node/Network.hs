@@ -1,5 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
+-- FIXME: Drop unused components and re-create similar documentation as this
+
 -- | Concrete `Hydra.Network` stack dedicated to running a hydra-node.
 --
 -- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:
@@ -75,16 +77,10 @@ import Control.Tracer (Tracer)
 import Hydra.Logging (traceWith)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Logging.Messages qualified as Log
-import Hydra.Network (Host (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
+import Hydra.Network (Connectivity (..), Host (..), HydraHandshakeRefused (..), HydraVersionedProtocolNumber (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
 import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (
-  Connectivity (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  Message,
-  NetworkEvent (..),
- )
+import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
 import Hydra.Node (HydraNodeLog (..))
@@ -129,6 +125,7 @@ withNetwork ::
   -- | The network configuration
   NetworkConfiguration IO ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
+  -- XXX: This is odd as we map connectivity events into the main 'deliver' data type.
   NetworkComponent IO (NetworkEvent (Message tx)) (Message tx) ()
 withNetwork tracer configuration callback action = do
   let localHost = Host{hostname = show host, port}
@@ -151,22 +148,28 @@ withNetwork tracer configuration callback action = do
                     deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
                 )
 
-  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \Network{broadcast} ->
-    action
-      Network
-        { broadcast = \msg -> do
-            broadcast msg
-            deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
+  withHeartbeat
+    nodeId
+    reliability
+    ( NetworkCallback
+        { deliver = deliver . mapDeliver
+        , onConnectivity = deliver . ConnectivityEvent
         }
+    )
+    $ \Network{broadcast} ->
+      action
+        Network
+          { broadcast = \msg -> do
+              broadcast msg
+              deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
+          }
  where
   NetworkCallback{deliver} = callback
 
   NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
 
-  mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
-  mapHeartbeat = \case
-    Left connectivity -> ConnectivityEvent connectivity
-    Right (Authenticated{payload, party}) -> ReceivedMessage{sender = party, msg = payload}
+  mapDeliver :: Authenticated (Message tx) -> NetworkEvent (Message tx)
+  mapDeliver Authenticated{payload, party} = ReceivedMessage{sender = party, msg = payload}
 
 -- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
 --
@@ -195,8 +198,12 @@ configureMessagePersistence tracer persistenceDir numberOfParties = do
 withFlipHeartbeats ::
   NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
   NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
-withFlipHeartbeats withBaseNetwork NetworkCallback{deliver} =
-  withBaseNetwork NetworkCallback{deliver = unwrapHeartbeats}
+withFlipHeartbeats withBaseNetwork NetworkCallback{deliver, onConnectivity} =
+  withBaseNetwork
+    NetworkCallback
+      { deliver = unwrapHeartbeats
+      , onConnectivity
+      }
  where
   unwrapHeartbeats = \case
     Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)

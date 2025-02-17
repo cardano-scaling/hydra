@@ -16,13 +16,15 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Network (Host (..), Network, NetworkCallback (..))
-import Hydra.Network.Etcd (withEtcdNetwork)
-import Hydra.Network.Message (
+import Hydra.Network (
+  Host (..),
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
-  Message (..),
+  Network,
+  NetworkCallback (..),
  )
+import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
 import Hydra.Network.Reliability (MessagePersistence (..))
 import Hydra.Node.Network (NetworkConfiguration (..), configureMessagePersistence)
@@ -31,10 +33,7 @@ import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
-import Test.QuickCheck (
-  Property,
-  (===),
- )
+import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
@@ -194,7 +193,7 @@ spec = do
     around (showLogsOnFailure "NetworkSpec") $ do
       it "broadcasts messages to single connected peer" $ \tracer -> do
         received <- atomically newTQueue
-        let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
+        let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received, onConnectivity = const $ pure ()}
         failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
           let node1Config =
@@ -249,7 +248,7 @@ spec = do
         node1received <- atomically newTQueue
         node2received <- atomically newTQueue
         node3received <- atomically newTQueue
-        let recordReceivedIn tq = NetworkCallback{deliver = atomically . writeTQueue tq}
+        let recordReceivedIn tq = NetworkCallback{deliver = atomically . writeTQueue tq, onConnectivity = const $ pure ()}
         failAfter 30 $ do
           [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
           let node1Config =
@@ -321,13 +320,19 @@ prop_canRoundtripCBOREncoding a =
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
 
 noopCallback :: Applicative m => NetworkCallback msg m
-noopCallback = NetworkCallback{deliver = \_ -> pure ()}
+noopCallback =
+  NetworkCallback
+    { deliver = \_ -> pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg)
 newRecordingCallback = do
   received <- atomically newTQueue
-  let recordReceived = NetworkCallback{deliver = atomically . writeTQueue received}
   pure
-    ( recordReceived
+    ( NetworkCallback
+        { deliver = atomically . writeTQueue received
+        , onConnectivity = const $ pure ()
+        }
     , atomically $ readTQueue received
     )
