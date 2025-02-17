@@ -24,12 +24,14 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   peekTBQueue,
   readTBQueue,
-  swapTVar,
   writeTBQueue,
  )
 import Control.Exception (IOException)
+import Control.Lens ((^..))
 import Data.Aeson (decodeFileStrict', encodeFile, withObject, (.:))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Lens (_String)
+import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Parser, Value, parseEither)
 import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
@@ -37,21 +39,29 @@ import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Connectivity (..), Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
+import Hydra.Network (
+  Connectivity (..),
+  Host (..),
+  Network (..),
+  NetworkCallback (..),
+  NetworkComponent,
+  PortNumber,
+ )
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (
+  ExitCode (..),
   ExitCodeException (..),
   byteStringInput,
   createPipe,
   getStderr,
   getStdout,
-  inherit,
   nullStream,
   proc,
+  readProcessStdout,
   runProcess_,
   setStderr,
   setStdin,
@@ -68,7 +78,6 @@ withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
   Tracer IO Value ->
   NetworkConfiguration msg ->
-  -- FIXME: provide 'Connectivity' events
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer config callback action = do
   withProcessTerm etcdCmd $ \p -> do
@@ -77,13 +86,14 @@ withEtcdNetwork tracer config callback action = do
     -- TODO: error handling
     race_ (waitExitCode p >>= \ec -> fail $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
-        race_ (waitMessages clientUrl persistenceDir callback) $ do
-          queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-          race_ (broadcastMessages clientUrl port queue) $
-            action
-              Network
-                { broadcast = writePersistentQueue queue
-                }
+        race_ (pollMembers clientUrl callback) $
+          race_ (waitMessages clientUrl persistenceDir callback) $ do
+            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+            race_ (broadcastMessages clientUrl port queue) $
+              action
+                Network
+                  { broadcast = writePersistentQueue queue
+                  }
  where
   traceStderr p =
     forever $ do
@@ -170,45 +180,41 @@ waitMessages ::
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages endpoint directory NetworkCallback{deliver, onConnectivity} = do
+waitMessages endpoint directory NetworkCallback{deliver} = do
   revision <- getLastKnownRevision directory
-  connectedVar <- newTVarIO False
   forever $ do
-    onConnectivity (Disconnected "") -- TODO: remove node id
     -- Watch all key value updates
-    withProcessWait (cmd revision) (process connectedVar)
+    withProcessWait (cmd revision) process
     -- Wait before reconnecting
     threadDelay 1
  where
   cmd revision =
-    setStderr inherit $
-      setStdout createPipe $
-        proc "etcdctl" $
-          concat
-            [ ["--endpoints", endpoint]
-            , ["watch"]
-            , ["--prefix", "msg"]
-            , ["--rev", show $ revision + 1]
-            , ["-w", "json"]
-            ]
+    setStdout createPipe $
+      proc "etcdctl" $
+        concat
+          [ ["--endpoints", endpoint]
+          , ["watch"]
+          , ["--prefix", "msg"]
+          , ["--rev", show $ revision + 1]
+          , ["-w", "json"]
+          ]
 
-  process connectedVar p = do
+  process p = do
     bs <- BS.hGetLine (getStdout p)
     -- FIXME: this is blocking if we can connect and nothing happens. Use proper client
     case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-      Left err -> do
-        putStrLn $ "Failed to parse etcd entry: " <> err
+      -- TODO: error handling (with actual client)
+      Left err -> putStrLn $ "Failed to parse etcd entry: " <> err <> "\n" <> show bs
       Right EtcdEntry{revision, entries} -> do
-        wasConnected <- atomically $ swapTVar connectedVar True
-        unless wasConnected $ onConnectivity (Connected "") -- TODO: remove node id
         putLastKnownRevision directory revision
         forM_ entries $ \(_, value) ->
           -- HACK: lenient decoding
           case decodeFull' $ Base16.decodeLenient value of
+            -- TODO: error handling (with actual client)
             Left err -> fail $ "Failed to decode etcd entry: " <> show err
             Right msg -> do
               deliver msg
-        process connectedVar p
+        process p
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
@@ -224,6 +230,40 @@ getLastKnownRevision directory = do
 putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
   liftIO $ encodeFile (directory </> "last-known-revision.json") rev
+
+-- | Poll for member list to yield connectivity events every second. Note that
+-- the actual list of members is not relevant for connectivity as it just lists
+-- who _should_ be connected.
+pollMembers ::
+  String ->
+  NetworkCallback msg IO ->
+  IO ()
+pollMembers endpoint NetworkCallback{onConnectivity} = do
+  forever $ do
+    (exitCode, out) <- readProcessStdout cmd
+    case exitCode of
+      ExitSuccess -> do
+        let members = out ^.. Aeson.key "members" . Aeson.values . Aeson.key "name" . _String
+        -- TODO: tracing
+        putTextLn $ "Current members: " <> show members
+        -- XXX: The member list is not indicating connectivity
+        onConnectivity $ Connected "" -- TODO: node id does not matter
+      _ -> do
+        -- TODO: tracing
+        putTextLn $ "Failed to get members: " <> show exitCode
+        onConnectivity $ Disconnected "" -- TODO: node id does not matter
+        -- Wait before retrying
+    threadDelay 1
+ where
+  cmd =
+    setStdout createPipe $
+      proc "etcdctl" $
+        concat
+          [ ["--endpoints", endpoint]
+          , ["member", "list"]
+          , ["-w", "json"]
+          , ["--command-timeout", "1s"]
+          ]
 
 -- * Low-level etcd api
 

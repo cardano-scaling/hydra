@@ -95,13 +95,16 @@ spec = do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 20 $ do
             [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+            let aliceHost = Host lo port1
+            let bobHost = Host lo port2
+            let carolHost = Host lo port3
             let aliceConfig =
                   NetworkConfiguration
                     { host = lo
                     , port = port1
                     , signingKey = aliceSk
                     , otherParties = [bob, carol]
-                    , peers = [Host lo port2, Host lo port3]
+                    , peers = [bobHost, carolHost]
                     , nodeId = "alice"
                     , persistenceDir = tmp </> "alice"
                     }
@@ -111,7 +114,7 @@ spec = do
                     , port = port2
                     , signingKey = bobSk
                     , otherParties = [alice, carol]
-                    , peers = [Host lo port1, Host lo port3]
+                    , peers = [aliceHost, carolHost]
                     , nodeId = "bob"
                     , persistenceDir = tmp </> "bob"
                     }
@@ -121,7 +124,7 @@ spec = do
                     , port = port3
                     , signingKey = carolSk
                     , otherParties = [alice, bob]
-                    , peers = [Host lo port1, Host lo port2]
+                    , peers = [aliceHost, bobHost]
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
@@ -129,10 +132,14 @@ spec = do
             withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
               -- Bob and carol start and stop
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
+                -- TODO: dedicated connectivity test?
+                waitConnectivity `shouldReturn` Connected (show bobHost)
+
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
-                  pure ()
-              waitConnectivity `shouldReturn` Disconnected "bob"
-              waitConnectivity `shouldReturn` Disconnected "carol"
+                  waitConnectivity `shouldReturn` Connected (show carolHost)
+                waitConnectivity `shouldReturn` Disconnected (show carolHost)
+
+              waitConnectivity `shouldReturn` Disconnected (show bobHost)
               -- Alice sends a message while she is the only one online (= minority)
               broadcast n1 123
             -- Now, alice stops too!
