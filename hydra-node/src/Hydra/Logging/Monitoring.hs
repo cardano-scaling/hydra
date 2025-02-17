@@ -17,10 +17,10 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Input (NetworkInput),
+  StateChanged (..),
  )
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)

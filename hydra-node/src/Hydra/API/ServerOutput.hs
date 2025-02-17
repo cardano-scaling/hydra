@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Hydra.API.ServerOutput where
 
@@ -11,10 +12,11 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, NodeId)
-import Hydra.Prelude hiding (seq)
+import Hydra.Prelude hiding (seq, state)
 import Hydra.Tx (
   HeadId,
   Party,
@@ -54,23 +56,6 @@ instance IsChainState tx => ToJSON (TimedServerOutput tx) where
 instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
     TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
-
-data DecommitInvalidReason tx
-  = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
-  | DecommitAlreadyInFlight {otherDecommitTxId :: TxIdType tx}
-  deriving stock (Generic)
-
-deriving stock instance (Eq (TxIdType tx), Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)
-deriving stock instance (Show (TxIdType tx), Show (UTxOType tx)) => Show (DecommitInvalidReason tx)
-
-instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalidReason tx) where
-  toJSON = genericToJSON defaultOptions
-
-instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
-  parseJSON = genericParseJSON defaultOptions
-
-instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
-  arbitrary = genericArbitrary
 
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
@@ -121,7 +106,7 @@ data ServerOutput tx
     -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
     Greetings
       { me :: Party
-      , headStatus :: HeadStatus
+      , headStatus :: StateChanged.HeadStatus
       , hydraHeadId :: Maybe HeadId
       , snapshotUtxo :: Maybe (UTxOType tx)
       , hydraNodeVersion :: String
@@ -134,7 +119,7 @@ data ServerOutput tx
       , participants :: [OnChainId]
       }
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
-  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
+  | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: StateChanged.DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
@@ -273,20 +258,6 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
 
   encodedResponse = encode response
 
--- | All possible Hydra states displayed in the API server outputs.
-data HeadStatus
-  = Idle
-  | Initializing
-  | Open
-  | Closed
-  | FanoutPossible
-  | Final
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary HeadStatus where
-  arbitrary = genericArbitrary
-
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
@@ -325,13 +296,13 @@ projectInitializingHeadId mHeadId = \case
   _other -> mHeadId
 
 -- | Projection function related to 'headStatus' field in 'Greetings' message.
-projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
+projectHeadStatus :: StateChanged.HeadStatus -> ServerOutput tx -> StateChanged.HeadStatus
 projectHeadStatus headStatus = \case
-  HeadIsInitializing{} -> Initializing
-  HeadIsOpen{} -> Open
-  HeadIsClosed{} -> Closed
-  ReadyToFanout{} -> FanoutPossible
-  HeadIsFinalized{} -> Final
+  HeadIsInitializing{} -> StateChanged.Initializing
+  HeadIsOpen{} -> StateChanged.Open
+  HeadIsClosed{} -> StateChanged.Closed
+  ReadyToFanout{} -> StateChanged.FanoutPossible
+  HeadIsFinalized{} -> StateChanged.Final
   _other -> headStatus
 
 -- | Projection of latest confirmed snapshot UTxO.
@@ -340,3 +311,56 @@ projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
+
+mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
+mapStateChangedToServerOutput = \case
+  StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
+  StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
+  StateChanged.PeerHandshakeFailure{..} ->
+    Just $
+      PeerHandshakeFailure{..}
+  StateChanged.HeadInitialized{..} -> Just $ HeadIsInitializing{..}
+  StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+  StateChanged.HeadOpened{..} -> Just $ HeadIsOpen{headId, utxo}
+  StateChanged.HeadClosed{..} ->
+    Just $
+      HeadIsClosed{..}
+  StateChanged.HeadContested{..} ->
+    Just $
+      HeadIsContested{..}
+  StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
+  StateChanged.HeadAborted{..} -> Just $ HeadIsAborted{..}
+  StateChanged.HeadFannedOut{..} -> Just $ HeadIsFinalized{..}
+  StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
+  StateChanged.TransactionAppliedToLocalUTxO{..} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
+  StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+  StateChanged.SnapshotConfirmed{..} -> Just $ SnapshotConfirmed{..}
+  StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
+  StateChanged.InvalidInput{..} -> Just $ InvalidInput{..}
+  StateChanged.Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion} ->
+    Just $
+      Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion}
+  StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
+  StateChanged.IgnoredHeadInitializing{..} ->
+    Just $
+      IgnoredHeadInitializing{..}
+  StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
+  StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}
+  StateChanged.DecommitApproved{..} -> Just $ DecommitApproved{..}
+  StateChanged.DecommitFinalized{..} -> Just $ DecommitFinalized{..}
+  StateChanged.CommitRecorded{..} ->
+    Just $
+      CommitRecorded{..}
+  StateChanged.CommitApproved{..} -> Just $ CommitApproved{..}
+  StateChanged.CommitFinalized{..} -> Just $ CommitFinalized{headId, theDeposit = depositTxId}
+  StateChanged.CommitRecovered{..} ->
+    Just $
+      CommitRecovered{..}
+  StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
+  StateChanged.TransactionReceived{} -> Nothing
+  StateChanged.DecommitRecorded{} -> Nothing
+  StateChanged.SnapshotRequested{} -> Nothing
+  StateChanged.SnapshotRequestDecided{} -> Nothing
+  StateChanged.PartySignedSnapshot{} -> Nothing
+  StateChanged.ChainRolledBack{} -> Nothing
+  StateChanged.TickObserved{} -> Nothing
