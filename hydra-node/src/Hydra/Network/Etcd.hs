@@ -91,6 +91,7 @@ withEtcdNetwork tracer config callback action = do
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
+  -- TODO: "Running http and grpc server on single port. This is not recommended for production."
   etcdCmd =
     setStderr createPipe $
       proc "etcd" $

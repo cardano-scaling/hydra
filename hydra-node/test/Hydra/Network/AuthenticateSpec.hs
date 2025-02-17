@@ -28,9 +28,11 @@ spec = parallel $ do
         NetworkCallback
           { deliver = \msg ->
               atomically $ modifyTVar' receivedMessages (msg :)
+          , onConnectivity = const $ pure ()
           }
 
   msg <- runIO $ generate @(Message SimpleTx) arbitrary
+
   it "pass the authenticated messages around" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO []

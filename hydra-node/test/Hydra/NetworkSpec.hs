@@ -17,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Network (
+  Connectivity (..),
   Host (..),
   HydraHandshakeRefused (..),
   HydraVersionedProtocolNumber (..),
@@ -55,7 +56,7 @@ spec = do
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
                       }
-              (recordingCallback, waitNext) <- newRecordingCallback
+              (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
@@ -85,7 +86,7 @@ spec = do
                     , persistenceDir = tmp </> "bob"
                     }
             withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 -> do
-              (recordReceived, waitNext) <- newRecordingCallback
+              (recordReceived, waitNext, _) <- newRecordingCallback
               withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 waitNext `shouldReturn` 123
@@ -124,12 +125,14 @@ spec = do
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
-            (recordReceived, waitNext) <- newRecordingCallback
+            (recordReceived, waitNext, waitConnectivity) <- newRecordingCallback
             withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
               -- Bob and carol start and stop
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
                 withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
                   pure ()
+              waitConnectivity `shouldReturn` Disconnected "bob"
+              waitConnectivity `shouldReturn` Disconnected "carol"
               -- Alice sends a message while she is the only one online (= minority)
               broadcast n1 123
             -- Now, alice stops too!
@@ -174,7 +177,7 @@ spec = do
                     , nodeId = "carol"
                     , persistenceDir = tmp </> "carol"
                     }
-            (recordReceived, waitNext) <- newRecordingCallback
+            (recordReceived, waitNext, _) <- newRecordingCallback
             withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 ->
               withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
                 withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
@@ -326,13 +329,15 @@ noopCallback =
     , onConnectivity = const $ pure ()
     }
 
-newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg)
+newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
 newRecordingCallback = do
   received <- atomically newTQueue
+  connectivity <- atomically newTQueue
   pure
     ( NetworkCallback
         { deliver = atomically . writeTQueue received
-        , onConnectivity = const $ pure ()
+        , onConnectivity = atomically . writeTQueue connectivity
         }
     , atomically $ readTQueue received
+    , atomically $ readTQueue connectivity
     )
