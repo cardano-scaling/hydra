@@ -25,7 +25,6 @@ import Hydra.Options (
   RunOptions (..),
   defaultDirectChainConfig,
   defaultLedgerConfig,
-  defaultOfflineChainConfig,
   defaultPublishOptions,
   defaultRunOptions,
   outputFile,
@@ -300,13 +299,41 @@ spec = parallel $
             { chainConfig = Direct defaultDirectChainConfig{hydraScriptsTxId = toList txIds}
             }
 
-    it "switches to offline chain when using --initial-utxo" $
+    it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
-        [ ["--initial-utxo", "some-file"]
+        [ ["--offline-head-seed", "0100"]
+        , ["--initial-utxo", "some-file"]
         ]
         `shouldParse` Run
           defaultRunOptions
-            { chainConfig = Offline defaultOfflineChainConfig{initialUTxOFile = "some-file"}
+            { chainConfig =
+                Offline
+                  OfflineChainConfig
+                    { offlineHeadSeed = "\01\00"
+                    , initialUTxOFile = "some-file"
+                    , ledgerGenesisFile = Nothing
+                    }
+            }
+
+    it "requires --offline-head-seed and --initial-utxo for offline mode" $ do
+      shouldNotParse ["--offline-head-seed", "not-hex"]
+      shouldNotParse ["--initial-utxo", "utxo.json"]
+
+    it "parses --ledger-genesis in offline mode" $
+      mconcat
+        [ ["--offline-head-seed", "0001"]
+        , ["--initial-utxo", "some-file"]
+        , ["--ledger-genesis", "genesis-file"]
+        ]
+        `shouldParse` Run
+          defaultRunOptions
+            { chainConfig =
+                Offline
+                  OfflineChainConfig
+                    { offlineHeadSeed = "\00\01"
+                    , initialUTxOFile = "some-file"
+                    , ledgerGenesisFile = Just "genesis-file"
+                    }
             }
 
     describe "publish-scripts sub-command" $ do
@@ -364,35 +391,6 @@ spec = parallel $
               { publishNodeSocket = "baz"
               , publishNetworkId = Mainnet
               , publishSigningKey = "crux"
-              }
-
-    describe "offline sub-command" $ do
-      it "does parse with defaults" $
-        ["offline"]
-          `shouldParse` Run defaultRunOptions{chainConfig = Offline defaultOfflineChainConfig}
-
-      it "does parse --ledger-genesis" $
-        mconcat
-          [ ["offline"]
-          , ["--ledger-genesis", "some-file"]
-          ]
-          `shouldParse` Run
-            defaultRunOptions
-              { chainConfig =
-                  Offline
-                    defaultOfflineChainConfig{ledgerGenesisFile = Just "some-file"}
-              }
-
-      it "does parse --initial-utxo" $
-        mconcat
-          [ ["offline"]
-          , ["--initial-utxo", "some-file"]
-          ]
-          `shouldParse` Run
-            defaultRunOptions
-              { chainConfig =
-                  Offline
-                    defaultOfflineChainConfig{initialUTxOFile = "some-file"}
               }
 
     describe "gen-hydra-keys sub-command" $ do

@@ -44,4 +44,6 @@ root-instances = [
  # Orphan instances needed by hydra-explorer
  , { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" }
  , { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" }
+ # Used via OverloadedStrings
+ , { module = "Hydra.Tx.HeadId", instance = "IsString HeadSeed" }
  ]
