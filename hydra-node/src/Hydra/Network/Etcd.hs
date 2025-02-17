@@ -35,7 +35,6 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
-import Data.Text.IO qualified as Text
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
 import Hydra.Node.Network (NetworkConfiguration (..))
@@ -49,6 +48,7 @@ import System.Process.Typed (
   createPipe,
   getStderr,
   getStdout,
+  inherit,
   nullStream,
   proc,
   runProcess_,
@@ -65,16 +65,16 @@ import System.Process.Typed (
 -- listens for incoming messages.
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
-  Tracer IO Text ->
+  Tracer IO Value ->
   NetworkConfiguration msg ->
   NetworkComponent IO msg msg ()
-  -- FIXME: Need to report on 'connectivity' events
+-- FIXME: Need to report on 'connectivity' events
 withEtcdNetwork tracer config callback action = do
   withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
     -- TODO: error handling
-    race_ (waitExitCode p >>= \ec -> die $ "etcd exited with: " <> show ec) $ do
+    race_ (waitExitCode p >>= \ec -> fail $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         race_ (waitMessages clientUrl persistenceDir callback) $ do
           queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
@@ -85,8 +85,11 @@ withEtcdNetwork tracer config callback action = do
                 }
  where
   traceStderr p =
-    forever $
-      Text.hGetLine (getStderr p) >>= traceWith tracer
+    forever $ do
+      bs <- BS.hGetLine (getStderr p)
+      case Aeson.eitherDecodeStrict bs of
+        Left err -> fail $ "Failed to decode etcd log: " <> show err
+        Right v -> traceWith tracer v
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
@@ -169,21 +172,23 @@ waitMessages ::
 waitMessages endpoint directory NetworkCallback{deliver} = do
   revision <- getLastKnownRevision directory
   forever $ do
+    putStrLn "waitMessages"
     -- Watch all key value updates
     withProcessWait (cmd revision) process
     -- Wait before reconnecting
     threadDelay 1
  where
   cmd revision =
-    setStdout createPipe $
-      proc "etcdctl" $
-        concat
-          [ ["--endpoints", endpoint]
-          , ["watch"]
-          , ["--prefix", "msg"]
-          , ["--rev", show $ revision + 1]
-          , ["-w", "json"]
-          ]
+    setStderr inherit $
+      setStdout createPipe $
+        proc "etcdctl" $
+          concat
+            [ ["--endpoints", endpoint]
+            , ["watch"]
+            , ["--prefix", "msg"]
+            , ["--rev", show $ revision + 1]
+            , ["-w", "json"]
+            ]
 
   process p = do
     bs <- BS.hGetLine (getStdout p)
