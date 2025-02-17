@@ -10,6 +10,10 @@ changes.
 
 ## [0.21.0] - UNRELEASED
 
+- **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
+  - Log outputs related to the network components changed significantly.
+  - Persisted state (write ahead logs) of the network components changed significantly.
+
 - Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
   - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
   - An example was if the datum would contain CBOR instead of just hex encoded bytes.

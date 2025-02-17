@@ -6,6 +6,7 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Control.Tracer (showTracing, stdoutTracer)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
@@ -25,6 +26,10 @@ import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
+import Hydra.Network (NetworkCallback (..))
+import Hydra.Network.Authenticate (Authenticated (..), withAuthentication)
+import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Message (NetworkEvent (..))
 import Hydra.Node (
   chainStateHistory,
   connect,
@@ -35,7 +40,7 @@ import Hydra.Node (
   wireClientInput,
   wireNetworkInput,
  )
-import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
+import Hydra.Node.Network (NetworkConfiguration (..))
 import Hydra.Options (
   ChainConfig (..),
   DirectChainConfig (..),
@@ -95,11 +100,21 @@ run opts = do
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
           withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
+            -- XXX: Could parse full local 'Host' directly
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
-              -- Main loop
-              connect chain network server wetHydraNode
-                >>= runHydraNode
+            -- XXX: compose cleaner
+            let NetworkCallback{deliver} = wireNetworkInput wetHydraNode
+            -- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
+            withAuthentication
+              (contramap Network tracer)
+              signingKey
+              otherParties
+              (withEtcdNetwork (showTracing stdoutTracer) networkConfiguration)
+              NetworkCallback{deliver = \Authenticated{payload = msg, party = sender} -> deliver ReceivedMessage{msg, sender}}
+              $ \network -> do
+                -- Main loop
+                connect chain network server wetHydraNode
+                  >>= runHydraNode
  where
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams

@@ -6,8 +6,7 @@ import Codec.CBOR.Term qualified as CBOR
 import Data.Text qualified as T
 import GHC.Natural (naturalFromInteger, naturalToInteger)
 import GHC.Num (integerToInt)
-import Hydra.Network (Host (..))
-import Hydra.Network.Message (HydraVersionedProtocolNumber (..))
+import Hydra.Network (Host (..), HydraVersionedProtocolNumber (..), hydraVersionedProtocolNumber)
 import Ouroboros.Network.CodecCBORTerm (CodecCBORTerm (..))
 import Ouroboros.Network.Protocol.Handshake.Codec (VersionDataCodec, cborTermVersionDataCodec)
 import Ouroboros.Network.Protocol.Handshake.Version (Accept (..), Acceptable, Queryable, acceptableVersion, queryVersion)

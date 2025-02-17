@@ -35,15 +35,13 @@ import Data.Text qualified as T
 import Hydra.Logging (Tracer (..), nullTracer)
 import Hydra.Network (
   Host (..),
+  HydraHandshakeRefused (..),
+  HydraVersionedProtocolNumber (..),
+  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
   PortNumber,
- )
-import Hydra.Network.Message (
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  KnownHydraVersions (..),
  )
 import Hydra.Network.Ouroboros.Client as FireForget (
   FireForgetClient (..),
@@ -246,7 +244,7 @@ withOuroborosNetwork
             , ctaConnectTracers = networkConnectTracers
             , ctaHandshakeCallbacks = HandshakeCallbacks acceptableVersion queryVersion
             }
-          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (\_ -> app chan))
+          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (app chan))
           sn
      where
       networkConnectTracers :: NetworkConnectTracers SockAddr HydraVersionedProtocolNumber
@@ -278,7 +276,7 @@ withOuroborosNetwork
           noTimeLimitsHandshake
           hydraVersionedProtocolDataCodec
           (HandshakeCallbacks acceptableVersion queryVersion)
-          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (\_ -> SomeResponderApplication app))
+          (simpleSingletonVersions protocolVersion MkHydraVersionedProtocolData (SomeResponderApplication app))
           nullErrorPolicies
         $ \_addr serverAsync -> do
           race_ (wait serverAsync) continuation

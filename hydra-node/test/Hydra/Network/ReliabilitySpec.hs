@@ -19,7 +19,6 @@ import Data.Vector qualified as Vector
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Connectivity)
 import Hydra.Network.Reliability (MessagePersistence (..), ReliabilityLog (..), ReliableMsg (..), withReliability)
 import Hydra.Node.Network (withFlipHeartbeats)
 import Hydra.Persistence (
@@ -256,7 +255,11 @@ spec = parallel $ do
       >>= loadAll
 
 noop :: Monad m => NetworkCallback b m
-noop = NetworkCallback{deliver = const $ pure ()}
+noop =
+  NetworkCallback
+    { deliver = const $ pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 aliceReceivesMessages :: [Authenticated (ReliableMsg (Heartbeat msg))] -> [Authenticated (Heartbeat msg)]
 aliceReceivesMessages messages = runSimOrThrow $ do
@@ -283,15 +286,17 @@ captureIncoming receivedMessages =
   NetworkCallback
     { deliver = \msg ->
         atomically $ modifyTVar' receivedMessages (`snoc` msg)
+    , onConnectivity = const $ pure ()
     }
 
-capturePayload :: MonadSTM m => TVar m (Vector msg) -> NetworkCallback (Either Connectivity (Authenticated (Heartbeat msg))) m
+capturePayload :: MonadSTM m => TVar m (Vector msg) -> NetworkCallback (Authenticated (Heartbeat msg)) m
 capturePayload receivedMessages =
   NetworkCallback
     { deliver = \case
-        Right Authenticated{payload = Data _ msg} ->
+        Authenticated{payload = Data _ msg} ->
           atomically $ modifyTVar' receivedMessages (`snoc` msg)
         _ -> pure ()
+    , onConnectivity = const $ pure ()
     }
 
 waitForAllMessages :: MonadSTM m => [msg] -> TVar m (Vector msg) -> m ()
