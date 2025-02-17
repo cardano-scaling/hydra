@@ -70,3 +70,13 @@ hydra_head_tx_confirmation_time_ms_count  0
 
 * Confirm peers are properly connected to each other. Verify the `--peer` arguments point to the correct `host:port` for each peer. The `PeerConnected` message should be observed by the client or appear in the logs and be consistent across all peers involved in a head.
 * Ensure the _Hydra signing key_ for your node or the _Hydra verification keys_ for peers match each node's expectations. Verify that `AckSn` messages are received by all parties and that the `LogicOutcome` log contains no errors.
+
+### Peer Out of Sync  
+
+Processing transactions in a Hydra head requires each node to agree on transactions, which occurs when they sign a snapshot during the `AckSn` phase. The protocol validates transactions (on the `NewTx` command) against its local view of the ledger state, using the provided `--ledger-protocol-parameters`. Since transaction validity depends on configuration (and, to some extent, the exact build versions of `hydra-node`), one node may accept a transaction while its peers reject it.
+
+When this happens, the accepting node's local state diverges from the rest, potentially leading to attempts to spend outputs that other nodes do not recognize as available.  
+
+This issue can also arise if a peer goes offline while a transaction is submitted, potentially causing the Hydra head to become stuck and preventing further snapshots from being signed ([see test case](https://github.com/cardano-scaling/hydra/pull/1780)).  
+
+To resolve this issue, the affected peer must revert to the latest confirmed snapshot. This can be done using the `DELETE /txs/pending` endpoint, which clears the peer’s local pending transactions and restores its state to match the last agreed snapshot. Once executed, the node can rejoin the consensus with the rest of the network.  

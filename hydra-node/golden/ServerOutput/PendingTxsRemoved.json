@@ -1,0 +1,12 @@
+{
+    "samples": [
+        {
+            "headId": "7b77df24b27238e0d4fa20b4e56ba6b5",
+            "localTxIds": [
+                "96436ea84dab6d3f609671201b6654e95333d4879b68164ebecb0469471344c8"
+            ],
+            "tag": "PendingTxsRemoved"
+        }
+    ],
+    "seed": 625814324
+}
