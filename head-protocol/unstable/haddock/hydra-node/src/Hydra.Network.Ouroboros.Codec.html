@@ -1,0 +1,137 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Network.Ouroboros.Codec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Binary</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CBOR</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Codec.CBOR.Read</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CBOR</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html"><span class="hs-identifier">Hydra.Network.Ouroboros.Type</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier">FireForget</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Message</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#SFireForget"><span class="hs-identifier">SFireForget</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol.Codec</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol.Codec.CBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkCodecCborLazyBS</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.TypedProtocol.Core</span></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="annot"><a href="Hydra.Network.Ouroboros.Codec.html#codecFireForget"><span class="hs-identifier hs-type">codecFireForget</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680207704"><span class="annot"><a href="#local-6989586621680207704"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680207706"><span class="annot"><a href="#local-6989586621680207706"><span class="hs-identifier hs-type">msg</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadST</span></span><span> </span><span class="annot"><a href="#local-6989586621680207704"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680207706"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680207706"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207706"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CBOR.DeserialiseFailure</span></span><span> </span><span class="annot"><a href="#local-6989586621680207704"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">LByteString</span></span><span>
+</span><span id="line-16"></span><span id="codecFireForget"><span class="annot"><span class="annottext">codecFireForget :: forall (m :: * -&gt; *) msg.
+(MonadST m, FromCBOR msg, ToCBOR msg) =&gt;
+Codec (FireForget msg) DeserialiseFailure m LByteString
+</span><a href="Hydra.Network.Ouroboros.Codec.html#codecFireForget"><span class="hs-identifier hs-var hs-var">codecFireForget</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="annottext">(forall (st :: FireForget msg) (st' :: FireForget msg).
+ (StateTokenI st, ActiveState st) =&gt;
+ Message (FireForget msg) st st' -&gt; Encoding)
+-&gt; (forall (st :: FireForget msg) s.
+    ActiveState st =&gt;
+    StateToken st -&gt; Decoder s (SomeMessage st))
+-&gt; Codec (FireForget msg) DeserialiseFailure m LByteString
+forall ps (m :: * -&gt; *).
+MonadST m =&gt;
+(forall (st :: ps) (st' :: ps).
+ (StateTokenI st, ActiveState st) =&gt;
+ Message ps st st' -&gt; Encoding)
+-&gt; (forall (st :: ps) s.
+    ActiveState st =&gt;
+    StateToken st -&gt; Decoder s (SomeMessage st))
+-&gt; Codec ps DeserialiseFailure m LByteString
+</span><span class="hs-identifier hs-var">mkCodecCborLazyBS</span></span><span> </span><span class="annot"><span class="annottext">Message (FireForget msg) st st' -&gt; Encoding
+forall msg' (st :: FireForget msg') (st' :: FireForget msg').
+ToCBOR msg' =&gt;
+Message (FireForget msg') st st' -&gt; Encoding
+forall (st :: FireForget msg) (st' :: FireForget msg).
+(StateTokenI st, ActiveState st) =&gt;
+Message (FireForget msg) st st' -&gt; Encoding
+</span><a href="#local-6989586621680207789"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="annot"><span class="annottext">StateToken st -&gt; Decoder s (SomeMessage st)
+forall msg' s (st :: FireForget msg').
+(FromCBOR msg', ActiveState st) =&gt;
+StateToken st -&gt; Decoder s (SomeMessage st)
+forall (st :: FireForget msg) s.
+ActiveState st =&gt;
+StateToken st -&gt; Decoder s (SomeMessage st)
+</span><a href="#local-6989586621680207793"><span class="hs-identifier hs-var">decode</span></a></span><span>
+</span><span id="line-18"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="#local-6989586621680207789"><span class="hs-identifier hs-type">encode</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680207730"><span class="annot"><a href="#local-6989586621680207730"><span class="hs-identifier hs-type">msg'</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207731"><span class="annot"><a href="#local-6989586621680207731"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207730"><span class="hs-identifier hs-type">msg'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207732"><span class="annot"><a href="#local-6989586621680207732"><span class="hs-identifier hs-type">st'</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207730"><span class="hs-identifier hs-type">msg'</span></a></span><span class="hs-special">)</span><span class="hs-operator">.</span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680207730"><span class="hs-identifier hs-type">msg'</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Message</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207730"><span class="hs-identifier hs-type">msg'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621680207731"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207732"><span class="hs-identifier hs-type">st'</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-23"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">CBOR.Encoding</span></span><span>
+</span><span id="line-24"></span><span>  </span><span id="local-6989586621680207789"><span class="annot"><span class="annottext">encode :: forall msg' (st :: FireForget msg') (st' :: FireForget msg').
+ToCBOR msg' =&gt;
+Message (FireForget msg') st st' -&gt; Encoding
+</span><a href="#local-6989586621680207789"><span class="hs-identifier hs-var hs-var">encode</span></a></span></span><span> </span><span class="annot"><span class="annottext">Message (FireForget msg') st st'
+R:MessageFireForgetfromto (*) msg' st st'
+</span><a href="Hydra.Network.Ouroboros.Type.html#MsgDone"><span class="hs-identifier hs-var">MsgDone</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Encoding
+</span><span class="hs-identifier hs-var">CBOR.encodeWord</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="#local-6989586621680207789"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#MsgSend"><span class="hs-identifier hs-type">MsgSend</span></a></span><span> </span><span id="local-6989586621680207811"><span class="annot"><span class="annottext">msg1
+</span><a href="#local-6989586621680207811"><span class="hs-identifier hs-var">msg</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Encoding
+</span><span class="hs-identifier hs-var">CBOR.encodeWord</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">msg1 -&gt; Encoding
+forall a. ToCBOR a =&gt; a -&gt; Encoding
+</span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">msg1
+</span><a href="#local-6989586621680207811"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="#local-6989586621680207793"><span class="hs-identifier hs-type">decode</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680207735"><span class="annot"><a href="#local-6989586621680207735"><span class="hs-identifier hs-type">msg'</span></a></span></span><span> </span><span id="local-6989586621680207737"><span class="annot"><a href="#local-6989586621680207737"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680207736"><span class="annot"><a href="#local-6989586621680207736"><span class="hs-identifier hs-type">st</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.Ouroboros.Type.html#FireForget"><span class="hs-identifier hs-type">FireForget</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680207735"><span class="hs-identifier hs-type">msg'</span></a></span><span class="hs-special">)</span><span class="hs-operator">.</span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621680207735"><span class="hs-identifier hs-type">msg'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ActiveState</span></span><span> </span><span class="annot"><a href="#local-6989586621680207736"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">StateToken</span></span><span> </span><span class="annot"><a href="#local-6989586621680207736"><span class="hs-identifier hs-type">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">CBOR.Decoder</span></span><span> </span><span class="annot"><a href="#local-6989586621680207737"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SomeMessage</span></span><span> </span><span class="annot"><a href="#local-6989586621680207736"><span class="hs-identifier hs-type">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>  </span><span id="local-6989586621680207793"><span class="annot"><span class="annottext">decode :: forall msg' s (st :: FireForget msg').
+(FromCBOR msg', ActiveState st) =&gt;
+StateToken st -&gt; Decoder s (SomeMessage st)
+</span><a href="#local-6989586621680207793"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span id="local-6989586621680207819"><span class="annot"><span class="annottext">StateToken st
+</span><a href="#local-6989586621680207819"><span class="hs-identifier hs-var">stok</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-33"></span><span>    </span><span id="local-6989586621680207820"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621680207820"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Decoder s Word
+forall s. Decoder s Word
+</span><span class="hs-identifier hs-var">CBOR.decodeWord</span></span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateToken st
+SFireForget st
+</span><a href="#local-6989586621680207819"><span class="hs-identifier hs-var">stok</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621680207820"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-35"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SFireForget st
+</span><a href="Hydra.Network.Ouroboros.Type.html#SingIdle"><span class="hs-identifier hs-var">SingIdle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SomeMessage st -&gt; Decoder s (SomeMessage st)
+forall a. a -&gt; Decoder s a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(SomeMessage st -&gt; Decoder s (SomeMessage st))
+-&gt; SomeMessage st -&gt; Decoder s (SomeMessage st)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Message (FireForget msg') st 'StDone -&gt; SomeMessage st
+forall ps (st :: ps) (st' :: ps).
+(StateTokenI st, StateTokenI st', ActiveState st) =&gt;
+Message ps st st' -&gt; SomeMessage st
+</span><span class="hs-identifier hs-var">SomeMessage</span></span><span> </span><span class="annot"><span class="annottext">Message (FireForget msg') st 'StDone
+Message (FireForget msg') 'StIdle 'StDone
+forall {k} (msg :: k). Message (FireForget msg) 'StIdle 'StDone
+</span><a href="Hydra.Network.Ouroboros.Type.html#MsgDone"><span class="hs-identifier hs-var">MsgDone</span></a></span><span>
+</span><span id="line-36"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SFireForget st
+</span><a href="Hydra.Network.Ouroboros.Type.html#SingIdle"><span class="hs-identifier hs-var">SingIdle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Message (FireForget msg') st 'StIdle -&gt; SomeMessage st
+forall ps (st :: ps) (st' :: ps).
+(StateTokenI st, StateTokenI st', ActiveState st) =&gt;
+Message ps st st' -&gt; SomeMessage st
+</span><span class="hs-identifier hs-var">SomeMessage</span></span><span> </span><span class="annot"><span class="annottext">(Message (FireForget msg') st 'StIdle -&gt; SomeMessage st)
+-&gt; (msg' -&gt; Message (FireForget msg') st 'StIdle)
+-&gt; msg'
+-&gt; SomeMessage st
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">msg' -&gt; Message (FireForget msg') st 'StIdle
+msg' -&gt; Message (FireForget msg') 'StIdle 'StIdle
+forall msg1. msg1 -&gt; Message (FireForget msg1) 'StIdle 'StIdle
+</span><a href="Hydra.Network.Ouroboros.Type.html#MsgSend"><span class="hs-identifier hs-var">MsgSend</span></a></span><span> </span><span class="annot"><span class="annottext">(msg' -&gt; SomeMessage st)
+-&gt; Decoder s msg' -&gt; Decoder s (SomeMessage st)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s msg'
+forall s. Decoder s msg'
+forall a s. FromCBOR a =&gt; Decoder s a
+</span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
+</span><span id="line-37"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SFireForget st
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Decoder s (SomeMessage st)
+forall a. String -&gt; Decoder s a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/6b4grlnsja5lm7704cn0yw3ljjvzk909-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;codedFireForget.StIdle: unexpected&quot;</span></span><span>
+</span><span id="line-38"></span></pre></body></html>
