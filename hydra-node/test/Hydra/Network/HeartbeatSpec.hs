@@ -5,9 +5,8 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId (..))
+import Hydra.Network (Connectivity (..), Network (..), NetworkCallback (..), NetworkComponent, NodeId (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
 spec :: Spec
 spec = parallel $ do
@@ -102,7 +101,11 @@ spec = parallel $ do
     sentHeartbeats `shouldBe` [Ping nodeId, Data nodeId (), Ping nodeId]
 
 noop :: Monad m => NetworkCallback b m
-noop = NetworkCallback{deliver = const $ pure ()}
+noop =
+  NetworkCallback
+    { deliver = const $ pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 captureOutgoing :: MonadSTM m => m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (), m [Heartbeat ()])
 captureOutgoing = do
@@ -112,11 +115,9 @@ captureOutgoing = do
   broadcast tv msg =
     atomically $ modifyTVar' tv (msg :)
 
-captureConnectivity :: MonadSTM m => m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+captureConnectivity :: MonadSTM m => m (NetworkCallback a m, m [Connectivity])
 captureConnectivity = do
   tv <- newTVarIO []
-  pure (NetworkCallback{deliver = record tv}, readTVarIO tv)
+  pure (NetworkCallback{deliver = const $ pure (), onConnectivity = record tv}, readTVarIO tv)
  where
-  record tv = \case
-    Left c -> atomically $ modifyTVar' tv (c :)
-    Right _ -> pure ()
+  record tv c = atomically $ modifyTVar' tv (c :)

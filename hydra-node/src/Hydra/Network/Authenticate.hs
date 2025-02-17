@@ -63,8 +63,8 @@ withAuthentication ::
   NetworkComponent m (Signed inbound) (Signed outbound) a ->
   -- The node internal authenticated network.
   NetworkComponent m (Authenticated inbound) outbound a
-withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deliver} action = do
-  withRawNetwork NetworkCallback{deliver = checkSignature} authenticate
+withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deliver, onConnectivity} action = do
+  withRawNetwork NetworkCallback{deliver = checkSignature, onConnectivity} authenticate
  where
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
     if verify partyVkey sig msg && party `elem` allParties

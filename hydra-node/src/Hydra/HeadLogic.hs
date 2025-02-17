@@ -72,7 +72,8 @@ import Hydra.Ledger (
   applyTransactions,
   outputsOfTx,
  )
-import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
+import Hydra.Network (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Tx (
   HeadId,
   HeadSeed,

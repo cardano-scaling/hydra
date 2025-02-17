@@ -20,6 +20,10 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
+  Connectivity (..),
+  HydraVersionedProtocolNumber (..),
+  KnownHydraVersions (..),
+  HydraHandshakeRefused (..),
 
   -- * Utility functions
   close,
@@ -32,11 +36,9 @@ import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Test.QuickCheck (elements, listOf, suchThat)
+import Test.QuickCheck.Instances.Natural ()
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
-
-deriving anyclass instance ToJSON IP
-deriving anyclass instance FromJSON IP
 
 -- * Hydra network interface
 
@@ -51,9 +53,11 @@ newtype Network m msg = Network
 -- tricky. According to "Introduction to Reliable and Secure Distributed
 -- Programming" section "2.2.4 Crashes with recoveries" explains that storing to
 -- stable storage and just pointing to stored events is a better way.
-newtype NetworkCallback msg m = NetworkCallback
+data NetworkCallback msg m = NetworkCallback
   { deliver :: msg -> m ()
   -- ^ The given `msg` was received from the network.
+  , onConnectivity :: Connectivity -> m ()
+  -- ^ The given `Connectivity` event was observed by network.
   }
 
 -- | A type tying both inbound and outbound messages sending in a single /Component/.
@@ -62,6 +66,11 @@ newtype NetworkCallback msg m = NetworkCallback
 type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Network m outbound -> m a) -> m a
 
 -- * Types used by concrete implementations
+
+-- ** IP (Orphans)
+
+deriving anyclass instance ToJSON IP
+deriving anyclass instance FromJSON IP
 
 -- ** PortNumber (Orphans)
 
@@ -140,3 +149,42 @@ readPort s =
  where
   maxPort = fromIntegral (maxBound :: Word16)
   minPort = fromIntegral (minBound :: Word16)
+
+-- ** Connectivity & versions
+
+data Connectivity
+  = Connected {nodeId :: NodeId}
+  | Disconnected {nodeId :: NodeId}
+  | HandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: HydraVersionedProtocolNumber
+      , theirVersions :: KnownHydraVersions
+      }
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
+
+instance Arbitrary Connectivity where
+  arbitrary = genericArbitrary
+
+newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Natural}
+  deriving stock (Eq, Show, Generic, Ord)
+  deriving anyclass (ToJSON)
+
+instance Arbitrary HydraVersionedProtocolNumber where
+  arbitrary = genericArbitrary
+
+data KnownHydraVersions
+  = KnownHydraVersions {fromKnownHydraVersions :: [HydraVersionedProtocolNumber]}
+  | NoKnownHydraVersions
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+instance Arbitrary KnownHydraVersions where
+  arbitrary = genericArbitrary
+
+data HydraHandshakeRefused = HydraHandshakeRefused
+  { remoteHost :: Host
+  , ourVersion :: HydraVersionedProtocolNumber
+  , theirVersions :: KnownHydraVersions
+  }
+  deriving stock (Eq, Show, Generic)

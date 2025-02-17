@@ -49,6 +49,7 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..), NetworkCallback (..))
+import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -222,9 +223,14 @@ wireClientInput node = enqueue . ClientInput
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
-wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (NetworkEvent (Message tx)) m
+wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (Authenticated (Message tx)) m
 wireNetworkInput node =
-  NetworkCallback{deliver = enqueue . NetworkInput defaultTTL}
+  NetworkCallback
+    { deliver = \Authenticated{payload, party} ->
+        enqueue $ NetworkInput defaultTTL $ ReceivedMessage{sender = party, msg = payload}
+    , onConnectivity =
+        enqueue . NetworkInput defaultTTL . ConnectivityEvent
+    }
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 

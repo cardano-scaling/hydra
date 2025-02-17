@@ -24,8 +24,7 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId)
-import Hydra.Network.Message (Connectivity (Connected, Disconnected))
+import Hydra.Network (Connectivity (..), Network (..), NetworkCallback (..), NetworkComponent, NodeId)
 
 data HeartbeatState = HeartbeatState
   { alive :: Map NodeId Time
@@ -91,37 +90,39 @@ withHeartbeat ::
   NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a ->
   -- | Returns a network component that can be used to send and consume arbitrary messages.
   -- This layer will take care of peeling out/wrapping messages into `Heartbeat`s.
-  NetworkComponent m (Either Connectivity inbound) outbound a
+  NetworkComponent m inbound outbound a
 withHeartbeat nodeId withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   lastSent <- newTVarIO Nothing
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
-    withAsync (checkRemoteParties heartbeat onConnectivityChanged) $ \_ ->
+    withAsync (checkRemoteParties heartbeat onConnectivity) $ \_ ->
       withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
         action (updateStateFromOutgoingMessages nodeId lastSent network)
  where
-  NetworkCallback{deliver} = callback
-
-  onConnectivityChanged = deliver . Left
+  NetworkCallback{onConnectivity} = callback
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
-  NetworkCallback (Either Connectivity inbound) m ->
+  NetworkCallback inbound m ->
   NetworkCallback (Heartbeat inbound) m
 updateStateFromIncomingMessages heartbeatState callback =
   NetworkCallback
     { deliver = \case
-        Data nodeId msg -> notifyAlive nodeId >> deliver (Right msg)
+        Data nodeId msg -> notifyAlive nodeId >> deliver msg
         Ping nodeId -> notifyAlive nodeId
+    , -- NOTE: We deliberately ignore connnectivity events from the underlying
+      -- NetworkComponent here as the heartbeat provides a "better" detection of
+      -- connectivity.
+      onConnectivity = const $ pure ()
     }
  where
-  NetworkCallback{deliver} = callback
+  NetworkCallback{deliver, onConnectivity} = callback
 
   notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (peer `Map.member` aliveSet) $ deliver (Left $ Connected peer)
+    unless (peer `Map.member` aliveSet) $ onConnectivity (Connected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s

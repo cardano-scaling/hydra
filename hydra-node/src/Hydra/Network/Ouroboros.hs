@@ -35,15 +35,13 @@ import Data.Text qualified as T
 import Hydra.Logging (Tracer (..), nullTracer)
 import Hydra.Network (
   Host (..),
+  HydraHandshakeRefused (..),
+  HydraVersionedProtocolNumber (..),
+  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
   PortNumber,
- )
-import Hydra.Network.Message (
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  KnownHydraVersions (..),
  )
 import Hydra.Network.Ouroboros.Client as FireForget (
   FireForgetClient (..),
