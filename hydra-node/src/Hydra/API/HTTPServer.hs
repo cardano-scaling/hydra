@@ -26,6 +26,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   IsTx (..),
+  Snapshot,
   UTxOType,
  )
 import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
@@ -137,6 +138,8 @@ httpApp ::
   IO CommitInfo ->
   -- | Get latest confirmed UTxO snapshot.
   IO (Maybe (UTxOType tx)) ->
+  -- | Get latest confirmed UTxO snapshot.
+  IO (Maybe (Snapshot tx)) ->
   -- | Get latest pending transactions.
   IO [TxIdType tx] ->
   -- | Get the pending commits (deposits)
@@ -144,7 +147,7 @@ httpApp ::
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
   Application
-httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPendingTxs getPendingDeposits putClientInput request respond = do
+httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getConfirmed getPendingTxs getPendingDeposits putClientInput request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -158,6 +161,10 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPending
       getConfirmedUTxO >>= \case
         Nothing -> respond notFound
         Just utxo -> respond $ okJSON utxo
+    ("GET", ["snapshot"]) ->
+      getConfirmed >>= \case
+        Nothing -> respond notFound
+        Just snapshot -> respond $ okJSON snapshot
     ("GET", ["txs", "pending"]) ->
       -- XXX: Should ensure the pending txs are of the right head and the head is still
       -- open. This is something we should fix on the "read model" side of the

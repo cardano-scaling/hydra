@@ -28,6 +28,7 @@ import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline)
+import Hydra.Tx.Snapshot
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -225,6 +226,21 @@ getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
       (Proxy :: Proxy (JsonResponse UTxO))
       (Req.port (fromInteger . toInteger $ port))
 
+-- | Get the latest snapshot from the hydra-node. NOTE: While we usually
+-- avoid parsing responses using the same data types as the system under test,
+-- this parses the response as a 'Snapshot' type as we often need to pick it apart.
+getSnapshot :: HydraClient -> IO (Snapshot Tx)
+getSnapshot HydraClient{apiHost = Host{hostname, port}} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http hostname /: "snapshot")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse (Snapshot tx)))
+      (Req.port (fromInteger . toInteger $ port))
+
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
   failAfter 3 $
@@ -414,9 +430,9 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
   peers =
     [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
     | i <- allNodeIds
     , i /= hydraNodeId
     ]

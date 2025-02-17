@@ -25,6 +25,7 @@ import Hydra.API.ServerOutput (
   projectInitializingHeadId,
   projectPendingDeposits,
   projectPendingTxs,
+  projectSnapshot,
   projectSnapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
@@ -96,6 +97,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     -- NOTE: we do not keep the stored events around in memory
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    snapshotP <- mkProjection Nothing projectSnapshot
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -106,6 +108,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
           -- .| mapC output
           .| iterM (lift . atomically . update headStatusP . output)
           .| iterM (lift . atomically . update snapshotUtxoP . output)
+          .| iterM (lift . atomically . update snapshotP . output)
           .| iterM (lift . atomically . update commitInfoP . output)
           .| iterM (lift . atomically . update headIdP . output)
           .| iterM (lift . atomically . update pendingDepositsP . output)
@@ -140,6 +143,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
                   pparams
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest snapshotUtxoP)
+                  (atomically $ getLatest snapshotP)
                   (atomically $ getLatest pendingTxsP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
@@ -155,6 +159,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
                     update headStatusP output
                     update commitInfoP output
                     update snapshotUtxoP output
+                    update snapshotP output
                     update headIdP output
                     update pendingTxsP output
                     update pendingDepositsP output
