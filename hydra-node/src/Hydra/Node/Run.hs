@@ -102,7 +102,7 @@ run opts = do
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             -- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
             withAuthentication
-              (contramap Network tracer)
+              (contramap Network tracer) -- TODO: trace authentication and etcd stuff together
               signingKey
               otherParties
               (withEtcdNetwork (showTracing stdoutTracer) networkConfiguration)

@@ -73,8 +73,8 @@ channels:
       message:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
-          - $ref: "api.yaml#/components/messages/PeerConnected"
-          - $ref: "api.yaml#/components/messages/PeerDisconnected"
+          - $ref: "api.yaml#/components/messages/NetworkConnected"
+          - $ref: "api.yaml#/components/messages/NetworkDisconnected"
           - $ref: "api.yaml#/components/messages/PeerHandshakeFailure"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
@@ -457,19 +457,16 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Greetings"
 
-    PeerConnected:
-      title: PeerConnected
-      description: |
-        A peer is now connected to the head network.
+    NetworkConnected:
       payload:
-        $ref: "api.yaml#/components/schemas/PeerConnected"
+        $ref: "api.yaml#/components/schemas/NetworkConnected"
 
-    PeerDisconnected:
-      title: PeerDisconnected
+    NetworkDisconnected:
+      title: NetworkDisconnected
       description: |
-        A peer has disconnected from the head network.
+        Node disconnected from the L2 Hydra network.
       payload:
-        $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        $ref: "api.yaml#/components/schemas/NetworkDisconnected"
 
     PeerHandshakeFailure:
       title: PeerHandshakeFailure
@@ -708,8 +705,8 @@ components:
     ServerOutput:
       oneOf:
         - $ref: "api.yaml#/components/schemas/Greetings"
-        - $ref: "api.yaml#/components/schemas/PeerConnected"
-        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/NetworkConnected"
+        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
         - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
         - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
         - $ref: "api.yaml#/components/schemas/Committed"
@@ -763,37 +760,34 @@ components:
         hydraNodeVersion:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
 
-    PeerConnected:
+    NetworkConnected:
+      title: NetworkConnected
+      description: |
+        Node connected to the L2 Hydra network.
       type: object
       required:
         - tag
-        - peer
         - seq
         - timestamp
       properties:
         tag:
           type: string
-          enum: ["PeerConnected"]
-        peer:
-          $ref: "api.yaml#/components/schemas/NodeId"
+          enum: ["NetworkConnected"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-    PeerDisconnected:
+    NetworkDisconnected:
       type: object
       required:
         - tag
-        - peer
         - seq
         - timestamp
       properties:
         tag:
           type: string
-          enum: ["PeerDisconnected"]
-        peer:
-          $ref: "api.yaml#/components/schemas/NodeId"
+          enum: ["NetworkConnected"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

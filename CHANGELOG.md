@@ -11,6 +11,7 @@ changes.
 ## [0.21.0] - UNRELEASED
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
+  - Drops `PeerConnected` and `PeerDisconnected` messages in favor of `NetworkConnected` and `NetworkDisconnected` equivalents. These now indicate overall connectivity to the L2 network (which corresponds to the `etcd` cluster).
   - Log outputs related to the network components changed significantly.
   - Persisted state (write ahead logs) of the network components changed significantly.
 

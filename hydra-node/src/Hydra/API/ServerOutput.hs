@@ -13,7 +13,7 @@ import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, NodeId)
+import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   HeadId,
@@ -75,8 +75,8 @@ instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
 -- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ServerOutput tx
-  = PeerConnected {peer :: NodeId}
-  | PeerDisconnected {peer :: NodeId}
+  = NetworkConnected
+  | NetworkDisconnected
   | PeerHandshakeFailure
       { remoteHost :: Host
       , ourVersion :: Natural
@@ -168,8 +168,8 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
-    PeerConnected p -> PeerConnected <$> shrink p
-    PeerDisconnected p -> PeerDisconnected <$> shrink p
+    NetworkConnected -> pure NetworkConnected
+    NetworkDisconnected -> pure NetworkDisconnected
     PeerHandshakeFailure rh ov tv -> PeerHandshakeFailure <$> shrink rh <*> shrink ov <*> shrink tv
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
@@ -235,8 +235,8 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
-    PeerConnected{} -> encodedResponse
-    PeerDisconnected{} -> encodedResponse
+    NetworkConnected{} -> encodedResponse
+    NetworkDisconnected{} -> encodedResponse
     PeerHandshakeFailure{} -> encodedResponse
     HeadIsInitializing{} -> encodedResponse
     Committed{} -> encodedResponse

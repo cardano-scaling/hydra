@@ -67,8 +67,8 @@ withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
   Tracer IO Value ->
   NetworkConfiguration msg ->
+  -- FIXME: provide 'Connectivity' events
   NetworkComponent IO msg msg ()
--- FIXME: Need to report on 'connectivity' events
 withEtcdNetwork tracer config callback action = do
   withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
