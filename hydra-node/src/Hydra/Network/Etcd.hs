@@ -42,12 +42,14 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
+  HydraVersionedProtocolNumber,
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
+  NetworkConfiguration (..),
   PortNumber,
+  hydraVersionedProtocolNumber,
  )
-import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
@@ -77,9 +79,14 @@ import System.Process.Typed (
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
   Tracer IO Value ->
-  NetworkConfiguration msg ->
+  HydraVersionedProtocolNumber ->
+  -- TODO: check if all of these needed?
+  NetworkConfiguration ->
   NetworkComponent IO msg msg ()
-withEtcdNetwork tracer config callback action = do
+withEtcdNetwork tracer protocolVersion config callback action = do
+  -- TODO: fail if cluster config / members do not match --peer
+  -- configuration? That would be similar to the 'acks' persistence
+  -- bailing out on loading.
   withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
@@ -119,7 +126,7 @@ withEtcdNetwork tracer config callback action = do
           , -- Client access only on configured 'host' interface.
             ["--advertise-client-urls", clientUrl]
           , -- XXX: use unique initial-cluster-tokens to isolate clusters
-            ["--initial-cluster-token", "hydra-network-1"]
+            ["--initial-cluster-token", "hydra-network-" <> show (hydraVersionedProtocolNumber protocolVersion)]
           , ["--initial-cluster", clusterPeers]
           ]
 
@@ -244,7 +251,6 @@ pollMembers endpoint NetworkCallback{onConnectivity} = do
     case exitCode of
       ExitSuccess -> do
         let members = out ^.. Aeson.key "members" . Aeson.values . Aeson.key "name" . _String
-        -- TODO: tracing
         putTextLn $ "Current members: " <> show members
         -- XXX: The member list is not indicating connectivity
         onConnectivity $ Connected "" -- TODO: node id does not matter

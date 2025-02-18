@@ -15,21 +15,12 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Network (
-  Connectivity (..),
-  Host (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  Network,
-  NetworkCallback (..),
- )
+import Hydra.Logging (showLogsOnFailure)
+import Hydra.Network (Connectivity (..), Host (..), HydraHandshakeRefused (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Network, NetworkCallback (..))
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (HydraNetworkConfig (..), broadcast, withOuroborosNetwork)
-import Hydra.Network.Reliability (MessagePersistence (..))
-import Hydra.Node.Network (NetworkConfiguration (..), configureMessagePersistence)
-import Hydra.Node.ParameterMismatch (ParameterMismatch)
+import Hydra.Node.Network (NetworkConfiguration (..))
 import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
@@ -42,6 +33,8 @@ spec = do
   -- TODO: Generalize tests corresponding to properties of network layer, e.g. validity
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
+      let v1 = MkHydraVersionedProtocolNumber 1
+
       it "broadcasts to self" $ \tracer -> do
         failAfter 5 $
           withTempDir "test-etcd" $ \tmp -> do
@@ -57,7 +50,7 @@ spec = do
                       , persistenceDir = tmp </> "alice"
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
-              withEtcdNetwork tracer config recordingCallback $ \n -> do
+              withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
 
@@ -85,9 +78,9 @@ spec = do
                     , nodeId = "bob"
                     , persistenceDir = tmp </> "bob"
                     }
-            withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 -> do
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, waitNext, _) <- newRecordingCallback
-              withEtcdNetwork @Int tracer bobConfig recordReceived $ \_n2 -> do
+              withEtcdNetwork @Int tracer v1 bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
                 waitNext `shouldReturn` 123
 
@@ -129,13 +122,13 @@ spec = do
                     , persistenceDir = tmp </> "carol"
                     }
             (recordReceived, waitNext, waitConnectivity) <- newRecordingCallback
-            withEtcdNetwork @Int tracer aliceConfig recordReceived $ \n1 -> do
+            withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \n1 -> do
               -- Bob and carol start and stop
-              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
+              withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
                 -- TODO: dedicated connectivity test?
                 waitConnectivity `shouldReturn` Connected (show bobHost)
 
-                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
+                withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
                   waitConnectivity `shouldReturn` Connected (show carolHost)
                 waitConnectivity `shouldReturn` Disconnected (show carolHost)
 
@@ -144,9 +137,9 @@ spec = do
               broadcast n1 123
             -- Now, alice stops too!
             -- Start alice, bob and carol again
-            withEtcdNetwork @Int tracer aliceConfig recordReceived $ \_ -> do
-              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
-                withEtcdNetwork @Int tracer carolConfig noopCallback $ \_ -> do
+            withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
+              withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
+                withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
                   -- Alice should see her own message eventually (when part of majority again)
                   waitNext `shouldReturn` 123
 
@@ -185,19 +178,64 @@ spec = do
                     , persistenceDir = tmp </> "carol"
                     }
             (recordReceived, waitNext, _) <- newRecordingCallback
-            withEtcdNetwork @Int tracer aliceConfig noopCallback $ \n1 ->
-              withEtcdNetwork @Int tracer bobConfig noopCallback $ \_ -> do
-                withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
+                withEtcdNetwork @Int tracer v1 carolConfig recordReceived $ \_ -> do
                   -- Alice sends a message while Carol is online
                   broadcast n1 123
                   waitNext `shouldReturn` 123
                 -- Alice sends a message while Carol is offline
                 broadcast n1 456
                 -- Carol starts again
-                withEtcdNetwork @Int tracer carolConfig recordReceived $ \_ -> do
+                withEtcdNetwork @Int tracer v1 carolConfig recordReceived $ \_ -> do
                   -- Carol should receive messages sent by alice while offline
                   -- (without duplication of 123)
                   waitNext `shouldReturn` 456
+
+      it "checks protocol version" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 5 $ do
+            [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+            let aliceConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port1
+                    , signingKey = aliceSk
+                    , otherParties = [bob]
+                    , peers = [Host lo port2]
+                    , nodeId = "alice"
+                    , persistenceDir = tmp </> "alice"
+                    }
+            let bobConfig =
+                  NetworkConfiguration
+                    { host = lo
+                    , port = port2
+                    , signingKey = bobSk
+                    , otherParties = [alice]
+                    , peers = [Host lo port1]
+                    , nodeId = "bob"
+                    , persistenceDir = tmp </> "bob"
+                    }
+            let v2 = MkHydraVersionedProtocolNumber 2
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
+              (recordReceived, _, waitConnectivity) <- newRecordingCallback
+              withEtcdNetwork @Int tracer v2 bobConfig recordReceived $ \_n2 -> do
+                broadcast n1 123
+
+                -- TODO: why two time disconnected?
+                waitConnectivity `shouldReturn` Disconnected ""
+                waitConnectivity `shouldReturn` Disconnected ""
+
+                waitConnectivity
+                  `shouldReturn` HandshakeFailure
+                    { remoteHost = Host "" 1234 -- TODO
+                    , ourVersion = v2
+                    , theirVersions = KnownHydraVersions [v1]
+                    }
+
+      it "throws ParameterMismatch when configuration does not match persistence" $ \_ -> do
+        -- FIXME: Make this equivalent to before?
+        pendingWith "TODO: not implemented"
 
   describe "Ouroboros Network" $ do
     around (showLogsOnFailure "NetworkSpec") $ do
@@ -288,13 +326,6 @@ spec = do
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
-
-  describe "configureMessagePersistence" $ do
-    it "throws ParameterMismatch when configuring given number of acks does not match number of parties" $ do
-      withTempDir "persistence" $ \dir -> do
-        MessagePersistence{saveAcks} <- configureMessagePersistence @_ @Int nullTracer dir 3
-        saveAcks (fromList [0, 0, 0])
-        configureMessagePersistence @_ @Int nullTracer dir 4 `shouldThrow` (const True :: Selector ParameterMismatch)
 
 lo :: IsString s => s
 lo = "127.0.0.1"

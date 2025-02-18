@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 -- FIXME: Drop unused components and re-create similar documentation as this
+-- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
 
 -- | Concrete `Hydra.Network` stack dedicated to running a hydra-node.
 --
@@ -66,153 +67,39 @@
 module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
-  withFlipHeartbeats,
-  configureMessagePersistence,
-  acksFile,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
 
-import Control.Tracer (Tracer)
-import Hydra.Logging (traceWith)
-import Hydra.Logging.Messages (HydraLog)
-import Hydra.Logging.Messages qualified as Log
-import Hydra.Network (Connectivity (..), Host (..), HydraHandshakeRefused (..), HydraVersionedProtocolNumber (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
-import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
-import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Message, NetworkEvent (..))
-import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
-import Hydra.Node (HydraNodeLog (..))
-import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
-import Hydra.Tx (IsTx, Party, deriveParty)
-import Hydra.Tx.Crypto (HydraKey, SigningKey)
-import System.FilePath ((</>))
-import UnliftIO (MonadUnliftIO)
+import Control.Tracer (Tracer, showTracing, stdoutTracer)
+import Hydra.Network (HydraVersionedProtocolNumber (..), NetworkComponent, NetworkConfiguration (..))
+import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
+import Hydra.Network.Etcd (withEtcdNetwork)
+import Hydra.Network.Message (Message)
+import Hydra.Tx (IsTx)
 
--- | An alias for logging messages output by network component.
--- The type is made complicated because the various subsystems use part of the tracer only.
-type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
-
--- | Configuration for a `Node` network layer.
-data NetworkConfiguration m = NetworkConfiguration
-  { persistenceDir :: FilePath
-  -- ^ Persistence directory
-  , signingKey :: SigningKey HydraKey
-  -- ^ This node's signing key. This is used to sign messages sent to peers.
-  , otherParties :: [Party]
-  -- ^ The list of peers `Party` known to this node.
-  , host :: IP
-  -- ^ IP address to listen on for incoming connections.
-  , port :: PortNumber
-  -- ^ Port to listen on.
-  , peers :: [Host]
-  -- ^ Addresses and ports of remote peers.
-  , nodeId :: NodeId
-  -- ^ This node's id.
-  }
-
-currentHydraVersionedProtocol :: HydraVersionedProtocolNumber
-currentHydraVersionedProtocol = MkHydraVersionedProtocolNumber 1
+currentNetworkProtocolVersion :: HydraVersionedProtocolNumber
+currentNetworkProtocolVersion = MkHydraVersionedProtocolNumber 1
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
   forall tx.
   IsTx tx =>
   -- | Tracer to use for logging messages.
-  Tracer IO (LogEntry tx (Message tx)) ->
+  Tracer IO AuthLog ->
   -- | The network configuration
-  NetworkConfiguration IO ->
+  NetworkConfiguration ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   -- XXX: This is odd as we map connectivity events into the main 'deliver' data type.
-  NetworkComponent IO (NetworkEvent (Message tx)) (Message tx) ()
-withNetwork tracer configuration callback action = do
-  let localHost = Host{hostname = show host, port}
-      me = deriveParty signingKey
-      numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence (contramap Log.Node tracer) persistenceDir numberOfParties
-
-  let reliability =
-        withFlipHeartbeats $
-          withReliability (contramap Log.Reliability tracer) messagePersistence me otherParties $
-            withAuthentication (contramap Log.Authentication tracer) signingKey otherParties $
-              withOuroborosNetwork
-                (contramap Log.Network tracer)
-                HydraNetworkConfig
-                  { protocolVersion = currentHydraVersionedProtocol
-                  , localHost
-                  , remoteHosts = peers
-                  }
-                ( \HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-                    deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
-                )
-
-  withHeartbeat
-    nodeId
-    reliability
-    ( NetworkCallback
-        { deliver = deliver . mapDeliver
-        , onConnectivity = deliver . ConnectivityEvent
-        }
-    )
-    $ \Network{broadcast} ->
-      action
-        Network
-          { broadcast = \msg -> do
-              broadcast msg
-              deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
-          }
+  NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+withNetwork tracer conf callback action = do
+  withAuthentication
+    tracer
+    signingKey
+    otherParties
+    -- FIXME: trace authentication and etcd stuff together
+    (withEtcdNetwork (showTracing stdoutTracer) currentNetworkProtocolVersion conf)
+    callback
+    action
  where
-  NetworkCallback{deliver} = callback
-
-  NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
-
-  mapDeliver :: Authenticated (Message tx) -> NetworkEvent (Message tx)
-  mapDeliver Authenticated{payload, party} = ReceivedMessage{sender = party, msg = payload}
-
--- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
---
--- This function will `throw` a `ParameterMismatch` exception if:
---
---   * Some state already exists and is loaded,
---   * The number of parties is not the same as the number of acknowledgments saved.
-configureMessagePersistence ::
-  (MonadThrow m, FromJSON msg, ToJSON msg, MonadUnliftIO m) =>
-  Tracer m (HydraNodeLog tx) ->
-  FilePath ->
-  Int ->
-  m (MessagePersistence m msg)
-configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
-  ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
-  mAcks <- load
-  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
-    Just False -> do
-      let paramsMismatch = [SavedNetworkPartiesInconsistent{numberOfParties}]
-      traceWith tracer (Misconfiguration paramsMismatch)
-      throwIO $ ParameterMismatch paramsMismatch
-    _ -> pure ackPersistence
-  pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
-
-withFlipHeartbeats ::
-  NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
-  NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
-withFlipHeartbeats withBaseNetwork NetworkCallback{deliver, onConnectivity} =
-  withBaseNetwork
-    NetworkCallback
-      { deliver = unwrapHeartbeats
-      , onConnectivity
-      }
- where
-  unwrapHeartbeats = \case
-    Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) _ -> deliver $ Ping nid
-
--- | Where are the messages stored, relative to given directory.
-storedMessagesFile :: FilePath -> FilePath
-storedMessagesFile = (</> "network-messages")
-
--- | Where is the acknowledgments vector stored, relative to given directory.
-acksFile :: FilePath -> FilePath
-acksFile = (</> "acks")
+  NetworkConfiguration{signingKey, otherParties} = conf

@@ -13,6 +13,7 @@ module Hydra.Network (
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
+  NetworkConfiguration (..),
   IP,
   Host (..),
   NodeId (..),
@@ -34,6 +35,9 @@ import Hydra.Prelude hiding (show)
 import Cardano.Ledger.Orphans ()
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
+import Hydra.Cardano.Api (Key (SigningKey))
+import Hydra.Tx (Party)
+import Hydra.Tx.Crypto (HydraKey)
 import Network.Socket (PortNumber, close)
 import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
@@ -66,6 +70,24 @@ data NetworkCallback msg m = NetworkCallback
 type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Network m outbound -> m a) -> m a
 
 -- * Types used by concrete implementations
+
+-- | Configuration for a `Node` network layer.
+data NetworkConfiguration = NetworkConfiguration
+  { persistenceDir :: FilePath
+  -- ^ Persistence directory
+  , signingKey :: SigningKey HydraKey
+  -- ^ This node's signing key. This is used to sign messages sent to peers.
+  , otherParties :: [Party]
+  -- ^ The list of peers `Party` known to this node.
+  , host :: IP
+  -- ^ IP address to listen on for incoming connections.
+  , port :: PortNumber
+  -- ^ Port to listen on.
+  , peers :: [Host]
+  -- ^ Addresses and ports of remote peers.
+  , nodeId :: NodeId
+  -- ^ This node's id.
+  }
 
 -- ** IP (Orphans)
 

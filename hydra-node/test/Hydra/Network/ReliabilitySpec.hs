@@ -16,11 +16,10 @@ import Control.Tracer (Tracer (..), nullTracer)
 import Data.Sequence.Strict ((|>))
 import Data.Vector (Vector, empty, fromList, head, replicate, snoc)
 import Data.Vector qualified as Vector
-import Hydra.Network (Network (..), NetworkCallback (..))
+import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Hydra.Network.Reliability (MessagePersistence (..), ReliabilityLog (..), ReliableMsg (..), withReliability)
-import Hydra.Node.Network (withFlipHeartbeats)
 import Hydra.Persistence (
   Persistence (..),
   PersistenceIncremental (..),
@@ -253,6 +252,20 @@ spec = parallel $ do
   reloadAll fileName = do
     createPersistenceIncremental fileName
       >>= loadAll
+
+withFlipHeartbeats ::
+  NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
+  NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
+withFlipHeartbeats withBaseNetwork NetworkCallback{deliver, onConnectivity} =
+  withBaseNetwork
+    NetworkCallback
+      { deliver = unwrapHeartbeats
+      , onConnectivity
+      }
+ where
+  unwrapHeartbeats = \case
+    Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)
+    Authenticated (Ping nid) _ -> deliver $ Ping nid
 
 noop :: Monad m => NetworkCallback b m
 noop =

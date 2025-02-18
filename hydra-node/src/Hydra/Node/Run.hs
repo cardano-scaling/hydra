@@ -6,7 +6,6 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
-import Control.Tracer (showTracing, stdoutTracer)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
@@ -26,8 +25,6 @@ import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Network.Authenticate (withAuthentication)
-import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Node (
   chainStateHistory,
   connect,
@@ -38,7 +35,7 @@ import Hydra.Node (
   wireClientInput,
   wireNetworkInput,
  )
-import Hydra.Node.Network (NetworkConfiguration (..))
+import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Options (
   ChainConfig (..),
   DirectChainConfig (..),
@@ -100,12 +97,9 @@ run opts = do
             -- Network
             -- XXX: Could parse full local 'Host' directly
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            -- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
-            withAuthentication
-              (contramap Network tracer) -- TODO: trace authentication and etcd stuff together
-              signingKey
-              otherParties
-              (withEtcdNetwork (showTracing stdoutTracer) networkConfiguration)
+            withNetwork
+              (contramap Network tracer)
+              networkConfiguration
               (wireNetworkInput wetHydraNode)
               $ \network -> do
                 -- Main loop
