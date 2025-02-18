@@ -222,7 +222,7 @@ mapStateChangedToServerOutput = \case
   -- StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
   -- StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
   -- StateChanged.PeerHandshakeFailure{..} -> Just $ PeerHandshakeFailure{..}
-  StateChanged.HeadInitialized{..} -> Just $ HeadIsInitializing{..}
+  StateChanged.HeadInitialized{headId, parties} -> Just $ HeadIsInitializing{headId, parties}
   StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
   StateChanged.HeadOpened{headId, initialUTxO} -> Just $ HeadIsOpen{headId, utxo = initialUTxO}
   StateChanged.HeadClosed{..} ->
@@ -231,7 +231,7 @@ mapStateChangedToServerOutput = \case
   StateChanged.HeadContested{..} ->
     Just $
       HeadIsContested{..}
-  -- StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
+  StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
   StateChanged.HeadAborted{..} -> Just $ HeadIsAborted{..}
   StateChanged.HeadFannedOut{..} -> Just $ HeadIsFinalized{..}
   -- StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
