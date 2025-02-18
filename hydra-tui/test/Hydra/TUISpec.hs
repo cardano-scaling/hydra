@@ -61,10 +61,10 @@ spec = do
     it "can quit before connected" $
       setupBadHostNodeAndTUI $ \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
         threadDelay 1
-        shouldRender "connecting"
+        shouldRender "Connecting"
         sendInputEvent $ EvKey (KChar 'q') []
         threadDelay 1
-        shouldNotRender "connecting"
+        shouldNotRender "Connecting"
     around setupNodeAndTUI $ do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
@@ -76,7 +76,7 @@ spec = do
       it "supports the init & abort Head life cycle" $
         \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
           threadDelay 1
-          shouldRender "connected"
+          shouldRender "Connected"
           shouldRender "Idle"
           shouldNotRender "Head id"
           sendInputEvent $ EvKey (KChar 'i') []
@@ -93,7 +93,7 @@ spec = do
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
-          shouldRender "connected"
+          shouldRender "Connected"
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
@@ -151,7 +151,7 @@ spec = do
       it "should show not enough fuel message and suggestion" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
-          shouldRender "connected"
+          shouldRender "Connected"
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1

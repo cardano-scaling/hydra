@@ -24,8 +24,7 @@ import Data.Version (Version, showVersion)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
-import Hydra.Network (NodeId)
-import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
+import Hydra.TUI.Drawing.Utils (drawHex, ellipsize, maybeWidget)
 import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style
@@ -50,9 +49,10 @@ drawScreenShortLog CardanoClient{networkId} Client{sk} s =
               [ padLeftRight 1 $
                   hLimit 40 $
                     vBox
-                      [ drawTUIVersion version <+> padLeft (Pad 1) (drawConnectedStatus s)
-                      , drawPeersIfConnected (s ^. connectedStateL)
+                      [ drawTUIVersion version
+                      , drawConnectedStatus s
                       , hBorder
+                      , drawNetworkState (s ^. connectedStateL)
                       , drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
                       , drawMyAddress $ mkVkAddress networkId (getVerificationKey sk)
                       , drawIfConnected (\connection -> drawIfActive (drawHeadParticipants (me connection) . parties) (headState connection)) (s ^. connectedStateL)
@@ -269,8 +269,19 @@ drawIfActive f = \case
   Idle -> emptyWidget
   Active x -> f x
 
-drawPeersIfConnected :: ConnectedState -> Widget n
-drawPeersIfConnected = drawIfConnected (drawPeers . peers)
+drawNetworkState :: ConnectedState -> Widget n
+drawNetworkState s =
+  hBox
+    [ txt "Hydra network:"
+    , padLeft (Pad 1) $
+        case s of
+          Disconnected{} -> withAttr negative $ txt "Unknown"
+          Connected{connection = Connection{networkState}} ->
+            case networkState of
+              Nothing -> withAttr negative $ txt "Unknown"
+              Just NetworkConnected -> withAttr positive $ txt "Connected"
+              Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
+    ]
 
 drawHeadId :: HeadId -> Widget n
 drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x
@@ -286,15 +297,17 @@ drawMeIfIdentified (Identified Party{vkey}) = str "Party " <+> withAttr own (txt
 drawMeIfIdentified Unidentified = emptyWidget
 
 drawConnectedStatus :: RootState -> Widget n
-drawConnectedStatus RootState{nodeHost, connectedState} = case connectedState of
-  Disconnected -> withAttr negative $ str $ "connecting to " <> show nodeHost
-  Connected _ -> withAttr positive $ str $ "connected to " <> show nodeHost
+drawConnectedStatus RootState{nodeHost, connectedState} =
+  hBox
+    [ txt "Hydra node:"
+    , padLeft (Pad 1) $
+        case connectedState of
+          Disconnected -> withAttr negative $ str $ "Connecting to " <> show nodeHost
+          Connected _ -> withAttr positive $ str $ "Connected to " <> show nodeHost
+    ]
 
 drawParty :: AttrName -> Party -> Widget n
 drawParty x Party{vkey} = withAttr x $ drawHex vkey
-
-drawPeers :: [NodeId] -> Widget n
-drawPeers peers = vBox $ str "Peers connected to our node:" : map drawShow peers
 
 drawTUIVersion :: Version -> Widget n
 drawTUIVersion v = str "Hydra TUI " <+> str (showVersion v)
