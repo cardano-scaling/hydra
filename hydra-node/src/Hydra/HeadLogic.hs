@@ -1672,15 +1672,19 @@ aggregate st = \case
             coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}
           } ->
           case confirmedSnapshot of
-            InitialSnapshot{initialUTxO} ->
+            InitialSnapshot{headId, initialUTxO} ->
               Open
                 os
                   { coordinatedHeadState =
-                      coordinatedHeadState
+                      CoordinatedHeadState
                         { localUTxO = initialUTxO
-                        , localTxs = mempty
                         , allTxs = mempty
-                        , seenSnapshot = LastSeenSnapshot 1
+                        , localTxs = mempty
+                        , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+                        , seenSnapshot = NoSeenSnapshot
+                        , pendingDeposits = mempty
+                        , decommitTx = Nothing
+                        , version = 0
                         }
                   }
             ConfirmedSnapshot
