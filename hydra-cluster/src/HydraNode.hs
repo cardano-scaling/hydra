@@ -17,7 +17,6 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.Aeson.Types (Pair)
 import Data.List qualified as List
-import Data.Text (pack)
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Cluster.Util (readConfigFile)
@@ -452,23 +451,10 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
 hydraNodeProcess :: RunOptions -> CreateProcess
 hydraNodeProcess = proc "hydra-node" . toArgs
 
--- FIXME: Implement equivalent to PeerConnected via etcd
-waitForNodesConnected :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesConnected tracer delay clients =
-  mapM_ waitForNodeConnected clients
- where
-  allNodeIds = hydraNodeId <$> toList clients
-
-  waitForNodeConnected n@HydraClient{hydraNodeId} =
-    waitForAll tracer delay [n] $
-      fmap
-        ( \nodeId ->
-            object
-              [ "tag" .= String "PeerConnected"
-              , "peer" .= String (pack $ show nodeId)
-              ]
-        )
-        (filter (/= hydraNodeId) allNodeIds)
+  waitFor tracer delay (toList clients) $
+    output "NetworkConnected" []
 
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}
