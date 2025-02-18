@@ -107,7 +107,7 @@ spec = parallel $ do
             let genEvent = do
                   StateEvent
                     <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
+                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
                     <*> pure now
             forAllShrink genEvent shrink $ \incompatibleEvent ->
               testHydrate (mockSource [incompatibleEvent]) []
