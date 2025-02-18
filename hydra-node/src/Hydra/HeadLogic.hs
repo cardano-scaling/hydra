@@ -182,6 +182,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , chainState = newChainState
           , headId
           , headSeed
+          , parties
           }
   -- <> cause (ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties})
   | otherwise = noop
@@ -1078,7 +1079,7 @@ onOpenChainDecrementTx openState newVersion distributedTxOuts =
       | outputsOfTx tx == distributedTxOuts ->
           -- Spec: txω ← ⊥
           --       v  ← v
-          newState DecommitFinalized{newVersion}
+          newState DecommitFinalized{headId, newVersion, decommitTxId = txId tx}
       -- <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
       | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
@@ -1137,7 +1138,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  newState HeadClosed{chainState = newChainState, contestationDeadline}
+  newState HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
     -- <> cause notifyClient
     & maybePostContest
  where
@@ -1276,7 +1277,7 @@ onClosedChainFanoutTx ::
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
-  newState HeadFannedOut{chainState = newChainState}
+  newState HeadFannedOut{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit, chainState = newChainState}
  where
   -- <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit})
 
@@ -1378,7 +1379,7 @@ update env ledger st ev = case (st, ev) of
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState HeadIsReadyToFanout
+        newState HeadIsReadyToFanout{headId}
   -- <> cause (ClientEffect $ ServerOutput.ReadyToFanout headId)
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -1679,7 +1680,7 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  HeadIsReadyToFanout ->
+  HeadIsReadyToFanout _ ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st

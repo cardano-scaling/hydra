@@ -56,6 +56,7 @@ data StateChanged tx
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
+      , parties :: [Party]
       }
   | CommittedUTxO
       { headId :: HeadId
@@ -85,13 +86,13 @@ data StateChanged tx
       , newLocalTxs :: [tx]
       }
   | CommitFinalized {headId :: HeadId, newVersion :: SnapshotVersion, depositTxId :: TxIdType tx}
-  | DecommitFinalized {newVersion :: SnapshotVersion}
+  | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx, newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
-  | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
+  | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
-  | HeadIsReadyToFanout
-  | HeadFannedOut {chainState :: ChainStateType tx}
+  | HeadIsReadyToFanout {headId :: HeadId}
+  | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
   deriving stock (Generic)
@@ -109,7 +110,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
@@ -120,11 +121,11 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary
-    , HeadClosed <$> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary
-    , pure HeadIsReadyToFanout
-    , HeadFannedOut <$> arbitrary
+    , HeadIsReadyToFanout <$> arbitrary
+    , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , ChainRolledBack <$> arbitrary
     , TickObserved <$> arbitrary
     ]
