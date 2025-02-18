@@ -56,7 +56,7 @@ type ObserverHandler m = [ChainObservation] -> m ()
 data ChainObservation = ChainObservation
   { point :: ChainPoint
   , blockNo :: BlockNo
-  , onChainTx :: Maybe (OnChainTx Tx)
+  , observedTx :: Maybe (OnChainTx Tx)
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
