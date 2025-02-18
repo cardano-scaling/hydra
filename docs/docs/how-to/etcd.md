@@ -21,6 +21,7 @@ Only showing etcd cluster output:
 
 ```shell
 cabal exec hydra-node -- \
+  --offline-head-seed 01 \
   --initial-utxo utxo.json \
   --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
   --persistence-dir ./alice \
@@ -37,6 +38,7 @@ Only showing etcd cluster output:
 
 ```shell
 cabal exec hydra-node -- \
+  --offline-head-seed 01 \
   --initial-utxo utxo.json \
   --ledger-protocol-parameters hydra-cluster/config/protocol-parameters.json \
   --persistence-dir ./bob \

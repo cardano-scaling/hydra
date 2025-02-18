@@ -24,6 +24,7 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   peekTBQueue,
   readTBQueue,
+  swapTVar,
   writeTBQueue,
  )
 import Control.Exception (IOException)
@@ -36,7 +37,7 @@ import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
+import Hydra.Network (Connectivity (..), Host (..), Network (..), NetworkCallback (..), NetworkComponent, PortNumber)
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
@@ -169,12 +170,13 @@ waitMessages ::
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages endpoint directory NetworkCallback{deliver} = do
+waitMessages endpoint directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
+  connectedVar <- newTVarIO False
   forever $ do
-    putStrLn "waitMessages"
+    onConnectivity (Disconnected "") -- TODO: remove node id
     -- Watch all key value updates
-    withProcessWait (cmd revision) process
+    withProcessWait (cmd revision) (process connectedVar)
     -- Wait before reconnecting
     threadDelay 1
  where
@@ -190,11 +192,15 @@ waitMessages endpoint directory NetworkCallback{deliver} = do
             , ["-w", "json"]
             ]
 
-  process p = do
+  process connectedVar p = do
     bs <- BS.hGetLine (getStdout p)
+    -- FIXME: this is blocking if we can connect and nothing happens. Use proper client
     case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-      Left err -> putStrLn $ "Failed to parse etcd entry: " <> err
+      Left err -> do
+        putStrLn $ "Failed to parse etcd entry: " <> err
       Right EtcdEntry{revision, entries} -> do
+        wasConnected <- atomically $ swapTVar connectedVar True
+        unless wasConnected $ onConnectivity (Connected "") -- TODO: remove node id
         putLastKnownRevision directory revision
         forM_ entries $ \(_, value) ->
           -- HACK: lenient decoding
@@ -202,7 +208,7 @@ waitMessages endpoint directory NetworkCallback{deliver} = do
             Left err -> fail $ "Failed to decode etcd entry: " <> show err
             Right msg -> do
               deliver msg
-        process p
+        process connectedVar p
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
