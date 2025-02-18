@@ -174,6 +174,8 @@ readPort s =
 
 -- ** Connectivity & versions
 
+-- TODO: improve these types
+
 data Connectivity
   = Connected {nodeId :: NodeId}
   | Disconnected {nodeId :: NodeId}

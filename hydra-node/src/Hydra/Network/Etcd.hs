@@ -38,11 +38,14 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Base16.Lazy qualified as LBase16
 import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
+import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
-  HydraVersionedProtocolNumber,
+  HydraHandshakeRefused (..),
+  HydraVersionedProtocolNumber (MkHydraVersionedProtocolNumber),
+  KnownHydraVersions (..),
   Network (..),
   NetworkCallback (..),
   NetworkComponent,
@@ -64,6 +67,7 @@ import System.Process.Typed (
   nullStream,
   proc,
   readProcessStdout,
+  readProcessStdout_,
   runProcess_,
   setStderr,
   setStdin,
@@ -94,9 +98,9 @@ withEtcdNetwork tracer protocolVersion config callback action = do
     race_ (waitExitCode p >>= \ec -> fail $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         race_ (pollMembers clientUrl callback) $
-          race_ (waitMessages clientUrl persistenceDir callback) $ do
+          race_ (waitMessages clientUrl protocolVersion persistenceDir callback) $ do
             queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-            race_ (broadcastMessages clientUrl port queue) $
+            race_ (broadcastMessages clientUrl protocolVersion port queue) $
               action
                 Network
                   { broadcast = writePersistentQueue queue
@@ -125,9 +129,11 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           , ["--listen-client-urls", clientUrl]
           , -- Client access only on configured 'host' interface.
             ["--advertise-client-urls", clientUrl]
-          , -- XXX: use unique initial-cluster-tokens to isolate clusters
-            ["--initial-cluster-token", "hydra-network-" <> show (hydraVersionedProtocolNumber protocolVersion)]
+          , -- XXX: could use unique initial-cluster-tokens to isolate clusters
+            ["--initial-cluster-token", "hydra-network-1"]
           , ["--initial-cluster", clusterPeers]
+          -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
+          -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
           ]
 
   -- NOTE: Offset client port by the same amount as configured 'port' is offset
@@ -147,19 +153,62 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   NetworkConfiguration{persistenceDir, host, port, peers} = config
 
+-- | Fetch and check version of the Hydra network protocol mapped onto the etcd
+-- cluster. See 'putMessage' for how a peer encodes the protocol version into an
+-- etcd key.
+matchVersion ::
+  -- | Key used by the other peer.
+  ByteString ->
+  -- | Our protocol version to check against
+  HydraVersionedProtocolNumber ->
+  Maybe HydraHandshakeRefused
+matchVersion key ourVersion = do
+  case splitOn "-" $ decodeUtf8 key of
+    [_prefix, versionText, port] ->
+      case parseVersion versionText of
+        Just theirVersion
+          | ourVersion == theirVersion -> Nothing
+          | otherwise ->
+              -- TODO: DRY just cases
+              Just
+                HydraHandshakeRefused
+                  { remoteHost = Host "???" $ fromMaybe 0 $ parsePort port
+                  , ourVersion
+                  , theirVersions = KnownHydraVersions [theirVersion]
+                  }
+        Nothing ->
+          Just
+            HydraHandshakeRefused
+              { remoteHost = Host "???" $ fromMaybe 0 $ parsePort port
+              , ourVersion
+              , theirVersions = NoKnownHydraVersions
+              }
+    _ ->
+      Just
+        HydraHandshakeRefused
+          { remoteHost = Host "???" 0 -- TODO: use optional data type
+          , ourVersion
+          , theirVersions = NoKnownHydraVersions
+          }
+ where
+  parseVersion = fmap MkHydraVersionedProtocolNumber . readMaybe . toString
+
+  parsePort = readMaybe . toString
+
 -- | Broadcast messages from a queue to the etcd cluster.
 --
 -- Retries on failure to 'putMessage' in case we are on a minority cluster.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   String ->
+  HydraVersionedProtocolNumber ->
   PortNumber ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages endpoint port queue =
+broadcastMessages endpoint protocolVersion port queue =
   forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage endpoint port msg >> popPersistentQueue queue msg)
+    (putMessage endpoint protocolVersion port msg >> popPersistentQueue queue msg)
       `catch` \PutFailed{reason} -> do
         putTextLn $ "put failed: " <> reason
         threadDelay 1
@@ -170,13 +219,14 @@ broadcastMessages endpoint port queue =
 putMessage ::
   (ToCBOR msg, MonadIO m, MonadCatch m) =>
   String ->
+  HydraVersionedProtocolNumber ->
   PortNumber ->
   msg ->
   m ()
-putMessage endpoint port msg = do
+putMessage endpoint protocolVersion port msg = do
   putKey endpoint key hexMsg
  where
-  key = "msg-" <> show port
+  key = "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show port
 
   hexMsg = LBase16.encode $ serialize msg
 
@@ -184,10 +234,11 @@ putMessage endpoint port msg = do
 waitMessages ::
   FromCBOR msg =>
   String ->
+  HydraVersionedProtocolNumber ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages endpoint directory NetworkCallback{deliver} = do
+waitMessages endpoint protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
   forever $ do
     -- Watch all key value updates
@@ -214,7 +265,14 @@ waitMessages endpoint directory NetworkCallback{deliver} = do
       Left err -> putStrLn $ "Failed to parse etcd entry: " <> err <> "\n" <> show bs
       Right EtcdEntry{revision, entries} -> do
         putLastKnownRevision directory revision
-        forM_ entries $ \(_, value) ->
+        forM_ entries $ \(key, value) -> do
+          -- XXX: Check version on every watch event?
+          case matchVersion key protocolVersion of
+            Nothing ->
+              pure ()
+            Just HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
+              onConnectivity $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
+
           -- HACK: lenient decoding
           case decodeFull' $ Base16.decodeLenient value of
             -- TODO: error handling (with actual client)
