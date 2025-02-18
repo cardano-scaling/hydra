@@ -247,9 +247,9 @@ spec =
             generate $
               mapM
                 (>>= genStateEvent)
-                [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                 , Outcome.HeadAborted <$> arbitrary
-                , Outcome.HeadFannedOut <$> arbitrary
+                , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
                 ]
           let eventSource = mockSource existingStateChanges
 
@@ -292,7 +292,7 @@ spec =
                   Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary
           snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
             generateSnapshot
-          headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+          headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
           let expectedUtxos = toJSON utxo
           stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [snapShotConfirmedMsg, headIsInitializing]
           let eventSource = mockSource stateEvents
