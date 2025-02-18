@@ -1693,6 +1693,7 @@ aggregate st = \case
                   { confirmed
                   , utxo
                   , number
+                  , version
                   }
               } ->
                 Open
@@ -1703,6 +1704,7 @@ aggregate st = \case
                           , localTxs = mempty
                           , allTxs = fromList $ fmap (\tx -> (txId tx, tx)) confirmed
                           , seenSnapshot = LastSeenSnapshot number
+                          , version
                           }
                     }
       _otherState -> st
