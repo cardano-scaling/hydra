@@ -100,18 +100,18 @@ spec = parallel $ do
 
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
-         forAllShrink arbitrary shrink $ \now ->
-          env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
-            -- a head state that gets checked by 'checkHeadState'
-            let genEvent = do
-                  StateEvent
-                    <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
-                    <*> pure now
-            forAllShrink genEvent shrink $ \incompatibleEvent ->
-              testHydrate (mockSource [incompatibleEvent]) []
-                `shouldThrow` \(_ :: ParameterMismatch) -> True
+          forAllShrink arbitrary shrink $ \now ->
+            env /= testEnvironment ==> do
+              -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+              -- a head state that gets checked by 'checkHeadState'
+              let genEvent = do
+                    StateEvent
+                      <$> arbitrary
+                      <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                      <*> pure now
+              forAllShrink genEvent shrink $ \incompatibleEvent ->
+                testHydrate (mockSource [incompatibleEvent]) []
+                  `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
