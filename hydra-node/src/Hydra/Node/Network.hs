@@ -1,67 +1,43 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
--- FIXME: Drop unused components and re-create similar documentation as this
--- TODO: Drop Network.Ouroboros, Network.Reliability and Node.Network
+-- TODO: should we still use Heartbeat for peer-specific connectivity? It was
+-- always only indicating incoming connetivity (although now with etcd we can
+-- assume it working both ways if we see connectivity)
 
--- | Concrete `Hydra.Network` stack dedicated to running a hydra-node.
+-- | Concrete `Hydra.Network` stack used in a hydra-node.
 --
 -- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:
 --
---   * `withHeartbeat` maintains knowledge about peers' connectivity,
---   * `withReliability` deals with connections reliability, handling the case
---     of messages being dropped (but not node crash in general),
---   * `withAuthentication` handles messages' authentication and signature verification,
---   * `withOuroborosNetwork` deals with maintaining individual connections to peers and the nitty-gritty details of messages sending and retrieval.
+--   * `withAuthentication` handles messages' authentication and signature verification
+--   * `withEtcd` uses an 'etcd' cluster to implement reliable broadcast
 --
 -- The following diagram details the various types of messages each layer is
 -- exchanging with its predecessors and successors.
 --
 -- @
 --
---          ▲                                    │
---          │ Authenticate msg                   │ msg
---          │                                    │
--- ┌────────┴────────────────────────────────────▼──────┐
--- │                                                    │
--- │                   Heartbeat                        │
--- │        ▲                                           │
--- └────────┬────────────────────────────────────┼──────┘
---          │                                    │
---          │ Heartbeat (Authenticate msg)       │ Heartbeat msg
---          │                                    │
--- ┌────────┴───────────────┐                    │
--- │                        │                    │
--- │    FlipHeartbeats      │                    │
--- │                        │                    │
--- └────────▲───────────────┘                    │
---          │                                    │
---          │ Authenticate (Heartbeat msg)       │
---          │                                    │
--- ┌────────┴────────────────────────────────────▼──────┐
--- │                                                    │
--- │                   Reliability                      │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---      Authenticated (ReliableMsg (Heartbeat msg))    ReliableMsg (Heartbeat msg)
---           │                                   │
--- ┌─────────┼───────────────────────────────────▼──────┐
--- │                                                    │
--- │                  Authenticate                      │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---           │                                   │
---       Signed (ReliableMsg (Heartbeat msg))       Signed (ReliableMsg (Heartbeat msg))
---           │                                   │
--- ┌─────────┼───────────────────────────────────▼──────┐
--- │                                                    │
--- │                  Ouroboros                         │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---           │           (bytes)                 │
---           │                                   ▼
+--           ▲
+--           │                        │
+--       Authenticated msg           msg
+--           │                        │
+--           │                        │
+-- ┌─────────┼────────────────────────▼──────┐
+-- │                                         │
+-- │               Authenticate              │
+-- │                                         │
+-- └─────────▲────────────────────────┼──────┘
+--           │                        │
+--           │                        │
+--          msg                      msg
+--           │                        │
+-- ┌─────────┼────────────────────────▼──────┐
+-- │                                         │
+-- │                   Etcd                  │
+-- │                                         │
+-- └─────────▲────────────────────────┼──────┘
+--           │                        │
+--           │        (bytes)         │
+--           │                        ▼
 --
 -- @
 module Hydra.Node.Network (
