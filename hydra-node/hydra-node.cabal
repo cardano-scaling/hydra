@@ -120,6 +120,7 @@ library
     , data-default
     , directory
     , filepath
+    , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api
     , hydra-plutus

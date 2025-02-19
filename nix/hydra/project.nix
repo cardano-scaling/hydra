@@ -65,5 +65,10 @@ pkgs.haskell-nix.project {
       # For this reason, we try to get away without re-installing lib:ghc for now.
       reinstallableLibGhc = false;
     }
+    # XXX: Fix missing dependency onto protobuf in the haskell.nix derivation
+    {
+      packages.proto-lens-protobuf-types.components.library.build-tools = [ pkgs.protobuf ];
+      packages.proto-lens-etcd.components.library.build-tools = [ pkgs.protobuf ];
+    }
   ];
 }
