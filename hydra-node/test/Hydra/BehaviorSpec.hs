@@ -21,7 +21,7 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
-import Hydra.API.Server (Server (..))
+import Hydra.API.Server (mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
@@ -33,7 +33,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
+import Hydra.Events (EventSink (..), StateEvent (..))
+import Hydra.HeadLogic (HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -395,7 +396,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -426,7 +427,7 @@ spec = parallel $ do
                       _ -> False
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
                   send n2 (NewTx normalTx)
                   waitUntil [n1, n2] $ TxValid testHeadId 3 normalTx
@@ -436,7 +437,7 @@ spec = parallel $ do
                         maybe False (22 `member`) utxoToCommit
                       _ -> False
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
-                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, theDeposit = 2}
+                  waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = 2}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -461,7 +462,7 @@ spec = parallel $ do
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> normalTx `elem` confirmed
                     _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -527,7 +528,7 @@ spec = parallel $ do
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO 1 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = 1, deadline}
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = utxoRefs [11]}
-                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
                   injectChainEvent
                     n2
                     Observation{observedTx = OnDepositTx testHeadId depositUTxO2 2 deadline2, newChainState = SimpleChainState{slot = ChainSlot 1}}
@@ -560,7 +561,7 @@ spec = parallel $ do
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
                   send n2 (Decommit decommitTx)
@@ -596,7 +597,7 @@ spec = parallel $ do
                       SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
                         maybe False (11 `member`) utxoToCommit
                       _ -> False
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, theDeposit = 1}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
                   send n1 GetUTxO
                   waitUntilMatch [n1] $
@@ -899,7 +900,7 @@ waitUntilMatch ::
   [TestHydraClient tx m] ->
   (ServerOutput tx -> Bool) ->
   m ()
-waitUntilMatch nodes predicate = traceShow "waitUntilMatch" $ do
+waitUntilMatch nodes predicate = do
   seenMsgs <- newTVarIO []
   timeout oneMonth (forConcurrently_ nodes $ match seenMsgs) >>= \case
     Just x -> pure x
@@ -914,7 +915,7 @@ waitUntilMatch nodes predicate = traceShow "waitUntilMatch" $ do
  where
   match seenMsgs n = do
     msg <- waitForNext n
-    atomically (modifyTVar' seenMsgs (spy' "msg" msg :))
+    atomically (modifyTVar' seenMsgs (msg :))
     unless (predicate msg) $
       match seenMsgs n
 
@@ -1188,7 +1189,7 @@ createTestHydraClient outputs outputHistory HydraNode{inputQueue, nodeState} =
     }
 
 createHydraNode ::
-  (MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  (IsTx tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->
@@ -1202,6 +1203,15 @@ createHydraNode ::
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs outputHistory chain cp depositDeadline = do
   (eventSource, eventSink) <- createMockSourceSink
+  let apiSink =
+        EventSink
+          { putEvent = \StateEvent{stateChanged} ->
+              case mapStateChangedToServerOutput stateChanged of
+                Nothing -> pure ()
+                Just a -> atomically $ do
+                  writeTQueue outputs a
+                  modifyTVar' outputHistory (a :)
+          }
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let headState = Idle IdleState{chainState}
   let chainStateHistory = initHistory chainState
@@ -1216,18 +1226,10 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs outputH
       , nodeState
       , inputQueue
       , eventSource
-      , eventSinks = [eventSink]
+      , eventSinks = [eventSink, apiSink]
       , chainStateHistory
       }
  where
-  -- { server =
-  --     Server
-  --       { sendOutput = \out -> atomically $ do
-  --           writeTQueue outputs out
-  --           modifyTVar' outputHistory (out :)
-  --       }
-  -- }
-
   env =
     Environment
       { party

@@ -143,6 +143,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             { sendOutput = \output -> pure ()
             }
     )
+
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
@@ -222,30 +223,30 @@ mapStateChangedToServerOutput = \case
     Just $
       HeadIsContested{..}
   StateChanged.HeadIsReadyToFanout{..} -> Just $ ReadyToFanout{..}
-  StateChanged.HeadAborted{..} -> Just $ HeadIsAborted{..}
+  StateChanged.HeadAborted{headId, utxo} -> Just $ HeadIsAborted{headId, utxo}
   StateChanged.HeadFannedOut{..} -> Just $ HeadIsFinalized{..}
-  -- StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
+  StateChanged.CommandFailed{..} -> Just $ CommandFailed{..}
   StateChanged.TransactionAppliedToLocalUTxO{..} -> Just $ TxValid{headId, transactionId = txId tx, transaction = tx}
-  -- StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+  StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
   StateChanged.SnapshotConfirmed{..} -> Just $ SnapshotConfirmed{..}
-  -- StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
+  StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
   -- StateChanged.InvalidInput{..} -> Just $ InvalidInput{..}
   -- StateChanged.Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion} -> Just $ Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion}
   -- StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
-  -- StateChanged.IgnoredHeadInitializing{..} -> Just $ IgnoredHeadInitializing{..}
-  -- StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
-  -- StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}
-  -- StateChanged.DecommitApproved{..} -> Just $ DecommitApproved{..}
+  StateChanged.IgnoredHeadInitializing{..} -> Just $ IgnoredHeadInitializing{..}
+  StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
+  StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}
+  StateChanged.DecommitApproved{..} -> Just $ DecommitApproved{..}
   StateChanged.DecommitFinalized{..} -> Just $ DecommitFinalized{..}
   StateChanged.CommitRecorded{..} ->
     Just $
       CommitRecorded{..}
-  -- StateChanged.CommitApproved{..} -> Just $ CommitApproved{..}
-  StateChanged.CommitFinalized{headId, depositTxId} -> Just $ CommitFinalized{headId, theDeposit = depositTxId}
+  StateChanged.CommitApproved{..} -> Just $ CommitApproved{..}
+  StateChanged.CommitFinalized{..} -> Just $ CommitFinalized{..}
   StateChanged.CommitRecovered{..} ->
     Just $
       CommitRecovered{..}
-  -- StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
+  StateChanged.CommitIgnored{..} -> Just $ CommitIgnored{..}
   StateChanged.TransactionReceived{} -> Nothing
   StateChanged.DecommitRecorded{} -> Nothing
   StateChanged.SnapshotRequested{} -> Nothing

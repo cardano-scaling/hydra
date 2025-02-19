@@ -248,7 +248,7 @@ spec =
               mapM
                 (>>= genStateEvent)
                 [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                , Outcome.HeadAborted <$> arbitrary
+                , Outcome.HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
                 , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
                 ]
           let eventSource = mockSource existingStateChanges
@@ -289,7 +289,7 @@ spec =
         withFreePort $ \port -> do
           let generateSnapshot =
                 generate $
-                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary
+                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
           snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
             generateSnapshot
           headIsInitializing :: Outcome.StateChanged SimpleTx <- generate $ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

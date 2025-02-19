@@ -639,7 +639,7 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= scriptUTxO']
       waitFor hydraTracer 10 [n1] $
-        output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx)]
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
       send n1 $ input "GetUTxO" []
 
@@ -989,7 +989,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
           waitFor hydraTracer 20 [n1, n2] $
-            output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx)]
+            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
           send n2 $ input "GetUTxO" []
 
@@ -1008,7 +1008,7 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO2]
           waitFor hydraTracer 20 [n1, n2] $
-            output "CommitFinalized" ["headId" .= headId, "theDeposit" .= getTxId (getTxBody tx')]
+            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
           send n1 $ input "GetUTxO" []
 
