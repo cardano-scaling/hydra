@@ -20,7 +20,6 @@ module Hydra.HeadLogic (
 ) where
 
 import Hydra.Prelude
-import Hydra.Prelude qualified as Prelude
 
 import Data.List (elemIndex)
 import Data.Map.Strict qualified as Map
@@ -104,28 +103,18 @@ defaultTTL = 5
 onConnectionEvent :: Connectivity -> Outcome tx
 onConnectionEvent = \case
   Connected{nodeId} ->
-    Prelude.error "PeerConnected"
-  -- noop
-  -- causes [ClientEffect (ServerOutput.PeerConnected nodeId)]
+    newState (PeerConnected nodeId)
   Disconnected{nodeId} ->
-    Prelude.error "PeerDisconnected"
-  -- noop
-  -- causes [ClientEffect (ServerOutput.PeerDisconnected nodeId)]
+    newState (PeerDisconnected nodeId)
   HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
-    Prelude.error "HandshakeFailure"
+    newState
+      ( PeerHandshakeFailure
+          { remoteHost
+          , ourVersion = getVersion ourVersion
+          , theirVersions = getKnownVersions theirVersions
+          }
+      )
    where
-    -- noop
-
-    -- causes
-    --   [ ClientEffect
-    --       ( ServerOutput.PeerHandshakeFailure
-    --           { remoteHost
-    --           , ourVersion = getVersion ourVersion
-    --           , theirVersions = getKnownVersions theirVersions
-    --           }
-    --       )
-    --   ]
-
     getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
 
     getKnownVersions = \case
@@ -226,11 +215,8 @@ onInitialChainCommitTx ::
 onInitialChainCommitTx st newChainState pt utxo =
   newState CommittedUTxO{headId, party = pt, committedUTxO = utxo, chainState = newChainState}
     <> causes
-      ( -- notifyClient
-        [postCollectCom | canCollectCom]
-      )
+      ([postCollectCom | canCollectCom])
  where
-  notifyClient = noop -- ClientEffect $ ServerOutput.Committed{headId, party = pt, utxo}
   postCollectCom =
     OnChainEffect
       { postChainTx =
@@ -831,19 +817,17 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
 
   checkValidDecommitTx cont =
     case applyTransactions ledger currentSlot localUTxO [decommitTx] of
-      Left (_, err) -> Prelude.error "DecommitInvalid"
-      -- cause
-      --   ( ClientEffect
-      --       ServerOutput.DecommitInvalid
-      --         { headId
-      --         , decommitTx
-      --         , decommitInvalidReason =
-      --             ServerOutput.DecommitTxInvalid
-      --               { localUTxO
-      --               , validationError = err
-      --               }
-      --         }
-      --   )
+      Left (_, err) ->
+        newState
+          DecommitInvalid
+            { headId
+            , decommitTx
+            , decommitInvalidReason =
+                ServerOutput.DecommitTxInvalid
+                  { localUTxO
+                  , validationError = err
+                  }
+            }
       Right _ -> cont
 
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
@@ -898,27 +882,27 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                 wait $
                   WaitOnNotApplicableDecommitTx
                     ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-            | otherwise -> Prelude.error "DecommitInvalid"
-      -- cause . ClientEffect $
-      --   ServerOutput.DecommitInvalid
-      --     { headId
-      --     , decommitTx
-      --     , decommitInvalidReason =
-      --         ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-      --     }
+            | otherwise ->
+                newState
+                  DecommitInvalid
+                    { headId
+                    , decommitTx
+                    , decommitInvalidReason =
+                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                    }
       Just existingDecommitTx
         | ttl > 0 ->
             wait $
               WaitOnNotApplicableDecommitTx
                 DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-        | otherwise -> Prelude.error "DecommitInvalid"
-  -- cause . ClientEffect $
-  --   ServerOutput.DecommitInvalid
-  --     { headId
-  --     , decommitTx
-  --     , decommitInvalidReason =
-  --         DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-  --     }
+        | otherwise ->
+            newState
+              DecommitInvalid
+                { headId
+                , decommitTx
+                , decommitInvalidReason =
+                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+                }
 
   maybeRequestSnapshot =
     if not snapshotInFlight && isLeader parameters party nextSn
@@ -1009,17 +993,8 @@ onOpenChainRecoverTx headId st recoveredTxId =
   case Map.lookup recoveredTxId pendingDeposits of
     Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
     Just recoveredUTxO ->
-      newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
+      newState CommitRecovered{headId, recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
  where
-  -- <> cause
-  --   ( ClientEffect
-  --       ServerOutput.CommitRecovered
-  --         { headId
-  --         , recoveredTxId
-  --         , recoveredUTxO
-  --         }
-  --   )
-
   OpenState{coordinatedHeadState} = st
 
   CoordinatedHeadState{localUTxO, pendingDeposits} = coordinatedHeadState
@@ -1326,8 +1301,6 @@ update env ledger st ev = case (st, ev) of
      in newState (GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
   -- -- TODO: Is it really intuitive that we respond from the confirmed ledger if
   -- -- transactions are validated against the seen ledger?
-  -- let snapshot' = getSnapshot confirmedSnapshot
-  --  in cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1380,11 +1353,9 @@ update env ledger st ev = case (st, ev) of
   (_, ChainInput Tick{chainSlot}) ->
     newState TickObserved{chainSlot}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
-    noop
-  -- cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
+    newState PostTxOnChainFailed{postChainTx, postTxError}
   (_, ClientInput{clientInput}) ->
     newState CommandFailed{clientInput, state = st}
-  -- cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
     Error $ UnhandledInput ev st
 
@@ -1685,6 +1656,10 @@ aggregate st = \case
   IgnoredHeadInitializing{} -> st
   GetUTxOResponse{} -> st
   TxInvalid{} -> st
+  PeerConnected{} -> st
+  PeerDisconnected{} -> st
+  PeerHandshakeFailure{} -> st
+  PostTxOnChainFailed{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1732,3 +1707,7 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   GetUTxOResponse{} -> history
   TxInvalid{} -> history
+  PeerConnected{} -> history
+  PeerDisconnected{} -> history
+  PeerHandshakeFailure{} -> history
+  PostTxOnChainFailed{} -> history
