@@ -1,9 +1,9 @@
 {
     "samples": [
         {
-            "headId": "e2a4b9f1ef12cb934a87a8855da8f54d",
-            "tag": "CommitFinalized",
-            "theDeposit": "1d8b196ddd7a01fd1dad526cd0e4e9ddbb99be5231e6b064588615f226a4dc78"
+            "depositTxId": "2fba70e24223eedcea270e2d7d07649343eb73214fb42c1497c17519325b23be",
+            "headId": "483b5abbb9802e02910b9f4179abbb98",
+            "tag": "CommitFinalized"
         }
     ],
     "seed": 1825576190

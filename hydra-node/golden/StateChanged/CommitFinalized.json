@@ -1,8 +1,9 @@
 {
     "samples": [
         {
-            "depositTxId": "4e03bf2634ed40f0a6436cd48d71402be0c4c1a4b4edaf848010cb394cdbb943",
-            "newVersion": 4,
+            "depositTxId": "4749c3b83b8128177766b3c4d799d7c6dd0bdf0ce746302f210d230ca3a06cb4",
+            "headId": "1216d88a33efb6b75624d9e8befb5357",
+            "newVersion": 6,
             "tag": "CommitFinalized"
         }
     ],

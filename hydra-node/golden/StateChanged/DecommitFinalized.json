@@ -1,7 +1,9 @@
 {
     "samples": [
         {
-            "newVersion": 24,
+            "decommitTxId": "df270074ec2884525a03afe1471d00803077063021e7f68d9171725e2496f470",
+            "headId": "0e2491e6b77cf38eda034e20c9985834",
+            "newVersion": 21,
             "tag": "DecommitFinalized"
         }
     ],
