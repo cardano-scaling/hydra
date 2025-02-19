@@ -139,7 +139,7 @@ data ServerOutput tx
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
   deriving stock (Generic)
@@ -201,7 +201,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
-    CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
+    CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
@@ -300,7 +300,7 @@ projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdTy
 projectPendingDeposits txIds = \case
   CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
   CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
-  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
+  CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
   _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
@@ -340,4 +340,3 @@ projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
-

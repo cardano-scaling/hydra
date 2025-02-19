@@ -1395,7 +1395,7 @@ components:
       required:
         - tag
         - headId
-        - theDeposit
+        - depositTxId
         - seq
         - timestamp
       properties:
@@ -1404,7 +1404,7 @@ components:
           enum: ["CommitFinalized"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        theDeposit:
+        depositTxId:
           type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"

@@ -205,10 +205,10 @@ handleHydraEventsInfo = \case
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
+  Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} ->
     report Success time $
       "Commit finalized "
-        <> show theDeposit
+        <> show depositTxId
   Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "
