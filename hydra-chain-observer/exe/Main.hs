@@ -1,8 +1,8 @@
 module Main where
 
-import Hydra.ChainObserver (defaultObserverHandler)
-import Hydra.ChainObserver qualified
 import Hydra.Prelude
 
+import Hydra.ChainObserver qualified
+
 main :: IO ()
-main = Hydra.ChainObserver.main defaultObserverHandler
+main = Hydra.ChainObserver.main

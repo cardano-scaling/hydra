@@ -1,14 +1,28 @@
 # Hydra Chain Observer
 
-A small executable which connects to a chain like the `hydra-node`, but puts any
-observations as traces onto `stdout`.
+A lightweight executable designed to connect to a blockchain, such as the `hydra-node`, and streams chain observations as traces to `stdout`.
 
-To run, pass a `--node-socket`, corresponding network id and optionally
-`--start-chain-from`. For example:
+It supports two modes of operation: **Direct** connection to a node via socket, and connection through **Blockfrost** API.
+
+In both modes, reporting observations to a [`hydra-explorer`](https://github.com/cardano-scaling/hydra-explorer) can be enabled.
+
+## Direct Mode
+
+To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe usin `--start-chain-from`:
 
 ``` shell
 hydra-chain-observer \
   --node-socket testnets/preprod/node.socket \
   --testnet-magic 1 \
   --start-chain-from "41948777.5d34af0f42be9823ebd35c2d83d5d879c5615ac17f7158bb9aa4ef89072455a7"
+```
+
+Using the `--explorer` argument we can specify a hostname / port for a `hydra-explorer` instance to report observations to. For example using a `direct` observer:
+
+``` shell
+hydra-chain-observer \
+  --node-socket testnets/preview/node.socket \
+  --testnet-magic 2 \
+  --start-chain-from "49533501.e364500a42220ea47314215679b7e42e9bbb81fa69d1366fe738d8aef900f7ee" \
+  --explorer http://0.0.0.0:8080
 ```

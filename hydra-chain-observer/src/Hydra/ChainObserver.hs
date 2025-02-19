@@ -4,6 +4,7 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   BlockHeader (BlockHeader),
   BlockInMode (..),
@@ -17,7 +18,8 @@ import Hydra.Cardano.Api (
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
-  NetworkId,
+  NetworkId (..),
+  NetworkMagic (..),
   SocketPath,
   Tx,
   UTxO,
@@ -31,16 +33,16 @@ import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Handlers (convertObservation)
-import Hydra.Chain.Direct.Tx (
-  HeadObservation (..),
-  observeHeadTx,
- )
-import Hydra.ChainObserver.Options (Options (..), hydraChainObserverOptions)
+import Hydra.Chain.Direct.Tx (HeadObservation (..), observeHeadTx)
+import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.Contract (ScriptInfo)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith, withTracer)
+import Hydra.Options (hydraNodeVersion)
 import Hydra.Tx.HeadId (HeadId (..))
+import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
+import Network.URI (URI)
 import Options.Applicative (execParser)
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -51,17 +53,13 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
 
 type ObserverHandler m = [ChainObservation] -> m ()
 
-data ChainObservation
-  = Tick
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      }
-  | HeadObservation
-      { point :: ChainPoint
-      , blockNo :: BlockNo
-      , onChainTx :: OnChainTx Tx
-      }
+data ChainObservation = ChainObservation
+  { point :: ChainPoint
+  , blockNo :: BlockNo
+  , observedTx :: Maybe (OnChainTx Tx)
+  }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary
@@ -69,19 +67,41 @@ instance Arbitrary ChainObservation where
 defaultObserverHandler :: Applicative m => ObserverHandler m
 defaultObserverHandler = const $ pure ()
 
-main :: ObserverHandler IO -> IO ()
-main observerHandler = do
-  Options{networkId, nodeSocket, startChainFrom} <- execParser hydraChainObserverOptions
+main :: IO ()
+main = do
+  Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{scriptInfo = Contract.scriptInfo}
-    traceWith tracer ConnectingToNode{nodeSocket, networkId}
-    chainPoint <- case startChainFrom of
-      Nothing -> queryTip networkId nodeSocket
-      Just x -> pure x
-    traceWith tracer StartObservingFrom{chainPoint}
-    connectToLocalNode
-      (connectInfo nodeSocket networkId)
-      (clientProtocols tracer networkId chainPoint observerHandler)
+    case backend of
+      Direct{networkId, nodeSocket} -> do
+        traceWith tracer ConnectingToNode{nodeSocket, networkId}
+        chainPoint <- case startChainFrom of
+          Nothing -> queryTip networkId nodeSocket
+          Just x -> pure x
+        traceWith tracer StartObservingFrom{chainPoint}
+
+        let observerHandler observations =
+              case explorerBaseURI of
+                Nothing -> pure ()
+                Just uri -> forM_ observations $ reportObservation networkId uri
+
+        connectToLocalNode
+          (connectInfo nodeSocket networkId)
+          (clientProtocols tracer networkId chainPoint observerHandler)
+
+-- | Submit observation to a 'hydra-explorer' at given base 'URI'.
+reportObservation :: NetworkId -> URI -> ChainObservation -> IO ()
+reportObservation networkId baseURI observation = do
+  req <- parseRequestThrow url <&> setRequestBodyJSON observation
+  httpNoBody req <&> getResponseBody
+ where
+  networkParam = case networkId of
+    Mainnet -> "mainnet"
+    (Testnet (NetworkMagic magic)) -> show magic
+
+  version = showVersion hydraNodeVersion
+
+  url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> version
 
 type ChainObserverLog :: Type
 data ChainObserverLog
@@ -186,10 +206,10 @@ chainSyncClient tracer networkId startingPoint observerHandler =
               onChainTxs = mapMaybe convertObservation observations
 
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
-          let observationsAt = HeadObservation point blockNo <$> onChainTxs
+          let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
           observerHandler $
             if null observationsAt
-              then [Tick point blockNo]
+              then [ChainObservation point blockNo Nothing]
               else observationsAt
 
           pure $ clientStIdle utxo'

@@ -2,37 +2,77 @@ module Hydra.ChainObserver.Options where
 
 import Hydra.Prelude
 
+import Data.Version (showVersion)
 import Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
 import Hydra.Options (
+  hydraNodeVersion,
   networkIdParser,
   nodeSocketParser,
   startChainFromParser,
  )
-import Options.Applicative (Parser, ParserInfo, fullDesc, header, helper, info, progDesc)
+import Network.URI (URI, parseURI)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  infoOption,
+  long,
+  maybeReader,
+  metavar,
+  option,
+  progDesc,
+ )
 
-type Options :: Type
 data Options = Options
-  { networkId :: NetworkId
-  , nodeSocket :: SocketPath
+  { backend :: Backend
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
+  , explorerBaseURI :: Maybe URI
+  -- ^ Whether to report observations to a hydra-explorer.
   }
   deriving stock (Show, Eq)
 
 optionsParser :: Parser Options
 optionsParser =
   Options
-    <$> networkIdParser
-    <*> nodeSocketParser
+    <$> backendParser
     <*> optional startChainFromParser
+    <*> optional explorerParser
+
+data Backend = Direct
+  { networkId :: NetworkId
+  , nodeSocket :: SocketPath
+  }
+  deriving stock (Show, Eq)
+
+backendParser :: Parser Backend
+backendParser =
+  directParser
+ where
+  directParser =
+    Direct <$> networkIdParser <*> nodeSocketParser
+
+explorerParser :: Parser URI
+explorerParser =
+  option (maybeReader parseURI) $
+    long "explorer"
+      <> metavar "URI"
+      <> help "Observer API endpoint of a hydra-explorer instance to report observations to, e.g. http://localhost:8080/api/"
 
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =
   info
-    ( optionsParser
-        <**> helper
-    )
+    (optionsParser <**> versionInfo <**> helper)
     ( fullDesc
         <> progDesc "Observe hydra transactions on-chain."
         <> header "hydra-chain-observer"
     )
+ where
+  versionInfo =
+    infoOption
+      (showVersion hydraNodeVersion)
+      (long "version" <> help "Show version")
