@@ -6,9 +6,10 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
+import Hydra.Tx.IsTx (IsTx)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..))
+import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
@@ -443,10 +444,17 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: IsTx tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
-  pure (node, query) -- {server = Server{sendOutput = record}}
+  let apiSink =
+        EventSink
+          { putEvent = \StateEvent{stateChanged} ->
+              case mapStateChangedToServerOutput stateChanged of
+                Nothing -> pure ()
+                Just a -> record a
+          }
+  pure (node{eventSinks = [apiSink]}, query)
 
 messageRecorder :: IO (msg -> IO (), IO [msg])
 messageRecorder = do

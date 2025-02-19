@@ -3,7 +3,7 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
+import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq, state)
 
 import Cardano.Ledger.Core (PParams)
 import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
@@ -12,7 +12,6 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (iterM)
-import GHC.Num (naturalFromWord)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -40,7 +39,6 @@ import Hydra.Events (EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Tx (IsTx, Party, txId)
 import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
@@ -210,9 +208,9 @@ mkTimedServerOutputFromStateEvent event =
 
 mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
 mapStateChangedToServerOutput = \case
-  -- StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
-  -- StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
-  -- StateChanged.PeerHandshakeFailure{..} -> Just $ PeerHandshakeFailure{..}
+  StateChanged.PeerConnected{..} -> Just $ PeerConnected{..}
+  StateChanged.PeerDisconnected{..} -> Just $ PeerDisconnected{..}
+  StateChanged.PeerHandshakeFailure{..} -> Just $ PeerHandshakeFailure{..}
   StateChanged.HeadInitialized{headId, parties} -> Just $ HeadIsInitializing{headId, parties}
   StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
   StateChanged.HeadOpened{headId, initialUTxO} -> Just $ HeadIsOpen{headId, utxo = initialUTxO}
@@ -232,7 +230,7 @@ mapStateChangedToServerOutput = \case
   StateChanged.GetUTxOResponse{..} -> Just $ GetUTxOResponse{..}
   -- StateChanged.InvalidInput{..} -> Just $ InvalidInput{..}
   -- StateChanged.Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion} -> Just $ Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion}
-  -- StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
+  StateChanged.PostTxOnChainFailed{..} -> Just $ PostTxOnChainFailed{..}
   StateChanged.IgnoredHeadInitializing{..} -> Just $ IgnoredHeadInitializing{..}
   StateChanged.DecommitRequested{..} -> Just $ DecommitRequested{..}
   StateChanged.DecommitInvalid{..} -> Just $ DecommitInvalid{..}

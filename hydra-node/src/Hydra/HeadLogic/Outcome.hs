@@ -7,11 +7,12 @@ import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason)
-import Hydra.Chain (PostChainTx)
+import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
+import Hydra.Network (Host, NodeId)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
   HeadId,
@@ -119,12 +120,20 @@ data StateChanged tx
       }
   | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | PeerConnected {peer :: NodeId}
+  | PeerDisconnected {peer :: NodeId}
+  | PeerHandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: Natural
+      , theirVersions :: [Natural]
+      }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving stock instance (IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving anyclass instance (IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+deriving stock instance (IsChainState tx,IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving stock instance (IsChainState tx,IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
+deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
