@@ -96,8 +96,6 @@ library
   build-depends:
     , aeson
     , base
-    , base16-bytestring
-    , base64-bytestring
     , bytestring
     , cardano-api:internal
     , cardano-binary
@@ -120,6 +118,7 @@ library
     , data-default
     , directory
     , filepath
+    , grapesy
     , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api

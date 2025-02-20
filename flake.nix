@@ -41,6 +41,7 @@
           pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [
+              # FIXME: we are missing a static linked snappy (other libraries are provided through overlays)
               # This overlay contains libsodium and libblst libraries
               inputs.iohk-nix.overlays.crypto
               # This overlay contains pkg-config mappings via haskell.nix to use the

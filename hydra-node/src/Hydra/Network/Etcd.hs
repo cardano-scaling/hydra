@@ -1,4 +1,6 @@
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
 -- | Implements a Hydra network component via an etcd cluster.
 --
@@ -17,7 +19,7 @@ module Hydra.Network.Etcd where
 
 import Hydra.Prelude
 
-import Cardano.Binary (decodeFull', serialize, serialize')
+import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   newTBQueueIO,
@@ -25,18 +27,14 @@ import Control.Concurrent.Class.MonadSTM (
   peekTBQueue,
   readTBQueue,
   writeTBQueue,
+  writeTVar,
  )
 import Control.Exception (IOException)
-import Control.Lens ((^..))
-import Data.Aeson (decodeFileStrict', encodeFile, withObject, (.:))
+import Control.Lens ((^.))
+import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (_String)
-import Data.Aeson.Lens qualified as Aeson
-import Data.Aeson.Types (Parser, Value, parseEither)
+import Data.Aeson.Types (Value)
 import Data.ByteString qualified as BS
-import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Base16.Lazy qualified as LBase16
-import Data.ByteString.Base64 qualified as Base64
 import Data.List qualified as List
 import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
@@ -53,30 +51,35 @@ import Hydra.Network (
   PortNumber,
   hydraVersionedProtocolNumber,
  )
+import Network.GRPC.Client (
+  Address (..),
+  ConnParams (..),
+  Connection,
+  ReconnectPolicy (..),
+  ReconnectTo (ReconnectToOriginal),
+  Server (..),
+  rpc,
+  withConnection,
+ )
+import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
+import Network.GRPC.Common (NextElem (..), def)
+import Network.GRPC.Common.NextElem (whileNext_)
+import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
+import Network.GRPC.Etcd (Cluster, KV, Watch)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (
-  ExitCode (..),
-  ExitCodeException (..),
-  byteStringInput,
   createPipe,
   getStderr,
-  getStdout,
-  nullStream,
   proc,
-  readProcessStdout,
-  readProcessStdout_,
-  runProcess_,
   setStderr,
-  setStdin,
-  setStdout,
   stopProcess,
   waitExitCode,
   withProcessTerm,
-  withProcessWait,
  )
+import UnliftIO (readTVarIO)
 
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
@@ -94,18 +97,48 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   withProcessTerm etcdCmd $ \p -> do
     -- Ensure the sub-process is also stopped when we get asked to terminate.
     _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
-    -- TODO: error handling
+    -- TODO: error handling (also kill threads)
     race_ (waitExitCode p >>= \ec -> fail $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
-        race_ (pollMembers clientUrl callback) $
-          race_ (waitMessages clientUrl protocolVersion persistenceDir callback) $ do
-            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-            race_ (broadcastMessages clientUrl protocolVersion port queue) $
-              action
-                Network
-                  { broadcast = writePersistentQueue queue
-                  }
+        -- TODO: cleanup reconnecting through policy if other threads fail
+        doneVar <- newTVarIO False
+        -- NOTE: The connection to the server is set up asynchronously; the
+        -- first rpc call will block until the connection has been established.
+        withConnection (connParams doneVar) server $ \conn -> do
+          (`finally` atomically (writeTVar doneVar True)) $
+            race_ (pollMembers conn callback) $ do
+              race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
+                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                race_ (broadcastMessages conn protocolVersion port queue) $
+                  action
+                    Network
+                      { broadcast = writePersistentQueue queue
+                      }
  where
+  connParams doneVar = def{connReconnectPolicy = reconnectPolicy doneVar}
+
+  reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
+    done <- readTVarIO doneVar
+    if done
+      then pure DontReconnect
+      else do
+        putTextLn "reconnecting"
+        threadDelay 1
+        pure $ reconnectPolicy doneVar
+
+  server =
+    ServerInsecure $
+      Address
+        { addressHost = show host
+        , addressPort = clientPort
+        , addressAuthority = Nothing
+        }
+
+  -- NOTE: Offset client port by the same amount as configured 'port' is offset
+  -- from the default '5001'. This will result in the default client port 2379
+  -- be used by default still.
+  clientPort = 2379 + port - 5001
+
   traceStderr p =
     forever $ do
       bs <- BS.hGetLine (getStderr p)
@@ -136,10 +169,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
           ]
 
-  -- NOTE: Offset client port by the same amount as configured 'port' is offset
-  -- from the default '5001'. This will result in the default client port 2379
-  -- be used by default still.
-  clientUrl = httpUrl Host{hostname = show host, port = 2379 + port - 5001}
+  clientUrl = httpUrl Host{hostname = show host, port = clientPort}
 
   -- NOTE: Building a canonical list of labels from the advertised hostname+port
   clusterPeers =
@@ -197,89 +227,83 @@ matchVersion key ourVersion = do
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
+-- TODO: PutFailed not raised - retrying on failure even needed?
 -- Retries on failure to 'putMessage' in case we are on a minority cluster.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
-  String ->
+  Connection ->
   HydraVersionedProtocolNumber ->
   PortNumber ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages endpoint protocolVersion port queue =
+broadcastMessages conn protocolVersion port queue =
   forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage endpoint protocolVersion port msg >> popPersistentQueue queue msg)
+    (putMessage conn protocolVersion port msg >> popPersistentQueue queue msg)
       `catch` \PutFailed{reason} -> do
         putTextLn $ "put failed: " <> reason
         threadDelay 1
 
 -- | Broadcast a message to the etcd cluster.
--- Throws: 'PutException' if message could not be written to cluster.
--- TODO: Create/use a proper client.
 putMessage ::
-  (ToCBOR msg, MonadIO m, MonadCatch m) =>
-  String ->
+  ToCBOR msg =>
+  Connection ->
   HydraVersionedProtocolNumber ->
   PortNumber ->
   msg ->
-  m ()
-putMessage endpoint protocolVersion port msg = do
-  putKey endpoint key hexMsg
+  IO ()
+putMessage conn protocolVersion port msg =
+  void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
  where
-  key = "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show port
+  req =
+    defMessage
+      & #key .~ key
+      & #value .~ serialize' msg
 
-  hexMsg = LBase16.encode $ serialize msg
+  key = encodeUtf8 @Text $ "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show port
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   FromCBOR msg =>
-  String ->
+  Connection ->
   HydraVersionedProtocolNumber ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages endpoint protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
+waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
   forever $ do
-    -- Watch all key value updates
-    withProcessWait (cmd revision) process
-    -- Wait before reconnecting
+    biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
+      -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
+      -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
+      let watchRequest =
+            defMessage
+              & #key .~ "msg"
+              & #rangeEnd .~ "\0"
+              & #startRevision .~ fromIntegral (revision + 1)
+      send . NextElem $ defMessage & #createRequest .~ watchRequest
+      whileNext_ recv process
+    -- Wait before reconnecting TODO: is this even possible?
     threadDelay 1
  where
-  cmd revision =
-    setStdout createPipe $
-      proc "etcdctl" $
-        concat
-          [ ["--endpoints", endpoint]
-          , ["watch"]
-          , ["--prefix", "msg"]
-          , ["--rev", show $ revision + 1]
-          , ["-w", "json"]
-          ]
+  process res = do
+    -- TODO: error handling if watch canceled
+    let revision = fromIntegral $ res ^. #header . #revision
+    putLastKnownRevision directory revision
+    forM_ (res ^. #events) $ \event -> do
+      let key = event ^. #kv . #key
+      -- XXX: Check version on every watch event?
+      case matchVersion key protocolVersion of
+        Nothing ->
+          pure ()
+        Just HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
+          onConnectivity $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
 
-  process p = do
-    bs <- BS.hGetLine (getStdout p)
-    -- FIXME: this is blocking if we can connect and nothing happens. Use proper client
-    case Aeson.eitherDecodeStrict bs >>= parseEither parseEtcdEntry of
-      -- TODO: error handling (with actual client)
-      Left err -> putStrLn $ "Failed to parse etcd entry: " <> err <> "\n" <> show bs
-      Right EtcdEntry{revision, entries} -> do
-        putLastKnownRevision directory revision
-        forM_ entries $ \(key, value) -> do
-          -- XXX: Check version on every watch event?
-          case matchVersion key protocolVersion of
-            Nothing ->
-              pure ()
-            Just HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-              onConnectivity $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
-
-          -- HACK: lenient decoding
-          case decodeFull' $ Base16.decodeLenient value of
-            -- TODO: error handling (with actual client)
-            Left err -> fail $ "Failed to decode etcd entry: " <> show err
-            Right msg -> do
-              deliver msg
-        process p
+      let value = event ^. #kv . #value
+      case decodeFull' value of
+        -- TODO: error handling (with actual client)
+        Left err -> fail $ "Failed to decode etcd entry: " <> show err
+        Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
@@ -300,86 +324,29 @@ putLastKnownRevision directory rev = do
 -- the actual list of members is not relevant for connectivity as it just lists
 -- who _should_ be connected.
 pollMembers ::
-  String ->
+  Connection ->
   NetworkCallback msg IO ->
   IO ()
-pollMembers endpoint NetworkCallback{onConnectivity} = do
+pollMembers conn NetworkCallback{onConnectivity} = do
   forever $ do
-    (exitCode, out) <- readProcessStdout cmd
-    case exitCode of
-      ExitSuccess -> do
-        let members = out ^.. Aeson.key "members" . Aeson.values . Aeson.key "name" . _String
-        putTextLn $ "Current members: " <> show members
-        -- XXX: The member list is not indicating connectivity
-        onConnectivity $ Connected "" -- TODO: node id does not matter
-      _ -> do
-        -- TODO: tracing
-        putTextLn $ "Failed to get members: " <> show exitCode
-        onConnectivity $ Disconnected "" -- TODO: node id does not matter
-        -- Wait before retrying
+    -- TODO: error handling?
+    -- onConnectivity $ Disconnected "" -- TODO: node id does not matter
+    response <- nonStreaming conn (rpc @(Protobuf Cluster "memberList")) defMessage
+    -- TODO: tracing?
+    let members = response ^. #members
+    putTextLn $ "Current members: " <> show members
+    -- XXX: The member list is not indicating connectivity
+    onConnectivity $ Connected "" -- TODO: node id does not matter
+    -- Wait before retrying
     threadDelay 1
- where
-  cmd =
-    setStdout createPipe $
-      proc "etcdctl" $
-        concat
-          [ ["--endpoints", endpoint]
-          , ["member", "list"]
-          , ["-w", "json"]
-          , ["--command-timeout", "1s"]
-          ]
 
 -- * Low-level etcd api
 
--- | Write a value at a key to the etcd cluster.
--- Throws: 'PutException' if value could not be written to cluster.
--- TODO: Create/use a proper client.
-putKey ::
-  (MonadIO m, MonadCatch m) =>
-  String ->
-  -- | Key
-  String ->
-  -- | Value
-  LByteString ->
-  m ()
-putKey endpoint key value =
-  handle (throwIO . exitCodeToException) $
-    runProcess_ $
-      proc "etcdctl" ["--endpoints", endpoint, "put", key]
-        & setStdin (byteStringInput value)
-        & setStdout nullStream
- where
-  exitCodeToException :: ExitCodeException -> PutException
-  exitCodeToException ec = PutFailed{reason = decodeUtf8 $ eceStdout ec}
-
+-- TODO: never raised, remove if not needed in 'putMessage'
 newtype PutException = PutFailed {reason :: Text}
   deriving stock (Show)
 
 instance Exception PutException
-
-data EtcdEntry = EtcdEntry
-  { revision :: Natural
-  , entries :: [(ByteString, ByteString)]
-  }
-  deriving (Show)
-
-parseEtcdEntry :: Value -> Parser EtcdEntry
-parseEtcdEntry = withObject "EtcdEntry" $ \o -> do
-  revision <- o .: "Header" >>= (.: "revision")
-  entries <- o .: "Events" >>= mapM parseEvent
-  pure EtcdEntry{revision, entries}
- where
-  parseEvent = withObject "Event" $ \o ->
-    o .: "kv" >>= parseKV
-
-  parseKV = withObject "kv" $ \o -> do
-    key <- parseBase64 =<< o .: "key"
-    value <- parseBase64 =<< o .: "value"
-    pure (key, value)
-
--- HACK: lenient decoding
-parseBase64 :: Text -> Parser ByteString
-parseBase64 = either fail pure . Base64.decode . encodeUtf8
 
 -- * Persistent queue
 
