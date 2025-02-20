@@ -6,30 +6,27 @@
 --    relevant constructor for the 'Metric' value and a registration function,
 --  * Update the 'monitor' function to Handle relevant 'HydraLog' entries and update
 --    underlying Prometheus metrics store. Nested helpers are provided to increase a
---    'Counter' by one (@tick@), by some integral value (@tickN@), and to 'observe'
---    some value in an 'Histogram'.
+--    'Counter' by one (@tick@) and to 'observe' some value in an 'Histogram'.
 module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
-import Hydra.Node (HydraNodeLog (BeginEffect, BeginInput, EndInput, input))
-import Hydra.Tx (IsTx (TxIdType), Snapshot (confirmed), txId)
+import Hydra.Node (HydraNodeLog (BeginInput, EndInput, input))
+import Hydra.Tx (IsTx (TxIdType), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
-import System.Metrics.Prometheus.Metric.Counter (add, inc)
-import System.Metrics.Prometheus.Metric.Histogram (observe)
+import System.Metrics.Prometheus.Metric.Counter (inc)
 import System.Metrics.Prometheus.MetricId (Name (Name))
 import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerHistogram, sample)
 
@@ -95,16 +92,6 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
-  -- (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
-  --   t <- getMonotonicTime
-  --   forM_ (confirmed snapshot) $ \tx -> do
-  --     txsStartTime <- readTVarIO transactionsMap
-  --     case Map.lookup (txId tx) txsStartTime of
-  --       Just start -> do
-  --         atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
-  --         histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
-  --       Nothing -> pure ()
-  --   tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
   (Node (EndInput _ _)) ->
     tick "hydra_head_inputs"
   _ -> pure ()
@@ -113,13 +100,3 @@ monitor transactionsMap metricsMap = \case
     case Map.lookup metricName metricsMap of
       (Just (CounterMetric c)) -> liftIO $ inc c
       _ -> pure ()
-
-  -- tickN metricName num =
-  --   case Map.lookup metricName metricsMap of
-  --     (Just (CounterMetric c)) -> liftIO $ add num c
-  --     _ -> pure ()
-  --
-  -- histo metricName time =
-  --   case Map.lookup metricName metricsMap of
-  --     (Just (HistogramMetric h)) -> liftIO $ observe (fromRational $ toRational $ time * 1000) h
-  --     _ -> pure ()
