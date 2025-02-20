@@ -1,25 +1,17 @@
-module Hydra.Events.Api where
+module Hydra.Events.ApiSink where
 
 import Hydra.Prelude
 
-import Conduit (mapMC, (.|))
-import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
-import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
-import Hydra.Events.FileBased (PersistedStateChange (..))
-import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.Events (EventSink (..), StateEvent (..))
 import Hydra.Node (HydraNode (..))
-import Hydra.Persistence (PersistenceIncremental (..))
-import Hydra.Tx (HeadId (UnsafeHeadId), IsTx, txId)
 
 wireApiEvents ::
   (IsChainState tx, MonadSTM m) =>
   Server tx m ->
-  PersistenceIncremental (PersistedStateChange tx) m ->
   m (EventSink (StateEvent tx) m)
-wireApiEvents server PersistenceIncremental{append, source} = do
+wireApiEvents server = do
   let putEvent StateEvent{stateChanged} =
         maybe (pure ()) sendOutput $ mapStateChangedToServerOutput stateChanged
   pure EventSink{putEvent}

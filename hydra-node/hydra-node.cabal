@@ -67,7 +67,7 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Events
     Hydra.Events.FileBased
-    Hydra.Events.Api
+    Hydra.Events.ApiSink
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input

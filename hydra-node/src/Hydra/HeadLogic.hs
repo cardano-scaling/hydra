@@ -1669,10 +1669,12 @@ aggregate st = \case
   IgnoredHeadInitializing{} -> st
   GetUTxOResponse{} -> st
   TxInvalid{} -> st
+  InvalidInput{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   PeerHandshakeFailure{} -> st
   PostTxOnChainFailed{} -> st
+  Greetings{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1720,7 +1722,9 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   GetUTxOResponse{} -> history
   TxInvalid{} -> history
+  InvalidInput{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   PeerHandshakeFailure{} -> history
   PostTxOnChainFailed{} -> history
+  Greetings{} -> history

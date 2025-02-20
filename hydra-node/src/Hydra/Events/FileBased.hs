@@ -72,8 +72,8 @@ eventPairFromPersistenceIncremental PersistenceIncremental{append, source} = do
 
   pure (EventSource{sourceEvents}, EventSink{putEvent})
 
--- | Internal data type used by 'createJSONFileEventSourceAndSink' to be
--- compatible with plain usage of 'PersistenceIncrementa' using plain
+-- | Internal data type used by 'eventPairFromPersistenceIncremental' to be
+-- compatible with plain usage of 'PersistenceIncremental' using plain
 -- 'StateChanged' items to the new 'StateEvent' persisted items.
 data PersistedStateChange tx
   = Legacy (StateChanged tx)

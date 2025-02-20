@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (DecommitInvalidReason)
+import Hydra.API.ServerOutput (DecommitInvalidReason, HeadStatus)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
@@ -128,10 +128,18 @@ data StateChanged tx
       , ourVersion :: Natural
       , theirVersions :: [Natural]
       }
+  | Greetings
+      { me :: Party
+      , headStatus :: HeadStatus
+      , hydraHeadId :: Maybe HeadId
+      , snapshotUtxo :: Maybe (UTxOType tx)
+      , hydraNodeVersion :: String
+      }
+  | InvalidInput {reason :: String, input :: Text}
   deriving stock (Generic)
 
-deriving stock instance (IsChainState tx,IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
-deriving stock instance (IsChainState tx,IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
+deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
+deriving stock instance (IsChainState tx, IsTx tx, Show (HeadState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (HeadState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 

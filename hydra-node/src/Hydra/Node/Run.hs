@@ -20,7 +20,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..), queryGenesisParameters)
 import Hydra.Chain.Direct (loadChainContext, mkTinyWallet, withDirectChain)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events.Api (addApiEventSink, wireApiEvents)
+import Hydra.Events.ApiSink (addApiEventSink, wireApiEvents)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging (traceWith, withTracer)
@@ -112,9 +112,7 @@ run opts = do
               $ \network -> do
                 -- Main loop
                 traceWith tracer EnteringMainloop
-                apiServerSink <-
-                   wireApiEvents server
-                       =<< createPersistenceIncremental (persistenceDir <> "/state")
+                apiServerSink <- wireApiEvents server
                 connect chain network server wetHydraNode
                   >>= runHydraNode . addApiEventSink apiServerSink
  where

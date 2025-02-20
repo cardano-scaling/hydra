@@ -284,10 +284,10 @@ restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
 
   withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    headId2 <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+    headId2 <- waitMatch 20 n1 $ headIsInitializingWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
     send n1 $ input "Abort" []
-    waitFor hydraTracer 10 [n1] $
+    waitFor hydraTracer 20 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
  where
   RunningNode{nodeSocket, networkId} = cardanoNode

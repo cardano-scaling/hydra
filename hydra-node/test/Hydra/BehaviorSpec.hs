@@ -919,7 +919,7 @@ waitUntilMatch nodes predicate = do
     unless (predicate msg) $
       match seenMsgs n
 
-  oneMonth = 60 -- 3600 * 24 * 30
+  oneMonth = 3600 * 24 * 30
 
 -- | Wait for an output matching the predicate and extracting some value. This
 -- will loop forever until a match has been found.
