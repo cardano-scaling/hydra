@@ -15,11 +15,17 @@ docker pull ghcr.io/cardano-scaling/hydra-node
 docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 ```
 
+### Dependencies
+
+There is **one** run-time dependency of `hydra-node`:
+
+- [`etcd`](https://etcd.io/docs/v3.5/install/) used internally to create a reliable network between nodes
+
+You can ignore this if you are using the Docker image.
+
 ### Prebuilt binaries
 
 We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [GitHub releases](https://github.com/cardano-scaling/hydra/releases).
-
-<!-- TODO: Document run-time dependency 'etcd' -->
 
 ### Build from source
 

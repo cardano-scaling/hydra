@@ -3,9 +3,9 @@
 
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other Hydra nodes.
 --
--- Concrete implementations are
--- provided by submodules. Import those instead of this one if interested in
--- actually configuring and running a real network layer.
+-- Concrete implementations are provided by submodules. Import those instead of
+-- this one if interested in actually configuring and running a real network
+-- layer.
 --
 -- Incoming and outgoing messages are modelled as 'Message' data type.
 module Hydra.Network (

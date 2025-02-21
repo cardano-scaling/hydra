@@ -9,7 +9,7 @@
 -- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:
 --
 --   * `withAuthentication` handles messages' authentication and signature verification
---   * `withEtcd` uses an 'etcd' cluster to implement reliable broadcast
+--   * `withEtcdNetwork` uses an 'etcd' cluster to implement reliable broadcast
 --
 -- The following diagram details the various types of messages each layer is
 -- exchanging with its predecessors and successors.
@@ -66,7 +66,6 @@ withNetwork ::
   -- | The network configuration
   NetworkConfiguration ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
-  -- XXX: This is odd as we map connectivity events into the main 'deliver' data type.
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
 withNetwork tracer conf callback action = do
   withAuthentication

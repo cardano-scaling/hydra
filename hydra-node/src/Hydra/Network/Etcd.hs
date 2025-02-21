@@ -2,19 +2,36 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
 
--- | Implements a Hydra network component via an etcd cluster.
+-- | Implements a Hydra network component using [etcd](https://etcd.io/).
 --
--- While this is quite an overkill, the Raft consensus of etcd provides our
--- application with a crash-recovery fault-tolerant "atomic broadcast".
+-- While implementing a basic broadcast protocol over a distributed key-value
+-- store is quite an overkill, the [Raft](https://raft.github.io/) consensus of
+-- etcd provides our application with a crash-recovery fault-tolerant "atomic
+-- broadcast" out-of-the-box. As a nice side-effect, the network layer becomes
+-- very introspectable, while it would also support features like TLS or service
+-- discovery.
 --
--- Broadcasting messages is implemented using 'put's to some well-known key,
--- while message delivery is done using 'watch' on the same key.
+-- The component starts and configures an `etcd` instance and connects to it
+-- using a GRPC client. We can only write and read from the cluster while
+-- connected to the majority cluster.
 --
--- Uses a 'PersistentQueue' which stores messages to broadcast in the
--- persistence dir to be resilient against crashes.
+-- Broadcasting is implemented using @put@ to some well-known key, while
+-- message delivery is done by using @watch@ on the same key. We keep a last
+-- known revision, also stored on disk, to start 'watch' with that revision (+1)
+-- and only deliver messages that were not seen before. In case we are not
+-- connected to our 'etcd' instance or not enough peers (= on a minority
+-- cluster), we retry sending, but also store messages to broadcast in a
+-- 'PersistentQueue', which makes the node resilient against crashes while
+-- sending. TODO: Is this needed? performance limitation?
 --
--- The last known revision is also stored in the persistence dir to only deliver
--- messages that were not seen before.
+-- Connectivity and compatibility with other nodes on the cluster is tracked
+-- using the key-value service as well:
+--
+--   * network connectivity is determined by being able to fetch the member list
+--   * peer connectivity is tracked (best effort, not authorized) using an entry
+--     at 'alive-\<node id\>' keys with individual leases and repeated keep-alives
+--   * each node compare-and-swaps its `version` into a key of the same name to
+--     check compatibility (not updatable)
 module Hydra.Network.Etcd where
 
 import Hydra.Prelude
@@ -260,6 +277,7 @@ putMessage conn protocolVersion port msg =
       & #key .~ key
       & #value .~ serialize' msg
 
+  -- TODO: use one key again (after mapping version check)?
   key = encodeUtf8 @Text $ "msg-" <> show (hydraVersionedProtocolNumber protocolVersion) <> "-" <> show port
 
 -- | Fetch and wait for messages from the etcd cluster.
