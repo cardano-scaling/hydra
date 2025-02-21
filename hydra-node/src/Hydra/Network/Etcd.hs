@@ -299,7 +299,7 @@ waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectiv
       let watchRequest =
             defMessage
               & #key .~ "msg"
-              & #rangeEnd .~ "\0"
+              & #rangeEnd .~ "msh" -- NOTE: g+1 to query prefixes
               & #startRevision .~ fromIntegral (revision + 1)
       send . NextElem $ defMessage & #createRequest .~ watchRequest
       whileNext_ recv process
@@ -401,13 +401,13 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
       nonStreaming conn (rpc @(Protobuf KV "range")) $
         defMessage
           & #key .~ "alive"
-          & #rangeEnd .~ "\0"
-    forM (res ^.. #kvs . traverse . #value) $ \bs ->
+          & #rangeEnd .~ "alivf" -- NOTE: e+1 to query prefixes
+    pure $ flip mapMaybe (res ^.. #kvs . traverse . #value) $ \bs ->
+      -- XXX: Silently swallow incompatible values. Hard to debug, but failure
+      -- to decode here should not crash the component either.
       case decodeFull' bs of
-        Left err ->
-          fail $ "Failed to decode alive value: " <> show err
-        Right x ->
-          pure x
+        Left _err -> Nothing
+        Right x -> pure x
 
 -- * Low-level etcd api
 

@@ -57,9 +57,7 @@ spec = do
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
-                putTextLn "broadcasting"
                 broadcast n ("asdf" :: Text)
-                putTextLn "waiting"
                 waitNext `shouldReturn` "asdf"
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
@@ -185,10 +183,8 @@ spec = do
               withEtcdNetwork @Int tracer v2 bobConfig recordReceived $ \_n2 -> do
                 broadcast n1 123
 
-                -- FIXME: sequence of connectivity events is flaky
-                waitConnectivity `shouldReturn` Connected (Host lo port1)
-                waitConnectivity
-                  `shouldReturn` HandshakeFailure
+                waitEq waitConnectivity 10 $
+                  HandshakeFailure
                     { remoteHost = Host "???" port1
                     , ourVersion = v2
                     , theirVersions = KnownHydraVersions [v1]
