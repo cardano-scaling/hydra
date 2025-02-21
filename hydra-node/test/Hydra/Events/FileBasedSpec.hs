@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 import Hydra.Chain.Direct.State ()
 
 import Conduit (runConduitRes, sinkList, (.|))
-import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Data.List (zipWith3)
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..), getEvents, putEvent)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.HeadLogic (StateChanged)
 import Hydra.Ledger.Cardano (Tx)

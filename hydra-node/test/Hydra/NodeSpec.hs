@@ -6,10 +6,9 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Hydra.Tx.IsTx (IsTx)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
+import Hydra.API.Server (mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
@@ -41,6 +40,7 @@ import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Environment qualified as Environment
 import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
+import Hydra.Tx.IsTx (IsTx)
 import Hydra.Tx.Party (Party, deriveParty)
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -326,10 +326,6 @@ notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx
 notConnect =
   connect mockChain mockNetwork
 
-mockServer :: Monad m => Server SimpleTx m
-mockServer =
-  Server{sendOutput = \_ -> pure ()}
-
 mockNetwork :: Monad m => Network m (Message SimpleTx)
 mockNetwork =
   Network{broadcast = \_ -> pure ()}
@@ -450,9 +446,7 @@ recordServerOutputs node = do
   let apiSink =
         EventSink
           { putEvent = \StateEvent{stateChanged} ->
-              case mapStateChangedToServerOutput stateChanged of
-                Nothing -> pure ()
-                Just a -> record a
+              for_ (mapStateChangedToServerOutput stateChanged) record
           }
   pure (node{eventSinks = [apiSink]}, query)
 
