@@ -6,7 +6,7 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapWhileC, printC, runConduitRes, sinkList, (.|))
+import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
