@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 -- | Test the real networking layer
 module Hydra.NetworkSpec where
 
@@ -132,21 +134,23 @@ spec = do
       it "emits connectivity events" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
+          let bobHost = Host (show bobConfig.host) bobConfig.port
+          let carolHost = Host (show carolConfig.host) carolConfig.port
           -- Record and assert connectivity events from alice's perspective
           (recordReceived, _, waitConnectivity) <- newRecordingCallback
           let
             waitFor :: HasCallStack => Connectivity -> IO ()
-            waitFor = waitEq waitConnectivity 5
+            waitFor = waitEq waitConnectivity 10
           withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \_ -> do
             withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
               -- Alice now on majority cluster
               waitFor NetworkConnected
-              waitFor $ Connected "bob"
+              waitFor $ Connected bobHost
               withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-                waitFor $ Connected "carol"
+                waitFor $ Connected carolHost
                 -- Carol stops
                 pure ()
-              waitFor $ Disconnected "carol"
+              waitFor $ Disconnected carolHost
               -- Bob stops
               pure ()
             waitFor NetworkDisconnected
@@ -182,7 +186,7 @@ spec = do
                 broadcast n1 123
 
                 -- FIXME: sequence of connectivity events is flaky
-                waitConnectivity `shouldReturn` Connected ""
+                waitConnectivity `shouldReturn` Connected (Host lo port1)
                 waitConnectivity
                   `shouldReturn` HandshakeFailure
                     { remoteHost = Host "???" port1

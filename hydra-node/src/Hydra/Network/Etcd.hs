@@ -43,15 +43,17 @@ import Control.Concurrent.Class.MonadSTM (
   newTVarIO,
   peekTBQueue,
   readTBQueue,
+  swapTVar,
   writeTBQueue,
   writeTVar,
  )
 import Control.Exception (IOException)
-import Control.Lens ((^.))
+import Control.Lens ((^.), (^..))
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
 import Data.ByteString qualified as BS
+import Data.List ((\\))
 import Data.List qualified as List
 import Data.Text (splitOn)
 import Hydra.Logging (Tracer, traceWith)
@@ -79,10 +81,10 @@ import Network.GRPC.Client (
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
-import Network.GRPC.Common (NextElem (..), def)
+import Network.GRPC.Common (GrpcError (..), GrpcException (..), NextElem (..), def)
 import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
-import Network.GRPC.Etcd (Cluster, KV, Watch)
+import Network.GRPC.Etcd (KV, Lease, Watch)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
@@ -123,7 +125,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) server $ \conn -> do
           (`finally` atomically (writeTVar doneVar True)) $
-            race_ (pollMembers conn callback) $ do
+            race_ (pollConnectivity conn localHost callback) $ do
               race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
                 race_ (broadcastMessages conn protocolVersion port queue) $
@@ -338,25 +340,74 @@ putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
   liftIO $ encodeFile (directory </> "last-known-revision.json") rev
 
--- | Poll for member list to yield connectivity events every second. Note that
--- the actual list of members is not relevant for connectivity as it just lists
--- who _should_ be connected.
-pollMembers ::
+-- | Write a well-known key to indicate being alive, keep it alive using a lease
+-- and poll other peers enries to yield connectivity events. While doing so,
+-- overall network connectivity is determined from the ability to read/write to
+-- the cluster.
+pollConnectivity ::
   Connection ->
+  -- | Local host
+  Host ->
   NetworkCallback msg IO ->
   IO ()
-pollMembers conn NetworkCallback{onConnectivity} = do
+pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
+  seenAliveVar <- newTVarIO []
   forever $ do
-    -- TODO: error handling?
-    -- onConnectivity $ Disconnected "" -- TODO: node id does not matter
-    response <- nonStreaming conn (rpc @(Protobuf Cluster "memberList")) defMessage
-    -- TODO: tracing?
-    let members = response ^. #members
-    putTextLn $ "Current members: " <> show members
-    -- XXX: The member list is not indicating connectivity
-    onConnectivity $ Connected "" -- TODO: node id does not matter
-    -- Wait before retrying
+    leaseId <- createLease
+    -- If we can create a lease, we are connected
+    onConnectivity NetworkConnected
+    handle onGrpcException $ do
+      -- Write our alive key using lease
+      writeAlive leaseId
+      withKeepAlive leaseId $ \keepAlive ->
+        forever $ do
+          -- Keep our lease alive
+          keepAlive
+          -- Determine alive peers
+          alive <- getAlive
+          let othersAlive = alive \\ [localHost]
+          seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
+          forM_ (othersAlive \\ seenAlive) $ onConnectivity . Connected
+          forM_ (seenAlive \\ othersAlive) $ onConnectivity . Disconnected
+          threadDelay 1
+ where
+  ttl = 3
+
+  onGrpcException GrpcException{grpcError = GrpcUnavailable} = do
+    onConnectivity NetworkDisconnected
     threadDelay 1
+  onGrpcException e = throwIO e
+
+  -- REVIEW: server can decide ttl?
+  createLease = do
+    leaseResponse <-
+      nonStreaming conn (rpc @(Protobuf Lease "leaseGrant")) $
+        defMessage & #ttl .~ ttl
+    pure $ leaseResponse ^. #id
+
+  writeAlive leaseId = do
+    void . nonStreaming conn (rpc @(Protobuf KV "put")) $
+      defMessage
+        & #key .~ "alive-" <> show localHost
+        & #value .~ serialize' localHost
+        & #lease .~ leaseId
+
+  withKeepAlive leaseId action = do
+    biDiStreaming conn (rpc @(Protobuf Lease "leaseKeepAlive")) $ \send _recv ->
+      void . action $ send $ NextElem (defMessage & #id .~ leaseId)
+
+  getAlive = do
+    res <-
+      nonStreaming conn (rpc @(Protobuf KV "range")) $
+        defMessage
+          & #key .~ "alive"
+          & #rangeEnd .~ "\0"
+    forM (res ^.. #kvs . traverse . #value) $ \bs ->
+      case decodeFull' bs of
+        Left err ->
+          fail $ "Failed to decode alive value: " <> show err
+        Right x ->
+          pure x
 
 -- * Low-level etcd api
 

@@ -130,6 +130,16 @@ data Host = Host
   deriving stock (Ord, Generic, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR Host where
+  toCBOR Host{hostname, port} =
+    toCBOR hostname <> toCBOR (toInteger port)
+
+instance FromCBOR Host where
+  fromCBOR = do
+    hostname <- fromCBOR
+    port <- fromInteger <$> fromCBOR
+    pure Host{hostname, port}
+
 instance Show Host where
   show = showHost
 
@@ -178,9 +188,9 @@ readPort s =
 
 data Connectivity
   = -- | Individual peer appeared alive on network.
-    Connected {nodeId :: NodeId}
+    Connected {peer :: Host}
   | -- | Individual peer disappeared from network (has not been seen active in a while).
-    Disconnected {nodeId :: NodeId}
+    Disconnected {peer :: Host}
   | -- | Connected to Hydra network.
     NetworkConnected
   | -- | Disconnected from Hydra network.

@@ -24,13 +24,13 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Network (Connectivity (..), Network (..), NetworkCallback (..), NetworkComponent, NodeId)
+import Hydra.Network (Connectivity (..), Host, Network (..), NetworkCallback (..), NetworkComponent)
 
 data HeartbeatState = HeartbeatState
-  { alive :: Map NodeId Time
+  { alive :: Map Host Time
   -- ^ The map of known 'Connected' parties with the last time they've been "seen".
   -- This is updated when we see a message from another node
-  , suspected :: Set NodeId
+  , suspected :: Set Host
   -- ^ The set of known parties which might be 'Disconnected'
   -- This is updated after some time no message has been received from a node.
   }
@@ -40,8 +40,8 @@ initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty}
 
 data Heartbeat msg
-  = Data NodeId msg
-  | Ping NodeId
+  = Data Host msg
+  | Ping Host
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -85,7 +85,7 @@ withHeartbeat ::
   , MonadDelay m
   ) =>
   -- | This node's id, used to identify `Heartbeat` messages broadcast to peers.
-  NodeId ->
+  Host ->
   -- | Underlying `NetworkComponent` for sending and consuming `Heartbeat` messages.
   NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a ->
   -- | Returns a network component that can be used to send and consume arbitrary messages.
@@ -132,7 +132,7 @@ updateStateFromIncomingMessages heartbeatState callback =
 
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
-  NodeId ->
+  Host ->
   TVar m (Maybe Time) ->
   Network m (Heartbeat outbound) ->
   Network m outbound
@@ -149,7 +149,7 @@ checkHeartbeatState ::
   ( MonadDelay m
   , MonadSTM m
   ) =>
-  NodeId ->
+  Host ->
   TVar m (Maybe Time) ->
   Network m (Heartbeat outbound) ->
   m ()
@@ -179,7 +179,7 @@ checkRemoteParties heartbeatState onConnectivity =
     updateSuspected heartbeatState now
       >>= mapM_ (onConnectivity . Disconnected)
 
-updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set NodeId)
+updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Host)
 updateSuspected heartbeatState now =
   atomically $ do
     aliveParties <- alive <$> readTVar heartbeatState
