@@ -39,11 +39,6 @@ data TimedServerOutput tx = TimedServerOutput
 instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
--- | Generate a random timed server output given a normal server output.
-genTimedServerOutput :: ServerOutput tx -> Gen (TimedServerOutput tx)
-genTimedServerOutput o =
-  TimedServerOutput o <$> arbitrary <*> arbitrary
-
 instance IsChainState tx => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
     case toJSON output of
