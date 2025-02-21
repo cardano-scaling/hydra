@@ -103,11 +103,17 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     loadedHistory <-
       runConduitRes $
         sourceEvents
-          .| iterM (maybe (pure ()) (lift . atomically . update headStatusP . output) . mkTimeServerOutputFromStateEvent)
-          .| iterM (maybe (pure ()) (lift . atomically . update snapshotUtxoP . output) . mkTimeServerOutputFromStateEvent)
-          .| iterM (maybe (pure ()) (lift . atomically . update commitInfoP . output) . mkTimeServerOutputFromStateEvent)
-          .| iterM (maybe (pure ()) (lift . atomically . update headIdP . output) . mkTimeServerOutputFromStateEvent)
-          .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output) . mkTimeServerOutputFromStateEvent)
+          .| iterM
+            ( \a ->
+                case mkTimeServerOutputFromStateEvent a of
+                  Nothing -> pure ()
+                  Just TimedServerOutput{output} -> lift $ atomically $ do
+                    update headStatusP output
+                    update snapshotUtxoP output
+                    update commitInfoP output
+                    update headIdP output
+                    update pendingDepositsP output
+            )
           -- FIXME: don't load whole history into memory
           .| mapWhileC mkTimeServerOutputFromStateEvent
           .| sinkList
