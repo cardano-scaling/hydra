@@ -3,7 +3,7 @@
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
+import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn)
 
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -35,6 +35,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..), StateEvent (..))
 import Hydra.HeadLogic (HeadState (..), IdleState (..), Input (..), defaultTTL)
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -48,9 +49,11 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
 import Hydra.Tx.Environment (Environment (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.Node.Fixture (testHeadParameters)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -838,17 +841,20 @@ spec = parallel $ do
       logs
         `shouldContain` [EndInput alice 0]
 
-  -- it "traces handling of effects" $ do
-  --   let result = runSimTrace $ do
-  --         withSimulatedChainAndNetwork $ \chain ->
-  --           withHydraNode aliceSk [] chain $ \n1 -> do
-  --             send n1 Init
-  --             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-  --
-  --       logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
-  --
-  --   logs `shouldContain` [BeginEffect alice 2 0 (ClientEffect $ HeadIsInitializing testHeadId $ fromList [alice])]
-  --   logs `shouldContain` [EndEffect alice 2 0]
+  it "traces handling of effects" $ do
+    let result = runSimTrace $ do
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [] chain $ \n1 -> do
+              send n1 Init
+              waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+
+        logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
+        parameters = testHeadParameters{Hydra.Tx.HeadParameters.contestationPeriod = UnsafeContestationPeriod 10, parties = [alice]}
+        expectedStateChange = Outcome.HeadInitialized{headId = testHeadId, parameters, chainState = SimpleChainState 1, parties = fromList [alice], headSeed = testHeadSeed}
+        expectedOutcome = LogicOutcome alice $ Outcome.Continue [expectedStateChange] []
+
+    logs `shouldSatisfy` \case
+      as -> expectedOutcome `elem` as
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
