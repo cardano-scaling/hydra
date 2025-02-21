@@ -102,7 +102,7 @@ import UnliftIO (readTVarIO)
 -- listens for incoming messages.
 withEtcdNetwork ::
   (ToCBOR msg, FromCBOR msg, Eq msg) =>
-  Tracer IO Value ->
+  Tracer IO EtcdLog ->
   HydraVersionedProtocolNumber ->
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
@@ -139,8 +139,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
     if done
       then pure DontReconnect
       else do
-        putTextLn "reconnecting"
         threadDelay 1
+        traceWith tracer Reconnecting
         pure $ reconnectPolicy doneVar
 
   server =
@@ -161,7 +161,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       bs <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
         Left err -> fail $ "Failed to decode etcd log: " <> show err
-        Right v -> traceWith tracer v
+        Right v -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
@@ -434,3 +434,11 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
     Nothing -> pure ()
     Just index -> do
       liftIO . removeFile $ directory </> show index
+
+-- * Tracing
+
+data EtcdLog
+  = EtcdLog {etcd :: Value}
+  | Reconnecting
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON)

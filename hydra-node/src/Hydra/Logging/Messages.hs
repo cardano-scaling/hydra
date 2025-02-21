@@ -12,7 +12,6 @@ import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
-import Hydra.Network.Authenticate (AuthLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Options (RunOptions)
 
@@ -22,8 +21,6 @@ data HydraLog tx net
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
-  | -- XXX: This is odd as the other network components are not here
-    Authentication {authentication :: AuthLog}
   deriving stock (Generic)
 
 deriving stock instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)
