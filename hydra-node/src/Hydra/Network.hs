@@ -177,8 +177,14 @@ readPort s =
 -- TODO: improve these types
 
 data Connectivity
-  = Connected {nodeId :: NodeId}
-  | Disconnected {nodeId :: NodeId}
+  = -- | Individual peer appeared alive on network.
+    Connected {nodeId :: NodeId}
+  | -- | Individual peer disappeared from network (has not been seen active in a while).
+    Disconnected {nodeId :: NodeId}
+  | -- | Connected to Hydra network.
+    NetworkConnected
+  | -- | Disconnected from Hydra network.
+    NetworkDisconnected
   | HandshakeFailure
       { remoteHost :: Host
       , ourVersion :: HydraVersionedProtocolNumber

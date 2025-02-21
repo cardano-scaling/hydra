@@ -101,12 +101,12 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 defaultTTL :: TTL
 defaultTTL = 5
 
--- TODO: refine semantics with overall 'Connectivity'
 onConnectionEvent :: Connectivity -> Outcome tx
 onConnectionEvent = \case
-  Connected{} ->
+  -- FIXME: bring back PeerConnected and PeerDisconnected
+  NetworkConnected{} ->
     causes [ClientEffect ServerOutput.NetworkConnected]
-  Disconnected{} ->
+  NetworkDisconnected{} ->
     causes [ClientEffect ServerOutput.NetworkDisconnected]
   HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
     causes
