@@ -41,7 +41,6 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.Options qualified as Options
-import Hydra.Persistence (PersistenceIncremental (..))
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo))
 import Network.Simple.WSS qualified as WSS
@@ -415,19 +414,6 @@ withClient port path action =
             hPutStrLn stderr $ "withClient failed to connect: " <> show e
             threadDelay 0.1
             connect (n - 1)
-
--- | Mocked persistence handle which just does nothing.
-mockPersistence :: Monad m => PersistenceIncremental a m
-mockPersistence =
-  mockPersistence' []
-
--- | Mocked persistence which does not contain some constant elements.
-mockPersistence' :: Monad m => [a] -> PersistenceIncremental a m
-mockPersistence' xs =
-  PersistenceIncremental
-    { append = \_ -> pure ()
-    , source = yieldMany xs
-    }
 
 mockSource :: Monad m => [a] -> EventSource a m
 mockSource events =
