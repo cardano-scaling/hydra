@@ -148,6 +148,9 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) wher
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
+-- NOTE: Here we produce only 'StateChanged' values that can be converted to
+-- 'ServerOutput' since there are tests depending on this conversion to not
+-- fail.
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
@@ -155,20 +158,16 @@ genStateChanged env =
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRequested <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
-    , ChainRolledBack <$> arbitrary
-    , TickObserved <$> arbitrary
     ]
  where
   Environment{party} = env

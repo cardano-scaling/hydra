@@ -36,6 +36,7 @@ import Hydra.Chain (
   submitTx,
  )
 import Hydra.Events (EventSource (..), StateEvent (..), genStateEvent)
+import Hydra.HeadLogic.Outcome (genStateChanged)
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -111,10 +112,9 @@ spec =
 
     it "sends all sendOutput history to all connected clients after a restart" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        arbitraryStateChanged <- generate arbitrary
+        arbitraryStateChanged <- generate $ genStateChanged =<< arbitrary
         case mapStateChangedToServerOutput arbitraryStateChanged of
-          -- TODO: make sure the mapping is not partial or generate messages we actually can convert.
-          Nothing -> expectationFailure "mapStateChangedToServerOutput failed to convert StateChanged to ServerOutput"
+          Nothing -> expectationFailure $ "mapStateChangedToServerOutput failed to convert StateChanged to ServerOutput: " <> show arbitraryStateChanged
           Just arbitraryMsg -> do
             stateEvent <- generate $ genStateEvent arbitraryStateChanged
             let eventSource = mockSource [stateEvent]
@@ -130,8 +130,8 @@ spec =
                 semaphore <- newTVarIO 0
                 withAsync
                   ( concurrently_
-                      (withClient port "/" $ testClient queue1 semaphore)
-                      (withClient port "/" $ testClient queue2 semaphore)
+                      (withClient port "/?history=yes" $ testClient queue1 semaphore)
+                      (withClient port "/?history=yes" $ testClient queue2 semaphore)
                   )
                   $ \_ -> do
                     waitForClients semaphore
@@ -155,22 +155,23 @@ spec =
 
     it "echoes history (past outputs) to client upon reconnection" $
       checkCoverage . monadicIO $ do
-        outputs <- pick arbitrary
+        outputs <- pick $ mapM (genStateEvent <=< genStateChanged) =<< arbitrary
         monitor $ cover 0.1 (null outputs) "no message when reconnecting"
         monitor $ cover 0.1 (length outputs == 1) "only one message when reconnecting"
         monitor $ cover 1 (length outputs > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
-                mapM_ sendOutput outputs
-                withClient port "/" $ \conn -> do
-                  received <- failAfter 10 $ replicateM (length outputs + 1) (receiveData conn)
+              withTestAPIServer port alice (mockSource outputs) tracer $ \Server{sendOutput} -> do
+                let serverOutputs = mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs
+                mapM_ sendOutput serverOutputs
+                withClient port "/?history=yes" $ \conn -> do
+                  received <- failAfter 20 $ replicateM (length outputs + 1) (receiveData conn)
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
                       let actualOutputs = output <$> timedOutputs
-                      List.init actualOutputs `shouldBe` outputs
+                      List.init actualOutputs `shouldBe` serverOutputs
                       List.last actualOutputs `shouldSatisfy` isGreetings
 
     it "does not echo history if client says no" $
@@ -186,7 +187,7 @@ spec =
                 let sendFromApiServer = sendOutput
                 mapM_ sendFromApiServer history
                 -- start client that doesn't want to see the history
-                withClient port "/?history=no" $ \conn -> do
+                withClient port "/?history=yes" $ \conn -> do
                   -- wait on the greeting message
                   waitMatch 5 conn $ guard . matchGreetings
 
@@ -223,13 +224,18 @@ spec =
 
     it "sequence numbers are continuous" $
       monadicIO $ do
-        outputs :: [ServerOutput SimpleTx] <- pick arbitrary
+        outputs' <- pick $ mapM (genStateEvent <=< genStateChanged) =<< arbitrary
+        -- XXX: here we manually update eventId's to be sequential since it is easier than in the arbitrary instance.
+        -- API Server should keep these intact and just produce corresponding sequence numbers. In real life persistence
+        -- would handle this behavior anyway.
+        let outputs = zipWith (\stateEvent eventId -> stateEvent{eventId}) outputs' [1 ..]
         run $
           showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
-                mapM_ sendOutput outputs
-                withClient port "/" $ \conn -> do
+              withTestAPIServer port alice (mockSource outputs) tracer $ \Server{sendOutput} -> do
+                let serverOutputs = mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs
+                mapM_ sendOutput serverOutputs
+                withClient port "/?history=yes" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
 
                   case traverse Aeson.eitherDecode received of
@@ -423,7 +429,7 @@ mockSource events =
 
 waitForValue :: HasCallStack => PortNumber -> (Aeson.Value -> Maybe ()) -> IO ()
 waitForValue port f =
-  withClient port "/?history=no" $ \conn ->
+  withClient port "/?history=yes" $ \conn ->
     waitMatch 5 conn f
 
 -- | Wait up to some time for an API server output to match the given predicate.
