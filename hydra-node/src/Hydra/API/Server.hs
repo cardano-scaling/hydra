@@ -110,9 +110,9 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
           -- FIXME: don't load whole history into memory
           .| sinkList
 
-    history <- newTVarIO loadedHistory
     -- NOTE: we need to reverse the list because we store history in a reversed
     -- list in memory but in order on disk
+    history <- newTVarIO $ reverse loadedHistory
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
