@@ -3,13 +3,12 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq, state)
+import Hydra.Prelude hiding (mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
 import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
@@ -58,6 +57,7 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
+import Control.Concurrent.Class.MonadSTM (newTVarIO)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -90,57 +90,67 @@ withAPIServer ::
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   ServerComponent tx IO ()
-withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action = do
-  responseChannel <- newBroadcastTChanIO
-  -- Intialize our read models from stored events
-  -- NOTE: we do not keep the stored events around in memory
-  headStatusP <- mkProjection Idle projectHeadStatus
-  snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
-  commitInfoP <- mkProjection CannotCommit projectCommitInfo
-  headIdP <- mkProjection Nothing projectInitializingHeadId
-  pendingDepositsP <- mkProjection [] projectPendingDeposits
-  loadedHistory <-
-    runConduitRes $
-      sourceEvents
-        .| iterM (maybe (pure ()) (lift . atomically . update headStatusP . output) . mkTimedServerOutputFromStateEvent)
-        .| iterM (maybe (pure ()) (lift . atomically . update snapshotUtxoP . output) . mkTimedServerOutputFromStateEvent)
-        .| iterM (maybe (pure ()) (lift . atomically . update commitInfoP . output) . mkTimedServerOutputFromStateEvent)
-        .| iterM (maybe (pure ()) (lift . atomically . update headIdP . output) . mkTimedServerOutputFromStateEvent)
-        .| iterM (maybe (pure ()) (lift . atomically . update pendingDepositsP . output) . mkTimedServerOutputFromStateEvent)
-        -- FIXME: don't load whole history into memory
-        .| mapWhileC mkTimedServerOutputFromStateEvent
-        .| sinkList
+withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
+  handle onIOException $ do
+    responseChannel <- newBroadcastTChanIO
+    -- Intialize our read models from stored events
+    -- NOTE: we do not keep the stored events around in memory
+    headStatusP <- mkProjection Idle projectHeadStatus
+    snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+    commitInfoP <- mkProjection CannotCommit projectCommitInfo
+    headIdP <- mkProjection Nothing projectInitializingHeadId
+    pendingDepositsP <- mkProjection [] projectPendingDeposits
+    loadedHistory <-
+      runConduitRes $
+        sourceEvents
+          .| iterM
+            ( \a ->
+                case mkTimeServerOutputFromStateEvent a of
+                  Nothing -> pure ()
+                  Just TimedServerOutput{output} -> lift $ atomically $ do
+                    update headStatusP output
+                    update snapshotUtxoP output
+                    update commitInfoP output
+                    update headIdP output
+                    update pendingDepositsP output
+            )
+          .| mapWhileC mkTimeServerOutputFromStateEvent
+          .| sinkList
+    history <- newTVarIO $ reverse loadedHistory
+    (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
-  -- NOTE: we need to reverse the list because we store history in a reversed
-  -- list in memory but in order on disk
-  history <- newTVarIO $ reverse loadedHistory
-  (notifyServerRunning, waitForServerRunning) <- setupServerNotification
-
-  let serverSettings =
-        defaultSettings
-          & setHost (fromString $ show host)
-          & setPort (fromIntegral port)
-          & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
-          & setOnExceptionResponse (responseLBS status500 [] . show)
-          & setBeforeMainLoop notifyServerRunning
-  race_
-    ( handle onIOException $ do
-        traceWith tracer (APIServerStarted port)
-        startServer serverSettings
-          . simpleCors
-          $ websocketsOr
-            defaultConnectionOptions
-            (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-            (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
-    )
-    ( do
-        waitForServerRunning
-        action $
-          Server
-            { sendOutput = \output -> pure ()
-            }
-    )
-
+    let serverSettings =
+          defaultSettings
+            & setHost (fromString $ show host)
+            & setPort (fromIntegral port)
+            & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
+            & setOnExceptionResponse (responseLBS status500 [] . show)
+            & setBeforeMainLoop notifyServerRunning
+    race_
+      ( do
+          traceWith tracer (APIServerStarted port)
+          startServer serverSettings
+            . simpleCors
+            $ websocketsOr
+              defaultConnectionOptions
+              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+      )
+      ( do
+          waitForServerRunning
+          action $
+            Server
+              { sendOutput = \output -> do
+                  timedOutput <- mkTimedOutput history output
+                  atomically $ do
+                    update headStatusP output
+                    update commitInfoP output
+                    update snapshotUtxoP output
+                    update headIdP output
+                    update pendingDepositsP output
+                    writeTChan responseChannel timedOutput
+              }
+      )
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
@@ -158,13 +168,10 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
       _ ->
         runSettings settings app
 
-  appendToHistory history output = do
+  mkTimedOutput history output = do
     time <- getCurrentTime
-    atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
+    let seq = nextSequenceNumber history
+    pure TimedServerOutput{output, time, seq}
 
   onIOException ioException =
     throwIO
