@@ -128,7 +128,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
             race_ (pollConnectivity conn localHost callback) $ do
               race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
                 queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages conn protocolVersion port queue) $
+                race_ (broadcastMessages tracer conn protocolVersion port queue) $
                   action
                     Network
                       { broadcast = writePersistentQueue queue
@@ -246,22 +246,25 @@ matchVersion key ourVersion = do
 
 -- | Broadcast messages from a queue to the etcd cluster.
 --
--- TODO: PutFailed not raised - retrying on failure even needed?
+-- TODO: retrying on failure even needed?
 -- Retries on failure to 'putMessage' in case we are on a minority cluster.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
+  Tracer IO EtcdLog ->
   Connection ->
   HydraVersionedProtocolNumber ->
   PortNumber ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages conn protocolVersion port queue =
+broadcastMessages tracer conn protocolVersion port queue =
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage conn protocolVersion port msg >> popPersistentQueue queue msg)
-      `catch` \PutFailed{reason} -> do
-        putTextLn $ "put failed: " <> reason
-        threadDelay 1
+      `catch` \case
+        GrpcException{grpcError = GrpcUnavailable, grpcErrorMessage} -> do
+          traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
+          threadDelay 1
+        e -> throwIO e
 
 -- | Broadcast a message to the etcd cluster.
 putMessage ::
@@ -421,14 +424,6 @@ withGrpcContext context action =
               Just msg -> Just $ context <> ": " <> msg
         }
 
--- * Low-level etcd api
-
--- TODO: never raised, remove if not needed in 'putMessage'
-newtype PutException = PutFailed {reason :: Text}
-  deriving stock (Show)
-
-instance Exception PutException
-
 -- * Persistent queue
 
 data PersistentQueue m a = PersistentQueue
@@ -503,5 +498,6 @@ popPersistentQueue PersistentQueue{queue, directory} item = do
 data EtcdLog
   = EtcdLog {etcd :: Value}
   | Reconnecting
+  | BroadcastFailed {reason :: Text}
   deriving stock (Show, Generic)
   deriving anyclass (ToJSON)
