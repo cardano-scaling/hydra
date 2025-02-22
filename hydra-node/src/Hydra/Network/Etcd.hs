@@ -256,7 +256,7 @@ broadcastMessages ::
   PersistentQueue IO msg ->
   IO ()
 broadcastMessages conn protocolVersion port queue =
-  forever $ do
+  withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
     (putMessage conn protocolVersion port msg >> popPersistentQueue queue msg)
       `catch` \PutFailed{reason} -> do
@@ -292,7 +292,7 @@ waitMessages ::
   IO ()
 waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
-  forever $ do
+  withGrpcContext "waitMessages" . forever $ do
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
       -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
@@ -352,7 +352,7 @@ pollConnectivity ::
   IO ()
 pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
-  forever $ do
+  withGrpcContext "pollConnectivity" . forever $ do
     leaseId <- createLease
     -- If we can create a lease, we are connected
     onConnectivity NetworkConnected
@@ -379,13 +379,13 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
   onGrpcException e = throwIO e
 
   -- REVIEW: server can decide ttl?
-  createLease = do
+  createLease = withGrpcContext "createLease" $ do
     leaseResponse <-
       nonStreaming conn (rpc @(Protobuf Lease "leaseGrant")) $
         defMessage & #ttl .~ ttl
     pure $ leaseResponse ^. #id
 
-  writeAlive leaseId = do
+  writeAlive leaseId = withGrpcContext "writeAlive" $ do
     void . nonStreaming conn (rpc @(Protobuf KV "put")) $
       defMessage
         & #key .~ "alive-" <> show localHost
@@ -396,7 +396,7 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
     biDiStreaming conn (rpc @(Protobuf Lease "leaseKeepAlive")) $ \send _recv ->
       void . action $ send $ NextElem (defMessage & #id .~ leaseId)
 
-  getAlive = do
+  getAlive = withGrpcContext "getAlive" $ do
     res <-
       nonStreaming conn (rpc @(Protobuf KV "range")) $
         defMessage
@@ -408,6 +408,18 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
       case decodeFull' bs of
         Left _err -> Nothing
         Right x -> pure x
+
+-- | Add context to the 'grpcErrorMessage' of any 'GrpcException' raised.
+withGrpcContext :: MonadCatch m => Text -> m a -> m a
+withGrpcContext context action =
+  action `catch` \e@GrpcException{grpcErrorMessage} ->
+    throwIO
+      e
+        { grpcErrorMessage =
+            case grpcErrorMessage of
+              Nothing -> Just context
+              Just msg -> Just $ context <> ": " <> msg
+        }
 
 -- * Low-level etcd api
 
