@@ -3,13 +3,12 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq, state)
+import Hydra.Prelude hiding (mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
 import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
@@ -100,7 +99,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    loadedHistory <-
+    history' <-
       runConduitRes $
         sourceEvents
           .| iterM
@@ -114,7 +113,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                     update headIdP output
                     update pendingDepositsP output
             )
-          -- FIXME: don't load whole history into memory
           .| mapWhileC mkTimeServerOutputFromStateEvent
           .| sinkList
     history <- newTVarIO $ reverse loadedHistory
@@ -142,7 +140,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           action $
             Server
               { sendOutput = \output -> do
-                  timedOutput <- appendToHistory history output
+                  timedOutput <- mkTimedOutput history output
                   atomically $ do
                     update headStatusP output
                     update commitInfoP output
@@ -169,13 +167,10 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
       _ ->
         runSettings settings app
 
-  appendToHistory history output = do
+  mkTimedOutput history output = do
     time <- getCurrentTime
-    atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
+    let seq = nextSequenceNumber history
+    pure TimedServerOutput{output, time, seq}
 
   onIOException ioException =
     throwIO
