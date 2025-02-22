@@ -367,8 +367,8 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
           alive <- getAlive
           let othersAlive = alive \\ [localHost]
           seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
-          forM_ (othersAlive \\ seenAlive) $ onConnectivity . Connected
-          forM_ (seenAlive \\ othersAlive) $ onConnectivity . Disconnected
+          forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
+          forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
           threadDelay 1
  where
   ttl = 3

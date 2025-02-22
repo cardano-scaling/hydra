@@ -77,6 +77,8 @@ instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
+  | PeerConnected {peer :: Host}
+  | PeerDisconnected {peer :: Host}
   | PeerHandshakeFailure
       { remoteHost :: Host
       , ourVersion :: Natural
@@ -168,6 +170,8 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
+    PeerConnected p -> PeerConnected <$> shrink p
+    PeerDisconnected p -> PeerDisconnected <$> shrink p
     NetworkConnected -> pure NetworkConnected
     NetworkDisconnected -> pure NetworkDisconnected
     PeerHandshakeFailure rh ov tv -> PeerHandshakeFailure <$> shrink rh <*> shrink ov <*> shrink tv
@@ -235,6 +239,8 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
+    PeerConnected{} -> encodedResponse
+    PeerDisconnected{} -> encodedResponse
     NetworkConnected{} -> encodedResponse
     NetworkDisconnected{} -> encodedResponse
     PeerHandshakeFailure{} -> encodedResponse

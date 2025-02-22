@@ -103,11 +103,14 @@ defaultTTL = 5
 
 onConnectionEvent :: Connectivity -> Outcome tx
 onConnectionEvent = \case
-  -- FIXME: bring back PeerConnected and PeerDisconnected
-  NetworkConnected{} ->
+  NetworkConnected ->
     causes [ClientEffect ServerOutput.NetworkConnected]
-  NetworkDisconnected{} ->
+  NetworkDisconnected ->
     causes [ClientEffect ServerOutput.NetworkDisconnected]
+  PeerConnected{peer} ->
+    causes [ClientEffect ServerOutput.PeerConnected{peer}]
+  PeerDisconnected{peer} ->
+    causes [ClientEffect ServerOutput.PeerDisconnected{peer}]
   HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
     causes
       [ ClientEffect

@@ -143,12 +143,12 @@ spec = do
             withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
               -- Alice now on majority cluster
               waitFor NetworkConnected
-              waitFor $ Connected bobHost
+              waitFor $ PeerConnected bobHost
               withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-                waitFor $ Connected carolHost
+                waitFor $ PeerConnected carolHost
                 -- Carol stops
                 pure ()
-              waitFor $ Disconnected carolHost
+              waitFor $ PeerDisconnected carolHost
               -- Bob stops
               pure ()
             waitFor NetworkDisconnected

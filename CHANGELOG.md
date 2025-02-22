@@ -11,7 +11,9 @@ changes.
 ## [0.21.0] - UNRELEASED
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
-  - Drops `PeerConnected` and `PeerDisconnected` messages in favor of `NetworkConnected` and `NetworkDisconnected` equivalents. These now indicate overall connectivity to the L2 network (which corresponds to the `etcd` cluster).
+  - New run-time dependency onto `etcd` binary
+  - Adds `NetworkConnected` and `NetworkDisconnected` outputs which are most indicative of whether the L2 network is up or not.
+  - Change `PeerConnected` and `PeerDisconnected` to indicate connectivity to `--peer` items and not the remote `node-id`.
   - Log outputs related to the network components changed significantly.
   - Persisted state (write ahead logs) of the network components changed significantly.
 
@@ -20,7 +22,7 @@ changes.
   - An example was if the datum would contain CBOR instead of just hex encoded bytes.
 
 - **BREAKING** Enable multi-party, networked "offline" heads by providing an `--offline-head-seed` option to `hydra-node`.
-  - Drop `hydra-nodde offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
+  - Drop `hydra-node offline` as a sub-command. Use `--offline-head-seed` and `--initial-utxo` options to switch to offline mode.
 
 - Stream historical data from disk in the hydra-node API server.
 

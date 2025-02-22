@@ -96,6 +96,25 @@ deriving anyclass instance FromJSON IP
 
 -- ** PortNumber (Orphans)
 
+readPort :: MonadFail m => String -> m PortNumber
+readPort s =
+  case readMaybe s of
+    Nothing -> fail "cannot read port"
+    Just n
+      | n >= minPort && n <= maxPort -> pure $ fromInteger n
+      | otherwise ->
+          fail $
+            "readPort: "
+              <> show n
+              <> " not within valid port range: ("
+              <> show minPort
+              <> ", "
+              <> show maxPort
+              <> ")"
+ where
+  maxPort = fromIntegral (maxBound :: Word16)
+  minPort = fromIntegral (minBound :: Word16)
+
 instance ToJSON PortNumber where
   toJSON = toJSON . toInteger
 
@@ -105,14 +124,14 @@ instance FromJSON PortNumber where
 instance Arbitrary PortNumber where
   arbitrary = fromIntegral @Word16 <$> arbitrary
 
+-- ** NodeId
+
 newtype NodeId = NodeId {nodeId :: Text}
   deriving newtype (Eq, Show, IsString, ToString, Read, Ord, ToJSON, FromJSON)
 
 instance Arbitrary NodeId where
   arbitrary =
     NodeId . pack <$> suchThat (listOf (elements ['a' .. 'z'])) (not . null)
-
--- return $ NodeId $ pack c
 
 instance FromCBOR NodeId where
   fromCBOR = NodeId <$> fromCBOR
@@ -163,34 +182,15 @@ readHost s =
     (h, ':' : p) -> Host (pack h) <$> readPort p
     _ -> fail $ "readHost: missing : in " <> s
 
-readPort :: MonadFail m => String -> m PortNumber
-readPort s =
-  case readMaybe s of
-    Nothing -> fail "cannot read port"
-    Just n
-      | n >= minPort && n <= maxPort -> pure $ fromInteger n
-      | otherwise ->
-          fail $
-            "readPort: "
-              <> show n
-              <> " not within valid port range: ("
-              <> show minPort
-              <> ", "
-              <> show maxPort
-              <> ")"
- where
-  maxPort = fromIntegral (maxBound :: Word16)
-  minPort = fromIntegral (minBound :: Word16)
-
 -- ** Connectivity & versions
 
 -- TODO: improve these types
 
 data Connectivity
   = -- | Individual peer appeared alive on network.
-    Connected {peer :: Host}
+    PeerConnected {peer :: Host}
   | -- | Individual peer disappeared from network (has not been seen active in a while).
-    Disconnected {peer :: Host}
+    PeerDisconnected {peer :: Host}
   | -- | Connected to Hydra network.
     NetworkConnected
   | -- | Disconnected from Hydra network.

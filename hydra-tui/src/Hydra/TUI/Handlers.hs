@@ -84,8 +84,14 @@ handleHydraEventsConnectedState = \case
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
   Update TimedServerOutput{output = API.Greetings{me}} -> meL .= Identified me
-  Update TimedServerOutput{output = API.NetworkConnected} -> networkStateL .= Just NetworkConnected
-  Update TimedServerOutput{output = API.NetworkDisconnected} -> networkStateL .= Just NetworkDisconnected
+  Update TimedServerOutput{output = API.PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
+  Update TimedServerOutput{output = API.PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  Update TimedServerOutput{output = API.NetworkConnected} -> do
+    networkStateL .= Just NetworkConnected
+    peersL .= []
+  Update TimedServerOutput{output = API.NetworkDisconnected} -> do
+    networkStateL .= Just NetworkDisconnected
+    peersL .= []
   e -> zoom headStateL $ handleHydraEventsHeadState e
 
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
@@ -153,6 +159,14 @@ handleHydraEventsActiveLink e = do
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
 handleHydraEventsInfo = \case
+  Update TimedServerOutput{time, output = API.NetworkConnected} ->
+    report Success time "Network connected"
+  Update TimedServerOutput{time, output = API.NetworkDisconnected} ->
+    report Error time "Network disconnected"
+  Update TimedServerOutput{time, output = API.PeerConnected{peer}} ->
+    info time $ "Peer connected: " <> show peer
+  Update TimedServerOutput{time, output = API.PeerDisconnected{peer}} ->
+    info time $ "Peer disconnected: " <> show peer
   Update TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}} ->
     info time "Head is initializing"
   Update TimedServerOutput{time, output = API.Committed{party, utxo}} -> do

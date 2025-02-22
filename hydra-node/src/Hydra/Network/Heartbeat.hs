@@ -122,7 +122,7 @@ updateStateFromIncomingMessages heartbeatState callback =
   notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (peer `Map.member` aliveSet) $ onConnectivity (Connected peer)
+    unless (peer `Map.member` aliveSet) $ onConnectivity (PeerConnected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s
@@ -177,7 +177,7 @@ checkRemoteParties heartbeatState onConnectivity =
     threadDelay (heartbeatDelay * 2)
     now <- getMonotonicTime
     updateSuspected heartbeatState now
-      >>= mapM_ (onConnectivity . Disconnected)
+      >>= mapM_ (onConnectivity . PeerDisconnected)
 
 updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Host)
 updateSuspected heartbeatState now =

@@ -25,7 +25,7 @@ spec = parallel $ do
 
     sentHeartbeats `shouldBe` [Ping localHost]
 
-  it "sends Connected when Ping received from other peer" $ do
+  it "sends PeerConnected when Ping received from other peer" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
@@ -34,9 +34,9 @@ spec = parallel $ do
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherHost]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "sends Connected when any message received from other party" $ do
+  it "sends PeerConnected when any message received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
@@ -45,9 +45,9 @@ spec = parallel $ do
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherHost]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "do not send Connected on subsequent messages from already Connected party" $ do
+  it "do not send PeerConnected on subsequent messages from already connected party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
@@ -56,9 +56,9 @@ spec = parallel $ do
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherHost]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
+  it "sends PeerDisconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
@@ -72,7 +72,7 @@ spec = parallel $ do
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Disconnected otherHost, Connected otherHost]
+    receivedHeartbeats `shouldBe` [PeerDisconnected otherHost, PeerConnected otherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let sentHeartbeats = runSimOrThrow $ do

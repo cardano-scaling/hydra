@@ -38,6 +38,7 @@ data NetworkState = NetworkConnected | NetworkDisconnected
 
 data Connection = Connection
   { me :: IdentifiedState
+  , peers :: [Host]
   , networkState :: Maybe NetworkState
   , headState :: HeadState
   }
@@ -166,6 +167,7 @@ makeLensesFor
 makeLensesFor
   [ ("transitionNote", "transitionNoteL")
   , ("me", "meL")
+  , ("peers", "peersL")
   , ("networkState", "networkStateL")
   , ("headState", "headStateL")
   ]
@@ -202,6 +204,7 @@ emptyConnection :: Connection
 emptyConnection =
   Connection
     { me = Unidentified
+    , peers = []
     , networkState = Nothing
     , headState = Idle
     }
