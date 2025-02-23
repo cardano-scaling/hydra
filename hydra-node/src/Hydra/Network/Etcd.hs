@@ -81,7 +81,7 @@ import Network.GRPC.Client (
   withConnection,
  )
 import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
-import Network.GRPC.Common (GrpcError (..), GrpcException (..), NextElem (..), def)
+import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
 import Network.GRPC.Common.NextElem (whileNext_)
 import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (KV, Lease, Watch)
@@ -134,7 +134,13 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                       { broadcast = writePersistentQueue queue
                       }
  where
-  connParams doneVar = def{connReconnectPolicy = reconnectPolicy doneVar}
+  connParams doneVar =
+    def
+      { connReconnectPolicy = reconnectPolicy doneVar
+      , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
+        -- comment on 'http2OverridePingRateLimit'.
+        connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+      }
 
   reconnectPolicy doneVar = ReconnectAfter ReconnectToOriginal $ do
     done <- readTVarIO doneVar
