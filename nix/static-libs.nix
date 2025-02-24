@@ -6,9 +6,6 @@ final: prev: {
   static-secp256k1 = final.secp256k1.overrideDerivation (old: {
     configureFlags = old.configureFlags ++ [ "--enable-static" "--disable-shared" ];
   });
-  static-gmp = (final.gmp.override { withStatic = true; }).overrideDerivation (old: {
-    configureFlags = old.configureFlags ++ [ "--enable-static" "--disable-shared" ];
-  });
   static-libblst = (final.libblst.override { enableShared = false; }).overrideDerivation (old: {
     postFixup = "";
   });

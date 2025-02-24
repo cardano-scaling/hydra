@@ -59,7 +59,6 @@ let
   # Allow reinstallation of terminfo as it's not installed with cross compilers.
   patchedForCrossProject = hsPkgs.appendModule
     ({ lib, ... }: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
-  musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 in
 rec {
   release =
@@ -67,32 +66,15 @@ rec {
       { name = "hydra-${pkgs.hostPlatform.system}"; }
       [ hydra-node hydra-tui ];
 
-  release-static =
-    packaging.asZip
-      { name = "hydra-${pkgs.hostPlatform.system}"; }
-      [ hydra-node-static hydra-tui-static ];
-
   hydra-node =
     embedRevision
       nativePkgs.hydra-node.components.exes.hydra-node
       "hydra-node"
       paddedRevision;
 
-  hydra-node-static =
-    embedRevision
-      musl64Pkgs.hydra-node.components.exes.hydra-node
-      "hydra-node"
-      paddedRevision;
-
   hydra-chain-observer =
     embedRevision
       nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer
-      "hydra-chain-observer"
-      paddedRevision;
-
-  hydra-chain-observer-static =
-    embedRevision
-      musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
       "hydra-chain-observer"
       paddedRevision;
 
@@ -110,15 +92,7 @@ rec {
       "hydra-tui"
       paddedRevision;
 
-  hydra-tui-static =
-    embedRevision
-      musl64Pkgs.hydra-tui.components.exes.hydra-tui
-      "hydra-tui"
-      paddedRevision;
-
   hydraw = nativePkgs.hydraw.components.exes.hydraw;
-
-  hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
 
   hydra-plutus-tests = pkgs.mkShellNoCC {
     name = "hydra-plutus-tests";
