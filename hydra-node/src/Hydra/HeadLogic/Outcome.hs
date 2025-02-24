@@ -118,7 +118,6 @@ data StateChanged tx
       , parties :: [Party]
       , participants :: [OnChainId]
       }
-  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | PeerConnected {peer :: NodeId}
@@ -128,14 +127,6 @@ data StateChanged tx
       , ourVersion :: Natural
       , theirVersions :: [Natural]
       }
-  | Greetings
-      { me :: Party
-      , headStatus :: HeadStatus
-      , hydraHeadId :: Maybe HeadId
-      , snapshotUtxo :: Maybe (UTxOType tx)
-      , hydraNodeVersion :: String
-      }
-  | InvalidInput {reason :: String, input :: Text}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)

@@ -33,6 +33,10 @@ changes.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
+- **BREAKING**
+  - Remove `GetUTxO` client input and corresponding `GetUTxOResponse`. There is already a way to query the `UTxO` in the Head with `GET /snapshot/utxo` query.
+  - Renamed 'CommitFinalized' field 'theDeposit' to 'depositTxId'.
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
