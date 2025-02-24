@@ -106,52 +106,51 @@ spec =
                     >>= (`shouldSatisfyAll` [isGreetings, isGreetings])
 
                 arbitraryMsg <- generate arbitrary
-                sendOutput arbitraryMsg
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
+                let arbitraryServerOutput = fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput arbitraryMsg)
+                arbitraryStateEvent <- generate $ genStateEvent arbitraryMsg
+                sendOutput arbitraryStateEvent
+                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryServerOutput, arbitraryServerOutput]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
     it "sends all sendOutput history to all connected clients after a restart" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        arbitraryStateChanged <- generate $ genStateChanged =<< arbitrary
-        case mapStateChangedToServerOutput arbitraryStateChanged of
-          Nothing -> expectationFailure $ "mapStateChangedToServerOutput failed to convert StateChanged to ServerOutput: " <> show arbitraryStateChanged
-          Just arbitraryMsg -> do
-            stateEvent <- generate $ genStateEvent arbitraryStateChanged
-            let eventSource = mockSource [stateEvent]
+        arbitraryMsg <- generate arbitrary
+        let arbitraryServerOutput = fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput arbitraryMsg)
+        stateEvent <- generate $ genStateEvent arbitraryMsg
+        let eventSource = mockSource [stateEvent]
 
-            withFreePort $ \port -> do
-              withTestAPIServer port alice eventSource tracer $ \_ ->
-                pure ()
+        withFreePort $ \port -> do
+          withTestAPIServer port alice eventSource tracer $ \_ ->
+            pure ()
 
-            queue1 <- atomically newTQueue
-            queue2 <- atomically newTQueue
-            withFreePort $ \port -> do
-              withTestAPIServer port alice eventSource tracer $ \Server{sendOutput} -> do
-                semaphore <- newTVarIO 0
-                withAsync
-                  ( concurrently_
-                      (withClient port "/?history=yes" $ testClient queue1 semaphore)
-                      (withClient port "/?history=yes" $ testClient queue2 semaphore)
-                  )
-                  $ \_ -> do
-                    waitForClients semaphore
-                    failAfter 1 $
-                      atomically (replicateM 2 (readTQueue queue1))
-                        >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
-                    failAfter 1 $
-                      atomically (replicateM 2 (readTQueue queue2))
-                        >>= flip shouldSatisfyAll [(==) arbitraryMsg, isGreetings]
-
-                    sendOutput arbitraryMsg
-                    failAfter 1 $
-                      atomically (replicateM 1 (readTQueue queue1))
-                        `shouldReturn` [arbitraryMsg]
-                    failAfter 1 $
-                      atomically (replicateM 1 (readTQueue queue2))
-                        `shouldReturn` [arbitraryMsg]
-                    failAfter 1 $
-                      atomically (tryReadTQueue queue1)
-                        `shouldReturn` Nothing
+        queue1 <- atomically newTQueue
+        queue2 <- atomically newTQueue
+        withFreePort $ \port -> do
+          withTestAPIServer port alice eventSource tracer $ \Server{sendOutput} -> do
+            semaphore <- newTVarIO 0
+            withAsync
+              ( concurrently_
+                  (withClient port "/?history=yes" $ testClient queue1 semaphore)
+                  (withClient port "/?history=yes" $ testClient queue2 semaphore)
+              )
+              $ \_ -> do
+                waitForClients semaphore
+                failAfter 1 $
+                  atomically (replicateM 2 (readTQueue queue1))
+                    >>= flip shouldSatisfyAll [(==) arbitraryServerOutput, isGreetings]
+                failAfter 1 $
+                  atomically (replicateM 2 (readTQueue queue2))
+                    >>= flip shouldSatisfyAll [(==) arbitraryServerOutput, isGreetings]
+                sendOutput stateEvent
+                failAfter 1 $
+                  atomically (replicateM 1 (readTQueue queue1))
+                    `shouldReturn` [arbitraryServerOutput]
+                failAfter 1 $
+                  atomically (replicateM 1 (readTQueue queue2))
+                    `shouldReturn` [arbitraryServerOutput]
+                failAfter 1 $
+                  atomically (tryReadTQueue queue1)
+                    `shouldReturn` Nothing
 
     it "echoes history (past outputs) to client upon reconnection" $
       checkCoverage . monadicIO $ do
@@ -163,27 +162,26 @@ spec =
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
               withTestAPIServer port alice (mockSource outputs) tracer $ \Server{sendOutput} -> do
-                let serverOutputs = mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs
-                mapM_ sendOutput serverOutputs
+                mapM_ sendOutput outputs
                 withClient port "/?history=yes" $ \conn -> do
                   received <- failAfter 20 $ replicateM (length outputs + 1) (receiveData conn)
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
                       let actualOutputs = output <$> timedOutputs
-                      List.init actualOutputs `shouldBe` serverOutputs
+                      List.init actualOutputs `shouldBe` List.init (mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs)
                       List.last actualOutputs `shouldSatisfy` isGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
-        history :: [ServerOutput SimpleTx] <- pick arbitrary
+        history :: [StateEvent SimpleTx] <- pick arbitrary
         monitor $ cover 0.1 (null history) "no message when reconnecting"
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
             withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
+              withTestAPIServer port alice (mockSource history) tracer $ \Server{sendOutput} -> do
                 let sendFromApiServer = sendOutput
                 mapM_ sendFromApiServer history
                 -- start client that doesn't want to see the history
@@ -191,7 +189,7 @@ spec =
                   -- wait on the greeting message
                   waitMatch 5 conn $ guard . matchGreetings
 
-                  notHistoryMessage :: ServerOutput SimpleTx <- generate arbitrary
+                  notHistoryMessage :: StateEvent SimpleTx <- generate arbitrary
                   sendFromApiServer notHistoryMessage
 
                   -- Receive one more message. The messages we sent
@@ -202,18 +200,20 @@ spec =
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs' -> do
-                      (output <$> timedOutputs') `shouldBe` [notHistoryMessage]
+                      (output <$> timedOutputs') `shouldBe` [fromMaybe (error "failed to convert in mapStateChangedToServerOutput") (mapStateChangedToServerOutput $ stateChanged notHistoryMessage)]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         withFreePort $ \port ->
           withTestAPIServer port alice (mockSource []) tracer $ \Server{sendOutput} -> do
             snapshot <- generate arbitrary
-            let snapshotConfirmedMessage =
-                  SnapshotConfirmed
+            snapshotConfirmedMessage <-
+              generate $
+                genStateEvent $
+                  Outcome.SnapshotConfirmed
                     { headId = testHeadId
-                    , Hydra.API.ServerOutput.snapshot
-                    , Hydra.API.ServerOutput.signatures = mempty
+                    , snapshot
+                    , signatures = mempty
                     }
 
             withClient port "/?snapshot-utxo=no" $ \conn -> do
@@ -233,8 +233,7 @@ spec =
           showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
               withTestAPIServer port alice (mockSource outputs) tracer $ \Server{sendOutput} -> do
-                let serverOutputs = mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs
-                mapM_ sendOutput serverOutputs
+                mapM_ sendOutput outputs
                 withClient port "/?history=yes" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
 
@@ -260,8 +259,7 @@ spec =
 
           withTestAPIServer port alice eventSource tracer $ \Server{sendOutput} -> do
             let generateSnapshot =
-                  generate $
-                    SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Final")
@@ -270,19 +268,19 @@ spec =
 
             (headId, headIsOpenMsg) <- generate $ do
               headId <- arbitrary
-              output <- HeadIsOpen headId <$> arbitrary
+              output <- genStateEvent =<< (Outcome.HeadOpened headId <$> arbitrary <*> arbitrary)
               pure (headId, output)
-            snapShotConfirmedMsg@SnapshotConfirmed{snapshot = Snapshot{utxo}} <-
-              generateSnapshot
+            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo}}} <-
+              generate $ genStateEvent =<< generateSnapshot
 
             mapM_ sendOutput [headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON utxo)
 
-            snapShotConfirmedMsg'@SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}} <-
-              generateSnapshot
-            let readyToFanoutMsg = ReadyToFanout{headId}
+            snapShotConfirmedMsg'@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo'}}} <-
+              generate $ genStateEvent =<< generateSnapshot
+            readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
             mapM_ sendOutput [readyToFanoutMsg, snapShotConfirmedMsg']
             waitForValue port $ \v -> do
@@ -372,9 +370,12 @@ testClient queue semaphore cnx = do
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
     Left{} -> failure $ "Failed to decode message " <> show msg
-    Right TimedServerOutput{output = resp} -> do
-      atomically (writeTQueue queue resp)
-      testClient queue semaphore cnx
+    Right StateEvent{stateChanged} -> do
+      mapStateChangedToServerOutput stateChanged & \case
+        Nothing -> pure ()
+        Just resp -> do
+          atomically (writeTQueue queue resp)
+          testClient queue semaphore cnx
 
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =

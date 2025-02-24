@@ -76,9 +76,8 @@ run opts = do
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
-        incrementalPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
         -- Hydrate with event source and sinks
-        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incrementalPersistence
+        (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental =<< createPersistenceIncremental (persistenceDir <> "/state")
         -- NOTE: Add any custom sink setup code here
         -- customSink <- createCustomSink
         let eventSinks =
@@ -96,11 +95,11 @@ run opts = do
             -- Network
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
             withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
-              apiServerSink <- wireApiEvents incrementalPersistence server
+              apiServerSink <- wireApiEvents server
               -- Main loop
               connect chain network wetHydraNode
-                >>= runHydraNode
-                . addApiEventSink apiServerSink
+                <&> addApiEventSink apiServerSink
+                  >>= runHydraNode
  where
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams

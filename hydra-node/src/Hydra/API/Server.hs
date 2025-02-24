@@ -6,7 +6,7 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapWhileC, runConduitRes, sinkList, (.|))
+import Conduit (mapWhileC, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
@@ -29,7 +29,7 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
  )
-import Hydra.API.WSServer (nextSequenceNumber, wsApp)
+import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
@@ -60,7 +60,7 @@ import Network.WebSockets (
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { sendOutput :: ServerOutput tx -> m ()
+  { sendOutput :: StateEvent tx -> m ()
   -- ^ Send some output to all connected clients.
   }
 
@@ -99,23 +99,18 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    history' <-
-      runConduitRes $
-        sourceEvents
-          .| iterM
-            ( \a ->
-                case mkTimeServerOutputFromStateEvent a of
-                  Nothing -> pure ()
-                  Just TimedServerOutput{output} -> lift $ atomically $ do
+    let history =
+          sourceEvents
+            .| mapWhileC mkTimedServerOutputFromStateEvent
+            .| iterM
+              ( \TimedServerOutput{output} ->
+                  lift $ atomically $ do
                     update headStatusP output
                     update snapshotUtxoP output
                     update commitInfoP output
                     update headIdP output
                     update pendingDepositsP output
             )
-          .| mapWhileC mkTimeServerOutputFromStateEvent
-          .| sinkList
-    history <- newTVarIO $ reverse loadedHistory
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -139,15 +134,18 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           waitForServerRunning
           action $
             Server
-              { sendOutput = \output -> do
-                  timedOutput <- mkTimedOutput history output
-                  atomically $ do
-                    update headStatusP output
-                    update commitInfoP output
-                    update snapshotUtxoP output
-                    update headIdP output
-                    update pendingDepositsP output
-                    writeTChan responseChannel timedOutput
+              { sendOutput = \StateEvent{stateChanged, time, eventId} -> do
+                  case mapStateChangedToServerOutput stateChanged of
+                    Nothing -> pure ()
+                    Just output -> do
+                      let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
+                      atomically $ do
+                        update headStatusP output
+                        update commitInfoP output
+                        update snapshotUtxoP output
+                        update headIdP output
+                        update pendingDepositsP output
+                        writeTChan responseChannel timedOutput
               }
       )
  where
@@ -166,11 +164,6 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
         die "TLS key provided without certificate"
       _ ->
         runSettings settings app
-
-  mkTimedOutput history output = do
-    time <- getCurrentTime
-    let seq = nextSequenceNumber history
-    pure TimedServerOutput{output, time, seq}
 
   onIOException ioException =
     throwIO
@@ -201,8 +194,8 @@ setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
 
-mkTimeServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
-mkTimeServerOutputFromStateEvent event =
+mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
     Just output ->
@@ -227,9 +220,6 @@ mapStateChangedToServerOutput = \case
   StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
   StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
   StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
-  StateChanged.GetUTxOResponse{..} -> Just GetUTxOResponse{..}
-  StateChanged.InvalidInput{..} -> Just InvalidInput{..}
-  StateChanged.Greetings{..} -> Just Greetings{..}
   StateChanged.PostTxOnChainFailed{..} -> Just PostTxOnChainFailed{..}
   StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
   StateChanged.DecommitRequested{..} -> Just DecommitRequested{..}

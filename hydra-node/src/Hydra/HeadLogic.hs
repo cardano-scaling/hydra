@@ -25,7 +25,6 @@ import Data.List (elemIndex)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -204,8 +203,7 @@ onInitialChainCommitTx ::
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
   newState CommittedUTxO{headId, party = pt, committedUTxO = utxo, chainState = newChainState}
-    <> causes
-      ([postCollectCom | canCollectCom])
+    <> causes [postCollectCom | canCollectCom]
  where
   postCollectCom =
     OnChainEffect
@@ -313,7 +311,6 @@ onOpenNetworkReqTx env ledger st ttl tx =
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      -- (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
       newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
@@ -327,17 +324,18 @@ onOpenNetworkReqTx env ledger st ttl tx =
       Left (_, err)
         | ttl > 0 ->
             wait (WaitOnNotApplicableTx err)
-        | otherwise -> newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
-  -- XXX: We might want to remove invalid txs from allTxs here to
-  -- prevent them piling up infinitely. However, this is not really
-  -- covered by the spec and this could be problematic in case of
-  -- conflicting transactions paired with network latency and/or
-  -- message resubmission. For example: Assume tx2 depends on tx1, but
-  -- only tx2 is seen by a participant and eventually times out
-  -- because of network latency when receiving tx1. The leader,
-  -- however, saw both as valid and requests a snapshot including
-  -- both. This is a valid request and if we would have removed tx2
-  -- from allTxs, we would make the head stuck.
+        | otherwise ->
+           -- XXX: We might want to remove invalid txs from allTxs here to
+           -- prevent them piling up infinitely. However, this is not really
+           -- covered by the spec and this could be problematic in case of
+           -- conflicting transactions paired with network latency and/or
+           -- message resubmission. For example: Assume tx2 depends on tx1, but
+           -- only tx2 is seen by a participant and eventually times out
+           -- because of network latency when receiving tx1. The leader,
+           -- however, saw both as valid and requests a snapshot including
+           -- both. This is a valid request and if we would have removed tx2
+           -- from allTxs, we would make the head stuck.
+           newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
@@ -1141,10 +1139,9 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
                     }
               }
     | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
-        noop
+        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
     -- TODO: A more recent snapshot number was succesfully contested, we will
     -- not be able to fanout! We might want to communicate that to the client!
-    -- cause notifyClients
     | otherwise ->
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
  where
@@ -1228,8 +1225,6 @@ update env ledger st ev = case (st, ev) of
   (Initial InitialState{headId = ourHeadId, committed}, ChainInput Observation{observedTx = OnAbortTx{headId}, newChainState})
     | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial InitialState{committed, headId}, ClientInput GetUTxO) ->
-    newState (GetUTxOResponse headId $ fold committed)
   -- Open
   (Open openState, ClientInput Close) ->
     onOpenClientClose openState
@@ -1248,11 +1243,6 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
-    let snapshot' = getSnapshot confirmedSnapshot
-     in newState (GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
-  -- -- TODO: Is it really intuitive that we respond from the confirmed ledger if
-  -- -- transactions are validated against the seen ledger?
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1291,7 +1281,6 @@ update env ledger st ev = case (st, ev) of
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
         newState HeadIsReadyToFanout{headId}
-  -- <> cause (ClientEffect $ ServerOutput.ReadyToFanout headId)
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId}, newChainState})
@@ -1606,14 +1595,11 @@ aggregate st = \case
   DecommitInvalid{} -> st
   CommandFailed{} -> st
   IgnoredHeadInitializing{} -> st
-  GetUTxOResponse{} -> st
   TxInvalid{} -> st
-  InvalidInput{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   PeerHandshakeFailure{} -> st
   PostTxOnChainFailed{} -> st
-  Greetings{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1659,11 +1645,8 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   CommandFailed{} -> history
   IgnoredHeadInitializing{} -> history
-  GetUTxOResponse{} -> history
   TxInvalid{} -> history
-  InvalidInput{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   PeerHandshakeFailure{} -> history
   PostTxOnChainFailed{} -> history
-  Greetings{} -> history
