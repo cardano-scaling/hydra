@@ -57,8 +57,13 @@ pkgs.haskell-nix.project {
         "-L${lib.getLib static-secp256k1}/lib"
         "-L${lib.getLib static-openssl}/lib"
         "-L${lib.getLib static-libblst}/lib"
+        "-L${lib.getLib static-snappy}/lib"
       ];
     })
+    # Always use static snappy (from overlay, see nix/static-libs.nix)
+    {
+      packages.hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+    }
     {
       # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries
       # to call out to all kinds of silly tools that GHC doesn't really provide.
