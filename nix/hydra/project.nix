@@ -48,17 +48,27 @@ pkgs.haskell-nix.project {
       packages.hydra-tui.dontStrip = false;
       packages.hydraw.dontStrip = false;
     }
-    # Use different static libs on darwin
-    # TODO: Always use these?
-    (pkgs.lib.mkIf pkgs.hostPlatform.isDarwin {
+    {
       packages.hydra-node.ghcOptions = with pkgs; [
-        "-L${lib.getLib static-gmp}/lib"
         "-L${lib.getLib static-libsodium-vrf}/lib"
         "-L${lib.getLib static-secp256k1}/lib"
         "-L${lib.getLib static-openssl}/lib"
         "-L${lib.getLib static-libblst}/lib"
       ];
-    })
+      packages.hydra-tui.ghcOptions = with pkgs; [
+        "-L${lib.getLib static-libsodium-vrf}/lib"
+        "-L${lib.getLib static-secp256k1}/lib"
+        "-L${lib.getLib static-openssl}/lib"
+        "-L${lib.getLib static-libblst}/lib"
+      ];
+      packages.hydra-chain-observer.ghcOptions = with pkgs; [
+        "-L${lib.getLib static-libsodium-vrf}/lib"
+        "-L${lib.getLib static-secp256k1}/lib"
+        "-L${lib.getLib static-openssl}/lib"
+        "-L${lib.getLib static-libblst}/lib"
+      ];
+    }
+
     {
       # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries
       # to call out to all kinds of silly tools that GHC doesn't really provide.

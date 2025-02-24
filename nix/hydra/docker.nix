@@ -10,7 +10,7 @@
     tag = "latest";
     created = "now";
     config = {
-      Entrypoint = [ "${hydraPackages.hydra-node-static}/bin/hydra-node" ];
+      Entrypoint = [ "${hydraPackages.hydra-node}/bin/hydra-node" ];
     };
   };
 
@@ -23,7 +23,7 @@
       pkgs.busybox
     ];
     config = {
-      Entrypoint = [ "${hydraPackages.hydra-node-static}/bin/hydra-node" ];
+      Entrypoint = [ "${hydraPackages.hydra-node}/bin/hydra-node" ];
     };
   };
 
@@ -32,7 +32,7 @@
     tag = "latest";
     created = "now";
     config = {
-      Entrypoint = [ "${hydraPackages.hydra-tui-static}/bin/hydra-tui" ];
+      Entrypoint = [ "${hydraPackages.hydra-tui}/bin/hydra-tui" ];
     };
   };
 
@@ -41,11 +41,11 @@
     tag = "latest";
     created = "now";
     config = {
-      Entrypoint = [ "${hydraPackages.hydraw-static}/bin/hydraw" ];
+      Entrypoint = [ "${hydraPackages.hydraw}/bin/hydraw" ];
       WorkingDir = "/static";
     };
     contents = [
-      (pkgs.runCommand "hydraw-static-files" { } ''
+      (pkgs.runCommand "hydraw-files" { } ''
         mkdir $out
         ln -s ${../../hydraw/static} $out/static
       '')
@@ -57,7 +57,7 @@
     tag = "latest";
     created = "now";
     config = {
-      Entrypoint = [ "${hydraPackages.hydra-chain-observer-static}/bin/hydra-chain-observer" ];
+      Entrypoint = [ "${hydraPackages.hydra-chain-observer}/bin/hydra-chain-observer" ];
     };
   };
 }
