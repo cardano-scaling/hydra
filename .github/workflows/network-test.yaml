@@ -52,7 +52,7 @@ jobs:
     - name: Build docker images for netem specifically
       run: |
         nix build .#docker-hydra-node-for-netem
-        ./result | docker load
+        docker load < result
 
     - name: Setup containers for network testing
       run: |

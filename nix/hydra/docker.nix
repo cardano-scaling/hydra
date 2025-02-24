@@ -5,7 +5,7 @@
 , pkgs
 }:
 {
-  hydra-node = pkgs.dockerTools.streamLayeredImage {
+  hydra-node = pkgs.dockerTools.buildImage {
     name = "hydra-node";
     tag = "latest";
     created = "now";
@@ -18,7 +18,7 @@
     };
   };
 
-  hydra-node-for-netem = pkgs.dockerTools.streamLayeredImage {
+  hydra-node-for-netem = pkgs.dockerTools.buildImage {
     name = "hydra-node-for-netem";
     tag = "latest";
     created = "now";
@@ -32,7 +32,7 @@
     };
   };
 
-  hydra-tui = pkgs.dockerTools.streamLayeredImage {
+  hydra-tui = pkgs.dockerTools.buildImage {
     name = "hydra-tui";
     tag = "latest";
     created = "now";
@@ -41,7 +41,7 @@
     };
   };
 
-  hydraw = pkgs.dockerTools.streamLayeredImage {
+  hydraw = pkgs.dockerTools.buildImage {
     name = "hydraw";
     tag = "latest";
     created = "now";
@@ -57,7 +57,7 @@
     ];
   };
 
-  hydra-chain-observer = pkgs.dockerTools.streamLayeredImage {
+  hydra-chain-observer = pkgs.dockerTools.buildImage {
     name = "hydra-chain-observer";
     tag = "latest";
     created = "now";
