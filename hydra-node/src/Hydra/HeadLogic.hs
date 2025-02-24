@@ -85,6 +85,7 @@ import Hydra.Tx (
   withoutUTxO,
  )
 import Hydra.Tx.Crypto (
+  MultiSignature,
   Signature,
   Verified (..),
   aggregateInOrder,
@@ -964,8 +965,7 @@ onOpenChainDepositTx headId env st deposited depositTxId deadline =
     newState CommitRecorded{pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited}
       <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline})
       <> if not snapshotInFlight && isLeader parameters party nextSn
-        then
-          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        then cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
   waitOnUnresolvedDecommit cont =
@@ -1155,6 +1155,71 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
+-- | Client request to side load snapshot.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> Snapshot tx -> MultiSignature (Snapshot tx) -> Outcome tx
+onOpenClientSideLoadSnapshot openState snapshot multisig =
+  requireVerifiedSnapshotVersion snapshot $
+    requireVerifiedSnapshotNumber snapshot $
+      -- Spec: η ← combine(𝑈ˆ)
+      --       𝜂𝛼 ← combine(𝑈𝛼)
+      --       𝑈𝜔 ← outputs(tx𝜔 )
+      --       ηω ← combine(𝑈𝜔)
+      --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
+      requireVerifiedMultisignature snapshot $
+        do
+          -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
+          --       ̅S.σ ← ̃σ
+          newState SnapshotConfirmed{snapshot, signatures = multisig}
+          <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
+ where
+  OpenState
+    { parameters = HeadParameters{parties}
+    , headId
+    , coordinatedHeadState
+    } = openState
+
+  CoordinatedHeadState
+    { confirmedSnapshot = currentConfirmedSnapshot
+    , version = currentSnapshotVersion
+    } = coordinatedHeadState
+
+  vkeys = vkey <$> parties
+
+  currentSnapshotNumber =
+    case currentConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  requireVerifiedSnapshotVersion Snapshot{version} cont =
+    if version >= currentSnapshotVersion
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSvNumberInvalid{requestedSv = version, lastSeenSv = currentSnapshotVersion}
+
+  requireVerifiedSnapshotNumber Snapshot{number} cont =
+    if number >= currentSnapshotNumber
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSnNumberInvalid{requestedSn = number, lastSeenSn = currentSnapshotNumber}
+
+  requireVerifiedMultisignature msg cont =
+    case verifyMultiSignature vkeys multisig msg of
+      Verified -> cont
+      FailedKeys failures ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show multisig, vkeys = failures}
+      KeyNumberMismatch ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show multisig, vkeys}
+
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
@@ -1307,6 +1372,8 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState, ClientInput (SideLodadSnapshot snapshot multisig)) ->
+    onOpenClientSideLoadSnapshot openState snapshot multisig
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
