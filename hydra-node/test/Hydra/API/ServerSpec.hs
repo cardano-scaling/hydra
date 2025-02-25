@@ -165,12 +165,15 @@ spec =
                 mapM_ sendOutput outputs
                 withClient port "/?history=yes" $ \conn -> do
                   received <- failAfter 20 $ replicateM (length outputs + 1) (receiveData conn)
-                  case traverse Aeson.eitherDecode received of
-                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right timedOutputs -> do
-                      let actualOutputs = output <$> timedOutputs
-                      List.init actualOutputs `shouldBe` List.init (mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs)
-                      List.last actualOutputs `shouldSatisfy` isGreetings
+                  actualOutputs <-
+                    case traverse Aeson.eitherDecode received of
+                      Left{} ->
+                        case traverse Aeson.eitherDecode received of
+                          Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                          Right output -> pure output
+                      Right timedOutputs -> pure $ output <$> timedOutputs
+                  List.init actualOutputs `shouldBe` mapMaybe (mapStateChangedToServerOutput . stateChanged) outputs
+                  List.last actualOutputs `shouldSatisfy` isGreetings
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
@@ -224,11 +227,11 @@ spec =
 
     it "sequence numbers are continuous" $
       monadicIO $ do
-        outputs' <- pick $ mapM (genStateEvent <=< genStateChanged) =<< arbitrary
+        outputs <- pick $ mapM (genStateEvent <=< genStateChanged) =<< arbitrary
         -- XXX: here we manually update eventId's to be sequential since it is easier than in the arbitrary instance.
         -- API Server should keep these intact and just produce corresponding sequence numbers. In real life persistence
         -- would handle this behavior anyway.
-        let outputs = zipWith (\stateEvent eventId -> stateEvent{eventId}) outputs' [1 ..]
+        -- let outputs = zipWith (\stateEvent eventId -> stateEvent{eventId}) outputs' [1 ..]
         run $
           showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
             withFreePort $ \port ->
@@ -236,11 +239,13 @@ spec =
                 mapM_ sendOutput outputs
                 withClient port "/?history=yes" $ \conn -> do
                   received <- replicateM (length outputs + 1) (receiveData conn)
-
-                  case traverse Aeson.eitherDecode received of
-                    Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                    Right (timedOutputs :: [TimedServerOutput SimpleTx]) ->
-                      seq <$> timedOutputs `shouldSatisfy` isContinuous
+                  results <- case traverse Aeson.eitherDecode received of
+                    Left{} ->
+                      case traverse Aeson.eitherDecode received :: Either String [ServerOutput SimpleTx] of
+                        Left{} -> failure $ "Failed to decode messages:\n" <> show received
+                        Right output -> pure []
+                    Right (timedOutputs :: [TimedServerOutput SimpleTx]) -> pure timedOutputs
+                  seq <$> results `shouldSatisfy` isContinuous
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -341,9 +346,9 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
         msg <- receiveData con
-        case Aeson.eitherDecode @(TimedServerOutput SimpleTx) msg of
+        case Aeson.eitherDecode @(ServerOutput SimpleTx) msg of
           Left{} -> failure $ "Failed to decode output " <> show msg
-          Right TimedServerOutput{output = resp} -> resp `shouldSatisfy` isInvalidInput
+          Right resp -> resp `shouldSatisfy` isInvalidInput
  where
   invalidInput = "not a valid message"
   isInvalidInput = \case
@@ -368,14 +373,25 @@ testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> 
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
-  case Aeson.eitherDecode msg of
-    Left{} -> failure $ "Failed to decode message " <> show msg
+  result <- parseAsStateEventOrServerOutput msg
+  case result of
+    Left output -> do
+      atomically (writeTQueue queue output)
+      testClient queue semaphore cnx
     Right StateEvent{stateChanged} -> do
       mapStateChangedToServerOutput stateChanged & \case
         Nothing -> pure ()
         Just resp -> do
           atomically (writeTQueue queue resp)
           testClient queue semaphore cnx
+ where
+  parseAsStateEventOrServerOutput msg =
+    case Aeson.eitherDecode msg of
+      Left{} ->
+        case Aeson.eitherDecode msg :: Either String (ServerOutput SimpleTx) of
+          Left{} -> failure $ "Failed to decode message " <> show msg
+          Right output -> pure $ Left output
+      Right stateEvent -> pure $ Right stateEvent
 
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =
