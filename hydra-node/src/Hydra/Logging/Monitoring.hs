@@ -41,8 +41,8 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 withMonitoring ::
   (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =>
   Maybe PortNumber ->
-  Tracer m (HydraLog tx net) ->
-  (Tracer m (HydraLog tx net) -> m ()) ->
+  Tracer m (HydraLog tx) ->
+  (Tracer m (HydraLog tx) -> m ()) ->
   m ()
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
@@ -56,7 +56,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) => m (HydraLog tx net -> m (), Registry)
+prepareRegistry :: (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newTVarIO mempty
   first (monitor transactionsMap) <$> registerMetrics
@@ -85,7 +85,7 @@ monitor ::
   (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) =>
   TVar m (Map (TxIdType tx) Time) ->
   Map Name Metric ->
-  HydraLog tx net ->
+  HydraLog tx ->
   m ()
 monitor transactionsMap metricsMap = \case
   (Node BeginInput{input = NetworkInput _ (ReceivedMessage{msg = ReqTx tx})}) -> do

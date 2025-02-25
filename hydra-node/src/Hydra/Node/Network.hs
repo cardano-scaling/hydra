@@ -43,6 +43,7 @@
 module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
+  NetworkLog,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
@@ -82,9 +83,12 @@ currentNetworkProtocolVersion = MkHydraVersionedProtocolNumber 1
 
 -- * Tracing
 
--- TODO: update logs.yaml
 data NetworkLog
   = Authenticate AuthLog
   | Etcd EtcdLog
-  deriving stock (Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance Arbitrary NetworkLog where
+  arbitrary = genericArbitrary
+  shrink = genericShrink

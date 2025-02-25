@@ -18,7 +18,6 @@ import Hydra.Tx (
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.IsTx (ArbitraryIsTx)
 
--- TODO: stil in use?
 data NetworkEvent msg
   = ConnectivityEvent Connectivity
   | ReceivedMessage {sender :: Party, msg :: msg}

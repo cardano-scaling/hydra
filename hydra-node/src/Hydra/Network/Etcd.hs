@@ -505,5 +505,9 @@ data EtcdLog
   = EtcdLog {etcd :: Value}
   | Reconnecting
   | BroadcastFailed {reason :: Text}
-  deriving stock (Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance Arbitrary EtcdLog where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
