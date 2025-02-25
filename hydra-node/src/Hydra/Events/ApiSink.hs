@@ -1,8 +1,5 @@
 module Hydra.Events.ApiSink where
 
-import Hydra.Prelude
-
-import Hydra.API.Server (Server (..))
 import Hydra.Events (EventSink (..), StateEvent (..))
 import Hydra.Node (HydraNode (..))
 

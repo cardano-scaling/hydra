@@ -36,6 +36,7 @@ import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, roll
 import Hydra.Events (EventSink (..), StateEvent (..))
 import Hydra.HeadLogic (HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogic.Outcome qualified as Outcome
+import Hydra.HeadLogic.State (getHeadUTxO)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -206,9 +207,8 @@ spec = parallel $ do
               simulateCommit chain (alice, utxoRef 1)
 
               waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-              send n2 GetUTxO
-
-              waitUntil [n2] $ GetUTxOResponse testHeadId (utxoRefs [1])
+              headUTxO <- getHeadUTxO <$> queryState n2
+              fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
@@ -376,9 +376,8 @@ spec = parallel $ do
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
 
-                send n1 GetUTxO
-
-                waitUntil [n1] $ GetUTxOResponse testHeadId (utxoRefs [2, 42])
+                headUTxO <- getHeadUTxO <$> queryState n1
+                fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Commit" $ do
         it "requested commits get approved" $
@@ -401,11 +400,9 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
+
         it "can process multiple commits" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -602,11 +599,8 @@ spec = parallel $ do
                       _ -> False
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = 1}
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && member 11 utxo
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
 
                   let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 88)
                   send n2 (Decommit decommitTx)
@@ -620,11 +614,8 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [88])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 11 utxo)
-                      _ -> False
+                  headUTxO' <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO' `shouldBe` utxoRefs [1, 2]
 
       describe "Decommit" $ do
         it "can request decommit" $
@@ -659,11 +650,8 @@ spec = parallel $ do
                   waitUntil [n1, n2] $ DecommitApproved testHeadId (txId decommitTx) (utxoRefs [42])
                   waitUntil [n1, n2] $ DecommitFinalized testHeadId (txId decommitTx)
 
-                  send n1 GetUTxO
-                  waitUntilMatch [n1] $
-                    \case
-                      GetUTxOResponse{headId, utxo} -> headId == testHeadId && not (member 42 utxo)
-                      _ -> False
+                  headUTxO <- getHeadUTxO <$> queryState n1
+                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [2]
 
         it "can only process one decommit at once" $
           shouldRunInSim $ do

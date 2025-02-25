@@ -68,6 +68,13 @@ getHeadParameters = \case
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
 
+-- | Get the head 'UTxO' from open 'HeadState'.
+getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO = \case
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
+  Initial InitialState{committed} -> Just $ fold committed
+  _ -> Nothing
+
 -- ** Idle
 
 -- | An 'Idle' head only having a chain state with things seen on chain so far.
