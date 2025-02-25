@@ -207,6 +207,20 @@ channels:
           method: DELETE
           bindingVersion: '0.1.0'
 
+  /snapshot:
+    servers:
+      - localhost-http
+    publish:
+      description: Allow adoption of given snapshot.
+      operationId: sideLoadSnapshotRequest
+      message:
+        $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+
   /snapshot/utxo:
     servers:
       - localhost-http
@@ -712,6 +726,16 @@ components:
       title: ProtocolParameters
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    SideLoadSnapshotRequest:
+      title: SideLoadSnapshotRequest
+      description: |
+        Submit a snapshot along with a valid multisignature to update the node's latest confirmed snapshot.
+        The provided snapshot must have a strictly higher snapshot number and version than the previous one.
+        Additionally, it must be enforceable and valid according to the current protocol state on L1,
+        meaning it must be signed by all required participants.
+      payload:
+        $ref: "api.yaml#/components/schemas/SideLoadSnapshotRequest"
 
   ########
   #
@@ -2603,6 +2627,17 @@ components:
             }
           }
         }
+
+    SideLoadSnapshotRequest:
+      type: object
+      required:
+        - snapshot
+        - signatures
+      properties:
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        signatures:
+          $ref: "api.yaml#/components/schemas/MultiSignature"
 
     # END OF SERVER OUTPUT SCHEMAS
 
