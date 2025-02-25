@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (DecommitInvalidReason, HeadStatus)
+import Hydra.API.ServerOutput (DecommitInvalidReason)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
