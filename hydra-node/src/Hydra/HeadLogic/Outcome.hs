@@ -94,6 +94,7 @@ data StateChanged tx
   | HeadFannedOut {chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
+  | SnapshotSideLoaded {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -127,6 +128,7 @@ genStateChanged env =
     , HeadFannedOut <$> arbitrary
     , ChainRolledBack <$> arbitrary
     , TickObserved <$> arbitrary
+    , SnapshotSideLoaded <$> arbitrary <*> arbitrary
     ]
  where
   Environment{party} = env

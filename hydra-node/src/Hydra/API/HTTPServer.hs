@@ -26,8 +26,10 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (
   CommitBlueprintTx (..),
   IsTx (..),
+  Snapshot,
   UTxOType,
  )
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.DepositDeadline (depositToNominalDiffTime)
 import Hydra.Tx.Environment (Environment (..))
 import Network.HTTP.Types (status200, status400, status404, status500)
@@ -125,6 +127,20 @@ instance FromJSON TransactionSubmitted where
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
+data SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
+  { snapshot :: Snapshot tx
+  , signatures :: MultiSignature (Snapshot tx)
+  }
+  deriving stock (Generic)
+
+deriving stock instance (IsTx tx, Eq tx) => Eq (SideLoadSnapshotRequest tx)
+deriving stock instance (IsTx tx, Show tx) => Show (SideLoadSnapshotRequest tx)
+deriving instance (IsTx tx, ToJSON tx) => ToJSON (SideLoadSnapshotRequest tx)
+deriving instance (IsTx tx, FromJSON tx) => FromJSON (SideLoadSnapshotRequest tx)
+
+instance (IsTx tx, Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (SideLoadSnapshotRequest tx) where
+  arbitrary = genericArbitrary
+
 -- | Hydra HTTP server
 httpApp ::
   forall tx.
@@ -149,6 +165,10 @@ httpApp tracer directChain env pparams getCommitInfo getConfirmedUTxO getPending
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
+    ("POST", ["snapshot"]) ->
+      consumeRequestBodyStrict request
+        >>= handleSideLoadSnapshot putClientInput
+        >>= respond
     ("GET", ["snapshot", "utxo"]) ->
       -- XXX: Should ensure the UTxO is of the right head and the head is still
       -- open. This is something we should fix on the "read model" side of the
@@ -235,6 +255,21 @@ handleDraftCommitUtxo env directChain getCommitInfo body = do
         okJSON $ DraftCommitTxResponse commitTx
   Chain{draftCommitTx, draftDepositTx} = directChain
   Environment{depositDeadline} = env
+
+-- | Handle request to side load snapshot.
+handleSideLoadSnapshot ::
+  forall tx.
+  IsChainState tx =>
+  (ClientInput tx -> IO ()) ->
+  LBS.ByteString ->
+  IO Response
+handleSideLoadSnapshot putClientInput body = do
+  case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
+    Left err ->
+      pure $ responseLBS status400 [] (Aeson.encode $ Aeson.String $ pack err)
+    Right SideLoadSnapshotRequest{snapshot, signatures} -> do
+      putClientInput $ SideLodadSnapshot snapshot signatures
+      pure $ responseLBS status200 [] (Aeson.encode $ Aeson.String "OK")
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

@@ -9,7 +9,7 @@ import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.Text qualified as Text
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SubmitTxRequest (..), TransactionSubmitted, httpApp)
+import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SideLoadSnapshotRequest, SubmitTxRequest (..), TransactionSubmitted, httpApp)
 import Hydra.API.ServerOutput (CommitInfo (CannotCommit, NormalCommit))
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
@@ -47,8 +47,13 @@ spec = do
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SideLoadSnapshotRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitTxRequest Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized TransactionSubmitted))
+
+    prop "Validate /snapshot publish api schema" $
+      prop_validateJSONSchema @(SideLoadSnapshotRequest Tx) "api.json" $
+        key "components" . key "messages" . key "SideLoadSnapshotRequest" . key "payload"
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $
@@ -246,6 +251,13 @@ apiServerSpec = do
             withApplication (httpApp @Tx nullTracer (failingChainHandle postTxError) testEnvironment defaultPParams getHeadId getNothing getPendingDeposits putClientInput) $ do
               post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
                 `shouldRespondWith` expectedResponse
+
+    describe "POST /snapshot" $ do
+      prop "responds on valid requests" $ \(request :: SideLoadSnapshotRequest Tx) ->
+        withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getPendingDeposits putClientInput) $
+          do
+            post "/snapshot" (Aeson.encode request)
+            `shouldRespondWith` 200
 
 -- * Helpers
 
