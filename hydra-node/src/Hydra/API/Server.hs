@@ -6,11 +6,10 @@ module Hydra.API.Server where
 import Hydra.Prelude hiding (mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapWhileC, (.|))
+import Conduit (mapM_C, mapWhileC, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
-import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -100,17 +99,20 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    let history =
+    let historyTimedOutputs =
           sourceEvents
             .| mapWhileC mkTimedServerOutputFromStateEvent
-            .| iterM
-              ( \TimedServerOutput{output} ->
-                  lift $ atomically $ do
-                    update headStatusP output
-                    update snapshotUtxoP output
-                    update commitInfoP output
-                    update headIdP output
-                    update pendingDepositsP output
+    _ <-
+      runConduitRes $
+        historyTimedOutputs
+          .| mapM_C
+            ( \TimedServerOutput{output} ->
+                lift $ atomically $ do
+                  update headStatusP output
+                  update snapshotUtxoP output
+                  update commitInfoP output
+                  update headIdP output
+                  update pendingDepositsP output
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
@@ -128,7 +130,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
               (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do
