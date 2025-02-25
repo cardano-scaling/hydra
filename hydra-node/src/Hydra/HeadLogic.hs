@@ -1171,8 +1171,8 @@ onOpenClientSideLoadSnapshot openState snapshot multisig =
         do
           -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
           --       ̅S.σ ← ̃σ
-          newState SnapshotConfirmed{snapshot, signatures = multisig}
-          <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
+          newState SnapshotSideLoaded{snapshot, signatures = multisig}
+          <> cause (ClientEffect $ ServerOutput.SnapshotSideLoaded headId snapshot multisig)
  where
   OpenState
     { parameters = HeadParameters{parties}
@@ -1664,6 +1664,24 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  SnapshotSideLoaded{snapshot, signatures} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { confirmedSnapshot =
+                      ConfirmedSnapshot
+                        { snapshot
+                        , signatures
+                        }
+                  , seenSnapshot = LastSeenSnapshot number
+                  }
+            }
+       where
+        Snapshot{number} = snapshot
+      _otherState -> st
   PartySignedSnapshot{party, signature} ->
     case st of
       Open
@@ -1763,3 +1781,4 @@ aggregateChainStateHistory history = \case
   ChainRolledBack{chainState} ->
     rollbackHistory (chainStateSlot chainState) history
   TickObserved{} -> history
+  SnapshotSideLoaded{} -> history

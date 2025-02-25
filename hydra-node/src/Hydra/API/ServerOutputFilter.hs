@@ -25,6 +25,7 @@ serverOutputFilter :: ServerOutputFilter Tx =
           TxValid{transaction} -> matchingAddr address transaction
           TxInvalid{transaction} -> matchingAddr address transaction
           SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
+          SnapshotSideLoaded{snapshot = Snapshot{confirmed}} -> any (matchingAddr address) confirmed
           _ -> True
     }
 
