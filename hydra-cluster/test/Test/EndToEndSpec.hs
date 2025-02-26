@@ -583,7 +583,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             -- XXX: Need to do something in 'action' otherwise always green?
             withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-              putTextLn "done!"
+              threadDelay 0.1
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
@@ -597,13 +597,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 3
-                putTextLn "done!"
-            threadDelay 5
-            putTextLn "RESTARTING"
+                threadDelay 0.1
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 1
+                threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do

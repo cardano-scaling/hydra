@@ -151,7 +151,6 @@ library
     , time
     , transformers
     , typed-process
-    , unix
     , unliftio
     , wai
     , wai-cors

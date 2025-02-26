@@ -8,16 +8,14 @@ import Hydra.Prelude hiding (STM, delete)
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_, link)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
-import Control.Concurrent.STM (STM, catchSTM, throwSTM)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
-import Control.Monad.Class.MonadAsync (forConcurrently, wait)
+import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.Aeson.Types (Pair)
-import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
@@ -37,28 +35,23 @@ import Network.WebSockets (Connection, ConnectionException, HandshakeException, 
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.Info (os)
+import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
-  ExitCode (..),
-  ExitCodeException (eceStderr),
   Process,
   ProcessConfig,
-  byteStringOutput,
   checkExitCode,
-  checkExitCodeSTM,
-  createPipe,
-  getStderr,
   inherit,
   proc,
+  setCreateGroup,
   setStderr,
   setStdout,
   startProcess,
   stopProcess,
   unsafeProcessHandle,
   useHandleOpen,
-  waitExitCodeSTM,
-  withProcessTerm,
+  waitExitCode,
  )
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -380,21 +373,17 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                       }
                 }
           )
-            & setStdout inherit -- TODO: (useHandleOpen logFileHandle)
+            & setStdout (useHandleOpen logFileHandle)
+            -- TODO: capture and include in errors
             & setStderr inherit
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
-    putTextLn "=== STARTING hydra-node"
-    withProcessTerm cmd $ \p -> do
-      -- NOTE: checking exit code thread gets cancelled if 'action' terminates first
-      res <- withAsync (checkExitCode p) $ \thread -> do
+    withProcessInterrupt cmd $ \p -> do
+      -- NOTE: exit code thread gets cancelled if 'action' terminates first
+      withAsync (checkExitCode p) $ \thread -> do
         link thread
-        res <- withConnectionToNode tracer hydraNodeId action
-        putTextLn "=== END of withHydraNode"
-        pure res
-      putTextLn "exiting hydra-node, terminating!"
-      pure res
+        withConnectionToNode tracer hydraNodeId action
  where
   port = fromIntegral $ 5_000 + hydraNodeId
 
@@ -410,28 +399,20 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
--- -- | Like 'withProcessTerm', but captures all 'stderr' of the process and
--- -- includes it in the 'ExitCodeException'.
--- withProcessExpect ::
---   (MonadIO m, MonadThrow m) =>
---   ProcessConfig stdin stdout stderr ->
---   (Process stdin stdout (STM LBS.ByteString) -> m a) ->
---   m a
--- withProcessExpect pc =
---   bracket
---     (startProcess pc')
---     (\p -> trace "stopping" stopProcess (spy p) `finally` check p)
---  where
---   check p =
---     liftIO . atomically $ do
---       err <- getStderr p
---       checkExitCodeSTM p `catchSTM` \ece ->
---         throwSTM
---           ece
---             { eceStderr = err
---             }
-
---   pc' = setStderr byteStringOutput pc
+-- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not stopped within 5 seconds.
+withProcessInterrupt ::
+  (MonadIO m, MonadThrow m) =>
+  ProcessConfig stdin stdout stderr ->
+  (Process stdin stdout stderr -> m a) ->
+  m a
+withProcessInterrupt config =
+  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
+ where
+  signalAndStopProcess p = liftIO $ do
+    interruptProcessGroupOf (unsafeProcessHandle p)
+    race_
+      (void $ waitExitCode p)
+      (threadDelay 5 >> stopProcess p)
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
