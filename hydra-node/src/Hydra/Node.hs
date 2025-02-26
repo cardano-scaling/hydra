@@ -266,13 +266,16 @@ runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , IsChainState tx
+  , MonadIO m
   ) =>
   HydraNode tx m ->
   m ()
 runHydraNode node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode node
+  forever $ do
+    stepHydraNode node
+    putTextLn "..."
 
 stepHydraNode ::
   ( MonadCatch m

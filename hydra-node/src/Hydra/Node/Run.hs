@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   ProtocolParametersConversionError,
   ShelleyEra,
   SystemStart (..),
+  Tx,
   toShelleyNetwork,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -22,7 +23,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events.FileBased (eventPairFromPersistenceIncremental)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
-import Hydra.Logging (traceWith, withTracer)
+import Hydra.Logging (nullTracer, traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
@@ -68,8 +69,10 @@ run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
-    traceWith tracer' (NodeOptions opts)
-    withMonitoring monitoringPort tracer' $ \tracer -> do
+    traceWith tracer' (NodeOptions @Tx opts)
+    -- withMonitoring monitoringPort tracer' $ \tracer -> do
+    do
+      let tracer = nullTracer
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
