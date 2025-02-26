@@ -190,10 +190,6 @@ spec = do
                     , theirVersions = KnownHydraVersions [v1]
                     }
 
-      it "throws ParameterMismatch when configuration does not match persistence" $ \_ -> do
-        -- FIXME: Make this equivalent to before?
-        pendingWith "TODO: not implemented"
-
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
     roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
