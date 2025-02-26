@@ -110,6 +110,7 @@ library
     , process
     , QuickCheck
     , req
+    , stm
     , text
     , time
     , typed-process

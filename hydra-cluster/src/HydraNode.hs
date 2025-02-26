@@ -3,11 +3,12 @@
 module HydraNode where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (delete)
+import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_, link)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
+import Control.Concurrent.STM (STM, catchSTM, throwSTM)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
 import Control.Monad.Class.MonadAsync (forConcurrently, wait)
@@ -16,6 +17,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.Aeson.Types (Pair)
+import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
@@ -36,16 +38,24 @@ import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.Info (os)
 import System.Process.Typed (
+  ExitCode (..),
+  ExitCodeException (eceStderr),
+  Process,
+  ProcessConfig,
+  byteStringOutput,
   checkExitCode,
+  checkExitCodeSTM,
   createPipe,
   getStderr,
   inherit,
   proc,
   setStderr,
   setStdout,
+  startProcess,
   stopProcess,
   unsafeProcessHandle,
   useHandleOpen,
+  waitExitCodeSTM,
   withProcessTerm,
  )
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
@@ -399,6 +409,29 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- -- | Like 'withProcessTerm', but captures all 'stderr' of the process and
+-- -- includes it in the 'ExitCodeException'.
+-- withProcessExpect ::
+--   (MonadIO m, MonadThrow m) =>
+--   ProcessConfig stdin stdout stderr ->
+--   (Process stdin stdout (STM LBS.ByteString) -> m a) ->
+--   m a
+-- withProcessExpect pc =
+--   bracket
+--     (startProcess pc')
+--     (\p -> trace "stopping" stopProcess (spy p) `finally` check p)
+--  where
+--   check p =
+--     liftIO . atomically $ do
+--       err <- getStderr p
+--       checkExitCodeSTM p `catchSTM` \ece ->
+--         throwSTM
+--           ece
+--             { eceStderr = err
+--             }
+
+--   pc' = setStderr byteStringOutput pc
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =

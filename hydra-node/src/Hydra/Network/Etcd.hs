@@ -90,17 +90,24 @@ import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO (hClose)
 import System.IO.Error (isDoesNotExistError, isEOFError)
-import System.Posix (Handler (Catch), installHandler, sigTERM)
+import System.Posix (Handler (Catch), installHandler, sigINT, sigTERM, signalProcess)
+import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   closed,
   createPipe,
+  getPid,
   getStderr,
   proc,
+  setCreateGroup,
+  setDelegateCtlc,
   setStderr,
   setStdin,
   setStdout,
+  startProcess,
   stopProcess,
-  withProcessTerm_,
+  unsafeProcessHandle,
+  waitExitCode,
+  withProcessWait_,
  )
 import UnliftIO (readTVarIO)
 
@@ -121,27 +128,38 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   doneVar <- newTVarIO False
   putTextLn "=== STARTING etcd"
   -- (`finally` (putTextLn "FINALLY" >> atomically (writeTVar doneVar True))) $
-  --   withProcessTerm_ etcdCmd $ \p -> do
-  -- TODO: error handling (also kill threads)
-  -- _ <- installHandler sigTERM (Catch $ putTextLn "SIGTERM" >> stopProcess p) Nothing
-  -- TODO: trace etcd exiting
-  -- race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
-  -- race_ (traceStderr p) $ do
-  -- NOTE: The connection to the server is set up asynchronously; the
-  -- first rpc call will block until the connection has been established.
-  -- withConnection (connParams doneVar) server $ \conn -> do
-  --   race_ (pollConnectivity conn localHost callback) $ do
-  --     race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
-  queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-  -- race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
-  action
-    Network
-      { broadcast = writePersistentQueue queue
-      }
-  putTextLn "after action in Etcd"
+  -- bracket (startProcess etcdCmd) signalAndStopProcess $ \p -> do
+  withProcessWait_ etcdCmd $ \p -> do
+    (`finally` (putTextLn "FINALLY" >> signalAndStopProcess p)) $ do
+      -- TODO: error handling (also kill threads)
+      -- _ <- installHandler sigTERM (Catch $ putTextLn "SIGTERM -> SIGINT etcd" >> interruptProcessGroupOf (unsafeProcessHandle p)) Nothing
+      -- TODO: trace etcd exiting
+      -- race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
+      -- race_ (traceStderr p) $ do
+      -- NOTE: The connection to the server is set up asynchronously; the
+      -- first rpc call will block until the connection has been established.
+      -- withConnection (connParams doneVar) server $ \conn -> do
+      --   race_ (pollConnectivity conn localHost callback) $ do
+      --     race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
+      queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+      -- race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
+      action
+        Network
+          { broadcast = writePersistentQueue queue
+          }
+      putTextLn "after action in Etcd"
   -- putTextLn "exiting etcdCmd, terminating!"
   putTextLn "=== STOPPED etcd"
  where
+  signalAndStopProcess p =
+    getPid p >>= \case
+      Nothing -> error "process died already"
+      Just pid -> do
+        putTextLn $ "sending SIGINT to " <> show pid
+        signalProcess sigINT pid
+        stopProcess p
+        waitExitCode p >>= print
+
   connParams doneVar =
     def
       { connReconnectPolicy = reconnectPolicy doneVar
@@ -192,6 +210,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
     -- setStdin closed $
     --   setStdout closed $
     -- setStderr createPipe $
+    -- setCreateGroup True .
+    -- setDelegateCtlc True .
     proc "etcd" $
       concat
         [ -- NOTE: Must be usedin clusterPeers

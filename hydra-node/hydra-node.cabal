@@ -140,6 +140,7 @@ library
     , ouroboros-consensus-cardano
     , ouroboros-network-api           >=0.7.1
     , ouroboros-network-protocols     >=0.8
+    , process
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt

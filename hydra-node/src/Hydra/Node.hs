@@ -273,9 +273,7 @@ runHydraNode ::
 runHydraNode node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ do
-    stepHydraNode node
-    putTextLn "..."
+  forever $ stepHydraNode node
 
 stepHydraNode ::
   ( MonadCatch m

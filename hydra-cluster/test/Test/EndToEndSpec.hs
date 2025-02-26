@@ -597,7 +597,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 1
+                threadDelay 3
                 putTextLn "done!"
             threadDelay 5
             putTextLn "RESTARTING"
