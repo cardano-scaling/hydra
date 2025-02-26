@@ -95,7 +95,7 @@ import HydraNode (
   withHydraNode,
   withHydraNode',
  )
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import System.IO (
   hGetLine,
@@ -450,10 +450,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ v ^? key "headId" == Just (toJSON headId)
 
                 return headId
-              -- NOTE: Need to clear state on disk to have bob close with
-              -- initial snapshot
-              removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
 
+              -- NOTE: Clear persisted protocol state on disk to have bob
+              -- re-discover the head and close with initial snapshot. We are
+              -- not clearing the whole persistence dir as we would not be able
+              -- to re-connect to the L2 network.
+              removeFile $ tmp </> "state-" <> show bobNodeId </> "state"
               -- HACK: We do re-use network ports and for some reason Hydra
               -- network port is not available right away.
               threadDelay 1

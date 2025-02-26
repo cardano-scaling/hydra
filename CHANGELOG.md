@@ -12,10 +12,11 @@ changes.
 
 - **BREAKING** Switch to using `etcd` internally to establish a reliable L2 network
   - New run-time dependency onto `etcd` binary
+  - The same network options to `hydra-node` required (`--host`, `--port` and `--peer`) and need to match across the Hydra network.
   - Adds `NetworkConnected` and `NetworkDisconnected` outputs which are most indicative of whether the L2 network is up or not.
   - Change `PeerConnected` and `PeerDisconnected` to indicate connectivity to `--peer` items and not the remote `node-id`.
   - Log outputs related to the network components changed significantly.
-  - Persisted state (write ahead logs) of the network components changed significantly.
+  - Persisted state (write ahead logs) of the network components changed significantly. The `<persistence-dir>/etcd` directory must not be lost or manual action to recover the L2 network (etcd cluster) with counter-parties needs to be taken.
 
 - Fix a bug where decoding `Party` information from chain would crash the node or chain observer.
   - A problematic transaction will now be ignored and not deemed a valid head protocol transaction.
