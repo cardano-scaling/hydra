@@ -557,7 +557,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
 
     -- TODO: move to a HydraNodeSpec
-    describe "hydra-node executable" $ do
+    describe "withHydraNode" $ do
       it "detects crashes" $ \tracer -> do
         withClusterTempDir $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
@@ -571,7 +571,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
                 "hydra-node" `isInfixOf` show e
-                  && "exited" `isInfixOf` show e
+
+      it "stops gracefully" $ \tracer -> do
+        withClusterTempDir $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            let hydraTracer = contramap FromHydraNode tracer
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let contestationPeriod = UnsafeContestationPeriod 100
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+
+            -- XXX: Need to do something in 'action' otherwise always green?
+            withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              threadDelay 0.1
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
@@ -585,13 +597,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 1
-                putTextLn "done!"
-            threadDelay 5
-            putTextLn "RESTARTING"
+                threadDelay 0.1
             failAfter 10 $
               withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
-                threadDelay 1
+                threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do

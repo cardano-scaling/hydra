@@ -49,6 +49,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..))
+import Control.Monad.Catch (handleIf)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
@@ -87,16 +88,20 @@ import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (KV, Lease, Watch)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError)
-import System.Posix (Handler (Catch), installHandler, sigTERM)
+import System.IO.Error (isDoesNotExistError, isEOFError)
+import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
+  Process,
+  ProcessConfig,
   createPipe,
   getStderr,
   proc,
+  setCreateGroup,
   setStderr,
+  startProcess,
   stopProcess,
+  unsafeProcessHandle,
   waitExitCode,
-  withProcessTerm,
  )
 import UnliftIO (readTVarIO)
 
@@ -113,26 +118,24 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
-  withProcessTerm etcdCmd $ \p -> do
-    -- Ensure the sub-process is also stopped when we get asked to terminate.
-    _ <- installHandler sigTERM (Catch $ stopProcess p) Nothing
-    -- TODO: error handling (also kill threads)
-    race_ (waitExitCode p >>= \ec -> fail $ "etcd exited with: " <> show ec) $ do
+  withProcessInterrupt etcdCmd $ \p -> do
+    -- TODO: how to handle etcd exiting?
+    race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
-        -- TODO: cleanup reconnecting through policy if other threads fail
+        -- XXX: cleanup reconnecting through policy if other threads fail
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) server $ \conn -> do
-          (`finally` atomically (writeTVar doneVar True)) $
-            race_ (pollConnectivity conn localHost callback) $ do
-              race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
-                queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-                race_ (broadcastMessages tracer conn protocolVersion port queue) $
-                  action
-                    Network
-                      { broadcast = writePersistentQueue queue
-                      }
+          race_ (pollConnectivity conn localHost callback) $ do
+            race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
+              queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+              race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
+                action
+                  Network
+                    { broadcast = writePersistentQueue queue
+                    }
+                atomically (writeTVar doneVar True)
  where
   connParams doneVar =
     def
@@ -165,34 +168,36 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   clientPort = 2379 + port - 5001
 
   traceStderr p =
-    forever $ do
-      bs <- BS.hGetLine (getStderr p)
-      case Aeson.eitherDecodeStrict bs of
-        Left err -> fail $ "Failed to decode etcd log: " <> show err
-        Right v -> traceWith tracer $ EtcdLog{etcd = v}
+    handleIf isEOFError (putTextLn . ("FOOOO " <>) . show) $
+      forever $ do
+        bs <- BS.hGetLine (getStderr p)
+        case Aeson.eitherDecodeStrict bs of
+          Left err -> fail $ "Failed to decode etcd log: " <> show err
+          Right v -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   -- TODO: "Running http and grpc server on single port. This is not recommended for production."
   etcdCmd =
-    setStderr createPipe $
-      proc "etcd" $
-        concat
-          [ -- NOTE: Must be usedin clusterPeers
-            ["--name", show localHost]
-          , ["--data-dir", persistenceDir </> "etcd"]
-          , ["--listen-peer-urls", httpUrl localHost]
-          , ["--initial-advertise-peer-urls", httpUrl localHost]
-          , ["--listen-client-urls", clientUrl]
-          , -- Client access only on configured 'host' interface.
-            ["--advertise-client-urls", clientUrl]
-          , -- XXX: could use unique initial-cluster-tokens to isolate clusters
-            ["--initial-cluster-token", "hydra-network-1"]
-          , ["--initial-cluster", clusterPeers]
-          -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
-          -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
-          ]
+    setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
+      . setStderr createPipe
+      . proc "etcd"
+      $ concat
+        [ -- NOTE: Must be usedin clusterPeers
+          ["--name", show localHost]
+        , ["--data-dir", persistenceDir </> "etcd"]
+        , ["--listen-peer-urls", httpUrl localHost]
+        , ["--initial-advertise-peer-urls", httpUrl localHost]
+        , ["--listen-client-urls", clientUrl]
+        , -- Client access only on configured 'host' interface.
+          ["--advertise-client-urls", clientUrl]
+        , -- XXX: could use unique initial-cluster-tokens to isolate clusters
+          ["--initial-cluster-token", "hydra-network-1"]
+        , ["--initial-cluster", clusterPeers]
+        -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
+        -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
+        ]
 
   clientUrl = httpUrl Host{hostname = show host, port = clientPort}
 
@@ -511,3 +516,20 @@ data EtcdLog
 instance Arbitrary EtcdLog where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+-- TODO: move somewhere else
+
+-- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not stopped within 5 seconds.
+withProcessInterrupt ::
+  (MonadIO m, MonadThrow m) =>
+  ProcessConfig stdin stdout stderr ->
+  (Process stdin stdout stderr -> m a) ->
+  m a
+withProcessInterrupt config =
+  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
+ where
+  signalAndStopProcess p = liftIO $ do
+    interruptProcessGroupOf (unsafeProcessHandle p)
+    race_
+      (void $ waitExitCode p)
+      (threadDelay 5 >> stopProcess p)

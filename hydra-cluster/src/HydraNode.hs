@@ -3,14 +3,14 @@
 module HydraNode where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude hiding (delete)
+import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_, link)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
-import Control.Monad.Class.MonadAsync (forConcurrently, wait)
+import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -35,20 +35,23 @@ import Network.WebSockets (Connection, ConnectionException, HandshakeException, 
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.Info (os)
+import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
+  Process,
+  ProcessConfig,
   checkExitCode,
-  createPipe,
-  getStderr,
   inherit,
   proc,
+  setCreateGroup,
   setStderr,
   setStdout,
+  startProcess,
   stopProcess,
   unsafeProcessHandle,
   useHandleOpen,
-  withProcessTerm,
+  waitExitCode,
  )
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -370,20 +373,17 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                       }
                 }
           )
-            & setStdout inherit -- TODO: (useHandleOpen logFileHandle)
+            & setStdout (useHandleOpen logFileHandle)
+            -- TODO: capture and include in errors
             & setStderr inherit
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
-    putTextLn "=== STARTING hydra-node"
-    withProcessTerm cmd $ \p -> do
-      res <- withAsync (checkExitCode p) $ \thread -> do
+    withProcessInterrupt cmd $ \p -> do
+      -- NOTE: exit code thread gets cancelled if 'action' terminates first
+      withAsync (checkExitCode p) $ \thread -> do
         link thread
-        res <- withConnectionToNode tracer hydraNodeId action
-        putTextLn "=== END of withHydraNode"
-        pure res
-      putTextLn "exiting hydra-node, terminating!"
-      pure res
+        withConnectionToNode tracer hydraNodeId action
  where
   port = fromIntegral $ 5_000 + hydraNodeId
 
@@ -398,6 +398,21 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not stopped within 5 seconds.
+withProcessInterrupt ::
+  (MonadIO m, MonadThrow m) =>
+  ProcessConfig stdin stdout stderr ->
+  (Process stdin stdout stderr -> m a) ->
+  m a
+withProcessInterrupt config =
+  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
+ where
+  signalAndStopProcess p = liftIO $ do
+    interruptProcessGroupOf (unsafeProcessHandle p)
+    race_
+      (void $ waitExitCode p)
+      (threadDelay 5 >> stopProcess p)
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =

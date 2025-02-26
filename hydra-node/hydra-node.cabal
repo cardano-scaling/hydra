@@ -117,6 +117,7 @@ library
     , cryptonite
     , data-default
     , directory
+    , exceptions
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
@@ -139,6 +140,7 @@ library
     , ouroboros-consensus-cardano
     , ouroboros-network-api           >=0.7.1
     , ouroboros-network-protocols     >=0.8
+    , process
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt
@@ -149,7 +151,6 @@ library
     , time
     , transformers
     , typed-process
-    , unix
     , unliftio
     , wai
     , wai-cors
