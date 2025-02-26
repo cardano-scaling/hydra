@@ -377,6 +377,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
     putTextLn "=== STARTING hydra-node"
     withProcessTerm cmd $ \p -> do
+      -- NOTE: checking exit code thread gets cancelled if 'action' terminates first
       res <- withAsync (checkExitCode p) $ \thread -> do
         link thread
         res <- withConnectionToNode tracer hydraNodeId action

@@ -90,6 +90,7 @@ import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
 import System.IO (hClose)
 import System.IO.Error (isDoesNotExistError, isEOFError)
+import System.Posix (Handler (Catch), installHandler, sigTERM)
 import System.Process.Typed (
   closed,
   createPipe,
@@ -98,7 +99,8 @@ import System.Process.Typed (
   setStderr,
   setStdin,
   setStdout,
-  withProcessTerm,
+  stopProcess,
+  withProcessTerm_,
  )
 import UnliftIO (readTVarIO)
 
@@ -118,26 +120,26 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: cleanup reconnecting through policy if other threads fail
   doneVar <- newTVarIO False
   putTextLn "=== STARTING etcd"
-  (`finally` (putTextLn "FINALLY" >> atomically (writeTVar doneVar True))) $
-    withProcessTerm etcdCmd $ \p -> do
-      -- TODO: error handling (also kill threads)
-      -- _ <- installHandler sigTERM (Catch $ putTextLn "SIGTERM" >> stopProcess p) Nothing
-      -- TODO: trace etcd exiting
-      -- race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
-      race_ (traceStderr p) $ do
-        -- NOTE: The connection to the server is set up asynchronously; the
-        -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) server $ \conn -> do
-          race_ (pollConnectivity conn localHost callback) $ do
-            race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
-              queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
-                action
-                  Network
-                    { broadcast = writePersistentQueue queue
-                    }
-                putTextLn "after action in Etcd"
-      putTextLn "exiting etcdCmd, terminating!"
+  -- (`finally` (putTextLn "FINALLY" >> atomically (writeTVar doneVar True))) $
+  --   withProcessTerm_ etcdCmd $ \p -> do
+  -- TODO: error handling (also kill threads)
+  -- _ <- installHandler sigTERM (Catch $ putTextLn "SIGTERM" >> stopProcess p) Nothing
+  -- TODO: trace etcd exiting
+  -- race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
+  -- race_ (traceStderr p) $ do
+  -- NOTE: The connection to the server is set up asynchronously; the
+  -- first rpc call will block until the connection has been established.
+  -- withConnection (connParams doneVar) server $ \conn -> do
+  --   race_ (pollConnectivity conn localHost callback) $ do
+  --     race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
+  queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+  -- race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
+  action
+    Network
+      { broadcast = writePersistentQueue queue
+      }
+  putTextLn "after action in Etcd"
+  -- putTextLn "exiting etcdCmd, terminating!"
   putTextLn "=== STOPPED etcd"
  where
   connParams doneVar =
@@ -187,25 +189,25 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
   -- TODO: "Running http and grpc server on single port. This is not recommended for production."
   etcdCmd =
-    setStdin closed $
-      setStdout closed $
-        setStderr createPipe $
-          proc "etcd" $
-            concat
-              [ -- NOTE: Must be usedin clusterPeers
-                ["--name", show localHost]
-              , ["--data-dir", persistenceDir </> "etcd"]
-              , ["--listen-peer-urls", httpUrl localHost]
-              , ["--initial-advertise-peer-urls", httpUrl localHost]
-              , ["--listen-client-urls", clientUrl]
-              , -- Client access only on configured 'host' interface.
-                ["--advertise-client-urls", clientUrl]
-              , -- XXX: could use unique initial-cluster-tokens to isolate clusters
-                ["--initial-cluster-token", "hydra-network-1"]
-              , ["--initial-cluster", clusterPeers]
-              -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
-              -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
-              ]
+    -- setStdin closed $
+    --   setStdout closed $
+    -- setStderr createPipe $
+    proc "etcd" $
+      concat
+        [ -- NOTE: Must be usedin clusterPeers
+          ["--name", show localHost]
+        , ["--data-dir", persistenceDir </> "etcd"]
+        , ["--listen-peer-urls", httpUrl localHost]
+        , ["--initial-advertise-peer-urls", httpUrl localHost]
+        , ["--listen-client-urls", clientUrl]
+        , -- Client access only on configured 'host' interface.
+          ["--advertise-client-urls", clientUrl]
+        , -- XXX: could use unique initial-cluster-tokens to isolate clusters
+          ["--initial-cluster-token", "hydra-network-1"]
+        , ["--initial-cluster", clusterPeers]
+        -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
+        -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
+        ]
 
   clientUrl = httpUrl Host{hostname = show host, port = clientPort}
 
