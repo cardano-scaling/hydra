@@ -556,7 +556,24 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
 
+    -- TODO: move to a HydraNodeSpec
     describe "hydra-node executable" $ do
+      -- FIXME: broken on the branch (because of etcd?)
+      it "can be restarted" $ \tracer -> do
+        withClusterTempDir $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            let hydraTracer = contramap FromHydraNode tracer
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let contestationPeriod = UnsafeContestationPeriod 100
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+
+            -- XXX: Need to do something in 'action' otherwise always green?
+            withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              threadDelay 1
+            withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              threadDelay 1
+
       it "logs its command line arguments" $ \tracer -> do
         withClusterTempDir $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
