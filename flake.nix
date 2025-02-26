@@ -4,7 +4,7 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
-    aiken.url = "github:aiken-lang/aiken/v1.1.9";
+    aiken.url = "github:aiken-lang/aiken/v1.1.13";
     cardano-node.url = "github:intersectmbo/cardano-node/10.1.4";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix/2025.02.02";
