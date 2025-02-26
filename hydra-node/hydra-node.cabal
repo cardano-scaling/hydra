@@ -196,10 +196,12 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
+    , base
     , bytestring
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , unix
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 

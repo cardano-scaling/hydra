@@ -435,6 +435,22 @@ withGrpcContext context action =
               Just msg -> Just $ context <> ": " <> msg
         }
 
+-- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not
+-- stopped within 5 seconds.
+withProcessInterrupt ::
+  (MonadIO m, MonadThrow m) =>
+  ProcessConfig stdin stdout stderr ->
+  (Process stdin stdout stderr -> m a) ->
+  m a
+withProcessInterrupt config =
+  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
+ where
+  signalAndStopProcess p = liftIO $ do
+    interruptProcessGroupOf (unsafeProcessHandle p)
+    race_
+      (void $ waitExitCode p)
+      (threadDelay 5 >> stopProcess p)
+
 -- * Persistent queue
 
 data PersistentQueue m a = PersistentQueue
@@ -516,20 +532,3 @@ data EtcdLog
 instance Arbitrary EtcdLog where
   arbitrary = genericArbitrary
   shrink = genericShrink
-
--- TODO: move somewhere else
-
--- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not stopped within 5 seconds.
-withProcessInterrupt ::
-  (MonadIO m, MonadThrow m) =>
-  ProcessConfig stdin stdout stderr ->
-  (Process stdin stdout stderr -> m a) ->
-  m a
-withProcessInterrupt config =
-  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
- where
-  signalAndStopProcess p = liftIO $ do
-    interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      (void $ waitExitCode p)
-      (threadDelay 5 >> stopProcess p)

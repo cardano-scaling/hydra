@@ -456,9 +456,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               -- not clearing the whole persistence dir as we would not be able
               -- to re-connect to the L2 network.
               removeFile $ tmp </> "state-" <> show bobNodeId </> "state"
-              -- HACK: We do re-use network ports and for some reason Hydra
-              -- network port is not available right away.
-              threadDelay 1
+
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsOpen"

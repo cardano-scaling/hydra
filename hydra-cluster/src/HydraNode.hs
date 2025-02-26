@@ -35,21 +35,14 @@ import Network.WebSockets (Connection, ConnectionException, HandshakeException, 
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.Info (os)
-import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
-  Process,
-  ProcessConfig,
   checkExitCode,
   inherit,
   proc,
-  setCreateGroup,
   setStderr,
   setStdout,
-  startProcess,
-  stopProcess,
-  unsafeProcessHandle,
   useHandleOpen,
-  waitExitCode,
+  withProcessTerm,
  )
 import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
@@ -379,7 +372,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
-    withProcessInterrupt cmd $ \p -> do
+    withProcessTerm cmd $ \p -> do
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       withAsync (checkExitCode p) $ \thread -> do
         link thread
@@ -398,21 +391,6 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
-
--- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not stopped within 5 seconds.
-withProcessInterrupt ::
-  (MonadIO m, MonadThrow m) =>
-  ProcessConfig stdin stdout stderr ->
-  (Process stdin stdout stderr -> m a) ->
-  m a
-withProcessInterrupt config =
-  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
- where
-  signalAndStopProcess p = liftIO $ do
-    interruptProcessGroupOf (unsafeProcessHandle p)
-    race_
-      (void $ waitExitCode p)
-      (threadDelay 5 >> stopProcess p)
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
