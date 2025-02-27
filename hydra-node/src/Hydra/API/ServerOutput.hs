@@ -336,8 +336,8 @@ projectHeadStatus headStatus = \case
   _other -> headStatus
 
 -- | Projection of latest confirmed snapshot UTxO.
-projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
+projectSnapshotUtxo :: IsTx tx => Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
-  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
+  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
