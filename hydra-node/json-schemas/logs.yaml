@@ -114,6 +114,18 @@ properties:
             description: >-
               Configuration needed to run the hydra node
 
+      - title: EnteringMainloop
+        description: >-
+          They Hydra node enters its main loop of processing inputs, events and effects.
+        type: object
+        additionalProperties: false
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["EnteringMainloop"]
+
 definitions:
   APIServer:
     oneOf:

@@ -181,10 +181,11 @@ hydrate tracer env ledger initialChainState eventSource eventSinks = do
               <$> ZipSink (foldMapC (Last . pure . getEventId))
               <*> ZipSink recoverHeadStateC
           )
+  traceWith tracer $ LoadedState{lastEventId, headState}
   -- Check whether the loaded state matches our configuration (env)
+  -- XXX: re-stream events just for this?
   checkHeadState tracer env headState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
-  -- XXX: re-stream events just for this?
   traceWith tracer ReplayingState
   runConduitRes $
     sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])

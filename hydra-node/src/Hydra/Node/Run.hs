@@ -103,6 +103,7 @@ run opts = do
               (wireNetworkInput wetHydraNode)
               $ \network -> do
                 -- Main loop
+                traceWith tracer EnteringMainloop
                 connect chain network server wetHydraNode
                   >>= runHydraNode
  where

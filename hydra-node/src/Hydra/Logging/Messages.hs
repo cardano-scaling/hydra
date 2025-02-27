@@ -22,6 +22,7 @@ data HydraLog tx
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
+  | EnteringMainloop
   deriving stock (Generic)
 
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
