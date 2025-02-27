@@ -109,6 +109,7 @@ import HydraNode (
   output,
   postDecommit,
   requestCommitTx,
+  requestHeadUTxO,
   send,
   waitFor,
   waitForAllMatch,
@@ -641,10 +642,8 @@ singlePartyCommitsScriptBlueprint tracer workDir node hydraScriptsTxId =
       waitFor hydraTracer 10 [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-      send n1 $ input "GetUTxO" []
-
-      waitFor hydraTracer 10 [n1] $
-        output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (scriptUTxO <> scriptUTxO')]
+      expectedHeadUTxO <- requestHeadUTxO n1
+      fromMaybe mempty expectedHeadUTxO `shouldBe` scriptUTxO <> scriptUTxO'
  where
   prepareScriptPayload lovelaceAmt = do
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
@@ -703,10 +702,8 @@ persistenceCanLoadWithEmptyCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer (10 * blockTime) [n1] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
-          send n1 $ input "GetUTxO" []
-
-          waitFor hydraTracer 10 [n1] $
-            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (mempty :: UTxO)]
+          expectedHeadUTxO <- requestHeadUTxO n1
+          fromMaybe mempty expectedHeadUTxO `shouldBe` mempty
  where
   RunningNode{nodeSocket, blockTime} = node
 
@@ -991,10 +988,9 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-          send n2 $ input "GetUTxO" []
+          expectedHeadUTxO <- requestHeadUTxO n2
+          fromMaybe mempty expectedHeadUTxO `shouldBe` commitUTxO
 
-          waitFor hydraTracer 20 [n2] $
-            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= commitUTxO]
           resp2 <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
               <&> setRequestBodyJSON commitUTxO2
@@ -1010,10 +1006,8 @@ canCommit tracer workDir node hydraScriptsTxId =
           waitFor hydraTracer 20 [n1, n2] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx')]
 
-          send n1 $ input "GetUTxO" []
-
-          waitFor hydraTracer 20 [n1] $
-            output "GetUTxOResponse" ["headId" .= headId, "utxo" .= (commitUTxO <> commitUTxO2)]
+          expectedHeadUTxO' <- requestHeadUTxO n1
+          fromMaybe mempty expectedHeadUTxO' `shouldBe` commitUTxO <> commitUTxO2
 
           send n2 $ input "Close" []
 

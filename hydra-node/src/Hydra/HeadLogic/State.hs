@@ -72,7 +72,7 @@ getHeadParameters = \case
 getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getHeadUTxO = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
-  Initial InitialState{committed} -> Just $ foldl' (<>) mempty  $ toList committed
+  Initial InitialState{committed} -> Just $ foldl' (<>) mempty $ toList committed
   _ -> Nothing
 
 -- ** Idle
