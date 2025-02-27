@@ -12,7 +12,7 @@ The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_mach
 
 [Edit this diagram](https://www.plantuml.com/plantuml/uml/ZP71JW8n48RlVOevge5mvs0mH2CN8RBnGZWKEiWaxNJJ3hfWV7VRBIw87hnrPhvl_-vq54K7sJchjcGGqDMo1uDn7QWMygpKucO9_VujJ9Y4jAK3yIiCsn86y8pQx2i_ziwHAFK3-YrTpQRp2WRhbhvEUl44pOMPr0TYRPDpj_8X9pscf4dCrP_uj4PEz3UNIwNQvcduXEzLav2Fgdb9hkbLpOJVZgVxfgQ0vhCtPrt7hPUnvmq5XwPy9eUChOzeO5WENLXfAtKSduCTubam2feEoh-esUzavcEabSL4BuGSGgrZn0Xw8nZ09DqIu_AqxA8fTQ7tBMxaR75btDsWRTCXtxCGXV_VmuwGpSxPBm00)
 
-Not pictured is the `CommandFailed` output, which is implicit emitted whenever an input is used when no transition below applies. Also non-state-changing or life-cycle relevant inputs like `GetUTxO` are not mentioned, as well as outputs like `Greetings`, `InvalidInput`, `NetworkConnected`, `NetworkDisconnected` and `GetUTxOResponse`.
+Not pictured is the `CommandFailed` output, which is implicit emitted whenever an input is used when no transition below applies. Also non-state-changing or life-cycle relevant inputs like `Greetings` are not mentioned, as well as outputs like `InvalidInput`, `NetworkConnected` and `NetworkDisconnected`.
 
 #### API configuration
 

@@ -8,10 +8,8 @@ import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, generic
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
@@ -96,7 +94,6 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
@@ -178,7 +175,6 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
     TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
@@ -247,7 +243,6 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     ReadyToFanout{} -> encodedResponse
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
-    CommandFailed{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->

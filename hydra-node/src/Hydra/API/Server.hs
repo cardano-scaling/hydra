@@ -219,7 +219,6 @@ mapStateChangedToServerOutput = \case
   StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
   StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
   StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
-  StateChanged.CommandFailed{..} -> Just CommandFailed{..}
   StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
   StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
   StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}

@@ -675,7 +675,6 @@ performCommit parties party paymentUTxO = do
             waitMatch n $ \case
               Committed{party = cp, utxo = committedUTxO}
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-              err@CommandFailed{} -> error $ show err
               _ -> Nothing
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
@@ -721,7 +720,6 @@ performDecommit party tx = do
   lift $ do
     waitUntilMatch [thisNode] $ \case
       DecommitFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performNewTx ::
@@ -787,7 +785,6 @@ performInit party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsInitializing{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
@@ -798,7 +795,6 @@ performAbort party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsAborted{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
@@ -811,7 +807,6 @@ performClose party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsClosed{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
@@ -848,7 +843,6 @@ performCloseWithInitialSnapshot st party = do
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
             snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          err@CommandFailed{} -> error $ show err
           _ -> False
     _ -> error "Not in open state"
 
