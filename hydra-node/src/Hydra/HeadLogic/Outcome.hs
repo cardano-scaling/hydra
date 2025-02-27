@@ -5,7 +5,6 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
@@ -111,7 +110,6 @@ data StateChanged tx
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainSlot :: ChainSlot}
-  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
