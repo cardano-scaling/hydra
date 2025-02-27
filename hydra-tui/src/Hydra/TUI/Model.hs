@@ -11,7 +11,7 @@ import Hydra.Cardano.Api
 import Brick.Forms (Form)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
-import Hydra.Network (Host (..), NodeId)
+import Hydra.Network (Host (..))
 import Hydra.TUI.Logging.Types (LogState)
 import Hydra.Tx (HeadId, Party (..))
 import Lens.Micro ((^?))
@@ -24,6 +24,7 @@ data RootState = RootState
   , logState :: LogState
   }
 
+-- | Connection to the hydra node.
 data ConnectedState
   = Disconnected
   | Connected {connection :: Connection}
@@ -32,9 +33,13 @@ data IdentifiedState
   = Unidentified
   | Identified Party
 
+-- | Connectivity of the hydra node to the hydra network.
+data NetworkState = NetworkConnected | NetworkDisconnected
+
 data Connection = Connection
   { me :: IdentifiedState
-  , peers :: [NodeId]
+  , peers :: [Host]
+  , networkState :: Maybe NetworkState
   , headState :: HeadState
   }
 
@@ -163,6 +168,7 @@ makeLensesFor
   [ ("transitionNote", "transitionNoteL")
   , ("me", "meL")
   , ("peers", "peersL")
+  , ("networkState", "networkStateL")
   , ("headState", "headStateL")
   ]
   ''Connection
@@ -199,6 +205,7 @@ emptyConnection =
   Connection
     { me = Unidentified
     , peers = []
+    , networkState = Nothing
     , headState = Idle
     }
 

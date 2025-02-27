@@ -418,7 +418,7 @@ runRunMonadIOSimGen f = do
       fn <- writeSystemTempFile "io-sim-trace" $ toString traceDump
       pure $ "IOSim trace stored in: " <> toString fn
    where
-    traceDump = printTrace (Proxy :: Proxy (HydraLog Tx ())) tr
+    traceDump = printTrace (Proxy :: Proxy (HydraLog Tx)) tr
 
   sim ::
     forall s.

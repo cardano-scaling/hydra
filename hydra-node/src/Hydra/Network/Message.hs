@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
-import Hydra.Network (Host, NodeId)
+import Hydra.Network (Connectivity)
 import Hydra.Tx (
   IsTx (TxIdType),
   Party,
@@ -25,46 +25,6 @@ data NetworkEvent msg
   deriving anyclass (ToJSON)
 
 instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
-  arbitrary = genericArbitrary
-
-type HydraVersionedProtocolNumber :: Type
-newtype HydraVersionedProtocolNumber = MkHydraVersionedProtocolNumber {hydraVersionedProtocolNumber :: Natural}
-  deriving stock (Eq, Show, Generic, Ord)
-  deriving anyclass (ToJSON)
-
-instance Arbitrary HydraVersionedProtocolNumber where
-  arbitrary = genericArbitrary
-
-type KnownHydraVersions :: Type
-data KnownHydraVersions
-  = KnownHydraVersions {fromKnownHydraVersions :: [HydraVersionedProtocolNumber]}
-  | NoKnownHydraVersions
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
-
-instance Arbitrary KnownHydraVersions where
-  arbitrary = genericArbitrary
-
-type HydraHandshakeRefused :: Type
-data HydraHandshakeRefused = HydraHandshakeRefused
-  { remoteHost :: Host
-  , ourVersion :: HydraVersionedProtocolNumber
-  , theirVersions :: KnownHydraVersions
-  }
-  deriving stock (Eq, Show, Generic)
-
-data Connectivity
-  = Connected {nodeId :: NodeId}
-  | Disconnected {nodeId :: NodeId}
-  | HandshakeFailure
-      { remoteHost :: Host
-      , ourVersion :: HydraVersionedProtocolNumber
-      , theirVersions :: KnownHydraVersions
-      }
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON)
-
-instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
 
 data Message tx

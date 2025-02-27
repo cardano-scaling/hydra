@@ -12,25 +12,23 @@ import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (DirectChainLog)
-import Hydra.Network.Authenticate (AuthLog)
-import Hydra.Network.Reliability (ReliabilityLog)
 import Hydra.Node (HydraNodeLog)
+import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
 
-data HydraLog tx net
+data HydraLog tx
   = DirectChain {directChain :: DirectChainLog}
   | APIServer {api :: APIServerLog}
-  | Network {network :: net}
+  | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
-  | Authentication {authentication :: AuthLog}
-  | Reliability {reliability :: ReliabilityLog}
+  | EnteringMainloop
   deriving stock (Generic)
 
-deriving stock instance (Eq net, Eq (HydraNodeLog tx)) => Eq (HydraLog tx net)
-deriving stock instance (Show net, Show (HydraNodeLog tx)) => Show (HydraLog tx net)
-deriving anyclass instance (ToJSON net, ToJSON (HydraNodeLog tx)) => ToJSON (HydraLog tx net)
+deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
+deriving stock instance Show (HydraNodeLog tx) => Show (HydraLog tx)
+deriving anyclass instance ToJSON (HydraNodeLog tx) => ToJSON (HydraLog tx)
 
-instance (Arbitrary net, Arbitrary (HydraNodeLog tx)) => Arbitrary (HydraLog tx net) where
+instance Arbitrary (HydraNodeLog tx) => Arbitrary (HydraLog tx) where
   arbitrary = genericArbitrary
   shrink = genericShrink

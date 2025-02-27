@@ -288,9 +288,7 @@ withCardanoNode tr stateDirectory args action = do
       \_stdin _stdout mError processHandle ->
         (`finally` cleanupSocketFile) $
           race (checkProcessHasNotDied "cardano-node" processHandle mError) waitForNode
-            >>= \case
-              Left{} -> error "should never been reached"
-              Right a -> pure a
+            <&> either absurd id
  where
   CardanoNodeArgs{nodeSocket} = args
 
