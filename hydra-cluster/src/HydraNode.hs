@@ -6,7 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (cliQueryProtocolParameters)
-import Control.Concurrent.Async (forConcurrently_, link)
+import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~))
@@ -35,16 +35,8 @@ import Network.WebSockets (Connection, ConnectionException, HandshakeException, 
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.Info (os)
-import System.Process.Typed (
-  checkExitCode,
-  inherit,
-  proc,
-  setStderr,
-  setStdout,
-  useHandleOpen,
-  withProcessTerm,
- )
-import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
+import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -366,17 +358,21 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                       }
                 }
           )
-            & setStdout (useHandleOpen logFileHandle)
-            -- TODO: capture and include in errors
-            & setStderr inherit
+            { std_out = UseHandle logFileHandle
+            , std_err = CreatePipe
+            }
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
-
-    withProcessTerm cmd $ \p -> do
-      -- NOTE: exit code thread gets cancelled if 'action' terminates first
-      withAsync (checkExitCode p) $ \thread -> do
-        link thread
-        withConnectionToNode tracer hydraNodeId action
+    withCreateProcess cmd $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
+      case (mCreatedStdOut, mCreatedStdErr) of
+        (Just _, _) -> error "Should not happen™"
+        (_, Nothing) -> error "Should not happen™"
+        (Nothing, Just err) ->
+          race
+            -- NOTE: exit code thread gets cancelled if 'action' terminates first
+            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
+            (withConnectionToNode tracer hydraNodeId action)
+            <&> either absurd id
  where
   port = fromIntegral $ 5_000 + hydraNodeId
 
