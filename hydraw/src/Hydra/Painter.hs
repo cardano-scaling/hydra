@@ -51,7 +51,7 @@ requestHeadUTxO host = do
 -- | Same as 'withClient' except we don't retry if connection fails.
 withClientNoRetry :: Host -> (Connection -> IO ()) -> IO ()
 withClientNoRetry Host{hostname, port} action =
-  runClient (toString hostname) (fromIntegral port) "/" action
+  runClient (toString hostname) (fromIntegral port) "/?history=yes" action
     `catch` \(e :: IOException) -> print e >> threadDelay 1
 
 withClient :: Host -> (Connection -> IO ()) -> IO ()
@@ -60,7 +60,7 @@ withClient Host{hostname, port} action =
  where
   retry = do
     putTextLn $ "Connecting to Hydra API on " <> hostname <> ":" <> show port <> ".."
-    runClient (toString hostname) (fromIntegral port) "/" action
+    runClient (toString hostname) (fromIntegral port) "/?history=yes" action
       `catch` \(e :: IOException) -> print e >> threadDelay 1 >> retry
 
 -- | Create a zero-fee, payment cardano transaction with pixel metadata, which
