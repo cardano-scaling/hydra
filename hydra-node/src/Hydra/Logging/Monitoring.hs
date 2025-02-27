@@ -13,20 +13,22 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
+import Hydra.HeadLogic.Outcome (Outcome (Continue), StateChanged (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
-import Hydra.Node (HydraNodeLog (BeginInput, EndInput, input))
-import Hydra.Tx (IsTx (TxIdType), txId)
+import Hydra.Node (HydraNodeLog (..))
+import Hydra.Tx (IsTx (TxIdType), Snapshot (confirmed), txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, HistogramMetric))
-import System.Metrics.Prometheus.Metric.Counter (inc)
+import System.Metrics.Prometheus.Metric.Counter (add, inc)
+import System.Metrics.Prometheus.Metric.Histogram (observe)
 import System.Metrics.Prometheus.MetricId (Name (Name))
 import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerHistogram, sample)
 
@@ -91,6 +93,16 @@ monitor transactionsMap metricsMap = \case
     -- memory leak. We might want to have a 'cleaner' thread run that will remove
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
+  (Node (LogicOutcome _ (Continue [SnapshotConfirmed _ snapshot _] _))) -> do
+    t <- getMonotonicTime
+    forM_ (confirmed snapshot) $ \tx -> do
+      txsStartTime <- readTVarIO transactionsMap
+      case Map.lookup (txId tx) txsStartTime of
+        Just start -> do
+          atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
+          histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
+        Nothing -> pure ()
+    tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
     tick "hydra_head_requested_tx"
   (Node (EndInput _ _)) ->
     tick "hydra_head_inputs"
@@ -99,4 +111,14 @@ monitor transactionsMap metricsMap = \case
   tick metricName =
     case Map.lookup metricName metricsMap of
       (Just (CounterMetric c)) -> liftIO $ inc c
+      _ -> pure ()
+
+  tickN metricName num =
+    case Map.lookup metricName metricsMap of
+      (Just (CounterMetric c)) -> liftIO $ add num c
+      _ -> pure ()
+
+  histo metricName time =
+    case Map.lookup metricName metricsMap of
+      (Just (HistogramMetric h)) -> liftIO $ observe (fromRational $ toRational $ time * 1000) h
       _ -> pure ()
