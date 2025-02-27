@@ -1,0 +1,395 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679401480"><span id="local-6989586621679401481"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Contract.Close.CloseInitial</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-keyword">label</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#fromJust"><span class="hs-identifier">fromJust</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ToErrorCode</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadError</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadError</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HeadState</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">posixFromUTCTime</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Orphans</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotNumber</span></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">hashUTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier">mkHeadId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">registryUTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Close</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OpenThreadOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">closeTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html"><span class="hs-identifier">Hydra.Tx.Contract.Close.Healthy</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyCloseLowerBoundSlot"><span class="hs-identifier">healthyCloseLowerBoundSlot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyCloseUpperBoundPointInTime"><span class="hs-identifier">healthyCloseUpperBoundPointInTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyContestationDeadline"><span class="hs-identifier">healthyContestationDeadline</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyContestationPeriod"><span class="hs-identifier">healthyContestationPeriod</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOnChainParties"><span class="hs-identifier">healthyOnChainParties</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxIn"><span class="hs-identifier">healthyOpenHeadTxIn</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxOut"><span class="hs-identifier">healthyOpenHeadTxOut</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyUTxO"><span class="hs-identifier">healthyUTxO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#somePartyCardanoVerificationKey"><span class="hs-identifier">somePartyCardanoVerificationKey</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">POSIXTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Fixture</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genScriptRegistry</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Mutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Mutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SomeMutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">modifyInlineDatum</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">replaceContestationDeadline</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">oneof</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">suchThat</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">data</span><span> </span><span id="CloseInitialMutation"><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#CloseInitialMutation"><span class="hs-identifier hs-var">CloseInitialMutation</span></a></span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MutateCloseContestationDeadline%27"><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#MutateCloseContestationDeadline%27"><span class="hs-identifier hs-var">MutateCloseContestationDeadline'</span></a></span></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679401544"><span id="local-6989586621679401546"><span class="annot"><span class="annottext">(forall x. CloseInitialMutation -&gt; Rep CloseInitialMutation x)
+-&gt; (forall x. Rep CloseInitialMutation x -&gt; CloseInitialMutation)
+-&gt; Generic CloseInitialMutation
+forall x. Rep CloseInitialMutation x -&gt; CloseInitialMutation
+forall x. CloseInitialMutation -&gt; Rep CloseInitialMutation x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. CloseInitialMutation -&gt; Rep CloseInitialMutation x
+from :: forall x. CloseInitialMutation -&gt; Rep CloseInitialMutation x
+$cto :: forall x. Rep CloseInitialMutation x -&gt; CloseInitialMutation
+to :: forall x. Rep CloseInitialMutation x -&gt; CloseInitialMutation
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679401550"><span id="local-6989586621679401552"><span id="local-6989586621679401555"><span class="annot"><span class="annottext">Int -&gt; CloseInitialMutation -&gt; ShowS
+[CloseInitialMutation] -&gt; ShowS
+CloseInitialMutation -&gt; String
+(Int -&gt; CloseInitialMutation -&gt; ShowS)
+-&gt; (CloseInitialMutation -&gt; String)
+-&gt; ([CloseInitialMutation] -&gt; ShowS)
+-&gt; Show CloseInitialMutation
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; CloseInitialMutation -&gt; ShowS
+showsPrec :: Int -&gt; CloseInitialMutation -&gt; ShowS
+$cshow :: CloseInitialMutation -&gt; String
+show :: CloseInitialMutation -&gt; String
+$cshowList :: [CloseInitialMutation] -&gt; ShowS
+showList :: [CloseInitialMutation] -&gt; ShowS
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679401559"><span id="local-6989586621679401567"><span id="local-6989586621679401573"><span id="local-6989586621679401587"><span id="local-6989586621679401589"><span id="local-6989586621679401593"><span id="local-6989586621679401597"><span id="local-6989586621679401600"><span class="annot"><span class="annottext">Int -&gt; CloseInitialMutation
+CloseInitialMutation -&gt; Int
+CloseInitialMutation -&gt; [CloseInitialMutation]
+CloseInitialMutation -&gt; CloseInitialMutation
+CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; [CloseInitialMutation]
+CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; [CloseInitialMutation]
+(CloseInitialMutation -&gt; CloseInitialMutation)
+-&gt; (CloseInitialMutation -&gt; CloseInitialMutation)
+-&gt; (Int -&gt; CloseInitialMutation)
+-&gt; (CloseInitialMutation -&gt; Int)
+-&gt; (CloseInitialMutation -&gt; [CloseInitialMutation])
+-&gt; (CloseInitialMutation
+    -&gt; CloseInitialMutation -&gt; [CloseInitialMutation])
+-&gt; (CloseInitialMutation
+    -&gt; CloseInitialMutation -&gt; [CloseInitialMutation])
+-&gt; (CloseInitialMutation
+    -&gt; CloseInitialMutation
+    -&gt; CloseInitialMutation
+    -&gt; [CloseInitialMutation])
+-&gt; Enum CloseInitialMutation
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+$csucc :: CloseInitialMutation -&gt; CloseInitialMutation
+succ :: CloseInitialMutation -&gt; CloseInitialMutation
+$cpred :: CloseInitialMutation -&gt; CloseInitialMutation
+pred :: CloseInitialMutation -&gt; CloseInitialMutation
+$ctoEnum :: Int -&gt; CloseInitialMutation
+toEnum :: Int -&gt; CloseInitialMutation
+$cfromEnum :: CloseInitialMutation -&gt; Int
+fromEnum :: CloseInitialMutation -&gt; Int
+$cenumFrom :: CloseInitialMutation -&gt; [CloseInitialMutation]
+enumFrom :: CloseInitialMutation -&gt; [CloseInitialMutation]
+$cenumFromThen :: CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; [CloseInitialMutation]
+enumFromThen :: CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; [CloseInitialMutation]
+$cenumFromTo :: CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; [CloseInitialMutation]
+enumFromTo :: CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; [CloseInitialMutation]
+$cenumFromThenTo :: CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; [CloseInitialMutation]
+enumFromThenTo :: CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; CloseInitialMutation
+-&gt; [CloseInitialMutation]
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679401604"><span id="local-6989586621679401606"><span class="annot"><span class="annottext">CloseInitialMutation
+CloseInitialMutation
+-&gt; CloseInitialMutation -&gt; Bounded CloseInitialMutation
+forall a. a -&gt; a -&gt; Bounded a
+$cminBound :: CloseInitialMutation
+minBound :: CloseInitialMutation
+$cmaxBound :: CloseInitialMutation
+maxBound :: CloseInitialMutation
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseSnapshotNumber"><span class="hs-identifier hs-type">healthyCloseSnapshotNumber</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span>
+</span><span id="line-49"></span><span id="healthyCloseSnapshotNumber"><span class="annot"><span class="annottext">healthyCloseSnapshotNumber :: SnapshotNumber
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseSnapshotNumber"><span class="hs-identifier hs-var hs-var">healthyCloseSnapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-type">healthyCloseSnapshotVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span>
+</span><span id="line-52"></span><span id="healthyCloseSnapshotVersion"><span class="annot"><span class="annottext">healthyCloseSnapshotVersion :: SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var hs-var">healthyCloseSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Healthy close transaction for the specific case were we close a head</span><span>
+</span><span id="line-55"></span><span class="hs-comment">--   with the initial UtxO, that is, no snapshot have been agreed upon and</span><span>
+</span><span id="line-56"></span><span class="hs-comment">--   signed by the head members yet.</span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseInitialTx"><span class="hs-identifier hs-type">healthyCloseInitialTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span id="healthyCloseInitialTx"><span class="annot"><span class="annottext">healthyCloseInitialTx :: (Tx, UTxO' (TxOut CtxUTxO))
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseInitialTx"><span class="hs-identifier hs-var hs-var">healthyCloseInitialTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679401612"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO' (TxOut CtxUTxO)
+</span><a href="#local-6989586621679401613"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="#local-6989586621679401612"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-62"></span><span>  </span><span id="local-6989586621679401612"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679401612"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; VerificationKey PaymentKey
+-&gt; HeadId
+-&gt; SnapshotVersion
+-&gt; ConfirmedSnapshot Tx
+-&gt; SlotNo
+-&gt; PointInTime
+-&gt; OpenThreadOutput
+-&gt; Tx
+</span><span class="hs-identifier hs-var">closeTx</span></span><span>
+</span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679401614"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#somePartyCardanoVerificationKey"><span class="hs-identifier hs-var">somePartyCardanoVerificationKey</span></a></span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679401615"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyCloseSnapshotVersion"><span class="hs-identifier hs-var">healthyCloseSnapshotVersion</span></a></span><span>
+</span><span id="line-68"></span><span>      </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
+</span><a href="#local-6989586621679401616"><span class="hs-identifier hs-var">closingSnapshot</span></a></span><span>
+</span><span id="line-69"></span><span>      </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyCloseLowerBoundSlot"><span class="hs-identifier hs-var">healthyCloseLowerBoundSlot</span></a></span><span>
+</span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">PointInTime
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyCloseUpperBoundPointInTime"><span class="hs-identifier hs-var">healthyCloseUpperBoundPointInTime</span></a></span><span>
+</span><span id="line-71"></span><span>      </span><span class="annot"><span class="annottext">OpenThreadOutput
+</span><a href="#local-6989586621679401617"><span class="hs-identifier hs-var">openThreadOutput</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><a href="#local-6989586621679401618"><span class="hs-identifier hs-type">initialDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatum</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679401618"><span class="annot"><span class="annottext">initialDatum :: TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679401618"><span class="hs-identifier hs-var hs-var">initialDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era -&gt; TxOutDatum CtxUTxO
+forall era. TxOutDatum CtxTx era -&gt; TxOutDatum CtxUTxO era
+forall {k} (f :: * -&gt; k -&gt; *) (era :: k).
+ToUTxOContext f =&gt;
+f CtxTx era -&gt; f CtxUTxO era
+</span><span class="hs-identifier hs-var">toUTxOContext</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxTx Era
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyInitialOpenDatum"><span class="hs-identifier hs-var">healthyInitialOpenDatum</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><a href="#local-6989586621679401613"><span class="hs-identifier hs-type">lookupUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679401613"><span class="annot"><span class="annottext">lookupUTxO :: UTxO' (TxOut CtxUTxO)
+</span><a href="#local-6989586621679401613"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; UTxO' (TxOut CtxUTxO)
+forall out. (TxIn, out) -&gt; UTxO' out
+</span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxIn"><span class="hs-identifier hs-var">healthyOpenHeadTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO -&gt; TxOut CtxUTxO
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxOut"><span class="hs-identifier hs-var">healthyOpenHeadTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679401618"><span class="hs-identifier hs-var">initialDatum</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">UTxO' (TxOut CtxUTxO)
+-&gt; UTxO' (TxOut CtxUTxO) -&gt; UTxO' (TxOut CtxUTxO)
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO' (TxOut CtxUTxO)
+</span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679401614"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679401614"><span class="annot"><span class="annottext">scriptRegistry :: ScriptRegistry
+</span><a href="#local-6989586621679401614"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry
+</span><span class="hs-identifier hs-var">genScriptRegistry</span></span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry -&gt; Int -&gt; ScriptRegistry
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><a href="#local-6989586621679401617"><span class="hs-identifier hs-type">openThreadOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OpenThreadOutput</span></span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679401617"><span class="annot"><span class="annottext">openThreadOutput :: OpenThreadOutput
+</span><a href="#local-6989586621679401617"><span class="hs-identifier hs-var hs-var">openThreadOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">OpenThreadOutput</span></span><span>
+</span><span id="line-86"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:openThreadUTxO:OpenThreadOutput :: (TxIn, TxOut CtxUTxO)
+</span><span class="hs-identifier hs-var">openThreadUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxIn"><span class="hs-identifier hs-var">healthyOpenHeadTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO -&gt; TxOut CtxUTxO
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOpenHeadTxOut"><span class="hs-identifier hs-var">healthyOpenHeadTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679401618"><span class="hs-identifier hs-var">initialDatum</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:openParties:OpenThreadOutput :: [Party]
+</span><span class="hs-identifier hs-var">openParties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-var">healthyOnChainParties</span></a></span><span>
+</span><span id="line-88"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:openContestationPeriod:OpenThreadOutput :: ContestationPeriod
+</span><span class="hs-identifier hs-var">openContestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyContestationPeriod"><span class="hs-identifier hs-var">healthyContestationPeriod</span></a></span><span>
+</span><span id="line-89"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621679401615"><span class="annot"><span class="annottext">headId :: HeadId
+</span><a href="#local-6989586621679401615"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><span class="hs-identifier hs-var">mkHeadId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">Fixture.testPolicyId</span></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621679401616"><span class="annot"><span class="annottext">closingSnapshot :: ConfirmedSnapshot Tx
+</span><a href="#local-6989586621679401616"><span class="hs-identifier hs-var hs-var">closingSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">InitialSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
+headId :: HeadId
+$sel:headId:InitialSnapshot :: HeadId
+</span><a href="#local-6989586621679401615"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:initialUTxO:InitialSnapshot :: UTxOType Tx
+</span><span class="hs-identifier hs-var">initialUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO' (TxOut CtxUTxO)
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyUTxO"><span class="hs-identifier hs-var">healthyUTxO</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyInitialOpenDatum"><span class="hs-identifier hs-type">healthyInitialOpenDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadState.State</span></span><span>
+</span><span id="line-96"></span><span id="healthyInitialOpenDatum"><span class="annot"><span class="annottext">healthyInitialOpenDatum :: State
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#healthyInitialOpenDatum"><span class="hs-identifier hs-var hs-var">healthyInitialOpenDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">OpenDatum -&gt; State
+</span><span class="hs-identifier hs-var">Head.Open</span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Head.OpenDatum</span></span><span>
+</span><span id="line-99"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:parties:OpenDatum :: [Party]
+</span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyOnChainParties"><span class="hs-identifier hs-var">healthyOnChainParties</span></a></span><span>
+</span><span id="line-100"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:utxoHash:OpenDatum :: Hash
+</span><span class="hs-identifier hs-var">utxoHash</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ToBuiltin ByteString)
+-&gt; ByteString -&gt; ToBuiltin ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ByteString
+</span><span class="hs-identifier hs-var">hashUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO' (TxOut CtxUTxO)
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyUTxO"><span class="hs-identifier hs-var">healthyUTxO</span></a></span><span>
+</span><span id="line-101"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:OpenDatum :: ContestationPeriod
+</span><a href="#local-6989586621679401636"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyContestationPeriod"><span class="hs-identifier hs-var">healthyContestationPeriod</span></a></span><span>
+</span><span id="line-102"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:OpenDatum :: CurrencySymbol
+</span><a href="#local-6989586621679401637"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">Fixture.testPolicyId</span></span><span>
+</span><span id="line-103"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:version:OpenDatum :: SnapshotVersion
+</span><a href="#local-6989586621679401639"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-104"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">--- | Mutations for the specific case of closing with the intial state.</span><span>
+</span><span id="line-107"></span><span class="hs-comment">--- We should probably validate all the mutation to this initial state but at</span><span>
+</span><span id="line-108"></span><span class="hs-comment">--- least we keep this regression test as we stumbled upon problems with the following case.</span><span>
+</span><span id="line-109"></span><span class="hs-comment">--- The nice thing to do would probably to generate either &quot;normal&quot; healthyCloseTx or</span><span>
+</span><span id="line-110"></span><span class="hs-comment">--- or healthyCloseInitialTx and apply all the mutations to it but we didn't manage to do that</span><span>
+</span><span id="line-111"></span><span class="hs-comment">--- right away.</span><span>
+</span><span id="line-112"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#genCloseInitialMutation"><span class="hs-identifier hs-type">genCloseInitialMutation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeMutation</span></span><span>
+</span><span id="line-113"></span><span id="genCloseInitialMutation"><span class="annot"><span class="annottext">genCloseInitialMutation :: (Tx, UTxO' (TxOut CtxUTxO)) -&gt; Gen SomeMutation
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#genCloseInitialMutation"><span class="hs-identifier hs-var hs-var">genCloseInitialMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679401641"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679401641"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679401642"><span class="annot"><span class="annottext">UTxO' (TxOut CtxUTxO)
+</span><a href="#local-6989586621679401642"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><span class="annottext">[Text] -&gt; CloseInitialMutation -&gt; Mutation -&gt; SomeMutation
+forall lbl.
+(Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
+[Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
+</span><span class="hs-identifier hs-var">SomeMutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; [Text]
+forall a. a -&gt; [a]
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; [Text]) -&gt; Text -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadError -&gt; Text
+forall a. ToErrorCode a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">toErrorCode</span></span><span> </span><span class="annot"><span class="annottext">HeadError
+</span><span class="hs-identifier hs-var">IncorrectClosedContestationDeadline</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CloseInitialMutation
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#MutateCloseContestationDeadline%27"><span class="hs-identifier hs-var">MutateCloseContestationDeadline'</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621679401647"><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679401647"><span class="hs-identifier hs-var">mutatedDeadline</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#genMutatedDeadline"><span class="hs-identifier hs-var">genMutatedDeadline</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+forall a. a -&gt; Gen a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx -&gt; Mutation
+</span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx -&gt; Mutation) -&gt; TxOut CtxTx -&gt; Mutation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+forall a.
+(FromScriptData a, ToScriptData a) =&gt;
+(a -&gt; a) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+</span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">POSIXTime -&gt; State -&gt; State
+</span><span class="hs-identifier hs-var">replaceContestationDeadline</span></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679401647"><span class="hs-identifier hs-var">mutatedDeadline</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679401650"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
+</span><span id="line-117"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-118"></span><span>  </span><span id="local-6989586621679401650"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx
+</span><a href="#local-6989586621679401650"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
+forall a. HasCallStack =&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#fromJust"><span class="hs-identifier hs-var">fromJust</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (TxOut CtxTx) -&gt; TxOut CtxTx)
+-&gt; Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
+forall era. Tx era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679401641"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int -&gt; Maybe (TxOut CtxTx)
+forall a. [a] -&gt; Int -&gt; Maybe a
+</span><span class="hs-operator hs-var">!!?</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">-- | Generate not acceptable, but interesting deadlines.</span></span><span>
+</span><span id="line-121"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.CloseInitial.html#genMutatedDeadline"><span class="hs-identifier hs-type">genMutatedDeadline</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">POSIXTime</span></span><span>
+</span><span id="line-122"></span><span id="genMutatedDeadline"><span class="annot"><span class="annottext">genMutatedDeadline :: Gen POSIXTime
+</span><a href="Hydra.Tx.Contract.Close.CloseInitial.html#genMutatedDeadline"><span class="hs-identifier hs-var hs-var">genMutatedDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><span class="annottext">[Gen POSIXTime] -&gt; Gen POSIXTime
+forall a. [Gen a] -&gt; Gen a
+</span><span class="hs-identifier hs-var">oneof</span></span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime
+</span><a href="#local-6989586621679401653"><span class="hs-identifier hs-var">valuesAroundZero</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime
+</span><a href="#local-6989586621679401654"><span class="hs-identifier hs-var">valuesAroundDeadline</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-127"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-128"></span><span>  </span><span id="local-6989586621679401653"><span class="annot"><span class="annottext">valuesAroundZero :: Gen POSIXTime
+</span><a href="#local-6989586621679401653"><span class="hs-identifier hs-var hs-var">valuesAroundZero</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime -&gt; (POSIXTime -&gt; Bool) -&gt; Gen POSIXTime
+forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
+</span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">POSIXTime -&gt; POSIXTime -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679401661"><span class="hs-identifier hs-var">deadline</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span>  </span><span id="local-6989586621679401654"><span class="annot"><span class="annottext">valuesAroundDeadline :: Gen POSIXTime
+</span><a href="#local-6989586621679401654"><span class="hs-identifier hs-var hs-var">valuesAroundDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime -&gt; (POSIXTime -&gt; Bool) -&gt; Gen POSIXTime
+forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
+</span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">POSIXTime -&gt; POSIXTime -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Gen POSIXTime -&gt; (POSIXTime -&gt; POSIXTime) -&gt; Gen POSIXTime
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">POSIXTime -&gt; POSIXTime -&gt; POSIXTime
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pqpbfdxf2whidgls6zlh21rmwffz2vnd-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><a href="#local-6989586621679401661"><span class="hs-identifier hs-var">deadline</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>  </span><span id="local-6989586621679401661"><span class="annot"><span class="annottext">deadline :: POSIXTime
+</span><a href="#local-6989586621679401661"><span class="hs-identifier hs-var hs-var">deadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; POSIXTime
+</span><span class="hs-identifier hs-var">posixFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyContestationDeadline"><span class="hs-identifier hs-var">healthyContestationDeadline</span></a></span><span>
+</span><span id="line-133"></span></pre></body></html>
