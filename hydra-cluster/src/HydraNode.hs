@@ -16,6 +16,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.Aeson.Types (Pair)
+import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
@@ -34,9 +35,19 @@ import Network.HTTP.Simple (httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
+import System.IO (hClose)
 import System.Info (os)
-import System.Process (CreateProcess (..), StdStream (..), proc, withCreateProcess)
-import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, shouldNotBe, withLogFile)
+import System.Process qualified as P
+import System.Process.Typed (
+  ExitCode (..),
+  proc,
+  setStderr,
+  setStdout,
+  useHandleOpen,
+  waitExitCode,
+  withProcessTerm,
+ )
+import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -332,6 +343,9 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
     hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
       let filepath = stateDir </> ("other-" <> show i <> ".vk")
       filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
+
+    -- XXX: using a dedicated pipe as 'createPipe' from typed-process closes too early
+    (readErr, writeErr) <- P.createPipe
     let cmd =
           ( proc "hydra-node" . toArgs $
               -- NOTE: Using 0.0.0.0 over 127.0.0.1 will make the hydra-node
@@ -358,22 +372,27 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
                       }
                 }
           )
-            { std_out = UseHandle logFileHandle
-            , std_err = CreatePipe
-            }
+            & setStdout (useHandleOpen logFileHandle)
+            & setStderr (useHandleOpen writeErr)
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
-    withCreateProcess cmd $ \_stdin mCreatedStdOut mCreatedStdErr processHandle ->
-      case (mCreatedStdOut, mCreatedStdErr) of
-        (Just _, _) -> error "Should not happen™"
-        (_, Nothing) -> error "Should not happen™"
-        (Nothing, Just err) ->
-          race
-            -- NOTE: exit code thread gets cancelled if 'action' terminates first
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
-            (withConnectionToNode tracer hydraNodeId action)
-            <&> either absurd id
+
+    withProcessTerm cmd $ \p -> do
+      hClose writeErr
+      -- NOTE: exit code thread gets cancelled if 'action' terminates first
+      race
+        (collectAndCheckExitCode p readErr)
+        (withConnectionToNode tracer hydraNodeId action)
+        <&> either absurd id
  where
+  collectAndCheckExitCode p h =
+    (`finally` hClose h) $
+      waitExitCode p >>= \case
+        ExitSuccess -> failure "hydra-node stopped early"
+        ExitFailure ec -> do
+          err <- hGetContents h
+          failure $ "hydra-node exited with failure code: " <> show ec <> "\n" <> decodeUtf8 err
+
   port = fromIntegral $ 5_000 + hydraNodeId
 
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1

@@ -570,6 +570,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
                 "hydra-node" `isInfixOf` show e
+                  && "not-existing.sk" `isInfixOf` show e
 
       it "stops gracefully" $ \tracer -> do
         withClusterTempDir $ \dir -> do
