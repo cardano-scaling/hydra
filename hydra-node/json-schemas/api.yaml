@@ -762,8 +762,6 @@ components:
         - tag
         - me
         - headStatus
-        - seq
-        - timestamp
         - hydraNodeVersion
       properties:
         tag:
@@ -1152,8 +1150,6 @@ components:
       - tag
       - reason
       - input
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1162,10 +1158,6 @@ components:
           type: string
         input:
           type: string
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     PostTxOnChainFailed:
       type: object
@@ -1174,8 +1166,6 @@ components:
       - tag
       - postChainTx
       - postTxError
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1184,18 +1174,12 @@ components:
           $ref: "api.yaml#/components/schemas/PostChainTx"
         postTxError:
           $ref: "api.yaml#/components/schemas/PostTxError"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     CommandFailed:
       type: object
       required:
       - tag
       - clientInput
-      - seq
-      - timestamp
       properties:
         tag:
           type: string
@@ -1211,10 +1195,6 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
 
     IgnoredHeadInitializing:
       type: object
