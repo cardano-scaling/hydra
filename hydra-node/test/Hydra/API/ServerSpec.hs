@@ -241,9 +241,11 @@ spec =
                   received <- replicateM (length outputs + 1) (receiveData conn)
                   results <- case traverse Aeson.eitherDecode received of
                     Left{} ->
+                      -- TODO: fix this double decoding. Now we need to try and decode TimedServerOutput and if that fails try ServerOutput
+                      -- since we emit some of the messages directly as ServerOutput from the API server.
                       case traverse Aeson.eitherDecode received :: Either String [ServerOutput SimpleTx] of
                         Left{} -> failure $ "Failed to decode messages:\n" <> show received
-                        Right output -> pure []
+                        Right _ -> pure []
                     Right (timedOutputs :: [TimedServerOutput SimpleTx]) -> pure timedOutputs
                   seq <$> results `shouldSatisfy` isContinuous
 
