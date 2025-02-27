@@ -1,7 +1,8 @@
 {
     "samples": [
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 3,
+            "tag": "Recover"
         },
         {
             "tag": "Fanout"
@@ -227,10 +228,12 @@
             }
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 3,
+            "tag": "Recover"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -2,
+            "tag": "Recover"
         },
         {
             "tag": "Contest"
@@ -255,10 +258,12 @@
             }
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -1,
+            "tag": "Recover"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -6,
+            "tag": "Recover"
         },
         {
             "tag": "Abort"
@@ -333,7 +338,8 @@
             "tag": "Contest"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -6,
+            "tag": "Recover"
         },
         {
             "tag": "Contest"
@@ -351,7 +357,8 @@
             "tag": "Abort"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 4,
+            "tag": "Recover"
         },
         {
             "tag": "Close"
@@ -381,10 +388,12 @@
             "tag": "Fanout"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -5,
+            "tag": "Recover"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 1,
+            "tag": "Recover"
         },
         {
             "tag": "Init"
@@ -466,7 +475,8 @@
             "tag": "Fanout"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 1,
+            "tag": "Recover"
         },
         {
             "tag": "Init"
@@ -520,7 +530,8 @@
             "tag": "Abort"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 0,
+            "tag": "Recover"
         },
         {
             "tag": "Init"
@@ -578,7 +589,8 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 4,
+            "tag": "Recover"
         },
         {
             "decommitTx": {
@@ -605,7 +617,8 @@
             "tag": "Init"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 2,
+            "tag": "Recover"
         },
         {
             "decommitTx": {
@@ -639,7 +652,8 @@
             }
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 6,
+            "tag": "Recover"
         },
         {
             "tag": "Init"
@@ -786,7 +800,8 @@
             "tag": "Fanout"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 4,
+            "tag": "Recover"
         },
         {
             "tag": "Contest"
@@ -795,7 +810,8 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 6,
+            "tag": "Recover"
         },
         {
             "tag": "Abort"
@@ -858,7 +874,8 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -2,
+            "tag": "Recover"
         },
         {
             "tag": "Contest"
@@ -889,13 +906,15 @@
             "tag": "Init"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -6,
+            "tag": "Recover"
         },
         {
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 5,
+            "tag": "Recover"
         },
         {
             "tag": "Abort"
@@ -988,7 +1007,8 @@
             "tag": "Init"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -5,
+            "tag": "Recover"
         },
         {
             "tag": "Contest"
@@ -1000,7 +1020,8 @@
             "tag": "Init"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 3,
+            "tag": "Recover"
         },
         {
             "tag": "Close"
@@ -1070,7 +1091,8 @@
             "tag": "Close"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -5,
+            "tag": "Recover"
         },
         {
             "tag": "Abort"
@@ -1103,7 +1125,8 @@
             }
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": 3,
+            "tag": "Recover"
         },
         {
             "decommitTx": {
@@ -1173,7 +1196,8 @@
             "tag": "Decommit"
         },
         {
-            "tag": "GetUTxO"
+            "recoverTxId": -3,
+            "tag": "Recover"
         },
         {
             "tag": "Fanout"
