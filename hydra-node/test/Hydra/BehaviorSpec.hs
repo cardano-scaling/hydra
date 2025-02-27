@@ -177,10 +177,11 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
-
-              waitMatch n1 $ \case
-                CommandFailed{} -> guard True
-                _ -> Nothing
+              -- FIXME: fix this, we don't have CommandFailed anymore, should match on Error?
+              -- waitMatch n1 $ \case
+              --   CommandFailed{} -> guard True
+              --   _ -> Nothing
+              True `shouldBe` False
 
     it "ignores head initialization of other head" $
       shouldRunInSim $
