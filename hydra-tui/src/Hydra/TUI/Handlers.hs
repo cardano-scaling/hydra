@@ -82,9 +82,9 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update TimedServerOutput{output = Greetings{me}} -> meL .= Identified me
-  Update TimedServerOutput{output = PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
-  Update TimedServerOutput{output = PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  UpdateDirect Greetings{me} -> meL .= Identified me
+  UpdateDirect PeerConnected{peer} -> peersL %= \cp -> nub $ cp <> [peer]
+  UpdateDirect PeerDisconnected{peer} -> peersL %= \cp -> cp \\ [peer]
   e -> zoom headStateL $ handleHydraEventsHeadState e
 
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
