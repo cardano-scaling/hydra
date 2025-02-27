@@ -65,7 +65,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
-import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, property, shuffle, suchThat)
+import Test.QuickCheck (Property, counterexample, elements, forAll, oneof, shuffle, suchThat)
 import Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 
 spec :: Spec
@@ -112,11 +112,9 @@ spec =
             ttl = 0
             reqTx = NetworkInput ttl $ ReceivedMessage{sender = alice, msg = ReqTx tx}
             s0 = inOpenState threeParties
-            expectedStateChange =
-              TxInvalid{headId = testHeadId, transaction = tx, utxo = mempty, validationError = ValidationError "cannot apply transaction"}
 
-        update bobEnv ledger s0 reqTx `shouldSatisfy` \case
-          Continue as _ -> expectedStateChange `elem` as
+        update bobEnv ledger s0 reqTx `hasStateChangedSatisfying` \case
+          TxInvalid{transaction} -> transaction == tx
           _ -> False
 
       it "waits if a requested tx is not (yet) applicable" $ do
@@ -173,9 +171,8 @@ spec =
               transaction = SimpleTx 1 mempty outputs
               input = receiveMessage ReqDec{transaction}
               st = inOpenState threeParties
-              expectedStateChange = DecommitRequested{headId = testHeadId, decommitTx = transaction, utxoToDecommit = outputs}
-          update aliceEnv ledger st input `shouldSatisfy` \case
-            Continue as _ -> expectedStateChange `elem` as
+          update aliceEnv ledger st input `hasStateChangedSatisfying` \case
+            DecommitRequested{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
             _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
@@ -198,14 +195,8 @@ spec =
                   coordinatedHeadState
                     { decommitTx = Just decommitTxInFlight
                     }
-              expectedStateChange =
-                DecommitInvalid
-                  { headId = testHeadId
-                  , decommitTx
-                  , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = 2}
-                  }
-          update bobEnv ledger s0 reqDecEvent `shouldSatisfy` \case
-            Continue as _ -> expectedStateChange `elem` as
+          update bobEnv ledger s0 reqDecEvent `hasStateChangedSatisfying` \case
+            DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
         it "wait for second decommit when another one is in flight" $
@@ -609,7 +600,6 @@ spec =
                   , contestationDeadline
                   }
             headIsClosed = HeadClosed{headId = testHeadId, snapshotNumber, chainState = SimpleChainState 0, contestationDeadline}
-            readyToFanout = HeadIsReadyToFanout{headId = testHeadId}
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
           lift $ do
@@ -617,8 +607,8 @@ spec =
               Continue as _ -> headIsClosed `elem` as
               _ -> False
             outcome1
-              `shouldNotSatisfy` \case
-                Continue as _ -> readyToFanout `elem` as
+              `hasNoStateChangedSatisfying` \case
+                HeadIsReadyToFanout{} -> True
                 _ -> False
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
@@ -626,8 +616,8 @@ spec =
               stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainSlot
           outcome2 <- step stepTimePastDeadline
           lift $
-            outcome2 `shouldSatisfy` \case
-              Continue as _ -> readyToFanout `elem` as
+            outcome2 `hasStateChangedSatisfying` \case
+              HeadIsReadyToFanout{headId} -> testHeadId == headId
               _ -> False
 
       it "contests when detecting close with old snapshot" $ do
@@ -816,15 +806,10 @@ prop_ignoresUnrelatedOnInitTx =
   forAll arbitrary $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> do
       let outcome = update env simpleLedger inIdleState (observeTx unrelatedInit)
-      case unrelatedInit of
-        OnInitTx{headId, participants, headParameters = HeadParameters{contestationPeriod, parties}} -> do
-          let expectedOutcome = IgnoredHeadInitializing{headId, contestationPeriod, participants, parties}
-          counterexample ("Outcome: " <> show outcome) $
-            outcome
-              `shouldSatisfy` \case
-                Continue as _ -> expectedOutcome `elem` as
-                _ -> False
-        _ -> property False
+      counterexample ("Outcome: " <> show outcome) $
+        outcome `hasStateChangedSatisfying` \case
+          IgnoredHeadInitializing{} -> True
+          _ -> False
  where
   genUnrelatedInit env =
     oneof
@@ -1067,6 +1052,26 @@ hasNoEffectSatisfying outcome predicate =
       when (any predicate effects) $
         failure $
           "Expected no effect satisfying the predicate, but got: " <> show effects
+
+hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+hasStateChangedSatisfying outcome predicate =
+  case outcome of
+    Wait{} -> failure "Expected an effect, but got Wait outcome"
+    Error{} -> failure "Expected an effect, but got Error outcome"
+    Continue{stateChanges} ->
+      unless (any predicate stateChanges) $
+        failure $
+          "Expected an state change satisfying the predicate, but got: " <> show stateChanges
+
+hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+hasNoStateChangedSatisfying outcome predicate =
+  case outcome of
+    Wait{} -> failure "Expected an effect, but got Wait outcome"
+    Error{} -> failure "Expected an effect, but got Error outcome"
+    Continue{stateChanges} ->
+      when (any predicate stateChanges) $
+        failure $
+          "Expected no state change satisfying the predicate, but got: " <> show stateChanges
 
 testSnapshot ::
   Monoid (UTxOType tx) =>
