@@ -841,8 +841,7 @@ spec = parallel $ do
         expectedStateChange = Outcome.HeadInitialized{headId = testHeadId, parameters, chainState = SimpleChainState 1, parties = fromList [alice], headSeed = testHeadSeed}
         expectedOutcome = LogicOutcome alice $ Outcome.Continue [expectedStateChange] []
 
-    logs `shouldSatisfy` \case
-      as -> expectedOutcome `elem` as
+    logs `shouldContain` [expectedOutcome]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
