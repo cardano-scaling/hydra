@@ -32,9 +32,11 @@ library
   build-depends:
     , aeson
     , base
+    , http-conduit
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , text
     , websockets
 
 executable hydraw
