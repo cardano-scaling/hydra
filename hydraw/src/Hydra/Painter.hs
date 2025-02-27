@@ -34,7 +34,7 @@ paintPixel networkId signingKeyPath host cnx pixel = do
           case mkPaintTx (txIn, txOut) sk pixel of
             Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
             Left err -> fail $ "Failed to build pixel transaction " <> show err
-    Nothing -> fail $ "Head UTxO is empty"
+    Nothing -> fail "Head UTxO is empty"
  where
   flushQueue =
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue)
