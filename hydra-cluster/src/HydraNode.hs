@@ -426,7 +426,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
-  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} Nothing
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} (Just "/?history=yes")
  where
   hostname = "127.0.0.1"
   port = fromInteger $ 4_000 + toInteger hydraNodeId
