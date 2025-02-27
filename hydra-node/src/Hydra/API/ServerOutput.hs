@@ -142,6 +142,13 @@ data ServerOutput tx
   | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
+  | -- | Given side snapshot was loaded and included transactions can be
+    -- considered final.
+    SnapshotSideLoaded
+      { headId :: HeadId
+      , snapshot :: Snapshot tx
+      , signatures :: MultiSignature (Snapshot tx)
+      }
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -203,6 +210,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
+    SnapshotSideLoaded headId s ms -> SnapshotSideLoaded <$> shrink headId <*> shrink s <*> shrink ms
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -265,6 +273,8 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     CommitIgnored{} -> encodedResponse
+    SnapshotSideLoaded{} ->
+      handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
@@ -339,4 +349,5 @@ projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType
 projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
+  SnapshotSideLoaded _ snapshot _ -> Just $ Tx.utxo snapshot
   _other -> snapshotUtxo

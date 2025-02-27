@@ -163,6 +163,11 @@ getSnapshot = \case
       }
   ConfirmedSnapshot{snapshot} -> snapshot
 
+getSnapshotSignatures :: ConfirmedSnapshot tx -> MultiSignature (Snapshot tx)
+getSnapshotSignatures = \case
+  InitialSnapshot{} -> aggregate []
+  ConfirmedSnapshot{signatures} -> signatures
+
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary

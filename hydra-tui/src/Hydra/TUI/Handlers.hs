@@ -106,6 +106,8 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Open OpenHome
     Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{utxo}}} ->
       utxoL .= utxo
+    Update TimedServerOutput{time, output = SnapshotSideLoaded{snapshot = Snapshot{utxo}}} ->
+      utxoL .= utxo
     Update TimedServerOutput{time, output = HeadIsClosed{headId, snapshotNumber, contestationDeadline}} -> do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
     Update TimedServerOutput{time, output = ReadyToFanout{}} ->
@@ -162,6 +164,8 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
     info time ("Snapshot #" <> show number <> " confirmed.")
+  Update TimedServerOutput{time, output = SnapshotSideLoaded{snapshot = Snapshot{number}}} ->
+    info time ("Snapshot #" <> show number <> " side loaded.")
   Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
     warn time $ "Invalid command: " <> show clientInput
   Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do

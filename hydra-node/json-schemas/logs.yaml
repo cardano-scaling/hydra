@@ -1483,6 +1483,20 @@ definitions:
             $ref: "api.yaml#/components/schemas/Snapshot"
           signatures:
             $ref: "api.yaml#/components/schemas/MultiSignature"
+      - title: "SnapshotSideLoaded"
+        additionalProperties: false
+        required:
+          - tag
+          - snapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotSideLoaded"]
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatures:
+            $ref: "api.yaml#/components/schemas/MultiSignature"
       - title: "HeadClosed"
         additionalProperties: false
         required:
@@ -1774,6 +1788,7 @@ definitions:
               - $ref: "api.yaml#/components/messages/Close/payload"
               - $ref: "api.yaml#/components/messages/Contest/payload"
               - $ref: "api.yaml#/components/messages/Fanout/payload"
+              - $ref: "api.yaml#/components/messages/SideLodadSnapshot/payload"
 
       - title: NetworkInput
         type: object

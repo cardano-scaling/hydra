@@ -101,6 +101,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/CommitIgnored"
+          - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -116,6 +117,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/SideLodadSnapshot"
 
   /commit:
     servers:
@@ -203,6 +205,20 @@ channels:
         http:
           type: response
           method: DELETE
+          bindingVersion: '0.1.0'
+
+  /snapshot:
+    servers:
+      - localhost-http
+    publish:
+      description: Allow adoption of given snapshot.
+      operationId: sideLoadSnapshotRequest
+      message:
+        $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
           bindingVersion: '0.1.0'
 
   /snapshot/utxo:
@@ -429,6 +445,13 @@ components:
           tag:
             type: string
             enum: ["Fanout"]
+    
+    SideLodadSnapshot:
+      title: SideLodadSnapshot
+      description: |
+        The given side snapshot has been multi-signed by all head participants and is now loaded.
+      payload:
+        $ref: "api.yaml#/components/schemas/SideLodadSnapshot"
 
     GetUTxO:
       title: GetUTxO
@@ -667,8 +690,14 @@ components:
         Deposit was recorded initially but next snapshot utxo to commit was not found in pending deposits.
       payload:
         $ref: "api.yaml#/components/schemas/CommitIgnored"
-
-
+    
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given side snapshot has been multi-signed by all head participants and is now loaded.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+    
     # END OF SERVER OUTPUT MESSAGES
 
     DraftCommitTxRequest:
@@ -697,6 +726,16 @@ components:
       title: ProtocolParameters
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    SideLoadSnapshotRequest:
+      title: SideLoadSnapshotRequest
+      description: |
+        Submit a snapshot along with a valid multisignature to update the node's latest confirmed snapshot.
+        The provided snapshot must have a higher or equal snapshot number and version than the previous one.
+        Additionally, it must be enforceable and valid according to the current protocol state on L1,
+        meaning it must be signed by all required participants.
+      payload:
+        $ref: "api.yaml#/components/schemas/SideLoadSnapshotRequest"
 
   ########
   #
@@ -736,6 +775,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommitFinalized"
         - $ref: "api.yaml#/components/schemas/CommitRecovered"
         - $ref: "api.yaml#/components/schemas/CommitIgnored"
+        - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
 
     Greetings:
       type: object
@@ -1161,6 +1201,7 @@ components:
             - $ref: "api.yaml#/components/messages/Close/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLodadSnapshot/payload"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1463,6 +1504,30 @@ components:
           oneOf:
            - $ref: "api.yaml#/components/schemas/UTxO"
            - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+    
+    SnapshotSideLoaded:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshot
+        - signatures
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotSideLoaded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        signatures:
+          $ref: "api.yaml#/components/schemas/MultiSignature"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2563,8 +2628,33 @@ components:
           }
         }
 
+    SideLoadSnapshotRequest:
+      type: object
+      required:
+        - snapshot
+        - signatures
+      properties:
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        signatures:
+          $ref: "api.yaml#/components/schemas/MultiSignature"
+
     # END OF SERVER OUTPUT SCHEMAS
 
+    SideLodadSnapshot:
+      type: object
+      required:
+        - tag
+        - snapshot
+        - signatures
+      properties:
+        tag:
+          type: string
+          enum: ["SideLodadSnapshot"]
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        signatures:
+          $ref: "api.yaml#/components/schemas/MultiSignature"
 
     PlutusV2Script:
       type: object

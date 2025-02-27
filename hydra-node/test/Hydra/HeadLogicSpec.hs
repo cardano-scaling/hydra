@@ -17,6 +17,7 @@ import Control.Lens ((.~))
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
+import Hydra.API.ClientInput (ClientInput (SideLodadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
@@ -53,13 +54,13 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Network.Message (Connectivity, Message (..), NetworkEvent (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositDeadline)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx.Crypto (generateSigningKey, sign)
+import Hydra.Tx.Crypto (MultiSignature, aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot, getSnapshotSignatures)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutput)
@@ -705,6 +706,118 @@ spec =
         update bobEnv ledger (inClosedState threeParties) collectOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
+      describe "SideLoadSnapshot" $ do
+        it "accept new side load snapshot" $ do
+          -- Given a list of transactions each depending on the previous. If a
+          -- prefix gets snapshotted, the suffix still stays in the local txs.
+          let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
+              tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+              tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
+              s0 = inOpenState threeParties
+              snapshotNumber1 = 1
+              snapshot1 = Snapshot testHeadId 0 snapshotNumber1 [tx1] (utxoRef 2) Nothing Nothing
+              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) snapshotNumber1
+
+          snapshotConfirmed <- runHeadLogic bobEnv ledger s0 $ do
+            step $ receiveMessage $ ReqTx tx1
+            step $ receiveMessage $ ReqTx tx2
+            step $ receiveMessage $ ReqTx tx3
+            step $ receiveMessage $ ReqSn 0 snapshotNumber1 [txId tx1] Nothing Nothing
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+            step (ackFrom bobSk bob)
+            getState
+
+          case snapshotConfirmed of
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs, localUTxO}}) -> do
+              localTxs `shouldBe` [tx2, tx3]
+              localUTxO `shouldBe` utxoRef 4
+            _ -> fail "expected Open state"
+          getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+          let snapshotNumber2 = 2
+              newSnapshot = Snapshot testHeadId 0 snapshotNumber2 [] (utxoRef 4) Nothing Nothing
+              newMultiSig = aggregate [sign aliceSk newSnapshot, sign bobSk newSnapshot, sign carolSk newSnapshot]
+
+          sideLoadedState <- runHeadLogic bobEnv ledger snapshotConfirmed $ do
+            step $ ClientInput (SideLodadSnapshot newSnapshot newMultiSig)
+            getState
+
+          getConfirmedSnapshot sideLoadedState `shouldBe` Just newSnapshot
+
+        it "accept side load snapshot with idempotent" $ do
+          -- Given a list of transactions each depending on the previous. If a
+          -- prefix gets snapshotted, the suffix still stays in the local txs.
+          let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
+              tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+              tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
+              s0 = inOpenState threeParties
+              snapshotNumber1 = 1
+              snapshot1 = Snapshot testHeadId 0 snapshotNumber1 [tx1] (utxoRef 2) Nothing Nothing
+              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) snapshotNumber1
+
+          snapshotConfirmed <- runHeadLogic bobEnv ledger s0 $ do
+            step $ receiveMessage $ ReqTx tx1
+            step $ receiveMessage $ ReqTx tx2
+            step $ receiveMessage $ ReqTx tx3
+            step $ receiveMessage $ ReqSn 0 snapshotNumber1 [txId tx1] Nothing Nothing
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+            step (ackFrom bobSk bob)
+            getState
+
+          case snapshotConfirmed of
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs, localUTxO}}) -> do
+              localTxs `shouldBe` [tx2, tx3]
+              localUTxO `shouldBe` utxoRef 4
+            _ -> fail "expected Open state"
+          getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+          case getConfirmedSnapshotSignatures snapshotConfirmed of
+            Just sigs -> do
+              sideLoadedState <- runHeadLogic bobEnv ledger snapshotConfirmed $ do
+                step $ ClientInput (SideLodadSnapshot snapshot1 sigs)
+                getState
+
+              getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot1
+            _ -> fail "multi sigs"
+
+        it "reject old side load snapshot" $ do
+          -- Given a list of transactions each depending on the previous. If a
+          -- prefix gets snapshotted, the suffix still stays in the local txs.
+          let tx1 = SimpleTx 1 mempty (utxoRef 2) -- No inputs, requires no specific starting state
+              tx2 = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+              tx3 = SimpleTx 3 (utxoRef 3) (utxoRef 4)
+              s0 = inOpenState threeParties
+              snapshotNumber1 = 1
+              snapshot1 = Snapshot testHeadId 0 snapshotNumber1 [tx1] (utxoRef 2) Nothing Nothing
+              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) snapshotNumber1
+
+          snapshotConfirmed <- runHeadLogic bobEnv ledger s0 $ do
+            step $ receiveMessage $ ReqTx tx1
+            step $ receiveMessage $ ReqTx tx2
+            step $ receiveMessage $ ReqTx tx3
+            step $ receiveMessage $ ReqSn 0 snapshotNumber1 [txId tx1] Nothing Nothing
+            step (ackFrom carolSk carol)
+            step (ackFrom aliceSk alice)
+            step (ackFrom bobSk bob)
+            getState
+
+          case snapshotConfirmed of
+            (Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs, localUTxO}}) -> do
+              localTxs `shouldBe` [tx2, tx3]
+              localUTxO `shouldBe` utxoRef 4
+            _ -> fail "expected Open state"
+          getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
+          let oldSnapshot = Snapshot testHeadId 0 0 [] (utxoRef 2) Nothing Nothing
+          case getConfirmedSnapshotSignatures snapshotConfirmed of
+            Just sigs -> do
+              update bobEnv ledger snapshotConfirmed (ClientInput (SideLodadSnapshot oldSnapshot sigs))
+                `shouldBe` Error (RequireFailed{requirementFailure = ReqSnNumberInvalid 0 snapshotNumber1})
+            _ -> fail "multi sigs"
+          getConfirmedSnapshot snapshotConfirmed `shouldBe` Just snapshot1
+
     describe "Coordinated Head Protocol using real Tx" $
       prop "any tx with expiring upper validity range gets pruned" $ \slotNo -> monadicIO $ do
         (utxo, expiringTransaction) <- pick $ do
@@ -976,6 +1089,13 @@ getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
+  _ ->
+    Nothing
+
+getConfirmedSnapshotSignatures :: HeadState tx -> Maybe (MultiSignature (Snapshot tx))
+getConfirmedSnapshotSignatures = \case
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+    Just (getSnapshotSignatures confirmedSnapshot)
   _ ->
     Nothing
 
