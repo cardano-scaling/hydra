@@ -1295,8 +1295,6 @@ update env ledger st ev = case (st, ev) of
     newState TickObserved{chainSlot}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     newState PostTxOnChainFailed{postChainTx, postTxError}
-  (_, ClientInput{clientInput}) ->
-    newState CommandFailed{clientInput, state = st}
   _ ->
     Error $ UnhandledInput ev st
 
@@ -1593,7 +1591,6 @@ aggregate st = \case
   DecommitApproved{} -> st
   DecommitRequested{} -> st
   DecommitInvalid{} -> st
-  CommandFailed{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
   PeerConnected{} -> st
@@ -1643,7 +1640,6 @@ aggregateChainStateHistory history = \case
   DecommitApproved{} -> history
   DecommitRequested{} -> history
   DecommitInvalid{} -> history
-  CommandFailed{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   PeerConnected{} -> history

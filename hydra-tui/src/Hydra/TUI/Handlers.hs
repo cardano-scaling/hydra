@@ -162,8 +162,6 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
     info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
-    warn time $ "Invalid command: " <> show clientInput
   Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
