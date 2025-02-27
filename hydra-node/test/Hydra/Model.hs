@@ -60,6 +60,7 @@ import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (Committed ())
+import Hydra.HeadLogic.State (getHeadUTxO)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
@@ -532,6 +533,7 @@ instance
   , MonadThrow (STM m)
   , MonadLabelledSTM m
   , MonadDelay m
+  , MonadTime m
   ) =>
   RunModel WorldState (RunMonad m)
   where
@@ -612,6 +614,7 @@ seedWorld ::
   , MonadFork m
   , MonadMask m
   , MonadDelay m
+  , MonadTime m
   ) =>
   [(SigningKey HydraKey, CardanoSigningKey)] ->
   ContestationPeriod ->
@@ -672,7 +675,6 @@ performCommit parties party paymentUTxO = do
             waitMatch n $ \case
               Committed{party = cp, utxo = committedUTxO}
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-              err@CommandFailed{} -> error $ show err
               _ -> Nothing
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
@@ -718,7 +720,6 @@ performDecommit party tx = do
   lift $ do
     waitUntilMatch [thisNode] $ \case
       DecommitFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performNewTx ::
@@ -784,7 +785,6 @@ performInit party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsInitializing{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
@@ -795,7 +795,6 @@ performAbort party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsAborted{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
@@ -808,7 +807,6 @@ performClose party = do
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
       HeadIsClosed{} -> True
-      err@CommandFailed{} -> error $ show err
       _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
@@ -845,7 +843,6 @@ performCloseWithInitialSnapshot st party = do
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
             snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          err@CommandFailed{} -> error $ show err
           _ -> False
     _ -> error "Not in open state"
 
@@ -925,32 +922,31 @@ x === y = do
 
 waitForUTxOToSpend ::
   forall m.
-  (MonadTimer m, MonadDelay m) =>
+  MonadDelay m =>
   UTxO ->
   CardanoSigningKey ->
   Value ->
   TestHydraClient Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value node = go 100
+waitForUTxOToSpend utxo key value node = do
+  u <- headUTxO node
+  threadDelay 1
+  if u /= mempty
+    then case find matchPayment (UTxO.pairs u) of
+      Nothing -> pure $ Left utxo
+      Just (txIn, txOut) -> pure $ Right (txIn, txOut)
+    else pure $ Left utxo
  where
-  go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
-  go = \case
-    0 ->
-      pure $ Left utxo
-    n -> do
-      node `send` Input.GetUTxO
-      threadDelay 5
-      timeout 10 (waitForNext node) >>= \case
-        Just (GetUTxOResponse _ u)
-          | u /= mempty ->
-              maybe
-                (go (n - 1))
-                (pure . Right)
-                (find matchPayment (UTxO.pairs u))
-        _ -> go (n - 1)
-
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
+
+headUTxO ::
+  (IsTx tx, MonadDelay m) =>
+  TestHydraClient tx m ->
+  m (UTxOType tx)
+headUTxO node = do
+  threadDelay 1
+  fromMaybe mempty . getHeadUTxO <$> queryState node
 
 isOwned :: CardanoSigningKey -> (TxIn, TxOut ctx) -> Bool
 isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (ShelleyAddress _ cre _)}) =

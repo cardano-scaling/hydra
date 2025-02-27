@@ -10,7 +10,6 @@ data ClientInput tx
   = Init
   | Abort
   | NewTx {transaction :: tx}
-  | GetUTxO
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
   | Close
@@ -33,7 +32,6 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) w
     Init -> []
     Abort -> []
     NewTx tx -> NewTx <$> shrink tx
-    GetUTxO -> []
     Recover tx -> Recover <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
     Close -> []

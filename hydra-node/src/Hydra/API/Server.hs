@@ -1,16 +1,15 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (TVar, mapM_, readTVar, seq)
+import Hydra.Prelude hiding (mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (runConduitRes, sinkList, (.|))
+import Conduit (mapM_C, mapWhileC, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Concurrent.STM.TVar (modifyTVar', newTVarIO)
 import Control.Exception (IOException)
-import Data.Conduit.Combinators (iterM)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -18,7 +17,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   CommitInfo (CannotCommit),
   HeadStatus (Idle),
-  ServerOutput,
+  ServerOutput (..),
   TimedServerOutput (..),
   projectCommitInfo,
   projectHeadStatus,
@@ -29,15 +28,16 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
  )
-import Hydra.API.WSServer (nextSequenceNumber, wsApp)
+import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Events (EventSource (..), StateEvent (..))
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Persistence (PersistenceIncremental (..))
-import Hydra.Tx (Party)
+import Hydra.Tx (IsTx, Party, txId)
 import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -59,7 +59,7 @@ import Network.WebSockets (
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
-  { sendOutput :: ServerOutput tx -> m ()
+  { sendOutput :: StateEvent tx -> m ()
   -- ^ Send some output to all connected clients.
   }
 
@@ -82,13 +82,13 @@ withAPIServer ::
   APIServerConfig ->
   Environment ->
   Party ->
-  PersistenceIncremental (TimedServerOutput tx) IO ->
+  EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   ServerComponent tx IO ()
-withAPIServer config env party persistence tracer chain pparams serverOutputFilter callback action =
+withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Intialize our read models from stored events
@@ -98,21 +98,21 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    loadedHistory <-
+    let historyTimedOutputs =
+          sourceEvents
+            .| mapWhileC mkTimedServerOutputFromStateEvent
+    _ <-
       runConduitRes $
-        source
-          -- .| mapC output
-          .| iterM (lift . atomically . update headStatusP . output)
-          .| iterM (lift . atomically . update snapshotUtxoP . output)
-          .| iterM (lift . atomically . update commitInfoP . output)
-          .| iterM (lift . atomically . update headIdP . output)
-          .| iterM (lift . atomically . update pendingDepositsP . output)
-          -- FIXME: don't load whole history into memory
-          .| sinkList
-
-    -- NOTE: we need to reverse the list because we store history in a reversed
-    -- list in memory but in order on disk
-    history <- newTVarIO $ reverse loadedHistory
+        historyTimedOutputs
+          .| mapM_C
+            ( \TimedServerOutput{output} ->
+                lift $ atomically $ do
+                  update headStatusP output
+                  update snapshotUtxoP output
+                  update commitInfoP output
+                  update headIdP output
+                  update pendingDepositsP output
+            )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
     let serverSettings =
@@ -129,28 +129,31 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
+              (wsApp party tracer historyTimedOutputs callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
               (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
       )
       ( do
           waitForServerRunning
           action $
             Server
-              { sendOutput = \output -> do
-                  timedOutput <- appendToHistory history output
-                  atomically $ do
-                    update headStatusP output
-                    update commitInfoP output
-                    update snapshotUtxoP output
-                    update headIdP output
-                    update pendingDepositsP output
-                    writeTChan responseChannel timedOutput
+              { sendOutput = \StateEvent{stateChanged, time, eventId} -> do
+                  case mapStateChangedToServerOutput stateChanged of
+                    Nothing -> pure ()
+                    Just output -> do
+                      let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
+                      atomically $ do
+                        update headStatusP output
+                        update commitInfoP output
+                        update snapshotUtxoP output
+                        update headIdP output
+                        update pendingDepositsP output
+                        writeTChan responseChannel timedOutput
               }
       )
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
-  PersistenceIncremental{source, append} = persistence
+  EventSource{sourceEvents} = eventSource
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
@@ -163,16 +166,6 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
         die "TLS key provided without certificate"
       _ ->
         runSettings settings app
-
-  appendToHistory history output = do
-    time <- getCurrentTime
-    timedOutput <- atomically $ do
-      seq <- nextSequenceNumber history
-      let timedOutput = TimedServerOutput{output, time, seq}
-      modifyTVar' history (timedOutput :)
-      pure timedOutput
-    append timedOutput
-    pure timedOutput
 
   onIOException ioException =
     throwIO
@@ -202,3 +195,47 @@ setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
+
+mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent event =
+  case mapStateChangedToServerOutput stateChanged of
+    Nothing -> Nothing
+    Just output ->
+      Just $ TimedServerOutput{output, time, seq = fromIntegral eventId}
+ where
+  StateEvent{eventId, time, stateChanged} = event
+
+mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
+mapStateChangedToServerOutput = \case
+  StateChanged.PeerConnected{..} -> Just PeerConnected{..}
+  StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
+  StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
+  StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
+  StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
+  StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
+  StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
+  StateChanged.HeadContested{..} -> Just HeadIsContested{..}
+  StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
+  StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
+  StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
+  StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
+  StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
+  StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
+  StateChanged.PostTxOnChainFailed{..} -> Just PostTxOnChainFailed{..}
+  StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
+  StateChanged.DecommitRequested{..} -> Just DecommitRequested{..}
+  StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
+  StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
+  StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
+  StateChanged.CommitRecorded{..} -> Just CommitRecorded{..}
+  StateChanged.CommitApproved{..} -> Just CommitApproved{..}
+  StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
+  StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
+  StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
+  StateChanged.TransactionReceived{} -> Nothing
+  StateChanged.DecommitRecorded{} -> Nothing
+  StateChanged.SnapshotRequested{} -> Nothing
+  StateChanged.SnapshotRequestDecided{} -> Nothing
+  StateChanged.PartySignedSnapshot{} -> Nothing
+  StateChanged.ChainRolledBack{} -> Nothing
+  StateChanged.TickObserved{} -> Nothing
