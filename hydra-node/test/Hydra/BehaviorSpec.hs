@@ -35,7 +35,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.HeadLogic (Effect (..), HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.Ledger (Ledger, nextChainSlot)
+import Hydra.Ledger (Ledger (..), ValidationError (..), nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
@@ -777,6 +777,46 @@ spec = parallel $ do
                   send n1 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs []}
 
+    fit "see head becoming stuck if messages are not resent" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 -> do
+            let alwaysFailingLedger =
+                  Ledger
+                    { applyTransactions = \_slot ->
+                        foldlM $ \_utxo tx ->
+                          Left (tx, ValidationError "cannot apply transaction")
+                    }
+            let tx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+            withHydraNode' bobSk [alice] alwaysFailingLedger chain $ \n2 -> do
+              openHead chain n1 n2
+              -- Expect secondTx to be valid for Alice, but not applicable and stay pending for Bob
+              send n1 (NewTx tx)
+              waitUntil [n1] $ TxValid testHeadId 1 tx
+              waitUntilMatch [n2] $ \case
+                TxInvalid{transaction, validationError} ->
+                  transaction == tx
+                    && validationError == ValidationError "cannot apply transaction"
+                _ -> False
+
+              -- If we wait too long, tx will expire
+              threadDelay $ fromIntegral defaultTTL * waitDelay + 1
+
+            -- Bob reconnects with valid ledger
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              -- Bob re-submits the tx but
+              send n2 (NewTx tx)
+              -- Bob accepts it
+              waitUntil [n2] $ TxValid testHeadId 1 tx
+              -- Alice rejects it as already applied
+              waitUntilMatch [n1] $ \case
+                TxInvalid{transaction} -> transaction == tx
+                _ -> False
+              -- No snapshot gets confirmed making the head becoming stuck
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{number}} -> number == 1
+                _ -> False
+
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -1157,6 +1197,22 @@ nothingHappensFor ::
   m ()
 nothingHappensFor node secs =
   timeout (realToFrac secs) (waitForNext node) >>= (`shouldBe` Nothing)
+
+withHydraNode' ::
+  forall s a.
+  SigningKey HydraKey ->
+  [Party] ->
+  Ledger SimpleTx ->
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
+  IOSim s a
+withHydraNode' signingKey otherParties customLedger chain action = do
+  outputs <- atomically newTQueue
+  outputHistory <- newTVarIO mempty
+  let initialChainState = SimpleChainState{slot = ChainSlot 0}
+  node <- createHydraNode traceInIOSim customLedger initialChainState signingKey otherParties outputs outputHistory chain testContestationPeriod testDepositDeadline
+  withAsync (runHydraNode node) $ \_ ->
+    action (createTestHydraClient outputs outputHistory node)
 
 withHydraNode ::
   forall s a.
