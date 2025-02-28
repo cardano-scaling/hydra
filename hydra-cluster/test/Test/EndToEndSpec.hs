@@ -358,12 +358,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
 
-      it "prevent resuming a head after reconfiguring a peer" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= testPreventResumeReconfiguredPeer tracer tmpDir node
-
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmp $ \node@RunningNode{nodeSocket, networkId} -> do

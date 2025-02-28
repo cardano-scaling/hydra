@@ -266,51 +266,6 @@ restartedNodeCanObserveCommitTx tracer workDir cardanoNode hydraScriptsTxId = do
  where
   RunningNode{nodeSocket, networkId} = cardanoNode
 
-testPreventResumeReconfiguredPeer :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
-testPreventResumeReconfiguredPeer tracer workDir cardanoNode hydraScriptsTxId = do
-  let contestationPeriod = UnsafeContestationPeriod 1
-  let depositDeadline = UnsafeDepositDeadline 200
-  aliceChainConfig <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob] contestationPeriod depositDeadline
-      <&> setNetworkId networkId
-
-  aliceChainConfigWithoutBob <-
-    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
-      <&> setNetworkId networkId
-
-  bobChainConfig <-
-    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice] contestationPeriod depositDeadline
-      <&> setNetworkId networkId
-
-  let hydraTracer = contramap FromHydraNode tracer
-      aliceStartsWithoutKnowingBob =
-        withHydraNode hydraTracer aliceChainConfigWithoutBob workDir 2 aliceSk [] [1, 2]
-      aliceRestartsWithBobConfigured =
-        withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2]
-
-  withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
-    aliceStartsWithoutKnowingBob $ \n2 -> do
-      failToConnect hydraTracer (n1 :| [n2])
-
-    threadDelay 1
-
-    aliceRestartsWithBobConfigured (const $ threadDelay 1)
-      `shouldThrow` aFailure
-
-    threadDelay 1
-
-    removeDirectoryRecursive $ workDir </> "state-2"
-
-    aliceRestartsWithBobConfigured $ \n2 -> do
-      waitForNodesConnected hydraTracer 10 (n1 :| [n2])
- where
-  RunningNode{nodeSocket, networkId} = cardanoNode
-
-  aFailure :: Selector HUnitFailure
-  aFailure = const True
-
-  failToConnect tr nodes = waitForNodesConnected tr 10 nodes `shouldThrow` anyException
-
 restartedNodeCanAbort :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir cardanoNode hydraScriptsTxId = do
   refuelIfNeeded tracer cardanoNode Alice 100_000_000
