@@ -12,7 +12,7 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2025-02-14T05:38:36Z
+  , hackage.haskell.org 2025-02-20T07:20:13Z
   , cardano-haskell-packages 2025-02-11T21:18:23Z
 
 packages:
@@ -41,3 +41,12 @@ test-show-details: direct
 
 program-options
   ghc-options: -fwrite-ide-info
+
+allow-newer:
+  -- Grapesy requires network >= 3.2 and the ouroboros packages used upstream
+  -- are restricting this upper bound, but updating seemed fine.
+  network-mux:network
+  , ouroboros-network:network
+  , ouroboros-network-api:network
+  , ouroboros-network-framework:network
+  , ouroboros-network-protocols:network

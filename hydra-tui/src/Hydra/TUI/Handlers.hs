@@ -22,7 +22,8 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput (..))
+import Hydra.API.ServerOutput (TimedServerOutput (..))
+import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api.Prelude ()
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
@@ -82,17 +83,23 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update TimedServerOutput{output = Greetings{me}} -> meL .= Identified me
-  Update TimedServerOutput{output = PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
-  Update TimedServerOutput{output = PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  Update TimedServerOutput{output = API.Greetings{me}} -> meL .= Identified me
+  Update TimedServerOutput{output = API.PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
+  Update TimedServerOutput{output = API.PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  Update TimedServerOutput{output = API.NetworkConnected} -> do
+    networkStateL .= Just NetworkConnected
+    peersL .= []
+  Update TimedServerOutput{output = API.NetworkDisconnected} -> do
+    networkStateL .= Just NetworkDisconnected
+    peersL .= []
   e -> zoom headStateL $ handleHydraEventsHeadState e
 
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsHeadState e = do
   case e of
-    Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
+    Update TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}} ->
       put $ Active (newActiveLink (toList parties) headId)
-    Update TimedServerOutput{time, output = HeadIsAborted{}} ->
+    Update TimedServerOutput{time, output = API.HeadIsAborted{}} ->
       put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
@@ -100,32 +107,32 @@ handleHydraEventsHeadState e = do
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsActiveLink e = do
   case e of
-    Update TimedServerOutput{output = Committed{party, utxo}} -> do
+    Update TimedServerOutput{output = API.Committed{party, utxo}} -> do
       partyCommitted party utxo
-    Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
+    Update TimedServerOutput{time, output = API.HeadIsOpen{utxo}} -> do
       activeHeadStateL .= Open OpenHome
-    Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{utxo}}} ->
+    Update TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{utxo}}} ->
       utxoL .= utxo
-    Update TimedServerOutput{time, output = HeadIsClosed{headId, snapshotNumber, contestationDeadline}} -> do
+    Update TimedServerOutput{time, output = API.HeadIsClosed{headId, snapshotNumber, contestationDeadline}} -> do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
-    Update TimedServerOutput{time, output = ReadyToFanout{}} ->
+    Update TimedServerOutput{time, output = API.ReadyToFanout{}} ->
       activeHeadStateL .= FanoutPossible
-    Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
+    Update TimedServerOutput{time, output = API.HeadIsFinalized{utxo}} -> do
       utxoL .= utxo
       activeHeadStateL .= Final
-    Update TimedServerOutput{time, output = DecommitRequested{utxoToDecommit}} -> do
+    Update TimedServerOutput{time, output = API.DecommitRequested{utxoToDecommit}} -> do
       ActiveLink{utxo} <- get
       pendingUTxOToDecommitL .= utxoToDecommit
       utxoL .= UTxO.difference utxo utxoToDecommit
-    Update TimedServerOutput{time, output = DecommitFinalized{}} -> do
+    Update TimedServerOutput{time, output = API.DecommitFinalized{}} -> do
       ActiveLink{utxo, pendingUTxOToDecommit} <- get
       pendingUTxOToDecommitL .= mempty
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
+    Update TimedServerOutput{time, output = API.CommitRecorded{utxoToCommit, pendingDeposit, deadline}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
       pendingIncrementsL .= pendingIncrements <> [PendingIncrement utxoToCommit pendingDeposit deadline PendingDeposit]
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitApproved{utxoToCommit = approvedUtxoToCommit}} -> do
+    Update TimedServerOutput{time, output = API.CommitApproved{utxoToCommit = approvedUtxoToCommit}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
       pendingIncrementsL
         .= fmap
@@ -136,14 +143,14 @@ handleHydraEventsActiveLink e = do
           )
           pendingIncrements
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} -> do
+    Update TimedServerOutput{time, output = API.CommitFinalized{theDeposit}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
       let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
       let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
       let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
       pendingIncrementsL .= activePendingIncrements
       utxoL .= utxo <> activeUtxoToCommit
-    Update TimedServerOutput{time, output = CommitRecovered{recoveredUTxO, recoveredTxId}} -> do
+    Update TimedServerOutput{time, output = API.CommitRecovered{recoveredUTxO, recoveredTxId}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
       let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= recoveredTxId) pendingIncrements
       pendingIncrementsL .= activePendingIncrements
@@ -152,72 +159,80 @@ handleHydraEventsActiveLink e = do
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
 handleHydraEventsInfo = \case
-  Update TimedServerOutput{time, output = HeadIsInitializing{parties, headId}} ->
+  Update TimedServerOutput{time, output = API.NetworkConnected} ->
+    report Success time "Network connected"
+  Update TimedServerOutput{time, output = API.NetworkDisconnected} ->
+    report Error time "Network disconnected"
+  Update TimedServerOutput{time, output = API.PeerConnected{peer}} ->
+    info time $ "Peer connected: " <> show peer
+  Update TimedServerOutput{time, output = API.PeerDisconnected{peer}} ->
+    info time $ "Peer disconnected: " <> show peer
+  Update TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}} ->
     info time "Head is initializing"
-  Update TimedServerOutput{time, output = Committed{party, utxo}} -> do
+  Update TimedServerOutput{time, output = API.Committed{party, utxo}} -> do
     info time $ show party <> " committed " <> renderValue (balance @Tx utxo)
-  Update TimedServerOutput{time, output = HeadIsOpen{utxo}} -> do
+  Update TimedServerOutput{time, output = API.HeadIsOpen{utxo}} -> do
     info time "Head is now open!"
-  Update TimedServerOutput{time, output = HeadIsAborted{}} -> do
+  Update TimedServerOutput{time, output = API.HeadIsAborted{}} -> do
     info time "Head aborted, back to square one."
-  Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
+  Update TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}} ->
     info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
+  Update TimedServerOutput{time, output = API.CommandFailed{clientInput}} -> do
     warn time $ "Invalid command: " <> show clientInput
-  Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
+  Update TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}} -> do
     info time $ "Head closed with snapshot number " <> show snapshotNumber
-  Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
+  Update TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}} -> do
     info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
-  Update TimedServerOutput{time, output = TxValid{}} ->
+  Update TimedServerOutput{time, output = API.TxValid{}} ->
     report Success time "Transaction submitted successfully"
-  Update TimedServerOutput{time, output = TxInvalid{transaction, validationError}} ->
+  Update TimedServerOutput{time, output = API.TxInvalid{transaction, validationError}} ->
     warn time ("Transaction with id " <> show (txId transaction) <> " is not applicable: " <> show validationError)
-  Update TimedServerOutput{time, output = DecommitApproved{decommitTxId, utxoToDecommit}} ->
+  Update TimedServerOutput{time, output = API.DecommitApproved{decommitTxId, utxoToDecommit}} ->
     report Success time $
       "Decommit approved and submitted to Cardano "
         <> show decommitTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs utxoToDecommit)
-  Update TimedServerOutput{time, output = DecommitFinalized{decommitTxId}} ->
+  Update TimedServerOutput{time, output = API.DecommitFinalized{decommitTxId}} ->
     report Success time $
       "Decommit finalized "
         <> show decommitTxId
-  Update TimedServerOutput{time, output = DecommitInvalid{decommitTx, decommitInvalidReason}} ->
+  Update TimedServerOutput{time, output = API.DecommitInvalid{decommitTx, decommitInvalidReason}} ->
     warn time $
       "Decommit Transaction with id "
         <> show (txId decommitTx)
         <> " is not applicable: "
         <> show decommitInvalidReason
-  Update TimedServerOutput{time, output = CommitRecorded{utxoToCommit, pendingDeposit}} ->
+  Update TimedServerOutput{time, output = API.CommitRecorded{utxoToCommit, pendingDeposit}} ->
     report Success time $
       "Commit deposit recorded with "
         <> " deposit tx id "
         <> show pendingDeposit
         <> "and pending for approval "
         <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
-  Update TimedServerOutput{time, output = CommitApproved{utxoToCommit}} ->
+  Update TimedServerOutput{time, output = API.CommitApproved{utxoToCommit}} ->
     report Success time $
       "Commit approved and submitted to Cardano "
         <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
-  Update TimedServerOutput{time, output = CommitRecovered{recoveredTxId, recoveredUTxO}} ->
+  Update TimedServerOutput{time, output = API.CommitRecovered{recoveredTxId, recoveredUTxO}} ->
     report Success time $
       "Commit recovered "
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
+  Update TimedServerOutput{time, output = API.CommitFinalized{theDeposit}} ->
     report Success time $
       "Commit finalized "
         <> show theDeposit
-  Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
+  Update TimedServerOutput{time, output = API.CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "
         <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO
-  Update TimedServerOutput{time, output = HeadIsFinalized{utxo}} -> do
+  Update TimedServerOutput{time, output = API.HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
-  Update TimedServerOutput{time, output = InvalidInput{reason}} ->
+  Update TimedServerOutput{time, output = API.InvalidInput{reason}} ->
     warn time ("Invalid input error: " <> toText reason)
-  Update TimedServerOutput{time, output = PostTxOnChainFailed{postTxError}} ->
+  Update TimedServerOutput{time, output = API.PostTxOnChainFailed{postTxError}} ->
     case postTxError of
       NotEnoughFuel -> do
         warn time "Not enough Fuel. Please provide more to the internal wallet and try again."

@@ -5,104 +5,107 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId (..))
+import Hydra.Network (Connectivity (..), Host (..), Network (..), NetworkCallback (..), NetworkComponent)
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (Connectivity (Connected, Disconnected))
 
 spec :: Spec
 spec = parallel $ do
-  let nodeId = NodeId "node_id-1"
+  let localHost = Host "192.168.0.123" 5001
 
-      otherNodeId = NodeId "node_id-2"
+      otherHost = Host "192.168.0.111" 1234
 
   it "sends a heartbeat message with local host after 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
           (capturingComponent, getOutgoingMessages) <- captureOutgoing
 
-          withHeartbeat nodeId capturingComponent noop $ \_ ->
+          withHeartbeat localHost capturingComponent noop $ \_ ->
             threadDelay 1.1
 
           getOutgoingMessages
 
-    sentHeartbeats `shouldBe` [Ping nodeId]
+    sentHeartbeats `shouldBe` [Ping localHost]
 
-  it "sends Connected when Ping received from other peer" $ do
+  it "sends PeerConnected when Ping received from other peer" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Ping otherNodeId)) callback $ \_ ->
+          withHeartbeat localHost (\NetworkCallback{deliver} _ -> deliver (Ping otherHost)) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "sends Connected when any message received from other party" $ do
+  it "sends PeerConnected when any message received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Data otherNodeId ())) callback $ \_ ->
+          withHeartbeat localHost (\NetworkCallback{deliver} _ -> deliver (Data otherHost ())) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "do not send Connected on subsequent messages from already Connected party" $ do
+  it "do not send PeerConnected on subsequent messages from already connected party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
-          withHeartbeat nodeId (\NetworkCallback{deliver} _ -> deliver (Data otherNodeId ()) >> deliver (Ping otherNodeId)) callback $ \_ ->
+          withHeartbeat localHost (\NetworkCallback{deliver} _ -> deliver (Data otherHost ()) >> deliver (Ping otherHost)) callback $ \_ ->
             threadDelay 1
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [PeerConnected otherHost]
 
-  it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
+  it "sends PeerDisconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           (callback, getConnectivityEvents) <- captureConnectivity
 
           let component NetworkCallback{deliver} action =
                 race_
                   (action (Network{broadcast = const $ pure ()}))
-                  (deliver (Ping otherNodeId) >> threadDelay 4 >> deliver (Ping otherNodeId) >> threadDelay 7)
+                  (deliver (Ping otherHost) >> threadDelay 4 >> deliver (Ping otherHost) >> threadDelay 7)
 
-          withHeartbeat nodeId component callback $ \_ ->
+          withHeartbeat localHost component callback $ \_ ->
             threadDelay 20
 
           getConnectivityEvents
 
-    receivedHeartbeats `shouldBe` [Disconnected otherNodeId, Connected otherNodeId]
+    receivedHeartbeats `shouldBe` [PeerDisconnected otherHost, PeerConnected otherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let sentHeartbeats = runSimOrThrow $ do
           (capturingComponent, getOutgoingMessages) <- captureOutgoing
 
-          withHeartbeat nodeId capturingComponent noop $ \Network{broadcast} -> do
+          withHeartbeat localHost capturingComponent noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast ()
             threadDelay 1
 
           getOutgoingMessages
 
-    sentHeartbeats `shouldBe` [Data nodeId (), Ping nodeId]
+    sentHeartbeats `shouldBe` [Data localHost (), Ping localHost]
 
   it "restart sending heartbeat messages given last message sent is older than heartbeat delay" $ do
     let sentHeartbeats = runSimOrThrow $ do
           (capturingComponent, getOutgoingMessages) <- captureOutgoing
 
-          withHeartbeat nodeId capturingComponent noop $ \Network{broadcast} -> do
+          withHeartbeat localHost capturingComponent noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast ()
             threadDelay 3.6
 
           getOutgoingMessages
 
-    sentHeartbeats `shouldBe` [Ping nodeId, Data nodeId (), Ping nodeId]
+    sentHeartbeats `shouldBe` [Ping localHost, Data localHost (), Ping localHost]
 
 noop :: Monad m => NetworkCallback b m
-noop = NetworkCallback{deliver = const $ pure ()}
+noop =
+  NetworkCallback
+    { deliver = const $ pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 captureOutgoing :: MonadSTM m => m (NetworkComponent m (Heartbeat ()) (Heartbeat ()) (), m [Heartbeat ()])
 captureOutgoing = do
@@ -112,11 +115,9 @@ captureOutgoing = do
   broadcast tv msg =
     atomically $ modifyTVar' tv (msg :)
 
-captureConnectivity :: MonadSTM m => m (NetworkCallback (Either Connectivity a) m, m [Connectivity])
+captureConnectivity :: MonadSTM m => m (NetworkCallback a m, m [Connectivity])
 captureConnectivity = do
   tv <- newTVarIO []
-  pure (NetworkCallback{deliver = record tv}, readTVarIO tv)
+  pure (NetworkCallback{deliver = const $ pure (), onConnectivity = record tv}, readTVarIO tv)
  where
-  record tv = \case
-    Left c -> atomically $ modifyTVar' tv (c :)
-    Right _ -> pure ()
+  record tv c = atomically $ modifyTVar' tv (c :)

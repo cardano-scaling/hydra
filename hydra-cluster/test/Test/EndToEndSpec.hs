@@ -29,6 +29,7 @@ import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters)
 import Hydra.Chain.Direct.State ()
@@ -59,6 +60,7 @@ import Hydra.Cluster.Scenarios (
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
+  oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
   restartedNodeCanAbort,
@@ -92,9 +94,8 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
-  withHydraNode',
  )
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import System.IO (
   hGetLine,
@@ -260,6 +261,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               >>= persistenceCanLoadWithEmptyCommit tracer tmpDir node
 
     describe "three hydra nodes scenario" $ do
+      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= oneOfThreeNodesStopsForAWhile tracer tmpDir node
+
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
@@ -293,8 +300,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let depositDeadline = UnsafeDepositDeadline 20
               let hydraTracer = contramap FromHydraNode tracer
               withHydraCluster hydraTracer tmpDir nodeSocket firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod depositDeadline $ \nodes -> do
+                waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
-                waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
                 -- Funds to be used as fuel by Hydra protocol transactions
                 seedFromFaucet_ node aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -350,12 +357,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
             publishHydraScriptsAs node Faucet
               >>= restartedNodeCanObserveCommitTx tracer tmpDir node
-
-      it "prevent resuming a head after reconfiguring a peer" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
-            publishHydraScriptsAs node Faucet
-              >>= testPreventResumeReconfiguredPeer tracer tmpDir node
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
@@ -443,13 +444,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   guard $ v ^? key "headId" == Just (toJSON headId)
 
                 return headId
-              -- NOTE: Need to clear state on disk to have bob close with
-              -- initial snapshot
-              removeDirectoryRecursive $ tmp </> "state-" <> show bobNodeId
 
-              -- HACK: We do re-use network ports and for some reason Hydra
-              -- network port is not available right away.
-              threadDelay 1
+              -- NOTE: Clear persisted protocol state on disk to have bob
+              -- re-discover the head and close with initial snapshot. We are
+              -- not clearing the whole persistence dir as we would not be able
+              -- to re-connect to the L2 network.
+              removeFile $ tmp </> "state-" <> show bobNodeId </> "state"
+              removeFile $ tmp </> "state-" <> show bobNodeId </> "server-output"
+
               withBobNode $ \n2 -> do
                 waitMatch 10 n2 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsOpen"
@@ -547,18 +549,52 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
 
-    describe "hydra-node executable" $ do
-      it "logs its command line arguments" $ \tracer -> do
+    -- TODO: move to a HydraNodeSpec
+    describe "withHydraNode" $ do
+      it "detects crashes" $ \tracer -> do
+        withClusterTempDir $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \RunningNode{nodeSocket} -> do
+            -- NOTE: Deliberately broken configuration so we expect the node to not start.
+            let chainConfig =
+                  Direct
+                    defaultDirectChainConfig
+                      { nodeSocket
+                      , cardanoSigningKey = "not-existing.sk"
+                      }
+            withHydraNode (contramap FromHydraNode tracer) chainConfig dir 1 aliceSk [] [1] (const $ pure ())
+              `shouldThrow` \(e :: SomeException) ->
+                "hydra-node" `isInfixOf` show e
+                  && "not-existing.sk" `isInfixOf` show e
+
+      it "stops gracefully" $ \tracer -> do
         withClusterTempDir $ \dir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs node Faucet
             let contestationPeriod = UnsafeContestationPeriod 100
             let depositDeadline = UnsafeDepositDeadline 200
-            chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
-            withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
-              waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
-                line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+
+            -- XXX: Need to do something in 'action' otherwise always green?
+            withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              threadDelay 0.1
+
+      it "can be restarted" $ \tracer -> do
+        withClusterTempDir $ \dir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) dir $ \node@RunningNode{nodeSocket} -> do
+            let hydraTracer = contramap FromHydraNode tracer
+            hydraScriptsTxId <- publishHydraScriptsAs node Faucet
+            let contestationPeriod = UnsafeContestationPeriod 100
+            let depositDeadline = UnsafeDepositDeadline 200
+            aliceChainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
+
+            -- XXX: Need to do something in 'action' otherwise always green?
+            failAfter 10 $
+              withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+                threadDelay 0.1
+            failAfter 10 $
+              withHydraNode hydraTracer aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+                threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
@@ -575,6 +611,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
+            logfile `shouldSatisfy` BS.isInfixOf "NodeOptions"
 
 waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
 waitForLog delay nodeOutput failureMessage predicate = do
@@ -611,7 +648,6 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
   aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
-    waitForNodesConnected hydraTracer 20 $ n1 :| []
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions

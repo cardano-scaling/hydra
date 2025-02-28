@@ -24,14 +24,13 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, writeTVar)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Network (Network (..), NetworkCallback (..), NetworkComponent, NodeId)
-import Hydra.Network.Message (Connectivity (Connected, Disconnected))
+import Hydra.Network (Connectivity (..), Host, Network (..), NetworkCallback (..), NetworkComponent)
 
 data HeartbeatState = HeartbeatState
-  { alive :: Map NodeId Time
+  { alive :: Map Host Time
   -- ^ The map of known 'Connected' parties with the last time they've been "seen".
   -- This is updated when we see a message from another node
-  , suspected :: Set NodeId
+  , suspected :: Set Host
   -- ^ The set of known parties which might be 'Disconnected'
   -- This is updated after some time no message has been received from a node.
   }
@@ -41,8 +40,8 @@ initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty}
 
 data Heartbeat msg
-  = Data NodeId msg
-  | Ping NodeId
+  = Data Host msg
+  | Ping Host
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -86,42 +85,44 @@ withHeartbeat ::
   , MonadDelay m
   ) =>
   -- | This node's id, used to identify `Heartbeat` messages broadcast to peers.
-  NodeId ->
+  Host ->
   -- | Underlying `NetworkComponent` for sending and consuming `Heartbeat` messages.
   NetworkComponent m (Heartbeat inbound) (Heartbeat outbound) a ->
   -- | Returns a network component that can be used to send and consume arbitrary messages.
   -- This layer will take care of peeling out/wrapping messages into `Heartbeat`s.
-  NetworkComponent m (Either Connectivity inbound) outbound a
+  NetworkComponent m inbound outbound a
 withHeartbeat nodeId withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   lastSent <- newTVarIO Nothing
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
-    withAsync (checkRemoteParties heartbeat onConnectivityChanged) $ \_ ->
+    withAsync (checkRemoteParties heartbeat onConnectivity) $ \_ ->
       withAsync (checkHeartbeatState nodeId lastSent network) $ \_ ->
         action (updateStateFromOutgoingMessages nodeId lastSent network)
  where
-  NetworkCallback{deliver} = callback
-
-  onConnectivityChanged = deliver . Left
+  NetworkCallback{onConnectivity} = callback
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
-  NetworkCallback (Either Connectivity inbound) m ->
+  NetworkCallback inbound m ->
   NetworkCallback (Heartbeat inbound) m
 updateStateFromIncomingMessages heartbeatState callback =
   NetworkCallback
     { deliver = \case
-        Data nodeId msg -> notifyAlive nodeId >> deliver (Right msg)
+        Data nodeId msg -> notifyAlive nodeId >> deliver msg
         Ping nodeId -> notifyAlive nodeId
+    , -- NOTE: We deliberately ignore connnectivity events from the underlying
+      -- NetworkComponent here as the heartbeat provides a "better" detection of
+      -- connectivity.
+      onConnectivity = const $ pure ()
     }
  where
-  NetworkCallback{deliver} = callback
+  NetworkCallback{deliver, onConnectivity} = callback
 
   notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (peer `Map.member` aliveSet) $ deliver (Left $ Connected peer)
+    unless (peer `Map.member` aliveSet) $ onConnectivity (PeerConnected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s
@@ -131,7 +132,7 @@ updateStateFromIncomingMessages heartbeatState callback =
 
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
-  NodeId ->
+  Host ->
   TVar m (Maybe Time) ->
   Network m (Heartbeat outbound) ->
   Network m outbound
@@ -148,7 +149,7 @@ checkHeartbeatState ::
   ( MonadDelay m
   , MonadSTM m
   ) =>
-  NodeId ->
+  Host ->
   TVar m (Maybe Time) ->
   Network m (Heartbeat outbound) ->
   m ()
@@ -176,9 +177,9 @@ checkRemoteParties heartbeatState onConnectivity =
     threadDelay (heartbeatDelay * 2)
     now <- getMonotonicTime
     updateSuspected heartbeatState now
-      >>= mapM_ (onConnectivity . Disconnected)
+      >>= mapM_ (onConnectivity . PeerDisconnected)
 
-updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set NodeId)
+updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Host)
 updateSuspected heartbeatState now =
   atomically $ do
     aliveParties <- alive <$> readTVar heartbeatState

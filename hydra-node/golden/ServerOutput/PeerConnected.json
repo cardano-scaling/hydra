@@ -1,9 +1,12 @@
 {
     "samples": [
         {
-            "peer": "qitfwqawhsprnrebktoraqk",
+            "peer": {
+                "hostname": "0.0.122.110",
+                "port": 1964
+            },
             "tag": "PeerConnected"
         }
     ],
-    "seed": 662696084
+    "seed": 1214056638
 }

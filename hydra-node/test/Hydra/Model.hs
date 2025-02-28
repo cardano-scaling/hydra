@@ -476,7 +476,7 @@ partyKeys =
 data Nodes m = Nodes
   { nodes :: Map.Map Party (TestHydraClient Tx m)
   -- ^ Map from party identifiers to a /handle/ for interacting with a node.
-  , logger :: Tracer m (HydraLog Tx ())
+  , logger :: Tracer m (HydraLog Tx)
   -- ^ Logger used by each node.
   -- The reason we put this here is because the concrete value needs to be
   -- instantiated upon the test run initialisation, outiside of the model.
