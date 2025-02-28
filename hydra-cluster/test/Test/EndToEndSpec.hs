@@ -56,6 +56,7 @@ import Hydra.Cluster.Scenarios (
   canDecommit,
   canRecoverDeposit,
   canSeePendingDeposits,
+  canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
   headIsInitializingWith,
   initWithWrongKeys,
@@ -84,6 +85,7 @@ import HydraNode (
   getSnapshotUTxO,
   input,
   output,
+  prepareHydraNode,
   requestCommitTx,
   send,
   waitFor,
@@ -471,6 +473,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     guard $ v ^? key "tag" == Just "HeadIsContested"
                     guard $ v ^? key "headId" == Just (toJSON headId)
 
+      fit "resume a head after reconfiguring a peer" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \node ->
+            publishHydraScriptsAs node Faucet
+              >>= canSideLoadSnapshot tracer tmpDir node
+
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
@@ -556,7 +564,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let contestationPeriod = UnsafeContestationPeriod 100
             let depositDeadline = UnsafeDepositDeadline 200
             chainConfig <- chainConfigFor Alice dir nodeSocket hydraScriptsTxId [] contestationPeriod depositDeadline
-            withHydraNode' hydraTracer chainConfig dir 1 aliceSk [] [1] Nothing $ \stdOut _ _processHandle -> do
+            runOptions <- prepareHydraNode chainConfig dir 1 aliceSk [] [1]
+            withHydraNode' hydraTracer runOptions Nothing $ \stdOut _ _processHandle -> do
               waitForLog 10 stdOut "JSON object with key NodeOptions" $ \line ->
                 line ^? key "message" . key "tag" == Just (Aeson.String "NodeOptions")
 

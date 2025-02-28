@@ -4,6 +4,8 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
+import Control.Concurrent (myThreadId)
+import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import Hydra.Cardano.Api (
   serialiseToRawBytesHex,
@@ -19,12 +21,16 @@ import Hydra.Options (
   parseHydraCommand,
  )
 import Hydra.Utils (genHydraKeys)
+import System.Posix (Handler (..), installHandler, sigTERM)
 
 main :: IO ()
 main = do
   command <- parseHydraCommand
   case command of
-    Run options ->
+    Run options -> do
+      -- Handle SIGTERM like SIGINT
+      tid <- myThreadId
+      _ <- installHandler sigTERM (Catch $ throwTo tid UserInterrupt) Nothing
       run (identifyNode options) `catch` \(SomeException e) -> die $ displayException e
     Publish options ->
       publish options

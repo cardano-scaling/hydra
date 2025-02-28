@@ -21,6 +21,7 @@ source-repository head
 common project-config
   default-language:   GHC2021
   default-extensions:
+    NoImplicitPrelude
     DataKinds
     DefaultSignatures
     DeriveAnyClass
@@ -31,7 +32,6 @@ common project-config
     GADTs
     LambdaCase
     MultiWayIf
-    NoImplicitPrelude
     OverloadedStrings
     PartialTypeSignatures
     PatternSynonyms
@@ -108,12 +108,9 @@ library
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage
-    , cardano-ledger-babbage:testlib
-    , cardano-ledger-conway
-    , cardano-ledger-conway:testlib
-    , cardano-ledger-core
-    , cardano-ledger-core:testlib
+    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
+    , cardano-ledger-conway:{cardano-ledger-conway, testlib}
+    , cardano-ledger-core:{cardano-ledger-core, testlib}
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
@@ -130,9 +127,8 @@ library
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
-    , hydra-tx
-    , hydra-tx:testlib
-    , io-classes                      >=0.3.0.0
+    , hydra-tx:{hydra-tx, testlib}
+    , io-classes                                                >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -143,9 +139,9 @@ library
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
-    , ouroboros-network-api           >=0.7.1
+    , ouroboros-network-api                                     >=0.7.1
     , ouroboros-network-framework
-    , ouroboros-network-protocols     >=0.8
+    , ouroboros-network-protocols                               >=0.8
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt
@@ -155,8 +151,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                 >=0.1.0.0
-    , typed-protocols-cborg           >=0.1.0.0
+    , typed-protocols                                           >=0.1.0.0
+    , typed-protocols-cborg                                     >=0.1.0.0
     , unliftio
     , vector
     , wai
@@ -203,10 +199,12 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
+    , base
     , bytestring
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , unix
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
@@ -245,8 +243,7 @@ benchmark tx-cost
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
-    , hydra-tx
-    , hydra-tx:testlib
+    , hydra-tx:{hydra-tx, testlib}
     , optparse-applicative
     , plutus-ledger-api
     , plutus-tx
@@ -264,8 +261,7 @@ benchmark micro
     , base
     , criterion
     , hydra-cardano-api
-    , hydra-node
-    , hydra-node:testlib
+    , hydra-node:{hydra-node, testlib}
     , hydra-prelude
     , hydra-tx
     , QuickCheck
@@ -332,12 +328,10 @@ test-suite tests
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage
-    , cardano-ledger-babbage:testlib
+    , cardano-ledger-babbage:{cardano-ledger-babbage, testlib}
     , cardano-ledger-conway
     , cardano-ledger-core
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley:testlib
+    , cardano-ledger-shelley:{cardano-ledger-shelley, testlib}
     , cardano-slotting
     , cardano-strict-containers
     , cborg
@@ -353,22 +347,20 @@ test-suite tests
     , hspec-wai
     , HUnit
     , hydra-cardano-api
-    , hydra-node
-    , hydra-node:testlib
+    , hydra-node:{hydra-node, testlib}
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , hydra-tx
-    , hydra-tx:testlib
+    , hydra-tx:{hydra-tx, testlib}
     , io-classes
     , io-sim
     , lens
     , lens-aeson
     , network-simple-wss
-    , plutus-ledger-api               >=1.1.1.0
+    , plutus-ledger-api                                         >=1.1.1.0
     , plutus-tx
     , QuickCheck
-    , quickcheck-dynamic              >=3.4     && <3.5
+    , quickcheck-dynamic                                        >=3.4     && <3.5
     , quickcheck-instances
     , random
     , regex-tdfa
@@ -378,7 +370,7 @@ test-suite tests
     , text
     , time
     , tls
-    , typed-protocols-examples        >=0.1.0.0
+    , typed-protocols-examples                                  >=0.1.0.0
     , vector
     , websockets
 

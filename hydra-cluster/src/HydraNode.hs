@@ -312,7 +312,8 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withLogFile logFilePath $ \logFileHandle -> do
-    withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds (Just logFileHandle) $ do
+    runOptions <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
+    withHydraNode' tracer runOptions (Just logFileHandle) $ do
       \_ err processHandle -> do
         race
           (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
@@ -323,24 +324,86 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
-withHydraNode' ::
+withPreparedHydraNode ::
   Tracer IO HydraNodeLog ->
+  RunOptions ->
+  FilePath ->
+  Int ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNode tracer runOptions workDir hydraNodeId action = do
+  withLogFile logFilePath $ \logFileHandle -> do
+    withHydraNode' tracer runOptions (Just logFileHandle) $ do
+      \_ err processHandle -> do
+        race
+          (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle (Just err))
+          (withConnectionToNode tracer hydraNodeId action)
+          <&> either absurd id
+ where
+  logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+prepareHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
   SigningKey HydraKey ->
   [VerificationKey HydraKey] ->
   [Int] ->
-  -- | If given use this as std out.
-  Maybe Handle ->
-  (Handle -> Handle -> ProcessHandle -> IO a) ->
-  IO a
-withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds mGivenStdOut action = do
+  IO RunOptions
+prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
   when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   let cardanoLedgerProtocolParametersFile = stateDir </> "protocol-parameters.json"
+  configurePParamsFile chainConfig cardanoLedgerProtocolParametersFile id
+  let hydraSigningKey = stateDir </> "me.sk"
+  void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
+  hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
+    let filepath = stateDir </> ("other-" <> show i <> ".vk")
+    filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
+  pure
+    RunOptions
+      { verbosity = Verbose "HydraNode"
+      , nodeId = NodeId $ show hydraNodeId
+      , host = "0.0.0.0"
+      , port = fromIntegral $ 5_000 + hydraNodeId
+      , peers
+      , apiHost = "0.0.0.0"
+      , apiPort = fromIntegral $ 4_000 + hydraNodeId
+      , tlsCertPath = Nothing
+      , tlsKeyPath = Nothing
+      , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
+      , hydraSigningKey
+      , hydraVerificationKeys
+      , persistenceDir = stateDir
+      , chainConfig
+      , ledgerConfig =
+          CardanoLedgerConfig
+            { cardanoLedgerProtocolParametersFile
+            }
+      }
+ where
+  port = fromIntegral $ 5_000 + hydraNodeId
+
+  -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
+  peers =
+    [ Host
+      { Network.hostname = "0.0.0.0"
+      , Network.port = fromIntegral $ 5_000 + i
+      }
+    | i <- allNodeIds
+    , i /= hydraNodeId
+    ]
+
+configurePParamsFile ::
+  ChainConfig ->
+  -- \| Ledger pparams file
+  FilePath ->
+  -- \| Ledger config pparams decorator
+  (Aeson.Value -> Aeson.Value) ->
+  IO ()
+configurePParamsFile chainConfig cardanoLedgerProtocolParametersFile paramsDecorator = do
   case chainConfig of
     Offline _ ->
       readConfigFile "protocol-parameters.json"
@@ -349,7 +412,7 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
       -- NOTE: This implicitly tests of cardano-cli with hydra-node
       protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
       Aeson.encodeFile cardanoLedgerProtocolParametersFile $
-        protocolParameters
+        paramsDecorator protocolParameters
           & atKey "txFeeFixed" ?~ toJSON (Number 0)
           & atKey "txFeePerByte" ?~ toJSON (Number 0)
           & key "executionUnitPrices" . atKey "priceMemory" ?~ toJSON (Number 0)
@@ -358,36 +421,22 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
           & atKey "treasuryCut" ?~ toJSON (Number 0)
           & atKey "minFeeRefScriptCostPerByte" ?~ toJSON (Number 0)
 
-  let hydraSigningKey = stateDir </> "me.sk"
-  void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
-  hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
-    let filepath = stateDir </> ("other-" <> show i <> ".vk")
-    filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config/.
+withHydraNode' ::
+  Tracer IO HydraNodeLog ->
+  RunOptions ->
+  -- | If given use this as std out.
+  Maybe Handle ->
+  (Handle -> Handle -> ProcessHandle -> IO a) ->
+  IO a
+withHydraNode' tracer runOptions mGivenStdOut action = do
   let p =
-        ( hydraNodeProcess $
+        ( hydraNodeProcess
             -- NOTE: Using 0.0.0.0 over 127.0.0.1 will make the hydra-node
             -- crash if it can't bind the interface and make tests fail more
             -- obvious when e.g. a hydra-node instance is already running.
-            RunOptions
-              { verbosity = Verbose "HydraNode"
-              , nodeId = NodeId $ show hydraNodeId
-              , host = "0.0.0.0"
-              , port = fromIntegral $ 5_000 + hydraNodeId
-              , peers
-              , apiHost = "0.0.0.0"
-              , apiPort = fromIntegral $ 4_000 + hydraNodeId
-              , tlsCertPath = Nothing
-              , tlsKeyPath = Nothing
-              , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
-              , hydraSigningKey
-              , hydraVerificationKeys
-              , persistenceDir = stateDir
-              , chainConfig
-              , ledgerConfig =
-                  CardanoLedgerConfig
-                    { cardanoLedgerProtocolParametersFile
-                    }
-              }
+            runOptions
         )
           { std_out = maybe CreatePipe UseHandle mGivenStdOut
           , std_err = CreatePipe
@@ -400,18 +449,6 @@ withHydraNode' tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNo
       (Just out, Just err) -> action out err processHandle
       (Nothing, _) -> error "Should not happen™"
       (_, Nothing) -> error "Should not happen™"
- where
-  port = fromIntegral $ 5_000 + hydraNodeId
-
-  -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
-  peers =
-    [ Host
-        { Network.hostname = "0.0.0.0"
-        , Network.port = fromIntegral $ 5_000 + i
-        }
-    | i <- allNodeIds
-    , i /= hydraNodeId
-    ]
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =

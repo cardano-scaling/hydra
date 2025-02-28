@@ -26,10 +26,10 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((.~), (^.), (^..), (^?))
-import Data.Aeson (Value, object, (.=))
+import Control.Lens ((.~), (?~), (^.), (^..), (^?))
+import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, values, _JSON, _String)
+import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -89,7 +89,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk)
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk, ddeadline)
 import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, setNetworkId)
@@ -97,6 +97,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (DirectChainConfig (..), networkId, startChainFrom)
+import Hydra.Options qualified as HydraOptions
 import Hydra.Tx (HeadId, IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (..))
@@ -104,10 +105,12 @@ import Hydra.Tx.Utils (dummyValidatorScript, verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  configurePParamsFile,
   getSnapshotUTxO,
   input,
   output,
   postDecommit,
+  prepareHydraNode,
   requestCommitTx,
   send,
   waitFor,
@@ -116,6 +119,7 @@ import HydraNode (
   waitMatch,
   withHydraCluster,
   withHydraNode,
+  withPreparedHydraNode,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
@@ -1313,6 +1317,91 @@ respendUTxO client sk delay = do
         toJSON tx
           `elem` (v ^.. key "snapshot" . key "confirmed" . values)
       v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
+
+-- | Can side load snapshot and resume agreement after a peer comes back online with healthy configuration
+canSideLoadSnapshot :: Tracer IO EndToEndLog -> FilePath -> RunningNode -> [TxId] -> IO ()
+canSideLoadSnapshot tracer workDir cardanoNode hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
+  seedFromFaucet_ cardanoNode aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ cardanoNode carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  let contestationPeriod = UnsafeContestationPeriod 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir nodeSocket hydraScriptsTxId [Bob, Carol] contestationPeriod ddeadline
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir nodeSocket hydraScriptsTxId [Alice, Carol] contestationPeriod ddeadline
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir nodeSocket hydraScriptsTxId [Alice, Bob] contestationPeriod ddeadline
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    aliceUTxO <- seedFromFaucet cardanoNode aliceCardanoVk 1_000_000 (contramap FromFaucet tracer)
+    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      -- Carol starts its node missconfigured
+      runOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3]
+      let stateDir = workDir </> "state-3"
+          cardanoLedgerProtocolParametersFile = stateDir </> "protocol-parameters.json"
+          pparamsDecorator protocolParameters = protocolParameters & atKey "maxTxSize" ?~ toJSON (Number 0)
+      configurePParamsFile carolChainConfig cardanoLedgerProtocolParametersFile pparamsDecorator
+      let wrongOptions =
+            runOptions
+              { HydraOptions.ledgerConfig = HydraOptions.CardanoLedgerConfig cardanoLedgerProtocolParametersFile
+              }
+      withPreparedHydraNode hydraTracer wrongOptions workDir 3 $ \n3 -> do
+        -- Init
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits something
+        requestCommitTx n1 aliceUTxO >>= submitTx cardanoNode
+
+        -- Everyone else commits nothing
+        mapConcurrently_ (\n -> requestCommitTx n mempty >>= submitTx cardanoNode) [n2, n3]
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON aliceUTxO, "headId" .= headId]
+
+        -- Alice submits a new transaction
+        utxo <- getSnapshotUTxO n1
+        tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
+        send n1 $ input "NewTx" ["transaction" .= tx]
+
+        -- Alice and Bob accept it
+        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+          guard $ v ^? key "tag" == Just "TxValid"
+          guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
+
+        -- Carol does not because of its node being missconfigured
+        waitMatch 3 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "TxInvalid"
+          guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      readFileBS (workDir </> "state-3" </> "acks") >>= print
+      -- Carol reconnects with reconfigured node
+      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- Everyone confirms it
+        -- Note: We can't use `waitForAlMatch` here as it expects them to
+        -- emit the exact same datatype; but Carol will be behind in sequence
+        -- numbers as she was offline.
+        flip mapConcurrently_ [n1, n2, n3] $ \n ->
+          waitMatch (200 * blockTime) n $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+            -- Just check that everyone signed it.
+            let sigs = v ^.. key "signatures" . key "multiSignature" . values
+            guard $ length sigs == 3
+ where
+  RunningNode{nodeSocket, networkId, blockTime} = cardanoNode
+  hydraTracer = contramap FromHydraNode tracer
 
 -- * Utilities
 

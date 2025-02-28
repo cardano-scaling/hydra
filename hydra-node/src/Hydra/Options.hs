@@ -5,6 +5,7 @@ module Hydra.Options (
   module Hydra.Options,
   ParserResult (..),
   renderFailure,
+  defaultLedgerConfig,
 ) where
 
 import Hydra.Prelude
