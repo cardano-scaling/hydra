@@ -20,10 +20,11 @@ import Hydra.Cardano.Api (
   SocketPath,
   UTxO,
   connectToLocalNode,
+  getBlockHeader,
+  getBlockTxs,
   getChainPoint,
   getTxBody,
   getTxId,
-  pattern Block,
  )
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.Chain.Direct.Handlers (convertObservation)
@@ -131,20 +132,18 @@ chainSyncClient tracer networkId startingPoint observerHandler =
   clientStNext utxo =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
-          let receivedTxIds = case blockInMode of
-                BlockInMode ConwayEra (Block _ conwayTxs) -> getTxId . getTxBody <$> conwayTxs
-                _ -> []
+          let block = case blockInMode of
+                BlockInMode ConwayEra block -> Just block
+                _ -> Nothing
 
-              (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
+              txs = getBlockTxs <$> maybeToList block
+              bh@(BlockHeader _ _ blockNo) = getBlockHeader block
               point = getChainPoint bh
-          traceWith tracer RollForward{point, receivedTxIds}
-
-          let txs = case blockInMode of
-                BlockInMode ConwayEra (Block _ conwayTxs) -> conwayTxs
-                _ -> []
-
+              receivedTxIds = getTxId . getTxBody <$> txs
               (utxo', observations) = observeAll networkId utxo txs
               onChainTxs = mapMaybe convertObservation observations
+
+          traceWith tracer RollForward{point, receivedTxIds}
 
           forM_ onChainTxs (traceWith tracer . logOnChainTx)
           let observationsAt = ChainObservation point blockNo . Just <$> onChainTxs
