@@ -928,15 +928,22 @@ waitForUTxOToSpend ::
   Value ->
   TestHydraClient Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value node = do
-  u <- headUTxO node
-  threadDelay 1
-  if u /= mempty
-    then case find matchPayment (UTxO.pairs u) of
-      Nothing -> pure $ Left utxo
-      Just (txIn, txOut) -> pure $ Right (txIn, txOut)
-    else pure $ Left utxo
+waitForUTxOToSpend utxo key value node = go 100
  where
+  go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
+  go = \case
+    0 ->
+      pure $ Left utxo
+    n -> do
+      threadDelay 5
+      u <- headUTxO node
+      threadDelay 5
+      if u /= mempty
+        then case find matchPayment (UTxO.pairs u) of
+          Nothing -> go (n - 1)
+          Just (txIn, txOut) -> pure $ Right (txIn, txOut)
+        else go (n - 1)
+
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut
 
