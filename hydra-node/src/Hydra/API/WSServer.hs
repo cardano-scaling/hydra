@@ -3,12 +3,13 @@
 
 module Hydra.API.WSServer where
 
-import Hydra.Prelude hiding (TVar, readTVar, seq)
+import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
+import Conduit (ConduitT, ResourceT, runConduitRes, sinkList, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
-import Control.Concurrent.STM.TVar (TVar, readTVar)
 import Data.Aeson qualified as Aeson
+import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -53,7 +54,7 @@ wsApp ::
   IsChainState tx =>
   Party ->
   Tracer IO APIServerLog ->
-  TVar [TimedServerOutput tx] ->
+  ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (ServerOutput tx) HeadStatus ->
@@ -75,7 +76,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   let outConfig = mkServerOutputConfig queryParams
 
   -- api client can decide if they want to see the past history of server outputs
-  unless (shouldNotServeHistory queryParams) $
+  when (shouldServeHistory queryParams) $
     forwardHistory con outConfig
 
   forwardGreetingOnly con
@@ -87,26 +88,18 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly con = do
-    seq <- atomically $ nextSequenceNumber history
     headStatus <- atomically getLatestHeadStatus
     hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
-    time <- getCurrentTime
 
     sendTextData con $
       Aeson.encode
-        TimedServerOutput
-          { time
-          , seq
-          , output =
-              Greetings
-                { me = party
-                , headStatus
-                , hydraHeadId
-                , snapshotUtxo
-                , hydraNodeVersion = showVersion Options.hydraNodeVersion
-                } ::
-                ServerOutput tx
+        Greetings
+          { me = party
+          , headStatus
+          , hydraHeadId
+          , snapshotUtxo
+          , hydraNodeVersion = showVersion Options.hydraNodeVersion
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
@@ -134,10 +127,10 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
       (QueryParam key _) | key == [queryKey|address|] -> True
       _other -> False
 
-  shouldNotServeHistory qp =
+  shouldServeHistory qp =
     flip any qp $ \case
       (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|no|]
+        | key == [queryKey|history|] -> val == [queryValue|yes|]
       _other -> False
 
   sendOutputs chan con outConfig@ServerOutputConfig{addressInTx} = forever $ do
@@ -160,15 +153,13 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber history
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
-        sendTextData con $ Aeson.encode timedOutput
+        sendTextData con $ Aeson.encode $ InvalidInput @tx e clientInput
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
-    rawHist <- STM.atomically (readTVar history)
-    let hist = filter (isAddressInTx addressInTx) rawHist
+    hist' <- runConduitRes $ history .| filter (isAddressInTx addressInTx) .| sinkList
+    -- NOTE: we need to reverse the list because we store history in a reversed order on disk
+    let hist = reverse hist'
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
 
@@ -176,9 +167,3 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
     case addressInTx of
       WithAddressedTx addr -> txContainsAddr tx addr
       WithoutAddressedTx -> True
-
-nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
-nextSequenceNumber historyList =
-  STM.readTVar historyList >>= \case
-    [] -> pure 0
-    (TimedServerOutput{seq} : _) -> pure (seq + 1)

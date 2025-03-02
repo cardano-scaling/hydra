@@ -6,44 +6,52 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Exception (IOException)
 import Data.Aeson qualified as Aeson
-import Hydra.API.ClientInput (ClientInput (GetUTxO, NewTx))
-import Hydra.API.ServerOutput (ServerOutput (GetUTxOResponse))
+import Data.Text (unpack)
+import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Chain.Direct.State ()
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.Network (Host (..))
+import Network.HTTP.Conduit (parseUrlThrow)
+import Network.HTTP.Simple (getResponseBody, httpJSON)
 import Network.WebSockets (Connection, runClient, sendTextData)
-import Network.WebSockets.Connection (receive, receiveData)
+import Network.WebSockets.Connection (receive)
 
 data Pixel = Pixel
   { x, y, red, green, blue :: Word8
   }
 
-paintPixel :: NetworkId -> FilePath -> Connection -> Pixel -> IO ()
-paintPixel networkId signingKeyPath cnx pixel = do
+paintPixel :: NetworkId -> FilePath -> Host -> Connection -> Pixel -> IO ()
+paintPixel networkId signingKeyPath host cnx pixel = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
   let myAddress = mkVkAddress networkId $ getVerificationKey sk
   flushQueue
-  sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
-  msg <- receiveData cnx
-  putStrLn $ "Received from hydra-node: " <> show msg
-  case Aeson.eitherDecode @(ServerOutput Tx) msg of
-    Right (GetUTxOResponse _ utxo) ->
+  mHeadUTxO <- requestHeadUTxO host
+  case mHeadUTxO of
+    Just utxo ->
       case UTxO.find (\TxOut{txOutAddress} -> txOutAddress == myAddress) utxo of
         Nothing -> fail $ "No UTxO owned by " <> show myAddress
         Just (txIn, txOut) ->
           case mkPaintTx (txIn, txOut) sk pixel of
             Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
             Left err -> fail $ "Failed to build pixel transaction " <> show err
-    Right _ -> fail $ "Unexpected server answer:  " <> decodeUtf8 msg
-    Left e -> fail $ "Failed to decode server answer:  " <> show e
+    Nothing -> fail "Head UTxO is empty"
  where
   flushQueue =
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue)
 
+requestHeadUTxO :: Host -> IO (Maybe UTxO)
+requestHeadUTxO host = do
+  resp <-
+    parseUrlThrow ("GET " <> unpack (hydraNodeBaseUrl host) <> "/snapshot/utxo")
+      >>= httpJSON
+  pure $ getResponseBody resp
+ where
+  hydraNodeBaseUrl Host{hostname, port} = hostname <> show port
+
 -- | Same as 'withClient' except we don't retry if connection fails.
 withClientNoRetry :: Host -> (Connection -> IO ()) -> IO ()
 withClientNoRetry Host{hostname, port} action =
-  runClient (toString hostname) (fromIntegral port) "/" action
+  runClient (toString hostname) (fromIntegral port) "/?history=yes" action
     `catch` \(e :: IOException) -> print e >> threadDelay 1
 
 withClient :: Host -> (Connection -> IO ()) -> IO ()
@@ -52,7 +60,7 @@ withClient Host{hostname, port} action =
  where
   retry = do
     putTextLn $ "Connecting to Hydra API on " <> hostname <> ":" <> show port <> ".."
-    runClient (toString hostname) (fromIntegral port) "/" action
+    runClient (toString hostname) (fromIntegral port) "/?history=yes" action
       `catch` \(e :: IOException) -> print e >> threadDelay 1 >> retry
 
 -- | Create a zero-fee, payment cardano transaction with pixel metadata, which

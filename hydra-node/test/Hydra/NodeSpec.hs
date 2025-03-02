@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..))
+import Hydra.API.Server (mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
@@ -40,6 +40,7 @@ import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Environment qualified as Environment
 import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
+import Hydra.Tx.IsTx (IsTx)
 import Hydra.Tx.Party (Party, deriveParty)
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -100,16 +101,18 @@ spec = parallel $ do
 
       it "checks head state" $ \testHydrate ->
         forAllShrink arbitrary shrink $ \env ->
-          env /= testEnvironment ==> do
-            -- XXX: This is very tied to the fact that 'HeadInitialized' results in
-            -- a head state that gets checked by 'checkHeadState'
-            let genEvent = do
-                  StateEvent
-                    <$> arbitrary
-                    <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary)
-            forAllShrink genEvent shrink $ \incompatibleEvent ->
-              testHydrate (mockSource [incompatibleEvent]) []
-                `shouldThrow` \(_ :: ParameterMismatch) -> True
+          forAllShrink arbitrary shrink $ \now ->
+            env /= testEnvironment ==> do
+              -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+              -- a head state that gets checked by 'checkHeadState'
+              let genEvent = do
+                    StateEvent
+                      <$> arbitrary
+                      <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                      <*> pure now
+              forAllShrink genEvent shrink $ \incompatibleEvent ->
+                testHydrate (mockSource [incompatibleEvent]) []
+                  `shouldThrow` \(_ :: ParameterMismatch) -> True
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
@@ -321,11 +324,7 @@ primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
 notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 notConnect =
-  connect mockChain mockNetwork mockServer
-
-mockServer :: Monad m => Server SimpleTx m
-mockServer =
-  Server{sendOutput = \_ -> pure ()}
+  connect mockChain mockNetwork
 
 mockNetwork :: Monad m => Network m (Message SimpleTx)
 mockNetwork =
@@ -441,10 +440,15 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: IsTx tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
-  pure (node{server = Server{sendOutput = record}}, query)
+  let apiSink =
+        EventSink
+          { putEvent = \StateEvent{stateChanged} ->
+              for_ (mapStateChangedToServerOutput stateChanged) record
+          }
+  pure (node{eventSinks = [apiSink]}, query)
 
 messageRecorder :: IO (msg -> IO (), IO [msg])
 messageRecorder = do

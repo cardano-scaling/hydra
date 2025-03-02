@@ -28,7 +28,6 @@ import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (userError)
-import Hydra.API.Server (Server (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
@@ -183,8 +182,7 @@ mockChainAndNetwork tr seedKeys commits = do
             getTimeHandle
             seedInput
             localChainState
-        mockServer = Server{sendOutput = const $ pure ()}
-    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
+    node <- connect mockChain (createMockNetwork draftNode nodes) draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     let mockNode =
           MockHydraNode

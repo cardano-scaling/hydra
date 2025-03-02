@@ -20,7 +20,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.Server (Server, sendOutput)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
@@ -234,11 +233,10 @@ connect ::
   Monad m =>
   Chain tx m ->
   Network m (Message tx) ->
-  Server tx m ->
   DraftHydraNode tx m ->
   m (HydraNode tx m)
-connect chain network server node =
-  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
+connect chain network node =
+  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network}
  where
   DraftHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
 
@@ -253,12 +251,12 @@ data HydraNode tx m = HydraNode
   , eventSinks :: [EventSink (StateEvent tx) m]
   , oc :: Chain tx m
   , hn :: Network m (Message tx)
-  , server :: Server tx m
   }
 
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -271,6 +269,7 @@ runHydraNode node =
 stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -319,11 +318,12 @@ processNextInput HydraNode{nodeState, ledger, env} e =
 
   computeOutcome = HeadLogic.update env ledger
 
-processStateChanges :: MonadSTM m => HydraNode tx m -> [StateChanged tx] -> m ()
+processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processStateChanges node stateChanges = do
-  events <- atomically . forM stateChanges $ \stateChanged -> do
-    eventId <- getNextEventId
-    pure StateEvent{eventId, stateChanged}
+  events <- forM stateChanges $ \stateChanged -> do
+    time <- getCurrentTime
+    eventId <- atomically getNextEventId
+    pure StateEvent{eventId, stateChanged, time}
   putEventsToSinks eventSinks events
  where
   HydraNode
@@ -347,7 +347,6 @@ processEffects node tracer inputId effects = do
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
-      ClientEffect i -> sendOutput server i
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx
@@ -358,7 +357,6 @@ processEffects node tracer inputId effects = do
   HydraNode
     { hn
     , oc = Chain{postTx}
-    , server
     , inputQueue = InputQueue{enqueue}
     , env = Environment{party}
     } = node

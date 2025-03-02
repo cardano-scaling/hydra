@@ -82,9 +82,9 @@ handleHydraEventsConnectedState = \case
 
 handleHydraEventsConnection :: HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsConnection = \case
-  Update TimedServerOutput{output = Greetings{me}} -> meL .= Identified me
-  Update TimedServerOutput{output = PeerConnected p} -> peersL %= \cp -> nub $ cp <> [p]
-  Update TimedServerOutput{output = PeerDisconnected p} -> peersL %= \cp -> cp \\ [p]
+  UpdateDirect Greetings{me} -> meL .= Identified me
+  UpdateDirect PeerConnected{peer} -> peersL %= \cp -> nub $ cp <> [peer]
+  UpdateDirect PeerDisconnected{peer} -> peersL %= \cp -> cp \\ [peer]
   e -> zoom headStateL $ handleHydraEventsHeadState e
 
 handleHydraEventsHeadState :: HydraEvent Tx -> EventM Name HeadState ()
@@ -136,10 +136,10 @@ handleHydraEventsActiveLink e = do
           )
           pendingIncrements
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} -> do
+    Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
-      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
-      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= depositTxId) pendingIncrements
+      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == depositTxId) pendingIncrements
       let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
       pendingIncrementsL .= activePendingIncrements
       utxoL .= utxo <> activeUtxoToCommit
@@ -162,8 +162,6 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update TimedServerOutput{time, output = SnapshotConfirmed{snapshot = Snapshot{number}}} ->
     info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = CommandFailed{clientInput}} -> do
-    warn time $ "Invalid command: " <> show clientInput
   Update TimedServerOutput{time, output = HeadIsClosed{snapshotNumber}} -> do
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update TimedServerOutput{time, output = HeadIsContested{snapshotNumber, contestationDeadline}} -> do
@@ -205,10 +203,10 @@ handleHydraEventsInfo = \case
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = CommitFinalized{theDeposit}} ->
+  Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} ->
     report Success time $
       "Commit finalized "
-        <> show theDeposit
+        <> show depositTxId
   Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "

@@ -8,10 +8,8 @@ import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, generic
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, NodeId)
 import Hydra.Prelude hiding (seq)
@@ -38,11 +36,6 @@ data TimedServerOutput tx = TimedServerOutput
 
 instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
-
--- | Generate a random timed server output given a normal server output.
-genTimedServerOutput :: ServerOutput tx -> Gen (TimedServerOutput tx)
-genTimedServerOutput o =
-  TimedServerOutput o <$> arbitrary <*> arbitrary
 
 instance IsChainState tx => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
@@ -99,7 +92,6 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
@@ -139,7 +131,7 @@ data ServerOutput tx
   | DecommitFinalized {headId :: HeadId, decommitTxId :: TxIdType tx}
   | CommitRecorded {headId :: HeadId, utxoToCommit :: UTxOType tx, pendingDeposit :: TxIdType tx, deadline :: UTCTime}
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
+  | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
   deriving stock (Generic)
@@ -179,7 +171,6 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
     TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
@@ -201,7 +192,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecorded headId u i d -> CommitRecorded headId <$> shrink u <*> shrink i <*> shrink d
     CommitApproved headId u -> CommitApproved headId <$> shrink u
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
-    CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
+    CommitFinalized headId depositTxId -> CommitFinalized headId <$> shrink depositTxId
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
@@ -246,7 +237,6 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     ReadyToFanout{} -> encodedResponse
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
-    CommandFailed{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
@@ -300,7 +290,7 @@ projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdTy
 projectPendingDeposits txIds = \case
   CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
   CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
-  CommitFinalized{theDeposit} -> filter (/= theDeposit) txIds
+  CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
   _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
@@ -335,8 +325,8 @@ projectHeadStatus headStatus = \case
   _other -> headStatus
 
 -- | Projection of latest confirmed snapshot UTxO.
-projectSnapshotUtxo :: Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
+projectSnapshotUtxo :: IsTx tx => Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
 projectSnapshotUtxo snapshotUtxo = \case
-  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
+  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo

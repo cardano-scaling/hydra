@@ -25,7 +25,6 @@ import Data.List (elemIndex)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import GHC.Records (getField)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -103,19 +102,17 @@ defaultTTL = 5
 onConnectionEvent :: Connectivity -> Outcome tx
 onConnectionEvent = \case
   Connected{nodeId} ->
-    causes [ClientEffect (ServerOutput.PeerConnected nodeId)]
+    newState (PeerConnected nodeId)
   Disconnected{nodeId} ->
-    causes [ClientEffect (ServerOutput.PeerDisconnected nodeId)]
+    newState (PeerDisconnected nodeId)
   HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
-    causes
-      [ ClientEffect
-          ( ServerOutput.PeerHandshakeFailure
-              { remoteHost
-              , ourVersion = getVersion ourVersion
-              , theirVersions = getKnownVersions theirVersions
-              }
-          )
-      ]
+    newState
+      ( PeerHandshakeFailure
+          { remoteHost
+          , ourVersion = getVersion ourVersion
+          , theirVersions = getKnownVersions theirVersions
+          }
+      )
    where
     getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
 
@@ -165,12 +162,11 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , chainState = newChainState
           , headId
           , headSeed
+          , parties
           }
-        <> cause (ClientEffect $ ServerOutput.HeadIsInitializing{headId, parties})
   | otherwise =
-      cause
-        . ClientEffect
-        $ ServerOutput.IgnoredHeadInitializing
+      newState
+        IgnoredHeadInitializing
           { headId
           , contestationPeriod
           , parties
@@ -206,14 +202,9 @@ onInitialChainCommitTx ::
   UTxOType tx ->
   Outcome tx
 onInitialChainCommitTx st newChainState pt utxo =
-  newState CommittedUTxO{party = pt, committedUTxO = utxo, chainState = newChainState}
-    <> causes
-      ( notifyClient
-          : [postCollectCom | canCollectCom]
-      )
+  newState CommittedUTxO{headId, party = pt, committedUTxO = utxo, chainState = newChainState}
+    <> causes [postCollectCom | canCollectCom]
  where
-  notifyClient = ClientEffect $ ServerOutput.Committed{headId, party = pt, utxo}
-
   postCollectCom =
     OnChainEffect
       { postChainTx =
@@ -257,8 +248,7 @@ onInitialChainAbortTx ::
   HeadId ->
   Outcome tx
 onInitialChainAbortTx newChainState committed headId =
-  newState HeadAborted{chainState = newChainState}
-    <> cause (ClientEffect $ ServerOutput.HeadIsAborted{headId, utxo = fold committed})
+  newState HeadAborted{headId, utxo = fold committed, chainState = newChainState}
 
 -- | Observe a collectCom transaction. We initialize the 'OpenState' using the
 -- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
@@ -280,8 +270,7 @@ onInitialChainCollectTx st newChainState =
       --       T̂  ← ∅
       --       txω ← ⊥
       --       𝑈𝛼 ← ∅
-      newState HeadOpened{chainState = newChainState, initialUTxO = u0}
-        <> cause (ClientEffect $ ServerOutput.HeadIsOpen{headId, utxo = u0})
+      newState HeadOpened{headId, chainState = newChainState, initialUTxO = u0}
  where
   -- TODO: Do we want to check whether this even matches our local state? For
   -- example, we do expect `null remainingParties` but what happens if it's
@@ -322,13 +311,12 @@ onOpenNetworkReqTx env ledger st ttl tx =
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
     waitApplyTx $ \newLocalUTxO ->
-      (cause (ClientEffect $ ServerOutput.TxValid headId (txId tx) tx) <>) $
-        -- Spec: T̂ ← T̂ ⋃ {tx}
-        --       L̂  ← L̂ ◦ tx
-        newState TransactionAppliedToLocalUTxO{tx, newLocalUTxO}
-          -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-          --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-          & maybeRequestSnapshot (confirmedSn + 1)
+      -- Spec: T̂ ← T̂ ⋃ {tx}
+      --       L̂  ← L̂ ◦ tx
+      newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
+        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+        & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
@@ -347,7 +335,7 @@ onOpenNetworkReqTx env ledger st ttl tx =
             -- however, saw both as valid and requests a snapshot including
             -- both. This is a valid request and if we would have removed tx2
             -- from allTxs, we would make the head stuck.
-            cause . ClientEffect $ ServerOutput.TxInvalid headId localUTxO tx err
+            newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
@@ -626,8 +614,7 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
               do
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
-                newState SnapshotConfirmed{snapshot, signatures = multisig}
-                <> cause (ClientEffect $ ServerOutput.SnapshotConfirmed headId snapshot multisig)
+                newState SnapshotConfirmed{headId, snapshot, signatures = multisig}
                 -- Spec: if η𝛼 ≠ ⊥
                 --         postTx (increment, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostIncrementTx snapshot multisig
@@ -692,53 +679,45 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
     case find (\(_, depositUTxO) -> Just depositUTxO == utxoToCommit) (Map.assocs pendingDeposits) of
       Just (depositTxId, depositUTxO) ->
         outcome
-          <> causes
-            [ ClientEffect $
-                ServerOutput.CommitApproved
-                  { headId
-                  , utxoToCommit = depositUTxO
-                  }
-            , OnChainEffect
-                { postChainTx =
-                    IncrementTx
-                      { headId
-                      , headParameters = parameters
-                      , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                      , depositTxId
-                      }
-                }
-            ]
+          <> newState CommitApproved{headId, utxoToCommit = depositUTxO}
+          <> cause
+            OnChainEffect
+              { postChainTx =
+                  IncrementTx
+                    { headId
+                    , headParameters = parameters
+                    , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                    , depositTxId
+                    }
+              }
       _ ->
-        cause
-          ( ClientEffect $
-              ServerOutput.CommitIgnored
-                { headId
-                , depositUTxO = Map.elems pendingDeposits
-                , snapshotUTxO = utxoToCommit
-                }
-          )
+        newState
+          CommitIgnored
+            { headId
+            , depositUTxO = Map.elems pendingDeposits
+            , snapshotUTxO = utxoToCommit
+            }
           <> outcome
 
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
     case (decommitTx, utxoToDecommit) of
       (Just tx, Just utxo) ->
         outcome
-          <> causes
-            [ ClientEffect $
-                ServerOutput.DecommitApproved
-                  { headId
-                  , decommitTxId = txId tx
-                  , utxoToDecommit = utxo
-                  }
-            , OnChainEffect
-                { postChainTx =
-                    DecrementTx
-                      { headId
-                      , headParameters = parameters
-                      , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                      }
-                }
-            ]
+          <> newState
+            DecommitApproved
+              { headId
+              , decommitTxId = txId tx
+              , utxoToDecommit = utxo
+              }
+          <> cause
+            OnChainEffect
+              { postChainTx =
+                  DecrementTx
+                    { headId
+                    , headParameters = parameters
+                    , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                    }
+              }
       _ -> outcome
 
   vkeys = vkey <$> parties
@@ -807,34 +786,30 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight continue =
     case mExistingDecommitTx of
       Just existingDecommitTx ->
-        cause
-          ( ClientEffect
-              ServerOutput.DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason =
-                    ServerOutput.DecommitAlreadyInFlight
-                      { otherDecommitTxId = txId existingDecommitTx
-                      }
-                }
-          )
+        newState
+          DecommitInvalid
+            { headId
+            , decommitTx
+            , decommitInvalidReason =
+                ServerOutput.DecommitAlreadyInFlight
+                  { otherDecommitTxId = txId existingDecommitTx
+                  }
+            }
       Nothing -> continue
 
   checkValidDecommitTx cont =
     case applyTransactions ledger currentSlot localUTxO [decommitTx] of
       Left (_, err) ->
-        cause
-          ( ClientEffect
-              ServerOutput.DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason =
-                    ServerOutput.DecommitTxInvalid
-                      { localUTxO
-                      , validationError = err
-                      }
-                }
-          )
+        newState
+          DecommitInvalid
+            { headId
+            , decommitTx
+            , decommitInvalidReason =
+                ServerOutput.DecommitTxInvalid
+                  { localUTxO
+                  , validationError = err
+                  }
+            }
       Right _ -> cont
 
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
@@ -866,14 +841,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
     -- Spec: txω ← tx
     newState DecommitRecorded{decommitTx, newLocalUTxO = activeUTxO}
-      <> cause
-        ( ClientEffect $
-            ServerOutput.DecommitRequested
-              { headId
-              , decommitTx = decommitTx
-              , utxoToDecommit = decommitUTxO
-              }
-        )
+      <> newState DecommitRequested{headId, decommitTx = decommitTx, utxoToDecommit = decommitUTxO}
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
       --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
@@ -889,8 +857,8 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
                   WaitOnNotApplicableDecommitTx
                     ServerOutput.DecommitTxInvalid{localUTxO, validationError}
             | otherwise ->
-                cause . ClientEffect $
-                  ServerOutput.DecommitInvalid
+                newState
+                  DecommitInvalid
                     { headId
                     , decommitTx
                     , decommitInvalidReason =
@@ -902,8 +870,8 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
               WaitOnNotApplicableDecommitTx
                 DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
         | otherwise ->
-            cause . ClientEffect $
-              ServerOutput.DecommitInvalid
+            newState
+              DecommitInvalid
                 { headId
                 , decommitTx
                 , decommitInvalidReason =
@@ -961,8 +929,7 @@ onOpenChainDepositTx headId env st deposited depositTxId deadline =
   -- TODO: We should check for deadline and only request snapshots that have deadline further in the future so
   -- we don't end up with a snapshot that is already outdated.
   waitOnUnresolvedDecommit $
-    newState CommitRecorded{pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited}
-      <> cause (ClientEffect $ ServerOutput.CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline})
+    newState CommitRecorded{headId, pendingDeposits = Map.singleton depositTxId deposited, newLocalUTxO = localUTxO <> deposited, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
       <> if not snapshotInFlight && isLeader parameters party nextSn
         then
           cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
@@ -999,15 +966,7 @@ onOpenChainRecoverTx headId st recoveredTxId =
   case Map.lookup recoveredTxId pendingDeposits of
     Nothing -> Error $ RequireFailed RecoverNotMatchingDeposit
     Just recoveredUTxO ->
-      newState CommitRecovered{recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
-        <> cause
-          ( ClientEffect
-              ServerOutput.CommitRecovered
-                { headId
-                , recoveredTxId
-                , recoveredUTxO
-                }
-          )
+      newState CommitRecovered{headId, recoveredUTxO, newLocalUTxO = localUTxO `withoutUTxO` recoveredUTxO, recoveredTxId}
  where
   OpenState{coordinatedHeadState} = st
 
@@ -1026,8 +985,7 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   Outcome tx
 onOpenChainIncrementTx openState newVersion depositTxId =
-  newState CommitFinalized{newVersion, depositTxId}
-    <> cause (ClientEffect $ ServerOutput.CommitFinalized{headId, theDeposit = depositTxId})
+  newState CommitFinalized{headId, newVersion, depositTxId}
  where
   OpenState{headId} = openState
 
@@ -1055,8 +1013,7 @@ onOpenChainDecrementTx openState newVersion distributedTxOuts =
       | outputsOfTx tx == distributedTxOuts ->
           -- Spec: txω ← ⊥
           --       v  ← v
-          newState DecommitFinalized{newVersion}
-            <> cause (ClientEffect $ ServerOutput.DecommitFinalized{headId, decommitTxId = txId tx})
+          newState DecommitFinalized{headId, newVersion, decommitTxId = txId tx}
       | otherwise -> Error $ AssertionFailed "decrement not matching pending decommit"
  where
   OpenState{coordinatedHeadState, headId} = openState
@@ -1114,8 +1071,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   Outcome tx
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  newState HeadClosed{chainState = newChainState, contestationDeadline}
-    <> cause notifyClient
+  newState HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
     & maybePostContest
  where
   maybePostContest outcome =
@@ -1143,14 +1099,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
               }
       else outcome
 
-  notifyClient =
-    ClientEffect $
-      ServerOutput.HeadIsClosed
-        { headId
-        , snapshotNumber = closedSnapshotNumber
-        , contestationDeadline
-        }
-
   CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
@@ -1168,44 +1116,35 @@ onClosedChainContestTx ::
   UTCTime ->
   Outcome tx
 onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
-  newState HeadContested{chainState = newChainState, contestationDeadline}
-    <> if
-      | -- Spec: if ̅S.s > sc
-        number (getSnapshot confirmedSnapshot) > snapshotNumber ->
-          cause notifyClients
-            -- XXX: As we use 'version' in the contest here, this is implies
-            -- that our last 'confirmedSnapshot' must match version or
-            -- version-1. Assert this fact?
-            -- Spec: η ← combine(̅S.𝑈)
-            --       η𝛼 ← combine(S.𝑈𝛼)
-            --       ηω ← combine(S.𝑈ω)
-            --       ξ ← ̅S.σ
-            --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
-            <> cause
-              OnChainEffect
-                { postChainTx =
-                    ContestTx
-                      { headId
-                      , headParameters
-                      , openVersion = version
-                      , contestingSnapshot = confirmedSnapshot
-                      }
-                }
-      | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
-          -- TODO: A more recent snapshot number was succesfully contested, we will
-          -- not be able to fanout! We might want to communicate that to the client!
-          cause notifyClients
-      | otherwise ->
-          cause notifyClients
+  if
+    | -- Spec: if ̅S.s > sc
+      number (getSnapshot confirmedSnapshot) > snapshotNumber ->
+        -- XXX: As we use 'version' in the contest here, this is implies
+        -- that our last 'confirmedSnapshot' must match version or
+        -- version-1. Assert this fact?
+        -- Spec: η ← combine(̅S.𝑈)
+        --       η𝛼 ← combine(S.𝑈𝛼)
+        --       ηω ← combine(S.𝑈ω)
+        --       ξ ← ̅S.σ
+        --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
+        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
+          <> cause
+            OnChainEffect
+              { postChainTx =
+                  ContestTx
+                    { headId
+                    , headParameters
+                    , openVersion = version
+                    , contestingSnapshot = confirmedSnapshot
+                    }
+              }
+    | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
+        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
+    -- TODO: A more recent snapshot number was succesfully contested, we will
+    -- not be able to fanout! We might want to communicate that to the client!
+    | otherwise ->
+        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
  where
-  notifyClients =
-    ClientEffect
-      ServerOutput.HeadIsContested
-        { snapshotNumber
-        , headId
-        , contestationDeadline
-        }
-
   ClosedState{parameters = headParameters, confirmedSnapshot, headId, version} = closedState
 
 -- | Client request to fanout leads to a fanout transaction on chain using the
@@ -1250,8 +1189,7 @@ onClosedChainFanoutTx ::
   ChainStateType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState =
-  newState HeadFannedOut{chainState = newChainState}
-    <> cause (ClientEffect $ ServerOutput.HeadIsFinalized{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit})
+  newState HeadFannedOut{headId, utxo = (utxo <> fromMaybe mempty utxoToCommit) `withoutUTxO` fromMaybe mempty utxoToDecommit, chainState = newChainState}
  where
   Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
@@ -1287,8 +1225,6 @@ update env ledger st ev = case (st, ev) of
   (Initial InitialState{headId = ourHeadId, committed}, ChainInput Observation{observedTx = OnAbortTx{headId}, newChainState})
     | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial InitialState{committed, headId}, ClientInput GetUTxO) ->
-    cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ fold committed)
   -- Open
   (Open openState, ClientInput Close) ->
     onOpenClientClose openState
@@ -1307,11 +1243,6 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
-    -- TODO: Is it really intuitive that we respond from the confirmed ledger if
-    -- transactions are validated against the seen ledger?
-    let snapshot' = getSnapshot confirmedSnapshot
-     in cause (ClientEffect . ServerOutput.GetUTxOResponse headId $ getField @"utxo" snapshot' <> fromMaybe mempty (getField @"utxoToCommit" snapshot'))
   -- NOTE: If posting the collectCom transaction failed in the open state, then
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
@@ -1349,8 +1280,7 @@ update env ledger st ev = case (st, ev) of
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState HeadIsReadyToFanout
-          <> cause (ClientEffect $ ServerOutput.ReadyToFanout headId)
+        newState HeadIsReadyToFanout{headId}
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId}, newChainState})
@@ -1364,9 +1294,7 @@ update env ledger st ev = case (st, ev) of
   (_, ChainInput Tick{chainSlot}) ->
     newState TickObserved{chainSlot}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
-    cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
-  (_, ClientInput{clientInput}) ->
-    cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
+    newState PostTxOnChainFailed{postChainTx, postTxError}
   _ ->
     Error $ UnhandledInput ev st
 
@@ -1648,7 +1576,7 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  HeadIsReadyToFanout ->
+  HeadIsReadyToFanout _ ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -1658,6 +1586,17 @@ aggregate st = \case
     case st of
       Open ost@OpenState{} -> Open ost{currentSlot = chainSlot}
       _otherState -> st
+  CommitApproved{} -> st
+  CommitIgnored{} -> st
+  DecommitApproved{} -> st
+  DecommitRequested{} -> st
+  DecommitInvalid{} -> st
+  IgnoredHeadInitializing{} -> st
+  TxInvalid{} -> st
+  PeerConnected{} -> st
+  PeerDisconnected{} -> st
+  PeerHandshakeFailure{} -> st
+  PostTxOnChainFailed{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1696,3 +1635,14 @@ aggregateChainStateHistory history = \case
   ChainRolledBack{chainState} ->
     rollbackHistory (chainStateSlot chainState) history
   TickObserved{} -> history
+  CommitApproved{} -> history
+  CommitIgnored{} -> history
+  DecommitApproved{} -> history
+  DecommitRequested{} -> history
+  DecommitInvalid{} -> history
+  IgnoredHeadInitializing{} -> history
+  TxInvalid{} -> history
+  PeerConnected{} -> history
+  PeerDisconnected{} -> history
+  PeerHandshakeFailure{} -> history
+  PostTxOnChainFailed{} -> history
