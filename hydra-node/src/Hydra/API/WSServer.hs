@@ -48,6 +48,7 @@ import Network.WebSockets (
  )
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
+import Hydra.HeadLogic (StateChanged)
 
 wsApp ::
   forall tx.
@@ -57,11 +58,11 @@ wsApp ::
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (ServerOutput tx) HeadStatus ->
+  Projection STM.STM (StateChanged tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with 'HeadId'.
-  Projection STM.STM (ServerOutput tx) (Maybe HeadId) ->
+  Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
+  Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
   TChan (TimedServerOutput tx) ->
   ServerOutputFilter tx ->
   PendingConnection ->

@@ -19,7 +19,6 @@ import Hydra.Tx (
   Snapshot,
   SnapshotNumber,
  )
-import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
@@ -288,51 +287,3 @@ data CommitInfo
   = CannotCommit
   | NormalCommit HeadId
   | IncrementalCommit HeadId
-
---
-
--- | Projection to obtain the list of pending deposits.
-projectPendingDeposits :: IsTx tx => [TxIdType tx] -> ServerOutput tx -> [TxIdType tx]
-projectPendingDeposits txIds = \case
-  CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
-  CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
-  CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
-  _other -> txIds
-
--- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
-projectCommitInfo :: CommitInfo -> ServerOutput tx -> CommitInfo
-projectCommitInfo commitInfo = \case
-  HeadIsInitializing{headId} -> NormalCommit headId
-  HeadIsOpen{headId} -> IncrementalCommit headId
-  HeadIsAborted{} -> CannotCommit
-  HeadIsClosed{} -> CannotCommit
-  _other -> commitInfo
-
--- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
-projectInitializingHeadId :: Maybe HeadId -> ServerOutput tx -> Maybe HeadId
-projectInitializingHeadId mHeadId = \case
-  HeadIsInitializing{headId} -> Just headId
-  HeadIsOpen{} -> Nothing
-  HeadIsAborted{} -> Nothing
-  _other -> mHeadId
-
--- | Projection function related to 'headStatus' field in 'Greetings' message.
-projectHeadStatus :: HeadStatus -> ServerOutput tx -> HeadStatus
-projectHeadStatus headStatus = \case
-  HeadIsInitializing{} -> Initializing
-  HeadIsOpen{} -> Open
-  HeadIsClosed{} -> Closed
-  ReadyToFanout{} -> FanoutPossible
-  HeadIsFinalized{} -> Final
-  _other -> headStatus
-
--- | Projection of latest confirmed snapshot UTxO.
-projectSnapshotUtxo :: IsTx tx => Maybe (UTxOType tx) -> ServerOutput tx -> Maybe (UTxOType tx)
-projectSnapshotUtxo snapshotUtxo = \case
-  SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
-  HeadIsOpen _ utxos -> Just utxos
-  _other -> snapshotUtxo
