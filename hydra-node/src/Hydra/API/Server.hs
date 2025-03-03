@@ -11,6 +11,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.Combinators (map)
+import Data.Conduit.List (catMaybes)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -53,7 +54,6 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
-import Data.Conduit.List (catMaybes)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server

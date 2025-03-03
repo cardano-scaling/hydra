@@ -79,7 +79,8 @@ spec = do
           withTempDir "hydra-persistence" $ \tmpDir -> do
             -- Store state changes directly (legacy)
             let stateChanges = map stateChanged events
-            PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
+            PersistenceIncremental{append, registerThread} <- createPersistenceIncremental (tmpDir <> "/data")
+            registerThread
             forM_ stateChanges append
             -- Load and store events through the event source interface
             (src, EventSink{putEvent}) <-
@@ -98,7 +99,7 @@ genContinuousEvents =
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 withEventSourceAndSink action =
   withTempDir "hydra-persistence" $ \tmpDir -> do
-    (eventSource, eventSink) <-
-      eventPairFromPersistenceIncremental
-        =<< createPersistenceIncremental (tmpDir <> "/data")
+    persistence@PersistenceIncremental{registerThread} <- createPersistenceIncremental (tmpDir <> "/data")
+    registerThread
+    (eventSource, eventSink) <- eventPairFromPersistenceIncremental persistence
     action eventSource eventSink

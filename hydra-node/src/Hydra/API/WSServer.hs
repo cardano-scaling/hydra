@@ -33,6 +33,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic (StateChanged)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
 import Hydra.Tx (Party, UTxOType)
@@ -48,7 +49,6 @@ import Network.WebSockets (
  )
 import Text.URI hiding (ParseException)
 import Text.URI.QQ (queryKey, queryValue)
-import Hydra.HeadLogic (StateChanged)
 
 wsApp ::
   forall tx.
