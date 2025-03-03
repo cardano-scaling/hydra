@@ -318,6 +318,7 @@ test-suite tests
     , conduit
     , containers
     , contra-tracer
+    , directory
     , filepath
     , hedgehog-quickcheck
     , hspec

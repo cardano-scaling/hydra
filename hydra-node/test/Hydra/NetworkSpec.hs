@@ -26,6 +26,7 @@ import Hydra.Network (
 import Hydra.Network.Etcd (withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
+import System.Directory (removeFile)
 import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
@@ -153,6 +154,37 @@ spec = do
                     , ourVersion = v2
                     , theirVersions = KnownHydraVersions [v1]
                     }
+
+      it "resends messages" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 20 $ do
+            PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
+            (recordBob, waitBob, _) <- newRecordingCallback
+            (recordCarol, waitCarol, _) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
+                let messages = [1 .. 1000]
+                -- Bob should see messages as we go
+                forM_ messages $ \msg -> do
+                  broadcast n1 msg
+                  waitBob `shouldReturn` msg
+                -- Carol only starts now and should see all messages delivered
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  forM_ messages $ \msg ->
+                    waitCarol `shouldReturn` msg
+                -- Carol only delivers new messages even after restart
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  broadcast n1 1001
+                  waitCarol `shouldReturn` 1001
+                -- We can reset the last known view (internal implementation detail)
+                removeFile (persistenceDir carolConfig </> "last-known-revision")
+                withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
+                  -- NOTE: The etcd component would "auto-compact" messages down
+                  -- to 1000 messages after 5 minutes. This would result in
+                  -- starting at 1001 here, but is hard to test (without waiting
+                  -- 5 minutes).
+                  forM_ messages $ \msg ->
+                    waitCarol `shouldReturn` msg
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)

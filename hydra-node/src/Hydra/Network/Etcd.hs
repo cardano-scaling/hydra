@@ -32,6 +32,12 @@
 --     at 'alive-\<node id\>' keys with individual leases and repeated keep-alives
 --   * each node compare-and-swaps its `version` into a key of the same name to
 --     check compatibility (not updatable)
+--
+-- Note that the etcd cluster is configured to compact revisions down to 1000
+-- every 5 minutes. This prevents infinite growth of the key-value store, but
+-- also limits how long a node can be disconnected without missing out. 1000
+-- should be more than enough for our use-case as the Hydra protocol will not
+-- advance unless all participants are present.
 module Hydra.Network.Etcd where
 
 import Hydra.Prelude
@@ -181,7 +187,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       . setStderr createPipe
       . proc "etcd"
       $ concat
-        [ -- NOTE: Must be usedin clusterPeers
+        [ -- NOTE: Must be used in clusterPeers
           ["--name", show localHost]
         , ["--data-dir", persistenceDir </> "etcd"]
         , ["--listen-peer-urls", httpUrl localHost]
@@ -189,11 +195,12 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , ["--listen-client-urls", clientUrl]
         , -- Client access only on configured 'host' interface.
           ["--advertise-client-urls", clientUrl]
-        , -- XXX: could use unique initial-cluster-tokens to isolate clusters
+        , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
           ["--initial-cluster-token", "hydra-network-1"]
         , ["--initial-cluster", clusterPeers]
-        -- TODO: auto-compaction? prevent infinite growth of revisions? e.g.
-        -- auto-compaction-mode=revision --auto-compaction-retention=1000 to keep 1000 revisions
+        , -- Keep up to 1000 revisions. See also:
+          -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
+          ["--auto-compaction-mode=revision", "--auto-compaction-retention=1000"]
         ]
 
   clientUrl = httpUrl Host{hostname = show host, port = clientPort}
