@@ -306,6 +306,8 @@ waitMessages ::
 waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
+    -- NOTE: We have not observed the watch (subscription) fail even when peers
+    -- leave and we end up on a minority cluster.
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
       -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
@@ -320,7 +322,6 @@ waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onCo
     threadDelay 1
  where
   process res = do
-    -- TODO: error handling if watch canceled
     let revision = fromIntegral $ res ^. #header . #revision
     putLastKnownRevision directory revision
     forM_ (res ^. #events) $ \event -> do
