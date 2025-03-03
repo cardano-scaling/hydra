@@ -52,7 +52,6 @@ spec = do
           actualResult <- run $
             withTempDir "hydra-persistence" $ \tmpDir -> do
               p <- createPersistenceIncremental $ tmpDir <> "/data"
-              registerThread p
               forM_ items $ append p
               loadAll p
           pure $ actualResult === items
@@ -64,7 +63,6 @@ spec = do
         pure $
           withTempDir "hydra-persistence" $ \tmpDir -> do
             p <- createPersistenceIncremental $ tmpDir <> "/data"
-            registerThread p
             forM_ items $ append p
             loadAll p `shouldReturn` items
             race_

@@ -47,7 +47,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental, registerThread)
+import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Utils (readJsonFileThrow)
 
@@ -78,7 +78,6 @@ run opts = do
       globals <- getGlobalsForChain chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         incPersistence <- createPersistenceIncremental (persistenceDir <> "/state")
-        _ <- registerThread incPersistence
         -- Hydrate with event source and sinks
         (eventSource, filePersistenceSink) <- eventPairFromPersistenceIncremental incPersistence
         -- NOTE: Add any custom sink setup code here
