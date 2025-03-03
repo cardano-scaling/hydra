@@ -19,8 +19,6 @@ import CardanoClient (
 import CardanoNode (
   withCardanoNodeDevnet,
  )
-import Control.Concurrent.STM (newTVarIO, readTVarIO)
-import Control.Concurrent.STM.TVar (modifyTVar')
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
@@ -96,10 +94,6 @@ import HydraNode (
  )
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
-import System.IO (
-  hGetLine,
- )
-import System.IO.Error (isEOFError)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
 import Test.QuickCheck (generate)
@@ -611,33 +605,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
             logfile `shouldSatisfy` BS.isInfixOf "NodeOptions"
-
-waitForLog :: DiffTime -> Handle -> Text -> (Text -> Bool) -> IO ()
-waitForLog delay nodeOutput failureMessage predicate = do
-  seenLogs <- newTVarIO []
-  timeout delay (go seenLogs) >>= \case
-    Just () -> pure ()
-    Nothing -> failReason seenLogs $ "within " <> show delay
- where
-  go seenLogs = do
-    tryJust (guard . isEOFError) (fromString <$> hGetLine nodeOutput) >>= \case
-      Left _ ->
-        failReason seenLogs "before EOF"
-      Right log -> do
-        atomically (modifyTVar' seenLogs (log :))
-        if predicate log
-          then pure ()
-          else go seenLogs
-
-  failReason seenLogs reason = do
-    logs <- readTVarIO seenLogs
-    failure . toString $
-      unlines $
-        [ "waitForLog did not match a log line " <> reason
-        , "looking for: " <> failureMessage
-        , "seen logs:"
-        ]
-          <> logs
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> RunningNode -> [TxId] -> IO ()
 timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId = do

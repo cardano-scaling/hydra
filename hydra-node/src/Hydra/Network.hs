@@ -127,17 +127,11 @@ instance Arbitrary PortNumber where
 -- ** NodeId
 
 newtype NodeId = NodeId {nodeId :: Text}
-  deriving newtype (Eq, Show, IsString, ToString, Read, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
 
 instance Arbitrary NodeId where
   arbitrary =
     NodeId . pack <$> suchThat (listOf (elements ['a' .. 'z'])) (not . null)
-
-instance FromCBOR NodeId where
-  fromCBOR = NodeId <$> fromCBOR
-
-instance ToCBOR NodeId where
-  toCBOR NodeId{nodeId} = toCBOR nodeId
 
 -- ** Host
 

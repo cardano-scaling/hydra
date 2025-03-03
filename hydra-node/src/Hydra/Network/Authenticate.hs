@@ -27,7 +27,6 @@ data Signed msg = Signed
   , party :: Party
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
 
 data Authenticated msg = Authenticated
   { payload :: msg
