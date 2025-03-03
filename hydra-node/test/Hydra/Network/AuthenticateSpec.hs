@@ -8,7 +8,6 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
-import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
 import Hydra.Prelude
@@ -154,3 +153,10 @@ newtype Msg = Msg ByteString
 
 instance Arbitrary Msg where
   arbitrary = Msg . pack <$> listOf arbitrary
+
+noop :: Monad m => NetworkCallback b m
+noop =
+  NetworkCallback
+    { deliver = const $ pure ()
+    , onConnectivity = const $ pure ()
+    }

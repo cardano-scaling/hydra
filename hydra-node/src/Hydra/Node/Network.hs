@@ -1,9 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
--- TODO: should we still use Heartbeat for peer-specific connectivity? It was
--- always only indicating incoming connetivity (although now with etcd we can
--- assume it working both ways if we see connectivity)
-
 -- | Concrete `Hydra.Network` stack used in a hydra-node.
 --
 -- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:

@@ -81,7 +81,6 @@ library
     Hydra.Network
     Hydra.Network.Authenticate
     Hydra.Network.Etcd
-    Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Node
     Hydra.Node.InputQueue
@@ -282,7 +281,6 @@ test-suite tests
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
-    Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
