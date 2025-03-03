@@ -16,7 +16,6 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Test.Aeson.GenericSpecs (
-  Settings (..),
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
@@ -28,8 +27,8 @@ spec :: Spec
 spec = do
   describe "persisted event format" $ do
     -- NOTE: Whenever one of these fails, make sure to record a **BREAKING** change of the persisted 'state'.
-    roundtripAndGoldenSpecsWithSettings (defaultSettings{sampleSize = 5}) (Proxy @(StateEvent Tx))
-    roundtripAndGoldenADTSpecsWithSettings (defaultSettings{sampleSize = 1}) (Proxy @(StateChanged Tx))
+    roundtripAndGoldenSpecsWithSettings defaultSettings (Proxy @(MinimumSized (StateEvent Tx)))
+    roundtripAndGoldenADTSpecsWithSettings defaultSettings (Proxy @(MinimumSized (StateChanged Tx)))
 
   describe "eventPairFromPersistenceIncremental" $ do
     prop "can stream events" $

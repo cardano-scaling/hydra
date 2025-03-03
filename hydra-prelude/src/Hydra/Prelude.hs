@@ -32,6 +32,7 @@ module Hydra.Prelude (
   shrinkListAggressively,
   reasonablySized,
   ReasonablySized (..),
+  MinimumSized (..),
   padRight,
   Except,
   encodeBase16,
@@ -214,6 +215,16 @@ newtype ReasonablySized a = ReasonablySized a
 
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
+
+minimumSized :: Gen a -> Gen a
+minimumSized = scale (const 1)
+
+-- | A QuickCheck modifier that allows scaled down values.
+newtype MinimumSized a = MinimumSized a
+  deriving newtype (Show, Eq, ToJSON, FromJSON, Generic)
+
+instance Arbitrary a => Arbitrary (MinimumSized a) where
+  arbitrary = MinimumSized <$> minimumSized arbitrary
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.

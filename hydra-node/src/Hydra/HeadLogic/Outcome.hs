@@ -135,7 +135,7 @@ deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (HeadState tx), F
 instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
+instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (MinimumSized (StateChanged tx))
 
 -- NOTE: Here we produce only 'StateChanged' values that can be converted to
 -- 'ServerOutput' since there are tests depending on this conversion to not
