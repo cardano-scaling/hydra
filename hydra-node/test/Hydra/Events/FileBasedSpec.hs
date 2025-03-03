@@ -76,10 +76,8 @@ spec = do
       forAllShrink genContinuousEvents shrink $ \events -> do
         ioProperty $ do
           withTempDir "hydra-persistence" $ \tmpDir -> do
-            -- Store state changes directly (legacy)
-            let stateChanges = map stateChanged events
             PersistenceIncremental{append} <- createPersistenceIncremental (tmpDir <> "/data")
-            forM_ stateChanges append
+            forM_ events append
             -- Load and store events through the event source interface
             (src, EventSink{putEvent}) <-
               eventPairFromPersistenceIncremental
@@ -88,7 +86,7 @@ spec = do
             -- Store all loaded events like the node would do
             forM_ loadedEvents putEvent
             pure $
-              map stateChanged loadedEvents === stateChanges
+              loadedEvents === events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
