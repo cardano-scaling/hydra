@@ -63,6 +63,8 @@ data PersistenceIncremental a m = PersistenceIncremental
   { append :: ToJSON a => a -> m ()
   , source :: FromJSON a => ConduitT () a (ResourceT m) ()
   -- ^ Stream all elements from the file.
+  , registerThread :: m ()
+  -- ^ Register an authorized thread to append to the file.
   }
 
 -- | Load all elements from persistence into a list.
@@ -80,6 +82,7 @@ createPersistenceIncremental ::
   forall a m.
   ( MonadUnliftIO m
   , MonadThrow m
+  , MonadThread m
   , FromJSON a
   ) =>
   FilePath ->
