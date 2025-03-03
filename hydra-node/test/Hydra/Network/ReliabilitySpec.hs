@@ -186,7 +186,7 @@ spec = parallel $ do
                       Just acks -> pure acks
                 , saveAcks = save
                 , loadMessages = loadAll p
-                , appendMessage = \a -> registerThread p >> append p a
+                , appendMessage = append p
                 }
 
         receivedMsgs <- do

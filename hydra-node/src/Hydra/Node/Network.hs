@@ -62,7 +62,7 @@ import Hydra.Network.Message (
  )
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental, registerThread)
+import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
 import Hydra.Tx (IsTx, Party, deriveParty)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import System.FilePath ((</>))
@@ -140,7 +140,6 @@ configureMessagePersistence ::
   m (MessagePersistence m msg)
 configureMessagePersistence tracer persistenceDir numberOfParties = do
   msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
-  _ <- registerThread msgPersistence
   ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
   mAcks <- load
   ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
