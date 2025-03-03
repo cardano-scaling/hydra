@@ -305,6 +305,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
 withHydraNode ::
+  HasCallStack =>
   Tracer IO HydraNodeLog ->
   ChainConfig ->
   FilePath ->
@@ -391,7 +392,11 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
         ExitSuccess -> failure "hydra-node stopped early"
         ExitFailure ec -> do
           err <- hGetContents h
-          failure $ "hydra-node exited with failure code: " <> show ec <> "\n" <> decodeUtf8 err
+          failure . toString $
+            unlines
+              [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
+              , decodeUtf8 err
+              ]
 
   port = fromIntegral $ 5_000 + hydraNodeId
 

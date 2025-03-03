@@ -272,9 +272,10 @@ broadcastMessages tracer conn protocolVersion port queue =
     msg <- peekPersistentQueue queue
     (putMessage conn protocolVersion port msg >> popPersistentQueue queue msg)
       `catch` \case
-        GrpcException{grpcError = GrpcUnavailable, grpcErrorMessage} -> do
-          traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
-          threadDelay 1
+        GrpcException{grpcError, grpcErrorMessage}
+          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+              traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
+              threadDelay 1
         e -> throwIO e
 
 -- | Broadcast a message to the etcd cluster.
@@ -366,11 +367,11 @@ pollConnectivity ::
   IO ()
 pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
-  withGrpcContext "pollConnectivity" . forever $ do
-    leaseId <- createLease
-    -- If we can create a lease, we are connected
-    onConnectivity NetworkConnected
-    handle onGrpcException $ do
+  withGrpcContext "pollConnectivity" $
+    forever . handle onGrpcException $ do
+      leaseId <- createLease
+      -- If we can create a lease, we are connected
+      onConnectivity NetworkConnected
       -- Write our alive key using lease
       writeAlive leaseId
       withKeepAlive leaseId $ \keepAlive ->
@@ -387,9 +388,10 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
  where
   ttl = 3
 
-  onGrpcException GrpcException{grpcError = GrpcUnavailable} = do
-    onConnectivity NetworkDisconnected
-    threadDelay 1
+  onGrpcException GrpcException{grpcError}
+    | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
+        onConnectivity NetworkDisconnected
+        threadDelay 1
   onGrpcException e = throwIO e
 
   -- REVIEW: server can decide ttl?
