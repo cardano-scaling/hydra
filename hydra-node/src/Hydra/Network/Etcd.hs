@@ -49,7 +49,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..))
-import Control.Monad.Catch (handleIf)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Value)
@@ -88,7 +87,7 @@ import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (KV, Lease, Watch)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError, isEOFError)
+import System.IO.Error (isDoesNotExistError)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -119,16 +118,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
   withProcessInterrupt etcdCmd $ \p -> do
-    -- TODO: how to handle etcd exiting?
-    race_ (waitExitCode p >>= \ec -> putTextLn $ "etcd exited with: " <> show ec) $ do
+    race_ (waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec) $ do
       race_ (traceStderr p) $ do
         -- XXX: cleanup reconnecting through policy if other threads fail
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
         withConnection (connParams doneVar) server $ \conn -> do
-          race_ (pollConnectivity conn localHost callback) $ do
-            race_ (waitMessages conn protocolVersion persistenceDir callback) $ do
+          race_ (pollConnectivity tracer conn localHost callback) $ do
+            race_ (waitMessages tracer conn protocolVersion persistenceDir callback) $ do
               queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
               race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
                 action
@@ -168,12 +166,11 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   clientPort = 2379 + port - 5001
 
   traceStderr p =
-    handleIf isEOFError (putTextLn . ("FOOOO " <>) . show) $
-      forever $ do
-        bs <- BS.hGetLine (getStderr p)
-        case Aeson.eitherDecodeStrict bs of
-          Left err -> fail $ "Failed to decode etcd log: " <> show err
-          Right v -> traceWith tracer $ EtcdLog{etcd = v}
+    forever $ do
+      bs <- BS.hGetLine (getStderr p)
+      case Aeson.eitherDecodeStrict bs of
+        Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
+        Right v -> traceWith tracer $ EtcdLog{etcd = v}
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
@@ -300,12 +297,13 @@ putMessage conn protocolVersion port msg =
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   FromCBOR msg =>
+  Tracer IO EtcdLog ->
   Connection ->
   HydraVersionedProtocolNumber ->
   FilePath ->
   NetworkCallback msg IO ->
   IO ()
-waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
+waitMessages tracer conn protocolVersion directory NetworkCallback{deliver, onConnectivity} = do
   revision <- getLastKnownRevision directory
   withGrpcContext "waitMessages" . forever $ do
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
@@ -318,7 +316,7 @@ waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectiv
               & #startRevision .~ fromIntegral (revision + 1)
       send . NextElem $ defMessage & #createRequest .~ watchRequest
       whileNext_ recv process
-    -- Wait before reconnecting TODO: is this even possible?
+    -- Wait before re-trying
     threadDelay 1
  where
   process res = do
@@ -336,14 +334,20 @@ waitMessages conn protocolVersion directory NetworkCallback{deliver, onConnectiv
 
       let value = event ^. #kv . #value
       case decodeFull' value of
-        -- TODO: error handling (with actual client)
-        Left err -> fail $ "Failed to decode etcd entry: " <> show err
+        Left err ->
+          traceWith
+            tracer
+            FailedToDecodeValue
+              { key = decodeUtf8 $ event ^. #kv . #key
+              , value = encodeBase16 value
+              , reason = show err
+              }
         Right msg -> deliver msg
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
-    try (decodeFileStrict' $ directory </> "last-known-revision.json") >>= \case
+    try (decodeFileStrict' $ directory </> "last-known-revision") >>= \case
       Right rev -> do
         pure $ fromMaybe 1 rev
       Left (e :: IOException)
@@ -353,22 +357,23 @@ getLastKnownRevision directory = do
 
 putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
-  liftIO $ encodeFile (directory </> "last-known-revision.json") rev
+  liftIO $ encodeFile (directory </> "last-known-revision") rev
 
 -- | Write a well-known key to indicate being alive, keep it alive using a lease
 -- and poll other peers enries to yield connectivity events. While doing so,
 -- overall network connectivity is determined from the ability to read/write to
 -- the cluster.
 pollConnectivity ::
+  Tracer IO EtcdLog ->
   Connection ->
   -- | Local host
   Host ->
   NetworkCallback msg IO ->
   IO ()
-pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
+pollConnectivity tracer conn localHost NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
   withGrpcContext "pollConnectivity" $
-    forever . handle onGrpcException $ do
+    forever . handle (onGrpcException seenAliveVar) $ do
       leaseId <- createLease
       -- If we can create a lease, we are connected
       onConnectivity NetworkConnected
@@ -388,11 +393,12 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
  where
   ttl = 3
 
-  onGrpcException GrpcException{grpcError}
+  onGrpcException seenAliveVar GrpcException{grpcError}
     | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded = do
         onConnectivity NetworkDisconnected
+        atomically $ writeTVar seenAliveVar []
         threadDelay 1
-  onGrpcException e = throwIO e
+  onGrpcException _ e = throwIO e
 
   -- REVIEW: server can decide ttl?
   createLease = withGrpcContext "createLease" $ do
@@ -418,12 +424,19 @@ pollConnectivity conn localHost NetworkCallback{onConnectivity} = do
         defMessage
           & #key .~ "alive"
           & #rangeEnd .~ "alivf" -- NOTE: e+1 to query prefixes
-    pure $ flip mapMaybe (res ^.. #kvs . traverse . #value) $ \bs ->
-      -- XXX: Silently swallow incompatible values. Hard to debug, but failure
-      -- to decode here should not crash the component either.
-      case decodeFull' bs of
-        Left _err -> Nothing
-        Right x -> pure x
+    flip mapMaybeM (res ^.. #kvs . traverse) $ \kv -> do
+      let value = kv ^. #value
+      case decodeFull' value of
+        Left err -> do
+          traceWith
+            tracer
+            FailedToDecodeValue
+              { key = decodeUtf8 $ kv ^. #key
+              , value = encodeBase16 value
+              , reason = show err
+              }
+          pure Nothing
+        Right x -> pure $ Just x
 
 -- | Add context to the 'grpcErrorMessage' of any 'GrpcException' raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a
@@ -528,6 +541,8 @@ data EtcdLog
   = EtcdLog {etcd :: Value}
   | Reconnecting
   | BroadcastFailed {reason :: Text}
+  | FailedToDecodeLog {log :: Text, reason :: Text}
+  | FailedToDecodeValue {key :: Text, value :: Text, reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

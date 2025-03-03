@@ -134,7 +134,6 @@ import Network.HTTP.Req (
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
 import Network.HTTP.Types (urlEncode)
-import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)

@@ -36,7 +36,6 @@ import Test.Util (waitEq)
 
 spec :: Spec
 spec = do
-  -- TODO: Generalize tests corresponding to properties of network layer, e.g. validity
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = MkHydraVersionedProtocolNumber 1
@@ -63,27 +62,7 @@ spec = do
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 5 $ do
-            [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-            let aliceConfig =
-                  NetworkConfiguration
-                    { host = lo
-                    , port = port1
-                    , signingKey = aliceSk
-                    , otherParties = [bob]
-                    , peers = [Host lo port2]
-                    , nodeId = "alice"
-                    , persistenceDir = tmp </> "alice"
-                    }
-            let bobConfig =
-                  NetworkConfiguration
-                    { host = lo
-                    , port = port2
-                    , signingKey = bobSk
-                    , otherParties = [alice]
-                    , peers = [Host lo port1]
-                    , nodeId = "bob"
-                    , persistenceDir = tmp </> "bob"
-                    }
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, waitNext, _) <- newRecordingCallback
               withEtcdNetwork @Int tracer v1 bobConfig recordReceived $ \_n2 -> do
@@ -151,32 +130,17 @@ spec = do
               waitFor $ PeerDisconnected carolHost
               -- Bob stops
               pure ()
+            -- We are now in minority
             waitFor NetworkDisconnected
+            -- Carol starts again and we reach a majority
+            withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
+              waitFor NetworkConnected
+              waitFor $ PeerConnected carolHost
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 5 $ do
-            [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-            let aliceConfig =
-                  NetworkConfiguration
-                    { host = lo
-                    , port = port1
-                    , signingKey = aliceSk
-                    , otherParties = [bob]
-                    , peers = [Host lo port2]
-                    , nodeId = "alice"
-                    , persistenceDir = tmp </> "alice"
-                    }
-            let bobConfig =
-                  NetworkConfiguration
-                    { host = lo
-                    , port = port2
-                    , signingKey = bobSk
-                    , otherParties = [alice]
-                    , peers = [Host lo port1]
-                    , nodeId = "bob"
-                    , persistenceDir = tmp </> "bob"
-                    }
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = MkHydraVersionedProtocolNumber 2
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, _, waitConnectivity) <- newRecordingCallback
@@ -185,7 +149,7 @@ spec = do
 
                 waitEq waitConnectivity 10 $
                   HandshakeFailure
-                    { remoteHost = Host "???" port1
+                    { remoteHost = Host "???" aliceConfig.port
                     , ourVersion = v2
                     , theirVersions = KnownHydraVersions [v1]
                     }
@@ -196,6 +160,40 @@ spec = do
 
 lo :: IsString s => s
 lo = "127.0.0.1"
+
+data PeerConfig2 = PeerConfig2
+  { aliceConfig :: NetworkConfiguration
+  , bobConfig :: NetworkConfiguration
+  }
+
+setup2Peers :: FilePath -> IO PeerConfig2
+setup2Peers tmp = do
+  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+  let aliceHost = Host lo port1
+  let bobHost = Host lo port2
+  pure
+    PeerConfig2
+      { aliceConfig =
+          NetworkConfiguration
+            { host = lo
+            , port = port1
+            , signingKey = aliceSk
+            , otherParties = [bob, carol]
+            , peers = [bobHost]
+            , nodeId = "alice"
+            , persistenceDir = tmp </> "alice"
+            }
+      , bobConfig =
+          NetworkConfiguration
+            { host = lo
+            , port = port2
+            , signingKey = bobSk
+            , otherParties = [alice, carol]
+            , peers = [aliceHost]
+            , nodeId = "bob"
+            , persistenceDir = tmp </> "bob"
+            }
+      }
 
 data PeerConfig3 = PeerConfig3
   { aliceConfig :: NetworkConfiguration
