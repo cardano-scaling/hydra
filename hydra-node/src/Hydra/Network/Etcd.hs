@@ -181,7 +181,6 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
   -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
-  -- TODO: "Running http and grpc server on single port. This is not recommended for production."
   etcdCmd =
     setCreateGroup True -- Prevents interrupt of main process when we send SIGINT to etcd
       . setStderr createPipe
@@ -193,6 +192,8 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , ["--listen-peer-urls", httpUrl localHost]
         , ["--initial-advertise-peer-urls", httpUrl localHost]
         , ["--listen-client-urls", clientUrl]
+        , -- Pick a random port for http api (and use above only for grpc)
+          ["--listen-client-http-urls", "http://localhost:0"]
         , -- Client access only on configured 'host' interface.
           ["--advertise-client-urls", clientUrl]
         , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
