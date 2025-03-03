@@ -3,27 +3,23 @@
 
 module Hydra.API.Server where
 
-import Hydra.Prelude hiding (mapM_, seq, state)
+import Hydra.Prelude hiding (catMaybes, map, mapM_, seq, state)
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (mapM_C, mapWhileC, runConduitRes, (.|))
+import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
+import Data.Conduit.Combinators (map)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
-  CommitInfo (CannotCommit),
-  HeadStatus (Idle),
+  CommitInfo (..),
+  HeadStatus (..),
   ServerOutput (..),
   TimedServerOutput (..),
-  projectCommitInfo,
-  projectHeadStatus,
-  projectInitializingHeadId,
-  projectPendingDeposits,
-  projectSnapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
@@ -37,7 +33,8 @@ import Hydra.Events (EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Hydra.Tx (IsTx, Party, txId)
+import Hydra.Tx (HeadId, IsTx (..), Party, txId)
+import Hydra.Tx qualified as Tx
 import Hydra.Tx.Environment (Environment)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -56,7 +53,7 @@ import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
   defaultConnectionOptions,
  )
-import Control.Concurrent.Class.MonadSTM (newTVarIO)
+import Data.Conduit.List (catMaybes)
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
@@ -99,20 +96,18 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
-    let historyTimedOutputs =
-          sourceEvents
-            .| mapWhileC mkTimedServerOutputFromStateEvent
+    let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
     _ <-
       runConduitRes $
-        historyTimedOutputs
+        sourceEvents
           .| mapM_C
-            ( \TimedServerOutput{output} ->
+            ( \StateEvent{stateChanged} ->
                 lift $ atomically $ do
-                  update headStatusP output
-                  update snapshotUtxoP output
-                  update commitInfoP output
-                  update headIdP output
-                  update pendingDepositsP output
+                  update headStatusP stateChanged
+                  update snapshotUtxoP stateChanged
+                  update commitInfoP stateChanged
+                  update headIdP stateChanged
+                  update pendingDepositsP stateChanged
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
 
@@ -138,17 +133,17 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
           action $
             Server
               { sendOutput = \StateEvent{stateChanged, time, eventId} -> do
+                  atomically $ do
+                    update headStatusP stateChanged
+                    update commitInfoP stateChanged
+                    update snapshotUtxoP stateChanged
+                    update headIdP stateChanged
+                    update pendingDepositsP stateChanged
                   case mapStateChangedToServerOutput stateChanged of
                     Nothing -> pure ()
                     Just output -> do
                       let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
-                      atomically $ do
-                        update headStatusP output
-                        update commitInfoP output
-                        update snapshotUtxoP output
-                        update headIdP output
-                        update pendingDepositsP output
-                        writeTChan responseChannel timedOutput
+                      atomically $ writeTChan responseChannel timedOutput
               }
       )
  where
@@ -197,7 +192,7 @@ setupServerNotification = do
   mv <- newEmptyMVar
   pure (putMVar mv (), takeMVar mv)
 
-mkTimedServerOutputFromStateEvent :: IsTx tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
 mkTimedServerOutputFromStateEvent event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
@@ -240,3 +235,51 @@ mapStateChangedToServerOutput = \case
   StateChanged.PartySignedSnapshot{} -> Nothing
   StateChanged.ChainRolledBack{} -> Nothing
   StateChanged.TickObserved{} -> Nothing
+
+--
+
+-- | Projection to obtain the list of pending deposits.
+projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
+projectPendingDeposits txIds = \case
+  StateChanged.CommitRecorded{pendingDeposit} -> pendingDeposit : txIds
+  StateChanged.CommitRecovered{recoveredTxId} -> filter (/= recoveredTxId) txIds
+  StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
+  _other -> txIds
+
+-- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
+projectCommitInfo commitInfo = \case
+  StateChanged.HeadInitialized{headId} -> NormalCommit headId
+  StateChanged.HeadOpened{headId} -> IncrementalCommit headId
+  StateChanged.HeadAborted{} -> CannotCommit
+  StateChanged.HeadClosed{} -> CannotCommit
+  _other -> commitInfo
+
+-- | Projection to obtain the 'HeadId' needed to draft a commit transaction.
+-- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
+-- state since this is when Head parties need to commit some funds.
+projectInitializingHeadId :: Maybe HeadId -> StateChanged.StateChanged tx -> Maybe HeadId
+projectInitializingHeadId mHeadId = \case
+  StateChanged.HeadInitialized{headId} -> Just headId
+  StateChanged.HeadOpened{} -> Nothing
+  StateChanged.HeadAborted{} -> Nothing
+  _other -> mHeadId
+
+-- | Projection function related to 'headStatus' field in 'Greetings' message.
+projectHeadStatus :: HeadStatus -> StateChanged.StateChanged tx -> HeadStatus
+projectHeadStatus headStatus = \case
+  StateChanged.HeadInitialized{} -> Initializing
+  StateChanged.HeadOpened{} -> Open
+  StateChanged.HeadClosed{} -> Closed
+  StateChanged.HeadIsReadyToFanout{} -> FanoutPossible
+  StateChanged.HeadFannedOut{} -> Final
+  _other -> headStatus
+
+-- | Projection of latest confirmed snapshot UTxO.
+projectSnapshotUtxo :: IsTx tx => Maybe (UTxOType tx) -> StateChanged.StateChanged tx -> Maybe (UTxOType tx)
+projectSnapshotUtxo snapshotUtxo = \case
+  StateChanged.SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  StateChanged.HeadOpened _ _ utxos -> Just utxos
+  _other -> snapshotUtxo

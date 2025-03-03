@@ -93,6 +93,7 @@ monitor transactionsMap metricsMap = \case
     -- memory leak. We might want to have a 'cleaner' thread run that will remove
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
+    tick "hydra_head_requested_tx"
   (Node (LogicOutcome _ (Continue [SnapshotConfirmed _ snapshot _] _))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do
@@ -103,7 +104,6 @@ monitor transactionsMap metricsMap = \case
           histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
         Nothing -> pure ()
     tickN "hydra_head_confirmed_tx" (length $ confirmed snapshot)
-    tick "hydra_head_requested_tx"
   (Node (EndInput _ _)) ->
     tick "hydra_head_inputs"
   _ -> pure ()
