@@ -69,20 +69,24 @@ prepare_release() {
 
   git tag -as "$version" -F <(changelog "$version")
 
-  # Make branch release point to tag so that the website is published
-  git checkout release
-  git merge "${version}" --ff-only
-
-  git checkout master
+  if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]; then
+    # Make branch release point to tag so that the website is published
+    git checkout release
+    git merge "${version}" --ff-only
+    git checkout master
+  fi
 }
 
 publish_release_instructions() {
   local version="$1"
+  local branch_name=$(git rev-parse --abbrev-ref HEAD)
 
   err "Prepared the release commit and tag, review it now and if everything is okay, push using:"
   err ""
-  err "git push origin master"
-  err "git push origin release"
+  err "git push origin ${branch_name}"
+  if [ ${branch_name} = "master" ]; then
+    err "git push origin release"
+  fi
   err "git push origin ${version}"
 }
 
