@@ -11,7 +11,7 @@ import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, NodeId)
+import Hydra.Network (Host)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
   HeadId,
@@ -118,13 +118,15 @@ data StateChanged tx
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | PeerConnected {peer :: NodeId}
-  | PeerDisconnected {peer :: NodeId}
+  | PeerConnected {peer :: Host}
+  | PeerDisconnected {peer :: Host}
   | PeerHandshakeFailure
       { remoteHost :: Host
       , ourVersion :: Natural
       , theirVersions :: [Natural]
       }
+  | NetworkConnected
+  | NetworkDisconnected
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)

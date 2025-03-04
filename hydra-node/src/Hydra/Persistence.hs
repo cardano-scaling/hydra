@@ -80,7 +80,6 @@ createPersistenceIncremental ::
   forall a m.
   ( MonadUnliftIO m
   , MonadThrow m
-  , MonadThread m
   , FromJSON a
   ) =>
   FilePath ->

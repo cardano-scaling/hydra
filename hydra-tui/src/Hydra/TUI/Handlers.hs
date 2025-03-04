@@ -143,7 +143,7 @@ handleHydraEventsActiveLink e = do
           )
           pendingIncrements
       utxoL .= utxo
-    Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} -> do
+    Update TimedServerOutput{time, output = API.CommitFinalized{depositTxId}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
       let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= depositTxId) pendingIncrements
       let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == depositTxId) pendingIncrements
@@ -177,8 +177,8 @@ handleHydraEventsInfo = \case
     info time "Head aborted, back to square one."
   Update TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}} ->
     info time ("Snapshot #" <> show number <> " confirmed.")
-  Update TimedServerOutput{time, output = API.CommandFailed{clientInput}} -> do
-    warn time $ "Invalid command: " <> show clientInput
+  -- Update TimedServerOutput{time, output = API.CommandFailed{clientInput}} -> do
+  --   warn time $ "Invalid command: " <> show clientInput
   Update TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}} -> do
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}} -> do
@@ -220,11 +220,11 @@ handleHydraEventsInfo = \case
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = CommitFinalized{depositTxId}} ->
+  Update TimedServerOutput{time, output = API.CommitFinalized{depositTxId}} ->
     report Success time $
       "Commit finalized "
         <> show depositTxId
-  Update TimedServerOutput{time, output = CommitIgnored{depositUTxO}} ->
+  Update TimedServerOutput{time, output = API.CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "
         <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO
