@@ -1,7 +1,10 @@
 {
     "samples": [
         {
-            "peer": "keehtwoncgimtajbksepbnxbt",
+            "peer": {
+                "hostname": "0.0.86.152",
+                "port": 21607
+            },
             "tag": "PeerConnected"
         }
     ],

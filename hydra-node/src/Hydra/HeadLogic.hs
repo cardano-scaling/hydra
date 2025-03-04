@@ -71,7 +71,8 @@ import Hydra.Ledger (
   applyTransactions,
   outputsOfTx,
  )
-import Hydra.Network (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..))
+import Hydra.Network (HydraVersionedProtocolNumber (..), KnownHydraVersions (..))
+import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Tx (
   HeadId,
@@ -100,25 +101,17 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 defaultTTL :: TTL
 defaultTTL = 5
 
-onConnectionEvent :: Connectivity -> Outcome tx
+onConnectionEvent :: Network.Connectivity -> Outcome tx
 onConnectionEvent = \case
-  NetworkConnected ->
-    -- causes [ClientEffect ServerOutput.NetworkConnected]
-    noop
-  NetworkDisconnected ->
-    -- causes [ClientEffect ServerOutput.NetworkDisconnected]
-    noop
-  PeerConnected{peer} ->
-    -- causes [ClientEffect ServerOutput.PeerConnected{peer}]
-    noop
-  PeerDisconnected{peer} ->
-    -- causes [ClientEffect ServerOutput.PeerDisconnected{peer}]
-    noop
-  Connected{nodeId} ->
-    newState (PeerConnected nodeId)
-  Disconnected{nodeId} ->
-    newState (PeerDisconnected nodeId)
-  HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
+  Network.NetworkConnected ->
+    newState NetworkConnected
+  Network.NetworkDisconnected ->
+    newState NetworkDisconnected
+  Network.PeerConnected{peer} ->
+    newState (PeerConnected peer)
+  Network.PeerDisconnected{peer} ->
+    newState (PeerDisconnected peer)
+  Network.HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
     newState
       ( PeerHandshakeFailure
           { remoteHost
@@ -1606,6 +1599,8 @@ aggregate st = \case
   DecommitInvalid{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
+  NetworkConnected{} -> st
+  NetworkDisconnected{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   PeerHandshakeFailure{} -> st
@@ -1655,6 +1650,8 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
+  NetworkConnected{} -> history
+  NetworkDisconnected{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   PeerHandshakeFailure{} -> history

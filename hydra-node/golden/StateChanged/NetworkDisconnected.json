@@ -1,0 +1,20 @@
+{
+    "samples": [
+        {
+            "tag": "NetworkDisconnected"
+        },
+        {
+            "tag": "NetworkDisconnected"
+        },
+        {
+            "tag": "NetworkDisconnected"
+        },
+        {
+            "tag": "NetworkDisconnected"
+        },
+        {
+            "tag": "NetworkDisconnected"
+        }
+    ],
+    "seed": 813621437
+}

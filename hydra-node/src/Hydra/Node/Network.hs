@@ -50,48 +50,6 @@ import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (IsTx)
-import Hydra.Logging (traceWith)
-import Hydra.Network (Host (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
-import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
-import Hydra.Network.Message (
-  Connectivity (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  Message,
-  NetworkEvent (..),
- )
-import Hydra.Node (HydraNodeLog (..))
-import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
-import Hydra.Tx (IsTx, Party, deriveParty)
-import Hydra.Tx.Crypto (HydraKey, SigningKey)
-import System.FilePath ((</>))
-import UnliftIO (MonadUnliftIO)
-
--- | An alias for logging messages output by network component.
--- The type is made complicated because the various subsystems use part of the tracer only.
-type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
-
--- | Configuration for a `Node` network layer.
-data NetworkConfiguration m = NetworkConfiguration
-  { persistenceDir :: FilePath
-  -- ^ Persistence directory
-  , signingKey :: SigningKey HydraKey
-  -- ^ This node's signing key. This is used to sign messages sent to peers.
-  , otherParties :: [Party]
-  -- ^ The list of peers `Party` known to this node.
-  , host :: IP
-  -- ^ IP address to listen on for incoming connections.
-  , port :: PortNumber
-  -- ^ Port to listen on.
-  , peers :: [Host]
-  -- ^ Addresses and ports of remote peers.
-  , nodeId :: NodeId
-  -- ^ This node's id.
-  }
-
-currentHydraVersionedProtocol :: HydraVersionedProtocolNumber
-currentHydraVersionedProtocol = MkHydraVersionedProtocolNumber 1
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
@@ -126,29 +84,6 @@ data NetworkLog
   | Etcd EtcdLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
--- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
---
--- This function will `throw` a `ParameterMismatch` exception if:
---
---   * Some state already exists and is loaded,
---   * The number of parties is not the same as the number of acknowledgments saved.
-configureMessagePersistence ::
-  (MonadThrow m, FromJSON msg, ToJSON msg, MonadUnliftIO m, MonadThread m) =>
-  Tracer m (HydraNodeLog tx) ->
-  FilePath ->
-  Int ->
-  m (MessagePersistence m msg)
-configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
-  ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
-  mAcks <- load
-  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
-    Just False -> do
-      let paramsMismatch = [SavedNetworkPartiesInconsistent{numberOfParties}]
-      traceWith tracer (Misconfiguration paramsMismatch)
-      throwIO $ ParameterMismatch paramsMismatch
-    _ -> pure ackPersistence
-  pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
 
 instance Arbitrary NetworkLog where
   arbitrary = genericArbitrary
