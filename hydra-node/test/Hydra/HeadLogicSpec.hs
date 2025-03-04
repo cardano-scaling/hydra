@@ -658,10 +658,12 @@ spec =
             Continue as _ ->
               all
                 ( \case
-                    -- NOTE: match only netwrork related outcomes
+                    -- NOTE: match only network related outcomes
                     PeerConnected{} -> True
                     PeerDisconnected{} -> True
                     PeerHandshakeFailure{} -> True
+                    NetworkConnected{} -> True
+                    NetworkDisconnected{} -> True
                     _ -> False
                 )
                 as

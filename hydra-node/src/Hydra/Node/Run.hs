@@ -110,10 +110,9 @@ run opts = do
               networkConfiguration
               (wireNetworkInput wetHydraNode)
               $ \network -> do
-                apiServerSink <- wireApiEvents server
                 -- Main loop
                 connect chain network wetHydraNode
-                  <&> addApiEventSink apiServerSink
+                  <&> addEventSink EventSink{putEvent = sendOutput server}
                     >>= runHydraNode
  where
   withCardanoLedger protocolParams globals action =

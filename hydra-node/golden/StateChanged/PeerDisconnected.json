@@ -1,7 +1,10 @@
 {
     "samples": [
         {
-            "peer": "pysrvyvvgeyxwcns",
+            "peer": {
+                "hostname": "0.0.82.8",
+                "port": 25406
+            },
             "tag": "PeerDisconnected"
         }
     ],
