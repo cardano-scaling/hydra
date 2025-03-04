@@ -72,7 +72,8 @@ import Hydra.Ledger (
   applyTransactions,
   outputsOfTx,
  )
-import Hydra.Network.Message (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..), Message (..), NetworkEvent (..))
+import Hydra.Network (Connectivity (..), HydraVersionedProtocolNumber (..), KnownHydraVersions (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Tx (
   HeadId,
   HeadSeed,
@@ -102,10 +103,14 @@ defaultTTL = 5
 
 onConnectionEvent :: Connectivity -> Outcome tx
 onConnectionEvent = \case
-  Connected{nodeId} ->
-    causes [ClientEffect (ServerOutput.PeerConnected nodeId)]
-  Disconnected{nodeId} ->
-    causes [ClientEffect (ServerOutput.PeerDisconnected nodeId)]
+  NetworkConnected ->
+    causes [ClientEffect ServerOutput.NetworkConnected]
+  NetworkDisconnected ->
+    causes [ClientEffect ServerOutput.NetworkDisconnected]
+  PeerConnected{peer} ->
+    causes [ClientEffect ServerOutput.PeerConnected{peer}]
+  PeerDisconnected{peer} ->
+    causes [ClientEffect ServerOutput.PeerDisconnected{peer}]
   HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
     causes
       [ ClientEffect

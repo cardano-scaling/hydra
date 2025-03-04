@@ -75,6 +75,8 @@ channels:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
+          - $ref: "api.yaml#/components/messages/NetworkConnected"
+          - $ref: "api.yaml#/components/messages/NetworkDisconnected"
           - $ref: "api.yaml#/components/messages/PeerHandshakeFailure"
           - $ref: "api.yaml#/components/messages/HeadIsInitializing"
           - $ref: "api.yaml#/components/messages/Committed"
@@ -457,17 +459,32 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Greetings"
 
+    NetworkConnected:
+      title: NetworkConnected
+      description: |
+        Node connected to the L2 Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkConnected"
+
+    NetworkDisconnected:
+      title: NetworkDisconnected
+      description: |
+        Node disconnected from the L2 Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+
     PeerConnected:
       title: PeerConnected
       description: |
-        A peer is now connected to the head network.
+        A peer appeared alive on the L2 Hydra network.
       payload:
         $ref: "api.yaml#/components/schemas/PeerConnected"
 
     PeerDisconnected:
       title: PeerDisconnected
       description: |
-        A peer has disconnected from the head network.
+        A peer disappeared (has not been seen active in a while) from the L2
+        Hydra network.
       payload:
         $ref: "api.yaml#/components/schemas/PeerDisconnected"
 
@@ -708,6 +725,8 @@ components:
     ServerOutput:
       oneOf:
         - $ref: "api.yaml#/components/schemas/Greetings"
+        - $ref: "api.yaml#/components/schemas/NetworkConnected"
+        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
         - $ref: "api.yaml#/components/schemas/PeerDisconnected"
         - $ref: "api.yaml#/components/schemas/PeerHandshakeFailure"
@@ -763,6 +782,36 @@ components:
         hydraNodeVersion:
           $ref: "api.yaml#/components/schemas/HydraNodeVersion"
 
+    NetworkConnected:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkConnected"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkDisconnected:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkDisconnected"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
     PeerConnected:
       type: object
       required:
@@ -775,7 +824,7 @@ components:
           type: string
           enum: ["PeerConnected"]
         peer:
-          $ref: "api.yaml#/components/schemas/NodeId"
+          $ref: "api.yaml#/components/schemas/Host"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -793,12 +842,13 @@ components:
           type: string
           enum: ["PeerDisconnected"]
         peer:
-          $ref: "api.yaml#/components/schemas/NodeId"
+          $ref: "api.yaml#/components/schemas/Host"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    # TODO: Update to indicate network-level incompatibility
     PeerHandshakeFailure:
       type: object
       required:
@@ -814,7 +864,7 @@ components:
           enum: ["PeerHandshakeFailure"]
         remoteHost:
           type: object
-          $ref: "api.yaml#/components/schemas/IP"
+          $ref: "api.yaml#/components/schemas/Host"
         ourVersion:
           type: integer
           minimum: 0
@@ -2645,6 +2695,23 @@ components:
 
     # NOTE: We don't want anyone to depend on this!
     ChainState: {}
+
+    Host:
+      description: |
+        Describes a host we can connect to using TCP.
+      type: object
+      required:
+        - hostname
+        - port
+      properties:
+        hostname:
+          type: string
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          example: 5000
+
 
     IP:
       type: object

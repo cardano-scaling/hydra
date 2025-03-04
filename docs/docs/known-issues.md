@@ -21,6 +21,20 @@ See these resources for additional information about reducing the risk of lockin
 * [Limit size/complexity of UTXOs in the head](https://github.com/cardano-scaling/hydra/issues/698)
 * [Only sign closable snapshots](https://github.com/cardano-scaling/hydra/issues/370).
 
+### Static topology
+
+The network topology needs to be statically configured and match across all `hydra-node` instances. Currently this means that the `--host` and `--port`, along with other `--peer` command line options need to match. Otherwise the `etcd` node of the networking later will report errors in the logs.
+
+Known errors are:
+
+ - `cluster ID mismatch` - the cluster was initiated with a different list of `--peer`s
+   - check configuration with other participants
+
+ - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
+   - need to bootstrap new cluster or manual workarounds, see also https://etcd.io/docs/v3.5/op-guide/failures/
+
+We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#etcd-discovery) eventually.
+
 ### Training wheels
 
 There is a hard-coded limit on the **mainnet** where only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.

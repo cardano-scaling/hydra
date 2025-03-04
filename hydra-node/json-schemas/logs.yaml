@@ -114,37 +114,17 @@ properties:
             description: >-
               Configuration needed to run the hydra node
 
-      - title: Authentication
+      - title: EnteringMainloop
         description: >-
-          Hydra node detected a difference between the signer and the sender
-          of an authenticated message over the network.
+          They Hydra node enters its main loop of processing inputs, events and effects.
         type: object
         additionalProperties: false
         required:
           - tag
-          - authentication
         properties:
           tag:
             type: string
-            enum: ["Authentication"]
-          authentication:
-            type: object
-            $ref: "logs.yaml#/definitions/AuthLog"
-
-      - title: Reliability
-        type: object
-        additionalProperties: false
-        required:
-          - tag
-          - reliability
-        description: >-
-          A log entry produced by Reliability network layer.
-        properties:
-          tag:
-            type: string
-            enum: ["Reliability"]
-          reliability:
-            $ref: "logs.yaml#/definitions/Reliability"
+            enum: ["EnteringMainloop"]
 
 definitions:
   APIServer:
@@ -1821,32 +1801,51 @@ definitions:
             type: string
             enum: ["ConnectivityEvent"]
           contents:
+            # XXX: These are very similar to server output schemas in api.yaml
             oneOf:
-              - title: Connected
+              - title: NetworkConnected
                 type: object
-                additionalProperties: false
                 required:
                   - tag
-                  - nodeId
                 properties:
                   tag:
                     type: string
-                    enum: ["Connected"]
-                  nodeId:
-                    type: string
+                    enum: ["NetworkConnected"]
 
-              - title: Disconnected
+              - title: NetworkDisconnected
+                type: object
+                required:
+                  - tag
+                properties:
+                  tag:
+                    type: string
+                    enum: ["NetworkDisconnected"]
+
+              - title: PeerConnected
                 type: object
                 additionalProperties: false
                 required:
                   - tag
-                  - nodeId
+                  - peer
                 properties:
                   tag:
                     type: string
-                    enum: ["Disconnected"]
-                  nodeId:
+                    enum: ["PeerConnected"]
+                  peer:
+                    $ref: "api.yaml#/components/schemas/Host"
+
+              - title: PeerDisconnected
+                type: object
+                additionalProperties: false
+                required:
+                  - tag
+                  - peer
+                properties:
+                  tag:
                     type: string
+                    enum: ["PeerDisconnected"]
+                  peer:
+                    $ref: "api.yaml#/components/schemas/Host"
 
               - title: HandshakeFailure
                 type: object

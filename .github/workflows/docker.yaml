@@ -54,7 +54,7 @@ jobs:
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
-        ./result | docker load
+        docker load < result
         
         IMAGE_LABEL=unstable
         BUILDING_WORKFLOW_DISPATCH=${{github.event_name == 'workflow_dispatch'}}

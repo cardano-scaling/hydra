@@ -5,6 +5,7 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
   Failure (FailureException),
@@ -18,10 +19,19 @@ import Control.Monad.IOSim (
 import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
+import Data.Text qualified as Text
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
+
+noopCallback :: Applicative m => NetworkCallback msg m
+noopCallback =
+  NetworkCallback
+    { deliver = \_ -> pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 -- | Run given 'action' in 'IOSim' and rethrow any exceptions.
 shouldRunInSim ::
@@ -104,3 +114,32 @@ isStrictlyMonotonic = \case
   [] -> True
   [_] -> True
   (a : b : as) -> a < b && isStrictlyMonotonic (b : as)
+
+-- | Wait up to some time for a function to yield an equal value.
+waitEq :: (HasCallStack, Eq a, Show a) => IO a -> NominalDiffTime -> a -> IO ()
+waitEq waitNext delay expected =
+  waitMatch waitNext delay (guard . (== expected))
+
+-- | Wait up to some time for a function to return a value that satisfies given predicate.
+waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b) -> IO b
+waitMatch waitNext delay match = do
+  seenMsgs <- newTVarIO []
+  timeout (realToFrac delay) (go seenMsgs) >>= \case
+    Just x -> pure x
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      failure $
+        toString $
+          unlines
+            [ "waitMatch did not match a message within " <> show delay
+            , padRight ' ' 20 "  seen messages:"
+                <> unlines (align 20 (show <$> msgs))
+            ]
+ where
+  go seenMsgs = do
+    msg <- waitNext
+    atomically (modifyTVar' seenMsgs (msg :))
+    maybe (go seenMsgs) pure (match msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (Text.replicate n " " <>) q

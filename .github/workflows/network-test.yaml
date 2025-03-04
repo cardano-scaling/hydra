@@ -30,9 +30,9 @@ jobs:
         # however many we would like to configure here.
         # Currently this is just a label and does not have any functional impact.
         peers:          [3]
-        scaling_factor: [10, 50]
+        scaling_factor: [10]
         # Note: We only put here the configuration values we _expected to pass_.
-        netem_loss:     [0, 1, 2, 3]
+        netem_loss:     [10, 50, 90]
     name: "Peers: ${{ matrix.peers }}, scaling: ${{ matrix.scaling_factor }}, loss: ${{ matrix.netem_loss }}"
     steps:
     - uses: actions/checkout@v4
@@ -44,15 +44,15 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: Set up and use the "ci" devShell
+    - name: Set up and use the "demo" devShell
       uses: nicknovitski/nix-develop@v1
       with:
-        arguments: ".#ci"
+        arguments: ".#demo"
 
     - name: Build docker images for netem specifically
       run: |
         nix build .#docker-hydra-node-for-netem
-        ./result | docker load
+        docker load < result
 
     - name: Setup containers for network testing
       run: |
@@ -64,8 +64,8 @@ jobs:
         sleep 2
         # :tear: socket permissions.
         sudo chmod a+w devnet/node.socket
-        ./seed-devnet.sh "nix run .#cardano-cli --" "nix run .#hydra-node --"
-
+        export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
+        ./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
         # Specify two docker compose yamls; the second one overrides the
         # images to use the netem ones specifically
         docker compose -f docker-compose.yaml -f docker-compose-netem.yaml up -d hydra-node-{1,2,3}
@@ -89,19 +89,27 @@ jobs:
     - name: Run pumba and the benchmarks
       run: |
         # Extract inputs with defaults for non-workflow_dispatch events
+        # TODO: which defaults?
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
-        target_peer="hydra-node-1"
-        other_peers="172.16.238.20 172.16.238.30"
 
-        .github/workflows/network/run_pumba.sh $target_peer $percent $other_peers
+        # Package loss on random nodes every 20s for 5s. This should make the
+        # benchmark progress reasonably, but under stress
+        nix run github:noonio/pumba/noon/add-flake -- -l info \
+          --random \
+          --interval 20s \
+          netem \
+          --duration 5s \
+          loss --percent ${percent} \
+          "re2:hydra-node" &
 
         # Run benchmark on demo
+        mkdir -p benchmarks
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=benchmarks \
           --scaling-factor="$scaling_factor" \
-          --timeout=1000s \
+          --timeout=1200s \
           --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \

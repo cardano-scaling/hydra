@@ -1,211 +1,90 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
--- | Concrete `Hydra.Network` stack dedicated to running a hydra-node.
+-- | Concrete `Hydra.Network` stack used in a hydra-node.
 --
 -- This module provides a `withNetwork` function which is the composition of several layers in order to provide various capabilities:
 --
---   * `withHeartbeat` maintains knowledge about peers' connectivity,
---   * `withReliability` deals with connections reliability, handling the case
---     of messages being dropped (but not node crash in general),
---   * `withAuthentication` handles messages' authentication and signature verification,
---   * `withOuroborosNetwork` deals with maintaining individual connections to peers and the nitty-gritty details of messages sending and retrieval.
+--   * `withAuthentication` handles messages' authentication and signature verification
+--   * `withEtcdNetwork` uses an 'etcd' cluster to implement reliable broadcast
 --
 -- The following diagram details the various types of messages each layer is
 -- exchanging with its predecessors and successors.
 --
 -- @
 --
---          ▲                                    │
---          │ Authenticate msg                   │ msg
---          │                                    │
--- ┌────────┴────────────────────────────────────▼──────┐
--- │                                                    │
--- │                   Heartbeat                        │
--- │        ▲                                           │
--- └────────┬────────────────────────────────────┼──────┘
---          │                                    │
---          │ Heartbeat (Authenticate msg)       │ Heartbeat msg
---          │                                    │
--- ┌────────┴───────────────┐                    │
--- │                        │                    │
--- │    FlipHeartbeats      │                    │
--- │                        │                    │
--- └────────▲───────────────┘                    │
---          │                                    │
---          │ Authenticate (Heartbeat msg)       │
---          │                                    │
--- ┌────────┴────────────────────────────────────▼──────┐
--- │                                                    │
--- │                   Reliability                      │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---      Authenticated (ReliableMsg (Heartbeat msg))    ReliableMsg (Heartbeat msg)
---           │                                   │
--- ┌─────────┼───────────────────────────────────▼──────┐
--- │                                                    │
--- │                  Authenticate                      │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---           │                                   │
---       Signed (ReliableMsg (Heartbeat msg))       Signed (ReliableMsg (Heartbeat msg))
---           │                                   │
--- ┌─────────┼───────────────────────────────────▼──────┐
--- │                                                    │
--- │                  Ouroboros                         │
--- │                                                    │
--- └─────────▲───────────────────────────────────┼──────┘
---           │                                   │
---           │           (bytes)                 │
---           │                                   ▼
+--           ▲
+--           │                        │
+--       Authenticated msg           msg
+--           │                        │
+--           │                        │
+-- ┌─────────┼────────────────────────▼──────┐
+-- │                                         │
+-- │               Authenticate              │
+-- │                                         │
+-- └─────────▲────────────────────────┼──────┘
+--           │                        │
+--           │                        │
+--          msg                      msg
+--           │                        │
+-- ┌─────────┼────────────────────────▼──────┐
+-- │                                         │
+-- │                   Etcd                  │
+-- │                                         │
+-- └─────────▲────────────────────────┼──────┘
+--           │                        │
+--           │        (bytes)         │
+--           │                        ▼
 --
 -- @
 module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
-  withFlipHeartbeats,
-  configureMessagePersistence,
-  acksFile,
+  NetworkLog,
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
-import Hydra.Logging (traceWith)
-import Hydra.Logging.Messages (HydraLog)
-import Hydra.Logging.Messages qualified as Log
-import Hydra.Network (Host (..), IP, Network (..), NetworkCallback (..), NetworkComponent, NodeId, PortNumber)
-import Hydra.Network.Authenticate (Authenticated (..), Signed, withAuthentication)
-import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
-import Hydra.Network.Message (
-  Connectivity (..),
-  HydraHandshakeRefused (..),
-  HydraVersionedProtocolNumber (..),
-  Message,
-  NetworkEvent (..),
- )
-import Hydra.Network.Ouroboros (HydraNetworkConfig (..), TraceOuroborosNetwork, WithHost, withOuroborosNetwork)
-import Hydra.Network.Reliability (MessagePersistence, ReliableMsg, mkMessagePersistence, withReliability)
-import Hydra.Node (HydraNodeLog (..))
-import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import Hydra.Persistence (Persistence (..), createPersistence, createPersistenceIncremental)
-import Hydra.Tx (IsTx, Party, deriveParty)
-import Hydra.Tx.Crypto (HydraKey, SigningKey)
-import System.FilePath ((</>))
-import UnliftIO (MonadUnliftIO)
-
--- | An alias for logging messages output by network component.
--- The type is made complicated because the various subsystems use part of the tracer only.
-type LogEntry tx msg = HydraLog tx (WithHost (TraceOuroborosNetwork (Signed (ReliableMsg (Heartbeat msg)))))
-
--- | Configuration for a `Node` network layer.
-data NetworkConfiguration m = NetworkConfiguration
-  { persistenceDir :: FilePath
-  -- ^ Persistence directory
-  , signingKey :: SigningKey HydraKey
-  -- ^ This node's signing key. This is used to sign messages sent to peers.
-  , otherParties :: [Party]
-  -- ^ The list of peers `Party` known to this node.
-  , host :: IP
-  -- ^ IP address to listen on for incoming connections.
-  , port :: PortNumber
-  -- ^ Port to listen on.
-  , peers :: [Host]
-  -- ^ Addresses and ports of remote peers.
-  , nodeId :: NodeId
-  -- ^ This node's id.
-  }
-
-currentHydraVersionedProtocol :: HydraVersionedProtocolNumber
-currentHydraVersionedProtocol = MkHydraVersionedProtocolNumber 1
+import Hydra.Network (HydraVersionedProtocolNumber (..), NetworkComponent, NetworkConfiguration (..))
+import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
+import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
+import Hydra.Network.Message (Message)
+import Hydra.Tx (IsTx)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
   forall tx.
   IsTx tx =>
   -- | Tracer to use for logging messages.
-  Tracer IO (LogEntry tx (Message tx)) ->
+  Tracer IO NetworkLog ->
   -- | The network configuration
-  NetworkConfiguration IO ->
+  NetworkConfiguration ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
-  NetworkComponent IO (NetworkEvent (Message tx)) (Message tx) ()
-withNetwork tracer configuration callback action = do
-  let localHost = Host{hostname = show host, port}
-      me = deriveParty signingKey
-      numberOfParties = length $ me : otherParties
-  messagePersistence <- configureMessagePersistence (contramap Log.Node tracer) persistenceDir numberOfParties
-
-  let reliability =
-        withFlipHeartbeats $
-          withReliability (contramap Log.Reliability tracer) messagePersistence me otherParties $
-            withAuthentication (contramap Log.Authentication tracer) signingKey otherParties $
-              withOuroborosNetwork
-                (contramap Log.Network tracer)
-                HydraNetworkConfig
-                  { protocolVersion = currentHydraVersionedProtocol
-                  , localHost
-                  , remoteHosts = peers
-                  }
-                ( \HydraHandshakeRefused{remoteHost, ourVersion, theirVersions} ->
-                    deliver . ConnectivityEvent $ HandshakeFailure{remoteHost, ourVersion, theirVersions}
-                )
-
-  withHeartbeat nodeId reliability (NetworkCallback{deliver = deliver . mapHeartbeat}) $ \Network{broadcast} ->
+  NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+withNetwork tracer conf callback action = do
+  withAuthentication
+    (contramap Authenticate tracer)
+    signingKey
+    otherParties
+    (withEtcdNetwork (contramap Etcd tracer) currentNetworkProtocolVersion conf)
+    callback
     action
-      Network
-        { broadcast = \msg -> do
-            broadcast msg
-            deliver (ReceivedMessage{sender = deriveParty signingKey, msg})
-        }
  where
-  NetworkCallback{deliver} = callback
+  NetworkConfiguration{signingKey, otherParties} = conf
 
-  NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId} = configuration
+-- | The latest hydra network protocol version. Used to identify
+-- incompatibilities ahead of time.
+currentNetworkProtocolVersion :: HydraVersionedProtocolNumber
+currentNetworkProtocolVersion = MkHydraVersionedProtocolNumber 1
 
-  mapHeartbeat :: Either Connectivity (Authenticated (Message tx)) -> NetworkEvent (Message tx)
-  mapHeartbeat = \case
-    Left connectivity -> ConnectivityEvent connectivity
-    Right (Authenticated{payload, party}) -> ReceivedMessage{sender = party, msg = payload}
+-- * Tracing
 
--- | Create `MessagePersistence` handle to be used by `Reliability` network layer.
---
--- This function will `throw` a `ParameterMismatch` exception if:
---
---   * Some state already exists and is loaded,
---   * The number of parties is not the same as the number of acknowledgments saved.
-configureMessagePersistence ::
-  (MonadThrow m, FromJSON msg, ToJSON msg, MonadUnliftIO m) =>
-  Tracer m (HydraNodeLog tx) ->
-  FilePath ->
-  Int ->
-  m (MessagePersistence m msg)
-configureMessagePersistence tracer persistenceDir numberOfParties = do
-  msgPersistence <- createPersistenceIncremental $ storedMessagesFile persistenceDir
-  ackPersistence@Persistence{load} <- createPersistence $ acksFile persistenceDir
-  mAcks <- load
-  ackPersistence' <- case fmap (\acks -> length acks == numberOfParties) mAcks of
-    Just False -> do
-      let paramsMismatch = [SavedNetworkPartiesInconsistent{numberOfParties}]
-      traceWith tracer (Misconfiguration paramsMismatch)
-      throwIO $ ParameterMismatch paramsMismatch
-    _ -> pure ackPersistence
-  pure $ mkMessagePersistence numberOfParties msgPersistence ackPersistence'
+data NetworkLog
+  = Authenticate AuthLog
+  | Etcd EtcdLog
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
-withFlipHeartbeats ::
-  NetworkComponent m (Authenticated (Heartbeat inbound)) outbound a ->
-  NetworkComponent m (Heartbeat (Authenticated inbound)) outbound a
-withFlipHeartbeats withBaseNetwork NetworkCallback{deliver} =
-  withBaseNetwork NetworkCallback{deliver = unwrapHeartbeats}
- where
-  unwrapHeartbeats = \case
-    Authenticated (Data nid msg) party -> deliver $ Data nid (Authenticated msg party)
-    Authenticated (Ping nid) _ -> deliver $ Ping nid
-
--- | Where are the messages stored, relative to given directory.
-storedMessagesFile :: FilePath -> FilePath
-storedMessagesFile = (</> "network-messages")
-
--- | Where is the acknowledgments vector stored, relative to given directory.
-acksFile :: FilePath -> FilePath
-acksFile = (</> "acks")
+instance Arbitrary NetworkLog where
+  arbitrary = genericArbitrary
+  shrink = genericShrink

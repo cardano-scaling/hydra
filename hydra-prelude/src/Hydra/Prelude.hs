@@ -34,6 +34,7 @@ module Hydra.Prelude (
   ReasonablySized (..),
   padRight,
   Except,
+  encodeBase16,
   decodeBase16,
   (?>),
   withFile,
@@ -220,6 +221,14 @@ instance Arbitrary a => Arbitrary (ReasonablySized a) where
 -- NOTE: Truncate the string if longer than the given length.
 padRight :: Char -> Int -> Text -> Text
 padRight c n str = T.take n (str <> T.replicate n (T.singleton c))
+
+-- | Encode some bytes to hex-encoded text.
+--
+-- >>> encodeBase16 "ab"
+-- "4142"
+encodeBase16 :: ByteString -> Text
+encodeBase16 =
+  decodeUtf8 . Base16.encode
 
 -- | Decode some hex-encoded text string to raw bytes.
 --

@@ -47,7 +47,7 @@ Accepted
 ![](./2024-09-19-etcd-network-draft.jpg)
 
 - We supersede [ADR 17](/adr/17) and [ADR 27](/adr/27) decisions on how to implement `Network` with the current ADR.
-  - Drop existing implementation using `Reliability` layer for now
+  - Drop existing implementation of `Ouroboros` and `Reliability` components
   - Could be revisited, as in theory it would satisfy properties if implemented correctly?
   - Uniform reliable broadcast = only deliver when seen by everyone = not what we had implemented?
 

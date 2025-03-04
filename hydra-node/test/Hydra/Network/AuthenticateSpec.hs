@@ -8,7 +8,6 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
 import Hydra.Network (Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
-import Hydra.Network.HeartbeatSpec (noop)
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
 import Hydra.Prelude
@@ -18,6 +17,7 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (listOf)
 import Test.QuickCheck.Gen (generate)
+import Test.Util (noopCallback)
 
 spec :: Spec
 spec = parallel $ do
@@ -28,9 +28,11 @@ spec = parallel $ do
         NetworkCallback
           { deliver = \msg ->
               atomically $ modifyTVar' receivedMessages (msg :)
+          , onConnectivity = const $ pure ()
           }
 
   msg <- runIO $ generate @(Message SimpleTx) arbitrary
+
   it "pass the authenticated messages around" $ do
     let receivedMsgs = runSimOrThrow $ do
           receivedMessages <- newTVarIO []
@@ -64,8 +66,9 @@ spec = parallel $ do
             aliceSk
             [bob]
             ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign aliceSk msg) alice)
                 deliver (Signed msg (sign bobSk msg) bob)
-                deliver (Signed unexpectedMessage (sign aliceSk unexpectedMessage) alice)
+                deliver (Signed unexpectedMessage (sign carolSk unexpectedMessage) carol)
             )
             (captureIncoming receivedMessages)
             $ \_ ->
@@ -73,7 +76,7 @@ spec = parallel $ do
 
           readTVarIO receivedMessages
 
-    receivedMsgs `shouldBe` [Authenticated msg bob]
+    receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg alice]
 
   it "drop message coming from party with wrong signature" $ do
     let receivedMsgs = runSimOrThrow $ do
@@ -108,7 +111,7 @@ spec = parallel $ do
             bobSk
             []
             (captureOutgoing sentMessages)
-            noop
+            noopCallback
             $ \Network{broadcast} -> do
               threadDelay 0.6
               broadcast someMessage
@@ -132,7 +135,7 @@ spec = parallel $ do
             aliceSk
             [bob, carol]
             (\NetworkCallback{deliver} _ -> deliver signedMsg)
-            noop
+            noopCallback
             $ \_ ->
               threadDelay 1
 

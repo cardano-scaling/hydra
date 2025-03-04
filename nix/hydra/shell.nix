@@ -64,7 +64,10 @@ let
     pkgs.zlib
   ]
   ++
-  pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
+  pkgs.lib.optionals (pkgs.stdenv.isLinux) [
+    pkgs.systemd
+    pkgs.etcd # Run-time dependency of hydra-node
+  ];
 
   haskellNixShell = hsPkgs.shellFor {
     buildInputs = libs ++ buildInputs;

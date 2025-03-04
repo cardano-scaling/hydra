@@ -80,15 +80,8 @@ library
     Hydra.Logging.Monitoring
     Hydra.Network
     Hydra.Network.Authenticate
-    Hydra.Network.Heartbeat
+    Hydra.Network.Etcd
     Hydra.Network.Message
-    Hydra.Network.Ouroboros
-    Hydra.Network.Ouroboros.Client
-    Hydra.Network.Ouroboros.Codec
-    Hydra.Network.Ouroboros.Server
-    Hydra.Network.Ouroboros.Type
-    Hydra.Network.Ouroboros.VersionedProtocol
-    Hydra.Network.Reliability
     Hydra.Node
     Hydra.Node.InputQueue
     Hydra.Node.Network
@@ -117,7 +110,6 @@ library
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
-    , cborg
     , conduit
     , containers
     , contra-tracer
@@ -125,6 +117,8 @@ library
     , data-default
     , directory
     , filepath
+    , grapesy
+    , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api
     , hydra-plutus
@@ -139,13 +133,12 @@ library
     , lens-aeson
     , modern-uri
     , network
-    , network-mux
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , ouroboros-network-api           >=0.7.1
-    , ouroboros-network-framework
     , ouroboros-network-protocols     >=0.8
+    , process
     , prometheus
     , QuickCheck
     , quickcheck-arbitrary-adt
@@ -155,10 +148,8 @@ library
     , text
     , time
     , transformers
-    , typed-protocols                 >=0.1.0.0
-    , typed-protocols-cborg           >=0.1.0.0
+    , typed-process
     , unliftio
-    , vector
     , wai
     , wai-cors
     , wai-websockets
@@ -203,30 +194,14 @@ executable hydra-node
   hs-source-dirs: exe/hydra-node
   main-is:        Main.hs
   build-depends:
+    , base
     , bytestring
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , unix
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
-
-executable hydra-net
-  import:         project-config
-  hs-source-dirs: exe/hydra-net
-  main-is:        Main.hs
-  other-modules:  Log
-  build-depends:
-    , aeson
-    , contra-tracer
-    , hydra-cardano-api
-    , hydra-node
-    , hydra-prelude
-    , hydra-tx
-    , network
-    , optparse-applicative
-    , ouroboros-network-framework  >=0.3.0.0
-
-  ghc-options:    -threaded -rtsopts
 
 benchmark tx-cost
   import:         project-config
@@ -292,7 +267,6 @@ test-suite tests
     Hydra.ContestationPeriodSpec
     Hydra.CryptoSpec
     Hydra.Events.FileBasedSpec
-    Hydra.FireForgetSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -307,8 +281,6 @@ test-suite tests
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
-    Hydra.Network.HeartbeatSpec
-    Hydra.Network.ReliabilitySpec
     Hydra.NetworkSpec
     Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
@@ -348,7 +320,6 @@ test-suite tests
     , filepath
     , hedgehog-quickcheck
     , hspec
-    , hspec-core
     , hspec-golden-aeson
     , hspec-wai
     , HUnit
@@ -370,7 +341,6 @@ test-suite tests
     , QuickCheck
     , quickcheck-dynamic              >=3.4     && <3.5
     , quickcheck-instances
-    , random
     , regex-tdfa
     , req
     , silently
@@ -378,8 +348,6 @@ test-suite tests
     , text
     , time
     , tls
-    , typed-protocols-examples        >=0.1.0.0
-    , vector
     , websockets
 
   build-tool-depends: hspec-discover:hspec-discover

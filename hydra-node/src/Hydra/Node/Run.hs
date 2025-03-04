@@ -95,11 +95,17 @@ run opts = do
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
           withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
+            -- XXX: Could parse full local 'Host' directly
             let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
-            withNetwork tracer networkConfiguration (wireNetworkInput wetHydraNode) $ \network -> do
-              -- Main loop
-              connect chain network server wetHydraNode
-                >>= runHydraNode
+            withNetwork
+              (contramap Network tracer)
+              networkConfiguration
+              (wireNetworkInput wetHydraNode)
+              $ \network -> do
+                -- Main loop
+                traceWith tracer EnteringMainloop
+                connect chain network server wetHydraNode
+                  >>= runHydraNode
  where
   withCardanoLedger protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams

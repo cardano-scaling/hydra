@@ -24,7 +24,7 @@ spec = do
     captured `shouldContain` "{\"foo\":42}"
 
   prop "Validates logs.yaml schema" $
-    prop_validateJSONSchema @(Envelope (HydraLog Tx ())) "logs.json" id
+    prop_validateJSONSchema @(Envelope (HydraLog Tx)) "logs.json" id
 
   prop "Schema covers all defined log entries" $
-    prop_specIsComplete @(HydraLog Tx ()) "logs.json" (key "properties" . key "message")
+    prop_specIsComplete @(HydraLog Tx) "logs.json" (key "properties" . key "message")

@@ -1,9 +1,12 @@
 {
     "samples": [
         {
-            "peer": "zocryeobfgljgxe",
+            "peer": {
+                "hostname": "0.0.47.58",
+                "port": 17398
+            },
             "tag": "PeerDisconnected"
         }
     ],
-    "seed": -1791938521
+    "seed": 966094347
 }

@@ -15,4 +15,8 @@ final: prev: {
   static-openssl = (final.openssl.override { static = true; });
   static-zlib = final.zlib.override { shared = false; };
   static-pcre = final.pcre.override { shared = false; };
+  # XXX: Not replicate the cmakeFlags but just drop the -DBUILD_SHARED_LIBS=ON from it
+  static-snappy = final.snappy.overrideDerivation (old: {
+    cmakeFlags = [ "-DSNAPPY_BUILD_TESTS=OFF" "-DSNAPPY_BUILD_BENCHMARKS=OFF" ];
+  });
 }
