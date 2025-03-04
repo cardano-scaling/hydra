@@ -21,9 +21,17 @@ import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
+
+noopCallback :: Applicative m => NetworkCallback msg m
+noopCallback =
+  NetworkCallback
+    { deliver = \_ -> pure ()
+    , onConnectivity = const $ pure ()
+    }
 
 -- | Run given 'action' in 'IOSim' and rethrow any exceptions.
 shouldRunInSim ::

@@ -17,6 +17,7 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (listOf)
 import Test.QuickCheck.Gen (generate)
+import Test.Util (noopCallback)
 
 spec :: Spec
 spec = parallel $ do
@@ -110,7 +111,7 @@ spec = parallel $ do
             bobSk
             []
             (captureOutgoing sentMessages)
-            noop
+            noopCallback
             $ \Network{broadcast} -> do
               threadDelay 0.6
               broadcast someMessage
@@ -134,7 +135,7 @@ spec = parallel $ do
             aliceSk
             [bob, carol]
             (\NetworkCallback{deliver} _ -> deliver signedMsg)
-            noop
+            noopCallback
             $ \_ ->
               threadDelay 1
 
@@ -153,10 +154,3 @@ newtype Msg = Msg ByteString
 
 instance Arbitrary Msg where
   arbitrary = Msg . pack <$> listOf arbitrary
-
-noop :: Monad m => NetworkCallback b m
-noop =
-  NetworkCallback
-    { deliver = const $ pure ()
-    , onConnectivity = const $ pure ()
-    }

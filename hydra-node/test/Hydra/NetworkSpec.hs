@@ -33,7 +33,7 @@ import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (waitEq)
+import Test.Util (noopCallback, waitEq)
 
 spec :: Spec
 spec = do
@@ -278,13 +278,6 @@ prop_canRoundtripCBOREncoding ::
 prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) === Right a
-
-noopCallback :: Applicative m => NetworkCallback msg m
-noopCallback =
-  NetworkCallback
-    { deliver = \_ -> pure ()
-    , onConnectivity = const $ pure ()
-    }
 
 newRecordingCallback :: MonadSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
 newRecordingCallback = do
