@@ -45,7 +45,6 @@ EOF
 check_can_release() {
   local version="$1"
 
-  check_on_master
   confirm_uncommitted_changes
   check_version_is_valid $version
   check_changelog_is_up_to_date $version
@@ -70,28 +69,31 @@ prepare_release() {
 
   git tag -as "$version" -F <(changelog "$version")
 
-  # Make branch release point to tag so that the website is published
-  git checkout release
-  git merge "${version}" --ff-only
-
-  git checkout master
+  if [ $(git rev-parse --abbrev-ref HEAD) = "master" ]; then
+    # Make branch release point to tag so that the website is published
+    git checkout release
+    git merge "${version}" --ff-only
+    git checkout master
+  fi
 }
 
 publish_release_instructions() {
   local version="$1"
+  local branch_name=$(git rev-parse --abbrev-ref HEAD)
 
   err "Prepared the release commit and tag, review it now and if everything is okay, push using:"
   err ""
-  err "git push origin master"
-  err "git push origin release"
+  err "git push origin ${branch_name}"
+  if [ ${branch_name} = "master" ]; then
+    err "git push origin release"
+  fi
   err "git push origin ${version}"
 }
 
 # Checking helper functions
 
 confirm_uncommitted_changes() {
-  if [ ! -z "$(git status --porcelain)" ]
-  then
+  if [ ! -z "$(git status --porcelain)" ]; then
     git status >&2
     echo >&2 "WARNING: You have unstaged changes. The release will stage everything and commit it."
     ask_continue
@@ -102,26 +104,19 @@ confirm_uncommitted_changes() {
 ask_continue() {
   read -p "Do you want to continue? [y/n] " -n 1 -r
   echo >&2 ""
-  if [[ ! $REPLY =~ ^[Yy]$ ]]
-  then
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit_err "Aborted release"
-  fi
-}
-
-check_on_master() {
-  if [ $(git rev-parse --abbrev-ref HEAD) != "master" ]; then
-    exit_err "Not on branch 'master'"
   fi
 }
 
 check_version_is_valid() {
   local version="$1"
 
-  echo $version | grep -E '^[0-9]*\.[0-9]*\.[0-9]*$' >/dev/null \
-  || exit_err "Invalid format for version: $version"
+  echo $version | grep -E '^[0-9]*\.[0-9]*\.[0-9]*$' >/dev/null ||
+    exit_err "Invalid format for version: $version"
 
-  git tag | grep "^$version$" >/dev/null \
-  && exit_err "A tag for this version already exists"
+  git tag | grep "^$version$" >/dev/null &&
+    exit_err "A tag for this version already exists"
 
   true #avoid error on last instruction of function (see bash -e)
 }
@@ -131,11 +126,11 @@ check_changelog_is_up_to_date() {
 
   local next_release="$(sed '/## *\[.*\]/ !d' CHANGELOG.md | head -n1)"
 
-  echo "$next_release" | grep "\[$version\]" >/dev/null \
-  || exit_err "$version is not the next release in CHANGELOG.md"
+  echo "$next_release" | grep "\[$version\]" >/dev/null ||
+    exit_err "$version is not the next release in CHANGELOG.md"
 
-  echo "$next_release" | grep UNRELEASED >/dev/null \
-  && exit_err "$version is not released in CHANGELOG.md. Please replace UNRELEASED with the current date"
+  echo "$next_release" | grep UNRELEASED >/dev/null &&
+    exit_err "$version is not released in CHANGELOG.md. Please replace UNRELEASED with the current date"
 
   true #avoid error on last instruction of function (see bash -e)
 }
@@ -153,25 +148,26 @@ check_networks_is_up_to_date() {
   local networks_file=networks.json
 
   for network in "${networks[@]}"; do
-    cat ${networks_file} | jq -e ".\"${network}\".\"${version}\"" > /dev/null \
-    || exit_err "Missing transaction id for ${version} on ${network} in ${networks_file}"
+    cat ${networks_file} | jq -e ".\"${network}\".\"${version}\"" >/dev/null ||
+      exit_err "Missing transaction id for ${version} on ${network} in ${networks_file}"
   done
 }
 
 # Prepare helper functions
 
 update_cabal_version() {
-  local version="$1" ; shift
+  local version="$1"
+  shift
   local cabal_files=hydra-*/*.cabal
 
-  for file in $cabal_files
-  do
+  for file in $cabal_files; do
     sed -i"" -e "s,\(^version: *\)[^ ]*,\1$version," $file
   done
 }
 
 update_api_version() {
-  local version="$1" ; shift
+  local version="$1"
+  shift
   local api_file=hydra-node/json-schemas/api.yaml
 
   sed -i"" -e "s,\(version: *\)'.*',\1'$version'," $api_file
