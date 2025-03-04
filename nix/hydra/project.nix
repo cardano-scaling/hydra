@@ -62,7 +62,14 @@ pkgs.haskell-nix.project {
     })
     # Always use static snappy (from overlay, see nix/static-libs.nix)
     {
+      # XXX: Instead of patching to the static-snappy here for all binaries, we
+      # could try have both static and dynamic libs in the pkgs.snappy
+      # derivation? Using only the static libs in pkgs.snappy results in
+      # libHSsnappy relocation / symbol not found errors.
       packages.hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+      packages.hydra-tui.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+      packages.hydra-chain-observer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+      packages.hydraw.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
     }
     {
       # lib:ghc is a bit annoying in that it comes with it's own build-type:Custom, and then tries
