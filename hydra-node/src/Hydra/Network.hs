@@ -172,8 +172,8 @@ showHost Host{hostname, port} =
 
 readHost :: MonadFail m => String -> m Host
 readHost s =
-  case break (== ':') s of
-    (h, ':' : p) -> Host (pack h) <$> readPort p
+  case break (== ':') (reverse s) of
+    (p, ':' : h) -> Host (pack (reverse h)) <$> readPort (reverse p)
     _ -> fail $ "readHost: missing : in " <> s
 
 -- ** Connectivity & versions

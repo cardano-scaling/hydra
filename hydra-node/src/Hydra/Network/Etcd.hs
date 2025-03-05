@@ -158,7 +158,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         traceWith tracer Reconnecting
         pure $ reconnectPolicy doneVar
 
-  clientHost = Host{hostname = "localhost", port = clientPort}
+  clientHost = Host{hostname = "127.0.0.1", port = clientPort}
 
   grpcServer =
     ServerInsecure $
