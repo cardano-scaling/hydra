@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (mapStateChangedToServerOutput)
+import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
@@ -324,7 +324,14 @@ primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
 notConnect :: MonadThrow m => DraftHydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 notConnect =
-  connect mockChain mockNetwork
+  connect mockChain mockNetwork mockServer
+
+mockServer :: Monad m => Server tx m
+mockServer =
+  Server
+    { sendOutput = \_ -> pure ()
+    , sendMessage = \_ -> pure ()
+    }
 
 mockNetwork :: Monad m => Network m (Message SimpleTx)
 mockNetwork =

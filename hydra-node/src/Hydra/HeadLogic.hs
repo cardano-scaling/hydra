@@ -1604,7 +1604,6 @@ aggregate st = \case
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   PeerHandshakeFailure{} -> st
-  PostTxOnChainFailed{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1654,4 +1653,3 @@ aggregateChainStateHistory history = \case
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   PeerHandshakeFailure{} -> history
-  PostTxOnChainFailed{} -> history

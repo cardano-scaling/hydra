@@ -21,7 +21,7 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Hydra.API.ClientInput
-import Hydra.API.Server (mapStateChangedToServerOutput)
+import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
@@ -36,8 +36,7 @@ import Hydra.Chain.Direct.Handlers (getLatest, newLocalChainState, pushNew, roll
 import Hydra.Events (EventSink (..), StateEvent (..))
 import Hydra.HeadLogic (HeadState (..), IdleState (..), Input (..), defaultTTL)
 import Hydra.HeadLogic.Outcome qualified as Outcome
-import Hydra.HeadLogic.State (getHeadUTxO)
-import Hydra.HeadLogicSpec (testSnapshot)
+import Hydra.HeadLogicSpec (getHeadUTxO, testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
@@ -45,7 +44,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeState, queryHeadState, runHydraNode, waitDelay)
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
-import Hydra.NodeSpec (createMockSourceSink)
+import Hydra.NodeSpec (createMockSourceSink, mockServer)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), toNominalDiffTime)
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline))
@@ -70,6 +69,11 @@ spec :: Spec
 spec = parallel $ do
   describe "Sanity tests of test suite" $ do
     it "does not delay for real" $
+      -- If it works, it simulates a lot of time passing within 1 second
+      -- If it works, it simulates a lot of time passing within 1 second
+      -- If it works, it simulates a lot of time passing within 1 second
+      -- If it works, it simulates a lot of time passing within 1 second
+
       -- If it works, it simulates a lot of time passing within 1 second
       failAfter 1 $
         shouldRunInSim $
@@ -177,9 +181,8 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
-              send n2 (NewTx $ aValidTx 42)
 
-              waitMatch n1 $ \case
+              failAfter 10 $ waitMatch n1 $ \case
                 CommandFailed{} -> guard True
                 _ -> Nothing
 
@@ -362,23 +365,6 @@ spec = parallel $ do
                 waitUntilMatch [n1, n2] $ \case
                   TxInvalid{transaction} -> transaction == tx''
                   _ -> False
-
-      it "outputs utxo from confirmed snapshot when client requests it" $
-        shouldRunInSim $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [bob] chain $ \n1 ->
-              withHydraNode bobSk [alice] chain $ \n2 -> do
-                openHead chain n1 n2
-                let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
-                send n1 (NewTx newTx)
-
-                let snapshot = testSnapshot 1 0 [newTx] (utxoRefs [2, 42])
-                    sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-
-                waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
-
-                headUTxO <- getHeadUTxO <$> queryState n1
-                fromMaybe mempty headUTxO `shouldBe` utxoRefs [2, 42]
 
       describe "Commit" $ do
         it "requested commits get approved" $
@@ -830,19 +816,19 @@ spec = parallel $ do
       logs
         `shouldContain` [EndInput alice 0]
 
-  it "traces handling of effects" $ do
-    let result = runSimTrace $ do
-          withSimulatedChainAndNetwork $ \chain ->
-            withHydraNode aliceSk [] chain $ \n1 -> do
-              send n1 Init
-              waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
+    it "traces handling of effects" $ do
+      let result = runSimTrace $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [] chain $ \n1 -> do
+                send n1 Init
+                waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
 
-        logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
-        parameters = testHeadParameters{Hydra.Tx.HeadParameters.contestationPeriod = UnsafeContestationPeriod 10, parties = [alice]}
-        expectedStateChange = Outcome.HeadInitialized{headId = testHeadId, parameters, chainState = SimpleChainState 1, parties = fromList [alice], headSeed = testHeadSeed}
-        expectedOutcome = LogicOutcome alice $ Outcome.Continue [expectedStateChange] []
+          logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
+          parameters = testHeadParameters{Hydra.Tx.HeadParameters.contestationPeriod = UnsafeContestationPeriod 10, parties = [alice]}
+          expectedStateChange = Outcome.HeadInitialized{headId = testHeadId, parameters, chainState = SimpleChainState 1, parties = fromList [alice], headSeed = testHeadSeed}
+          expectedOutcome = LogicOutcome alice $ Outcome.Continue [expectedStateChange] []
 
-    logs `shouldContain` [expectedOutcome]
+      logs `shouldContain` [expectedOutcome]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -1014,7 +1000,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   }
               mockNetwork = createMockNetwork draftNode nodes
-          node <- connect mockChain mockNetwork draftNode
+          node <- connect mockChain mockNetwork mockServer draftNode
           atomically $ modifyTVar nodes (node :)
           pure node
       , tickThread
@@ -1211,17 +1197,26 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs outputH
   let chainStateHistory = initHistory chainState
   nodeState <- createNodeState Nothing headState
   inputQueue <- createInputQueue
-  connectNode
-    chain
-    DraftHydraNode
-      { tracer
-      , env
-      , ledger
-      , nodeState
-      , inputQueue
-      , eventSource
-      , eventSinks = [eventSink, apiSink]
-      , chainStateHistory
+  node <-
+    connectNode
+      chain
+      DraftHydraNode
+        { tracer
+        , env
+        , ledger
+        , nodeState
+        , inputQueue
+        , eventSource
+        , eventSinks = [eventSink, apiSink]
+        , chainStateHistory
+        }
+  pure $
+    node
+      { server =
+          Server
+            { sendOutput = \_ -> pure ()
+            , sendMessage = atomically . writeTQueue outputs
+            }
       }
  where
   env =

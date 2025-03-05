@@ -27,6 +27,10 @@ import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
+data HydraMessage tx
+  = HydraServerOutput (ServerOutput tx)
+  | HydraTimedServerOutput (TimedServerOutput tx)
+
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
   { output :: ServerOutput tx

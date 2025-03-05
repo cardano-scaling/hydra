@@ -16,6 +16,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   HeadStatus,
+  HydraMessage (..),
   ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
   ServerOutputConfig (..),
   TimedServerOutput (..),
@@ -62,7 +63,7 @@ wsApp ::
   Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
-  TChan (TimedServerOutput tx) ->
+  TChan (HydraMessage tx) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
@@ -138,10 +139,14 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
     when (isAddressInTx addressInTx response) $
       sendResponse response
    where
-    sendResponse response = do
-      let sentResponse = prepareServerOutput outConfig response
-      sendTextData con sentResponse
-      traceWith tracer (APIOutputSent $ toJSON response)
+    sendResponse = \case
+      HydraTimedServerOutput response -> do
+        let sentResponse = prepareServerOutput outConfig response
+        sendTextData con sentResponse
+        traceWith tracer (APIOutputSent $ toJSON response)
+      HydraServerOutput response -> do
+        sendTextData con (Aeson.encode response)
+        traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con
@@ -157,9 +162,13 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
-    runConduitRes $ history .| filter (isAddressInTx addressInTx) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
+    runConduitRes $ history .| filter (isAddressInTx addressInTx . HydraTimedServerOutput) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
 
-  isAddressInTx addressInTx tx =
-    case addressInTx of
-      WithAddressedTx addr -> txContainsAddr tx addr
-      WithoutAddressedTx -> True
+  isAddressInTx addressInTx = \case
+    HydraTimedServerOutput tx -> checkAddress tx
+    HydraServerOutput _ -> True
+   where
+    checkAddress tx =
+      case addressInTx of
+        WithAddressedTx addr -> txContainsAddr tx addr
+        WithoutAddressedTx -> True

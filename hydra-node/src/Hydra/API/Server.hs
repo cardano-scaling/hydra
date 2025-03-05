@@ -19,6 +19,7 @@ import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   CommitInfo (..),
   HeadStatus (..),
+  HydraMessage (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
@@ -56,9 +57,10 @@ import Network.WebSockets (
  )
 
 -- | Handle to provide a means for sending server outputs to clients.
-newtype Server tx m = Server
+data Server tx m = Server
   { sendOutput :: StateEvent tx -> m ()
   -- ^ Send some output to all connected clients.
+  , sendMessage :: ServerOutput tx -> m ()
   }
 
 -- | Callback for receiving client inputs.
@@ -143,7 +145,8 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                     Nothing -> pure ()
                     Just output -> do
                       let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
-                      atomically $ writeTChan responseChannel timedOutput
+                      atomically $ writeTChan responseChannel (HydraTimedServerOutput timedOutput)
+              , sendMessage = atomically . writeTChan responseChannel . HydraServerOutput
               }
       )
  where
