@@ -4,10 +4,10 @@ module Hydra.Tx.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
+  UTxO,
   CtxUTxO,
   ScriptHash,
   TxIn (..),
@@ -41,7 +41,7 @@ instance Exception NewScriptRegistryException
 -- be found.
 newScriptRegistry :: UTxO -> Either NewScriptRegistryException ScriptRegistry
 newScriptRegistry =
-  resolve . Map.foldMapWithKey collect . UTxO.toMap
+  resolve . Map.foldMapWithKey collect . UTxO.unUTxO
  where
   collect ::
     TxIn ->
@@ -79,7 +79,7 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference, headReference]
+  UTxO.fromList [initialReference, commitReference, headReference]
  where
   ScriptRegistry
     { initialReference

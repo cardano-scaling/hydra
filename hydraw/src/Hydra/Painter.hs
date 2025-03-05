@@ -3,7 +3,7 @@ module Hydra.Painter where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Control.Exception (IOException)
 import Data.Aeson qualified as Aeson
 import Data.Text (unpack)

@@ -4,7 +4,7 @@ module TxCost where
 
 import Hydra.Prelude hiding (catch)
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Maybe (fromJust)

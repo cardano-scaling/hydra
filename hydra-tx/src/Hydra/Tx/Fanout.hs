@@ -3,7 +3,7 @@ module Hydra.Tx.Fanout where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
@@ -55,7 +55,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral $ length $ toList utxo
+        { numberOfFanoutOutputs = fromIntegral $ length $ UTxO.toList utxo
         , numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
         , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
         }
@@ -64,17 +64,17 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
   orderedTxOutsToFanout =
-    fromCtxUTxOTxOut <$> toList utxo
+    (fromCtxUTxOTxOut . snd)<$> UTxO.toList utxo
 
   orderedTxOutsToCommit =
     case utxoToCommit of
       Nothing -> []
-      Just commitUTxO -> fromCtxUTxOTxOut <$> toList commitUTxO
+      Just commitUTxO -> (fromCtxUTxOTxOut . snd) <$> UTxO.toList commitUTxO
 
   orderedTxOutsToDecommit =
     case utxoToDecommit of
       Nothing -> []
-      Just decommitUTxO -> fromCtxUTxOTxOut <$> toList decommitUTxO
+      Just decommitUTxO -> (fromCtxUTxOTxOut . snd) <$> UTxO.toList decommitUTxO
 
 -- * Observation
 
@@ -96,6 +96,6 @@ observeFanoutTx utxo tx = do
     >>= \case
       Head.Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs} -> do
         let allOutputs = fromIntegral $ numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-        let fanoutUTxO = UTxO.fromPairs $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take allOutputs (txOuts' tx))
+        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take allOutputs (txOuts' tx))
         pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing

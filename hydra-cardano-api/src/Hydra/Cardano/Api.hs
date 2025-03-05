@@ -23,10 +23,6 @@ module Hydra.Cardano.Api (
   -- * Wrapped Types
   module Hydra.Cardano.Api,
 
-  -- ** UTxO
-  UTxO,
-  UTxO' (UTxO),
-
   -- * Extras
   module Extras,
 
@@ -105,10 +101,6 @@ import Cardano.Api.Shelley as X (
   toPlutusData,
   toShelleyMetadata,
   toShelleyNetwork,
- )
-import Cardano.Api.UTxO (
-  UTxO,
-  UTxO' (..),
  )
 import Cardano.Ledger.Coin as X (Coin (..))
 import Hydra.Cardano.Api.Network as X (networkIdToNetwork)
@@ -729,3 +721,11 @@ pattern ScriptWitness scriptWitnessInCtx scriptWitness <-
 
 makeShelleyKeyWitness :: TxBody -> ShelleyWitnessSigningKey -> KeyWitness
 makeShelleyKeyWitness = Cardano.Api.makeShelleyKeyWitness shelleyBasedEra
+
+type UTxO = Cardano.Api.UTxO Era
+
+pattern UTxO :: Map TxIn (TxOut CtxUTxO) -> UTxO
+pattern UTxO xs <-
+  Cardano.Api.UTxO xs
+  where
+    UTxO = Cardano.Api.UTxO

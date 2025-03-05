@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.StateSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Set qualified as Set
@@ -423,7 +423,7 @@ genCommitTxMutation utxo tx =
       UTxO.find (isScriptTxOut initialValidatorScript) resolvedInputs
 
   resolvedInputs =
-    UTxO.fromPairs $
+    UTxO.fromList $
       mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
 
   initialRedeemer =

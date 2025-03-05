@@ -5,7 +5,7 @@ import Hydra.Cardano.Api.TxId (toLedgerTxId)
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn, toLedgerTxIn, txIns')
 import Hydra.Cardano.Api.TxOut (fromLedgerTxOut, toLedgerTxOut)
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
 import Cardano.Ledger.Babbage.TxBody qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -19,14 +19,18 @@ import Data.String (IsString (..))
 import Data.Text qualified as Text
 
 -- | Get a human-readable pretty text representation of a UTxO.
-renderUTxO :: IsString str => UTxO -> str
+renderUTxO :: IsString str => UTxO Era -> str
 renderUTxO =
-  fromString . Text.unpack . Text.intercalate "\n" . fmap UTxO.render . UTxO.pairs
+  fromString . Text.unpack . Text.intercalate "\n" . fmap render . UTxO.toList
+  where
+    render :: (TxIn, TxOut ctx era) -> Text
+    render (k, TxOut _ (txOutValueToValue -> v) _ _) =
+      Text.drop 54 (renderTxIn k) <> " ↦ " <> renderValue v
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`
 -- (a.k.a output reference) from the transaction itself, zipping them to the
 -- outputs they correspond to.
-utxoFromTx :: Tx Era -> UTxO
+utxoFromTx :: Tx Era -> UTxO Era
 utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ ledgerBody ^. outputsTxBodyL
       txIns =
@@ -36,16 +40,16 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
    in fromLedgerUTxO $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 
 -- | Resolve tx inputs in a given UTxO
-resolveInputsUTxO :: UTxO -> Tx Era -> UTxO
+resolveInputsUTxO :: UTxO Era -> Tx Era -> UTxO Era
 resolveInputsUTxO utxo tx =
-  UTxO.fromPairs $
-    mapMaybe (\txIn -> (txIn,) <$> UTxO.resolve txIn utxo) (txIns' tx)
+  UTxO.fromList $
+    mapMaybe (\txIn -> (txIn,) <$> UTxO.lookup txIn utxo) (txIns' tx)
 
 -- * Type Conversions
 
-toLedgerUTxO :: UTxO -> Ledger.UTxO LedgerEra
+toLedgerUTxO :: UTxO Era -> Ledger.UTxO LedgerEra
 toLedgerUTxO =
-  Ledger.UTxO . Map.foldMapWithKey fn . UTxO.toMap
+  Ledger.UTxO . Map.foldMapWithKey fn . UTxO.unUTxO
  where
   fn ::
     TxIn ->
@@ -54,9 +58,9 @@ toLedgerUTxO =
   fn i o =
     Map.singleton (toLedgerTxIn i) (toLedgerTxOut o)
 
-fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO
+fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO Era
 fromLedgerUTxO =
-  UTxO . Map.foldMapWithKey fn . Ledger.unUTxO
+  UTxO.UTxO . Map.foldMapWithKey fn . Ledger.unUTxO
  where
   fn ::
     Ledger.TxIn ->

@@ -9,7 +9,7 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
@@ -162,15 +162,15 @@ instance IsTx Tx where
   type ValueType Tx = Value
 
   txId = getTxId . getTxBody
-  balance = foldMap txOutValue
+  balance = foldMap txOutValue . (fmap snd . UTxO.toList)
 
   -- NOTE: See note from `Util.hashTxOuts`.
-  hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . toList
+  hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . (fmap snd . UTxO.toList)
 
   txSpendingUTxO = Api.txSpendingUTxO
 
   utxoFromTx = Api.utxoFromTx
 
-  outputsOfUTxO = toList
+  outputsOfUTxO = (fmap snd . UTxO.toList)
 
   withoutUTxO = UTxO.difference

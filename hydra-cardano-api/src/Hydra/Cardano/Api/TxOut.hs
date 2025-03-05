@@ -4,7 +4,7 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
@@ -87,11 +87,11 @@ findTxOutByAddress address tx =
 findTxOutByScript ::
   forall lang.
   IsPlutusScriptLanguage lang =>
-  UTxO ->
+  UTxO Era ->
   PlutusScript lang ->
   Maybe (TxIn, TxOut CtxUTxO Era)
 findTxOutByScript utxo script =
-  List.find matchScript (UTxO.pairs utxo)
+  List.find matchScript (UTxO.toList utxo)
  where
   version = plutusScriptVersion @lang
   matchScript = \case

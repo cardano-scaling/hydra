@@ -130,7 +130,8 @@ module Test.Hydra.Tx.Mutation where
 
 import Hydra.Cardano.Api
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Plutus (DebugPlutusFailure (..))
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
