@@ -39,78 +39,18 @@
         {
             "eventId": 0,
             "stateChanged": {
-                "decommitTx": {
-                    "cborHex": "84ad00d9010280018183583931f3cacdf3e6f89ac205490ddedfe4b77b249fc234ddd33960f2e79035d38680beea5ea49008bfe3f6cc56319f96a9bfae5c0a67a87671a302821b127b8001553c5362a1581cf969bdb5a91fd4b0015e35ad613306f4a1e31a87a4e1cb78024d13f8a156c5fe5cc9cd348a3fdd6329ebb33a172b36cf36aa7465025820df7c3c5c1c3ebb52f3fe6cd867c286665b0a6d5026951e8a25c7377101f62211111a00093f38021a0008da39030205a1581de106df51de661db7b6405e6a4f516fb1b2a64fa15b938c1f5f9da6d6b51a0003bddd08020ed9010281581c9be80d4e1382a7a19c39aa1325931bfc91a433078127f2ed788299dd09a1581c4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebea1581b675c845d6273c207eedef8b3f10403c5bac451c6090d42f4de9a573b111d3cf3af05d7150b582029b18fa269285a09b5d2ba2da50185b50c75391f7e07f6000a4f39a094a2413f0f0013a18203581c26cad77af31d0799117ad1af1b1b7f9e71b0d0bb8d0e74037e56f4b6a1825820b9f38bb8d65b57ba91b6ac5121a5055b232dac586381b759d3935cb90eccbe4501820082781f68747470733a2f2f7869413957356661665a6f44694b63616775522e636f6d5820c81a561ee526c8a602e2c30aac4106420d5d1cdb76e54b2b5683864849cfb7c2161a000468a3a202d9010281845820ede5927d842457fd630d1a8f1201e7d760d84db1dc77fb301c8c9153232d1d56584035197aa97aae475d40f3cb898bcbe1f2d82faf8ce69cbecfc109a7c0d7961af8df2cad039b1fd7c28a89b69f51034afc40cdf410f0b33e4241bd41bcf7d8817b404001d9010281820401f5f6",
-                    "description": "",
-                    "txId": "cda7f313178d421a5fae84a7a593109bd1fb51685a19425282c228a3e5b4e55a",
-                    "type": "Tx ConwayEra"
-                },
+                "decommitTxId": "0001010000010100000001000000010100000000010100000000010001010100",
                 "headId": "00010001010001000001010100010001",
-                "tag": "DecommitRequested",
-                "utxoToDecommit": {
-                    "0101010001000001010001000001010000000001010100000100000100000001#31": {
-                        "address": "addr_test1yre633xe6g5yqk99rfss3k6up386dcvs8jplt04a06vqfe27c6vq3pm7eklg978hkh6t96qcssrmxzsmg2unv4p7ekuq9dmwga",
-                        "datum": null,
-                        "inlineDatum": {
-                            "int": -5
-                        },
-                        "inlineDatumRaw": "24",
-                        "inlineDatumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "46450100002261",
-                                "description": "",
-                                "type": "PlutusScriptV1"
-                            },
-                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV1"
-                        },
-                        "value": {
-                            "8c2b75980d14a669d7c2f6ca61b8f966f75c90afdac1cc6a63d46dfe": {
-                                "0beb31633747f9d43fde7c4d6fedc1e7f3855cb8db9be59f": 1
-                            },
-                            "lovelace": 8830083911423859410
-                        }
-                    }
-                }
+                "newVersion": 1,
+                "tag": "DecommitFinalized"
             },
             "time": "1864-05-09T19:33:18.774951379455Z"
         },
         {
             "eventId": 0,
             "stateChanged": {
-                "chainState": {
-                    "recordedAt": {
-                        "tag": "ChainPointAtGenesis"
-                    },
-                    "spendableUTxO": {}
-                },
-                "headId": "01010001000000000000000100010101",
-                "tag": "HeadFannedOut",
-                "utxo": {
-                    "0100000101000001010001010000000100000100000001000001010000000100#83": {
-                        "address": "addr1zyh65xp5rcpmjzxum2u32erukw6ydu8rf8xgprrwchw80r2ee97uvmesc3rccgmwqklceznzumw05dhca6zemp4spm0sqrurv0",
-                        "datum": null,
-                        "inlineDatum": {
-                            "int": 1
-                        },
-                        "inlineDatumRaw": "01",
-                        "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "830304848200581c270865f62ee262093112d7d34eae41f1df613bced3b73fcf3e91b0968200581cddd111b64cbc2a1333b1d6d349e3cf0945437feb769dd24c6dce7fed83030080830301828202838200581c6d815780d1556499716aec9dcc13bc75a237244fd113855311f3a7e48200581ca6cc0079cec59f97fbed0ee145560d86b25d673720402c7362876a908200581c0f428d62c89d54eb859bf87668671ef9040f77e4ae4fff66b52069ef8200581c6aa4d9528022d5aa6bfaf65375b8609b6dae22b12df4dea78f835caf",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
-                        "value": {
-                            "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                                "32": 761764866463035959
-                            },
-                            "lovelace": 1421002587223929316
-                        }
-                    }
-                }
+                "headId": "00010000000000000000000100010101",
+                "tag": "HeadIsReadyToFanout"
             },
             "time": "1864-05-08T11:10:49.712252489312Z"
         },

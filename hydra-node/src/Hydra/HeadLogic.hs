@@ -846,8 +846,7 @@ onOpenNetworkReqDec env ledger ttl openState decommitTx =
     let decommitUTxO = utxoFromTx decommitTx
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
     -- Spec: txω ← tx
-    newState DecommitRecorded{decommitTx, newLocalUTxO = activeUTxO}
-      <> newState DecommitRequested{headId, decommitTx = decommitTx, utxoToDecommit = decommitUTxO}
+    newState DecommitRecorded{headId, decommitTx, newLocalUTxO = activeUTxO, utxoToDecommit = decommitUTxO}
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
       --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
@@ -1300,7 +1299,9 @@ update env ledger st ev = case (st, ev) of
   (_, ChainInput Tick{chainSlot}) ->
     newState TickObserved{chainSlot}
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
-    newState PostTxOnChainFailed{postChainTx, postTxError}
+    cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
+  (_, ClientInput{clientInput}) ->
+    cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
     Error $ UnhandledInput ev st
 
@@ -1595,7 +1596,6 @@ aggregate st = \case
   CommitApproved{} -> st
   CommitIgnored{} -> st
   DecommitApproved{} -> st
-  DecommitRequested{} -> st
   DecommitInvalid{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
@@ -1646,7 +1646,6 @@ aggregateChainStateHistory history = \case
   CommitApproved{} -> history
   CommitIgnored{} -> history
   DecommitApproved{} -> history
-  DecommitRequested{} -> history
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
