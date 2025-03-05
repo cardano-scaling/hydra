@@ -53,7 +53,7 @@
             set -a; source .env; set +a
             ${hydra-node}/bin/hydra-node \
               --node-id 1 \
-              --port 5001 \
+              --listen 127.0.0.1:5001 \
               --api-port 4001 \
               --monitoring-port 6001 \
               --peer 127.0.0.1:5002 \
@@ -85,7 +85,7 @@
             set -a; source .env; set +a
             ${hydra-node}/bin/hydra-node \
             --node-id 2 \
-            --port 5002 \
+            --listen 127.0.0.1:5002 \
             --api-port 4002 \
             --monitoring-port 6002 \
             --peer 127.0.0.1:5001 \
@@ -117,7 +117,7 @@
             set -a; source .env; set +a
             ${hydra-node}/bin/hydra-node \
             --node-id 3 \
-            --port 5003 \
+            --listen 127.0.0.1:5003 \
             --api-port 4003 \
             --monitoring-port 6003 \
             --peer 127.0.0.1:5001 \

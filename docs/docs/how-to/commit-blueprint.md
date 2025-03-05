@@ -10,7 +10,7 @@ This guide provides a walkthrough on using `cardano-cli` to assemble the necessa
 
 You should have access to the following repositories:
 
-- `hydra-node` 
+- `hydra-node`
 - `hydra-tui`
 - `cardano-cli`, and
 - `curl` binaries.
@@ -104,7 +104,7 @@ Note: The value `6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca71
 
 ```shell
 hydra-node \
-  --node-id 1 --port 5001 --api-port 4001 \
+  --node-id 1 --listen 0.0.0.0:5001 --api-port 4001 \
   --hydra-signing-key demo/alice.sk \
   --hydra-scripts-tx-id 6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711 \
   --cardano-signing-key hydra-cluster/config/credentials/alice.sk \
