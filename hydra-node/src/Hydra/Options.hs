@@ -37,7 +37,7 @@ import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (NodeId), PortNumber, readHost, readPort)
+import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, readHost, readPort, showHost)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod), fromNominalDiffTime)
 import Hydra.Tx.DepositDeadline (DepositDeadline (UnsafeDepositDeadline), depositFromNominalDiffTime)
 import Hydra.Tx.HeadId (AsType (AsHeadSeed), HeadSeed)
@@ -159,9 +159,8 @@ publishOptionsParser =
 data RunOptions = RunOptions
   { verbosity :: Verbosity
   , nodeId :: NodeId
-  , -- NOTE: Why not a 'Host'?
-    host :: IP
-  , port :: PortNumber
+  , listen :: Host
+  , advertise :: Maybe Host
   , peers :: [Host]
   , apiHost :: IP
   , apiPort :: PortNumber
@@ -186,8 +185,8 @@ instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
     nodeId <- arbitrary
-    host <- arbitrary
-    port <- arbitrary
+    listen <- arbitrary
+    advertise <- arbitrary
     peers <- reasonablySized arbitrary
     apiHost <- arbitrary
     apiPort <- arbitrary
@@ -203,8 +202,8 @@ instance Arbitrary RunOptions where
       RunOptions
         { verbosity
         , nodeId
-        , host
-        , port
+        , listen
+        , advertise
         , peers
         , apiHost
         , apiPort
@@ -226,8 +225,8 @@ defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
     , nodeId = NodeId "hydra-node-1"
-    , host = localhost
-    , port = 5001
+    , listen = Host "localhost" 5001
+    , advertise = Nothing
     , peers = []
     , apiHost = localhost
     , apiPort = 4001
@@ -249,8 +248,8 @@ runOptionsParser =
   RunOptions
     <$> verbosityParser
     <*> nodeIdParser
-    <*> hostParser
-    <*> portParser
+    <*> listenParser
+    <*> optional advertiseParser
     <*> many peerParser
     <*> apiHostParser
     <*> apiPortParser
@@ -594,6 +593,27 @@ verbosityParser =
         <> help "Turns off logging."
     )
 
+listenParser :: Parser Host
+listenParser =
+  option
+    auto
+    ( long "listen"
+        <> short 'l'
+        <> value (Host "0.0.0.0" 5001)
+        <> showDefault
+        <> metavar "HOST:PORT"
+        <> help "Address and port to listen for Hydra network connections. If --advertise is not set, this will be also advertised to other peers on the network."
+    )
+
+advertiseParser :: Parser Host
+advertiseParser =
+  option
+    auto
+    ( long "advertise"
+        <> metavar "HOST:PORT"
+        <> help "Address and port to advertise as public endpoint to other peers on the Hydra network. If this is not set, the --listen address is used."
+    )
+
 hostParser :: Parser IP
 hostParser =
   option
@@ -857,8 +877,8 @@ toArgs
   RunOptions
     { verbosity
     , nodeId
-    , host
-    , port
+    , listen
+    , advertise
     , peers
     , apiHost
     , apiPort
@@ -873,8 +893,8 @@ toArgs
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
-      <> ["--host", show host]
-      <> ["--port", show port]
+      <> ["--listen", showHost listen]
+      <> maybe [] (\h -> ["--advertise", showHost h]) advertise
       <> ["--api-host", show apiHost]
       <> toArgApiPort apiPort
       <> maybe [] (\cert -> ["--tls-cert", cert]) tlsCertPath

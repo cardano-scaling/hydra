@@ -95,8 +95,16 @@ run opts = do
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath}
           withAPIServer apiServerConfig env party apiPersistence (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \server -> do
             -- Network
-            -- XXX: Could parse full local 'Host' directly
-            let networkConfiguration = NetworkConfiguration{persistenceDir, signingKey, otherParties, host, port, peers, nodeId}
+            let networkConfiguration =
+                  NetworkConfiguration
+                    { persistenceDir
+                    , signingKey
+                    , otherParties
+                    , listen
+                    , advertise = fromMaybe listen advertise
+                    , peers
+                    , nodeId
+                    }
             withNetwork
               (contramap Network tracer)
               networkConfiguration
@@ -125,8 +133,8 @@ run opts = do
     , persistenceDir
     , chainConfig
     , ledgerConfig
-    , host
-    , port
+    , listen
+    , advertise
     , peers
     , nodeId
     , apiHost
