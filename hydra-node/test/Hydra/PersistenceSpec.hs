@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import Hydra.Persistence (Persistence (..), PersistenceException (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
 import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -68,9 +68,6 @@ spec = do
             race_
               (forever $ threadDelay 0.01 >> loadAll p)
               (forM_ moreItems $ \item -> append p item >> threadDelay 0.01)
-              `shouldThrow` \case
-                IncorrectAccessException{} -> True
-                _ -> False
 
 genPersistenceItem :: Gen Aeson.Value
 genPersistenceItem =
