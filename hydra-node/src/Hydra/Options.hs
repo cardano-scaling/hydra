@@ -614,31 +614,6 @@ advertiseParser =
         <> help "Address and port to advertise as public endpoint to other peers on the Hydra network. If this is not set, the --listen address is used."
     )
 
-hostParser :: Parser IP
-hostParser =
-  option
-    auto
-    ( long "host"
-        <> short 'h'
-        -- XXX: This is default does not make sense, should use 0.0.0.0.
-        <> value "127.0.0.1"
-        <> showDefault
-        <> metavar "IP"
-        <> help "Listen address for incoming Hydra network connections."
-    )
-
-portParser :: Parser PortNumber
-portParser =
-  option
-    (maybeReader readPort)
-    ( long "port"
-        <> short 'p'
-        <> value 5001
-        <> showDefault
-        <> metavar "PORT"
-        <> help "Listen port for incoming Hydra network connections."
-    )
-
 apiHostParser :: Parser IP
 apiHostParser =
   option
