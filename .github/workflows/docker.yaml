@@ -62,8 +62,9 @@ jobs:
           VERSION_NAME=${{github.ref_name}}
 
         BUILDING_ON_MASTER=false
-        [[ git merge-base --is-ancestor HEAD origin/master ]] && \
+        if (git merge-base --is-ancestor HEAD origin/master); then
           BUILDING_ON_MASTER=true
+        fi
 
         # Use 'FROM' instruction to use docker build with --label
         echo "FROM ${{matrix.target}}" | docker build \
