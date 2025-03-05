@@ -5,7 +5,7 @@ module Hydra.API.WSServer where
 
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
-import Conduit (ConduitT, ResourceT, runConduitRes, sinkList, (.|))
+import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Data.Aeson qualified as Aeson
@@ -44,7 +44,6 @@ import Network.WebSockets (
   acceptRequest,
   receiveData,
   sendTextData,
-  sendTextDatas,
   withPingThread,
  )
 import Text.URI hiding (ParseException)
@@ -158,11 +157,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
-    hist' <- runConduitRes $ history .| filter (isAddressInTx addressInTx) .| sinkList
-    -- NOTE: we need to reverse the list because we store history in a reversed order on disk
-    let hist = reverse hist'
-    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
-    sendTextDatas con $ foldl' encodeAndReverse [] hist
+    runConduitRes $ history .| filter (isAddressInTx addressInTx) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
 
   isAddressInTx addressInTx tx =
     case addressInTx of
