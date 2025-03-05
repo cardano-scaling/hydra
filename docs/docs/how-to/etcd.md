@@ -28,7 +28,7 @@ cabal exec hydra-node -- \
   --node-id alice \
   --hydra-signing-key demo/alice.sk \
   --api-port 4001 \
-  --port 5001 \
+  --listen 127.0.0.1:5001 \
   --peer 127.0.0.1:5002 | grep etcd
 ```
 
@@ -45,7 +45,7 @@ cabal exec hydra-node -- \
   --node-id bob \
   --hydra-signing-key demo/bob.sk \
   --api-port 4002 \
-  --port 5002 \
+  --listen 127.0.0.1:5002 \
   --peer 127.0.0.1:5001 | grep etcd
 ```
 

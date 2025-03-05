@@ -2321,8 +2321,8 @@ definitions:
     required:
       - verbosity
       - nodeId
-      - host
-      - port
+      - listen
+      - advertise
       - peers
       - apiHost
       - apiPort
@@ -2348,11 +2348,14 @@ definitions:
                 type: string
       nodeId:
         type: string
-      host:
+      listen:
         type: object
-        $ref: "api.yaml#/components/schemas/IP"
-      port:
-        type: integer
+        $ref: "api.yaml#/components/schemas/Host"
+      advertise:
+        oneOf:
+          - type: "null"
+          - type: object
+            $ref: "api.yaml#/components/schemas/Host"
       peers:
         type: array
         items:

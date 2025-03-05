@@ -402,9 +402,8 @@ hydra-node \
   --testnet-magic 1 \
   --node-socket node.socket \
   --api-port 4001 \
-  --host 0.0.0.0 \
+  --listen 0.0.0.0:5001 \
   --api-host 0.0.0.0 \
-  --port 5001 \
   --peer 127.0.0.1:5002 \
   --hydra-verification-key credentials/bob-hydra.vk \
   --cardano-verification-key credentials/bob-node.vk
@@ -425,9 +424,8 @@ hydra-node \
   --testnet-magic 1 \
   --node-socket node.socket \
   --api-port 4002 \
-  --host 0.0.0.0 \
+  --listen 0.0.0.0:5002 \
   --api-host 0.0.0.0 \
-  --port 5002 \
   --peer 127.0.0.1:5001 \
   --hydra-verification-key credentials/alice-hydra.vk \
   --cardano-verification-key credentials/alice-node.vk

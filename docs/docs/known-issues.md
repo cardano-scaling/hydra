@@ -23,7 +23,7 @@ See these resources for additional information about reducing the risk of lockin
 
 ### Static topology
 
-The network topology needs to be statically configured and match across all `hydra-node` instances. Currently this means that the `--host` and `--port`, along with other `--peer` command line options need to match. Otherwise the `etcd` node of the networking later will report errors in the logs.
+The network topology needs to be statically configured and match across all `hydra-node` instances. Currently this means that the `--peer` command line options need to match between nodes. Otherwise the `etcd` node of the networking later will report errors in the logs.
 
 Known errors are:
 

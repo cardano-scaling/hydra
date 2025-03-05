@@ -37,6 +37,7 @@ import Test.Util (noopCallback, waitEq)
 
 spec :: Spec
 spec = do
+  -- TODO: add tests about advertise being honored
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = MkHydraVersionedProtocolNumber 1
@@ -47,8 +48,8 @@ spec = do
             withFreePort $ \port -> do
               let config =
                     NetworkConfiguration
-                      { host = lo
-                      , port = port
+                      { listen = Host lo port
+                      , advertise = Host lo port
                       , signingKey = aliceSk
                       , otherParties = []
                       , peers = []
@@ -112,8 +113,6 @@ spec = do
       it "emits connectivity events" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
-          let bobHost = Host (show bobConfig.host) bobConfig.port
-          let carolHost = Host (show carolConfig.host) carolConfig.port
           -- Record and assert connectivity events from alice's perspective
           (recordReceived, _, waitConnectivity) <- newRecordingCallback
           let
@@ -123,12 +122,12 @@ spec = do
             withEtcdNetwork @Int tracer v1 bobConfig noopCallback $ \_ -> do
               -- Alice now on majority cluster
               waitFor NetworkConnected
-              waitFor $ PeerConnected bobHost
+              waitFor $ PeerConnected bobConfig.advertise
               withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
-                waitFor $ PeerConnected carolHost
+                waitFor $ PeerConnected carolConfig.advertise
                 -- Carol stops
                 pure ()
-              waitFor $ PeerDisconnected carolHost
+              waitFor $ PeerDisconnected carolConfig.advertise
               -- Bob stops
               pure ()
             -- We are now in minority
@@ -136,7 +135,7 @@ spec = do
             -- Carol starts again and we reach a majority
             withEtcdNetwork @Int tracer v1 carolConfig noopCallback $ \_ -> do
               waitFor NetworkConnected
-              waitFor $ PeerConnected carolHost
+              waitFor $ PeerConnected carolConfig.advertise
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
@@ -150,7 +149,7 @@ spec = do
 
                 waitEq waitConnectivity 10 $
                   HandshakeFailure
-                    { remoteHost = Host "???" aliceConfig.port
+                    { remoteHost = Host "???" aliceConfig.advertise.port
                     , ourVersion = v2
                     , theirVersions = KnownHydraVersions [v1]
                     }
@@ -207,8 +206,8 @@ setup2Peers tmp = do
     PeerConfig2
       { aliceConfig =
           NetworkConfiguration
-            { host = lo
-            , port = port1
+            { listen = Host lo port1
+            , advertise = Host lo port1
             , signingKey = aliceSk
             , otherParties = [bob, carol]
             , peers = [bobHost]
@@ -217,8 +216,8 @@ setup2Peers tmp = do
             }
       , bobConfig =
           NetworkConfiguration
-            { host = lo
-            , port = port2
+            { listen = Host lo port2
+            , advertise = Host lo port2
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , peers = [aliceHost]
@@ -243,8 +242,8 @@ setup3Peers tmp = do
     PeerConfig3
       { aliceConfig =
           NetworkConfiguration
-            { host = lo
-            , port = port1
+            { listen = Host lo port1
+            , advertise = Host lo port1
             , signingKey = aliceSk
             , otherParties = [bob, carol]
             , peers = [bobHost, carolHost]
@@ -253,8 +252,8 @@ setup3Peers tmp = do
             }
       , bobConfig =
           NetworkConfiguration
-            { host = lo
-            , port = port2
+            { listen = Host lo port2
+            , advertise = Host lo port2
             , signingKey = bobSk
             , otherParties = [alice, carol]
             , peers = [aliceHost, carolHost]
@@ -263,8 +262,8 @@ setup3Peers tmp = do
             }
       , carolConfig =
           NetworkConfiguration
-            { host = lo
-            , port = port3
+            { listen = Host lo port3
+            , advertise = Host lo port3
             , signingKey = carolSk
             , otherParties = [alice, bob]
             , peers = [aliceHost, bobHost]

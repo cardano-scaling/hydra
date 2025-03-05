@@ -130,11 +130,11 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         doneVar <- newTVarIO False
         -- NOTE: The connection to the server is set up asynchronously; the
         -- first rpc call will block until the connection has been established.
-        withConnection (connParams doneVar) server $ \conn -> do
-          race_ (pollConnectivity tracer conn localHost callback) $ do
+        withConnection (connParams doneVar) grpcServer $ \conn -> do
+          race_ (pollConnectivity tracer conn advertise callback) $ do
             race_ (waitMessages tracer conn protocolVersion persistenceDir callback) $ do
               queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
-              race_ (broadcastMessages tracer conn protocolVersion port queue) $ do
+              race_ (broadcastMessages tracer conn protocolVersion (port listen) queue) $ do
                 action
                   Network
                     { broadcast = writePersistentQueue queue
@@ -158,18 +158,20 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         traceWith tracer Reconnecting
         pure $ reconnectPolicy doneVar
 
-  server =
+  clientHost = Host{hostname = "127.0.0.1", port = clientPort}
+
+  grpcServer =
     ServerInsecure $
       Address
-        { addressHost = show host
-        , addressPort = clientPort
+        { addressHost = toString $ hostname clientHost
+        , addressPort = port clientHost
         , addressAuthority = Nothing
         }
 
   -- NOTE: Offset client port by the same amount as configured 'port' is offset
   -- from the default '5001'. This will result in the default client port 2379
   -- be used by default still.
-  clientPort = 2379 + port - 5001
+  clientPort = 2379 + port listen - 5001
 
   traceStderr p =
     forever $ do
@@ -187,15 +189,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       . proc "etcd"
       $ concat
         [ -- NOTE: Must be used in clusterPeers
-          ["--name", show localHost]
+          ["--name", show advertise]
         , ["--data-dir", persistenceDir </> "etcd"]
-        , ["--listen-peer-urls", httpUrl localHost]
-        , ["--initial-advertise-peer-urls", httpUrl localHost]
-        , ["--listen-client-urls", clientUrl]
+        , ["--listen-peer-urls", httpUrl listen]
+        , ["--initial-advertise-peer-urls", httpUrl advertise]
+        , ["--listen-client-urls", httpUrl clientHost]
         , -- Pick a random port for http api (and use above only for grpc)
           ["--listen-client-http-urls", "http://localhost:0"]
         , -- Client access only on configured 'host' interface.
-          ["--advertise-client-urls", clientUrl]
+          ["--advertise-client-urls", httpUrl clientHost]
         , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
           ["--initial-cluster-token", "hydra-network-1"]
         , ["--initial-cluster", clusterPeers]
@@ -204,19 +206,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           ["--auto-compaction-mode=revision", "--auto-compaction-retention=1000"]
         ]
 
-  clientUrl = httpUrl Host{hostname = show host, port = clientPort}
-
-  -- NOTE: Building a canonical list of labels from the advertised hostname+port
+  -- NOTE: Building a canonical list of labels from the advertised addresses
   clusterPeers =
     intercalate ","
       . map (\h -> show h <> "=" <> httpUrl h)
-      $ (localHost : peers)
+      $ (advertise : peers)
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
-  localHost = Host{hostname = show host, port}
-
-  NetworkConfiguration{persistenceDir, host, port, peers} = config
+  NetworkConfiguration{persistenceDir, listen, advertise, peers} = config
 
 -- | Fetch and check version of the Hydra network protocol mapped onto the etcd
 -- cluster. See 'putMessage' for how a peer encodes the protocol version into an
@@ -379,7 +377,7 @@ pollConnectivity ::
   Host ->
   NetworkCallback msg IO ->
   IO ()
-pollConnectivity tracer conn localHost NetworkCallback{onConnectivity} = do
+pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newTVarIO []
   withGrpcContext "pollConnectivity" $
     forever . handle (onGrpcException seenAliveVar) $ do
@@ -394,7 +392,7 @@ pollConnectivity tracer conn localHost NetworkCallback{onConnectivity} = do
           keepAlive
           -- Determine alive peers
           alive <- getAlive
-          let othersAlive = alive \\ [localHost]
+          let othersAlive = alive \\ [advertise]
           seenAlive <- atomically $ swapTVar seenAliveVar othersAlive
           forM_ (othersAlive \\ seenAlive) $ onConnectivity . PeerConnected
           forM_ (seenAlive \\ othersAlive) $ onConnectivity . PeerDisconnected
@@ -419,8 +417,8 @@ pollConnectivity tracer conn localHost NetworkCallback{onConnectivity} = do
   writeAlive leaseId = withGrpcContext "writeAlive" $ do
     void . nonStreaming conn (rpc @(Protobuf KV "put")) $
       defMessage
-        & #key .~ "alive-" <> show localHost
-        & #value .~ serialize' localHost
+        & #key .~ "alive-" <> show advertise
+        & #value .~ serialize' advertise
         & #lease .~ leaseId
 
   withKeepAlive leaseId action = do

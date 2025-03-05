@@ -355,8 +355,8 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               RunOptions
                 { verbosity = Verbose "HydraNode"
                 , nodeId = NodeId $ show hydraNodeId
-                , host = "0.0.0.0"
-                , port = fromIntegral $ 5_000 + hydraNodeId
+                , listen = Host "0.0.0.0" (fromIntegral $ 5_000 + hydraNodeId)
+                , advertise = Nothing
                 , peers
                 , apiHost = "0.0.0.0"
                 , apiPort = fromIntegral $ 4_000 + hydraNodeId

@@ -79,10 +79,10 @@ data NetworkConfiguration = NetworkConfiguration
   -- ^ This node's signing key. This is used to sign messages sent to peers.
   , otherParties :: [Party]
   -- ^ The list of peers `Party` known to this node.
-  , host :: IP
-  -- ^ IP address to listen on for incoming connections.
-  , port :: PortNumber
-  -- ^ Port to listen on.
+  , listen :: Host
+  -- ^ Address to listen on for incoming connections.
+  , advertise :: Host
+  -- ^ Address to advertise to peers.
   , peers :: [Host]
   -- ^ Addresses and ports of remote peers.
   , nodeId :: NodeId
@@ -172,8 +172,8 @@ showHost Host{hostname, port} =
 
 readHost :: MonadFail m => String -> m Host
 readHost s =
-  case break (== ':') s of
-    (h, ':' : p) -> Host (pack h) <$> readPort p
+  case break (== ':') (reverse s) of
+    (p, ':' : h) -> Host (pack (reverse h)) <$> readPort (reverse p)
     _ -> fail $ "readHost: missing : in " <> s
 
 -- ** Connectivity & versions
