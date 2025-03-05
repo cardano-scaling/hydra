@@ -15,17 +15,16 @@ import Conduit (
   sourceToList,
   (.|),
  )
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
-import Control.Monad.Class.MonadFork (ThreadId, myThreadId)
+import Control.Monad.Trans.Resource (allocate)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
+import UnliftIO (MVar, newMVar, putMVar, takeMVar, withMVar)
 import UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
 
-data PersistenceException
+newtype PersistenceException
   = PersistenceException String
-  | IncorrectAccessException String
   deriving stock (Eq, Show)
 
 instance Exception PersistenceException
@@ -75,9 +74,8 @@ loadAll PersistenceIncremental{source} =
 -- | Initialize persistence handle for given type 'a' at given file path.
 --
 -- This instance of `PersistenceIncremental` is "thread-safe" in the sense that
--- it prevents loading from a different thread once one starts `append`ing
--- through the handle. If another thread attempts to `source` (or `loadAll`)
--- after this point, an `IncorrectAccessException` will be raised.
+-- it prevents appending while a source is still running (while ResourceT is
+-- still not fully unwrapped.
 createPersistenceIncremental ::
   forall a m.
   ( MonadUnliftIO m
@@ -88,28 +86,25 @@ createPersistenceIncremental ::
   m (PersistenceIncremental a m)
 createPersistenceIncremental fp = do
   liftIO . createDirectoryIfMissing True $ takeDirectory fp
-  authorizedThread <- liftIO $ newTVarIO Nothing
+  mutex <- newMVar ()
   pure $
     PersistenceIncremental
-      { append = \a -> liftIO $ do
-          tid <- myThreadId
-          atomically $ writeTVar authorizedThread $ Just tid
-          let bytes = toStrict $ Aeson.encode a <> "\n"
-          withBinaryFile fp AppendMode (`BS.hPut` bytes)
-      , source = source authorizedThread
+      { append = \a ->
+          withMVar mutex $ \_ ->
+            liftIO $ do
+              let bytes = toStrict $ Aeson.encode a <> "\n"
+              withBinaryFile fp AppendMode (`BS.hPut` bytes)
+      , source = source mutex
       }
  where
-  source :: forall i. TVar IO (Maybe (ThreadId IO)) -> ConduitT i a (ResourceT m) ()
-  source authorizedThread = do
-    liftIO $ do
-      tid <- myThreadId
-      authTid <- readTVarIO authorizedThread
-      when (isJust authTid && authTid /= Just tid) $
-        throwIO (IncorrectAccessException $ "Trying to load persisted data in " <> fp <> " from different thread")
-
+  source :: forall i. MVar () -> ConduitT i a (ResourceT m) ()
+  source mutex = do
     liftIO (doesFileExist fp) >>= \case
       False -> pure ()
       True -> do
+        -- NOTE: Here we take the mutex which will be automatically released
+        -- upon running the 'ResourceT' for example when calling runConduitRes.
+        void $ allocate (takeMVar mutex) (putMVar mutex)
         -- NOTE: Read, decode and yield values line by line.
         sourceFileBS fp
           .| linesUnboundedAsciiC

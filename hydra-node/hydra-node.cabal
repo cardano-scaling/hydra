@@ -143,6 +143,7 @@ library
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , resourcet
     , serialise
     , stm
     , text
