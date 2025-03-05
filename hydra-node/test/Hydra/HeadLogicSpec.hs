@@ -1092,3 +1092,10 @@ testSnapshot number version confirmed utxo =
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
     }
+
+-- | Get the head 'UTxO' from open 'HeadState'.
+getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO = \case
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
+  Initial InitialState{committed} -> Just $ foldl' (<>) mempty $ toList committed
+  _ -> Nothing

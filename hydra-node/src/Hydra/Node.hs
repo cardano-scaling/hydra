@@ -20,6 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (AsType (AsPaymentKey, AsSigningKey, AsVerificationKey), getVerificationKey)
 import Hydra.Chain (
   Chain (..),
@@ -240,10 +241,11 @@ connect ::
   Monad m =>
   Chain tx m ->
   Network m (Message tx) ->
+  Server tx m ->
   DraftHydraNode tx m ->
   m (HydraNode tx m)
-connect chain network node =
-  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network}
+connect chain network server node =
+  pure HydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks, oc = chain, hn = network, server}
  where
   DraftHydraNode{tracer, env, ledger, nodeState, inputQueue, eventSource, eventSinks} = node
 
@@ -258,6 +260,7 @@ data HydraNode tx m = HydraNode
   , eventSinks :: [EventSink (StateEvent tx) m]
   , oc :: Chain tx m
   , hn :: Network m (Message tx)
+  , server :: Server tx m
   }
 
 runHydraNode ::
@@ -354,6 +357,7 @@ processEffects node tracer inputId effects = do
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
     case effect of
+      ClientEffect i -> sendMessage server i
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
         postTx postChainTx
@@ -366,6 +370,7 @@ processEffects node tracer inputId effects = do
     , oc = Chain{postTx}
     , inputQueue = InputQueue{enqueue}
     , env = Environment{party}
+    , server
     } = node
 
 -- ** Manage state

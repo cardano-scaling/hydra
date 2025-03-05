@@ -250,11 +250,11 @@ queryAddress addr = "/?history=yes&address=" <> addr
 requestHeadUTxO :: HydraClient -> IO (Maybe UTxO)
 requestHeadUTxO HydraClient{apiHost} = do
   resp <-
-    parseUrlThrow ("GET " <> Text.unpack (hydraNodeBaseUrl apiHost) <> "/snapshot/utxo")
+    parseUrlThrow ("GET http://" <> Text.unpack (hydraNodeBaseUrl apiHost) <> "/snapshot/utxo")
       >>= httpJSON
   pure $ getResponseBody resp
  where
-  hydraNodeBaseUrl Host{hostname, port} = hostname <> show port
+  hydraNodeBaseUrl Host{hostname, port} = hostname <> ":" <> show port
 
 runScenario ::
   Tracer IO HydraNodeLog ->

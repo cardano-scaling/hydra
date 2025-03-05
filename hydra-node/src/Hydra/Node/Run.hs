@@ -111,7 +111,7 @@ run opts = do
               (wireNetworkInput wetHydraNode)
               $ \network -> do
                 -- Main loop
-                connect chain network wetHydraNode
+                connect chain network server wetHydraNode
                   <&> addEventSink EventSink{putEvent = sendOutput server}
                     >>= runHydraNode
  where

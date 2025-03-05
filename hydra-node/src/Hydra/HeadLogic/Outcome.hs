@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 
 import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
-import Hydra.Chain (PostChainTx, PostTxError)
+import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
@@ -118,7 +118,6 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
-  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
   | PeerHandshakeFailure
