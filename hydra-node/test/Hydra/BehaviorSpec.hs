@@ -177,14 +177,11 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
               send n1 Abort
-              -- NOTE: if we can get to a new snapshot at this point then the
-              -- head is definitely not aborted.
               send n2 (NewTx $ aValidTx 42)
 
-              waitUntilMatch [n1, n2] $ \case
-                SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                  number == 1 && confirmed == [aValidTx 42]
-                _ -> False
+              waitMatch n1 $ \case
+                CommandFailed{} -> guard True
+                _ -> Nothing
 
     it "ignores head initialization of other head" $
       shouldRunInSim $

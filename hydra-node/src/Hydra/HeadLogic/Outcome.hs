@@ -5,7 +5,7 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (DecommitInvalidReason)
+import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
@@ -38,7 +38,9 @@ import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx
-  = -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
+  = -- | Effect to be handled by the "Hydra.API", results in sending this 'ServerOutput'.
+    ClientEffect {serverOutput :: ServerOutput tx}
+  | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {postChainTx :: PostChainTx tx}
@@ -86,8 +88,7 @@ data StateChanged tx
       }
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, newLocalUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
-  | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
-  | DecommitRecorded {decommitTx :: tx, newLocalUTxO :: UTxOType tx}
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx, utxoToDecommit :: UTxOType tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
@@ -153,7 +154,6 @@ genStateChanged env =
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
     , CommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRequested <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

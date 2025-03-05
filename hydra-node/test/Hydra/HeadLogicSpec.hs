@@ -166,13 +166,13 @@ spec =
             _ -> fail "expected Open state"
 
       describe "Decommit" $ do
-        it "observes DecommitRequested and ReqDec in an Open state" $ do
+        it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
               transaction = SimpleTx 1 mempty outputs
               input = receiveMessage ReqDec{transaction}
               st = inOpenState threeParties
           update aliceEnv ledger st input `hasStateChangedSatisfying` \case
-            DecommitRequested{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
+            DecommitRecorded{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
             _ -> False
 
         it "ignores ReqDec when not in Open state" $ monadicIO $ do
