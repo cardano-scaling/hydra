@@ -14,7 +14,7 @@ changes.
   - New run-time dependency onto `etcd` binary
   - The peer network options to `hydra-node` (`--peer`) need to match across the Hydra network.
   - `--host` and `--port` have been removed and we now have `--listen` and `--advertise`.
-  - `--listen` can be the same as the hold `--host/--port` combined, but you may require `--advertise` to set your _public_ IP address and port combination, if you cannot bind to that on the local machine.
+  - `--listen` can be the same as the old `--host/--port` combined, but you may require `--advertise` to set your _public_ IP address and port combination, if you cannot bind to that on the local machine.
   - Adds `NetworkConnected` and `NetworkDisconnected` outputs which are most indicative of whether the L2 network is up or not.
   - Change `PeerConnected` and `PeerDisconnected` to indicate connectivity to `--peer` items and not the remote `node-id`.
   - Log outputs related to the network components changed significantly.
