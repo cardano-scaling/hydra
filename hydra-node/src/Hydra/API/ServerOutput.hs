@@ -8,8 +8,10 @@ import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, generic
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
@@ -93,6 +95,7 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
+  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
@@ -106,7 +109,6 @@ data ServerOutput tx
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | GetUTxOResponse {headId :: HeadId, utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -174,10 +176,10 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
+    CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
     TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
-    GetUTxOResponse headId u -> GetUTxOResponse <$> shrink headId <*> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me headStatus hydraHeadId snapshotUtxo hydraNodeVersion ->
       Greetings
@@ -242,11 +244,11 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     ReadyToFanout{} -> encodedResponse
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
+    CommandFailed{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
-    GetUTxOResponse{} -> encodedResponse
     InvalidInput{} -> encodedResponse
     Greetings{} -> encodedResponse
     PostTxOnChainFailed{} -> encodedResponse

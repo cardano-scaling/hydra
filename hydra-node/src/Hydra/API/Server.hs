@@ -219,9 +219,8 @@ mapStateChangedToServerOutput = \case
   StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx, transaction = tx}
   StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
   StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
-  StateChanged.PostTxOnChainFailed{..} -> Just PostTxOnChainFailed{..}
   StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
-  StateChanged.DecommitRequested{..} -> Just DecommitRequested{..}
+  StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
   StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
   StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
   StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
@@ -231,7 +230,6 @@ mapStateChangedToServerOutput = \case
   StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
   StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
   StateChanged.TransactionReceived{} -> Nothing
-  StateChanged.DecommitRecorded{} -> Nothing
   StateChanged.SnapshotRequested{} -> Nothing
   StateChanged.SnapshotRequestDecided{} -> Nothing
   StateChanged.PartySignedSnapshot{} -> Nothing
