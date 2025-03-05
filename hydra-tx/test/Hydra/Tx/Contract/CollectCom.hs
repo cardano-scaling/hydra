@@ -6,7 +6,7 @@ module Hydra.Tx.Contract.CollectCom where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)

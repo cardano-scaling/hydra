@@ -6,7 +6,7 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (..),
   RunningNode (..),
@@ -424,7 +424,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 waitFor hydraTracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 -- Create an arbitrary transaction using some input.
-                let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+                let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
                 let Right tx =
                       mkSimpleTx
                         firstCommittedUTxO
@@ -636,7 +636,7 @@ timedTx tmpDir tracer node@RunningNode{networkId, nodeSocket} hydraScriptsTxId =
     currentSlot <- queryTipSlotNo networkId nodeSocket
 
     -- Create an arbitrary transaction using some input.
-    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+    let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
 
     -- Create a transaction which is only valid in 5 seconds
     let secondsToAwait = 5
@@ -711,7 +711,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
     waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
 
     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
-    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
+    let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
     let Right tx =
           mkSimpleTx
             firstCommittedUTxO
@@ -751,7 +751,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId node@RunningNode{nodeSocke
                   ]
               )
             ]
-            <> fmap toJSON (Map.fromList (UTxO.pairs committedUTxOByBob))
+            <> fmap toJSON (Map.fromList (UTxO.toList committedUTxOByBob))
 
     let expectedSnapshotNumber :: Int = 1
 

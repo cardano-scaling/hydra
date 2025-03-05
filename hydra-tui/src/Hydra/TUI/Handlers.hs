@@ -12,7 +12,7 @@ import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List (nub, (\\))
 import Data.Map qualified as Map
 import Graphics.Vty (
@@ -192,7 +192,7 @@ handleHydraEventsInfo = \case
       "Decommit approved and submitted to Cardano "
         <> show decommitTxId
         <> " "
-        <> foldMap UTxO.render (UTxO.pairs utxoToDecommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToDecommit)
   Update TimedServerOutput{time, output = API.DecommitFinalized{decommitTxId}} ->
     report Success time $
       "Decommit finalized "
@@ -209,17 +209,17 @@ handleHydraEventsInfo = \case
         <> " deposit tx id "
         <> show pendingDeposit
         <> "and pending for approval "
-        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToCommit)
   Update TimedServerOutput{time, output = API.CommitApproved{utxoToCommit}} ->
     report Success time $
       "Commit approved and submitted to Cardano "
-        <> foldMap UTxO.render (UTxO.pairs utxoToCommit)
+        <> foldMap UTxO.render (UTxO.toList utxoToCommit)
   Update TimedServerOutput{time, output = API.CommitRecovered{recoveredTxId, recoveredUTxO}} ->
     report Success time $
       "Commit recovered "
         <> show recoveredTxId
         <> " "
-        <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
+        <> foldMap UTxO.render (UTxO.toList recoveredUTxO)
   Update TimedServerOutput{time, output = API.CommitFinalized{theDeposit}} ->
     report Success time $
       "Commit finalized "
@@ -227,7 +227,7 @@ handleHydraEventsInfo = \case
   Update TimedServerOutput{time, output = API.CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "
-        <> foldMap (foldMap UTxO.render . UTxO.pairs) depositUTxO
+        <> foldMap (foldMap UTxO.render . UTxO.toList) depositUTxO
   Update TimedServerOutput{time, output = API.HeadIsFinalized{utxo}} -> do
     info time "Head is finalized"
   Update TimedServerOutput{time, output = API.InvalidInput{reason}} ->

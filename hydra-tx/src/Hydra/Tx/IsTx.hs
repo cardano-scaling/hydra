@@ -9,7 +9,7 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR

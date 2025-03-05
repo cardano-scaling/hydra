@@ -2,7 +2,7 @@ module Hydra.Tx.Deposit where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL, outputsTxBodyL)
 import Control.Lens ((.~), (^.))
 import Data.Sequence.Strict qualified as StrictSeq
@@ -46,7 +46,7 @@ depositTx networkId headId commitBlueprintTx deadline =
 
   depositValue = foldMap txOutValue depositUTxO
 
-  deposits = mapMaybe Commit.serializeCommit $ UTxO.pairs depositUTxO
+  deposits = mapMaybe Commit.serializeCommit $ UTxO.toList depositUTxO
 
   depositPlutusDatum = Deposit.datum (headIdToCurrencySymbol headId, posixFromUTCTime deadline, deposits)
 
@@ -99,6 +99,6 @@ observeDepositTxOut network depositOut = do
   (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   deposit <- do
     depositedUTxO <- traverse (Commit.deserializeCommit network) onChainDeposits
-    pure . UTxO.fromPairs $ depositedUTxO
+    pure . UTxO.fromList $ depositedUTxO
   headId <- currencySymbolToHeadId headCurrencySymbol
   pure (headId, deposit, deadline)

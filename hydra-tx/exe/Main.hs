@@ -2,8 +2,8 @@ module Main where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO (UTxO)
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
 import Hydra.Cardano.Api (TxIx (..), networkIdToNetwork, textEnvelopeToJSON, txSpendingUTxO, pattern TxIn)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))

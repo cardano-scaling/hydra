@@ -3,7 +3,7 @@ module Hydra.Tx.Abort where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -99,7 +99,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.ViaAbort)
 
-  reimbursedOutputs = toTxContext . snd <$> UTxO.pairs committedUTxO
+  reimbursedOutputs = toTxContext . snd <$> UTxO.toList committedUTxO
 
 -- * Observation
 

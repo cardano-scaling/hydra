@@ -3,10 +3,10 @@
 --   NOTE (2): This module is name-spaces slightly different from the rest
 --   because it is meant to be used as a replacement of the UTxO type of the
 --   cardano-api which is not convenient enough to work with. Having it as
---   'Hydra.Cardano.Api.UTxO' causes cyclic imports with other modules also
+--   'Hydra.Cardano.Api.Tx.UTxO' causes cyclic imports with other modules also
 --   relying on this newtype. So instead, we do 'as if' it was part of the
 --   cardano-api in the first palce.
-module Cardano.Api.UTxO where
+module Cardano.Api.Tx.UTxO where
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api qualified
@@ -44,8 +44,8 @@ newtype UTxO' out = UTxO
     )
 
 -- | Create a 'UTxO' from a list of 'TxIn' and 'out' pairs.
-fromPairs :: [(TxIn, out)] -> UTxO' out
-fromPairs = UTxO . Map.fromList
+fromList :: [(TxIn, out)] -> UTxO' out
+fromList = UTxO . Map.fromList
 
 -- | Create a 'UTxO' from a single unspent transaction output.
 singleton :: (TxIn, out) -> UTxO' out
@@ -56,8 +56,8 @@ resolve :: TxIn -> UTxO' out -> Maybe out
 resolve k = Map.lookup k . toMap
 
 -- | Turn a 'UTxO' into a list of pairs.
-pairs :: UTxO' out -> [(TxIn, out)]
-pairs = Map.toList . toMap
+toList :: UTxO' out -> [(TxIn, out)]
+toList = Map.toList . toMap
 
 -- | Find first 'UTxO' using the output in predicate.
 find :: (out -> Bool) -> UTxO' out -> Maybe (TxIn, out)
@@ -65,7 +65,7 @@ find fn = findBy (fn . snd)
 
 -- | Find first 'UTxO' using both input and output in predicate.
 findBy :: ((TxIn, out) -> Bool) -> UTxO' out -> Maybe (TxIn, out)
-findBy fn utxo = List.find fn $ pairs utxo
+findBy fn utxo = List.find fn $ toList utxo
 
 -- | Filter UTxO to only include 'out's satisfying given predicate.
 filter :: (out -> Bool) -> UTxO' out -> UTxO' out
@@ -89,7 +89,7 @@ difference a b = UTxO $ Map.difference (toMap a) (toMap b)
 -- | Transforms a UTxO containing tx outs from any era into Babbage era.
 fromApi :: Cardano.Api.UTxO era -> UTxO
 fromApi (Cardano.Api.UTxO eraUTxO) =
-  fromPairs $ second convertOutputToEra <$> Map.toList eraUTxO
+  fromList $ second convertOutputToEra <$> Map.toList eraUTxO
  where
   -- NOTE: At latest the TxOutValue is an existential where we need to case on
   -- the 'sbe' witness to get constraints on the contained 'value', but the

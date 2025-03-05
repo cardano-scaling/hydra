@@ -6,7 +6,7 @@ module Test.Hydra.Cluster.HydraClientSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import CardanoClient (
   RunningNode (..),
   submitTx,
@@ -347,7 +347,7 @@ prepareScenario node nodes tracer = do
 -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
 sendTx :: NonEmpty HydraClient -> UTxO' (TxOut CtxUTxO) -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
-  let utxo = Prelude.head $ UTxO.pairs senderUTxO
+  let utxo = Prelude.head $ UTxO.toList senderUTxO
   let Right tx =
         mkSimpleTx
           utxo

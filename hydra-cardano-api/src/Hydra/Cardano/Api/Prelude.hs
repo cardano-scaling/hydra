@@ -35,7 +35,7 @@ import Cardano.Api.Shelley hiding (
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
-import Cardano.Api.UTxO (UTxO, UTxO' (..))
+import Cardano.Api.Tx.UTxO (UTxO, UTxO' (..))
 import Cardano.Crypto.Hash.Class qualified as CC
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.Core (EraCrypto)

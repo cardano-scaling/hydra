@@ -3,7 +3,7 @@ module Hydra.API.HTTPServerSpec where
 import Hydra.Prelude hiding (get)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
 import Data.Aeson qualified as Aeson
@@ -200,7 +200,7 @@ apiServerSpec = do
       prop "has inlineDatumRaw" $ \i ->
         forAll genTxOut $ \o -> do
           let o' = modifyTxOutDatum (const $ mkTxOutDatumInline (123 :: Integer)) o
-          let getUTxO = pure $ Just $ UTxO.fromPairs [(i, o')]
+          let getUTxO = pure $ Just $ UTxO.fromList [(i, o')]
           withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getUTxO getPendingDeposits putClientInput) $ do
             get "/snapshot/utxo"
               `shouldRespondWith` 200

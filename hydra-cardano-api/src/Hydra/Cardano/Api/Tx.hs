@@ -9,7 +9,7 @@ where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Api (
   EraTx (mkBasicTx),
   inputsTxBodyL,
@@ -52,7 +52,7 @@ txSpendingUTxO utxo =
 -- XXX: Defined here to avoid cyclic module dependency
 utxoProducedByTx :: Tx Era -> UTxO
 utxoProducedByTx tx =
-  UTxO.fromPairs $
+  UTxO.fromList $
     zip [0 ..] (txOuts body)
       <&> bimap (mkTxIn tx) toCtxUTxOTxOut
  where

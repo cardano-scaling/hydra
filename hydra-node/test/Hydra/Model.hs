@@ -22,8 +22,7 @@ import Data.Foldable qualified
 import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 
-import Cardano.Api.UTxO (pairs)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -677,7 +676,7 @@ performCommit parties party paymentUTxO = do
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
   fromUtxo :: UTxO -> [(CardanoSigningKey, Value)]
-  fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> pairs utxo
+  fromUtxo utxo = findSigningKey . (txOutAddress &&& txOutValue) . snd <$> UTxO.toList utxo
 
   knownAddresses :: [(AddressInEra, CardanoSigningKey)]
   knownAddresses = zip (makeAddressFromSigningKey <$> parties) parties
@@ -870,7 +869,7 @@ toTxOuts payments =
 -- 'TxIn' on the real cardano domain.
 toRealUTxO :: UTxOType Payment -> UTxOType Tx
 toRealUTxO paymentUTxO =
-  UTxO.fromPairs $
+  UTxO.fromList $
     [ (mkMockTxIn sk ix, mkTxOut sk val)
     | (sk, vals) <- Map.toList skMap
     , (ix, val) <- zip [0 ..] vals
@@ -946,7 +945,7 @@ waitForUTxOToSpend utxo key value node = go 100
               maybe
                 (go (n - 1))
                 (pure . Right)
-                (find matchPayment (UTxO.pairs u))
+                (find matchPayment (UTxO.toList u))
         _ -> go (n - 1)
 
   matchPayment p@(_, txOut) =

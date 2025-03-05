@@ -3,7 +3,7 @@ module Hydra.Tx.Commit where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Core (AsIxItem (..))
 import Cardano.Ledger.Api (
   AsIx (..),
@@ -128,7 +128,7 @@ commitTx networkId scriptRegistry headId party commitBlueprintTx (initialInput, 
     mkScriptAddress networkId commitValidatorScript
 
   utxoToCommit =
-    UTxO.fromPairs $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns
+    UTxO.fromList $ mapMaybe (\txin -> (txin,) <$> UTxO.resolve txin lookupUTxO) committedTxIns
 
   commitValue =
     txOutValue out <> foldMap txOutValue utxoToCommit
@@ -143,7 +143,7 @@ mkCommitDatum party utxo headId =
   Commit.datum (partyToChain party, commits, headId)
  where
   commits =
-    mapMaybe Commit.serializeCommit $ UTxO.pairs utxo
+    mapMaybe Commit.serializeCommit $ UTxO.toList utxo
 
 -- * Observation
 
@@ -198,7 +198,7 @@ observeCommitTx networkId utxo tx = do
   -- collect/fanout)
   committed <- do
     committedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainCommits
-    pure . UTxO.fromPairs $ committedUTxO
+    pure . UTxO.fromList $ committedUTxO
 
   policyId <- fromPlutusCurrencySymbol headId
   pure

@@ -7,7 +7,7 @@ module Hydra.Tx.Contract.Init where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState (State (..))
@@ -54,7 +54,7 @@ healthyHeadParameters =
 
 healthySeedInput :: TxIn
 healthySeedInput =
-  fst . Prelude.head $ UTxO.pairs healthyLookupUTxO
+  fst . Prelude.head $ UTxO.toList healthyLookupUTxO
 
 healthyParties :: [Party]
 healthyParties =

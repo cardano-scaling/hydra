@@ -9,7 +9,7 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)

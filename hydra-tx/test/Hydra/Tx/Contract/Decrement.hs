@@ -13,7 +13,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
  )
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
@@ -115,10 +115,10 @@ healthySnapshot =
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 splitDecommitUTxO utxo =
-  case UTxO.pairs utxo of
+  case UTxO.toList utxo of
     [] -> error "empty utxo in splitDecommitUTxO"
     (decommit : _rest) ->
-      let decommitUTxO' = UTxO.fromPairs [decommit]
+      let decommitUTxO' = UTxO.fromList [decommit]
        in (utxo `withoutUTxO` decommitUTxO', decommitUTxO')
 
 healthyContestationPeriod :: ContestationPeriod

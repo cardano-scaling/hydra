@@ -4,7 +4,7 @@ module Hydra.Chain.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Hydra.Cardano.Api (
   Key (..),
   NetworkId,

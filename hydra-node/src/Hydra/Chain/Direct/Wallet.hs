@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
+import Cardano.Api.Tx.UTxO (UTxO)
 import Cardano.Crypto.Hash.Class
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
