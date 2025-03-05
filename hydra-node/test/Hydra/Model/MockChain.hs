@@ -74,6 +74,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeState (..), connect)
 import Hydra.Node.InputQueue (InputQueue (..))
+import Hydra.NodeSpec (mockServer)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Environment (Environment (Environment, participants, party))
@@ -182,7 +183,7 @@ mockChainAndNetwork tr seedKeys commits = do
             getTimeHandle
             seedInput
             localChainState
-    node <- connect mockChain (createMockNetwork draftNode nodes) draftNode
+    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     let mockNode =
           MockHydraNode
