@@ -225,7 +225,7 @@ defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
     , nodeId = NodeId "hydra-node-1"
-    , listen = Host "localhost" 5001
+    , listen = Host "0.0.0.0" 5001
     , advertise = Nothing
     , peers = []
     , apiHost = localhost
