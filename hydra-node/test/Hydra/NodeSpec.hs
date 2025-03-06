@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.ServerOutput (ServerOutput (..), output)
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
@@ -40,7 +40,6 @@ import Hydra.Tx.DepositDeadline (DepositDeadline (..))
 import Hydra.Tx.Environment (Environment (..))
 import Hydra.Tx.Environment qualified as Environment
 import Hydra.Tx.HeadParameters (HeadParameters (..), mkHeadParameters)
-import Hydra.Tx.IsTx (IsTx)
 import Hydra.Tx.Party (Party, deriveParty)
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -447,15 +446,13 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: IsTx tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
-  let apiSink =
-        EventSink
-          { putEvent = \StateEvent{stateChanged} ->
-              for_ (mapStateChangedToServerOutput stateChanged) record
-          }
-  pure (node{eventSinks = [apiSink]}, query)
+  pure
+    ( node{server = Server{sendOutput = record . maybe (error "Failure in recordServerOutputs:sendMessage") output . mkTimedServerOutputFromStateEvent, sendMessage = record}}
+    , query
+    )
 
 messageRecorder :: IO (msg -> IO (), IO [msg])
 messageRecorder = do
