@@ -46,7 +46,7 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..))
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..), TestHydraClient (..), createHydraNode, createTestHydraClient, shortLabel, waitMatch, waitUntilMatch)
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Chain (maximumNumberOfParties)
@@ -665,9 +665,9 @@ performCommit parties party paymentUTxO = do
         lift $
           forM nodes $ \n ->
             waitMatch n $ \case
-              Committed{party = cp, utxo = committedUTxO}
+              Left Committed{party = cp, utxo = committedUTxO}
                 | cp == party, committedUTxO == realUTxO -> Just committedUTxO
-              err@CommandFailed{} -> error $ show err
+              err@(Right CommandFailed{}) -> error $ show err
               _ -> Nothing
       pure $ fromUtxo $ List.head $ Data.Foldable.toList observedUTxO
  where
@@ -712,8 +712,8 @@ performDecommit party tx = do
 
   lift $ do
     waitUntilMatch [thisNode] $ \case
-      DecommitFinalized{} -> True
-      err@CommandFailed{} -> error $ show err
+      Left DecommitFinalized{} -> True
+      err@(Right CommandFailed{}) -> error $ show err
       _ -> False
 
 performNewTx ::
@@ -741,9 +741,9 @@ performNewTx party tx = do
   party `sendsInput` Input.NewTx realTx
   lift $ do
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      SnapshotConfirmed{snapshot = snapshot} ->
+      Left SnapshotConfirmed{snapshot = snapshot} ->
         realTx `elem` Snapshot.confirmed snapshot
-      err@TxInvalid{} -> error ("expected tx to be valid: " <> show err)
+      err@(Left TxInvalid{}) -> error ("expected tx to be valid: " <> show err)
       _ -> False
     pure tx
 
@@ -778,8 +778,8 @@ performInit party = do
   nodes <- gets nodes
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsInitializing{} -> True
-      err@CommandFailed{} -> error $ show err
+      Left HeadIsInitializing{} -> True
+      err@(Right CommandFailed{}) -> error $ show err
       _ -> False
 
 performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m) => Party -> RunMonad m ()
@@ -789,8 +789,8 @@ performAbort party = do
   nodes <- gets nodes
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsAborted{} -> True
-      err@CommandFailed{} -> error $ show err
+      Left HeadIsAborted{} -> True
+      err@(Right CommandFailed{}) -> error $ show err
       _ -> False
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m) => Party -> RunMonad m ()
@@ -802,8 +802,8 @@ performClose party = do
 
   lift $
     waitUntilMatch (Data.Foldable.toList nodes) $ \case
-      HeadIsClosed{} -> True
-      err@CommandFailed{} -> error $ show err
+      Left HeadIsClosed{} -> True
+      err@(Right CommandFailed{}) -> error $ show err
       _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
@@ -819,11 +819,11 @@ performFanout party = do
     | otherwise = do
         outputs <- lift $ serverOutputs node
         case find headIsFinalized outputs of
-          Just HeadIsFinalized{utxo} -> pure utxo
+          Just (Left HeadIsFinalized{utxo}) -> pure utxo
           _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
   headIsFinalized = \case
-    HeadIsFinalized{} -> True
-    err@CommandFailed{} -> error $ show err
+    Left HeadIsFinalized{} -> True
+    err@(Right CommandFailed{}) -> error $ show err
     _otherwise -> False
 
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m) => WorldState -> Party -> RunMonad m ()
@@ -837,11 +837,11 @@ performCloseWithInitialSnapshot st party = do
       _ <- lift $ closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
       lift $
         waitUntilMatch (Data.Foldable.toList nodes) $ \case
-          HeadIsClosed{snapshotNumber} ->
+          Left HeadIsClosed{snapshotNumber} ->
             -- we deliberately wait to see close with the initial snapshot
             -- here to mimic one node not seeing the confirmed tx
             snapshotNumber == Snapshot.UnsafeSnapshotNumber 0
-          err@CommandFailed{} -> error $ show err
+          err@(Right CommandFailed{}) -> error $ show err
           _ -> False
     _ -> error "Not in open state"
 
@@ -961,12 +961,12 @@ isOwned (CardanoSigningKey sk) (_, TxOut{txOutAddress = ShelleyAddressInEra (She
     _ -> False
 isOwned _ _ = False
 
-headIsOpen :: ServerOutput tx -> Bool
+headIsOpen :: Either (ServerOutput tx) (ClientMessage tx) -> Bool
 headIsOpen = \case
-  HeadIsOpen{} -> True
+  Left HeadIsOpen{} -> True
   _otherwise -> False
 
-headIsReadyToFanout :: ServerOutput tx -> Bool
+headIsReadyToFanout :: Either (ServerOutput tx) (ClientMessage tx) -> Bool
 headIsReadyToFanout = \case
-  ReadyToFanout{} -> True
+  Left ReadyToFanout{} -> True
   _otherwise -> False

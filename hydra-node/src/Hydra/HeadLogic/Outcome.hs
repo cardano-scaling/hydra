@@ -5,12 +5,13 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
-import Hydra.API.ServerOutput (DecommitInvalidReason, ServerOutput)
+import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
+import Hydra.Network (Host)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
   HeadId,
@@ -37,8 +38,8 @@ import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 -- the "shell" layers and we distinguish the same: effects onto the client, the
 -- network and the chain.
 data Effect tx
-  = -- | Effect to be handled by the "Hydra.API", results in sending this 'ServerOutput'.
-    ClientEffect {serverOutput :: ServerOutput tx}
+  = -- | Effect to be handled by the "Hydra.API", results in sending this 'ClientMessage'.
+    ClientEffect {clientMessage :: ClientMessage tx}
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
@@ -55,7 +56,16 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (Effect tx) where
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
 data StateChanged tx
-  = HeadInitialized
+  = NetworkConnected
+  | NetworkDisconnected
+  | PeerConnected {peer :: Host}
+  | PeerDisconnected {peer :: Host}
+  | PeerHandshakeFailure
+      { remoteHost :: Host
+      , ourVersion :: Natural
+      , theirVersions :: [Natural]
+      }
+  | HeadInitialized
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx
       , headId :: HeadId

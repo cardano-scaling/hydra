@@ -15,9 +15,10 @@ import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
+  ClientMessage,
+  Greetings (..),
   HeadStatus,
-  HydraMessage (..),
-  ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
+  InvalidInput (..),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -63,7 +64,7 @@ wsApp ::
   Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
   Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
-  TChan (HydraMessage tx) ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
@@ -140,11 +141,11 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
       sendResponse response
    where
     sendResponse = \case
-      HydraTimedServerOutput response -> do
+      Left response -> do
         let sentResponse = prepareServerOutput outConfig response
         sendTextData con sentResponse
         traceWith tracer (APIOutputSent $ toJSON response)
-      HydraServerOutput response -> do
+      Right response -> do
         sendTextData con (Aeson.encode response)
         traceWith tracer (APIOutputSent $ toJSON response)
 
@@ -158,15 +159,15 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        sendTextData con $ Aeson.encode $ InvalidInput @tx e clientInput
+        sendTextData con $ Aeson.encode $ InvalidInput e clientInput
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
-    runConduitRes $ history .| filter (isAddressInTx addressInTx . HydraTimedServerOutput) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
+    runConduitRes $ history .| filter (isAddressInTx addressInTx . Left) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
 
   isAddressInTx addressInTx = \case
-    HydraTimedServerOutput tx -> checkAddress tx
-    HydraServerOutput _ -> True
+    Left tx -> checkAddress tx
+    Right _ -> True
    where
     checkAddress tx =
       case addressInTx of
