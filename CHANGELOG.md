@@ -33,6 +33,8 @@ changes.
 
 - Submit observations to a `hydra-explorer` via optional `--explorer` option.
 
+- Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature

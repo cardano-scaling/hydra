@@ -36,6 +36,7 @@ module.exports = {
         },
       ],
     },
+    "clients",
     "faqs",
     "get-involved",
     {
