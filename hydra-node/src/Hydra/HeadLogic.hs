@@ -104,23 +104,21 @@ defaultTTL = 5
 onConnectionEvent :: Network.Connectivity -> Outcome tx
 onConnectionEvent = \case
   Network.NetworkConnected ->
-    causes [ClientEffect ServerOutput.NetworkConnected]
+    newState NetworkConnected
   Network.NetworkDisconnected ->
-    causes [ClientEffect ServerOutput.NetworkDisconnected]
+    newState NetworkDisconnected
   Network.PeerConnected{peer} ->
-    causes [ClientEffect ServerOutput.PeerConnected{peer}]
+    newState PeerConnected{peer}
   Network.PeerDisconnected{peer} ->
-    causes [ClientEffect ServerOutput.PeerDisconnected{peer}]
+    newState PeerDisconnected{peer}
   Network.HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
-    causes
-      [ ClientEffect
-          ( ServerOutput.PeerHandshakeFailure
-              { remoteHost
-              , ourVersion = getVersion ourVersion
-              , theirVersions = getKnownVersions theirVersions
-              }
-          )
-      ]
+    newState
+      ( PeerHandshakeFailure
+          { remoteHost
+          , ourVersion = getVersion ourVersion
+          , theirVersions = getKnownVersions theirVersions
+          }
+      )
    where
     getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
 
@@ -1312,6 +1310,11 @@ update env ledger st ev = case (st, ev) of
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 aggregate st = \case
+  NetworkConnected -> st
+  NetworkDisconnected -> st
+  PeerConnected{} -> st
+  PeerDisconnected{} -> st
+  PeerHandshakeFailure{} -> st
   HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
     Initial
       InitialState
@@ -1617,6 +1620,11 @@ aggregateState s outcome =
 
 aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
 aggregateChainStateHistory history = \case
+  NetworkConnected -> history
+  NetworkDisconnected -> history
+  PeerConnected{} -> history
+  PeerDisconnected{} -> history
+  PeerHandshakeFailure{} -> history
   HeadInitialized{chainState} -> pushNewState chainState history
   CommittedUTxO{chainState} -> pushNewState chainState history
   HeadAborted{chainState} -> pushNewState chainState history

@@ -8,8 +8,8 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, mapStateChangedToServerOutput)
-import Hydra.API.ServerOutput (ServerOutput (..), output)
+import Hydra.API.Server (Server (..), mapStateChangedToServerOutput)
+import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
@@ -163,8 +163,8 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
 
-          let reqTx = receiveMessage ReqTx{transaction = tx1}
-              tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
+              reqTx = receiveMessage ReqTx{transaction = tx1}
 
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
@@ -175,7 +175,7 @@ spec = parallel $ do
               >>= recordServerOutputs
           runToCompletion node
 
-          getServerOutputs >>= (`shouldContain` [TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
+          getServerOutputs >>= (`shouldContain` [Left TxValid{headId = testHeadId, transactionId = 1, transaction = tx1}])
 
           -- Ensures that event ids are correctly loaded in hydrate
           events <- getRecordedEvents
@@ -248,7 +248,7 @@ spec = parallel $ do
 
         outputs <- getServerOutputs
         let isPostTxOnChainFailed = \case
-              PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
+              Right PostTxOnChainFailed{postTxError} -> postTxError == NoSeedInput
               _ -> False
         any isPostTxOnChainFailed outputs `shouldBe` True
 
@@ -328,8 +328,7 @@ notConnect =
 mockServer :: Monad m => Server tx m
 mockServer =
   Server
-    { sendOutput = \_ -> pure ()
-    , sendMessage = \_ -> pure ()
+    { sendMessage = \_ -> pure ()
     }
 
 mockNetwork :: Monad m => Network m (Message SimpleTx)
@@ -446,16 +445,16 @@ recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
 
-recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
+recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
   let apiSink =
         EventSink
           { putEvent = \StateEvent{stateChanged} ->
-              for_ (mapStateChangedToServerOutput stateChanged) record
+              for_ (Left $ mapStateChangedToServerOutput stateChanged) record
           }
   pure
-    ( node{eventSinks = [apiSink], server = Server{sendOutput = record . maybe (error "Failure in recordServerOutputs:sendMessage") output . mkTimedServerOutputFromStateEvent, sendMessage = record}}
+    ( node{eventSinks = [apiSink], server = Server{sendMessage = record . Right}}
     , query
     )
 

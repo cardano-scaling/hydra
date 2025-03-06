@@ -17,9 +17,9 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
+  ClientMessage,
   CommitInfo (..),
   HeadStatus (..),
-  HydraMessage (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Events (EventSource (..), StateEvent (..))
+import Hydra.Events (EventSink (..), EventSource (..), StateEvent (..))
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
@@ -57,10 +57,9 @@ import Network.WebSockets (
  )
 
 -- | Handle to provide a means for sending server outputs to clients.
-data Server tx m = Server
-  { sendOutput :: StateEvent tx -> m ()
+newtype Server tx m = Server
+  { sendMessage :: ClientMessage tx -> m ()
   -- ^ Send some output to all connected clients.
-  , sendMessage :: ServerOutput tx -> m ()
   }
 
 -- | Callback for receiving client inputs.
@@ -87,7 +86,9 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
-  ServerComponent tx IO ()
+  ServerCallback tx IO ->
+  ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
+  IO ()
 withAPIServer config env party eventSource tracer chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
@@ -132,22 +133,23 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
       )
       ( do
           waitForServerRunning
-          action $
-            Server
-              { sendOutput = \StateEvent{stateChanged, time, eventId} -> do
-                  atomically $ do
-                    update headStatusP stateChanged
-                    update commitInfoP stateChanged
-                    update snapshotUtxoP stateChanged
-                    update headIdP stateChanged
-                    update pendingDepositsP stateChanged
-                  case mapStateChangedToServerOutput stateChanged of
-                    Nothing -> pure ()
-                    Just output -> do
-                      let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
-                      atomically $ writeTChan responseChannel (HydraTimedServerOutput timedOutput)
-              , sendMessage = atomically . writeTChan responseChannel . HydraServerOutput
-              }
+          action
+            ( EventSink
+                { putEvent = \StateEvent{stateChanged, time, eventId} -> do
+                    atomically $ do
+                      update headStatusP stateChanged
+                      update commitInfoP stateChanged
+                      update snapshotUtxoP stateChanged
+                      update headIdP stateChanged
+                      update pendingDepositsP stateChanged
+                    case mapStateChangedToServerOutput stateChanged of
+                      Nothing -> pure ()
+                      Just output -> do
+                        let timedOutput = TimedServerOutput{output, time, seq = fromIntegral eventId}
+                        atomically $ writeTChan responseChannel (Left timedOutput)
+                }
+            , Server{sendMessage = atomically . writeTChan responseChannel . Right}
+            )
       )
  where
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
@@ -227,6 +229,11 @@ mapStateChangedToServerOutput = \case
   StateChanged.CommitFinalized{..} -> Just CommitFinalized{..}
   StateChanged.CommitRecovered{..} -> Just CommitRecovered{..}
   StateChanged.CommitIgnored{..} -> Just CommitIgnored{..}
+  StateChanged.NetworkConnected -> Just NetworkConnected
+  StateChanged.NetworkDisconnected -> Just NetworkDisconnected
+  StateChanged.PeerConnected{..} -> Just PeerConnected{..}
+  StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
+  StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
   StateChanged.TransactionReceived{} -> Nothing
   StateChanged.SnapshotRequested{} -> Nothing
   StateChanged.SnapshotRequestDecided{} -> Nothing

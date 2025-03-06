@@ -18,7 +18,6 @@ import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Set qualified as Set
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Chain (
   ChainEvent (..),
@@ -657,18 +656,18 @@ spec =
           let outcome = update bobEnv ledger headState input
           outcome `shouldSatisfy` \case
             Continue as bs ->
-              null as
+              null bs
                 && all
                   ( \case
                       -- NOTE: match only network related outcomes
-                      ClientEffect ServerOutput.PeerConnected{} -> True
-                      ClientEffect ServerOutput.PeerDisconnected{} -> True
-                      ClientEffect ServerOutput.PeerHandshakeFailure{} -> True
-                      ClientEffect ServerOutput.NetworkConnected{} -> True
-                      ClientEffect ServerOutput.NetworkDisconnected{} -> True
+                      PeerConnected{} -> True
+                      PeerDisconnected{} -> True
+                      PeerHandshakeFailure{} -> True
+                      NetworkConnected{} -> True
+                      NetworkDisconnected{} -> True
                       _ -> False
                   )
-                  bs
+                  as
             _ -> False
 
       prop "ignores abortTx of another head" $ \otherHeadId -> do
