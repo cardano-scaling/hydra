@@ -148,7 +148,7 @@ genFanoutMutation (tx, _utxo) =
     ]
  where
   burntTokens =
-    case toList . txMintValueToValue . txMintValue $ txBodyContent $ txBody tx of
+    case toList . txMintValueToValue . txMintValue $ getTxBodyContent $ txBody tx of
       [] -> error "expected minted value"
       v -> v
 

@@ -20,8 +20,8 @@ import PlutusLedgerApi.V3 qualified as Plutus
 -- * Extras
 
 txOuts' :: Tx era -> [TxOut CtxTx era]
-txOuts' (getTxBody -> txBody) =
-  let TxBody TxBodyContent{txOuts} = txBody
+txOuts' (getTxBodyContent . getTxBody -> txBody) =
+  let TxBodyContent{txOuts} = txBody
    in txOuts
 
 -- | Modify a 'TxOut' to set the minimum ada on the value.

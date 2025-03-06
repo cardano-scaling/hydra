@@ -56,7 +56,7 @@ utxoProducedByTx tx =
     zip [0 ..] (txOuts body)
       <&> bimap (mkTxIn tx) toCtxUTxOTxOut
  where
-  TxBody body = getTxBody tx
+  body = getTxBodyContent $ getTxBody tx
 
 -- * Type Conversions
 

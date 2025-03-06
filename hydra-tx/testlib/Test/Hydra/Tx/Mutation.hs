@@ -671,7 +671,7 @@ changeMintedValueQuantityFrom tx exclude = do
   someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude) `suchThat` (/= 0)
   pure $ ChangeMintedValue $ fromList $ map (second $ const someQuantity) $ toList mintedValue
  where
-  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx
 
 -- | A 'Mutation' that changes the minted/burned quantity of tokens like this:
 -- - when no value is being minted/burned -> add a value
@@ -680,7 +680,7 @@ changeMintedTokens :: Tx -> Value -> Gen Mutation
 changeMintedTokens tx mintValue =
   pure $ ChangeMintedValue $ mintedValue <> mintValue
  where
-  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx
 
 -- | A `Mutation` that adds an `Arbitrary` participation token with some quantity.
 -- As usual the quantity can be positive for minting, or negative for burning.
@@ -697,7 +697,7 @@ addPTWithQuantity tx quantity =
         pkh <- arbitrary
         pure $ mintedValue <> fromList [(AssetId pid pkh, quantity)]
  where
-  mintedValue = txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx
+  mintedValue = txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx
 
 -- | Replace first given 'PolicyId' with the second argument in the whole 'TxOut' value.
 replacePolicyIdWith :: PolicyId -> PolicyId -> TxOut a -> TxOut a
@@ -928,7 +928,7 @@ replaceContesters contesters = \case
 
 removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
 removePTFromMintedValue output tx =
-  case toList $ txMintValueToValue $ txMintValue $ txBodyContent $ txBody tx of
+  case toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx of
     [] -> error "expected minted value"
     v -> fromList $ filter (not . isPT) v
  where
