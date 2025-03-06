@@ -13,7 +13,6 @@ import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
   HeadId,
@@ -26,10 +25,7 @@ import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
-
-data HydraMessage tx
-  = HydraServerOutput (ServerOutput tx)
-  | HydraTimedServerOutput (TimedServerOutput tx)
+import Hydra.Network (Host)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -70,8 +66,58 @@ instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitI
 instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
   arbitrary = genericArbitrary
 
--- | Individual server output messages as produced by the 'Hydra.HeadLogic' in
+-- | Individual messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
+data ClientMessage tx
+  = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
+  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  deriving (Eq, Show, Generic)
+
+instance IsChainState tx => ToJSON (ClientMessage tx) where
+  toJSON =
+    genericToJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
+
+instance IsChainState tx => FromJSON (ClientMessage tx) where
+  parseJSON =
+    genericParseJSON
+      defaultOptions
+        { omitNothingFields = True
+        }
+
+instance (IsChainState tx, ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
+  arbitrary = genericArbitrary
+
+-- | A friendly welcome message which tells a client something about the
+-- node. Currently used for knowing what signing key the server uses (it
+-- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
+-- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
+data Greetings tx = Greetings
+  { me :: Party
+  , headStatus :: HeadStatus
+  , hydraHeadId :: Maybe HeadId
+  , snapshotUtxo :: Maybe (UTxOType tx)
+  , hydraNodeVersion :: String
+  }
+  deriving (Generic)
+
+deriving instance IsChainState tx => ToJSON (Greetings tx)
+deriving instance IsChainState tx => FromJSON (Greetings tx)
+
+data InvalidInput = InvalidInput
+  { reason :: String
+  , input :: Text
+  }
+  deriving (Eq, Show, Generic)
+
+deriving instance ToJSON InvalidInput
+deriving instance FromJSON InvalidInput
+
+instance Arbitrary InvalidInput where
+  arbitrary = genericArbitrary
+
 data ServerOutput tx
   = NetworkConnected
   | NetworkDisconnected
@@ -99,7 +145,6 @@ data ServerOutput tx
   | ReadyToFanout {headId :: HeadId}
   | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
-  | CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx, transaction :: tx}
@@ -113,19 +158,6 @@ data ServerOutput tx
       , snapshot :: Snapshot tx
       , signatures :: MultiSignature (Snapshot tx)
       }
-  | InvalidInput {reason :: String, input :: Text}
-  | -- | A friendly welcome message which tells a client something about the
-    -- node. Currently used for knowing what signing key the server uses (it
-    -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
-    -- 'SnapshotConfirmed' message is emitted) UTxO's present in the Hydra Head.
-    Greetings
-      { me :: Party
-      , headStatus :: HeadStatus
-      , hydraHeadId :: Maybe HeadId
-      , snapshotUtxo :: Maybe (UTxOType tx)
-      , hydraNodeVersion :: String
-      }
-  | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
@@ -160,18 +192,13 @@ instance IsChainState tx => FromJSON (ServerOutput tx) where
         { omitNothingFields = True
         }
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) where
+instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
   -- Overlapping instances with 'UTxOType tx' even though for a fixed `tx`, there
   -- should be only one 'UTxOType tx'
   shrink = \case
-    PeerConnected p -> PeerConnected <$> shrink p
-    PeerDisconnected p -> PeerDisconnected <$> shrink p
-    NetworkConnected -> pure NetworkConnected
-    NetworkDisconnected -> pure NetworkDisconnected
-    PeerHandshakeFailure rh ov tv -> PeerHandshakeFailure <$> shrink rh <*> shrink ov <*> shrink tv
     HeadIsInitializing headId xs -> HeadIsInitializing <$> shrink headId <*> shrink xs
     Committed headId p u -> Committed <$> shrink headId <*> shrink p <*> shrink u
     HeadIsOpen headId u -> HeadIsOpen <$> shrink headId <*> shrink u
@@ -180,19 +207,9 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     ReadyToFanout headId -> ReadyToFanout <$> shrink headId
     HeadIsFinalized headId u -> HeadIsFinalized <$> shrink headId <*> shrink u
     HeadIsAborted headId u -> HeadIsAborted <$> shrink headId <*> shrink u
-    CommandFailed i s -> CommandFailed <$> shrink i <*> shrink s
     TxValid headId i tx -> TxValid <$> shrink headId <*> shrink i <*> shrink tx
     TxInvalid headId u tx err -> TxInvalid <$> shrink headId <*> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed headId s ms -> SnapshotConfirmed <$> shrink headId <*> shrink s <*> shrink ms
-    InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
-    Greetings me headStatus hydraHeadId snapshotUtxo hydraNodeVersion ->
-      Greetings
-        <$> shrink me
-        <*> shrink headStatus
-        <*> shrink hydraHeadId
-        <*> shrink snapshotUtxo
-        <*> shrink hydraNodeVersion
-    PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
     IgnoredHeadInitializing{} -> []
     DecommitRequested headId txid u -> DecommitRequested headId txid <$> shrink u
     DecommitInvalid headId decommitTx decommitInvalidReason -> DecommitInvalid headId <$> shrink decommitTx <*> shrink decommitInvalidReason
@@ -235,27 +252,18 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
   case output response of
-    PeerConnected{} -> encodedResponse
-    PeerDisconnected{} -> encodedResponse
-    NetworkConnected{} -> encodedResponse
-    NetworkDisconnected{} -> encodedResponse
-    PeerHandshakeFailure{} -> encodedResponse
-    HeadIsInitializing{} -> encodedResponse
     Committed{} -> encodedResponse
+    HeadIsInitializing{} -> encodedResponse
     HeadIsOpen{} -> encodedResponse
     HeadIsClosed{} -> encodedResponse
     HeadIsContested{} -> encodedResponse
     ReadyToFanout{} -> encodedResponse
     HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
-    CommandFailed{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
       handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
-    InvalidInput{} -> encodedResponse
-    Greetings{} -> encodedResponse
-    PostTxOnChainFailed{} -> encodedResponse
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
