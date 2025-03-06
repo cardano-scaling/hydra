@@ -1147,7 +1147,6 @@ components:
             - $ref: "api.yaml#/components/messages/Init/payload"
             - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
-            - $ref: "api.yaml#/components/messages/GetUTxO/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
             - $ref: "api.yaml#/components/messages/Close/payload"
