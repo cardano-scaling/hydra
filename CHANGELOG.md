@@ -55,6 +55,8 @@ ETCD_AUTO_COMPACTION_RETENTION=168h
 > Only variables prefixed with `ETCD_` are passed on to the `etcd` process.
 
 
+- Add a list of [clients](https://hydra.family/head-protocol/unstable/docs/clients) to the docs
+
 ## [0.20.0] - 2025-02-04
 
 - **BETA** hydra-node now supports incremental commits in beta mode. We would like to test out this feature
