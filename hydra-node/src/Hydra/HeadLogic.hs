@@ -104,21 +104,23 @@ defaultTTL = 5
 onConnectionEvent :: Network.Connectivity -> Outcome tx
 onConnectionEvent = \case
   Network.NetworkConnected ->
-    newState NetworkConnected
+    causes [ClientEffect ServerOutput.NetworkConnected]
   Network.NetworkDisconnected ->
-    newState NetworkDisconnected
+    causes [ClientEffect ServerOutput.NetworkDisconnected]
   Network.PeerConnected{peer} ->
-    newState (PeerConnected peer)
+    causes [ClientEffect ServerOutput.PeerConnected{peer}]
   Network.PeerDisconnected{peer} ->
-    newState (PeerDisconnected peer)
+    causes [ClientEffect ServerOutput.PeerDisconnected{peer}]
   Network.HandshakeFailure{remoteHost, ourVersion, theirVersions} ->
-    newState
-      ( PeerHandshakeFailure
-          { remoteHost
-          , ourVersion = getVersion ourVersion
-          , theirVersions = getKnownVersions theirVersions
-          }
-      )
+    causes
+      [ ClientEffect
+          ( ServerOutput.PeerHandshakeFailure
+              { remoteHost
+              , ourVersion = getVersion ourVersion
+              , theirVersions = getKnownVersions theirVersions
+              }
+          )
+      ]
    where
     getVersion MkHydraVersionedProtocolNumber{hydraVersionedProtocolNumber} = hydraVersionedProtocolNumber
 
@@ -1599,11 +1601,6 @@ aggregate st = \case
   DecommitInvalid{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{} -> st
-  NetworkConnected{} -> st
-  NetworkDisconnected{} -> st
-  PeerConnected{} -> st
-  PeerDisconnected{} -> st
-  PeerHandshakeFailure{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -1648,8 +1645,3 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
-  NetworkConnected{} -> history
-  NetworkDisconnected{} -> history
-  PeerConnected{} -> history
-  PeerDisconnected{} -> history
-  PeerHandshakeFailure{} -> history

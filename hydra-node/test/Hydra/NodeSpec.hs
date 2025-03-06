@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, labelTVarIO, modifyTVar, newTVarIO, readTVarIO)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, mapStateChangedToServerOutput)
 import Hydra.API.ServerOutput (ServerOutput (..), output)
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (NoSeedInput))
@@ -449,8 +449,13 @@ recordNetwork node = do
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
+  let apiSink =
+        EventSink
+          { putEvent = \StateEvent{stateChanged} ->
+              for_ (mapStateChangedToServerOutput stateChanged) record
+          }
   pure
-    ( node{server = Server{sendOutput = record . maybe (error "Failure in recordServerOutputs:sendMessage") output . mkTimedServerOutputFromStateEvent, sendMessage = record}}
+    ( node{eventSinks = [apiSink], server = Server{sendOutput = record . maybe (error "Failure in recordServerOutputs:sendMessage") output . mkTimedServerOutputFromStateEvent, sendMessage = record}}
     , query
     )
 
