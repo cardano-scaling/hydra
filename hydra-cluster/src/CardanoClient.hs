@@ -14,7 +14,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.CardanoClient
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 
@@ -72,7 +72,7 @@ waitForUTxO ::
   UTxO ->
   IO ()
 waitForUTxO node utxo =
-  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
+  forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
   RunningNode{networkId, nodeSocket} = node
 

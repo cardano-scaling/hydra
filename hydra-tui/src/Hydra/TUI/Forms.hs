@@ -21,7 +21,7 @@ import Brick.Forms (
  )
 import Brick.Types (Location (..), Widget)
 import Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Graphics.Vty (Event (..), Key (..))

@@ -4,7 +4,7 @@ module Hydra.Cardano.Api.Pretty where
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger

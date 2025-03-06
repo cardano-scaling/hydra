@@ -6,7 +6,7 @@ module Hydra.Tx.Contract.Close.CloseInitial where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
-import Cardano.Api.UTxO as UTxO
+import Cardano.Api.Tx.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))

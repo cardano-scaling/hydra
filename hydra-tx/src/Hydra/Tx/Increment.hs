@@ -3,7 +3,7 @@ module Hydra.Tx.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List qualified as List
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
@@ -91,10 +91,10 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , version = toInteger version + 1
           }
 
-  depositedValue = foldMap (txOutValue . snd) $ UTxO.pairs (fromMaybe mempty utxoToCommit)
+  depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)
 
   -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, _) = List.head $ UTxO.pairs depositScriptUTxO
+  (depositIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.redeemer $ Deposit.Claim $ headIdToCurrencySymbol headId
 

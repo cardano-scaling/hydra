@@ -7,7 +7,7 @@ module Hydra.Tx.Contract.Abort where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Hydra.Contract.CommitError (CommitError (..))
@@ -182,7 +182,7 @@ genAbortMutation (tx, utxo) =
             (toPlutusCurrencySymbol $ headPolicyId testSeedInput)
             (toPlutusTxOutRef testSeedInput)
     , SomeMutation (pure $ toErrorCode BurntTokenNumberMismatch) DropCollectedInput <$> do
-        let abortableInputs = UTxO.pairs $ UTxO.filter (not . isHeadOutput) (resolveInputsUTxO utxo tx)
+        let abortableInputs = UTxO.toList $ UTxO.filter (not . isHeadOutput) (resolveInputsUTxO utxo tx)
         (toDropTxIn, toDropTxOut) <- elements abortableInputs
         pure $
           Changes

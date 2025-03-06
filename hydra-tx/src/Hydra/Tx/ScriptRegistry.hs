@@ -4,8 +4,8 @@ module Hydra.Tx.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO (UTxO)
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO (UTxO)
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
@@ -79,7 +79,7 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromPairs [initialReference, commitReference, headReference]
+  UTxO.fromList [initialReference, commitReference, headReference]
  where
   ScriptRegistry
     { initialReference

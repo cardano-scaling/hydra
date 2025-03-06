@@ -106,7 +106,7 @@ import Cardano.Api.Shelley as X (
   toShelleyMetadata,
   toShelleyNetwork,
  )
-import Cardano.Api.UTxO (
+import Cardano.Api.Tx.UTxO (
   UTxO,
   UTxO' (..),
  )

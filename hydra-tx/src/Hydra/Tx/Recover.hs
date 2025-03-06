@@ -2,7 +2,7 @@ module Hydra.Tx.Recover where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Api.Tx.UTxO qualified as UTxO
 import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
@@ -60,9 +60,9 @@ observeRecoverTx networkId utxo tx = do
   (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
   deposits <- do
     depositedUTxO <- traverse (Commit.deserializeCommit (networkIdToNetwork networkId)) onChainDeposits
-    pure $ UTxO.fromPairs depositedUTxO
+    pure $ UTxO.fromList depositedUTxO
   headId <- fmap mkHeadId . fromPlutusCurrencySymbol $ headCurrencySymbol
-  let depositOuts = toTxContext . snd <$> UTxO.pairs deposits
+  let depositOuts = toTxContext . snd <$> UTxO.toList deposits
   -- NOTE: All deposit outputs need to be present in the recover tx outputs but
   -- the two lists of outputs are not necesarilly the same.
   if all (`elem` txOuts' tx) depositOuts
