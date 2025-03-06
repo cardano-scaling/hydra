@@ -206,11 +206,6 @@ mkTimedServerOutputFromStateEvent event =
 
 mapStateChangedToServerOutput :: IsTx tx => StateChanged.StateChanged tx -> Maybe (ServerOutput tx)
 mapStateChangedToServerOutput = \case
-  StateChanged.PeerConnected{..} -> Just PeerConnected{..}
-  StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
-  StateChanged.NetworkConnected -> Just NetworkConnected
-  StateChanged.NetworkDisconnected -> Just NetworkDisconnected
-  StateChanged.PeerHandshakeFailure{..} -> Just PeerHandshakeFailure{..}
   StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
   StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
   StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
