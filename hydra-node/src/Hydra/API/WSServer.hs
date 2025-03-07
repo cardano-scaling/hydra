@@ -3,19 +3,22 @@
 
 module Hydra.API.WSServer where
 
-import Hydra.Prelude hiding (TVar, readTVar, seq)
+import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
+import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
-import Control.Concurrent.STM.TVar (TVar, readTVar)
 import Data.Aeson qualified as Aeson
+import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
+  ClientMessage,
+  Greetings (..),
   HeadStatus,
-  ServerOutput (Greetings, InvalidInput, hydraHeadId, hydraNodeVersion),
+  InvalidInput (..),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -32,6 +35,7 @@ import Hydra.Chain.ChainState (
   IsChainState,
  )
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic (StateChanged)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options qualified as Options
 import Hydra.Tx (Party, UTxOType)
@@ -42,7 +46,6 @@ import Network.WebSockets (
   acceptRequest,
   receiveData,
   sendTextData,
-  sendTextDatas,
   withPingThread,
  )
 import Text.URI hiding (ParseException)
@@ -53,15 +56,15 @@ wsApp ::
   IsChainState tx =>
   Party ->
   Tracer IO APIServerLog ->
-  TVar [TimedServerOutput tx] ->
+  ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (ServerOutput tx) HeadStatus ->
+  Projection STM.STM (StateChanged tx) HeadStatus ->
   -- | Read model to enhance 'Greetings' messages with 'HeadId'.
-  Projection STM.STM (ServerOutput tx) (Maybe HeadId) ->
+  Projection STM.STM (StateChanged tx) (Maybe HeadId) ->
   -- | Read model to enhance 'Greetings' messages with snapshot UTxO.
-  Projection STM.STM (ServerOutput tx) (Maybe (UTxOType tx)) ->
-  TChan (TimedServerOutput tx) ->
+  Projection STM.STM (StateChanged tx) (Maybe (UTxOType tx)) ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
@@ -75,7 +78,7 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   let outConfig = mkServerOutputConfig queryParams
 
   -- api client can decide if they want to see the past history of server outputs
-  unless (shouldNotServeHistory queryParams) $
+  when (shouldServeHistory queryParams) $
     forwardHistory con outConfig
 
   forwardGreetingOnly con
@@ -87,26 +90,18 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly con = do
-    seq <- atomically $ nextSequenceNumber history
     headStatus <- atomically getLatestHeadStatus
     hydraHeadId <- atomically getLatestHeadId
     snapshotUtxo <- atomically getLatestSnapshotUtxo
-    time <- getCurrentTime
 
     sendTextData con $
       Aeson.encode
-        TimedServerOutput
-          { time
-          , seq
-          , output =
-              Greetings
-                { me = party
-                , headStatus
-                , hydraHeadId
-                , snapshotUtxo
-                , hydraNodeVersion = showVersion Options.hydraNodeVersion
-                } ::
-                ServerOutput tx
+        Greetings
+          { me = party
+          , headStatus
+          , hydraHeadId
+          , snapshotUtxo
+          , hydraNodeVersion = showVersion Options.hydraNodeVersion
           }
 
   Projection{getLatest = getLatestHeadStatus} = headStatusP
@@ -134,10 +129,10 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
       (QueryParam key _) | key == [queryKey|address|] -> True
       _other -> False
 
-  shouldNotServeHistory qp =
+  shouldServeHistory qp =
     flip any qp $ \case
       (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|no|]
+        | key == [queryKey|history|] -> val == [queryValue|yes|]
       _other -> False
 
   sendOutputs chan con outConfig@ServerOutputConfig{addressInTx} = forever $ do
@@ -145,10 +140,14 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
     when (isAddressInTx addressInTx response) $
       sendResponse response
    where
-    sendResponse response = do
-      let sentResponse = prepareServerOutput outConfig response
-      sendTextData con sentResponse
-      traceWith tracer (APIOutputSent $ toJSON response)
+    sendResponse = \case
+      Left response -> do
+        let sentResponse = prepareServerOutput outConfig response
+        sendTextData con sentResponse
+        traceWith tracer (APIOutputSent $ toJSON response)
+      Right response -> do
+        sendTextData con (Aeson.encode response)
+        traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con
@@ -160,25 +159,17 @@ wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseCh
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
         let clientInput = decodeUtf8With lenientDecode $ toStrict msg
-        time <- getCurrentTime
-        seq <- atomically $ nextSequenceNumber history
-        let timedOutput = TimedServerOutput{output = InvalidInput @tx e clientInput, time, seq}
-        sendTextData con $ Aeson.encode timedOutput
+        sendTextData con $ Aeson.encode $ InvalidInput e clientInput
         traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con ServerOutputConfig{addressInTx} = do
-    rawHist <- STM.atomically (readTVar history)
-    let hist = filter (isAddressInTx addressInTx) rawHist
-    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
-    sendTextDatas con $ foldl' encodeAndReverse [] hist
+    runConduitRes $ history .| filter (isAddressInTx addressInTx . Left) .| mapM_C (liftIO . sendTextData con . Aeson.encode)
 
-  isAddressInTx addressInTx tx =
-    case addressInTx of
-      WithAddressedTx addr -> txContainsAddr tx addr
-      WithoutAddressedTx -> True
-
-nextSequenceNumber :: TVar [TimedServerOutput tx] -> STM.STM Natural
-nextSequenceNumber historyList =
-  STM.readTVar historyList >>= \case
-    [] -> pure 0
-    (TimedServerOutput{seq} : _) -> pure (seq + 1)
+  isAddressInTx addressInTx = \case
+    Left tx -> checkAddress tx
+    Right _ -> True
+   where
+    checkAddress tx =
+      case addressInTx of
+        WithAddressedTx addr -> txContainsAddr tx addr
+        WithoutAddressedTx -> True

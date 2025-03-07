@@ -184,6 +184,18 @@ waitForAll tracer delay nodes expected = do
         _ ->
           tryNext c msgs stillExpected
 
+requestHeadUTxO :: HydraClient -> IO (Maybe UTxO)
+requestHeadUTxO HydraClient{apiHost = Host{hostname, port}} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http hostname /: "snapshot" /: "utxo")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse (Maybe UTxO)))
+      (Req.port (fromInteger . toInteger $ port))
+
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo.
 -- Create a commit tx using the hydra-node for later submission.
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
@@ -414,7 +426,7 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId =
-  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} Nothing
+  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} (Just "/?history=yes")
  where
   hostname = "127.0.0.1"
   port = fromInteger $ 4_000 + toInteger hydraNodeId

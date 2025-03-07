@@ -53,6 +53,7 @@ putEventsToSinks sinks events =
 data StateEvent tx = StateEvent
   { eventId :: EventId
   , stateChanged :: StateChanged tx
+  , time :: UTCTime
   }
   deriving (Generic)
 
@@ -69,4 +70,4 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateEvent tx) where
   shrink = genericShrink
 
 genStateEvent :: StateChanged tx -> Gen (StateEvent tx)
-genStateEvent sc = StateEvent <$> arbitrary <*> pure sc
+genStateEvent sc = StateEvent <$> arbitrary <*> pure sc <*> arbitrary

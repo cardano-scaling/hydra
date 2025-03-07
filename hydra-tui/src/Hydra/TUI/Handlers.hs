@@ -143,10 +143,10 @@ handleHydraEventsActiveLink e = do
           )
           pendingIncrements
       utxoL .= utxo
-    Update TimedServerOutput{time, output = API.CommitFinalized{theDeposit}} -> do
+    Update TimedServerOutput{time, output = API.CommitFinalized{depositTxId}} -> do
       ActiveLink{utxo, pendingIncrements} <- get
-      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= theDeposit) pendingIncrements
-      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == theDeposit) pendingIncrements
+      let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= depositTxId) pendingIncrements
+      let approvedIncrement = find (\PendingIncrement{deposit} -> deposit == depositTxId) pendingIncrements
       let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
       pendingIncrementsL .= activePendingIncrements
       utxoL .= utxo <> activeUtxoToCommit
@@ -220,10 +220,10 @@ handleHydraEventsInfo = \case
         <> show recoveredTxId
         <> " "
         <> foldMap UTxO.render (UTxO.pairs recoveredUTxO)
-  Update TimedServerOutput{time, output = API.CommitFinalized{theDeposit}} ->
+  Update TimedServerOutput{time, output = API.CommitFinalized{depositTxId}} ->
     report Success time $
       "Commit finalized "
-        <> show theDeposit
+        <> show depositTxId
   Update TimedServerOutput{time, output = API.CommitIgnored{depositUTxO}} ->
     warn time $
       "Commit ignored. Local pending deposits "
