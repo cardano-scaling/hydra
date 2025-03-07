@@ -133,28 +133,14 @@ commandParser =
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
       )
 
-data PublishOptions = PublishOptions
-  { publishNetworkId :: NetworkId
-  , publishNodeSocket :: SocketPath
-  , publishSigningKey :: FilePath
+newtype PublishOptions = PublishOptions
+  { publishChainConfig :: ChainConfig
   }
   deriving stock (Show, Eq)
 
--- | Default options as they should also be provided by 'runOptionsParser'.
-defaultPublishOptions :: PublishOptions
-defaultPublishOptions =
-  PublishOptions
-    { publishNetworkId = Testnet (NetworkMagic 42)
-    , publishNodeSocket = "node.socket"
-    , publishSigningKey = "cardano.sk"
-    }
-
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
-  PublishOptions
-    <$> networkIdParser
-    <*> nodeSocketParser
-    <*> cardanoSigningKeyFileParser
+  PublishOptions <$> chainConfigParser
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
@@ -259,10 +245,13 @@ runOptionsParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> persistenceDirParser
-    <*> ( Direct <$> directChainConfigParser
-            <|> Offline <$> offlineChainConfigParser
-        )
+    <*> chainConfigParser
     <*> ledgerConfigParser
+
+chainConfigParser :: Parser ChainConfig
+chainConfigParser =
+  Direct <$> directChainConfigParser
+    <|> Offline <$> offlineChainConfigParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -495,7 +484,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
-        <> value (publishNodeSocket defaultPublishOptions)
+        <> value (nodeSocket defaultDirectChainConfig)
         <> showDefault
         <> help
           "Filepath to local unix domain socket used to communicate with \
@@ -508,7 +497,7 @@ cardanoSigningKeyFileParser =
     ( long "cardano-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value (publishSigningKey defaultPublishOptions)
+        <> value (cardanoSigningKey defaultDirectChainConfig)
         <> help
           "Cardano signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
