@@ -13,12 +13,7 @@ import Hydra.Chain.Direct.Util (readKeyPair)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
-import Hydra.Options (
-  Command (GenHydraKey, Publish, Run),
-  PublishOptions (..),
-  RunOptions (..),
-  parseHydraCommand,
- )
+import Hydra.Options (ChainConfig (..), Command (GenHydraKey, Publish, Run), DirectChainConfig (..), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -35,11 +30,13 @@ main = do
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
  where
-  publish opts = do
-    (_, sk) <- readKeyPair (publishSigningKey opts)
-    let PublishOptions{publishNetworkId = networkId, publishNodeSocket} = opts
-    txIds <- publishHydraScripts networkId publishNodeSocket sk
-    putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
+  publish PublishOptions{publishChainConfig} = case publishChainConfig of
+    Offline _ -> error "not supported"
+    Direct DirectChainConfig{networkId, nodeSocket, cardanoSigningKey} ->
+      do
+        (_, sk) <- readKeyPair cardanoSigningKey
+        txIds <- publishHydraScripts networkId nodeSocket sk
+        putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT
 --
