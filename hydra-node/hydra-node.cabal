@@ -112,6 +112,7 @@ library
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
+    , cborg
     , conduit
     , containers
     , contra-tracer
@@ -146,6 +147,7 @@ library
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , resourcet
+    , safe-money
     , serialise
     , stm
     , text
