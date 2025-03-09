@@ -1160,6 +1160,93 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
+-- | Client request to side load confirmed snapshot.
+--
+-- __Transition__: 'OpenState' → 'OpenState'
+onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
+onOpenClientSideLoadSnapshot openState sideLoadConfirmedSnapshot =
+  case sideLoadConfirmedSnapshot of
+    InitialSnapshot{} ->
+      if currentConfirmedSnapshot == sideLoadConfirmedSnapshot
+        then
+          -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
+          --        ̅S.σ ← ̃σ
+          newState SnapshotSideLoaded{confirmedSnapshot = sideLoadConfirmedSnapshot}
+            <> cause (ClientEffect $ ServerOutput.SnapshotSideLoaded sideLoadConfirmedSnapshot)
+        else Error $ AssertionFailed "InitalSnapshot side loaded does not match last known."
+    ConfirmedSnapshot{snapshot, signatures} ->
+      -- REVIEW! should we check utxoToCommit and utxoToDecommit are the same ???
+      requireVerifiedSnapshotVersion requestedSnapshoVersion $
+        requireVerifiedSnapshotNumber requestedSnapshotNumber $
+          -- Spec: η ← combine(𝑈ˆ)
+          --       𝜂𝛼 ← combine(𝑈𝛼)
+          --       𝑈𝜔 ← outputs(tx𝜔 )
+          --       ηω ← combine(𝑈𝜔)
+          --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
+          requireVerifiedMultisignature snapshot signatures $
+            do
+              -- Spec:  ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
+              --        ̅S.σ ← ̃σ
+              newState SnapshotSideLoaded{confirmedSnapshot = sideLoadConfirmedSnapshot}
+              -- REVIEW! what if we WaitOnNotApplicableTx for current localTxs not in snapshot confirmed ???
+              <> cause (ClientEffect $ ServerOutput.SnapshotSideLoaded sideLoadConfirmedSnapshot)
+ where
+  OpenState
+    { parameters = HeadParameters{parties}
+    , coordinatedHeadState
+    } = openState
+
+  CoordinatedHeadState
+    { confirmedSnapshot = currentConfirmedSnapshot
+    , version = currentSnapshotVersion
+    } = coordinatedHeadState
+
+  vkeys = vkey <$> parties
+
+  currentSnapshotNumber =
+    case currentConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  requestedSnapshotNumber =
+    case sideLoadConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  requestedSnapshoVersion =
+    case sideLoadConfirmedSnapshot of
+      InitialSnapshot{} -> 0
+      ConfirmedSnapshot{snapshot = Snapshot{version}} -> version
+
+  requireVerifiedSnapshotVersion requestedSv cont =
+    -- REVIEW! should we verify version is exactly the same instead ???
+    if requestedSv >= currentSnapshotVersion
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSvNumberInvalid{requestedSv, lastSeenSv = currentSnapshotVersion}
+
+  requireVerifiedSnapshotNumber requestedSn cont =
+    if requestedSn >= currentSnapshotNumber
+      then cont
+      else
+        Error $
+          RequireFailed $
+            ReqSnNumberInvalid{requestedSn, lastSeenSn = currentSnapshotNumber}
+
+  requireVerifiedMultisignature snapshot signatories cont =
+    case verifyMultiSignature vkeys signatories snapshot of
+      Verified -> cont
+      FailedKeys failures ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show signatories, vkeys = failures}
+      KeyNumberMismatch ->
+        Error $
+          RequireFailed $
+            InvalidMultisignature{multisig = show signatories, vkeys}
+
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
@@ -1312,6 +1399,14 @@ update env ledger st ev = case (st, ev) of
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
+  (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->
+    let otherHeadId =
+          case confirmedSnapshot of
+            InitialSnapshot{headId} -> headId
+            ConfirmedSnapshot{snapshot = Snapshot{headId}} -> headId
+     in if ourHeadId == otherHeadId
+          then onOpenClientSideLoadSnapshot openState confirmedSnapshot
+          else Error NotOurHead{ourHeadId, otherHeadId}
   (Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}, headId}, ClientInput GetUTxO) ->
     -- TODO: Is it really intuitive that we respond from the confirmed ledger if
     -- transactions are validated against the seen ledger?
