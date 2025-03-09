@@ -14,6 +14,7 @@ import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
+  ConfirmedSnapshot,
   HeadId,
   HeadParameters,
   HeadSeed,
@@ -143,6 +144,7 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (HeadState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
@@ -158,6 +160,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
+<<<<<<< HEAD
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
     , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
@@ -180,6 +183,27 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+=======
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO party <$> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , SnapshotSideLoaded <$> arbitrary
+    , DecommitFinalized <$> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary
+    , pure HeadIsReadyToFanout
+    , HeadFannedOut <$> arbitrary
+    , ChainRolledBack <$> arbitrary
+    , TickObserved <$> arbitrary
+>>>>>>> 156d853b5 (introduce server output, outcome event and aggregate handle in logic)
     ]
  where
   Environment{party} = env

@@ -1458,6 +1458,18 @@ definitions:
             $ref: "api.yaml#/components/schemas/ChainState"
           newVersion:
             $ref: "api.yaml#/components/schemas/SnapshotVersion"
+      - title: "SnapshotSideLoaded"
+        additionalProperties: false
+        required:
+          - tag
+          - confirmedSnapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotSideLoaded"]
+          confirmedSnapshot:
+            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       - title: "HeadClosed"
         additionalProperties: false
         required:

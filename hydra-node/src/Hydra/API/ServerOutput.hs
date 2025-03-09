@@ -187,6 +187,10 @@ data ServerOutput tx
   | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
   | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
+  | -- | Snapshot was side-loaded, and the included transactions can be considered final.
+    -- The local state has been reset, meaning pending transactions were pruned.
+    -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
+    SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -238,6 +242,7 @@ instance ArbitraryIsTx tx => Arbitrary (ServerOutput tx) where
     PeerConnected peer -> PeerConnected <$> shrink peer
     PeerDisconnected peer -> PeerDisconnected <$> shrink peer
     PeerHandshakeFailure host our theirs -> PeerHandshakeFailure <$> shrink host <*> shrink our <*> shrink theirs
+    SnapshotSideLoaded confirmedSnapshot -> SnapshotSideLoaded <$> shrink confirmedSnapshot
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -296,6 +301,7 @@ prepareServerOutput config response =
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
     PeerHandshakeFailure{} -> encodedResponse
+    SnapshotSideLoaded{} -> encodedResponse
  where
   encodedResponse = encode response
 

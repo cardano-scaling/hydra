@@ -939,8 +939,7 @@ onOpenChainDepositTx newChainState headId env st deposited depositTxId deadline 
         , deadline
         }
       <> if not snapshotInFlight && isLeader parameters party nextSn
-        then
-          cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
+        then cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just deposited))
         else noop
  where
   waitOnUnresolvedDecommit cont =
@@ -1488,6 +1487,35 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  SnapshotSideLoaded{confirmedSnapshot} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                case confirmedSnapshot of
+                  InitialSnapshot{initialUTxO} ->
+                    CoordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = NoSeenSnapshot
+                      , pendingDeposits = mempty
+                      , decommitTx = Nothing
+                      , version = 0
+                      }
+                  ConfirmedSnapshot{snapshot = Snapshot{version, number, utxo}} ->
+                    coordinatedHeadState
+                      { localUTxO = utxo
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = LastSeenSnapshot number
+                      , version
+                      }
+            }
+      _otherState -> st
   CommitRecorded{chainState, pendingDeposits, newLocalUTxO} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
@@ -1614,7 +1642,7 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadIsReadyToFanout{} ->
+  HeadIsReadyToFanout _ ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
@@ -1657,6 +1685,7 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
+  SnapshotSideLoaded{} -> history
   CommitRecorded{chainState} -> pushNewState chainState history
   CommitRecovered{chainState} -> pushNewState chainState history
   CommitFinalized{chainState} -> pushNewState chainState history

@@ -101,6 +101,11 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitApproved"
           - $ref: "api.yaml#/components/messages/CommitFinalized"
           - $ref: "api.yaml#/components/messages/CommitRecovered"
+<<<<<<< HEAD
+=======
+          - $ref: "api.yaml#/components/messages/CommitIgnored"
+          - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
+>>>>>>> d08595679 (introduce server output, outcome event and aggregate handle in logic)
 
     publish:
       summary: Commands sent to the Hydra node.
@@ -722,6 +727,22 @@ components:
         Recover transaction is observed and deposited funds are recovered to L1.
       payload:
         $ref: "api.yaml#/components/schemas/CommitRecovered"
+<<<<<<< HEAD
+=======
+    CommitIgnored:
+      title: CommitIgnored
+      description: |
+        Deposit was recorded initially but next snapshot utxo to commit was not found in pending deposits.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitIgnored"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+>>>>>>> d08595679 (introduce server output, outcome event and aggregate handle in logic)
 
     # END OF SERVER OUTPUT MESSAGES
 
@@ -1446,6 +1467,28 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         recoveredTxId:
           type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - confirmedSnapshot
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotSideLoaded"]
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
