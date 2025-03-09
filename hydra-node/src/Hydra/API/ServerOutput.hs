@@ -16,6 +16,7 @@ import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (
+  ConfirmedSnapshot (..),
   HeadId,
   Party,
   Snapshot,
@@ -346,3 +347,10 @@ projectSnapshotUtxo snapshotUtxo = \case
   SnapshotConfirmed _ snapshot _ -> Just $ Tx.utxo snapshot
   HeadIsOpen _ utxos -> Just utxos
   _other -> snapshotUtxo
+
+-- | Projection of latest confirmed snapshot.
+projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> ServerOutput tx -> Maybe (ConfirmedSnapshot tx)
+projectSnapshotConfirmed snapshotConfirmed = \case
+  SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
+  HeadIsOpen headId utxos -> Just $ InitialSnapshot headId utxos
+  _other -> snapshotConfirmed

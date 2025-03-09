@@ -24,6 +24,7 @@ import Hydra.API.ServerOutput (
   projectHeadStatus,
   projectInitializingHeadId,
   projectPendingDeposits,
+  projectSnapshotConfirmed,
   projectSnapshotUtxo,
  )
 import Hydra.API.ServerOutputFilter (
@@ -94,6 +95,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
   -- NOTE: we do not keep the stored events around in memory
   headStatusP <- mkProjection Idle projectHeadStatus
   snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
+  snapshotConfirmedP <- mkProjection Nothing projectSnapshotConfirmed
   commitInfoP <- mkProjection CannotCommit projectCommitInfo
   headIdP <- mkProjection Nothing projectInitializingHeadId
   pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -103,6 +105,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
         -- .| mapC output
         .| iterM (lift . atomically . update headStatusP . output)
         .| iterM (lift . atomically . update snapshotUtxoP . output)
+        .| iterM (lift . atomically . update snapshotConfirmedP . output)
         .| iterM (lift . atomically . update commitInfoP . output)
         .| iterM (lift . atomically . update headIdP . output)
         .| iterM (lift . atomically . update pendingDepositsP . output)
@@ -129,7 +132,17 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
           $ websocketsOr
             defaultConnectionOptions
             (wsApp party tracer history callback headStatusP headIdP snapshotUtxoP responseChannel serverOutputFilter)
-            (httpApp tracer chain env pparams (atomically $ getLatest commitInfoP) (atomically $ getLatest snapshotUtxoP) (atomically $ getLatest pendingDepositsP) callback)
+            ( httpApp
+                tracer
+                chain
+                env
+                pparams
+                (atomically $ getLatest commitInfoP)
+                (atomically $ getLatest snapshotUtxoP)
+                (atomically $ getLatest snapshotConfirmedP)
+                (atomically $ getLatest pendingDepositsP)
+                callback
+            )
     )
     ( do
         waitForServerRunning
@@ -141,6 +154,7 @@ withAPIServer config env party persistence tracer chain pparams serverOutputFilt
                   update headStatusP output
                   update commitInfoP output
                   update snapshotUtxoP output
+                  update snapshotConfirmedP output
                   update headIdP output
                   update pendingDepositsP output
                   writeTChan responseChannel timedOutput
