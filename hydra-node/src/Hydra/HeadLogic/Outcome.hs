@@ -13,6 +13,7 @@ import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (
+  ConfirmedSnapshot,
   HeadId,
   HeadParameters,
   HeadSeed,
@@ -88,6 +89,7 @@ data StateChanged tx
   | DecommitFinalized {newVersion :: SnapshotVersion}
   | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
   | HeadClosed {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadIsReadyToFanout
@@ -120,6 +122,7 @@ genStateChanged env =
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary
+    , SnapshotSideLoaded <$> arbitrary
     , DecommitFinalized <$> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary
