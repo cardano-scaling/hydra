@@ -94,6 +94,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
     headStatusP <- mkProjection Idle projectHeadStatus
     snapshotUtxoP <- mkProjection Nothing projectSnapshotUtxo
     seenSnapshotP <- mkProjection NoSeenSnapshot projectSeenSnapshot
+    snapshotConfirmedP <- mkProjection Nothing projectSnapshotConfirmed
     commitInfoP <- mkProjection CannotCommit projectCommitInfo
     headIdP <- mkProjection Nothing projectInitializingHeadId
     pendingDepositsP <- mkProjection [] projectPendingDeposits
@@ -107,6 +108,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   update headStatusP stateChanged
                   update snapshotUtxoP stateChanged
                   update seenSnapshotP stateChanged
+                  update snapshotConfirmedP stateChanged
                   update commitInfoP stateChanged
                   update headIdP stateChanged
                   update pendingDepositsP stateChanged
@@ -136,6 +138,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest snapshotUtxoP)
                   (atomically $ getLatest seenSnapshotP)
+                  (atomically $ getLatest snapshotConfirmedP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
               )
@@ -153,6 +156,7 @@ withAPIServer config env party eventSource tracer chain pparams serverOutputFilt
                           update commitInfoP stateChanged
                           update snapshotUtxoP stateChanged
                           update seenSnapshotP stateChanged
+                          update snapshotConfirmedP stateChanged
                           update headIdP stateChanged
                           update pendingDepositsP stateChanged
                         atomically $ writeTChan responseChannel (Left timedOutput)

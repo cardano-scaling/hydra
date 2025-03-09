@@ -24,6 +24,7 @@ import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, 
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
+import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -168,6 +169,7 @@ apiServerSpec = do
               cantCommit
               getNothing
               getNoSeenSnapshot
+              getNothing
               getPendingDeposits
               putClientInput
         )
@@ -206,6 +208,29 @@ apiServerSpec = do
             get "/snapshot/last-seen"
               `shouldRespondWith` 200{matchBody = matchJSON seenSnapshot}
 
+    describe "GET /snapshot" $ do
+      prop "responds correctly" $ \confirmedSnapshot -> do
+        let getConfirmedSnapshot = pure confirmedSnapshot
+        withApplication (httpApp @SimpleTx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+          get "/snapshot"
+            `shouldRespondWith` case confirmedSnapshot of
+              Nothing -> 404
+              Just s -> 200{matchBody = matchJSON s}
+
+      prop "ok response matches schema" $ \(confirmedSnapshot :: ConfirmedSnapshot Tx) ->
+        withMaxSuccess 4
+          . withJsonSpecifications
+          $ \schemaDir -> do
+            let getConfirmedSnapshot = pure $ Just confirmedSnapshot
+            withApplication (httpApp @Tx nullTracer dummyChainHandle testEnvironment defaultPParams cantCommit getNothing getConfirmedSnapshot getPendingDeposits putClientInput) $ do
+              get "/snapshot"
+                `shouldRespondWith` 200
+                  { matchBody =
+                      matchValidJSON
+                        (schemaDir </> "api.json")
+                        (key "channels" . key "/snapshot" . key "subscribe" . key "message" . key "payload")
+                  }
+
     describe "GET /snapshot/utxo" $ do
       prop "responds correctly" $ \utxo -> do
         let getUTxO = pure utxo
@@ -218,6 +243,7 @@ apiServerSpec = do
               cantCommit
               getUTxO
               getNoSeenSnapshot
+              getNothing
               getPendingDeposits
               putClientInput
           )
@@ -243,6 +269,7 @@ apiServerSpec = do
                   cantCommit
                   getUTxO
                   getNoSeenSnapshot
+                  getNothing
                   getPendingDeposits
                   putClientInput
               )
@@ -268,6 +295,7 @@ apiServerSpec = do
                 cantCommit
                 getUTxO
                 getNoSeenSnapshot
+                getNothing
                 getPendingDeposits
                 putClientInput
             )
@@ -298,6 +326,7 @@ apiServerSpec = do
               getHeadId
               getNothing
               getNoSeenSnapshot
+              getNothing
               getPendingDeposits
               putClientInput
           )
@@ -334,6 +363,7 @@ apiServerSpec = do
                 getHeadId
                 getNothing
                 getNoSeenSnapshot
+                getNothing
                 getPendingDeposits
                 putClientInput
             )

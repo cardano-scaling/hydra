@@ -25,6 +25,7 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId))
 import Hydra.Network qualified as Network
 import Hydra.Options (ChainConfig (..), DirectChainConfig (..), LedgerConfig (..), RunOptions (..), defaultDirectChainConfig, toArgs)
+import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.DepositDeadline (DepositDeadline)
@@ -214,6 +215,21 @@ getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
   parseUrlThrow ("GET http://" <> T.unpack hostname <> ":" <> show port <> "/snapshot/utxo")
     >>= httpJSON
     <&> getResponseBody
+
+-- | Get the latest snapshot from the hydra-node. NOTE: While we usually
+-- avoid parsing responses using the same data types as the system under test,
+-- this parses the response as a 'ConfirmedSnapshot' type as we often need to pick it apart.
+getSnapshotConfirmed :: HydraClient -> IO (ConfirmedSnapshot Tx)
+getSnapshotConfirmed HydraClient{apiHost = Host{hostname, port}} =
+  runReq defaultHttpConfig request <&> responseBody
+ where
+  request =
+    Req.req
+      GET
+      (Req.http hostname /: "snapshot")
+      NoReqBody
+      (Proxy :: Proxy (JsonResponse (ConfirmedSnapshot Tx)))
+      (Req.port (fromInteger . toInteger $ port))
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
