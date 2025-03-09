@@ -96,6 +96,7 @@ monitor transactionsMap metricsMap = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick "hydra_head_requested_tx"
+  -- REIVEW! should we handle SnapshotSideLoaded ???
   (Node (BeginEffect _ _ _ (ClientEffect (SnapshotConfirmed _ snapshot _)))) -> do
     t <- getMonotonicTime
     forM_ (confirmed snapshot) $ \tx -> do

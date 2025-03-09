@@ -145,6 +145,10 @@ data ServerOutput tx
   | CommitFinalized {headId :: HeadId, theDeposit :: TxIdType tx}
   | CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | CommitIgnored {headId :: HeadId, depositUTxO :: [UTxOType tx], snapshotUTxO :: Maybe (UTxOType tx)}
+  | -- | Snapshot was side-loaded, and the included transactions can be considered final.
+    -- The local state has been reset, meaning pending transactions were pruned.
+    -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
+    SnapshotSideLoaded {confirmedSnapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
@@ -208,6 +212,7 @@ instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ServerOutput tx) wher
     CommitRecovered headId u rid -> CommitRecovered headId <$> shrink u <*> shrink rid
     CommitFinalized headId theDeposit -> CommitFinalized headId <$> shrink theDeposit
     CommitIgnored headId depositUTxO snapshotUTxO -> CommitIgnored headId <$> shrink depositUTxO <*> shrink snapshotUTxO
+    SnapshotSideLoaded confirmedSnapshot -> SnapshotSideLoaded <$> shrink confirmedSnapshot
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
@@ -272,6 +277,12 @@ prepareServerOutput ServerOutputConfig{utxoInSnapshot} response =
     CommitFinalized{} -> encodedResponse
     CommitRecovered{} -> encodedResponse
     CommitIgnored{} -> encodedResponse
+    SnapshotSideLoaded{confirmedSnapshot} ->
+      case confirmedSnapshot of
+        InitialSnapshot{} ->
+          handleUtxoInclusion (atKey "initialUTxO" .~ Nothing) encodedResponse
+        ConfirmedSnapshot{} ->
+          handleUtxoInclusion (key "snapshot" . atKey "utxo" .~ Nothing) encodedResponse
  where
   handleUtxoInclusion f bs =
     case utxoInSnapshot of
@@ -353,4 +364,5 @@ projectSnapshotConfirmed :: Maybe (ConfirmedSnapshot tx) -> ServerOutput tx -> M
 projectSnapshotConfirmed snapshotConfirmed = \case
   SnapshotConfirmed _ snapshot signatures -> Just $ ConfirmedSnapshot snapshot signatures
   HeadIsOpen headId utxos -> Just $ InitialSnapshot headId utxos
+  SnapshotSideLoaded confirmed -> Just confirmed
   _other -> snapshotConfirmed

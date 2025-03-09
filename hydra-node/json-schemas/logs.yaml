@@ -1463,6 +1463,18 @@ definitions:
             $ref: "api.yaml#/components/schemas/Snapshot"
           signatures:
             $ref: "api.yaml#/components/schemas/MultiSignature"
+      - title: "SnapshotSideLoaded"
+        additionalProperties: false
+        required:
+          - tag
+          - confirmedSnapshot
+          - signatures
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotSideLoaded"]
+          confirmedSnapshot:
+            $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       - title: "HeadClosed"
         additionalProperties: false
         required:

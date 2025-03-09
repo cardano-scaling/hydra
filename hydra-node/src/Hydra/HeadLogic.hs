@@ -1602,6 +1602,35 @@ aggregate st = \case
        where
         Snapshot{number} = snapshot
       _otherState -> st
+  SnapshotSideLoaded{confirmedSnapshot} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                case confirmedSnapshot of
+                  InitialSnapshot{initialUTxO} ->
+                    CoordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = NoSeenSnapshot
+                      , pendingDeposits = mempty
+                      , decommitTx = Nothing
+                      , version = 0
+                      }
+                  ConfirmedSnapshot{snapshot = Snapshot{version, number, utxo}} ->
+                    coordinatedHeadState
+                      { localUTxO = utxo
+                      , localTxs = mempty
+                      , allTxs = mempty
+                      , confirmedSnapshot = confirmedSnapshot
+                      , seenSnapshot = LastSeenSnapshot number
+                      , version
+                      }
+            }
+      _otherState -> st
   PartySignedSnapshot{party, signature} ->
     case st of
       Open
@@ -1692,6 +1721,7 @@ aggregateChainStateHistory history = \case
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history
   SnapshotConfirmed{} -> history
+  SnapshotSideLoaded{} -> history
   CommitFinalized{} -> history
   DecommitFinalized{} -> history
   HeadClosed{chainState} -> pushNewState chainState history
