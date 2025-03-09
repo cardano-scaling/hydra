@@ -4,7 +4,7 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Tx (IsTx, TxIdType)
+import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 
 data ClientInput tx
   = Init
@@ -16,6 +16,7 @@ data ClientInput tx
   | Close
   | Contest
   | Fanout
+  | SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (ClientInput tx)
@@ -23,7 +24,7 @@ deriving stock instance IsTx tx => Show (ClientInput tx)
 deriving anyclass instance IsTx tx => ToJSON (ClientInput tx)
 deriving anyclass instance IsTx tx => FromJSON (ClientInput tx)
 
-instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) where
+instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
@@ -39,3 +40,4 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx)) => Arbitrary (ClientInput tx) w
     Close -> []
     Contest -> []
     Fanout -> []
+    SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
